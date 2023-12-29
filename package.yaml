@@ -1,0 +1,77 @@
+name:                distributors
+version:             0.1.0.0
+github:              "morphismtech/distributors"
+license:             BSD-3-Clause
+author:              "Eitan Chatav"
+maintainer:          "eitan.chatav@gmail.com"
+copyright:           "2023 Eitan Chatav"
+
+extra-source-files:
+- README.md
+- CHANGELOG.md
+
+# Metadata used when publishing your package
+# synopsis:            Short description of your package
+# category:            Web
+
+# To avoid duplicated efforts in documentation and dealing with the
+# complications of embedding Haddock markup inside cabal files, it is
+# common to point users to the README.md file.
+description:         Please see the README on GitHub at <https://github.com/morphismtech/distributors#readme>
+
+dependencies:
+- base >= 4.7 && < 5
+- adjunctions
+- bifunctors
+- comonad
+- contravariant
+- free
+- generics-eot
+- lens
+- mtl
+- profunctors
+- witherable
+
+ghc-options:
+- -Wall
+- -Wcompat
+- -Widentities
+- -Wincomplete-record-updates
+- -Wincomplete-uni-patterns
+- -Wmissing-export-lists
+- -Wmissing-home-modules
+- -Wpartial-fields
+- -Wredundant-constraints
+
+library:
+  source-dirs: src
+
+default-extensions:
+- AllowAmbiguousTypes
+- Arrows
+- DefaultSignatures
+- DeriveGeneric
+- DerivingStrategies
+- DerivingVia
+- FlexibleContexts
+- FlexibleInstances
+- FunctionalDependencies
+- GADTs
+- GeneralizedNewtypeDeriving
+- InstanceSigs
+- LambdaCase
+- MagicHash
+- MonoLocalBinds
+- OverloadedStrings
+- QuantifiedConstraints
+- RankNTypes
+- RecursiveDo
+- ScopedTypeVariables
+- StandaloneDeriving
+- StandaloneKindSignatures
+- TemplateHaskell
+- TupleSections
+- TypeApplications
+- TypeOperators
+- UndecidableInstances
+- UndecidableSuperClasses
