@@ -175,7 +175,7 @@ instance Monoid r => Applicative (Printer r a) where
   Printer x <*> Printer y = Printer $ apP x y
 instance Monoid r => Alternative (Printer r a) where
   empty = Printer emptyP
-  Printer x <|> Printer y = Printer $ altL x y
+  Printer x <|> Printer y = Printer $ x >|< y
 instance Filterable (Printer r a) where
   mapMaybe _ (Printer (Forget x)) = Printer (Forget x)
 instance (Eq c, SimpleStream s c)

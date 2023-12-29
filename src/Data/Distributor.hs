@@ -40,11 +40,9 @@ module Data.Distributor
     -- * lax distributive profunctors
   , Distributor (zero, (>+<), several, severalMore, possibly)
   , several1, choiceP
-  , dialt, (>|<), emptyP, altL, altR
+  , dialt, emptyP, (>|<), (>\<)
     -- * pattern matching
-  , eot
-  , onCase, inCase
-  , dichainl, dichainl'
+  , eot, onCase, inCase, dichainl, dichainl'
   ) where
 
 import Control.Applicative hiding (WrappedArrow(..))
@@ -52,7 +50,6 @@ import Control.Arrow
 import Control.Lens hiding (chosen)
 import Control.Lens.PartialIso
 import Control.Lens.Stream
-import Control.Monad
 import Data.Bifunctor.Biff
 import Data.Bifunctor.Clown
 import Data.Bifunctor.Joker
@@ -65,11 +62,9 @@ import Data.Profunctor hiding (WrappedArrow(..))
 import qualified Data.Profunctor as Pro (WrappedArrow(..))
 import Data.Profunctor.Cayley
 import Data.Profunctor.Composition
-import Data.Profunctor.Monad
 import Data.Void
 import Generics.Eot
 import GHC.Base (Constraint, Type)
-import Witherable
 
 {- | A lax monoidal profunctor with respect to product
 or simply a product profunctor
@@ -251,116 +246,6 @@ replicateP_ n p = p >* replicateP_ (n-1) p
 foreverP :: Monoidal p => p () c -> p a b
 foreverP p = let p' = p >* p' in p'
 
-type Mon
-  :: ((Type -> Type) -> (Type -> Type))
-  -- ^ your choice of free applicative
-  -> (Type -> Type -> Type) 
-  -> Type -> Type -> Type
-data Mon ap p a b where
-  Mon :: (a -> s) -> ap (p s) b -> Mon ap p a b
-instance (forall f. Functor (ap f))
-  => Functor (Mon ap p a) where
-    fmap g (Mon f x) = Mon f (g <$> x)
-instance (forall f. Applicative (ap f))
-  => Applicative (Mon ap p a) where
-    pure b = liftMon (pure b)
-    Mon f0 x0 <*> Mon f1 x1 =
-      lmap f0 (liftMon x0) <*> lmap f1 (liftMon x1)
-instance (forall f. Functor (ap f)) => Profunctor (Mon ap p) where
-  dimap h g (Mon f x) = Mon (f . h) (g <$> x)
-instance (forall f. Applicative (ap f)) => Monoidal (Mon ap p) where
-  one = Mon id (pure ())
-  Mon f0 x0 >*< Mon f1 x1 =
-    lmap (f0 *** f1) (liftMon x0 >*< liftMon x1)
-instance Filterable (Mon FilterAp p x) where
-  catMaybes (Mon f a) = Mon f (catMaybes a)
-instance Cochoice (Mon FilterAp p) where
-  unleft (Mon f (FilterPure a)) =
-    Mon (f . Left) (FilterPure (either Just (const Nothing) =<< a))
-  unleft (Mon f (FilterAp mf a)) =
-    Mon (f . Left) (FilterAp ((either Just (const Nothing) <=<) <$> mf) a)
-  unright (Mon f (FilterPure a)) =
-    Mon (f . Right) (FilterPure (either (const Nothing) Just =<< a))
-  unright (Mon f (FilterAp mf a)) =
-    Mon (f . Right) (FilterAp ((either (const Nothing) Just <=<) <$> mf) a)
-
-liftMon :: ap (p a) b -> Mon ap p a b
-liftMon = Mon id
-
-data ChooseMon p a b where
-  ChoosePure :: Maybe b -> ChooseMon p a b
-  ChooseAp
-    :: (a -> Maybe s)
-    -> ChooseMon p a (t -> Maybe b)
-    -> p s t
-    -> ChooseMon p a b
-instance Functor (ChooseMon p a) where fmap = rmap
-instance Filterable (ChooseMon p a) where
-  mapMaybe = mapMaybeP
-instance Applicative (ChooseMon p a) where
-  pure = ChoosePure . Just
-  ChoosePure Nothing <*> _ = ChoosePure Nothing
-  ChoosePure (Just f) <*> x = f <$> x
-  ChooseAp f g x <*> y =
-    let
-      apply h a t = ($ a) <$> h t
-    in
-      ChooseAp f (apply <$> g <*> y) x
-instance Profunctor (ChooseMon p) where
-  dimap _ g (ChoosePure b) = ChoosePure (g <$> b)
-  dimap f' g' (ChooseAp f g x) =
-    ChooseAp (f . f') ((fmap g' .) <$> lmap f' g) x
-instance Monoidal (ChooseMon p)
-instance Choice (ChooseMon p) where
-  left' (ChoosePure b) = ChoosePure (Left <$> b)
-  left' (ChooseAp f g x) =
-    let
-      apply e t = either ((Left <$>) . ($ t)) (Just . Right) e
-    in
-      ChooseAp (either f (pure Nothing)) (apply <$> (left' g)) x
-  right' (ChoosePure b) = ChoosePure (Right <$> b)
-  right' (ChooseAp f g x) =
-    let
-      apply e t = either (Just . Left) ((Right <$>) . ($ t)) e
-    in
-      ChooseAp (either (pure Nothing) f) (apply <$> (right' g)) x
-instance Cochoice (ChooseMon p) where
-  unleft (ChoosePure b) =
-    ChoosePure (either Just (pure Nothing) =<< b)
-  unleft (ChooseAp f g x) =
-    let
-      g' = (Left . (either Just (pure Nothing) <=<)) <$> g
-    in
-      ChooseAp (f . Left) (unleft g') x
-  unright (ChoosePure b) =
-    ChoosePure (either (pure Nothing) Just =<< b)
-  unright (ChooseAp f g x) =
-    let
-      g' = (Right . (either (pure Nothing) Just <=<)) <$> g
-    in
-      ChooseAp (f . Right) (unright g') x
-instance ProfunctorFunctor ChooseMon where
-  promap _ (ChoosePure b) = ChoosePure b
-  promap h (ChooseAp f g x) = ChooseAp f (promap h g) (h x)
-
-foldChooseMon
-  :: (Monoidal q, Choice q, Cochoice q)
-  => (forall x y. p x y -> q x y)
-  -> ChooseMon p a b
-  -> q a b
-foldChooseMon k = \case
-  ChoosePure Nothing -> catMaybesP (pureP Nothing)
-  ChoosePure (Just b) -> pureP b
-  ChooseAp f g x ->
-    let
-      h = foldChooseMon k g
-      y = dimapMaybe f Just (k x)
-    in
-      catMaybesP (liftA2P ($) h y)
-
-liftChooseMon :: p a b -> ChooseMon p a b
-liftChooseMon = ChooseAp Just (pure Just)
-
 {- | A `Distributor`, or lax distributive profunctor,
 respects distributive category structure,
 that is nilary and binary products and coproducts,
@@ -457,7 +342,7 @@ choiceP
   :: (Foldable f, Distributor p, Choice p, Cochoice p)
   => f (p a b)
   -> p a b
-choiceP = foldr altL emptyP
+choiceP = foldr (>|<) emptyP
 
 instance Distributor (->) where
   zero = id
@@ -517,24 +402,21 @@ dialt
   -> p a b -> p c d -> p s t
 dialt f g h p q = dimap f (either g h) (p >+< q)
 
-(>|<) :: Distributor p => p a b -> p c b -> p (Either a c) b
-(>|<) = dialt id id id
-infixr 3 >|<
-
 emptyP
   :: (Choice p, Cochoice p, Distributor p)
   => p a b
 emptyP = dimapMaybe (const Nothing) absurd zero
 
-altL
+(>|<)
   :: (Choice p, Cochoice p, Distributor p)
   => p a b -> p a b -> p a b
-altL p q = fst (discriminate (p >+< q))
+p >|< q = fst (discriminate (p >+< q))
+infixr 3 >|<
 
-altR
+(>\<)
   :: (Choice p, Cochoice p, Distributor p)
   => p a b -> p a b -> p a b
-altR p q = snd (discriminate (p >+< q))
+p >\< q = snd (discriminate (p >+< q))
 
 {- | We can use positional pattern matching
 with `eot` to construct a `Distributor`.
