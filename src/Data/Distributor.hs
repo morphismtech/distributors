@@ -37,14 +37,10 @@ module Data.Distributor
   ( -- * lax monoidal profunctors
     Monoidal (one, (>*<)) , dimap2, (>*), (*<)
   , pureP, apP, liftA2P, replicateP, replicateP_, foreverP
-  , Mon (Mon), liftMon
-  , ChooseMon (ChoosePure, ChooseAp), liftChooseMon, foldChooseMon
     -- * lax distributive profunctors
   , Distributor (zero, (>+<), several, severalMore, possibly)
   , several1, choiceP
   , dialt, (>|<), emptyP, altL, altR
-  , Dist (DistZero , DistPlus), liftDist
-  , DistAlt (DistAlts), liftDistAlt, foldDistAlt
     -- * pattern matching
   , eot
   , onCase, inCase
@@ -539,113 +535,6 @@ altR
   :: (Choice p, Cochoice p, Distributor p)
   => p a b -> p a b -> p a b
 altR p q = snd (discriminate (p >+< q))
-
-type Dist
-  :: ((Type -> Type) -> (Type -> Type))
-  -- ^ your choice of free applicative
-  -> (Type -> Type -> Type) 
-  -> Type -> Type -> Type
-data Dist ap p a b where
-  DistZero 
-    :: (a -> Void)
-    -> Dist ap p a b
-  DistPlus
-    :: (a -> Either s c)
-    -> ap (p s) b
-    -> Dist ap p c b
-    -> Dist ap p a b
-instance (forall f. Functor (ap f))
-  => Functor (Dist ap p a) where fmap = rmap
-instance (forall f. Applicative (ap f))
-  => Applicative (Dist ap p a) where
-  pure b = liftDist (pure b)
-  -- 0*x=0
-  liftA2 _ (DistZero absurdum) _ = DistZero absurdum
-  -- (x+y)*z=x*z+y*z
-  liftA2 g (DistPlus f x y) z =
-    let
-      ff a = bimap (,a) (,a) (f a)
-    in
-      dialt ff id id
-        (uncurry g <$> (liftDist x >*< z))
-        (uncurry g <$> (y >*< z))
-instance (forall f. Functor (ap f))
-  => Profunctor (Dist ap p) where
-  dimap f _ (DistZero absurdum) = DistZero (absurdum . f)
-  dimap f' g' (DistPlus f x y) =
-    DistPlus (f . f') (g' <$> x) (g' <$> y)
-instance (forall f. Applicative (ap f)) => Monoidal (Dist ap p)
-instance (forall f. Applicative (ap f))
-  => Distributor (Dist ap p) where
-  zero = DistZero absurd
-  -- 0+x=x
-  DistZero absurdum >+< x =
-    dimap (either (absurd . absurdum) id) Right x
-  -- (x+y)+z=x+(y+z)
-  DistPlus f x y >+< z =
-    let
-      assocE (Left (Left a)) = Left a
-      assocE (Left (Right b)) = Right (Left b)
-      assocE (Right c) = Right (Right c)
-      f' = assocE . either (Left . f) Right
-    in
-      dialt f' Left id (liftDist x) (y >+< z)
-instance Filterable (Dist FilterAp p x) where
-  catMaybes (DistZero absurdum) = DistZero absurdum
-  catMaybes (DistPlus f x y) = DistPlus f (catMaybes x) (catMaybes y)
-instance Cochoice (Dist FilterAp p) where
-  unleft (DistZero absurdum) = DistZero (absurdum . Left)
-  unleft (DistPlus f x y) =
-    DistPlus (f . Left)
-      (mapMaybe (either Just (const Nothing)) x)
-      (mapMaybe (either Just (const Nothing)) y)
-  unright (DistZero absurdum) = DistZero (absurdum . Right)
-  unright (DistPlus f x y) =
-    DistPlus (f . Right)
-      (mapMaybe (either (const Nothing) Just) x)
-      (mapMaybe (either (const Nothing) Just) y)
-instance ProfunctorFunctor (Dist FilterAp) where
-  promap _ (DistZero absurdum) = DistZero absurdum
-  promap pq (DistPlus f x y) =
-    DistPlus f (hoistFilterAp pq x) (promap pq y)
-
-liftDist :: ap (p a) b -> Dist ap p a b
-liftDist x = DistPlus Left x (DistZero id)
-
-newtype DistAlt p a b = DistAlts [p a b]
-instance (forall x. Functor (p x)) => Functor (DistAlt p a) where
-  fmap f (DistAlts alts) = DistAlts (map (fmap f) alts)
-instance (forall x. Applicative (p x))
-  => Applicative (DistAlt p a) where
-  pure b = liftDistAlt (pure b)
-  DistAlts xs <*> DistAlts ys =
-    DistAlts [x <*> y | x <- xs, y <- ys]
-instance (forall x. Applicative (p x))
-  => Alternative (DistAlt p a) where
-    empty = DistAlts []
-    DistAlts altsL <|> DistAlts altsR = DistAlts (altsL ++ altsR)
-instance Profunctor p => Profunctor (DistAlt p) where
-  dimap f g (DistAlts alts) = DistAlts (map (dimap f g) alts)
-instance (forall x. Applicative (p x), Profunctor p)
-  => Monoidal (DistAlt p)
-instance Choice p => Choice (DistAlt p) where
-  left' (DistAlts alts) = DistAlts (map left' alts)
-  right' (DistAlts alts) = DistAlts (map right' alts)
-instance Cochoice p => Cochoice (DistAlt p) where
-  unleft (DistAlts alts) = DistAlts (map unleft alts)
-  unright (DistAlts alts) = DistAlts (map unright alts)
-instance (Choice p, Cochoice p, forall x. Applicative (p x))
-  => Distributor (DistAlt p)
-
-foldDistAlt
-  :: (Distributor q, Choice q, Cochoice q)
-  => (forall x y. p x y -> q x y)
-  -> DistAlt p a b
-  -> q a b
-foldDistAlt k (DistAlts alts) = choiceP (map k alts)
-
-liftDistAlt :: p a b -> DistAlt p a b
-liftDistAlt p = DistAlts [p]
 
 {- | We can use positional pattern matching
 with `eot` to construct a `Distributor`.

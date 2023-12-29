@@ -9,7 +9,6 @@ module Control.Lens.PartialIso
   , _Guard, _Normal, _M2E, iterating
     -- * types
   , PartialExchange (PartialExchange)
-  , FilterAp (FilterPure, FilterAp), liftFilterAp, hoistFilterAp
   ) where
 
 import Control.Applicative
@@ -97,35 +96,6 @@ catMaybesP
   :: (Choice p, Cochoice p)
   => p a (Maybe b) -> p a b
 catMaybesP = mapMaybeP id
-
-data FilterAp f a where
-  FilterPure :: Maybe a -> FilterAp f a
-  FilterAp
-    :: FilterAp f (a -> Maybe b)
-    -> f a
-    -> FilterAp f b
-instance Functor (FilterAp f) where
-  fmap f (FilterPure m) = FilterPure (f <$> m)
-  fmap f (FilterAp mf a) = FilterAp ((fmap f .) <$> mf) a
-instance Applicative (FilterAp f) where
-  pure = FilterPure . Just
-  FilterPure Nothing <*> _ = FilterPure Nothing
-  FilterPure (Just f) <*> x = f <$> x
-  FilterAp f x <*> y =
-    let
-      apply h a t = ($ a) <$> h t
-    in
-      FilterAp (apply <$> f <*> y) x
-instance Filterable (FilterAp f) where
-  mapMaybe f (FilterPure a) = FilterPure (f =<< a)
-  mapMaybe f (FilterAp mf a) = FilterAp ((f <=<) <$> mf) a
-
-liftFilterAp :: f a -> FilterAp f a
-liftFilterAp = FilterAp (pure Just)
-
-hoistFilterAp :: (forall x. f x -> g x) -> FilterAp f a -> FilterAp g a
-hoistFilterAp _ (FilterPure x) = FilterPure x
-hoistFilterAp pq (FilterAp f x) = FilterAp (hoistFilterAp pq f) (pq x) 
 
 data PartialExchange a b s t =
   PartialExchange (s -> Maybe a) (b -> Maybe t)
