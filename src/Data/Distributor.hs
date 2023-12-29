@@ -35,10 +35,10 @@ The results here are a profunctorial iterpretation of
 -}
 module Data.Distributor
   ( -- * lax monoidal profunctors
-    Monoidal (one, (>*<)) , dimap2, (>*), (*<)
+    Monoidal (oneP, (>*<)) , dimap2, (>*), (*<)
   , pureP, apP, liftA2P, replicateP, replicateP_, foreverP
     -- * lax distributive profunctors
-  , Distributor (zero, (>+<), several, severalMore, possibly)
+  , Distributor (zeroP, (>+<), several, severalMore, possibly)
   , several1, choiceP
   , dialt, emptyP, (>|<), (>\<)
     -- * pattern matching
@@ -79,8 +79,8 @@ Laws:
 >>> let runit = dimap (\(a,()) -> a) (\a -> (a,()))
 >>> let assoc = dimap (\(a,(b,c)) -> ((a,b),c)) (\((a,b),c) -> (a,(b,c)))
 prop> dimap (f >< g) (h >< i) (p >*< q) = dimap f h p >*< dimap g i q
-prop> one >*< p = lunit p
-prop> p >*< one = runit p
+prop> oneP >*< p = lunit p
+prop> p >*< oneP = runit p
 prop> p >*< q >*< r = assoc ((p >*< q) >*< r)
 
 The defining methods for the `Monoidal` class are inspired by
@@ -98,13 +98,13 @@ prop> (<*>) = apP
 class Profunctor p => Monoidal p where
 
   {- |
-  `one` is a symmetric analog of `pureP`.
+  `oneP` is a symmetric analog of `pureP`.
 
-  prop> one = pure ()
+  prop> oneP = pure ()
   -}
-  one :: p () ()
-  default one :: (forall x. Applicative (p x)) => p () ()
-  one = pure ()
+  oneP :: p () ()
+  default oneP :: (forall x. Applicative (p x)) => p () ()
+  oneP = pure ()
 
   {- |
   `>*<` is a symmetrical analog of `dimap2`.
@@ -119,47 +119,47 @@ class Profunctor p => Monoidal p where
   x >*< y = (,) <$> lmap fst x <*> lmap snd y
 
 instance Monoidal (->) where
-  one = id
+  oneP = id
   (>*<) = (***)
 instance Monoid s => Monoidal (Forget s) where
-  one = Forget mempty
+  oneP = Forget mempty
   Forget f >*< Forget g = Forget (\(a,c) -> f a <> g c)
 instance Divisible f => Monoidal (Clown f) where
-  one = Clown conquer
+  oneP = Clown conquer
   Clown x >*< Clown y = Clown (divided x y)
 instance Applicative f => Monoidal (Joker f) where
-  one = Joker (pure ())
+  oneP = Joker (pure ())
   Joker x >*< Joker y = Joker ((,) <$> x <*> y)
 instance Arrow p => Monoidal (Pro.WrappedArrow p) where
-  one = Pro.WrapArrow returnA
+  oneP = Pro.WrapArrow returnA
   Pro.WrapArrow p >*< Pro.WrapArrow q = Pro.WrapArrow (p *** q)
 instance (Monoidal p, Monoidal q)
   => Monoidal (Procompose p q) where
-    one = Procompose one one
+    oneP = Procompose oneP oneP
     Procompose wb aw >*< Procompose vb av =
       Procompose (wb >*< vb) (aw >*< av)
 instance (Monoidal p, Monoidal q)
   => Monoidal (Product p q) where
-    one = Pair one one
+    oneP = Pair oneP oneP
     Pair x0 y0 >*< Pair x1 y1 = Pair (x0 >*< x1) (y0 >*< y1)
 instance Functor f => Monoidal (Costar f) where
-  one = Costar (const ())
+  oneP = Costar (const ())
   Costar f >*< Costar g =
     Costar (\ac -> (f (fst <$> ac), g (snd <$> ac)))
 instance Applicative f => Monoidal (Star f) where
-  one = Star (const (pure ()))
+  oneP = Star (const (pure ()))
   Star f >*< Star g =
     Star (\(a,c) -> (,) <$> f a <*> g c)
 deriving via (Star m) instance Monad m => Monoidal (Kleisli m)
 instance (Applicative f, Monoidal p) => Monoidal (Tannen f p) where
-  one = Tannen (pure one)
+  oneP = Tannen (pure oneP)
   Tannen x >*< Tannen y = Tannen ((>*<) <$> x <*> y)
 instance (Applicative f, Monoidal p) => Monoidal (Cayley f p) where
-  one = Cayley (pure one)
+  oneP = Cayley (pure oneP)
   Cayley x >*< Cayley y = Cayley ((>*<) <$> x <*> y)
 instance (Functor f, Applicative g, Monoidal p)
   => Monoidal (Biff p f g) where
-    one = Biff (dimap (const ()) pure one)
+    oneP = Biff (dimap (const ()) pure oneP)
     Biff x >*< Biff y = Biff $ dimap
       ((fst <$>) &&& (snd <$>))
       (uncurry (liftA2 (,)))
@@ -167,12 +167,12 @@ instance (Functor f, Applicative g, Monoidal p)
 instance Monoid s => Monoidal (PartialExchange s t)
 
 {- | Like `pure` but with a `Monoidal` constraint,
-`pureP` is a functionalization of `one`.
+`pureP` is a functionalization of `oneP`.
 
 prop> pure = pureP
 -}
 pureP :: Monoidal p => b -> p a b
-pureP b = dimap (const ()) (const b) one
+pureP b = dimap (const ()) (const b) oneP
 
 {- | `dimap2` is a fully curried functionalization of `>*<`.
 -}
@@ -220,7 +220,7 @@ infixr 1 *<
 but slightly more general since it will output in
 any `Stream`, not just lists.
 
-prop> replicateP n _ | n <= 0 = _Null >?$?< one
+prop> replicateP n _ | n <= 0 = _Null >?$?< oneP
 prop> replicateP n p = _Cons >$?< p >*< replicateP (n-1) p
 
 >>> let threeAlpha = replicateP 3 (_Guard isAlpha >?$?< token)
@@ -230,7 +230,7 @@ prop> replicateP n p = _Cons >$?< p >*< replicateP (n-1) p
 replicateP
   :: (Monoidal p, Choice p, Cochoice p, Stream s t a b)
   => Int -> p a b -> p s t
-replicateP n _ | n <= 0 = _Null >?$?< one
+replicateP n _ | n <= 0 = _Null >?$?< oneP
 replicateP n p = _Cons >$?< p >*< replicateP (n-1) p
 
 {- | `replicateP_` is like to `replicateM_`,
@@ -273,8 +273,8 @@ let f |+| g = either (Left . f) (Right . g)
       (either (either Left (Right . Left)) (Right . Right))
 :}
 prop> dimap (f |+| g) (h |+| i) (p >+< q) = dimap f h p >+< dimap g i q
-prop> zero >+< p = lunit p
-prop> p >+< zero = runit p
+prop> zeroP >+< p = lunit p
+prop> p >+< zeroP = runit p
 prop> p >+< q >+< r = assoc ((p >+< q) >+< r)
 
 `Distributor` is not simply equivalent to an `Alternative` `Profunctor`.
@@ -298,14 +298,14 @@ type Distributor :: (Type -> Type -> Type) -> Constraint
 class Monoidal p => Distributor p where
 
   {- |
-  `zero` is a restricted `empty`.
-  `zero` uses the nilary coproduct `Void` directly.
+  `zeroP` is a restricted `empty`.
+  `zeroP` uses the nilary coproduct `Void` directly.
 
-  prop> zero = empty
+  prop> zeroP = empty
   -}
-  zero :: p Void Void
-  default zero :: (forall x. Alternative (p x)) => p Void Void
-  zero = empty
+  zeroP :: p Void Void
+  default zeroP :: (forall x. Alternative (p x)) => p Void Void
+  zeroP = empty
 
   {- |
   `>+<` is analagous to `(<|>)`.
@@ -322,13 +322,13 @@ class Monoidal p => Distributor p where
   infixr 3 >+<
 
   several :: Stream s t a b => p a b -> p s t
-  several p = apIso _Stream $ one >+< severalMore p
+  several p = apIso _Stream $ oneP >+< severalMore p
 
   severalMore :: Stream s t a b => p a b -> p (a,s) (b,t)
   severalMore p = p >*< several p
 
   possibly :: p a b -> p (Maybe a) (Maybe b)
-  possibly p = apIso _M2E $ one >+< p
+  possibly p = apIso _M2E $ oneP >+< p
 
 apIso :: Profunctor p => AnIso s t a b -> p a b -> p s t
 apIso i p = withIso i $ \ here there -> dimap here there p
@@ -345,52 +345,52 @@ choiceP
 choiceP = foldr (>|<) emptyP
 
 instance Distributor (->) where
-  zero = id
+  zeroP = id
   (>+<) = (+++)
 instance Monoid s => Distributor (Forget s) where
-  zero = Forget absurd
+  zeroP = Forget absurd
   Forget kL >+< Forget kR = Forget (either kL kR)
 instance Decidable f => Distributor (Clown f) where
-  zero = Clown lost
+  zeroP = Clown lost
   Clown x >+< Clown y = Clown (Con.chosen x y)
 instance Alternative g => Distributor (Joker g) where
-  zero = Joker empty
+  zeroP = Joker empty
   Joker x >+< Joker y = Joker (Left <$> x <|> Right <$> y)
 instance Applicative f => Distributor (Star f) where
-  zero = Star absurd
+  zeroP = Star absurd
   Star f >+< Star g =
     Star (either (fmap Left . f) (fmap Right . g))
 deriving via (Star m) instance Monad m => Distributor (Kleisli m)
 instance Adjunction f u => Distributor (Costar f) where
-  zero = Costar unabsurdL
+  zeroP = Costar unabsurdL
   Costar f >+< Costar g = Costar (bimap f g . cozipL)
 instance (Applicative f, Distributor p)
   => Distributor (Tannen f p) where
-    zero = Tannen (pure zero)
+    zeroP = Tannen (pure zeroP)
     Tannen x >+< Tannen y = Tannen ((>+<) <$> x <*> y)
 instance (Applicative f, Distributor p)
   => Distributor (Cayley f p) where
-    zero = Cayley (pure zero)
+    zeroP = Cayley (pure zeroP)
     Cayley x >+< Cayley y = Cayley ((>+<) <$> x <*> y)
 instance (Adjunction f u, Applicative g, Distributor p)
   => Distributor (Biff p f g) where
-    zero = Biff (dimap unabsurdL absurd zero)
+    zeroP = Biff (dimap unabsurdL absurd zeroP)
     Biff x >+< Biff y = Biff $ dimap
       cozipL
       (either (Left <$>) (Right <$>))
       (x >+< y)
 instance (ArrowZero p, ArrowChoice p)
   => Distributor (Pro.WrappedArrow p) where
-    zero = zeroArrow
+    zeroP = zeroArrow
     (>+<) = (+++)
 instance (Distributor p, Distributor q)
   => Distributor (Procompose p q) where
-    zero = Procompose zero zero
+    zeroP = Procompose zeroP zeroP
     Procompose xL yL >+< Procompose xR yR =
       Procompose (xL >+< xR) (yL >+< yR)
 instance (Distributor p, Distributor q)
   => Distributor (Product p q) where
-    zero = Pair zero zero
+    zeroP = Pair zeroP zeroP
     Pair x0 y0 >+< Pair x1 y1 = Pair (x0 >+< x1) (y0 >+< y1)
 instance Monoid s => Distributor (PartialExchange s t)
 
@@ -405,7 +405,7 @@ dialt f g h p q = dimap f (either g h) (p >+< q)
 emptyP
   :: (Choice p, Cochoice p, Distributor p)
   => p a b
-emptyP = dimapMaybe (const Nothing) absurd zero
+emptyP = dimapMaybe (const Nothing) absurd zeroP
 
 (>|<)
   :: (Choice p, Cochoice p, Distributor p)
@@ -426,7 +426,7 @@ with `eot` to construct a `Distributor`.
 >>> :{
 data FullName
   = Nameless
-  | OneName String
+  | onePName String
   | FirstLast String String
   | FirstInitialsLast (Maybe String) String String
   deriving stock (Read, Show, GHC.Generic)
@@ -434,20 +434,20 @@ data FullName
 >>> :{
 fullName :: (Syntax Char Char p, Choice p, Cochoice p, Distributor p) => p FullName FullName
 fullName = eot $
-  one
-  >+< several (satisfies isAlpha) >*< one
-  >+< several (satisfies isAlpha) *< tokenIs ' ' >*< several (satisfies isAlpha) >*< one
+  oneP
+  >+< several (satisfies isAlpha) >*< oneP
+  >+< several (satisfies isAlpha) *< tokenIs ' ' >*< several (satisfies isAlpha) >*< oneP
   >+< possibly (several (satisfies isAlpha))
       >*< several (satisfies isAlpha) *< tokenIs ' '
       >*< several (satisfies isAlpha)
-      >*< one
-  >+< zero
+      >*< oneP
+  >+< zeroP
 :}
 
 :{
 data FullName
   = Nameless
-  | OneName String
+  | onePName String
   | FirstLast String String
   | FirstInitialsLast (Maybe String) String String
   deriving stock (Read, Show, GHC.Generic)
@@ -456,14 +456,14 @@ data FullName
 :{
 fullName :: (Syntax Char Char p, Choice p, Cochoice p, Distributor p) => p FullName FullName
 fullName = eot $
-  one
-  >+< name >*< one
-  >+< name >*< name >*< one
+  oneP
+  >+< name >*< oneP
+  >+< name >*< name >*< oneP
   >+< possibly name
     >*< name
     >*< name
-    >*< one
-  >+< zero
+    >*< oneP
+  >+< zeroP
     where
       name = _Cons
         >$?< satisfies isUpper
@@ -479,13 +479,13 @@ fullName
      )
   => p FullName FullName
 fullName = eot $
-  one
-  >+< name >*< one
-  >+< name *< reqSpace >*< name >*< one
+  oneP
+  >+< name >*< oneP
+  >+< name *< reqSpace >*< name >*< oneP
   >+< possibly (name *< reqSpace)
       >*< several1 initial *< reqSpace
       >*< name
-      >*< one
+      >*< oneP
     where
       name = _Cons
         >$?< satisfies isUpper

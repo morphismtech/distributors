@@ -49,7 +49,7 @@ class (Eq c, Distributor p, Choice p, Cochoice p)
     tokens :: SimpleStream s c => s -> p () ()
     tokens s =
       let
-        emp () = one
+        emp () = oneP
         cns (a,t) = token1 a >* tokens t
       in
         either emp cns (view _Stream s)
@@ -82,7 +82,7 @@ data Production
   | ProdChar Char
   | ProdString String
   | ProdNonTerminal String
-  | ProdZero
+  | ProdzeroP
   | ProdTimes Production Production
   | ProdPlus Production Production
   | ProdSev Production
@@ -99,7 +99,7 @@ type Prods = [(String, Production)]
 mergeProds :: Prods -> Prods -> Prods
 mergeProds x y = nub (x ++ y)
 instance Monoidal Grammar where
-  one = Grammar [] (ProdString "")
+  oneP = Grammar [] (ProdString "")
   Grammar prods1 (ProdString "") >*< Grammar prods2 prod =
     Grammar (mergeProds prods1 prods2) prod
   Grammar prods1 prod >*< Grammar prods2 (ProdString "") =
@@ -107,10 +107,10 @@ instance Monoidal Grammar where
   Grammar prods1 prod1 >*< Grammar prods2 prod2 =
     Grammar (mergeProds prods1 prods2) (ProdTimes prod1 prod2)
 instance Distributor Grammar where
-  zero = Grammar [] ProdZero
-  Grammar prods1 ProdZero >+< Grammar prods2 prod =
+  zeroP = Grammar [] ProdzeroP
+  Grammar prods1 ProdzeroP >+< Grammar prods2 prod =
     Grammar (mergeProds prods1 prods2) prod
-  Grammar prods1 prod >+< Grammar prods2 ProdZero =
+  Grammar prods1 prod >+< Grammar prods2 ProdzeroP =
     Grammar (mergeProds prods1 prods2) prod
   Grammar prods1 prod1 >+< Grammar prods2 prod2 =
     Grammar (mergeProds prods1 prods2) (ProdPlus prod1 prod2)
