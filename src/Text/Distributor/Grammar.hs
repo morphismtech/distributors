@@ -82,7 +82,7 @@ data Production
   | ProdChar Char
   | ProdString String
   | ProdNonTerminal String
-  | ProdzeroP
+  | ProdZero
   | ProdTimes Production Production
   | ProdPlus Production Production
   | ProdSev Production
@@ -108,10 +108,10 @@ instance Monoidal Grammar where
   Grammar prods1 prod1 >*< Grammar prods2 prod2 =
     Grammar (mergeProds prods1 prods2) (ProdTimes prod1 prod2)
 instance Distributor Grammar where
-  zeroP = Grammar [] ProdzeroP
-  Grammar prods1 ProdzeroP >+< Grammar prods2 prod =
+  zeroP = Grammar [] ProdZero
+  Grammar prods1 ProdZero >+< Grammar prods2 prod =
     Grammar (mergeProds prods1 prods2) prod
-  Grammar prods1 prod >+< Grammar prods2 ProdzeroP =
+  Grammar prods1 prod >+< Grammar prods2 ProdZero =
     Grammar (mergeProds prods1 prods2) prod
   Grammar prods1 prod1 >+< Grammar prods2 prod2 =
     Grammar (mergeProds prods1 prods2) (ProdPlus prod1 prod2)
