@@ -90,9 +90,10 @@ data Production
   | ProdPoss Production
   | ProdCase Production
   | ProdCocase Production
-  deriving Eq
+  deriving (Eq, Ord, Read, Show)
 
 data Grammar a b = Grammar [(String, Production)] Production
+  deriving (Eq, Ord, Read, Show)
 instance Profunctor Grammar where
   dimap _ _ = coerce
 type Prods = [(String, Production)]
@@ -156,7 +157,7 @@ instance MonadPlus f => Cochoice (Parser f) where
     Parser (Joker (either (const mzero) return =<< f))
 instance Terminal Char (Parser ReadP) where
   token = Parser (Joker get)
-instance NonTerminal (Parser f a b)
+instance NonTerminal (Parser ReadP a b)
 
 runParser :: Parser f a b -> f b
 runParser (Parser (Joker f)) = f
