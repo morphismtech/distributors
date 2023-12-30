@@ -42,7 +42,7 @@ module Data.Distributor
   , several1, choiceP
   , dialt, emptyP, (>|<), (>\<)
     -- * pattern matching
-  , eot, onCase, inCase, dichainl, dichainl'
+  , eot, onCase, onCocase, inCase, dichainl, dichainl'
   ) where
 
 import Control.Applicative hiding (WrappedArrow(..))
@@ -502,22 +502,30 @@ eot = dimap toEot fromEot
 
 -- inexhaustive abstract pattern matching
 inCase
-  :: (Choice p, Cochoice p, forall x. Alternative (p x))
+  :: (Distributor p, Choice p, Cochoice p)
   => APartialIso s t a b
   -> p a b
   -> p s t
   -> p s t
-inCase i = flip (<|>) . (>?$?<) i
+inCase i p1 p0 = p0 >|< i >?$?< p1
 
 -- exhaustive abstract pattern matching
 onCase
-  :: (Cochoice p, Distributor p)
+  :: (Distributor p, Choice p)
+  => APrism s t a b
+  -> p a b
+  -> p c Void
+  -> p s t
+onCase p p1 p0 = dialt Right absurd id p0 (p >$?< p1)
+
+-- exhaustive abstract pattern matching
+onCocase
+  :: (Distributor p, Cochoice p)
   => APrism b a t s
   -> p a b
   -> p c Void
   -> p s t
-onCase p =
-  flip (dialt Right absurd id) . (>?$<) p
+onCocase p p1 p0 = dialt Right absurd id p0 (p >?$< p1)
 
 dichainl
   :: forall p s t a b. (Choice p, Cochoice p, Distributor p)
@@ -526,8 +534,11 @@ dichainl
   -> p s t
   -> p s t
 dichainl i opr arg =
-  coPartialIso (difoldl (coPartialIso i)) >?$?<
-    arg >*< several @p @[(a,s)] (opr >*< arg)
+  let
+    conjugateFoldI = coPartialIso (difoldl (coPartialIso i))
+    sev = several @p @[(a,s)]
+  in
+    conjugateFoldI >?$?< arg >*< sev (opr >*< arg)
 
 dichainl'
   :: forall p s a. (Cochoice p, Distributor p)
@@ -536,4 +547,7 @@ dichainl'
   -> p s s
   -> p s s
 dichainl' p opr arg =
-  difoldl' p >?$< arg >*< several @p @[(a,s)] (opr >*< arg)
+  let
+    sev = several @p @[(a,s)]
+  in
+    difoldl' p >?$< arg >*< sev (opr >*< arg)
