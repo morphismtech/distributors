@@ -41,7 +41,7 @@ module Data.Distributor
   , Distributor (zeroP, (>+<), several, severalMore, possibly)
   , dialt, several1
   , atLeast0, moreThan0, atLeast1
-  , sep, Separated (by, begunBy, endedBy)
+  , sep, Separate (by, beginBy, endBy)
     -- * pattern matching
   , eot, onCase, onCocase, inCase, dichainl, dichainl'
   ) where
@@ -315,41 +315,37 @@ several1 p = _Cons >? severalMore p
 
 atLeast0
   :: (Distributor p, Stream s t a b)
-  => Separated p
-  -> p a b -> p s t
-atLeast0 (Separated separator beg end) p =
+  => p a b -> Separate p -> p s t
+atLeast0 p (Separate separator beg end) =
   beg >*
-  apIso _Stream (oneP >+< sepBy separator p)
+  apIso _Stream (oneP >+< p `sepBy` separator)
   *< end
 
 moreThan0
   :: (Distributor p, Stream s t a b)
-  => Separated p
-  -> p a b -> p (a,s) (b,t)
-moreThan0 (Separated separator beg end) p =
-  beg >* sepBy separator p *< end
+  => p a b -> Separate p -> p (a,s) (b,t)
+moreThan0 p (Separate separator beg end) =
+  beg >* p `sepBy` separator *< end
 
 atLeast1
   :: (Distributor p, Choice p, Stream s t a b)
-  => Separated p
-  -> p a b -> p s t
-atLeast1 (Separated separator open close) p =
-  open >* _Cons >? sepBy separator p *< close
+  => p a b -> Separate p -> p s t
+atLeast1 p (Separate separator open close) =
+  open >* _Cons >? p `sepBy` separator *< close
 
 sepBy
   :: (Distributor p, Stream s t a b)
-  => p () ()
-  -> p a b -> p (a,s) (b,t)
-sepBy separator p = p >*< several (separator >* p)
+  => p a b -> p () () -> p (a,s) (b,t)
+sepBy p separator = p >*< several (separator >* p)
 
-data Separated p = Separated
+data Separate p = Separate
   { by :: p () ()
-  , begunBy :: p () ()
-  , endedBy :: p () ()
+  , beginBy :: p () ()
+  , endBy :: p () ()
   }
 
-sep :: Monoidal p => Separated p
-sep = Separated oneP oneP oneP
+sep :: Monoidal p => Separate p
+sep = Separate oneP oneP oneP
 
 instance Distributor (->) where
   zeroP = id
