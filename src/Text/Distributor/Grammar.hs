@@ -35,9 +35,9 @@ class Terminal c p | p -> c where
   token1 c = only c >?$< token
   tokens :: SimpleStream s c => s -> p () ()
   default tokens :: (Monoidal p, SimpleStream s c) => s -> p () ()
-  tokens s = case view _Stream s of
-    Left () -> oneP
-    Right (a,t) -> token1 a >* tokens t
+  tokens s = case view _HeadTailMay s of
+    Nothing -> oneP
+    Just (a,t) -> token1 a >* tokens t
 
 satisfies :: (Terminal c p, Choice p, Cochoice p) => (c -> Bool) -> p c c
 satisfies f = _Guard f >?$?< token
