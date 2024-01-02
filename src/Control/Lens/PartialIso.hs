@@ -135,7 +135,7 @@ similar to how 'Prism' is a first class exhaustive pattern.
 
 `PartialIso` is part of a subtyping order:
 
-prop> Iso < Prism < PartialIso < APartialIso
+prop> Iso s t a b < Prism s t a b < PartialIso s t a b < APartialIso s t a b
 
 `PartialIso`s are a functionalization of `PartialExchange`s.
 
@@ -239,8 +239,7 @@ altPartialIso x y =
   => APrism s t a b
   -> p a b
   -> p s t
-i >? p = withPrism i $ \f g ->
-  dimap g (either id f) (right' p)
+i >? p = withPrism i $ \f g -> dimap g (either id f) (right' p)
 infixr 4 >?
 
 (?<)
@@ -248,8 +247,7 @@ infixr 4 >?
   => APrism b a t s
   -> p a b
   -> p s t
-i ?< p = withPrism i $ \f g ->
-  unright (dimap (either id f) g p)
+i ?< p = withPrism i $ \f g -> unright (dimap (either id f) g p)
 infixr 4 ?<
 
 (>?<)
@@ -257,8 +255,7 @@ infixr 4 ?<
   => APartialIso s t a b
   -> p a b
   -> p s t
-i >?< p =
-  withPartialIso i $ \f g -> dimapMaybe f g p
+i >?< p = withPartialIso i $ \f g -> dimapMaybe f g p
 infixr 4 >?<
 
 _Guard :: (a -> Bool) -> PartialIso' a a
