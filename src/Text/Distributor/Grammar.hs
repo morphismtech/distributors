@@ -3,9 +3,9 @@ module Text.Distributor.Grammar
   , NonTerminal (recNonTerminal), nonTerminal
   , NT (NT, runNT), FixNT (fixNT)
   , Grammar (Grammar), Production (..)
-  , Parser (Parser), runParser
-  , Printer (Printer), runPrinter
-  , Linter (Linter), runLinter
+  , Parser (Parser, runParser)
+  , Printer (Printer, runPrinter)
+  , Linter (Linter, runLinter)
   ) where
 
 import Control.Applicative
@@ -196,7 +196,7 @@ instance Terminal Char (Parser ReadP) where
   token = Parser get
 instance NonTerminal (Parser ReadP a b)
 
-newtype Printer s a b = Printer (a -> s)
+newtype Printer s a b = Printer {runPrinter :: a -> s}
   deriving
     ( Profunctor
     , Choice
@@ -216,9 +216,6 @@ instance (Eq c, SimpleStream s c)
   => Terminal c (Printer s) where
     token = Printer (`cons` nil)
 instance NonTerminal (Printer s a b)
-
-runPrinter :: Printer s a b -> a -> s
-runPrinter (Printer f) x = f x
 
 newtype Linter f s a b = Linter {runLinter :: a -> f s}
 instance Functor (Linter f s a) where
