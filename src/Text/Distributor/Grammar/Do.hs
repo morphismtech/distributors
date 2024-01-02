@@ -3,7 +3,6 @@
 
 module Text.Distributor.Grammar.Do
   ( return, mfix, (>>=), fail
-  , FixNT (fixNT)
   ) where
 
 import Data.Function
