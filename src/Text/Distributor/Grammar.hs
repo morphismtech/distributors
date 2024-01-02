@@ -118,7 +118,7 @@ instance
       in (p0,p1,p2)
 
 data Production c
-  = ProdAny
+  = ProdToken
   | ProdTerminal [c]
   | ProdNonTerminal String
   | ProdZero
@@ -181,7 +181,7 @@ instance Cochoice (Grammar c) where
   unleft (Grammar prods prod) = Grammar prods (ProdCocase prod)
   unright (Grammar prods prod) = Grammar prods (ProdCocase prod)
 instance Syntactic c (Grammar c) where
-  token = Grammar [] ProdAny
+  token = Grammar [] ProdToken
 instance Terminal c (Grammar c) where
   terminal str = Grammar [] (ProdTerminal (convertStream str))
 instance Eq c => NonTerminal (Grammar c a b) where
