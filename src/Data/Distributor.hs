@@ -197,16 +197,6 @@ prop> (<*>) = apP
 apP :: Monoidal p => p a (b -> d) -> p a b -> p a d
 apP = liftA2P ($)
 
-{- |
-
->>> let a1 = tokenIs 'a' >* tokenIs '1'
->>> runPrint a1 () :: String
-"a1"
->>> readP_to_S (runParse a1) "a1"
-[((),"")]
->>> readP_to_S (runParse a1) "b2"
-[]
--}
 (>*) :: Monoidal p => p () c -> p a b -> p a b
 (>*) = dimap2 (const ()) id (\_ b -> b)
 infixr 1 >*
@@ -218,13 +208,6 @@ infixr 1 *<
 {- | `replicateP` is analagous to `replicateM`,
 but slightly more general since it will output in
 any `Stream`, not just lists.
-
-prop> replicateP n _ | n <= 0 = _Null >?$?< oneP
-prop> replicateP n p = _Cons >$?< p >*< replicateP (n-1) p
-
->>> let threeAlpha = replicateP 3 (_Guard isAlpha >?$?< token)
->>> runPrint threeAlpha "abc" :: String
-"abc"
 -}
 replicateP
   :: (Monoidal p, Choice p, Cochoice p, Stream s t a b)
@@ -234,9 +217,6 @@ replicateP n p = _Cons >$?< p >*< replicateP (n-1) p
 
 {- | `replicateP_` is like to `replicateM_`,
 but with a `Monoidal` constraint.
-
-prop> replicateP_ n _ | n <= 0 = pureP ()
-prop> replicateP_ n p = p >* replicateP_ (n-1) p
 -}
 replicateP_ :: Monoidal p => Int -> p () c -> p a ()
 replicateP_ n _ | n <= 0 = pureP ()
@@ -249,14 +229,6 @@ foreverP p = let p' = p >* p' in p'
 respects distributive category structure,
 that is nilary and binary products and coproducts,
 `()`, `(,)`, `Void` and `Either`.
-
-What makes distributive category structure is
-the existence of structural distribution isomorphisms.
-
-prop> Either (x,y) (x,z) <-> (x, Either y z)
-prop> Either (x,z) (y,z) <-> (Either x y, z)
-prop> Void <-> (x, Void)
-prop> Void <-> (Void, x)
 
 In addition to the product laws for `Monoidal`, we have
 sum laws for `Distributor`.
@@ -276,12 +248,14 @@ prop> zeroP >+< p = lunit p
 prop> p >+< zeroP = runit p
 prop> p >+< q >+< r = assoc ((p >+< q) >+< r)
 
-`Distributor` is not simply equivalent to an `Alternative` `Profunctor`.
-Rather, when the `Profunctor` is `Choice` and `Cochoice`, then
+`Distributor` is not equivalent to an `Alternative` `Profunctor`.
+However, when the `Profunctor` is `Choice` and `Cochoice`, then
 `Alternative` gives a default implementation for `Distributor`.
 
-A mathematical treatment of `Distributor`s is given by Travis Squires in
-[Profunctors and Distributive Categories]
+A `Distributor` is a lax distributive endoprofunctor
+on the category of Haskell types and functions.
+A mathematical treatment of strong distributors is given by
+Travis Squires in [Profunctors and Distributive Categories]
 (https://central.bac-lac.gc.ca/.item?id=MR31635)
 -}
 type Distributor :: (Type -> Type -> Type) -> Constraint
@@ -311,12 +285,21 @@ class Monoidal p => Distributor p where
   p >+< q = alternate (Left p) <|> alternate (Right q)
   infixr 3 >+<
 
+  {- |
+  `several` is the Kleene star operator, of zero or more times.
+  -}
   several :: Stream s t a b => p a b -> p s t
   several p = apIso _Stream $ oneP >+< severalMore p
 
+  {- |
+  `severalMore` is the Kleene plus operator, of one or more times.
+  -}
   severalMore :: Stream s t a b => p a b -> p (a,s) (b,t)
   severalMore p = p >*< several p
 
+  {- |
+  `possibly` is zero or one times.
+  -}
   possibly :: p a b -> p (Maybe a) (Maybe b)
   possibly p = apIso _M2E $ oneP >+< p
 
@@ -391,83 +374,7 @@ dialt
   -> p a b -> p c d -> p s t
 dialt f g h p q = dimap f (either g h) (p >+< q)
 
-{- | We can use positional pattern matching
-with `eot` to construct a `Distributor`.
-
->>> import qualified GHC.Generics as GHC
->>> import qualified Generics.Eot as EOT
->>> :{
-data FullName
-  = Nameless
-  | onePName String
-  | FirstLast String String
-  | FirstInitialsLast (Maybe String) String String
-  deriving stock (Read, Show, GHC.Generic)
-:}
->>> :{
-fullName :: (Syntax Char Char p, Choice p, Cochoice p, Distributor p) => p FullName FullName
-fullName = eot $
-  oneP
-  >+< several (satisfies isAlpha) >*< oneP
-  >+< several (satisfies isAlpha) *< tokenIs ' ' >*< several (satisfies isAlpha) >*< oneP
-  >+< possibly (several (satisfies isAlpha))
-      >*< several (satisfies isAlpha) *< tokenIs ' '
-      >*< several (satisfies isAlpha)
-      >*< oneP
-  >+< zeroP
-:}
-
-:{
-data FullName
-  = Nameless
-  | onePName String
-  | FirstLast String String
-  | FirstInitialsLast (Maybe String) String String
-  deriving stock (Read, Show, GHC.Generic)
-:}
-
-:{
-fullName :: (Syntax Char Char p, Choice p, Cochoice p, Distributor p) => p FullName FullName
-fullName = eot $
-  oneP
-  >+< name >*< oneP
-  >+< name >*< name >*< oneP
-  >+< possibly name
-    >*< name
-    >*< name
-    >*< oneP
-  >+< zeroP
-    where
-      name = _Cons
-        >$?< satisfies isUpper
-        >*< several1 (satisfies isAlpha)
-      initial = satisfies isUpper *< tokenIs '.'
-:}
-
->>> :{
-fullName
-  :: ( Syntax Char Char p
-     , Choice p, Cochoice p
-     , Distributor p
-     )
-  => p FullName FullName
-fullName = eot $
-  oneP
-  >+< name >*< oneP
-  >+< name *< reqSpace >*< name >*< oneP
-  >+< possibly (name *< reqSpace)
-      >*< several1 initial *< reqSpace
-      >*< name
-      >*< oneP
-    where
-      name = _Cons
-        >$?< satisfies isUpper
-        >*< several1 (satisfies isAlpha)
-      initial = satisfies isUpper *< tokenIs '.'
-      optSpace = _Normal "" >?$?< several1 (satisfies isSpace)
-      reqSpace = _Normal " " >?$?< several1 (satisfies isSpace)
-:}
--}
+-- positional pattern matching
 eot
   :: (HasEot a, HasEot b, Profunctor p)
   => p (Eot a) (Eot b) -> p a b
