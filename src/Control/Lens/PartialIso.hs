@@ -132,8 +132,10 @@ instance Cochoice (PartialExchange a b) where
 
 {- | `PartialIso` is a first class inexhaustive pattern,
 similar to how 'Prism' is a first class exhaustive pattern.
-`APrism` can be a `PartialIso`.
-Thus, `AnIso` can be a `PartialIso`.
+
+`PartialIso` is part of a subtyping order:
+
+prop> Iso < Prism < PartialIso < APartialIso
 
 `PartialIso`s are a functionalization of `PartialExchange`s.
 
@@ -166,8 +168,12 @@ For an improper `PartialIso'`, only the left inverse law holds.
 
 prop> Just = f <=< g
 
-For the improper `PartialIso'`, @g <=< f@ will be regarded
-as a normalization within some equivalence class of terms.
+For an improper `PartialIso'`, @norm = g <=< f@ is an idempotent
+
+prop> norm = norm <=< norm
+
+and can be regarded as a normalization within
+some equivalence class of terms.
 -}
 type PartialIso' s a = PartialIso s s a a
 
