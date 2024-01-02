@@ -39,8 +39,7 @@ module Data.Distributor
   , pureP, apP, liftA2P, replicateP, replicateP_, foreverP
     -- * lax distributive profunctors
   , Distributor (zeroP, (>+<), several, severalMore, possibly)
-  , several1, choiceP
-  , dialt, emptyP, (>|<), (>\<)
+  , dialt, several1, interlay
     -- * pattern matching
   , eot, onCase, onCocase, inCase, dichainl, dichainl'
   ) where
@@ -280,15 +279,6 @@ prop> p >+< q >+< r = assoc ((p >+< q) >+< r)
 `Distributor` is not simply equivalent to an `Alternative` `Profunctor`.
 Rather, when the `Profunctor` is `Choice` and `Cochoice`, then
 `Alternative` gives a default implementation for `Distributor`.
-In the other direction, when a `Distributor` is `Choice` and `Cochoice`,
-it can give an implementation for `Alternative` with
-
-prop> empty = emptyP
-
-And either,
-
-prop> (<|>) = altL
-prop> (<|>) = altR
 
 A mathematical treatment of `Distributor`s is given by Travis Squires in
 [Profunctors and Distributive Categories]
@@ -338,11 +328,10 @@ several1
   => p a b -> p s t
 several1 p = _Cons >$?< severalMore p
 
-choiceP
-  :: (Foldable f, Distributor p, Choice p, Cochoice p)
-  => f (p a b)
-  -> p a b
-choiceP = foldr (>|<) emptyP
+interlay
+  :: (Distributor p, Stream s t a b)
+  => p a b -> p () () -> p s t
+interlay p sep = apIso _Stream (oneP >+< p >*< several (sep >* p))
 
 instance Distributor (->) where
   zeroP = id
@@ -401,22 +390,6 @@ dialt
   -> (d -> t)
   -> p a b -> p c d -> p s t
 dialt f g h p q = dimap f (either g h) (p >+< q)
-
-emptyP
-  :: (Choice p, Cochoice p, Distributor p)
-  => p a b
-emptyP = dimapMaybe (const Nothing) absurd zeroP
-
-(>|<)
-  :: (Choice p, Cochoice p, Distributor p)
-  => p a b -> p a b -> p a b
-p >|< q = fst (discriminate (p >+< q))
-infixr 3 >|<
-
-(>\<)
-  :: (Choice p, Cochoice p, Distributor p)
-  => p a b -> p a b -> p a b
-p >\< q = snd (discriminate (p >+< q))
 
 {- | We can use positional pattern matching
 with `eot` to construct a `Distributor`.
@@ -502,12 +475,12 @@ eot = dimap toEot fromEot
 
 -- inexhaustive abstract pattern matching
 inCase
-  :: (Distributor p, Choice p, Cochoice p)
+  :: (forall x. Alternative (p x), Choice p, Cochoice p)
   => APartialIso s t a b
   -> p a b
   -> p s t
   -> p s t
-inCase i p1 p0 = p0 >|< i >?$?< p1
+inCase i p1 p0 = p0 <|> i >?$?< p1
 
 -- exhaustive abstract pattern matching
 onCase
