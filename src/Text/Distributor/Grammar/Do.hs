@@ -2,7 +2,7 @@
 {-# OPTIONS_GHC -fno-warn-redundant-constraints #-}
 
 module Text.Distributor.Grammar.Do
-  ( return, mfix, (>>=), fail
+  ( mfix, (>>=), return, fail
   ) where
 
 import Data.Function
