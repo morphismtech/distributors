@@ -2,6 +2,7 @@ module Text.Distributor.Grammar
   ( Grammatical (grammar), gGrammar, gReadP, gLint
   , Terminal (token, token1, tokens), satisfies
   , NonTerminal (recNonTerminal), nonTerminal
+  , NT (NT, runNT), FixNT (fixNT)
   , Grammar (Grammar), Production (..)
   , Parser (Parser), runParser
   , Printer (Printer), runPrinter
@@ -14,6 +15,7 @@ import Control.Lens
 import Control.Lens.PartialIso
 import Control.Lens.Stream
 import Control.Monad
+import Control.Monad.Fix
 import Data.Bifunctor.Joker
 import Data.Coerce
 import Data.Function hiding ((.))
@@ -21,6 +23,8 @@ import Data.List (nub)
 import Data.Distributor
 import Data.Profunctor
 import GHC.Exts
+import GHC.OverloadedLabels
+import GHC.TypeLits
 import Prelude hiding ((.),id)
 import Text.ParserCombinators.ReadP
 import Witherable
@@ -56,6 +60,54 @@ class NonTerminal p where
 
 nonTerminal :: NonTerminal p => String -> p -> p
 nonTerminal symbol p = recNonTerminal symbol (const p)
+
+data NT (s :: [Symbol]) a where
+  NT :: FixNT s a => {runNT :: a} -> NT s a
+instance ('[s0] ~ s1, a0 ~ a1, KnownSymbol s0, NonTerminal a1)
+  => IsLabel s0 (a0 -> NT s1 a1) where fromLabel = NT
+instance Functor (NT '[]) where
+  fmap f (NT a) = NT (f a)
+instance Applicative (NT '[]) where
+  pure = NT
+  NT f <*> NT a = NT (f a)
+instance Monad (NT '[]) where
+  return = pure
+  NT a >>= f = f a
+instance MonadFix (NT '[]) where
+  mfix f = NT (fix (runNT . f))
+
+class FixNT (s :: [Symbol]) p where
+  fixNT :: (p -> p) -> p
+instance FixNT '[] p where
+  fixNT = fix
+instance
+  ( KnownSymbol s, NonTerminal p
+  ) => FixNT '[s] p where
+    fixNT = recNonTerminal (symbolVal' @s proxy#)
+instance
+  ( KnownSymbol s0, NonTerminal p0
+  , KnownSymbol s1, NonTerminal p1
+  ) => FixNT '[s0,s1] (p0,p1) where
+    fixNT f =
+      let
+        ~(p0,p1) =
+            ( fixNT @'[s0] @p0 (\q -> view _1 (f (q,p1)))
+            , fixNT @'[s1] @p1 (\q -> view _2 (f (p0,q)))
+            )
+      in (p0,p1)
+instance
+  ( KnownSymbol s0, NonTerminal p0
+  , KnownSymbol s1, NonTerminal p1
+  , KnownSymbol s2, NonTerminal p2
+  ) => FixNT '[s0,s1,s2] (p0,p1,p2) where
+    fixNT f =
+      let
+        ~(p0,p1,p2) =
+            ( fixNT @'[s0] @p0 (\q -> view _1 (f (q,p1,p2)))
+            , fixNT @'[s1] @p1 (\q -> view _2 (f (p0,q,p2)))
+            , fixNT @'[s2] @p2 (\q -> view _3 (f (p0,p1,q)))
+            )
+      in (p0,p1,p2)
 
 data Production
   = ProdToken
