@@ -39,6 +39,7 @@ library
   default-extensions:
       AllowAmbiguousTypes
       Arrows
+      DataKinds
       DefaultSignatures
       DeriveGeneric
       DerivingStrategies
@@ -49,6 +50,7 @@ library
       GADTs
       GeneralizedNewtypeDeriving
       InstanceSigs
+      KindSignatures
       LambdaCase
       MagicHash
       MonoLocalBinds
