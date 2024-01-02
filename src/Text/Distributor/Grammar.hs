@@ -1,6 +1,6 @@
 module Text.Distributor.Grammar
   ( Grammatical
-  , Syntactic (token), satisfies
+  , Syntactic (token), satisfies, endOfInput
   , Terminal (terminal)
   , NonTerminal (recNonTerminal), nonTerminal
   , NT (NT, runNT), FixNT (fixNT)
@@ -48,6 +48,17 @@ satisfies
   :: (Syntactic c p, Choice p, Cochoice p)
   => (c -> Bool) -> p c c
 satisfies f = _Guard f >?< token
+
+endOfInput
+  :: forall s c p.
+     ( Cochoice p
+     , Distributor p
+     , Eq s
+     , Stream s s c c
+     , Syntactic c p
+     )
+  => p () ()
+endOfInput = only (nil @s) ?< several token
 
 class Terminal c p | p -> c where
   terminal :: SimpleStream s c => s -> p () ()
