@@ -232,7 +232,7 @@ altPartialIso x y =
   withPartialIso y $ \g h ->
     partialIso
       (either ((Left <$>) . e) ((Right <$>) . g))
-      (either ((Left <$>) . f) ((Right <$>) . h)) 
+      (either ((Left <$>) . f) ((Right <$>) . h))
 
 (>?)
   :: Choice p

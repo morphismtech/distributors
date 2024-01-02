@@ -39,7 +39,9 @@ module Data.Distributor
   , pureP, apP, liftA2P, replicateP, replicateP_, foreverP
     -- * lax distributive profunctors
   , Distributor (zeroP, (>+<), several, severalMore, possibly)
-  , dialt, several1, interlay
+  , dialt, several1
+  , atLeast0, moreThan0, atLeast1
+  , sep, Separated (by, begunBy, endedBy)
     -- * pattern matching
   , eot, onCase, onCocase, inCase, dichainl, dichainl'
   ) where
@@ -311,10 +313,43 @@ several1
   => p a b -> p s t
 several1 p = _Cons >? severalMore p
 
-interlay
+atLeast0
   :: (Distributor p, Stream s t a b)
-  => p a b -> p () () -> p s t
-interlay p sep = apIso _Stream (oneP >+< p >*< several (sep >* p))
+  => Separated p
+  -> p a b -> p s t
+atLeast0 (Separated separator beg end) p =
+  beg >*
+  apIso _Stream (oneP >+< sepBy separator p)
+  *< end
+
+moreThan0
+  :: (Distributor p, Stream s t a b)
+  => Separated p
+  -> p a b -> p (a,s) (b,t)
+moreThan0 (Separated separator beg end) p =
+  beg >* sepBy separator p *< end
+
+atLeast1
+  :: (Distributor p, Choice p, Stream s t a b)
+  => Separated p
+  -> p a b -> p s t
+atLeast1 (Separated separator open close) p =
+  open >* _Cons >? sepBy separator p *< close
+
+sepBy
+  :: (Distributor p, Stream s t a b)
+  => p () ()
+  -> p a b -> p (a,s) (b,t)
+sepBy separator p = p >*< several (separator >* p)
+
+data Separated p = Separated
+  { by :: p () ()
+  , begunBy :: p () ()
+  , endedBy :: p () ()
+  }
+
+sep :: Monoidal p => Separated p
+sep = Separated oneP oneP oneP
 
 instance Distributor (->) where
   zeroP = id
