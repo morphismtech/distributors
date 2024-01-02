@@ -22,7 +22,6 @@ instance FixNT '[] p where
 instance
   ( KnownSymbol s
   , NonTerminal p
-  , ss ~ '[s]
   ) => FixNT '[s] p where
     fixNT = recNonTerminal (symbolVal' @s proxy#)
 instance
