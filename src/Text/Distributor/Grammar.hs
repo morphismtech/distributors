@@ -23,6 +23,7 @@ import Data.Function hiding ((.))
 import Data.List (nub)
 import Data.Distributor
 import Data.Profunctor
+import Data.String
 import GHC.Exts
 import GHC.OverloadedLabels
 import GHC.TypeLits
@@ -188,6 +189,8 @@ instance Eq c => NonTerminal (Grammar c a b) where
   recNonTerminal symbol f =
     let Grammar prods prod = f (Grammar [] (ProdNonTerminal symbol))
     in Grammar (mergeProds prods [(symbol, prod)]) (ProdNonTerminal symbol)
+instance IsString (Grammar Char () ()) where
+  fromString = terminal
 
 newtype Parser f a b = Parser {runParser :: f b}
   deriving
@@ -215,11 +218,12 @@ instance Syntactic Char (Parser ReadP) where
   token = Parser get
 instance Terminal Char (Parser ReadP)
 instance NonTerminal (Parser ReadP a b)
+instance IsString (Parser ReadP () ()) where
+  fromString = terminal
 
 newtype Printer s a b = Printer {runPrinter :: a -> s}
   deriving
     ( Profunctor
-    , Choice
     , Cochoice
     , Monoidal
     , Distributor
@@ -237,6 +241,9 @@ instance (SimpleStream s c)
     token = Printer (`cons` nil)
 instance (Eq c, SimpleStream s c) => Terminal c (Printer s)
 instance NonTerminal (Printer s a b)
+instance SimpleStream s Char
+  => IsString (Printer s () ()) where
+    fromString = terminal
 
 newtype Linter f s a b = Linter {runLinter :: a -> f s}
 instance Functor (Linter f s a) where
@@ -267,3 +274,6 @@ instance (Alternative f, SimpleStream s c)
 instance (Alternative f, Filterable f, Eq c, SimpleStream s c)
   => Terminal c (Linter f s)
 instance NonTerminal (Linter f s a b)
+instance (Alternative f, Filterable f, SimpleStream s Char)
+  => IsString (Linter f s () ()) where
+    fromString = terminal
