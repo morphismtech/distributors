@@ -171,7 +171,7 @@ instance SimpleStream [a] a where
 
 convertStream :: (SimpleStream s a, SimpleStream t a) => s -> t
 convertStream s =
-  either
-    (const nil)
+  maybe
+    nil
     (\(h,t) -> cons h (convertStream t))
-    (view _Stream s)
+    (view _HeadTailMay s)

@@ -32,7 +32,7 @@ class Terminal c p | p -> c where
   token :: p c c
   token1 :: c -> p () ()
   default token1 :: (Eq c, Cochoice p) => c -> p () ()
-  token1 c = only c >?$< token
+  token1 c = only c ?< token
   tokens :: SimpleStream s c => s -> p () ()
   default tokens :: (Monoidal p, SimpleStream s c) => s -> p () ()
   tokens s = case view _HeadTailMay s of
@@ -40,7 +40,7 @@ class Terminal c p | p -> c where
     Just (a,t) -> token1 a >* tokens t
 
 satisfies :: (Terminal c p, Choice p, Cochoice p) => (c -> Bool) -> p c c
-satisfies f = _Guard f >?$?< token
+satisfies f = _Guard f >?< token
 
 class NonTerminal p where
   recNonTerminal :: String -> (p -> p) -> p
@@ -53,15 +53,15 @@ data NT (s :: [Symbol]) a where
   NT :: FixNT s a => {runNT :: a} -> NT s a
 instance ('[s0] ~ s1, a0 ~ a1, KnownSymbol s0, NonTerminal a1)
   => IsLabel s0 (a0 -> NT s1 a1) where fromLabel = NT
-instance Functor (NT '[]) where
+instance s ~ '[] => Functor (NT s) where
   fmap f (NT a) = NT (f a)
-instance Applicative (NT '[]) where
+instance s ~ '[] => Applicative (NT s) where
   pure = NT
   NT f <*> NT a = NT (f a)
-instance Monad (NT '[]) where
+instance s ~ '[] => Monad (NT s) where
   return = pure
   NT a >>= f = f a
-instance MonadFix (NT '[]) where
+instance s ~ '[] => MonadFix (NT s) where
   mfix f = NT (fix (runNT . f))
 
 class FixNT (s :: [Symbol]) p where
@@ -168,7 +168,7 @@ instance Terminal Char Grammar where
 instance NonTerminal (Grammar a b) where
   recNonTerminal symbol f =
     let Grammar prods prod = f (Grammar [] (ProdNonTerminal symbol))
-    in Grammar (prods ++ [(symbol, prod)]) (ProdNonTerminal symbol)
+    in Grammar (mergeProds prods [(symbol, prod)]) (ProdNonTerminal symbol)
 
 newtype Parser f a b = Parser {runParser :: f b}
   deriving

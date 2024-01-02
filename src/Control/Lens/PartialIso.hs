@@ -5,7 +5,7 @@ module Control.Lens.PartialIso
   , PartialIso, PartialIso', APartialIso, APartialIso'
   , partialIso, withPartialIso, clonePartialIso
   , coPartialIso, crossPartialIso, altPartialIso
-  , (>$?<), (>?$<), (>?$?<)
+  , (>?), (?<), (>?<)
   , _Guard, _Normal, _M2E, iterating
     -- * types
   , PartialExchange (PartialExchange)
@@ -20,7 +20,7 @@ import Witherable
 {- | A `Choice` and `Cochoice` profunctor
 exhibits an action of partial isomorphisms.
 
-prop> i >?$?< p = withPartialIso i $ \f g -> dimapMaybe f g p
+prop> i >?< p = withPartialIso i $ \f g -> dimapMaybe f g p
 
 `dimapMaybe` is the structural morphism for `Choice` and `Cochoice`
 profunctors. It's comparable to the `mapMaybe` method
@@ -228,32 +228,32 @@ altPartialIso x y =
       (either ((Left <$>) . e) ((Right <$>) . g))
       (either ((Left <$>) . f) ((Right <$>) . h)) 
 
-(>$?<)
+(>?)
   :: Choice p
   => APrism s t a b
   -> p a b
   -> p s t
-i >$?< p = withPrism i $ \f g ->
+i >? p = withPrism i $ \f g ->
   dimap g (either id f) (right' p)
-infixr 4 >$?<
+infixr 4 >?
 
-(>?$<)
+(?<)
   :: Cochoice p
   => APrism b a t s
   -> p a b
   -> p s t
-i >?$< p = withPrism i $ \f g ->
+i ?< p = withPrism i $ \f g ->
   unright (dimap (either id f) g p)
-infixr 4 >?$<
+infixr 4 ?<
 
-(>?$?<)
+(>?<)
   :: (Choice p, Cochoice p)
   => APartialIso s t a b
   -> p a b
   -> p s t
-i >?$?< p =
+i >?< p =
   withPartialIso i $ \f g -> dimapMaybe f g p
-infixr 4 >?$?<
+infixr 4 >?<
 
 _Guard :: (a -> Bool) -> PartialIso' a a
 _Guard f = partialIso satiate satiate where

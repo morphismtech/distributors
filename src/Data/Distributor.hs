@@ -212,8 +212,8 @@ any `Stream`, not just lists.
 replicateP
   :: (Monoidal p, Choice p, Cochoice p, Stream s t a b)
   => Int -> p a b -> p s t
-replicateP n _ | n <= 0 = _Null >?$?< oneP
-replicateP n p = _Cons >$?< p >*< replicateP (n-1) p
+replicateP n _ | n <= 0 = _Null >?< oneP
+replicateP n p = _Cons >? p >*< replicateP (n-1) p
 
 {- | `replicateP_` is like to `replicateM_`,
 but with a `Monoidal` constraint.
@@ -309,7 +309,7 @@ apIso i p = withIso i $ \ here there -> dimap here there p
 several1
   :: (Choice p, Distributor p, Stream s t a b)
   => p a b -> p s t
-several1 p = _Cons >$?< severalMore p
+several1 p = _Cons >? severalMore p
 
 interlay
   :: (Distributor p, Stream s t a b)
@@ -387,7 +387,7 @@ inCase
   -> p a b
   -> p s t
   -> p s t
-inCase i p1 p0 = p0 <|> i >?$?< p1
+inCase i p1 p0 = p0 <|> i >?< p1
 
 -- exhaustive abstract pattern matching
 onCase
@@ -396,7 +396,7 @@ onCase
   -> p a b
   -> p c Void
   -> p s t
-onCase p p1 p0 = dialt Right absurd id p0 (p >$?< p1)
+onCase p p1 p0 = dialt Right absurd id p0 (p >? p1)
 
 -- exhaustive abstract pattern matching
 onCocase
@@ -405,7 +405,7 @@ onCocase
   -> p a b
   -> p c Void
   -> p s t
-onCocase p p1 p0 = dialt Right absurd id p0 (p >?$< p1)
+onCocase p p1 p0 = dialt Right absurd id p0 (p ?< p1)
 
 dichainl
   :: forall p s t a b. (Choice p, Cochoice p, Distributor p)
@@ -418,7 +418,7 @@ dichainl i opr arg =
     conjugateFoldI = coPartialIso (difoldl (coPartialIso i))
     sev = several @p @[(a,s)]
   in
-    conjugateFoldI >?$?< arg >*< sev (opr >*< arg)
+    conjugateFoldI >?< arg >*< sev (opr >*< arg)
 
 dichainl'
   :: forall p s a. (Cochoice p, Distributor p)
@@ -430,4 +430,4 @@ dichainl' p opr arg =
   let
     sev = several @p @[(a,s)]
   in
-    difoldl' p >?$< arg >*< sev (opr >*< arg)
+    difoldl' p ?< arg >*< sev (opr >*< arg)
