@@ -1,6 +1,5 @@
 module Text.Distributor.Grammar
-  ( Grammatical (grammar), gGrammar, gReadP, gLint
-  , Terminal (token, token1, tokens), satisfies
+  ( Terminal (token, token1, tokens), satisfies
   , NonTerminal (recNonTerminal), nonTerminal
   , NT (NT, runNT), FixNT (fixNT)
   , Grammar (Grammar), Production (..)
@@ -29,29 +28,18 @@ import Prelude hiding ((.),id)
 import Text.ParserCombinators.ReadP
 import Witherable
 
-class Grammatical c a where
-  grammar :: (Terminal c p, forall x. Alternative (p x), forall x y. NonTerminal (p x y)) => p a a
+class Terminal c p | p -> c where
+  token :: p c c
+  token1 :: c -> p () ()
+  default token1 :: (Eq c, Cochoice p) => c -> p () ()
+  token1 c = only c >?$< token
+  tokens :: SimpleStream s c => s -> p () ()
+  default tokens :: (Monoidal p, SimpleStream s c) => s -> p () ()
+  tokens s = case view _Stream s of
+    Left () -> oneP
+    Right (a,t) -> token1 a >* tokens t
 
-gGrammar :: Grammatical Char a => Grammar a a
-gGrammar = grammar
-
-gReadP :: Grammatical Char a => ReadP a
-gReadP = runParser grammar
-
-gLint :: (Eq c, Grammatical c a, Alternative f, Filterable f, SimpleStream s c) => a -> f s
-gLint = runLinter grammar
-
-class (Eq c, Distributor p, Choice p, Cochoice p)
-  => Terminal c p | p -> c where
-    token :: p c c
-    token1 :: c -> p () ()
-    token1 c = only c >?$< token
-    tokens :: SimpleStream s c => s -> p () ()
-    tokens s = case view _Stream s of
-      Left () -> oneP
-      Right (a,t) -> token1 a >* tokens t
-
-satisfies :: Terminal c p => (c -> Bool) -> p c c
+satisfies :: (Terminal c p, Choice p, Cochoice p) => (c -> Bool) -> p c c
 satisfies f = _Guard f >?$?< token
 
 class NonTerminal p where
