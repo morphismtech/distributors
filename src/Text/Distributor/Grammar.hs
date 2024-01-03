@@ -1,6 +1,7 @@
 module Text.Distributor.Grammar
   ( Grammatical
   , Syntactic (token), satisfies, endOfInput
+  , Textual
   , Terminal (terminal)
   , NonTerminal (recNonTerminal), nonTerminal
   , NT (NT, runNT), FixNT (fixNT)
@@ -59,6 +60,17 @@ endOfInput
      )
   => p () ()
 endOfInput = only (nil @s) ?< several token
+
+class
+  ( Grammatical Char p
+  , Syntactic Char p
+  , forall x y. (x ~ (), y ~ ()) => IsString (p x y)
+  ) => Textual p
+instance
+  ( Grammatical Char p
+  , Syntactic Char p
+  , forall x y. (x ~ (), y ~ ()) => IsString (p x y)
+  ) => Textual p
 
 class Terminal c p | p -> c where
   terminal :: SimpleStream s c => s -> p () ()
