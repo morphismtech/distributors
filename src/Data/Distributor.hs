@@ -420,7 +420,7 @@ onCase
   -> p s t
 onCase p p1 p0 = dialt Right absurd id p0 (p >? p1)
 
--- exhaustive pattern matching
+-- exhaustive copattern matching
 onCocase
   :: (Distributor p, Cochoice p)
   => APrism b a t s
