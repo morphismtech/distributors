@@ -43,7 +43,7 @@ module Data.Distributor
   , atLeast0, moreThan0, atLeast1
   , sep, Separate (by, beginBy, endBy)
     -- * pattern matching
-  , eot, onCase, onCocase, inCase, dichainl, dichainl'
+  , eot, onCase, onCocase, dichainl, dichainl'
   ) where
 
 import Control.Applicative hiding (WrappedArrow(..))
@@ -405,20 +405,11 @@ dialt
   -> p a b -> p c d -> p s t
 dialt f g h p q = dimap f (either g h) (p >+< q)
 
--- positional pattern matching
+-- exhaustive positional pattern matching
 eot
   :: (HasEot a, HasEot b, Profunctor p)
   => p (Eot a) (Eot b) -> p a b
 eot = dimap toEot fromEot
-
--- inexhaustive abstract pattern matching
-inCase
-  :: (forall x. Alternative (p x), Choice p, Cochoice p)
-  => APartialIso s t a b
-  -> p a b
-  -> p s t
-  -> p s t
-inCase i p1 p0 = p0 <|> i >?< p1
 
 -- exhaustive abstract pattern matching
 onCase
