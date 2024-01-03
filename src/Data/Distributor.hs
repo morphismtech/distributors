@@ -405,13 +405,13 @@ dialt
   -> p a b -> p c d -> p s t
 dialt f g h p q = dimap f (either g h) (p >+< q)
 
--- exhaustive positional pattern matching
+-- positional pattern matching
 eot
   :: (HasEot a, HasEot b, Profunctor p)
   => p (Eot a) (Eot b) -> p a b
 eot = dimap toEot fromEot
 
--- exhaustive abstract pattern matching
+-- exhaustive pattern matching
 onCase
   :: (Distributor p, Choice p)
   => APrism s t a b
@@ -420,7 +420,7 @@ onCase
   -> p s t
 onCase p p1 p0 = dialt Right absurd id p0 (p >? p1)
 
--- exhaustive abstract pattern matching
+-- exhaustive pattern matching
 onCocase
   :: (Distributor p, Cochoice p)
   => APrism b a t s
