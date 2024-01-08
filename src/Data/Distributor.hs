@@ -1,6 +1,6 @@
 {-|
 Module      : Data.Distributor
-Description : monoidal and distributive distributors
+Description : monoidal and distributive profunctors
 Copyright   : (c) Eitan Chatav, 2023
 License     : LICENSE
 Maintainer  : eitan.chatav@gmail.com
@@ -44,7 +44,7 @@ module Data.Distributor
   , sep, Separate (by, beginBy, endBy)
     -- * pattern matching
   , eot, onCase, onCocase
-  , dichainl, dichainl', dichainr', dichainr
+  , dichainl, dichainr, dichainl', dichainr'
   ) where
 
 import Control.Applicative hiding (WrappedArrow(..))
