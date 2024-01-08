@@ -43,7 +43,8 @@ module Data.Distributor
   , atLeast0, moreThan0, atLeast1
   , sep, Separate (by, beginBy, endBy)
     -- * pattern matching
-  , eot, onCase, onCocase, dichainl, dichainl'
+  , eot, onCase, onCocase
+  , dichainl, dichainl', dichainr', dichainr
   ) where
 
 import Control.Applicative hiding (WrappedArrow(..))
@@ -317,9 +318,7 @@ atLeast0
   :: (Distributor p, Stream s t a b)
   => p a b -> Separate p -> p s t
 atLeast0 p (Separate separator beg end) =
-  beg >*
-  apIso _Stream (oneP >+< p `sepBy` separator)
-  *< end
+  beg >* apIso _Stream (oneP >+< p `sepBy` separator) *< end
 
 moreThan0
   :: (Distributor p, Stream s t a b)
@@ -330,8 +329,8 @@ moreThan0 p (Separate separator beg end) =
 atLeast1
   :: (Distributor p, Choice p, Stream s t a b)
   => p a b -> Separate p -> p s t
-atLeast1 p (Separate separator open close) =
-  open >* _Cons >? p `sepBy` separator *< close
+atLeast1 p (Separate separator beg end) =
+  beg >* _Cons >? p `sepBy` separator *< end
 
 sepBy
   :: (Distributor p, Stream s t a b)
@@ -437,10 +436,10 @@ dichainl
   -> p s t
 dichainl i opr arg =
   let
-    conjugateFoldI = coPartialIso (difoldl (coPartialIso i))
+    conj = coPartialIso . difoldl . coPartialIso
     sev = several @p @[(a,s)]
   in
-    conjugateFoldI >?< arg >*< sev (opr >*< arg)
+    conj i >?< arg >*< sev (opr >*< arg)
 
 dichainl'
   :: forall p s a. (Cochoice p, Distributor p)
@@ -453,3 +452,28 @@ dichainl' p opr arg =
     sev = several @p @[(a,s)]
   in
     difoldl' p ?< arg >*< sev (opr >*< arg)
+
+dichainr
+  :: forall p s t a b. (Choice p, Cochoice p, Distributor p)
+  => APartialIso s t ((a,s),s) ((b,t),t)
+  -> p a b
+  -> p s t
+  -> p s t
+dichainr i opr arg =
+  let
+    conj = coPartialIso . difoldr . coPartialIso
+    sev = several @p @[(a,s)]
+  in
+    conj i >?< sev (opr >*< arg) >*< arg
+
+dichainr'
+  :: forall p s a. (Cochoice p, Distributor p)
+  => APrism' ((a,s),s) s
+  -> p a a
+  -> p s s
+  -> p s s
+dichainr' p opr arg =
+  let
+    sev = several @p @[(a,s)]
+  in
+    difoldr' p ?< sev (opr >*< arg) >*< arg 
