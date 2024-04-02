@@ -240,7 +240,7 @@ altPartialIso x y =
   -> p a b
   -> p s t
 i >? p = withPrism i $ \f g -> dimap g (either id f) (right' p)
-infixr 4 >?
+infixr 2 >?
 
 (?<)
   :: Cochoice p
@@ -248,7 +248,7 @@ infixr 4 >?
   -> p a b
   -> p s t
 i ?< p = withPrism i $ \f g -> unright (dimap (either id f) g p)
-infixr 4 ?<
+infixr 2 ?<
 
 (>?<)
   :: (Choice p, Cochoice p)
@@ -256,7 +256,7 @@ infixr 4 ?<
   -> p a b
   -> p s t
 i >?< p = withPartialIso i $ \f g -> dimapMaybe f g p
-infixr 4 >?<
+infixr 2 >?<
 
 _Guard :: (a -> Bool) -> PartialIso' a a
 _Guard f = partialIso satiate satiate where

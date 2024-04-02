@@ -7,19 +7,57 @@ module Control.Lens.Stream
   ) where
 
 import Data.Profunctor
+import           Control.Applicative (ZipList(..))
 import Control.Lens
 import Control.Lens.PartialIso
+
+import qualified Data.ByteString      as StrictB
+import qualified Data.ByteString.Lazy as LazyB
+import qualified Data.Sequence as Seq
+import           Data.Sequence (Seq)
+import qualified Data.Text      as StrictT
+import qualified Data.Text.Lazy as LazyT
+import           Data.Vector (Vector)
+import qualified Data.Vector as Vector
+import           Data.Vector.Storable (Storable)
+import qualified Data.Vector.Storable as Storable
+import           Data.Vector.Primitive (Prim)
+import qualified Data.Vector.Primitive as Prim
+import           Data.Vector.Unboxed (Unbox)
+import qualified Data.Vector.Unboxed as Unbox
+import           Data.Word
 
 class Nil s a | s -> a where
   _Nil :: Prism' s ()
 instance Nil (Maybe a) a where
   _Nil = _Nothing
-instance Nil [a] a where
-  _Nil = prism (pure []) $ \case
-    [] -> Right ()
-    x -> Left x
 instance Nil (Either () a) a where
   _Nil = _Left
+emptyPrism :: (t -> Bool) -> t -> Prism' t ()
+emptyPrism null' empty' = prism (pure empty') $ \x ->
+  if null' x then Right () else Left x
+instance Nil [a] a where
+  _Nil = emptyPrism null []
+instance Nil (ZipList a) a where
+  _Nil = iso getZipList ZipList . _Nil
+instance Nil (Seq a) a where
+  _Nil = emptyPrism Seq.null Seq.empty
+instance Nil StrictB.ByteString Word8 where
+  _Nil = emptyPrism StrictB.null StrictB.empty
+instance Nil LazyB.ByteString Word8 where
+  _Nil = emptyPrism LazyB.null LazyB.empty
+instance Nil StrictT.Text Char where
+  _Nil = emptyPrism StrictT.null StrictT.empty
+instance Nil LazyT.Text Char where
+  _Nil = emptyPrism LazyT.null LazyT.empty
+instance Nil (Vector a) a where
+  _Nil = emptyPrism Vector.null Vector.empty
+instance Prim a => Nil (Prim.Vector a) a where
+  _Nil = emptyPrism Prim.null Prim.empty
+instance Storable a => Nil (Storable.Vector a) a where
+  _Nil = emptyPrism Storable.null Storable.empty
+instance Unbox a => Nil (Unbox.Vector a) a where
+  _Nil = emptyPrism Unbox.null Unbox.empty
 
 nil :: Nil s a => s
 nil = review _Nil ()
@@ -39,12 +77,6 @@ instance Null (Maybe a) (Maybe b) a b where
   _NotNull = partialIso nonemp nonemp where
     nonemp Nothing = Nothing
     nonemp (Just x) = Just (Just x)
-instance Null [a] [b] a b where
-  _Null = partialIso
-    (\l -> if null l then Just () else Nothing)
-    (pure (Just []))
-  _NotNull = partialIso nonemp nonemp where
-    nonemp l = if not (null l) then Just l else Nothing
 instance Null (Either () a) (Either () b) a b where
   _Null = partialIso
     (either Just (pure Nothing))
@@ -52,6 +84,47 @@ instance Null (Either () a) (Either () b) a b where
   _NotNull = partialIso nonemp nonemp where
     nonemp (Left ()) = Nothing
     nonemp (Right x) = Just (Right x)
+emptyIso :: (s -> Bool) -> t -> PartialIso s t () ()
+emptyIso null' empty' = partialIso
+  (\l -> if null' l then Just () else Nothing)
+  (pure (Just empty'))
+neIso :: (s -> Bool) -> (t -> Bool) -> PartialIso s t s t
+neIso null0 null1 = partialIso (ne null0) (ne null1)
+  where
+    ne null' l = if not (null' l) then Just l else Nothing
+instance Null [a] [b] a b where
+  _Null = emptyIso null []
+  _NotNull = neIso null null
+instance Null (ZipList a) (ZipList b) a b where
+  _Null = iso getZipList ZipList . _Null
+  _NotNull = iso getZipList ZipList . _NotNull . iso ZipList getZipList
+instance Null (Seq a) (Seq b) a b where
+  _Null = emptyIso Seq.null Seq.empty
+  _NotNull = neIso Seq.null Seq.null
+instance Null StrictB.ByteString StrictB.ByteString Word8 Word8 where
+  _Null = emptyIso StrictB.null StrictB.empty
+  _NotNull = neIso StrictB.null StrictB.null
+instance Null LazyB.ByteString LazyB.ByteString Word8 Word8 where
+  _Null = emptyIso LazyB.null LazyB.empty
+  _NotNull = neIso LazyB.null LazyB.null
+instance Null StrictT.Text StrictT.Text Char Char where
+  _Null = emptyIso StrictT.null StrictT.empty
+  _NotNull = neIso StrictT.null StrictT.null
+instance Null LazyT.Text LazyT.Text Char Char where
+  _Null = emptyIso LazyT.null LazyT.empty
+  _NotNull = neIso LazyT.null LazyT.null
+instance Null (Vector a) (Vector b) a b where
+  _Null = emptyIso Vector.null Vector.empty
+  _NotNull = neIso Vector.null Vector.null
+instance (Prim a, Prim b) => Null (Prim.Vector a) (Prim.Vector b) a b where
+  _Null = emptyIso Prim.null Prim.empty
+  _NotNull = neIso Prim.null Prim.null
+instance (Storable a, Storable b) => Null (Storable.Vector a) (Storable.Vector b) a b where
+  _Null = emptyIso Storable.null Storable.empty
+  _NotNull = neIso Storable.null Storable.null
+instance (Unbox a, Unbox b) => Null (Unbox.Vector a) (Unbox.Vector b) a b where
+  _Null = emptyIso Unbox.null Unbox.empty
+  _NotNull = neIso Unbox.null Unbox.null
 
 class (Monoid s, Nil s a, Cons s s a a) => SimpleStream s a where
   _All :: (a -> Bool) -> PartialIso' s s
@@ -100,7 +173,7 @@ instance Stream [a] [b] a b where
   _SplitAt n
     = _LengthIs (>= n)
     . iso (splitAt n) (uncurry (<>))
-    . crossPartialIso (_LengthIs (== (max 0 n))) id
+    . crossPartialIso (_LengthIs (== max 0 n)) id
 
 _HeadTail
   :: Stream s t a b

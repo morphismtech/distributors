@@ -29,14 +29,14 @@ as well as `Choice` and `Cochoice` profunctors which relate to
 
 Examples of `Distributor`s will include printers and parsers,
 and it will be demonstrated how to write a single term for both.
-The results here are a profunctorial iterpretation of
+The results here are a profunctorial interpretation of
 [Invertible Syntax Descriptions]
 (https://www.mathematik.uni-marburg.de/~rendel/rendel10invertible.pdf)
 -}
 module Data.Distributor
   ( -- * lax monoidal profunctors
-    Monoidal (oneP, (>*<)) , dimap2, (>*), (*<)
-  , pureP, apP, liftA2P, replicateP, replicateP_, foreverP
+    Monoidal (oneP, (>*<)) , dimap2, (>*), (*<), (>:<)
+  , pureP, apP, liftA2P, replicateP, replicateP', replicateP_, foreverP
     -- * lax distributive profunctors
   , Distributor (zeroP, (>+<), several, severalMore, possibly)
   , dialt, several1
@@ -202,11 +202,14 @@ apP = liftA2P ($)
 
 (>*) :: Monoidal p => p () c -> p a b -> p a b
 (>*) = dimap2 (const ()) id (\_ b -> b)
-infixr 1 >*
+infixr 5 >*
 
 (*<) :: Monoidal p => p a b -> p () c -> p a b
 (*<) = dimap2 id (const ()) (\b _ -> b)
-infixr 1 *<
+infixr 5 *<
+
+(>:<) :: (Cons s t a b, Monoidal p, Choice p) => p a b -> p s t -> p s t
+ab >:< st = _Cons >? ab >*< st
 
 {- | `replicateP` is analagous to `replicateM`,
 but slightly more general since it will output in
@@ -216,7 +219,13 @@ replicateP
   :: (Monoidal p, Choice p, Cochoice p, Stream s t a b)
   => Int -> p a b -> p s t
 replicateP n _ | n <= 0 = _Null >?< oneP
-replicateP n p = _Cons >? p >*< replicateP (n-1) p
+replicateP n p = p >:< replicateP (n-1) p
+
+replicateP'
+  :: (Monoidal p, Choice p, SimpleStream s a)
+  => Int -> p a a -> p s s
+replicateP' n _ | n <= 0 = _Nil >? oneP
+replicateP' n p = p >:< replicateP' (n-1) p
 
 {- | `replicateP_` is like to `replicateM_`,
 but with a `Monoidal` constraint.
@@ -286,18 +295,20 @@ class Monoidal p => Distributor p where
     :: (Choice p, Cochoice p, forall x. Alternative (p x))
     => p a b -> p c d -> p (Either a c) (Either b d)
   p >+< q = alternate (Left p) <|> alternate (Right q)
-  infixr 3 >+<
+  infixr 1 >+<
 
   {- |
   `several` is the Kleene star operator, of zero or more times.
   -}
-  several :: Stream s t a b => p a b -> p s t
+  several :: (SimpleStream s a, SimpleStream t b) => p a b -> p s t
   several p = apIso _Stream $ oneP >+< severalMore p
 
   {- |
   `severalMore` is the Kleene plus operator, of one or more times.
   -}
-  severalMore :: Stream s t a b => p a b -> p (a,s) (b,t)
+  severalMore
+    :: (SimpleStream s a, SimpleStream t b)
+    => p a b -> p (a,s) (b,t)
   severalMore p = p >*< several p
 
   {- |
@@ -329,8 +340,7 @@ moreThan0 p (Separate separator beg end) =
 atLeast1
   :: (Distributor p, Choice p, Stream s t a b)
   => p a b -> Separate p -> p s t
-atLeast1 p (Separate separator beg end) =
-  beg >* _Cons >? p `sepBy` separator *< end
+atLeast1 p s = _Cons >? moreThan0 p s
 
 sepBy
   :: (Distributor p, Stream s t a b)
@@ -429,51 +439,51 @@ onCocase
 onCocase p p1 p0 = dialt Right absurd id p0 (p ?< p1)
 
 dichainl
-  :: forall p s t a b. (Choice p, Cochoice p, Distributor p)
-  => APartialIso s t (s,(a,s)) (t,(b,t))
+  :: forall p a b. (Choice p, Cochoice p, Distributor p)
+  => APartialIso a b (a,a) (b,b)
+  -> p () ()
   -> p a b
-  -> p s t
-  -> p s t
+  -> p a b
 dichainl i opr arg =
   let
     conj = coPartialIso . difoldl . coPartialIso
-    sev = several @p @[(a,s)]
+    sev = several @p @[a]
   in
-    conj i >?< arg >*< sev (opr >*< arg)
+    conj i >?< arg >*< sev (opr >* arg)
 
 dichainl'
-  :: forall p s a. (Cochoice p, Distributor p)
-  => APrism' (s,(a,s)) s
+  :: forall p a. (Cochoice p, Distributor p)
+  => APrism' (a,a) a
+  -> p () ()
   -> p a a
-  -> p s s
-  -> p s s
+  -> p a a
 dichainl' p opr arg =
   let
-    sev = several @p @[(a,s)]
+    sev = several @p @[a]
   in
-    difoldl' p ?< arg >*< sev (opr >*< arg)
+    difoldl' p ?< arg >*< sev (opr >* arg)
 
 dichainr
-  :: forall p s t a b. (Choice p, Cochoice p, Distributor p)
-  => APartialIso s t ((a,s),s) ((b,t),t)
+  :: forall p a b. (Choice p, Cochoice p, Distributor p)
+  => APartialIso a b (a,a) (b,b)
+  -> p () ()
   -> p a b
-  -> p s t
-  -> p s t
+  -> p a b
 dichainr i opr arg =
   let
     conj = coPartialIso . difoldr . coPartialIso
-    sev = several @p @[(a,s)]
+    sev = several @p @[a]
   in
-    conj i >?< sev (opr >*< arg) >*< arg
+    conj i >?< sev (opr >* arg) >*< arg
 
 dichainr'
-  :: forall p s a. (Cochoice p, Distributor p)
-  => APrism' ((a,s),s) s
+  :: forall p a. (Cochoice p, Distributor p)
+  => APrism' (a,a) a
+  -> p () ()
   -> p a a
-  -> p s s
-  -> p s s
+  -> p a a
 dichainr' p opr arg =
   let
-    sev = several @p @[(a,s)]
+    sev = several @p @[a]
   in
-    difoldr' p ?< sev (opr >*< arg) >*< arg 
+    difoldr' p ?< sev (opr >* arg) >*< arg 

@@ -1,162 +1,115 @@
 module Text.Distributor.Grammar
-  ( Grammatical
-  , Syntactic (token), satisfies, endOfInput
-  , Textual
-  , Terminal (terminal)
-  , NonTerminal (recNonTerminal), nonTerminal
-  , NT (NT, runNT), FixNT (fixNT)
-  , Grammar (Grammar), Production (..)
+  ( Grammatical (token, terminal, recNonTerminal, nonTerminal)
+  , fromList, satisfies, tokenStream, endOfStream
+  , Grammar (Grammar, grammarRules, grammarStart)
+  , Production (..), production
   , Parser (Parser, runParser)
-  , Printer (Printer, runPrinter)
+  -- , Printer (Printer, runPrinter)
   , Linter (Linter, runLinter)
+  , Expr (..)
+  , expr
   ) where
 
-import Control.Applicative
-import Control.Category
+import Control.Applicative ( Alternative(..) )
 import Control.Lens
-import Control.Lens.PartialIso
+    ( Choice(..),
+      Profunctor(dimap, rmap),
+      cons,
+      view,
+      makePrisms,
+      only )
+import Control.Lens.PartialIso ( (>?<), (>?), (?<), _Guard, mapMaybeP )
 import Control.Lens.Stream
-import Control.Monad
-import Control.Monad.Fix
-import Data.Bifunctor.Joker
-import Data.Coerce
-import Data.Function hiding ((.))
+    ( SimpleStream, nil, _HeadTailMay, _ConvertStream )
+import Control.Monad ( MonadPlus(mzero) )
+import Data.Bifunctor.Joker ( Joker(Joker) )
+import Data.Char ( isDigit )
+import Data.Coerce ( coerce )
+import Data.Function (fix)
 import Data.List (nub)
 import Data.Distributor
-import Data.Profunctor
-import Data.String
-import GHC.Exts
-import GHC.OverloadedLabels
-import GHC.TypeLits
-import Prelude hiding ((.),id)
-import Text.ParserCombinators.ReadP
-import Witherable
+    ( Distributor(..),
+      Monoidal(..),
+      pureP,
+      apP,
+      (>*),
+      (*<),
+      several1,
+      dichainl )
+import Data.Profunctor ( Cochoice(..) )
+import Data.String ( IsString(..) )
+import Text.ParserCombinators.ReadP ( ReadP, get )
+import Witherable ( Filterable(catMaybes, mapMaybe) )
 
 class
-  ( Distributor p
-  , Terminal c p
-  , forall x y. NonTerminal (p x y)
-  ) => Grammatical c p where
-instance
-  ( Distributor p
-  , Terminal c p
-  , forall x y. NonTerminal (p x y)
-  ) => Grammatical c p
+  ( Eq c
+  , Distributor p
+  , Cochoice p
+  , Choice p
+  , forall a. Alternative (p a)
+  ) => Grammatical c p | p -> c where
+    token :: p c c
+    terminal :: SimpleStream t c => t -> p () ()
+    terminal str = case view _HeadTailMay str of
+      Nothing -> oneP
+      Just (c,t) -> (only c ?< token) >* terminal t
+    recNonTerminal :: String -> (p a b -> p a b) -> p a b
+    recNonTerminal _ = fix
+    nonTerminal :: String -> p a b -> p a b
+    nonTerminal s p = recNonTerminal s (\_ -> p)
 
-class Syntactic c p | p -> c where token :: p c c
+fromList :: Grammatical c p => [c] -> p () ()
+fromList = terminal
 
-satisfies
-  :: (Syntactic c p, Choice p, Cochoice p)
-  => (c -> Bool) -> p c c
+satisfies :: Grammatical c p => (c -> Bool) -> p c c
 satisfies f = _Guard f >?< token
 
-endOfInput
-  :: forall s c p.
-     ( Cochoice p
-     , Distributor p
-     , Eq s
-     , Stream s s c c
-     , Syntactic c p
-     )
-  => p () ()
-endOfInput = only (nil @s) ?< several token
+tokenStream :: (Grammatical c p, SimpleStream t c) => p t t
+tokenStream = several token
 
-class
-  ( Grammatical Char p
-  , Syntactic Char p
-  , forall x y. (x ~ (), y ~ ()) => IsString (p x y)
-  ) => Textual p
-instance
-  ( Grammatical Char p
-  , Syntactic Char p
-  , forall x y. (x ~ (), y ~ ()) => IsString (p x y)
-  ) => Textual p
-
-class Terminal c p | p -> c where
-  terminal :: SimpleStream s c => s -> p () ()
-  default terminal
-    :: ( Syntactic c p
-       , Monoidal p
-       , Cochoice p
-       , Eq c
-       , SimpleStream s c
-       )
-    => s -> p () ()
-  terminal stream = case view _HeadTailMay stream of
-    Nothing -> oneP
-    Just (chr, str) -> only chr ?< token >* terminal str
-
-class NonTerminal p where
-  recNonTerminal :: String -> (p -> p) -> p
-  recNonTerminal _ = fix
-
-nonTerminal :: NonTerminal p => String -> p -> p
-nonTerminal symbol p = recNonTerminal symbol (const p)
-
-data NT (s :: [Symbol]) a where
-  NT :: FixNT s a => {runNT :: a} -> NT s a
-instance ('[s0] ~ s1, a0 ~ a1, KnownSymbol s0, NonTerminal a1)
-  => IsLabel s0 (a0 -> NT s1 a1) where fromLabel = NT
-instance s ~ '[] => Functor (NT s) where
-  fmap f (NT a) = NT (f a)
-instance s ~ '[] => Applicative (NT s) where
-  pure = NT
-  NT f <*> NT a = NT (f a)
-instance s ~ '[] => Monad (NT s) where
-  return = pure
-  NT a >>= f = f a
-instance s ~ '[] => MonadFix (NT s) where
-  mfix f = NT (fix (runNT . f))
-
-class FixNT (s :: [Symbol]) p where
-  fixNT :: (p -> p) -> p
-instance FixNT '[] p where
-  fixNT = fix
-instance
-  ( KnownSymbol s, NonTerminal p
-  ) => FixNT '[s] p where
-    fixNT = recNonTerminal (symbolVal' @s proxy#)
-instance
-  ( KnownSymbol s0, NonTerminal p0
-  , KnownSymbol s1, NonTerminal p1
-  ) => FixNT '[s0,s1] (p0,p1) where
-    fixNT f =
-      let
-        ~(p0,p1) =
-            ( fixNT @'[s0] @p0 (\q -> view _1 (f (q,p1)))
-            , fixNT @'[s1] @p1 (\q -> view _2 (f (p0,q)))
-            )
-      in (p0,p1)
-instance
-  ( KnownSymbol s0, NonTerminal p0
-  , KnownSymbol s1, NonTerminal p1
-  , KnownSymbol s2, NonTerminal p2
-  ) => FixNT '[s0,s1,s2] (p0,p1,p2) where
-    fixNT f =
-      let
-        ~(p0,p1,p2) =
-            ( fixNT @'[s0] @p0 (\q -> view _1 (f (q,p1,p2)))
-            , fixNT @'[s1] @p1 (\q -> view _2 (f (p0,q,p2)))
-            , fixNT @'[s2] @p2 (\q -> view _3 (f (p0,p1,q)))
-            )
-      in (p0,p1,p2)
+endOfStream :: Grammatical c p => p () ()
+endOfStream = only [] ?< tokenStream
 
 data Production c
   = ProdToken
   | ProdTerminal [c]
   | ProdNonTerminal String
-  | ProdZero
-  | ProdTimes (Production c) (Production c)
-  | ProdPlus (Production c) (Production c)
+  | ProdEmpty
+  | ProdSeq (Production c) (Production c)
+  | ProdOr (Production c) (Production c)
   | ProdSev (Production c)
   | ProdSev1 (Production c)
   | ProdPoss (Production c)
-  | ProdCase (Production c)
-  | ProdCocase (Production c)
   deriving (Eq, Ord, Read, Show)
+makePrisms ''Production
 
-data Grammar c a b = Grammar [(String, Production c)] (Production c)
-  deriving (Eq, Ord, Read, Show)
+production :: Grammatical Char p => p (Production Char) (Production Char)
+production = recNonTerminal "production" $ \prod ->
+  prodToken
+  <|> prodTerminal
+  <|> prodEmpty
+  <|> prodSeq prod
+  <|> prodOr prod
+  <|> prodSev prod
+  <|> prodSev1 prod
+  <|> prodPoss prod
+  where
+    prodToken = nonTerminal "token" $ _ProdToken >? fromList "[token]"
+    prodTerminal = nonTerminal "terminal" $ _ProdTerminal >? quote >* several notQuote *< quote
+    prodEmpty = nonTerminal "empty" $ _ProdEmpty >? empty
+    prodSeq prod = nonTerminal "seq" $ _ProdSeq >? prod *< fromList " " >*< prod
+    prodOr prod = nonTerminal "or" $ _ProdOr >? prod *< fromList " | " >*< prod
+    prodSev prod = nonTerminal "*" $ _ProdSev >? parens prod *< fromList "*"
+    prodSev1 prod = nonTerminal "+" $ _ProdSev1 >? parens prod *< fromList "+"
+    prodPoss prod = nonTerminal "?" $ _ProdSev >? parens prod *< fromList "?"
+    quote = fromList "\'"
+    notQuote = satisfies (/= '\'')
+    parens x = fromList "(" >* x *< fromList ")*"
+
+data Grammar c a b = Grammar
+  { grammarRules :: [(String, Production c)]
+  , grammarStart :: Production c
+  } deriving (Eq, Ord, Read, Show)
 type Prods c = [(String, Production c)]
 mergeProds :: Eq c => Prods c -> Prods c -> Prods c
 mergeProds x y = nub (x ++ y)
@@ -168,51 +121,52 @@ instance Eq c => Applicative (Grammar c a) where
 instance Filterable (Grammar c a) where
   mapMaybe = mapMaybeP
 instance Eq c => Alternative (Grammar c a) where
-  empty = Grammar [] ProdZero
-  Grammar prods1 ProdZero <|> Grammar prods2 prod =
-    Grammar (mergeProds prods1 prods2) prod
-  Grammar prods1 prod <|> Grammar prods2 ProdZero =
-    Grammar (mergeProds prods1 prods2) prod
-  Grammar prods1 prod1 <|> Grammar prods2 prod2 =
-    Grammar (mergeProds prods1 prods2) (ProdPlus prod1 prod2)
-  many (Grammar prods prod) = Grammar prods (ProdSev prod)
-  some (Grammar prods prod) = Grammar prods (ProdSev1 prod)
+  empty = Grammar [] ProdEmpty
+
+  Grammar rules0 ProdEmpty <|> Grammar rules1 s1 =
+    Grammar (mergeProds rules0 rules1) s1
+  Grammar rules0 s0 <|> Grammar rules1 ProdEmpty =
+    Grammar (mergeProds rules0 rules1) s0
+  Grammar rules0 s0 <|> Grammar rules1 s1 =
+    Grammar (mergeProds rules0 rules1) (ProdOr s0 s1)
+
+  many (Grammar rules s) = Grammar rules (ProdSev s)
+  some (Grammar rules s) = Grammar rules (ProdSev1 s)
 instance Profunctor (Grammar c) where
   dimap _ _ = coerce
 instance Eq c => Monoidal (Grammar c) where
   oneP = Grammar [] (ProdTerminal [])
-  Grammar prods1 (ProdTerminal []) >*< Grammar prods2 prod =
-    Grammar (mergeProds prods1 prods2) prod
-  Grammar prods1 prod >*< Grammar prods2 (ProdTerminal []) =
-    Grammar (mergeProds prods1 prods2) prod
-  Grammar prods1 prod1 >*< Grammar prods2 prod2 =
-    Grammar (mergeProds prods1 prods2) (ProdTimes prod1 prod2)
+
+  Grammar rules0 (ProdTerminal []) >*< Grammar rules1 s1 =
+    Grammar (mergeProds rules0 rules1) s1
+  Grammar rules0 s0 >*< Grammar rules1 (ProdTerminal []) =
+    Grammar (mergeProds rules0 rules1) s0
+  Grammar rules0 s0 >*< Grammar rules1 s1 =
+    Grammar (mergeProds rules0 rules1) (ProdSeq s0 s1)
 instance Eq c => Distributor (Grammar c) where
-  zeroP = Grammar [] ProdZero
-  Grammar prods1 ProdZero >+< Grammar prods2 prod =
-    Grammar (mergeProds prods1 prods2) prod
-  Grammar prods1 prod >+< Grammar prods2 ProdZero =
-    Grammar (mergeProds prods1 prods2) prod
-  Grammar prods1 prod1 >+< Grammar prods2 prod2 =
-    Grammar (mergeProds prods1 prods2) (ProdPlus prod1 prod2)
-  several (Grammar prods prod) = Grammar prods (ProdSev prod)
-  severalMore (Grammar prods prod) = Grammar prods (ProdSev1 prod)
-  possibly (Grammar prods prod) = Grammar prods (ProdPoss prod)
+  zeroP = Grammar [] ProdEmpty
+  Grammar rules0 ProdEmpty >+< Grammar rules1 s1 =
+    Grammar (mergeProds rules0 rules1) s1
+  Grammar rules0 s0 >+< Grammar rules1 ProdEmpty =
+    Grammar (mergeProds rules0 rules1) s0
+  Grammar rules0 s0 >+< Grammar rules1 s1 =
+    Grammar (mergeProds rules0 rules1) (ProdOr s0 s1)
+  several (Grammar rules s) = Grammar rules (ProdSev s)
+  severalMore (Grammar rules s) = Grammar rules (ProdSev1 s)
+  possibly (Grammar rules s) = Grammar rules (ProdPoss s)
 instance Choice (Grammar c) where
-  left' (Grammar prods prod) = Grammar prods (ProdCase prod)
-  right' (Grammar prods prod) = Grammar prods (ProdCase prod)
+  left' = coerce
+  right' = coerce
 instance Cochoice (Grammar c) where
-  unleft (Grammar prods prod) = Grammar prods (ProdCocase prod)
-  unright (Grammar prods prod) = Grammar prods (ProdCocase prod)
-instance Syntactic c (Grammar c) where
+  unleft = coerce
+  unright = coerce
+instance Eq c => Grammatical c (Grammar c) where
   token = Grammar [] ProdToken
-instance Terminal c (Grammar c) where
-  terminal str = Grammar [] (ProdTerminal (convertStream str))
-instance Eq c => NonTerminal (Grammar c a b) where
-  recNonTerminal symbol f =
-    let Grammar prods prod = f (Grammar [] (ProdNonTerminal symbol))
-    in Grammar (mergeProds prods [(symbol, prod)]) (ProdNonTerminal symbol)
-instance IsString (Grammar Char () ()) where
+  terminal t = Grammar [] (ProdTerminal (view _ConvertStream t))
+  recNonTerminal name rule =
+    let Grammar rules s = rule (Grammar [] (ProdNonTerminal name))
+    in Grammar (rules ++ [(name, s)]) (ProdNonTerminal name)
+instance (x ~ (), y ~ ()) => IsString (Grammar Char x y) where
   fromString = terminal
 
 newtype Parser f a b = Parser {runParser :: f b}
@@ -237,66 +191,83 @@ instance MonadPlus f => Cochoice (Parser f) where
     Parser (either return (const mzero) =<< f)
   unright (Parser f) =
     Parser (either (const mzero) return =<< f)
-instance Syntactic Char (Parser ReadP) where
+instance Grammatical Char (Parser ReadP) where
   token = Parser get
-instance Terminal Char (Parser ReadP)
-instance NonTerminal (Parser ReadP a b)
-instance IsString (Parser ReadP () ()) where
+instance (x ~ (), y ~ ()) => IsString (Parser ReadP x y) where
   fromString = terminal
 
-newtype Printer s a b = Printer {runPrinter :: a -> s}
-  deriving
-    ( Profunctor
-    , Cochoice
-    , Monoidal
-    , Distributor
-    ) via Forget s
-  deriving
-    ( Functor
-    ) via Forget s a
-instance Monoid s => Applicative (Printer s a) where
-  pure = pureP
-  (<*>) = apP
-instance Filterable (Printer s a) where
-  mapMaybe _ (Printer x) = Printer x
-instance (SimpleStream s c)
-  => Syntactic c (Printer s) where
-    token = Printer (`cons` nil)
-instance (Eq c, SimpleStream s c) => Terminal c (Printer s)
-instance NonTerminal (Printer s a b)
-instance SimpleStream s Char
-  => IsString (Printer s () ()) where
-    fromString = terminal
+-- newtype Printer t a b = Printer {runPrinter :: a -> t}
+--   deriving
+--     ( Profunctor
+--     , Cochoice
+--     , Monoidal
+--     , Distributor
+--     ) via Forget t
+--   deriving
+--     ( Functor
+--     ) via Forget t a
+-- instance Monoid t => Applicative (Printer t a) where
+--   pure = pureP
+--   (<*>) = apP
+-- instance Filterable (Printer t a) where
+--   mapMaybe _ (Printer x) = Printer x
+-- instance (Eq c, SimpleStream t c) => Grammatical c (Printer t) where
+--   token = Printer (`cons` nil)
+-- instance (x ~ (), y ~ (), SimpleStream t Char)
+--   => IsString (Printer t x y) where
+--     fromString = terminal
 
-newtype Linter f s a b = Linter {runLinter :: a -> f s}
-instance Functor (Linter f s a) where
+newtype Linter f t a b = Linter {runLinter :: a -> f t}
+instance Functor (Linter f t a) where
   fmap _ (Linter f) = Linter f
-instance Profunctor (Linter f s) where
+instance Profunctor (Linter f t) where
   dimap g _ (Linter linter) = Linter (linter . g)
-instance (Applicative f, Monoid s) => Applicative (Linter f s a) where
+instance (Applicative f, Monoid t) => Applicative (Linter f t a) where
   pure _ = Linter (\_ -> pure mempty)
   Linter l <*> Linter r = Linter $ \a -> liftA2 (<>) (l a) (r a)
-instance (Alternative f, Monoid s) => Alternative (Linter f s a) where
+instance (Alternative f, Monoid t) => Alternative (Linter f t a) where
   empty = Linter (\_ -> empty)
   Linter l <|> Linter r = Linter $ \a -> l a <|> r a
-instance (Applicative f, Filterable f) => Filterable (Linter f s a) where
+instance (Applicative f, Filterable f) => Filterable (Linter f t a) where
   mapMaybe = mapMaybeP
-instance (Applicative f, Monoid s) => Monoidal (Linter f s)
-instance Cochoice (Linter f s) where
+instance (Applicative f, Monoid t) => Monoidal (Linter f t)
+instance Cochoice (Linter f t) where
   unleft (Linter linter) = Linter $ linter . Left
   unright (Linter linter) = Linter $ linter . Right
-instance (Applicative f, Filterable f) => Choice (Linter f s) where
+instance (Applicative f, Filterable f) => Choice (Linter f t) where
   left' (Linter linter) = Linter $
     either linter (\_ -> catMaybes (pure Nothing))
   right' (Linter linter) = Linter $
     either (\_ -> catMaybes (pure Nothing)) linter
-instance (Alternative f, Filterable f, Monoid s) => Distributor (Linter f s)
-instance (Alternative f, SimpleStream s c)
-  => Syntactic c (Linter f s) where
+instance (Alternative f, Filterable f, Monoid t) => Distributor (Linter f t)
+instance (Alternative f, Filterable f, Eq c, SimpleStream t c)
+  => Grammatical c (Linter f t) where
     token = Linter (pure . (`cons` nil))
-instance (Alternative f, Filterable f, Eq c, SimpleStream s c)
-  => Terminal c (Linter f s)
-instance NonTerminal (Linter f s a b)
-instance (Alternative f, Filterable f, SimpleStream s Char)
-  => IsString (Linter f s () ()) where
+instance (x ~ (), y ~ (), Alternative f, Filterable f, SimpleStream s Char)
+  => IsString (Linter f s x y) where
     fromString = terminal
+
+data Expr = Plus Expr Expr | Mult Expr Expr | Numb Integer
+    deriving Show
+makePrisms ''Expr
+
+expr :: Grammatical Char p => p Expr Expr
+expr = recNonTerminal "expr" $ \ x -> ePlus x
+
+ePlus :: Grammatical Char p => p Expr Expr -> p Expr Expr
+ePlus x = nonTerminal "plus" $
+  dichainl _Plus (terminal ("+" :: String)) (eMult x)
+
+eMult :: Grammatical Char p => p Expr Expr -> p Expr Expr
+eMult x = nonTerminal "plus" $
+  dichainl _Mult (terminal ("*" :: String)) (eAtom x)
+
+eAtom :: Grammatical Char p => p Expr Expr -> p Expr Expr
+eAtom x = nonTerminal "atom" $ eNumb <|> eParens x
+  
+eNumb :: Grammatical Char p => p Expr Expr
+eNumb = _Numb >?
+  dimap show read (several1 (satisfies isDigit))
+
+eParens :: Grammatical Char p => p Expr Expr -> p Expr Expr
+eParens x = terminal ("(" :: String) >* x *< terminal (")" :: String)

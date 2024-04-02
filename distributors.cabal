@@ -29,7 +29,6 @@ library
       Control.Lens.Stream
       Data.Distributor
       Text.Distributor.Grammar
-      Text.Distributor.Grammar.Do
   other-modules:
       Paths_distributors
   autogen-modules:
@@ -72,12 +71,16 @@ library
       adjunctions
     , base >=4.7 && <5
     , bifunctors
+    , bytestring
     , comonad
+    , containers
     , contravariant
     , free
     , generics-eot
     , lens
     , mtl
     , profunctors
+    , text
+    , vector
     , witherable
   default-language: Haskell2010

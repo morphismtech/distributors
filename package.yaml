@@ -23,13 +23,17 @@ dependencies:
 - base >= 4.7 && < 5
 - adjunctions
 - bifunctors
+- bytestring
 - comonad
+- containers
 - contravariant
 - free
 - generics-eot
 - lens
 - mtl
 - profunctors
+- text
+- vector
 - witherable
 
 ghc-options:
