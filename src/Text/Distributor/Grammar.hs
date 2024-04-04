@@ -1,6 +1,7 @@
+{-# LANGUAGE ConstraintKinds #-}
 module Text.Distributor.Grammar
   ( Grammatical (token, terminal, recNonTerminal, nonTerminal)
-  , fromList, satisfies, tokenStream, endOfStream
+  , fromList, satisfies, restOfStream, endOfStream
   , Grammar (Grammar, grammarRules, grammarStart)
   , Production (..), production
   , Parser (Parser, runParser)
@@ -64,11 +65,11 @@ fromList = terminal
 satisfies :: Grammatical c p => (c -> Bool) -> p c c
 satisfies f = _Guard f >?< token
 
-tokenStream :: (Grammatical c p, SimpleStream t c) => p t t
-tokenStream = several token
+restOfStream :: (Grammatical c p, SimpleStream t c) => p t t
+restOfStream = several token
 
 endOfStream :: Grammatical c p => p () ()
-endOfStream = only [] ?< tokenStream
+endOfStream = only [] ?< restOfStream
 
 data Production c
   = ProdToken

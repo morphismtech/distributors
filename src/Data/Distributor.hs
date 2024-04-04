@@ -210,6 +210,7 @@ infixr 5 *<
 
 (>:<) :: (Cons s t a b, Monoidal p, Choice p) => p a b -> p s t -> p s t
 ab >:< st = _Cons >? ab >*< st
+infixr 6 >:<
 
 {- | `replicateP` is analagous to `replicateM`,
 but slightly more general since it will output in

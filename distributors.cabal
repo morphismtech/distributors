@@ -29,6 +29,7 @@ library
       Control.Lens.Stream
       Data.Distributor
       Text.Distributor.Grammar
+      Text.Distributor.Grammar2
   other-modules:
       Paths_distributors
   autogen-modules:

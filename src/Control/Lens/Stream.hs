@@ -18,13 +18,13 @@ import           Data.Sequence (Seq)
 import qualified Data.Text      as StrictT
 import qualified Data.Text.Lazy as LazyT
 import           Data.Vector (Vector)
-import qualified Data.Vector as Vector
+import qualified Data.Vector.Generic as Vector
 import           Data.Vector.Storable (Storable)
-import qualified Data.Vector.Storable as Storable
+import qualified Data.Vector.Storable as Storable (Vector)
 import           Data.Vector.Primitive (Prim)
-import qualified Data.Vector.Primitive as Prim
+import qualified Data.Vector.Primitive as Prim (Vector)
 import           Data.Vector.Unboxed (Unbox)
-import qualified Data.Vector.Unboxed as Unbox
+import qualified Data.Vector.Unboxed as Unbox (Vector)
 import           Data.Word
 
 class Nil s a | s -> a where
@@ -53,11 +53,11 @@ instance Nil LazyT.Text Char where
 instance Nil (Vector a) a where
   _Nil = emptyPrism Vector.null Vector.empty
 instance Prim a => Nil (Prim.Vector a) a where
-  _Nil = emptyPrism Prim.null Prim.empty
+  _Nil = emptyPrism Vector.null Vector.empty
 instance Storable a => Nil (Storable.Vector a) a where
-  _Nil = emptyPrism Storable.null Storable.empty
+  _Nil = emptyPrism Vector.null Vector.empty
 instance Unbox a => Nil (Unbox.Vector a) a where
-  _Nil = emptyPrism Unbox.null Unbox.empty
+  _Nil = emptyPrism Vector.null Vector.empty
 
 nil :: Nil s a => s
 nil = review _Nil ()
@@ -117,14 +117,14 @@ instance Null (Vector a) (Vector b) a b where
   _Null = emptyIso Vector.null Vector.empty
   _NotNull = neIso Vector.null Vector.null
 instance (Prim a, Prim b) => Null (Prim.Vector a) (Prim.Vector b) a b where
-  _Null = emptyIso Prim.null Prim.empty
-  _NotNull = neIso Prim.null Prim.null
+  _Null = emptyIso Vector.null Vector.empty
+  _NotNull = neIso Vector.null Vector.null
 instance (Storable a, Storable b) => Null (Storable.Vector a) (Storable.Vector b) a b where
-  _Null = emptyIso Storable.null Storable.empty
-  _NotNull = neIso Storable.null Storable.null
+  _Null = emptyIso Vector.null Vector.empty
+  _NotNull = neIso Vector.null Vector.null
 instance (Unbox a, Unbox b) => Null (Unbox.Vector a) (Unbox.Vector b) a b where
-  _Null = emptyIso Unbox.null Unbox.empty
-  _NotNull = neIso Unbox.null Unbox.null
+  _Null = emptyIso Vector.null Vector.empty
+  _NotNull = neIso Vector.null Vector.null
 
 class (Monoid s, Nil s a, Cons s s a a) => SimpleStream s a where
   _All :: (a -> Bool) -> PartialIso' s s
@@ -138,6 +138,69 @@ instance SimpleStream [a] a where
     everyNot list = if all (not . f) list then Just list else Nothing
   _Span f = iso (span f) (uncurry (<>)) . crossPartialIso (_All f) id
   _Break f = iso (break f) (uncurry (<>)) . crossPartialIso (_AllNot f) id
+instance SimpleStream (Seq a) a where
+  _All f = partialIso every every where
+    every list = if all f list then Just list else Nothing
+  _AllNot f = partialIso everyNot everyNot where
+    everyNot list = if all (not . f) list then Just list else Nothing
+  _Span f = iso (Seq.spanl f) (uncurry (<>)) . crossPartialIso (_All f) id
+  _Break f = iso (Seq.breakl f) (uncurry (<>)) . crossPartialIso (_AllNot f) id
+instance SimpleStream (Vector a) a where
+  _All f = partialIso every every where
+    every list = if all f list then Just list else Nothing
+  _AllNot f = partialIso everyNot everyNot where
+    everyNot list = if all (not . f) list then Just list else Nothing
+  _Span f = iso (Vector.span f) (uncurry (<>)) . crossPartialIso (_All f) id
+  _Break f = iso (Vector.break f) (uncurry (<>)) . crossPartialIso (_AllNot f) id
+instance Prim a => SimpleStream (Prim.Vector a) a where
+  _All f = partialIso every every where
+    every list = if Vector.all f list then Just list else Nothing
+  _AllNot f = partialIso everyNot everyNot where
+    everyNot list = if Vector.all (not . f) list then Just list else Nothing
+  _Span f = iso (Vector.span f) (uncurry (<>)) . crossPartialIso (_All f) id
+  _Break f = iso (Vector.break f) (uncurry (<>)) . crossPartialIso (_AllNot f) id
+instance Storable a => SimpleStream (Storable.Vector a) a where
+  _All f = partialIso every every where
+    every list = if Vector.all f list then Just list else Nothing
+  _AllNot f = partialIso everyNot everyNot where
+    everyNot list = if Vector.all (not . f) list then Just list else Nothing
+  _Span f = iso (Vector.span f) (uncurry (<>)) . crossPartialIso (_All f) id
+  _Break f = iso (Vector.break f) (uncurry (<>)) . crossPartialIso (_AllNot f) id
+instance Unbox a => SimpleStream (Unbox.Vector a) a where
+  _All f = partialIso every every where
+    every list = if Vector.all f list then Just list else Nothing
+  _AllNot f = partialIso everyNot everyNot where
+    everyNot list = if Vector.all (not . f) list then Just list else Nothing
+  _Span f = iso (Vector.span f) (uncurry (<>)) . crossPartialIso (_All f) id
+  _Break f = iso (Vector.break f) (uncurry (<>)) . crossPartialIso (_AllNot f) id
+instance SimpleStream StrictB.ByteString Word8 where
+  _All f = partialIso every every where
+    every list = if StrictB.all f list then Just list else Nothing
+  _AllNot f = partialIso everyNot everyNot where
+    everyNot list = if StrictB.all (not . f) list then Just list else Nothing
+  _Span f = iso (StrictB.span f) (uncurry (<>)) . crossPartialIso (_All f) id
+  _Break f = iso (StrictB.break f) (uncurry (<>)) . crossPartialIso (_AllNot f) id
+instance SimpleStream LazyB.ByteString Word8 where
+  _All f = partialIso every every where
+    every list = if LazyB.all f list then Just list else Nothing
+  _AllNot f = partialIso everyNot everyNot where
+    everyNot list = if LazyB.all (not . f) list then Just list else Nothing
+  _Span f = iso (LazyB.span f) (uncurry (<>)) . crossPartialIso (_All f) id
+  _Break f = iso (LazyB.break f) (uncurry (<>)) . crossPartialIso (_AllNot f) id
+instance SimpleStream StrictT.Text Char where
+  _All f = partialIso every every where
+    every list = if StrictT.all f list then Just list else Nothing
+  _AllNot f = partialIso everyNot everyNot where
+    everyNot list = if StrictT.all (not . f) list then Just list else Nothing
+  _Span f = iso (StrictT.span f) (uncurry (<>)) . crossPartialIso (_All f) id
+  _Break f = iso (StrictT.break f) (uncurry (<>)) . crossPartialIso (_AllNot f) id
+instance SimpleStream LazyT.Text Char where
+  _All f = partialIso every every where
+    every list = if LazyT.all f list then Just list else Nothing
+  _AllNot f = partialIso everyNot everyNot where
+    everyNot list = if LazyT.all (not . f) list then Just list else Nothing
+  _Span f = iso (LazyT.span f) (uncurry (<>)) . crossPartialIso (_All f) id
+  _Break f = iso (LazyT.break f) (uncurry (<>)) . crossPartialIso (_AllNot f) id
 
 _Stream
   :: (SimpleStream s a, SimpleStream t b)
@@ -173,6 +236,85 @@ instance Stream [a] [b] a b where
   _SplitAt n
     = _LengthIs (>= n)
     . iso (splitAt n) (uncurry (<>))
+    . crossPartialIso (_LengthIs (== max 0 n)) id
+instance Stream (Seq a) (Seq b) a b where
+  _LengthIs f = partialIso lengthen lengthen where
+    lengthen :: Seq c -> Maybe (Seq c)
+    lengthen list = if f (Seq.length list) then Just list else Nothing
+  _SplitAt n
+    = _LengthIs (>= n)
+    . iso (Seq.splitAt n) (uncurry (<>))
+    . crossPartialIso (_LengthIs (== max 0 n)) id
+instance Stream (Vector a) (Vector b) a b where
+  _LengthIs f = partialIso lengthen lengthen where
+    lengthen :: Vector c -> Maybe (Vector c)
+    lengthen list = if f (Vector.length list) then Just list else Nothing
+  _SplitAt n
+    = _LengthIs (>= n)
+    . iso (Vector.splitAt n) (uncurry (<>))
+    . crossPartialIso (_LengthIs (== max 0 n)) id
+instance (Storable a, Storable b)
+  => Stream (Storable.Vector a) (Storable.Vector b) a b where
+  _LengthIs f = partialIso lengthen lengthen where
+    lengthen :: Storable c => Storable.Vector c -> Maybe (Storable.Vector c)
+    lengthen list = if f (Vector.length list) then Just list else Nothing
+  _SplitAt n
+    = _LengthIs (>= n)
+    . iso (Vector.splitAt n) (uncurry (<>))
+    . crossPartialIso (_LengthIs (== max 0 n)) id
+instance (Unbox a, Unbox b)
+  => Stream (Unbox.Vector a) (Unbox.Vector b) a b where
+  _LengthIs f = partialIso lengthen lengthen where
+    lengthen :: Unbox c => Unbox.Vector c -> Maybe (Unbox.Vector c)
+    lengthen list = if f (Vector.length list) then Just list else Nothing
+  _SplitAt n
+    = _LengthIs (>= n)
+    . iso (Vector.splitAt n) (uncurry (<>))
+    . crossPartialIso (_LengthIs (== max 0 n)) id
+instance (Prim a, Prim b)
+  => Stream (Prim.Vector a) (Prim.Vector b) a b where
+  _LengthIs f = partialIso lengthen lengthen where
+    lengthen :: Prim c => Prim.Vector c -> Maybe (Prim.Vector c)
+    lengthen list = if f (Vector.length list) then Just list else Nothing
+  _SplitAt n
+    = _LengthIs (>= n)
+    . iso (Vector.splitAt n) (uncurry (<>))
+    . crossPartialIso (_LengthIs (== max 0 n)) id
+instance Stream StrictB.ByteString StrictB.ByteString Word8 Word8 where
+  _LengthIs f = partialIso lengthen lengthen where
+    lengthen :: StrictB.ByteString -> Maybe StrictB.ByteString
+    lengthen list = if f (StrictB.length list) then Just list else Nothing
+  _SplitAt n
+    = _LengthIs (>= n)
+    . iso (StrictB.splitAt n) (uncurry (<>))
+    . crossPartialIso (_LengthIs (== max 0 n)) id
+instance Stream LazyB.ByteString LazyB.ByteString Word8 Word8 where
+  _LengthIs f = partialIso lengthen lengthen where
+    lengthen :: LazyB.ByteString -> Maybe LazyB.ByteString
+    lengthen list =
+      if f (fromIntegral (LazyB.length list))
+      then Just list else Nothing
+  _SplitAt n
+    = _LengthIs (>= n)
+    . iso (LazyB.splitAt (fromIntegral n)) (uncurry (<>))
+    . crossPartialIso (_LengthIs (== max 0 n)) id
+instance Stream StrictT.Text StrictT.Text Char Char where
+  _LengthIs f = partialIso lengthen lengthen where
+    lengthen :: StrictT.Text -> Maybe StrictT.Text
+    lengthen list = if f (StrictT.length list) then Just list else Nothing
+  _SplitAt n
+    = _LengthIs (>= n)
+    . iso (StrictT.splitAt n) (uncurry (<>))
+    . crossPartialIso (_LengthIs (== max 0 n)) id
+instance Stream LazyT.Text LazyT.Text Char Char where
+  _LengthIs f = partialIso lengthen lengthen where
+    lengthen :: LazyT.Text -> Maybe LazyT.Text
+    lengthen list =
+      if f (fromIntegral (LazyT.length list))
+      then Just list else Nothing
+  _SplitAt n
+    = _LengthIs (>= n)
+    . iso (LazyT.splitAt (fromIntegral n)) (uncurry (<>))
     . crossPartialIso (_LengthIs (== max 0 n)) id
 
 _HeadTail
