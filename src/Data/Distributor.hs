@@ -35,8 +35,10 @@ The results here are a profunctorial interpretation of
 -}
 module Data.Distributor
   ( -- * lax monoidal profunctors
-    Monoidal (oneP, (>*<)) , dimap2, (>*), (*<), (>:<)
+    Monoidal (oneP, (>*<)), dimap2, (>*), (*<), (>:<)
   , pureP, apP, liftA2P, replicateP, replicateP', replicateP_, foreverP
+    -- * traversal
+  , wanderP, traverseP
     -- * lax distributive profunctors
   , Distributor (zeroP, (>+<), several, severalMore, possibly)
   , dialt, several1
@@ -49,7 +51,9 @@ module Data.Distributor
 
 import Control.Applicative hiding (WrappedArrow(..))
 import Control.Arrow
+import Control.Comonad
 import Control.Lens hiding (chosen)
+import Control.Lens.Internal.Context
 import Control.Lens.PartialIso
 import Control.Lens.Stream
 import Data.Bifunctor.Biff
@@ -237,6 +241,47 @@ replicateP_ n p = p >* replicateP_ (n-1) p
 
 foreverP :: Monoidal p => p () c -> p a b
 foreverP p = let p' = p >* p' in p'
+
+newtype FunList a b t = FunList {unFunList :: Either t (a, Bazaar (->) a b (b -> t))}
+
+funList
+  :: (t -> x)
+  -> (a -> Bazaar (->) a b (b -> t) -> x)
+  -> FunList a b t -> x
+funList f g = either f (uncurry g) . unFunList
+
+more :: a -> Bazaar (->) a b (b -> t) -> FunList a b t
+more a t = FunList (Right (a,t))
+
+toFun :: Bazaar (->) a b t -> FunList a b t
+toFun (Bazaar f) = f sell
+
+fromFun :: FunList a b t -> Bazaar (->) a b t
+fromFun (FunList (Left t)) = pure t
+fromFun (FunList (Right (a, b))) = ($) <$> b <*> sell a
+
+instance Functor (FunList a b) where
+  fmap f = funList (pure . f) (\x l -> more x (fmap (f .) l))
+instance Applicative (FunList a b) where
+  pure = FunList . Left
+  (<*>) = funList fmap (\x l l' -> more x (flip <$> l <*> fromFun l'))
+instance Sellable (->) FunList where sell a = more a (pure id)
+
+wanderP :: (Choice p, Strong p, Monoidal p) => ATraversal s t a b -> p a b -> p s t
+wanderP f =
+  let
+    traverseFun
+      :: (Choice q, Strong q, Monoidal q)
+      => q u v -> q (Bazaar (->) u w x) (Bazaar (->) v w x)
+    traverseFun k = dimap
+      (unFunList . toFun)
+      (fromFun . FunList)
+      (right' (k >*< traverseFun k))
+  in
+    dimap (f sell) extract . traverseFun
+
+traverseP :: (Choice p, Strong p, Monoidal p, Traversable f) => p a b -> p (f a) (f b)
+traverseP = wanderP traverse
 
 {- | A `Distributor`, or lax distributive profunctor,
 respects distributive category structure,
