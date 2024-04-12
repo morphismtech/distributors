@@ -38,7 +38,7 @@ module Data.Distributor
     Monoidal (oneP, (>*<)), dimap2, (>*), (*<), (>:<)
   , pureP, apP, liftA2P, replicateP, replicateP', replicateP_, foreverP
     -- * traversal
-  , wanderP, traverseP
+  , wanderP, traverseP, traversalP
     -- * lax distributive profunctors
   , Distributor (zeroP, (>+<), several, severalMore, possibly)
   , dialt, several1
@@ -52,7 +52,7 @@ module Data.Distributor
 import Control.Applicative hiding (WrappedArrow(..))
 import Control.Arrow
 import Control.Comonad
-import Control.Lens hiding (chosen)
+import Control.Lens hiding (chosen, Traversing)
 import Control.Lens.Internal.Context
 import Control.Lens.PartialIso
 import Control.Lens.Stream
@@ -68,6 +68,8 @@ import Data.Profunctor hiding (WrappedArrow(..))
 import qualified Data.Profunctor as Pro (WrappedArrow(..))
 import Data.Profunctor.Cayley
 import Data.Profunctor.Composition
+import Data.Profunctor.Monad
+import Data.Profunctor.Yoneda
 import Data.Void
 import Generics.Eot
 import GHC.Base (Constraint, Type)
@@ -171,6 +173,12 @@ instance (Functor f, Applicative g, Monoidal p)
       (uncurry (liftA2 (,)))
       (x >*< y)
 instance Monoid s => Monoidal (PartialExchange s t)
+instance Monoidal p => Monoidal (Yoneda p) where
+  oneP = proreturn oneP
+  ab >*< cd = proreturn (proextract ab >*< proextract cd)
+instance Monoidal p => Monoidal (Coyoneda p) where
+  oneP = proreturn oneP
+  ab >*< cd = proreturn (proextract ab >*< proextract cd)
 
 {- | Like `pure` but with a `Monoidal` constraint,
 `pureP` is a functionalization of `oneP`.
@@ -266,6 +274,11 @@ instance Applicative (FunList a b) where
   pure = FunList . Left
   (<*>) = funList fmap (\x l l' -> more x (flip <$> l <*> fromFun l'))
 instance Sellable (->) FunList where sell a = more a (pure id)
+
+traversalP
+  :: (forall p. (Choice p, Strong p, Monoidal p) => p a b -> p s t)
+  -> Traversal s t a b
+traversalP abst = runStar . abst . Star
 
 wanderP :: (Choice p, Strong p, Monoidal p) => ATraversal s t a b -> p a b -> p s t
 wanderP f =
@@ -451,6 +464,12 @@ instance (Distributor p, Distributor q)
     zeroP = Pair zeroP zeroP
     Pair x0 y0 >+< Pair x1 y1 = Pair (x0 >+< x1) (y0 >+< y1)
 instance Monoid s => Distributor (PartialExchange s t)
+instance Distributor p => Distributor (Yoneda p) where
+  zeroP = proreturn zeroP
+  ab >+< cd = proreturn (proextract ab >+< proextract cd)
+instance Distributor p => Distributor (Coyoneda p) where
+  zeroP = proreturn zeroP
+  ab >+< cd = proreturn (proextract ab >+< proextract cd)
 
 dialt
   :: Distributor p
