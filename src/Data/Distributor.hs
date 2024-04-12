@@ -213,11 +213,11 @@ apP :: Monoidal p => p a (b -> d) -> p a b -> p a d
 apP = liftA2P ($)
 
 (>*) :: Monoidal p => p () c -> p a b -> p a b
-(>*) = dimap2 (const ()) id (\_ b -> b)
+x >* y = dimap ((),) snd (x >*< y)
 infixr 5 >*
 
 (*<) :: Monoidal p => p a b -> p () c -> p a b
-(*<) = dimap2 id (const ()) (\b _ -> b)
+x *< y = dimap (,()) fst (x >*< y)
 infixr 5 *<
 
 (>:<) :: (Cons s t a b, Monoidal p, Choice p) => p a b -> p s t -> p s t
