@@ -37,8 +37,8 @@ module Data.Distributor
   ( -- * lax monoidal profunctors
     Monoidal (oneP, (>*<)), dimap2, (>*), (*<), (>:<)
   , pureP, apP, liftA2P, replicateP, replicateP', replicateP_, foreverP
-  , Mon (Mon), liftMon
-  , ChooseMon, liftChooseMon, foldChooseMon
+  , Mon (MonPure, MonAp), liftMon
+  , ChooseMon (ChoosePure, ChooseAp), liftChooseMon, foldChooseMon
     -- * traversal
   , wanderP, traverseP, traversalP
     -- * lax distributive profunctors
@@ -256,34 +256,26 @@ replicateP_ n p = p >* replicateP_ (n-1) p
 foreverP :: Monoidal p => p () c -> p a b
 foreverP p = let p' = p >* p' in p'
 
-type Mon
-  :: ((Type -> Type) -> (Type -> Type))
-  -- ^ your choice of free applicative
-  -> (Type -> Type -> Type) 
-  -> Type -> Type -> Type
-liftMon :: ap (p a) b -> Mon ap p a b
-liftMon = Mon id
-data Mon ap p a b where
-  Mon :: (a -> s) -> ap (p s) b -> Mon ap p a b
-instance (forall f. Functor (ap f))
-  => Functor (Mon ap p a) where
-    fmap g (Mon f x) = Mon f (g <$> x)
-instance (forall f. Applicative (ap f))
-  => Applicative (Mon ap p a) where
-    pure b = liftMon (pure b)
-    Mon f0 x0 <*> Mon f1 x1 =
-      lmap f0 (liftMon x0) <*> lmap f1 (liftMon x1)
-instance (forall f. Functor (ap f)) => Profunctor (Mon ap p) where
-  dimap h g (Mon f x) = Mon (f . h) (g <$> x)
-instance (forall f. Applicative (ap f)) => Monoidal (Mon ap p) where
-  oneP = Mon id (pure ())
-  Mon f0 x0 >*< Mon f1 x1 =
-    lmap (f0 *** f1) (liftMon x0 >*< liftMon x1)
-instance (forall f. Filterable (ap f)) => Filterable (Mon ap p x) where
-  catMaybes (Mon f a) = Mon f (catMaybes a)
-instance (forall f. Filterable (ap f)) => Cochoice (Mon ap p) where
-  unleft (Mon f a) = Mon (f . Left) (mapMaybe (either Just (const Nothing)) a)
-  unright (Mon f a) = Mon (f . Right) (mapMaybe (either (const Nothing) Just) a)
+data Mon p a b where
+  MonPure :: b -> Mon p a b
+  MonAp
+    :: (a -> s)
+    -> Mon p a (t -> b)
+    -> p s t
+    -> Mon p a b
+liftMon :: p a b -> Mon p a b
+liftMon p = MonAp id (MonPure id) p
+instance Functor (Mon p a) where fmap = rmap
+instance Applicative (Mon p a) where
+  pure = pureP
+  (<*>) = apP
+instance Profunctor (Mon p) where
+  dimap f g = \case
+    MonPure b -> MonPure (g b)
+    MonAp f' g' p -> MonAp (f' . f) (dimap f (g .) g') p
+instance Monoidal (Mon p) where
+  oneP = MonPure ()
+  p0 >*< p1 = (,) <$> lmap fst p0 <*> lmap snd p1
 
 data ChooseMon p a b where
   ChoosePure :: Maybe b -> ChooseMon p a b
