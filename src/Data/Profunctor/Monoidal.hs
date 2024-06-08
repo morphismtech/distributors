@@ -11,8 +11,10 @@ module Data.Profunctor.Monoidal
   ( -- * lax monoidal profunctors
     Monoidal (oneP, (>*<)), dimap2, (>*), (*<), (>:<)
   , pureP, apP, liftA2P, replicateP, replicateP', replicateP_, foreverP
-  , Mon (MonPure, MonAp), liftMon
-  , ChooseMon (ChoosePure, ChooseAp), liftChooseMon, foldChooseMon
+  , Mon (MonPure, MonAp)
+  , liftMon, hoistMon, foldMon
+  , ChooseMon (ChoosePure, ChooseAp)
+  , liftChooseMon, hoistChooseMon, foldChooseMon
     -- * traversal
   , wanderP, traverseP, traversalP
   ) where
@@ -223,6 +225,24 @@ data Mon p a b where
     -> Mon p a b
 liftMon :: p a b -> Mon p a b
 liftMon p = MonAp id (MonPure id) p
+hoistMon
+  :: (forall x y. p x y -> q x y)
+  -> Mon p a b -> Mon q a b
+hoistMon h = \case
+  MonPure b -> MonPure b
+  MonAp f g x -> MonAp f (hoistMon h g) (h x)
+foldMon
+  :: Monoidal q
+  => (forall x y. p x y -> q x y)
+  -> Mon p a b -> q a b
+foldMon k = \case
+  MonPure b -> pureP b
+  MonAp f g x ->
+    let
+      h = foldMon k g
+      y = lmap f (k x)
+    in
+      liftA2P ($) h y
 instance Functor (Mon p a) where fmap = rmap
 instance Applicative (Mon p a) where
   pure = pureP
@@ -309,7 +329,15 @@ foldChooseMon k = \case
 liftChooseMon :: p a b -> ChooseMon p a b
 liftChooseMon = ChooseAp Just (pure Just)
 
-newtype FunList a b t = FunList {unFunList :: Either t (a, Bazaar (->) a b (b -> t))}
+hoistChooseMon
+  :: (forall x y. p x y -> q x y)
+  -> ChooseMon p a b -> ChooseMon q a b
+hoistChooseMon h = \case
+  ChoosePure mb -> ChoosePure mb
+  ChooseAp f g x -> ChooseAp f (hoistChooseMon h g) (h x)
+
+newtype FunList a b t = FunList
+  {unFunList :: Either t (a, Bazaar (->) a b (b -> t))}
 
 funList
   :: (t -> x)
@@ -339,7 +367,9 @@ traversalP
   -> Traversal s t a b
 traversalP abst = runStar . abst . Star
 
-wanderP :: (Choice p, Strong p, Monoidal p) => ATraversal s t a b -> p a b -> p s t
+wanderP
+  :: (Choice p, Strong p, Monoidal p)
+  => ATraversal s t a b -> p a b -> p s t
 wanderP f =
   let
     traverseFun
@@ -352,5 +382,7 @@ wanderP f =
   in
     dimap (f sell) extract . traverseFun
 
-traverseP :: (Choice p, Strong p, Monoidal p, Traversable f) => p a b -> p (f a) (f b)
+traverseP
+  :: (Choice p, Strong p, Monoidal p, Traversable f)
+  => p a b -> p (f a) (f b)
 traverseP = wanderP traverse
