@@ -33,8 +33,9 @@ import Data.Coerce ( coerce )
 import Data.Function (fix)
 import Data.Map.Lazy (Map)
 import qualified Data.Map.Lazy as Map
-import Data.Distributor
 import Data.Profunctor ( Cochoice(..), Forget(..) )
+import Data.Profunctor.Distributor
+import Data.Profunctor.Monoidal
 import Data.String ( IsString(..) )
 import Text.ParserCombinators.ReadP ( ReadP, get )
 import Witherable ( Filterable(catMaybes, mapMaybe) )

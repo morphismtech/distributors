@@ -28,16 +28,9 @@ import Data.Char ( isDigit )
 import Data.Coerce ( coerce )
 import Data.Function (fix)
 import Data.List (nub)
-import Data.Distributor
-    ( Distributor(..),
-      Monoidal(..),
-      pureP,
-      apP,
-      (>*),
-      (*<),
-      several1,
-      dichainl )
 import Data.Profunctor ( Cochoice(..) )
+import Data.Profunctor.Distributor
+import Data.Profunctor.Monoidal
 import Data.String ( IsString(..) )
 import Text.ParserCombinators.ReadP ( ReadP, get )
 import Witherable ( Filterable(catMaybes, mapMaybe) )

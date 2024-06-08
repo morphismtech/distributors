@@ -27,7 +27,8 @@ library
   exposed-modules:
       Control.Lens.PartialIso
       Control.Lens.Stream
-      Data.Distributor
+      Data.Profunctor.Distributor
+      Data.Profunctor.Monoidal
       Text.Distributor.Grammar
       Text.Distributor.Grammar2
   other-modules:
