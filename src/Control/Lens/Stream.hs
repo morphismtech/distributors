@@ -1,33 +1,61 @@
+{- |
+Module      :  Control.Lens.Stream
+Copyright   :  (C) 2024 - Eitan Chatav
+License     :  BSD-style (see the file LICENSE)
+Maintainer  :  Eitan Chatav <eitan.chatav@gmail.com>
+Stability   :  provisional
+Portability :  non-portable
+
+This module defines optics-style interfaces for
+types which are list-like streams of tokens.
+-}
 module Control.Lens.Stream
-  ( Nil (_Nil), nil, Null (_Null, _NotNull)
+  ( -- * Nil
+    Nil (_Nil)
+  , nil
+    -- * Null
+  , Null (_Null, _NotNull)
+    -- * SimpleStream
   , SimpleStream (_All, _AllNot, _Span, _Break)
-  , _Stream, _HeadTailMay, _ConvertStream
-  , Stream (_LengthIs, _SplitAt), _HeadTail
-  , difoldl1, difoldr1, difoldl, difoldr, difoldl', difoldr'
+  , _Stream
+  , _HeadTailMay
+  , _ConvertStream
+    -- * Stream
+  , Stream (_LengthIs, _SplitAt)
+  , _HeadTail
+    -- * Fold/Unfold
+  , difoldl1
+  , difoldr1
+  , difoldl
+  , difoldr
+  , difoldl'
+  , difoldr'
   ) where
 
-import Data.Profunctor
-import           Control.Applicative (ZipList(..))
+import Control.Applicative (ZipList(..))
 import Control.Lens
 import Control.Lens.PartialIso
-
-import qualified Data.ByteString      as StrictB
+import qualified Data.ByteString as StrictB
 import qualified Data.ByteString.Lazy as LazyB
+import Data.Profunctor
 import qualified Data.Sequence as Seq
-import           Data.Sequence (Seq)
-import qualified Data.Text      as StrictT
+import Data.Sequence (Seq)
+import qualified Data.Text as StrictT
 import qualified Data.Text.Lazy as LazyT
-import           Data.Vector (Vector)
+import Data.Vector (Vector)
 import qualified Data.Vector.Generic as Vector
-import           Data.Vector.Storable (Storable)
+import Data.Vector.Storable (Storable)
 import qualified Data.Vector.Storable as Storable (Vector)
-import           Data.Vector.Primitive (Prim)
+import Data.Vector.Primitive (Prim)
 import qualified Data.Vector.Primitive as Prim (Vector)
-import           Data.Vector.Unboxed (Unbox)
+import Data.Vector.Unboxed (Unbox)
 import qualified Data.Vector.Unboxed as Unbox (Vector)
-import           Data.Word
+import Data.Word
 
+{- | A class for types allowing total bidirectional pattern
+matching on empty terms. -}
 class Nil s a | s -> a where
+  {- | The `_Nil` bidirectional pattern -}
   _Nil :: Prism' s ()
 instance Nil (Maybe a) a where
   _Nil = _Nothing
@@ -59,16 +87,21 @@ instance Storable a => Nil (Storable.Vector a) a where
 instance Unbox a => Nil (Unbox.Vector a) a where
   _Nil = emptyPrism Vector.null Vector.empty
 
+-- | The empty value, `nil`.
 nil :: Nil s a => s
 nil = review _Nil ()
 
+{- | A class for types allowing partial bidirectional pattern
+matching on empty and nonempty terms. -}
 class
   ( Nil s a
   , Nil t b
   , Null s s a a
   , Null t t b b
   ) => Null s t a b | b s -> t, a t -> s where
+  {- | The `_Null` bidirectional pattern -}
   _Null :: PartialIso s t () ()
+  {- | The `_NotNull` bidirectional pattern -}
   _NotNull :: PartialIso s t s t
 instance Null (Maybe a) (Maybe b) a b where
   _Null = partialIso
@@ -126,10 +159,23 @@ instance (Unbox a, Unbox b) => Null (Unbox.Vector a) (Unbox.Vector b) a b where
   _Null = emptyIso Vector.null Vector.empty
   _NotNull = neIso Vector.null Vector.null
 
+{- | A class for stream types, with a monomorphic token type,
+allowing partial bidirectional pattern matching
+with a list-like interface. -}
 class (Monoid s, Nil s a, Cons s s a a) => SimpleStream s a where
+  {- | All tokens satisfy the predicate. -}
   _All :: (a -> Bool) -> PartialIso' s s
+  {- | No tokens satisfy the predicate. -}
   _AllNot :: (a -> Bool) -> PartialIso' s s
+  {- | A tuple where first element is
+  the longest prefix (possibly empty) of tokens
+  that satisfy the predicate and second element is
+  the remainder of the stream. -}
   _Span :: (a -> Bool) -> PartialIso' s (s,s)
+  {- | A tuple where first element is
+  the longest prefix (possibly empty) of tokens
+  that don't satisfy the predicate and second element is
+  the remainder of the stream. -}
   _Break :: (a -> Bool) -> PartialIso' s (s,s)
 instance SimpleStream [a] a where
   _All f = partialIso every every where
@@ -202,16 +248,22 @@ instance SimpleStream LazyT.Text Char where
   _Span f = iso (LazyT.span f) (uncurry (<>)) . crossPartialIso (_All f) id
   _Break f = iso (LazyT.break f) (uncurry (<>)) . crossPartialIso (_AllNot f) id
 
+{- | The `_Stream` `Control.Lens.Iso.Iso` which decomposes a stream as
+`Either` a @()@ or a pair. -}
 _Stream
   :: (SimpleStream s a, SimpleStream t b)
   => Iso s t (Either () (a,s)) (Either () (b,t))
 _Stream = _HeadTailMay . _M2E
 
+{- | `_HeadTailMay` `Control.Lens.Iso.Iso` which decomposes a stream as
+`Nothing` or `Just` a pair. -}
 _HeadTailMay
   ::  (SimpleStream s a, SimpleStream t b)
   => Iso s t (Maybe (a,s)) (Maybe (b,t))
 _HeadTailMay = iso (preview _Cons) (maybe nil (uncurry cons))
 
+{- | `_ConvertStream` `Control.Lens.Iso.Iso` which identifies `SimpleStream`s
+with the same token type. -}
 _ConvertStream :: (SimpleStream s a, SimpleStream t a) => Iso' s t
 _ConvertStream = iso convertStream convertStream
   where
@@ -221,13 +273,19 @@ _ConvertStream = iso convertStream convertStream
         (\(h,t) -> cons h (convertStream t))
         (view _HeadTailMay s)
 
+{- | A class for stream types, with a potentially polymorphic token type,
+allowing partial bidirectional pattern matching with a list-like interface. -}
 class
   ( Null s t a b
   , Cons s t a b
   , SimpleStream s a
   , SimpleStream t b
   ) => Stream s t a b where
+  {- | Matches on streams which satisfy a predicate on their length. -}
   _LengthIs :: (Int -> Bool) -> PartialIso s t s t
+  {- | A tuple where first element is
+  the stream of tokens of given length and second element is
+  the remainder of the stream. -}
   _SplitAt :: Int -> PartialIso s t (s,s) (t,t)
 instance Stream [a] [b] a b where
   _LengthIs f = partialIso lengthen lengthen where
@@ -317,11 +375,14 @@ instance Stream LazyT.Text LazyT.Text Char Char where
     . iso (LazyT.splitAt (fromIntegral n)) (uncurry (<>))
     . crossPartialIso (_LengthIs (== max 0 n)) id
 
+{- | `_HeadTail` `PartialIso` which decomposes a stream as
+into a pair of its head and tail. -}
 _HeadTail
   :: Stream s t a b
   => PartialIso s t (a,s) (b,t)
 _HeadTail = _NotNull . _HeadTailMay . _Just
 
+{- | Bidirectional left fold/unfold with no empty case. -}
 difoldl1
   :: Cons s t a b
   => APartialIso (c,a) (d,b) c d
@@ -337,6 +398,7 @@ difoldl1 i =
       . crossPartialIso i id
   in iterating step
 
+{- | Bidirectional right fold/unfold with no empty case. -}
 difoldr1
   :: Cons s t a b
   => APartialIso (a,c) (b,d) c d
@@ -352,6 +414,7 @@ difoldr1 i =
       . crossPartialIso id i
   in iterating step
 
+{- | Bidirectional left fold/unfold with an empty case. -}
 difoldl
   :: Stream s t a b
   => APartialIso (c,a) (d,b) c d
@@ -366,6 +429,7 @@ difoldl i =
     . crossPartialIso id _Null
     . unit'
 
+{- | A simple bidirectional left fold/unfold with an empty case. -}
 difoldl'
   :: SimpleStream s a
   => APrism' (c,a) c
@@ -380,6 +444,7 @@ difoldl' i =
     . aside _Nil
     . unit'
 
+{- | Bidirectional right fold/unfold with an empty case. -}
 difoldr
   :: Stream s t a b
   => APartialIso (a,c) (b,d) c d
@@ -394,6 +459,7 @@ difoldr i =
     . crossPartialIso _Null id
     . unit'
 
+{- | A simple bidirectional right fold/unfold with an empty case. -}
 difoldr'
   :: SimpleStream s a
   => APrism' (a,c) c

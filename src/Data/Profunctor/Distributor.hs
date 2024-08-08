@@ -74,7 +74,7 @@ import Witherable
 {- | A `Distributor`, or lax distributive profunctor,
 respects distributive category structure,
 that is nilary and binary products and coproducts,
-`()`, `(,)`, `Void` and `Either`.
+@()@, @(,)@, `Void` and `Either`.
 
 In addition to the product laws for `Monoidal`, we have
 sum laws for `Distributor`.

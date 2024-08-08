@@ -1,14 +1,44 @@
+{- |
+Module      :  Control.Lens.PartialIso
+Copyright   :  (C) 2024 - Eitan Chatav
+License     :  BSD-style (see the file LICENSE)
+Maintainer  :  Eitan Chatav <eitan.chatav@gmail.com>
+Stability   :  provisional
+Portability :  non-portable
+
+This module defines types and terms for
+`Choice` and `Cochoice` `Profunctor`s as well as
+the partial isomorphism optic `PartialIso`,
+a weakening of `Control.Lens.Prism.Prism`.
+-}
 module Control.Lens.PartialIso
-  ( -- * choice and cochoice profunctors
-    dimapMaybe, alternate, discriminate, mapMaybeP, catMaybesP
-    -- * partial isomorphisms
-  , PartialIso, PartialIso', APartialIso, APartialIso'
-  , partialIso, withPartialIso, clonePartialIso
-  , coPartialIso, crossPartialIso, altPartialIso
-  , (>?), (?<), (>?<)
-  , _Guard, _Normal, _M2E, iterating
-    -- * types
+  ( -- * Choice and Cochoice Profunctors
+    dimapMaybe
+  , alternate
+  , discriminate
+  , mapMaybeP
+  , catMaybesP
+  , filterP
+    -- * Partial Isomorphisms
+  , PartialIso
+  , PartialIso'
+  , APartialIso
+  , APartialIso'
   , PartialExchange (PartialExchange)
+    -- * Constructing and Consuming Partial Isomorphisms
+  , partialIso
+  , withPartialIso
+  , clonePartialIso
+  , coPartialIso
+  , crossPartialIso
+  , altPartialIso
+  , iterating
+    -- * Prism, Coprism and Partial Isomorphism Actions
+  , (>?)
+  , (?<)
+  , (>?<)
+    -- * Common (Partial) Isomorphisms
+  , _Guard, _Normal, _M2E
   ) where
 
 import Control.Applicative
@@ -17,14 +47,14 @@ import Control.Monad
 import Data.Profunctor
 import Witherable
 
-{- | A `Choice` and `Cochoice` profunctor
-exhibits an action of partial isomorphisms.
+{- | A `Choice` and `Cochoice` `Profunctor`
+exhibits an action `>?<` of partial isomorphisms.
+They are analagous to `Filterable` `Functor`s.
 
 prop> i >?< p = withPartialIso i $ \f g -> dimapMaybe f g p
 
 `dimapMaybe` is the structural morphism for `Choice` and `Cochoice`
-profunctors. It's comparable to the `mapMaybe` method
-of the `Filterable` class.
+profunctors.
 -}
 dimapMaybe
   :: (Choice p, Cochoice p)
@@ -46,7 +76,7 @@ prop> right' = alternate . Right
 
 `alternate` has less general constraint
 but a more general type,
-than `left'` `|||` `right'`.
+than `left'` `Control.Arrow.|||` `right'`.
 
 >>> :type left' ||| right'
 left' ||| right'
@@ -71,7 +101,7 @@ prop> unright = snd . discriminate
 
 `discriminate` has less general constraint
 but a more general type,
-than `unleft` `&&&` `unright`.
+than `unleft` `Control.Arrow.&&&` `unright`.
 
 >>> :type unleft &&& unright
 unleft &&& unright
@@ -86,17 +116,34 @@ discriminate p =
   , dimapMaybe (Just . Right) (either (pure Nothing) Just) p
   )
 
+{- | `mapMaybeP` for `Choice` and `Cochoice` `Profunctor`s
+is the analague to `mapMaybe` for `Filterable` `Functor`s.
+-}
 mapMaybeP
   :: (Choice p, Cochoice p)
   => (b -> Maybe t)
   -> p a b -> p a t
 mapMaybeP = dimapMaybe Just
 
+{- | `catMaybesP` for `Choice` and `Cochoice` `Profunctor`s
+is the analague to `catMaybes` for `Filterable` `Functor`s.
+-}
 catMaybesP
   :: (Choice p, Cochoice p)
   => p a (Maybe b) -> p a b
 catMaybesP = mapMaybeP id
 
+{- | `filterP` for `Choice` and `Cochoice` `Profunctor`s
+is the analague to `Witherable.filter` for `Filterable` `Functor`s.
+-}
+filterP
+  :: (Choice p, Cochoice p)
+  => (b -> Bool) -> p a b -> p a b
+filterP f = mapMaybeP $ \a -> if f a then Just a else Nothing
+
+{- | A `PartialExchange` provides efficient access
+to the two functions that make up a `PartialIso`.
+-}
 data PartialExchange a b s t =
   PartialExchange (s -> Maybe a) (b -> Maybe t)
 instance Semigroup (PartialExchange a b s t) where
@@ -131,11 +178,11 @@ instance Cochoice (PartialExchange a b) where
     PartialExchange (f . Right) (either (pure Nothing) Just <=< g)
 
 {- | `PartialIso` is a first class inexhaustive pattern,
-similar to how 'Prism' is a first class exhaustive pattern.
+similar to how `Control.Lens.Prism.Prism` is a first class exhaustive pattern.
 
 `PartialIso` is part of a subtyping order:
 
-prop> Iso s t a b < Prism s t a b < PartialIso s t a b < APartialIso s t a b
+prop> Iso s t a b < Prism s t a b < PartialIso s t a b
 
 `PartialIso`s are a functionalization of `PartialExchange`s.
 
@@ -154,10 +201,10 @@ type PartialIso s t a b = forall p f.
     => p a (f b) -> p s (f t)
 
 {- |
-A simple `PartialIso'` @s a@ is an identification of
-a subset of `s` with a subset of `a`.
+A `PartialIso'` @s a@ is a `Simple` `PartialIso`.
+It is an identification of a subset of @s@ with a subset of @a@.
 
-Given a simple `PartialIso'` @partialIso f g@.
+Given a simple `PartialIso'`, @partialIso f g@, has properties:
 
 prop> Just = f <=< g
 prop> Just = g <=< f
@@ -177,15 +224,21 @@ some equivalence class of terms.
 -}
 type PartialIso' s a = PartialIso s s a a
 
+{- | If you see this in a signature for a function,
+the function is expecting a `PartialIso`. -}
 type APartialIso s t a b =
   PartialExchange a b a (Maybe b) -> PartialExchange a b s (Maybe t)
 
+{- | `Simple` `APartialIso` -}
 type APartialIso' s a = APartialIso s s a a
 
+{- | Build a `PartialIso`. -}
 partialIso :: (s -> Maybe a) -> (b -> Maybe t) -> PartialIso s t a b
 partialIso f g =
   unright . iso (view _M2E . f =<<) (mapMaybe g) . right'
 
+{- | Convert `APartialIso` to the pair of
+functions that characterize it. -}
 withPartialIso
   :: APartialIso s t a b
   -> ((s -> Maybe a) -> (b -> Maybe t) -> r)
@@ -194,22 +247,29 @@ withPartialIso i k =
   case i (PartialExchange Just (Just . Just)) of
     PartialExchange f g -> k f (join . g)
 
+{- | Clone `APartialIso` so that you can reuse the same
+monomorphically typed partial isomorphism for different purposes.
+-}
 clonePartialIso
   :: APartialIso s t a b
   -> PartialIso s t a b
 clonePartialIso i = withPartialIso i $ \f g -> partialIso f g
 
+{- | Clone and invert `APartialIso`. -}
 coPartialIso
   :: APartialIso b a t s
   -> PartialIso s t a b
 coPartialIso i =
   withPartialIso i $ \f g -> partialIso g f
 
+{- | Iterate the application of a partial isomorphism,
+useful for constructing fold/unfold isomorphisms. -}
 iterating :: APartialIso a b a b -> Iso a b a b
 iterating i = withPartialIso i $ \f g ->
   iso (iter f) (iter g) where
     iter h state = maybe state (iter h) (h state)
 
+{- | Construct a `PartialIso` on pairs from components. -}
 crossPartialIso
   :: APartialIso s t a b
   -> APartialIso u v c d
@@ -221,6 +281,7 @@ crossPartialIso x y =
       (\(s,u) -> (,) <$> e s <*> g u)
       (\(t,v) -> (,) <$> f t <*> h v)
 
+{- | Construct a `PartialIso` on `Either`s from components. -}
 altPartialIso
   :: APartialIso s t a b
   -> APartialIso u v c d
@@ -234,6 +295,7 @@ altPartialIso x y =
       (either ((Left <$>) . e) ((Right <$>) . g))
       (either ((Left <$>) . f) ((Right <$>) . h))
 
+{- | Action of `APrism` on `Choice` `Profunctor`s. -}
 (>?)
   :: Choice p
   => APrism s t a b
@@ -242,6 +304,7 @@ altPartialIso x y =
 i >? p = withPrism i $ \f g -> dimap g (either id f) (right' p)
 infixr 2 >?
 
+{- | Action of a coprism on `Cochoice` `Profunctor`s. -}
 (?<)
   :: Cochoice p
   => APrism b a t s
@@ -250,6 +313,7 @@ infixr 2 >?
 i ?< p = withPrism i $ \f g -> unright (dimap (either id f) g p)
 infixr 2 ?<
 
+{- | Action of `APartialIso` on `Choice` and `Cochoice` `Profunctor`s. -}
 (>?<)
   :: (Choice p, Cochoice p)
   => APartialIso s t a b
@@ -258,12 +322,17 @@ infixr 2 ?<
 i >?< p = withPartialIso i $ \f g -> dimapMaybe f g p
 infixr 2 >?<
 
+{- | `_Guard` is the prototypical proper partial isomorphism,
+identifying a subset which satisfies a predicate. -}
 _Guard :: (a -> Bool) -> PartialIso' a a
 _Guard f = partialIso satiate satiate where
   satiate a = if f a then Just a else Nothing
 
+{- | `_Normal` is the prototypical improper isomorphism,
+identifying every term with one particular "normal" value. -}
 _Normal :: a -> Iso' a ()
 _Normal a = iso (const ()) (const a) where
 
+{- | A useful isormorphism identifying `Maybe` and `Either` @()@. -}
 _M2E :: Iso (Maybe a) (Maybe b) (Either () a) (Either () b)
 _M2E = iso (maybe (Left ()) Right) (either (pure Nothing) Just)

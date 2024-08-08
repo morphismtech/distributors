@@ -6,16 +6,38 @@ License     : LICENSE
 Maintainer  : eitan.chatav@gmail.com
 Stability   : experimental
 
+
+This module defines types and terms for lax monoidal
+profunctors, which are analogous to `Applicative` `Functor`s.
+It also provides functions which define
+`Control.Lens.Traversal.Traversal` optics
+in a profunctorial representation using `Strong` and `Choice`
+`Monoidal` `Profunctor`s.
 -}
 module Data.Profunctor.Monoidal
-  ( -- * lax monoidal profunctors
-    Monoidal (oneP, (>*<)), dimap2, (>*), (*<), (>:<)
-  , pureP, apP, liftA2P, replicateP, replicateP', replicateP_, foreverP
+  ( -- * Lax Monoidal Profunctors
+    Monoidal (oneP, (>*<))
+  , dimap2
+  , (>*)
+  , (*<)
+  , (>:<)
+  , pureP
+  , apP
+  , liftA2P
+  , replicateP
+  , replicateP'
+  , replicateP_
+  , foreverP
+    -- * Free Monoidal Profunctors
   , Mon (MonPure, MonAp)
-  , liftMon, hoistMon, foldMon
+  , liftMon
+  , hoistMon
+  , foldMon
   , ChooseMon (ChoosePure, ChooseAp)
-  , liftChooseMon, hoistChooseMon, foldChooseMon
-    -- * traversal
+  , liftChooseMon
+  , hoistChooseMon
+  , foldChooseMon
+    -- * Traversal
   , wanderP, traverseP, traversalP
   ) where
 
@@ -44,7 +66,7 @@ import Witherable
 or simply a product profunctor
 respects the monoidal structure given by
 the nilary and binary products,
-`()` and `(,)`.
+@()@ and @(,)@.
 
 Laws:
 
@@ -154,8 +176,7 @@ prop> pure = pureP
 pureP :: Monoidal p => b -> p a b
 pureP b = dimap (const ()) (const b) oneP
 
-{- | `dimap2` is a fully curried functionalization of `>*<`.
--}
+{- | `dimap2` is a fully curried functionalization of `>*<`. -}
 dimap2
   :: Monoidal p
   => (s -> a)
@@ -178,44 +199,51 @@ prop> (<*>) = apP
 apP :: Monoidal p => p a (b -> d) -> p a b -> p a d
 apP = liftA2P ($)
 
+{- | Analagous to `*>` but with a `Monoidal` constraint.
+
+prop> (*>) = >*
+-}
 (>*) :: Monoidal p => p () c -> p a b -> p a b
 x >* y = dimap ((),) snd (x >*< y)
 infixr 5 >*
 
+{- | Analagous to `<*` but with a `Monoidal` constraint.
+
+prop> (<*) = *<
+-}
 (*<) :: Monoidal p => p a b -> p () c -> p a b
 x *< y = dimap (,()) fst (x >*< y)
 infixr 5 *<
 
+{- | Bidirectional consing. -}
 (>:<) :: (Cons s t a b, Monoidal p, Choice p) => p a b -> p s t -> p s t
 ab >:< st = _Cons >? ab >*< st
 infixr 6 >:<
 
-{- | `replicateP` is analagous to `replicateM`,
-but slightly more general since it will output in
-any `Stream`, not just lists.
--}
+{- | `replicateP` is analagous to `replicateM`. -}
 replicateP
   :: (Monoidal p, Choice p, Cochoice p, Stream s t a b)
   => Int -> p a b -> p s t
 replicateP n _ | n <= 0 = _Null >?< oneP
 replicateP n p = p >:< replicateP (n-1) p
 
+{- | `replicateP'` is a simple analog to `replicateM`. -}
 replicateP'
   :: (Monoidal p, Choice p, SimpleStream s a)
   => Int -> p a a -> p s s
 replicateP' n _ | n <= 0 = _Nil >? oneP
 replicateP' n p = p >:< replicateP' (n-1) p
 
-{- | `replicateP_` is like to `replicateM_`,
-but with a `Monoidal` constraint.
--}
+{- | `replicateP_` is like to `replicateM_`. -}
 replicateP_ :: Monoidal p => Int -> p () c -> p a ()
 replicateP_ n _ | n <= 0 = pureP ()
 replicateP_ n p = p >* replicateP_ (n-1) p
 
+{- | `foreverP` is like to `forever`. -}
 foreverP :: Monoidal p => p () c -> p a b
 foreverP p = let p' = p >* p' in p'
 
+{- | A free `Monoidal` `Profunctor` type. -}
 data Mon p a b where
   MonPure :: b -> Mon p a b
   MonAp
@@ -223,14 +251,22 @@ data Mon p a b where
     -> Mon p a (t -> b)
     -> p s t
     -> Mon p a b
+
+{- | Lifts base terms to `Mon`. -}
 liftMon :: p a b -> Mon p a b
 liftMon p = MonAp id (MonPure id) p
+
+{- | Hoists base functions to `Mon`. -}
 hoistMon
   :: (forall x y. p x y -> q x y)
   -> Mon p a b -> Mon q a b
 hoistMon h = \case
   MonPure b -> MonPure b
   MonAp f g x -> MonAp f (hoistMon h g) (h x)
+
+{- | Folds functions to a `Monoidal` `Profunctor` over `Mon`.
+Together with `liftMon` and `hoistMon`, it characterizes the
+free `Monoidal` `Profunctor`. -}
 foldMon
   :: Monoidal q
   => (forall x y. p x y -> q x y)
@@ -255,6 +291,7 @@ instance Monoidal (Mon p) where
   oneP = MonPure ()
   p0 >*< p1 = (,) <$> lmap fst p0 <*> lmap snd p1
 
+{- | A free `Choice` and `Cochoice`, `Monoidal` `Profunctor` type. -}
 data ChooseMon p a b where
   ChoosePure :: Maybe b -> ChooseMon p a b
   ChooseAp
@@ -311,6 +348,11 @@ instance ProfunctorFunctor ChooseMon where
   promap _ (ChoosePure b) = ChoosePure b
   promap h (ChooseAp f g x) = ChooseAp f (promap h g) (h x)
 
+{- | Folds functions to a `Choice` and `Cochoice`,
+`Monoidal` `Profunctor` over `Mon`.
+Together with `liftChooseMon` and `hoistChooseMon`,
+it characterizes the free `Choice` and `Cochoice`,
+`Monoidal` `Profunctor`. -}
 foldChooseMon
   :: (Monoidal q, Choice q, Cochoice q)
   => (forall x y. p x y -> q x y)
@@ -326,9 +368,11 @@ foldChooseMon k = \case
     in
       catMaybesP (liftA2P ($) h y)
 
+{- | Lifts base terms to `ChooseMon`. -}
 liftChooseMon :: p a b -> ChooseMon p a b
 liftChooseMon = ChooseAp Just (pure Just)
 
+{- | Hoists base functions to `ChooseMon`. -}
 hoistChooseMon
   :: (forall x y. p x y -> q x y)
   -> ChooseMon p a b -> ChooseMon q a b
@@ -362,11 +406,18 @@ instance Applicative (FunList a b) where
   (<*>) = funList fmap (\x l l' -> more x (flip <$> l <*> fromFun l'))
 instance Sellable (->) FunList where sell a = more a (pure id)
 
+{- | Construct a standard `Control.Lens.Traversal.Traversal`
+from a traversal in its profunctor representation as
+function of a `Choice` and `Strong`, `Monoidal` `Profunctor`. -}
 traversalP
   :: (forall p. (Choice p, Strong p, Monoidal p) => p a b -> p s t)
   -> Traversal s t a b
 traversalP abst = runStar . abst . Star
 
+{- | The inverse to `traversalP`, coverts a standard
+`Control.Lens.Traversal.Traversal`
+into its profunctor representation.
+Analogous to `Data.Profunctor.Traversing.wander`. -}
 wanderP
   :: (Choice p, Strong p, Monoidal p)
   => ATraversal s t a b -> p a b -> p s t
@@ -382,6 +433,7 @@ wanderP f =
   in
     dimap (f sell) extract . traverseFun
 
+{- | Analogous to `Data.Profunctor.Traversing.traverse'`. -}
 traverseP
   :: (Choice p, Strong p, Monoidal p, Traversable f)
   => p a b -> p (f a) (f b)
