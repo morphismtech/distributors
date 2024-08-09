@@ -11,7 +11,7 @@ This module defines types and terms for lax monoidal
 profunctors, which are analogous to `Applicative` `Functor`s.
 It also provides functions which define
 `Control.Lens.Traversal.Traversal` optics
-in a profunctorial representation using `Strong` and `Choice`
+in a profunctor representation using `Strong` and `Choice`,
 `Monoidal` `Profunctor`s.
 -}
 module Data.Profunctor.Monoidal
@@ -28,6 +28,10 @@ module Data.Profunctor.Monoidal
   , replicateP'
   , replicateP_
   , foreverP
+    -- * Traversal
+  , wanderP
+  , traversalP
+  , traverseP
     -- * Free Monoidal Profunctors
   , Mon (MonPure, MonAp)
   , liftMon
@@ -37,8 +41,6 @@ module Data.Profunctor.Monoidal
   , liftChooseMon
   , hoistChooseMon
   , foldChooseMon
-    -- * Traversal
-  , wanderP, traverseP, traversalP
   ) where
 
 import Control.Arrow
@@ -201,7 +203,7 @@ apP = liftA2P ($)
 
 {- | Analagous to `*>` but with a `Monoidal` constraint.
 
-prop> (*>) = >*
+prop> (*>) = (>*)
 -}
 (>*) :: Monoidal p => p () c -> p a b -> p a b
 x >* y = dimap ((),) snd (x >*< y)
@@ -209,7 +211,7 @@ infixr 5 >*
 
 {- | Analagous to `<*` but with a `Monoidal` constraint.
 
-prop> (<*) = *<
+prop> (<*) = (*<)
 -}
 (*<) :: Monoidal p => p a b -> p () c -> p a b
 x *< y = dimap (,()) fst (x >*< y)
@@ -234,12 +236,12 @@ replicateP'
 replicateP' n _ | n <= 0 = _Nil >? oneP
 replicateP' n p = p >:< replicateP' (n-1) p
 
-{- | `replicateP_` is like to `replicateM_`. -}
+{- | `replicateP_` is like `replicateM_`. -}
 replicateP_ :: Monoidal p => Int -> p () c -> p a ()
 replicateP_ n _ | n <= 0 = pureP ()
 replicateP_ n p = p >* replicateP_ (n-1) p
 
-{- | `foreverP` is like to `forever`. -}
+{- | `foreverP` is like `forever`. -}
 foreverP :: Monoidal p => p () c -> p a b
 foreverP p = let p' = p >* p' in p'
 
@@ -406,16 +408,16 @@ instance Applicative (FunList a b) where
   (<*>) = funList fmap (\x l l' -> more x (flip <$> l <*> fromFun l'))
 instance Sellable (->) FunList where sell a = more a (pure id)
 
-{- | Construct a standard `Control.Lens.Traversal.Traversal`
-from a traversal in its profunctor representation as
-function of a `Choice` and `Strong`, `Monoidal` `Profunctor`. -}
+{- | The inverse to `wanderP`, converts a traversal
+from its profunctor representation function
+into a standard `Control.Lens.Traversal.Traversal`. -}
 traversalP
   :: (forall p. (Choice p, Strong p, Monoidal p) => p a b -> p s t)
   -> Traversal s t a b
 traversalP abst = runStar . abst . Star
 
-{- | The inverse to `traversalP`, coverts a standard
-`Control.Lens.Traversal.Traversal`
+{- | The inverse to `traversalP`, converts
+`Control.Lens.Traversal.ATraversal`
 into its profunctor representation.
 Analogous to `Data.Profunctor.Traversing.wander`. -}
 wanderP
