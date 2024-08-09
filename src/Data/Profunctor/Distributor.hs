@@ -1,46 +1,31 @@
 {-|
 Module      : Data.Profunctor.Distributor
 Description : monoidal and distributive profunctors
-Copyright   : (c) Eitan Chatav, 2023
+Copyright   : (c) Eitan Chatav, 2024
 License     : LICENSE
 Maintainer  : eitan.chatav@gmail.com
 Stability   : experimental
 
-The term "distributor" is a synonym for ["profunctor"]
-(https://ncatlab.org/nlab/show/profunctor).
-Jean Bénabou who invented the term and originally used
-“profunctor,” then preferred [“distributor,”]
-(http://www.entretemps.asso.fr/maths/Distributors.pdf)
-which is supposed to carry the intuition that a distributor
-generalizes a functor in a similar way to how a distribution
-generalizes a function.
-[Bénabou]
-(http://cahierstgdc.com/wp-content/uploads/2022/07/F.-BORCEUX-LXIII-3.pdf)
-in his time introduced the notions of enriched categories,
-bicategories as well as distributors and invented the term monad.
-He was lost to us on 11, February 2022
-and this library is dedicated to his memory.
-
-The class `Distributor` will mean
-something more specific than "distributor",
-and will be studied alongside `Monoidal` profunctors,
-as well as `Choice` and `Cochoice` profunctors which relate to
-`Alternative`, `Applicative` and `Filterable` functors.
-
-Examples of `Distributor`s will include printers and parsers,
-and it will be demonstrated how to write a single term for both.
-The results here are a profunctorial interpretation of
-[Invertible Syntax Descriptions]
-(https://www.mathematik.uni-marburg.de/~rendel/rendel10invertible.pdf)
 -}
 module Data.Profunctor.Distributor
-  ( -- * lax distributive profunctors
-    Distributor (zeroP, (>+<), several, severalMore, possibly)
+  ( -- * Lax Distributive Profunctors
+    Distributor (zeroP, (>+<), several, severalPlus, possibly)
+  , emptyP
   , dialt
-  , Dist (DistZero, DistPlus), liftDist
-  , DistAlt (DistAlts), liftDistAlt
-  , several1, atLeast0, moreThan0, atLeast1
-  , sep, Separate (by, beginBy, endBy)
+    -- * Free Distributive Profunctors
+  , Dist (DistEmpty, DistEither)
+  , liftDist
+  , hoistDist
+  , foldDist
+  , DistAlt (DistAlts)
+  , liftDistAlt
+  , several1
+    -- * Separate
+  , Separate (by, beginBy, endBy)
+  , sep
+  , atLeast0
+  , moreThan0
+  , atLeast1
     -- * pattern matching
   , eot, onCase, onCocase
   , dichainl, dichainr, dichainl', dichainr'
@@ -68,7 +53,6 @@ import Data.Profunctor.Monoidal
 import Data.Profunctor.Yoneda
 import Data.Void
 import Generics.Eot
-import GHC.Base (Constraint, Type)
 import Witherable
 
 {- | A `Distributor`, or lax distributive profunctor,
@@ -97,19 +81,12 @@ prop> p >+< q >+< r = assoc ((p >+< q) >+< r)
 `Distributor` is not equivalent to an `Alternative` `Profunctor`.
 However, when the `Profunctor` is `Choice` and `Cochoice`, then
 `Alternative` gives a default implementation for `Distributor`.
-
-A `Distributor` is a lax distributive endoprofunctor
-on the category of Haskell types and functions.
-A mathematical treatment of strong distributors is given by
-Travis Squires in [Profunctors and Distributive Categories]
-(https://central.bac-lac.gc.ca/.item?id=MR31635)
 -}
-type Distributor :: (Type -> Type -> Type) -> Constraint
 class Monoidal p => Distributor p where
 
   {- |
-  `zeroP` is a restricted `empty`.
-  `zeroP` uses the nilary coproduct `Void` directly.
+  `zeroP` is a symmetric analog of `emptyP`.
+  For an `Alternative` `Distributor`,
 
   prop> zeroP = empty
   -}
@@ -118,9 +95,8 @@ class Monoidal p => Distributor p where
   zeroP = empty
 
   {- |
-  `>+<` is analagous to `(<|>)`.
-  `>+<` uses the binary coproduct `Either` directly,
-  where `dialt` encodes the coproduct in a functionalized way.
+  `>+<` is a symmetrical analog of `dialt`.
+  For an `Alternative` `Distributor` which is `Choice` and `Cochoice`,
 
   prop> p >+< q = alternate (Left p) <|> alternate (Right q)
   -}
@@ -135,15 +111,15 @@ class Monoidal p => Distributor p where
   `several` is the Kleene star operator, of zero or more times.
   -}
   several :: (SimpleStream s a, SimpleStream t b) => p a b -> p s t
-  several p = apIso _Stream $ oneP >+< severalMore p
+  several p = apIso _Stream $ oneP >+< severalPlus p
 
   {- |
-  `severalMore` is the Kleene plus operator, of one or more times.
+  `severalPlus` is the Kleene plus operator, of one or more times.
   -}
-  severalMore
+  severalPlus
     :: (SimpleStream s a, SimpleStream t b)
     => p a b -> p (a,s) (b,t)
-  severalMore p = p >*< several p
+  severalPlus p = p >*< several p
 
   {- |
   `possibly` is zero or one times.
@@ -152,25 +128,29 @@ class Monoidal p => Distributor p where
   possibly p = apIso _M2E $ oneP >+< p
 
 apIso :: Profunctor p => AnIso s t a b -> p a b -> p s t
-apIso i p = withIso i $ \ here there -> dimap here there p
+apIso i p = withIso i $ \here there -> dimap here there p
 
+{- | Like `severalPlus`, but conses the `Stream` type. -}
 several1
   :: (Choice p, Distributor p, Stream s t a b)
   => p a b -> p s t
-several1 p = _Cons >? severalMore p
+several1 p = _Cons >? severalPlus p
 
+{- | At least zero operator with a separator. -}
 atLeast0
   :: (Distributor p, Stream s t a b)
   => p a b -> Separate p -> p s t
 atLeast0 p (Separate separator beg end) =
   beg >* apIso _Stream (oneP >+< p `sepBy` separator) *< end
 
+{- | More than zero operator with a separator. -}
 moreThan0
   :: (Distributor p, Stream s t a b)
   => p a b -> Separate p -> p (a,s) (b,t)
 moreThan0 p (Separate separator beg end) =
   beg >* p `sepBy` separator *< end
 
+{- | Like `moreThan0`, but conses the `Stream` type. -}
 atLeast1
   :: (Distributor p, Choice p, Stream s t a b)
   => p a b -> Separate p -> p s t
@@ -181,12 +161,16 @@ sepBy
   => p a b -> p () () -> p (a,s) (b,t)
 sepBy p separator = p >*< several (separator >* p)
 
+{- | Used to parse multiple times, delimited `by` a separator,
+a `beginBy`, and an `endBy`. -}
 data Separate p = Separate
   { by :: p () ()
   , beginBy :: p () ()
   , endBy :: p () ()
   }
 
+{- | A default `Separate` which can be modified by updating `by`,
+`beginBy`, or `endBy` fields -}
 sep :: Monoidal p => Separate p
 sep = Separate oneP oneP oneP
 
@@ -246,6 +230,15 @@ instance Distributor p => Distributor (Coyoneda p) where
   zeroP = proreturn zeroP
   ab >+< cd = proreturn (proextract ab >+< proextract cd)
 
+{- | Analogous to `empty` with a `Monoidal` constraint,
+`emptyP` is a functionalization of `zeroP`.
+-}
+emptyP
+  :: Distributor p
+  => (a -> Void) -> p a b
+emptyP f = dimap f absurd zeroP
+
+{- | `dialt` is a fully curried functionalization of `>+<`. -}
 dialt
   :: Distributor p
   => (s -> Either a c)
@@ -253,31 +246,51 @@ dialt
   -> (d -> t)
   -> p a b -> p c d -> p s t
 dialt f g h p q = dimap f (either g h) (p >+< q)
-type Dist
-  :: ((Type -> Type) -> (Type -> Type))
-  -- ^ your choice of free applicative
-  -> (Type -> Type -> Type) 
-  -> Type -> Type -> Type
+
+{- | A free `Distributor` type, parametrized by
+a choice of free `Applicative`. -}
 data Dist ap p a b where
-  DistZero 
+  DistEmpty 
     :: (a -> Void)
     -> Dist ap p a b
-  DistPlus
+  DistEither
     :: (a -> Either s c)
     -> ap (p s) b
     -> Dist ap p c b
     -> Dist ap p a b
+
+{- | Lifts base terms to `Dist`. -}
 liftDist :: ap (p a) b -> Dist ap p a b
-liftDist x = DistPlus Left x (DistZero id)
+liftDist x = DistEither Left x (DistEmpty id)
+
+{- | Hoists base functions to `Dist`. -}
+hoistDist
+  :: (forall x y. ap (p x) y -> ap (q x) y)
+  -> Dist ap p a b -> Dist ap q a b
+hoistDist h = \case
+  DistEmpty f -> DistEmpty f
+  DistEither f b x -> DistEither f (h b) (hoistDist h x)
+
+{- | Folds functions to a `Distributor` over `Dist`.
+Together with `liftDist` and `hoistDist`, it characterizes the
+free `Distributor`. -}
+foldDist
+  :: Distributor q
+  => (forall x y. ap (p x) y -> q x y)
+  -> Dist ap p a b -> q a b
+foldDist k = \case
+  DistEmpty f -> emptyP f
+  DistEither f b x -> dialt f id id (k b) (foldDist k x)
+
 instance (forall f. Functor (ap f))
   => Functor (Dist ap p a) where fmap = rmap
 instance (forall f. Applicative (ap f))
   => Applicative (Dist ap p a) where
   pure b = liftDist (pure b)
   -- 0*x=0
-  liftA2 _ (DistZero absurdum) _ = DistZero absurdum
+  liftA2 _ (DistEmpty absurdum) _ = DistEmpty absurdum
   -- (x+y)*z=x*z+y*z
-  liftA2 g (DistPlus f x y) z =
+  liftA2 g (DistEither f x y) z =
     let
       ff a = bimap (,a) (,a) (f a)
     in
@@ -286,18 +299,18 @@ instance (forall f. Applicative (ap f))
         (uncurry g <$> (y >*< z))
 instance (forall f. Functor (ap f))
   => Profunctor (Dist ap p) where
-  dimap f _ (DistZero absurdum) = DistZero (absurdum . f)
-  dimap f' g' (DistPlus f x y) =
-    DistPlus (f . f') (g' <$> x) (g' <$> y)
+  dimap f _ (DistEmpty absurdum) = DistEmpty (absurdum . f)
+  dimap f' g' (DistEither f x y) =
+    DistEither (f . f') (g' <$> x) (g' <$> y)
 instance (forall f. Applicative (ap f)) => Monoidal (Dist ap p)
 instance (forall f. Applicative (ap f))
   => Distributor (Dist ap p) where
-  zeroP = DistZero absurd
+  zeroP = DistEmpty absurd
   -- 0+x=x
-  DistZero absurdum >+< x =
+  DistEmpty absurdum >+< x =
     dimap (either (absurd . absurdum) id) Right x
   -- (x+y)+z=x+(y+z)
-  DistPlus f x y >+< z =
+  DistEither f x y >+< z =
     let
       assocE (Left (Left a)) = Left a
       assocE (Left (Right b)) = Right (Left b)
@@ -306,17 +319,17 @@ instance (forall f. Applicative (ap f))
     in
       dialt f' Left id (liftDist x) (y >+< z)
 instance (forall f. Filterable (ap f)) => Filterable (Dist ap p x) where
-  catMaybes (DistZero absurdum) = DistZero absurdum
-  catMaybes (DistPlus f x y) = DistPlus f (catMaybes x) (catMaybes y)
+  catMaybes (DistEmpty absurdum) = DistEmpty absurdum
+  catMaybes (DistEither f x y) = DistEither f (catMaybes x) (catMaybes y)
 instance (forall f. Filterable (ap f)) => Cochoice (Dist ap p) where
-  unleft (DistZero absurdum) = DistZero (absurdum . Left)
-  unleft (DistPlus f x y) =
-    DistPlus (f . Left)
+  unleft (DistEmpty absurdum) = DistEmpty (absurdum . Left)
+  unleft (DistEither f x y) =
+    DistEither (f . Left)
       (mapMaybe (either Just (const Nothing)) x)
       (mapMaybe (either Just (const Nothing)) y)
-  unright (DistZero absurdum) = DistZero (absurdum . Right)
-  unright (DistPlus f x y) =
-    DistPlus (f . Right)
+  unright (DistEmpty absurdum) = DistEmpty (absurdum . Right)
+  unright (DistEither f x y) =
+    DistEither (f . Right)
       (mapMaybe (either (const Nothing) Just) x)
       (mapMaybe (either (const Nothing) Just) y)
 newtype DistAlt p a b = DistAlts [p a b]

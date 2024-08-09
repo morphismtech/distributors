@@ -281,6 +281,7 @@ foldMon k = \case
       y = lmap f (k x)
     in
       liftA2P ($) h y
+
 instance Functor (Mon p a) where fmap = rmap
 instance Applicative (Mon p a) where
   pure = pureP

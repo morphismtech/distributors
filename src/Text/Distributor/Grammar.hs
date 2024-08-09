@@ -146,7 +146,7 @@ instance Eq c => Distributor (Grammar c) where
   Grammar rules0 s0 >+< Grammar rules1 s1 =
     Grammar (mergeProds rules0 rules1) (ProdOr s0 s1)
   several (Grammar rules s) = Grammar rules (ProdSev s)
-  severalMore (Grammar rules s) = Grammar rules (ProdSev1 s)
+  severalPlus (Grammar rules s) = Grammar rules (ProdSev1 s)
   possibly (Grammar rules s) = Grammar rules (ProdPoss s)
 instance Choice (Grammar c) where
   left' = coerce
