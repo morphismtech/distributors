@@ -332,6 +332,10 @@ instance (forall f. Filterable (ap f)) => Cochoice (Dist ap p) where
     DistEither (f . Right)
       (mapMaybe (either (const Nothing) Just) x)
       (mapMaybe (either (const Nothing) Just) y)
+
+
+{- | A free `Distributor` type, generated over
+a `Choice` and `Cochoice`, `Applicative` `Profunctor`. -}
 newtype DistAlt p a b = DistAlts [p a b]
 instance (forall x. Functor (p x)) => Functor (DistAlt p a) where
   fmap f (DistAlts alts) = DistAlts (map (fmap f) alts)
