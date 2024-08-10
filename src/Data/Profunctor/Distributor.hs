@@ -286,7 +286,7 @@ hoistDist h = \case
 Together with `liftDist` and `hoistDist`, it characterizes the
 free `Distributor`. -}
 foldDist
-  :: (Distributor q, forall s. Applicative (q s))
+  :: (Distributor q, forall x. Applicative (q x))
   => (forall x y. p x y -> q x y)
   -> Dist Ap p a b -> q a b
 foldDist k = \case
