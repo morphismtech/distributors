@@ -17,7 +17,7 @@ module Data.Profunctor.Distributor
   , Dist (DistEmpty, DistEither)
   , liftDist
   , hoistDist
-  , foldDist
+  , foldDistWith
   , DistAlt (DistAlts)
   , liftDistAlt
   , several1
@@ -33,7 +33,6 @@ module Data.Profunctor.Distributor
   ) where
 
 import Control.Applicative hiding (WrappedArrow(..))
-import Control.Applicative.Free
 import Control.Arrow
 import Control.Lens hiding (chosen, Traversing)
 import Control.Lens.PartialIso
@@ -257,9 +256,14 @@ altP
   => (s -> Either a c) -> p a t -> p c t -> p s t
 altP f = dialt f id id
 
-{- | A free `Distributor` type, parametrized by
-a choice of free `Applicative`. -}
-type Dist :: ((Type -> Type) -> (Type -> Type)) -> (Type -> Type -> Type) -> Type -> Type -> Type
+{- | A free `Distributor` type over an unconstrained quiver,
+parametrized by a choice of free `Applicative`. -}
+type Dist
+  :: ((Type -> Type) -> (Type -> Type))
+     -- ^ choice of free `Applicative`
+  -> (Type -> Type -> Type)
+     -- ^ base quiver
+  -> Type -> Type -> Type
 data Dist ap p a b where
   DistEmpty 
     :: (a -> Void)
@@ -270,11 +274,11 @@ data Dist ap p a b where
     -> Dist ap p c b
     -> Dist ap p a b
 
-{- | Composed with @liftAp@, `liftDist` lifts base terms to `Dist`. -}
+{- | `liftDist` `.` @liftAp@ lifts base terms to `Dist`. -}
 liftDist :: ap (p a) b -> Dist ap p a b
 liftDist x = DistEither Left x (DistEmpty id)
 
-{- | Composed with @hoistAp@, `hoistDist` hoists base functions to `Dist`. -}
+{- | `hoistDist` `.` @hoistAp@ hoists base functions to `Dist`. -}
 hoistDist
   :: (forall x y. ap (p x) y -> ap (q x) y)
   -> Dist ap p a b -> Dist ap q a b
@@ -282,18 +286,26 @@ hoistDist h = \case
   DistEmpty f -> DistEmpty f
   DistEither f b x -> DistEither f (h b) (hoistDist h x)
 
-{- | Folds functions to a `Distributor` over `Dist`.
-Together with `liftDist` and `hoistDist`, it characterizes the
-free `Distributor`. -}
-foldDist
-  :: (Distributor q, forall x. Applicative (q x))
-  => (forall x y. p x y -> q x y)
-  -> Dist Ap p a b -> q a b
-foldDist k = \case
+{- |
+`foldDistWith` @runAp@ folds functions to a
+`Distributor` over `Dist` @Ap@.
+Together with `liftDist` and `hoistDist`,
+it characterizes the free `Distributor`.
+-}
+foldDistWith
+  :: ( Distributor q
+     , forall x. Applicative (q x)
+     , forall f. Applicative (ap f)
+     )
+  => (forall s t. (forall x y. p x y -> q x y) -> ap (p s) t -> q s t)
+     -- ^ use the @runAp@ fold-function of the free `Applicative` @ap@
+  -> (forall x y. p x y -> q x y)
+  -> Dist ap p a b -> q a b
+foldDistWith foldAp k = \case
   DistEmpty f ->
     emptyP f
   DistEither f b x ->
-    altP f (runAp k b) (foldDist k x)
+    altP f (foldAp k b) (foldDistWith foldAp k x)
 
 instance (forall f. Functor (ap f))
   => Functor (Dist ap p a) where fmap = rmap
@@ -350,6 +362,7 @@ instance (forall f. Filterable (ap f)) => Cochoice (Dist ap p) where
 {- | A free `Distributor` type, generated over
 a `Choice` and `Cochoice`, `Applicative` `Profunctor`. -}
 newtype DistAlt p a b = DistAlts [p a b]
+-- newtype DistAlt p a b = DistAlts [ChooseMon p a b] ???
 instance (forall x. Functor (p x)) => Functor (DistAlt p a) where
   fmap f (DistAlts alts) = DistAlts (map (fmap f) alts)
 instance (forall x. Applicative (p x))
@@ -376,6 +389,15 @@ instance (Choice p, Cochoice p, forall x. Applicative (p x))
 
 liftDistAlt :: p a b -> DistAlt p a b
 liftDistAlt p = DistAlts [p]
+
+-- TODO: ApFilter instances and functions
+data ApFilter f a where
+  ApFilterEmpty :: ApFilter f a
+  ApFilterPure :: a -> ApFilter f a
+  ApFilter
+    :: f a
+    -> ApFilter f (a -> Maybe b)
+    -> ApFilter f b
 
 -- positional pattern matching
 eot
