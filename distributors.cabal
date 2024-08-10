@@ -30,7 +30,6 @@ library
       Data.Profunctor.Distributor
       Data.Profunctor.Monoidal
       Text.Distributor.Grammar
-      Text.Distributor.Grammar2
   other-modules:
       Paths_distributors
   autogen-modules:
@@ -77,7 +76,6 @@ library
     , comonad
     , containers
     , contravariant
-    , free
     , generics-eot
     , lens
     , mtl
