@@ -12,6 +12,7 @@ module Data.Profunctor.Distributor
     Distributor (zeroP, (>+<), several, severalPlus, possibly)
   , emptyP
   , dialt
+  , altP
     -- * Free Distributive Profunctors
   , Dist (DistEmpty, DistEither)
   , liftDist
@@ -32,6 +33,7 @@ module Data.Profunctor.Distributor
   ) where
 
 import Control.Applicative hiding (WrappedArrow(..))
+import Control.Applicative.Free
 import Control.Arrow
 import Control.Lens hiding (chosen, Traversing)
 import Control.Lens.PartialIso
@@ -54,6 +56,8 @@ import Data.Profunctor.Yoneda
 import Data.Void
 import Generics.Eot
 import Witherable
+
+import Data.Kind
 
 {- | A `Distributor`, or lax distributive profunctor,
 respects distributive category structure,
@@ -230,7 +234,7 @@ instance Distributor p => Distributor (Coyoneda p) where
   zeroP = proreturn zeroP
   ab >+< cd = proreturn (proextract ab >+< proextract cd)
 
-{- | Analogous to `empty` with a `Monoidal` constraint,
+{- | The `Distributor` version of `empty`,
 `emptyP` is a functionalization of `zeroP`.
 -}
 emptyP
@@ -247,8 +251,15 @@ dialt
   -> p a b -> p c d -> p s t
 dialt f g h p q = dimap f (either g h) (p >+< q)
 
+{- | `altP` is the `Distributor` version of `(<|>)`. -}
+altP
+  :: Distributor p
+  => (s -> Either a c) -> p a t -> p c t -> p s t
+altP f = dialt f id id
+
 {- | A free `Distributor` type, parametrized by
 a choice of free `Applicative`. -}
+type Dist :: ((Type -> Type) -> (Type -> Type)) -> (Type -> Type -> Type) -> Type -> Type -> Type
 data Dist ap p a b where
   DistEmpty 
     :: (a -> Void)
@@ -259,11 +270,11 @@ data Dist ap p a b where
     -> Dist ap p c b
     -> Dist ap p a b
 
-{- | Lifts base terms to `Dist`. -}
+{- | Composed with @liftAp@, `liftDist` lifts base terms to `Dist`. -}
 liftDist :: ap (p a) b -> Dist ap p a b
 liftDist x = DistEither Left x (DistEmpty id)
 
-{- | Hoists base functions to `Dist`. -}
+{- | Composed with @hoistAp@, `hoistDist` hoists base functions to `Dist`. -}
 hoistDist
   :: (forall x y. ap (p x) y -> ap (q x) y)
   -> Dist ap p a b -> Dist ap q a b
@@ -275,12 +286,14 @@ hoistDist h = \case
 Together with `liftDist` and `hoistDist`, it characterizes the
 free `Distributor`. -}
 foldDist
-  :: Distributor q
-  => (forall x y. ap (p x) y -> q x y)
-  -> Dist ap p a b -> q a b
+  :: (Distributor q, forall s. Applicative (q s))
+  => (forall x y. p x y -> q x y)
+  -> Dist Ap p a b -> q a b
 foldDist k = \case
-  DistEmpty f -> emptyP f
-  DistEither f b x -> dialt f id id (k b) (foldDist k x)
+  DistEmpty f ->
+    emptyP f
+  DistEither f b x ->
+    altP f (runAp k b) (foldDist k x)
 
 instance (forall f. Functor (ap f))
   => Functor (Dist ap p a) where fmap = rmap
@@ -294,7 +307,7 @@ instance (forall f. Applicative (ap f))
     let
       ff a = bimap (,a) (,a) (f a)
     in
-      dialt ff id id
+      altP ff
         (uncurry g <$> (liftDist x >*< z))
         (uncurry g <$> (y >*< z))
 instance (forall f. Functor (ap f))
