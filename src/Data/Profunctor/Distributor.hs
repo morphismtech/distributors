@@ -13,20 +13,21 @@ module Data.Profunctor.Distributor
   , emptyP
   , dialt
   , altP
+  , several1
+  , atLeast0
+  , moreThan0
+  , atLeast1
     -- * Free Distributive Profunctors
   , Dist (..)
   , liftDist
   , hoistDist
   , foldDistWith
-  , DistAlt (..)
-  , liftDistAlt
-  , several1
+  , ChooseDist (..)
+  , liftChooseDist
+  , hoistChooseDist
     -- * Separate
   , Separate (..)
   , sep
-  , atLeast0
-  , moreThan0
-  , atLeast1
     -- * pattern matching
   , eot, onCase, onCocase
   , dichainl, dichainr, dichainl', dichainr'
@@ -358,34 +359,50 @@ instance (forall f. Filterable (ap f)) => Cochoice (Dist ap p) where
 
 {- | A free `Distributor` type, generated over
 a `Choice` and `Cochoice`, `Applicative` `Profunctor`. -}
-newtype DistAlt p a b =
-  DistAlt {distAlts :: [ChooseApF DistAlt p a b]}
-instance (forall x. Functor (p x)) => Functor (DistAlt p a) where
-  fmap f (DistAlt alts) = DistAlt (map (fmap f) alts)
+newtype ChooseDist p a b =
+  ChooseDist {distAlts :: [ChooseApF ChooseDist p a b]}
+instance (forall x. Functor (p x)) => Functor (ChooseDist p a) where
+  fmap f (ChooseDist alts) = ChooseDist (map (fmap f) alts)
 instance (forall x. Applicative (p x))
-  => Applicative (DistAlt p a) where
-  pure b = liftDistAlt (pure b)
-  DistAlt xs <*> DistAlt ys =
-    DistAlt [x <*> y | x <- xs, y <- ys]
+  => Applicative (ChooseDist p a) where
+  pure b = liftChooseDist (pure b)
+  ChooseDist xs <*> ChooseDist ys =
+    ChooseDist [x <*> y | x <- xs, y <- ys]
 instance (forall x. Applicative (p x))
-  => Alternative (DistAlt p a) where
-    empty = DistAlt []
-    DistAlt altsL <|> DistAlt altsR = DistAlt (altsL ++ altsR)
-instance Profunctor p => Profunctor (DistAlt p) where
-  dimap f g (DistAlt alts) = DistAlt (map (dimap f g) alts)
+  => Alternative (ChooseDist p a) where
+    empty = ChooseDist []
+    ChooseDist altsL <|> ChooseDist altsR = ChooseDist (altsL ++ altsR)
+instance Profunctor p => Profunctor (ChooseDist p) where
+  dimap f g (ChooseDist alts) = ChooseDist (map (dimap f g) alts)
 instance (forall x. Applicative (p x), Profunctor p)
-  => Monoidal (DistAlt p)
-instance Choice p => Choice (DistAlt p) where
-  left' (DistAlt alts) = DistAlt (map left' alts)
-  right' (DistAlt alts) = DistAlt (map right' alts)
-instance Cochoice p => Cochoice (DistAlt p) where
-  unleft (DistAlt alts) = DistAlt (map unleft alts)
-  unright (DistAlt alts) = DistAlt (map unright alts)
+  => Monoidal (ChooseDist p)
+instance Choice p => Choice (ChooseDist p) where
+  left' (ChooseDist alts) = ChooseDist (map left' alts)
+  right' (ChooseDist alts) = ChooseDist (map right' alts)
+instance Cochoice p => Cochoice (ChooseDist p) where
+  unleft (ChooseDist alts) = ChooseDist (map unleft alts)
+  unright (ChooseDist alts) = ChooseDist (map unright alts)
 instance (Choice p, Cochoice p, forall x. Applicative (p x))
-  => Distributor (DistAlt p)
+  => Distributor (ChooseDist p)
 
-liftDistAlt :: p a b -> DistAlt p a b
-liftDistAlt p = DistAlt [ChooseAp Just (pure Just) p]
+liftChooseDist :: p a b -> ChooseDist p a b
+liftChooseDist p = ChooseDist [ChooseAp Just (pure Just) p]
+
+hoistChooseDist
+  :: (forall x y. p x y -> q x y)
+  -> ChooseDist p a b -> ChooseDist q a b
+hoistChooseDist f (ChooseDist alts) =
+  let
+    hoistChooseAp
+      :: (forall x y. p x y -> q x y)
+      -> ChooseApF ChooseDist p s t
+      -> ChooseApF ChooseDist q s t
+    hoistChooseAp g = \case
+      ChooseNil -> ChooseNil
+      ChoosePure t -> ChoosePure t
+      ChooseAp f' g' x -> ChooseAp f' (hoistChooseAp g g') (g x)
+  in
+    ChooseDist (map (hoistChooseAp f) alts)
 
 -- TODO: ApFilter instances and functions
 -- data ApFilter f a where
