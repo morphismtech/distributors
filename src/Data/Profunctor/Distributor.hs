@@ -9,20 +9,20 @@ Stability   : experimental
 -}
 module Data.Profunctor.Distributor
   ( -- * Lax Distributive Profunctors
-    Distributor (zeroP, (>+<), several, severalPlus, possibly)
+    Distributor (..)
   , emptyP
   , dialt
   , altP
     -- * Free Distributive Profunctors
-  , Dist (DistEmpty, DistEither)
+  , Dist (..)
   , liftDist
   , hoistDist
   , foldDistWith
-  , DistAlt (DistAlts)
+  , DistAlt (..)
   , liftDistAlt
   , several1
     -- * Separate
-  , Separate (by, beginBy, endBy)
+  , Separate (..)
   , sep
   , atLeast0
   , moreThan0
@@ -49,14 +49,13 @@ import Data.Profunctor hiding (WrappedArrow(..))
 import qualified Data.Profunctor as Pro (WrappedArrow(..))
 import Data.Profunctor.Cayley
 import Data.Profunctor.Composition
+import Data.Kind
 import Data.Profunctor.Monad
 import Data.Profunctor.Monoidal
 import Data.Profunctor.Yoneda
 import Data.Void
 import Generics.Eot
 import Witherable
-
-import Data.Kind
 
 {- | A `Distributor`, or lax distributive profunctor,
 respects distributive category structure,
@@ -265,7 +264,7 @@ type Dist
      -- ^ base quiver
   -> Type -> Type -> Type
 data Dist ap p a b where
-  DistEmpty 
+  DistNil 
     :: (a -> Void)
     -> Dist ap p a b
   DistEither
@@ -276,33 +275,32 @@ data Dist ap p a b where
 
 {- | `liftDist` `.` @liftAp@ lifts base terms to `Dist`. -}
 liftDist :: ap (p a) b -> Dist ap p a b
-liftDist x = DistEither Left x (DistEmpty id)
+liftDist x = DistEither Left x (DistNil id)
 
 {- | `hoistDist` `.` @hoistAp@ hoists base functions to `Dist`. -}
 hoistDist
   :: (forall x y. ap (p x) y -> ap (q x) y)
   -> Dist ap p a b -> Dist ap q a b
 hoistDist h = \case
-  DistEmpty f -> DistEmpty f
+  DistNil f -> DistNil f
   DistEither f b x -> DistEither f (h b) (hoistDist h x)
 
 {- |
 `foldDistWith` @runAp@ folds functions to a
 `Distributor` over `Dist` @Ap@.
 Together with `liftDist` and `hoistDist`,
-it characterizes the free `Distributor`.
+`foldDistWith` characterizes the free `Distributor`.
 -}
 foldDistWith
   :: ( Distributor q
      , forall x. Applicative (q x)
-     , forall f. Applicative (ap f)
      )
   => (forall s t. (forall x y. p x y -> q x y) -> ap (p s) t -> q s t)
      -- ^ use the @runAp@ fold-function of the free `Applicative` @ap@
   -> (forall x y. p x y -> q x y)
   -> Dist ap p a b -> q a b
 foldDistWith foldAp k = \case
-  DistEmpty f ->
+  DistNil f ->
     emptyP f
   DistEither f b x ->
     altP f (foldAp k b) (foldDistWith foldAp k x)
@@ -313,7 +311,7 @@ instance (forall f. Applicative (ap f))
   => Applicative (Dist ap p a) where
   pure b = liftDist (pure b)
   -- 0*x=0
-  liftA2 _ (DistEmpty absurdum) _ = DistEmpty absurdum
+  liftA2 _ (DistNil absurdum) _ = DistNil absurdum
   -- (x+y)*z=x*z+y*z
   liftA2 g (DistEither f x y) z =
     let
@@ -324,15 +322,15 @@ instance (forall f. Applicative (ap f))
         (uncurry g <$> (y >*< z))
 instance (forall f. Functor (ap f))
   => Profunctor (Dist ap p) where
-  dimap f _ (DistEmpty absurdum) = DistEmpty (absurdum . f)
+  dimap f _ (DistNil absurdum) = DistNil (absurdum . f)
   dimap f' g' (DistEither f x y) =
     DistEither (f . f') (g' <$> x) (g' <$> y)
 instance (forall f. Applicative (ap f)) => Monoidal (Dist ap p)
 instance (forall f. Applicative (ap f))
   => Distributor (Dist ap p) where
-  zeroP = DistEmpty absurd
+  zeroP = DistNil absurd
   -- 0+x=x
-  DistEmpty absurdum >+< x =
+  DistNil absurdum >+< x =
     dimap (either (absurd . absurdum) id) Right x
   -- (x+y)+z=x+(y+z)
   DistEither f x y >+< z =
@@ -344,60 +342,59 @@ instance (forall f. Applicative (ap f))
     in
       dialt f' Left id (liftDist x) (y >+< z)
 instance (forall f. Filterable (ap f)) => Filterable (Dist ap p x) where
-  catMaybes (DistEmpty absurdum) = DistEmpty absurdum
+  catMaybes (DistNil absurdum) = DistNil absurdum
   catMaybes (DistEither f x y) = DistEither f (catMaybes x) (catMaybes y)
 instance (forall f. Filterable (ap f)) => Cochoice (Dist ap p) where
-  unleft (DistEmpty absurdum) = DistEmpty (absurdum . Left)
+  unleft (DistNil absurdum) = DistNil (absurdum . Left)
   unleft (DistEither f x y) =
     DistEither (f . Left)
       (mapMaybe (either Just (const Nothing)) x)
       (mapMaybe (either Just (const Nothing)) y)
-  unright (DistEmpty absurdum) = DistEmpty (absurdum . Right)
+  unright (DistNil absurdum) = DistNil (absurdum . Right)
   unright (DistEither f x y) =
     DistEither (f . Right)
       (mapMaybe (either (const Nothing) Just) x)
       (mapMaybe (either (const Nothing) Just) y)
 
-
 {- | A free `Distributor` type, generated over
 a `Choice` and `Cochoice`, `Applicative` `Profunctor`. -}
-newtype DistAlt p a b = DistAlts [p a b]
--- newtype DistAlt p a b = DistAlts [ChooseMon p a b] ???
+newtype DistAlt p a b =
+  DistAlt {distAlts :: [ChooseApF DistAlt p a b]}
 instance (forall x. Functor (p x)) => Functor (DistAlt p a) where
-  fmap f (DistAlts alts) = DistAlts (map (fmap f) alts)
+  fmap f (DistAlt alts) = DistAlt (map (fmap f) alts)
 instance (forall x. Applicative (p x))
   => Applicative (DistAlt p a) where
   pure b = liftDistAlt (pure b)
-  DistAlts xs <*> DistAlts ys =
-    DistAlts [x <*> y | x <- xs, y <- ys]
+  DistAlt xs <*> DistAlt ys =
+    DistAlt [x <*> y | x <- xs, y <- ys]
 instance (forall x. Applicative (p x))
   => Alternative (DistAlt p a) where
-    empty = DistAlts []
-    DistAlts altsL <|> DistAlts altsR = DistAlts (altsL ++ altsR)
+    empty = DistAlt []
+    DistAlt altsL <|> DistAlt altsR = DistAlt (altsL ++ altsR)
 instance Profunctor p => Profunctor (DistAlt p) where
-  dimap f g (DistAlts alts) = DistAlts (map (dimap f g) alts)
+  dimap f g (DistAlt alts) = DistAlt (map (dimap f g) alts)
 instance (forall x. Applicative (p x), Profunctor p)
   => Monoidal (DistAlt p)
 instance Choice p => Choice (DistAlt p) where
-  left' (DistAlts alts) = DistAlts (map left' alts)
-  right' (DistAlts alts) = DistAlts (map right' alts)
+  left' (DistAlt alts) = DistAlt (map left' alts)
+  right' (DistAlt alts) = DistAlt (map right' alts)
 instance Cochoice p => Cochoice (DistAlt p) where
-  unleft (DistAlts alts) = DistAlts (map unleft alts)
-  unright (DistAlts alts) = DistAlts (map unright alts)
+  unleft (DistAlt alts) = DistAlt (map unleft alts)
+  unright (DistAlt alts) = DistAlt (map unright alts)
 instance (Choice p, Cochoice p, forall x. Applicative (p x))
   => Distributor (DistAlt p)
 
 liftDistAlt :: p a b -> DistAlt p a b
-liftDistAlt p = DistAlts [p]
+liftDistAlt p = DistAlt [ChooseAp Just (pure Just) p]
 
 -- TODO: ApFilter instances and functions
-data ApFilter f a where
-  ApFilterEmpty :: ApFilter f a
-  ApFilterPure :: a -> ApFilter f a
-  ApFilter
-    :: f a
-    -> ApFilter f (a -> Maybe b)
-    -> ApFilter f b
+-- data ApFilter f a where
+--   ApFilterNil :: ApFilter f a
+--   ApFilterPure :: a -> ApFilter f a
+--   ApFilter
+--     :: f a
+--     -> ApFilter f (a -> Maybe b)
+--     -> ApFilter f b
 
 -- positional pattern matching
 eot
