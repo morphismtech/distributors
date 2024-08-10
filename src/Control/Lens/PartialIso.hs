@@ -1,5 +1,6 @@
 {- |
 Module      :  Control.Lens.PartialIso
+Description :  choice & cochoice profunctors, and partial isomorphisms
 Copyright   :  (C) 2024 - Eitan Chatav
 License     :  BSD-style (see the file LICENSE)
 Maintainer  :  Eitan Chatav <eitan.chatav@gmail.com>

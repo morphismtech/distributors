@@ -1,6 +1,6 @@
 {-|
 Module      : Data.Profunctor.Distributor
-Description : monoidal and distributive profunctors
+Description : lax distributive profunctors
 Copyright   : (c) Eitan Chatav, 2024
 License     : LICENSE
 Maintainer  : eitan.chatav@gmail.com
