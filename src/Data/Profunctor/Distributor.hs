@@ -19,9 +19,7 @@ module Data.Profunctor.Distributor
   , atLeast1
     -- * Free Distributive Profunctors
   , Dist (..)
-  , liftDist
-  , hoistDist
-  , foldDistWith
+  , FreeDistAp (..)
   , ChooseDist (..)
   , liftChooseDist
   , hoistChooseDist
@@ -34,6 +32,9 @@ module Data.Profunctor.Distributor
   ) where
 
 import Control.Applicative hiding (WrappedArrow(..))
+import qualified Control.Applicative.Free as Free
+import qualified Control.Applicative.Free.Fast as Fast
+import qualified Control.Applicative.Free.Final as Final
 import Control.Arrow
 import Control.Lens hiding (chosen, Traversing)
 import Control.Lens.PartialIso
@@ -274,25 +275,54 @@ data Dist ap p a b where
     -> Dist ap p c b
     -> Dist ap p a b
 
-{- | `liftDist` `.` @liftAp@ lifts base terms to `Dist`. -}
-liftDist :: ap (p a) b -> Dist ap p a b
-liftDist x = DistEither Left x (DistNil id)
-
-{- | `hoistDist` `.` @hoistAp@ hoists base functions to `Dist`. -}
-hoistDist
-  :: (forall x y. ap (p x) y -> ap (q x) y)
-  -> Dist ap p a b -> Dist ap q a b
-hoistDist h = \case
-  DistNil f -> DistNil f
-  DistEither f b x -> DistEither f (h b) (hoistDist h x)
-
 {- |
-`foldDistWith` @runAp@ folds functions to a
-`Distributor` over `Dist` @Ap@.
-Together with `liftDist` and `hoistDist`,
-`foldDistWith` characterizes the free `Distributor`.
+`FreeDistAp` characterizes the free `Distributor`, `Dist` @ap@,
+over a free `Applicative` @ap@,
 -}
-foldDistWith
+class (forall f. Applicative (ap f)) => FreeDistAp ap where
+  {- | lifts base terms to `Dist`. -}
+  liftDist :: p a b -> Dist ap p a b
+  {- | hoists base functions to `Dist`. -}
+  hoistDist
+    :: (forall x y. p x y -> q x y)
+    -> Dist ap p a b -> Dist ap q a b
+  {- | `foldDist` folds functions to a
+  `Distributor` over `Dist` @Ap@.
+  -}
+  foldDist
+    :: (Distributor q, forall x. Applicative (q x))
+    => (forall x y. p x y -> q x y)
+    -> Dist ap p a b -> q a b
+instance FreeDistAp Free.Ap where
+  liftDist x = DistEither Left (Free.liftAp x) (DistNil id)
+  hoistDist g = \case
+    DistNil f -> DistNil f
+    DistEither f (Free.Pure b) x ->
+      DistEither f (pure b) (hoistDist g x)
+    DistEither f (Free.Ap t db) x ->
+      DistEither f (Free.Ap (g t) (Free.hoistAp g db)) (hoistDist g x)
+  foldDist = foldDistAp Free.runAp
+
+instance FreeDistAp Fast.Ap where
+  liftDist x = DistEither Left (Fast.liftAp x) (DistNil id)
+  hoistDist g = \case
+    DistNil f -> DistNil f
+    DistEither f fastAp x ->
+      DistEither f (Fast.runAp (Fast.liftAp . g) fastAp) (hoistDist g x)
+  foldDist = foldDistAp Fast.runAp
+
+instance FreeDistAp Final.Ap where
+  liftDist x = DistEither Left (Final.liftAp x) (DistNil id)
+  hoistDist g = \case
+    DistNil f -> DistNil f
+    DistEither f fastAp x ->
+      DistEither f (Final.runAp (Final.liftAp . g) fastAp) (hoistDist g x)
+  foldDist = foldDistAp Final.runAp
+
+liftDistAp :: ap (p a) b -> Dist ap p a b
+liftDistAp x = DistEither Left x (DistNil id)
+
+foldDistAp
   :: ( Distributor q
      , forall x. Applicative (q x)
      )
@@ -300,17 +330,17 @@ foldDistWith
      -- ^ use the @runAp@ fold-function of the free `Applicative` @ap@
   -> (forall x y. p x y -> q x y)
   -> Dist ap p a b -> q a b
-foldDistWith foldAp k = \case
+foldDistAp foldAp k = \case
   DistNil f ->
     emptyP f
   DistEither f b x ->
-    altP f (foldAp k b) (foldDistWith foldAp k x)
+    altP f (foldAp k b) (foldDistAp foldAp k x)
 
 instance (forall f. Functor (ap f))
   => Functor (Dist ap p a) where fmap = rmap
 instance (forall f. Applicative (ap f))
   => Applicative (Dist ap p a) where
-  pure b = liftDist (pure b)
+  pure b = liftDistAp (pure b)
   -- 0*x=0
   liftA2 _ (DistNil absurdum) _ = DistNil absurdum
   -- (x+y)*z=x*z+y*z
@@ -319,7 +349,7 @@ instance (forall f. Applicative (ap f))
       ff a = bimap (,a) (,a) (f a)
     in
       altP ff
-        (uncurry g <$> (liftDist x >*< z))
+        (uncurry g <$> (liftDistAp x >*< z))
         (uncurry g <$> (y >*< z))
 instance (forall f. Functor (ap f))
   => Profunctor (Dist ap p) where
@@ -341,7 +371,7 @@ instance (forall f. Applicative (ap f))
       assocE (Right c) = Right (Right c)
       f' = assocE . either (Left . f) Right
     in
-      dialt f' Left id (liftDist x) (y >+< z)
+      dialt f' Left id (liftDistAp x) (y >+< z)
 instance (forall f. Filterable (ap f)) => Filterable (Dist ap p x) where
   catMaybes (DistNil absurdum) = DistNil absurdum
   catMaybes (DistEither f x y) = DistEither f (catMaybes x) (catMaybes y)
