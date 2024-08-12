@@ -42,16 +42,12 @@ module Control.Lens.PartialIso
   , _Guard
   , _Normal
   , _M2E
-    -- * ChooseApF
-  , ChooseApF (..)
   ) where
 
 import Control.Applicative
 import Control.Lens
 import Control.Monad
-import Data.Kind
 import Data.Profunctor
-import Data.Profunctor.Monad
 import Witherable
 
 {- | A `Choice` and `Cochoice` `Profunctor`
@@ -343,71 +339,3 @@ _Normal a = iso (const ()) (const a) where
 {- | A useful isormorphism identifying `Maybe` and `Either` @()@. -}
 _M2E :: Iso (Maybe a) (Maybe b) (Either () a) (Either () b)
 _M2E = iso (maybe (Left ()) Right) (either (pure Nothing) Just)
-
-type ChooseApF
-  :: ((Type -> Type -> Type) -> (Type -> Type -> Type))
-     -- ^ choice of free `Monoidal`
-  -> (Type -> Type -> Type)
-     -- ^ base quiver
-  -> Type -> Type -> Type
-data ChooseApF mon p a b where
-  ChooseNil :: ChooseApF mon p a b
-  ChoosePure :: b -> ChooseApF mon p a b
-  ChooseAp
-    :: (a -> Maybe s)
-    -> ChooseApF mon p a (t -> Maybe b)
-    -> p s t
-    -> ChooseApF mon p a b
-instance Functor (ChooseApF mon p a) where fmap = rmap
-instance Filterable (ChooseApF mon p a) where
-  mapMaybe = mapMaybeP
-instance Applicative (ChooseApF mon p a) where
-  pure = ChoosePure
-  ChooseNil <*> _ = ChooseNil
-  ChoosePure f <*> x = f <$> x
-  ChooseAp f g x <*> y =
-    let
-      apply h a t = ($ a) <$> h t
-    in
-      ChooseAp f (apply <$> g <*> y) x
-instance Profunctor (ChooseApF mon p) where
-  dimap _ _ ChooseNil = ChooseNil
-  dimap _ g (ChoosePure b) = ChoosePure (g b)
-  dimap f' g' (ChooseAp f g x) =
-    ChooseAp (f . f') ((fmap g' .) <$> lmap f' g) x
-instance Choice (ChooseApF mon p) where
-  left' ChooseNil = ChooseNil
-  left' (ChoosePure b) = ChoosePure (Left b)
-  left' (ChooseAp f g x) =
-    let
-      apply e t = either ((Left <$>) . ($ t)) (Just . Right) e
-    in
-      ChooseAp (either f (pure Nothing)) (apply <$> (left' g)) x
-  right' ChooseNil = ChooseNil
-  right' (ChoosePure b) = ChoosePure (Right b)
-  right' (ChooseAp f g x) =
-    let
-      apply e t = either (Just . Left) ((Right <$>) . ($ t)) e
-    in
-      ChooseAp (either (pure Nothing) f) (apply <$> (right' g)) x
-instance Cochoice (ChooseApF mon p) where
-  unleft ChooseNil = ChooseNil
-  unleft (ChoosePure (Left b)) = ChoosePure b
-  unleft (ChoosePure (Right _)) = ChooseNil
-  unleft (ChooseAp f g x) =
-    let
-      g' = (Left . (either Just (pure Nothing) <=<)) <$> g
-    in
-      ChooseAp (f . Left) (unleft g') x
-  unright ChooseNil = ChooseNil
-  unright (ChoosePure (Left _)) = ChooseNil
-  unright (ChoosePure (Right b)) = ChoosePure b
-  unright (ChooseAp f g x) =
-    let
-      g' = (Right . (either (pure Nothing) Just <=<)) <$> g
-    in
-      ChooseAp (f . Right) (unright g') x
-instance ProfunctorFunctor (ChooseApF mon) where
-  promap _ ChooseNil = ChooseNil
-  promap _ (ChoosePure b) = ChoosePure b
-  promap h (ChooseAp f g x) = ChooseAp f (promap h g) (h x)

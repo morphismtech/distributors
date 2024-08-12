@@ -17,15 +17,23 @@ module Data.Profunctor.Distributor
   , atLeast0
   , moreThan0
   , atLeast1
+    -- * Sep
+  , Sep (..)
+  , sep
     -- * Free Distributive Profunctors
   , Dist (..)
   , FreeDistAp (..)
+  , liftFilterDist
+  , hoistFilterDist
+  -- , foldFilterDist
   , ChooseDist (..)
   , liftChooseDist
   , hoistChooseDist
-    -- * Separate
-  , Separate (..)
-  , sep
+  , foldChooseDist
+  , FilterAp (..)
+  , liftFilterAp
+  , hoistFilterAp
+  , foldFilterAp
     -- * pattern matching
   , eot, onCase, onCocase
   , dichainl, dichainr, dichainl', dichainr'
@@ -39,6 +47,7 @@ import Control.Arrow
 import Control.Lens hiding (chosen, Traversing)
 import Control.Lens.PartialIso
 import Control.Lens.Stream
+import Control.Monad
 import Data.Bifunctor.Biff
 import Data.Bifunctor.Clown
 import Data.Bifunctor.Joker
@@ -143,21 +152,21 @@ several1 p = _Cons >? severalPlus p
 {- | At least zero operator with a separator. -}
 atLeast0
   :: (Distributor p, Stream s t a b)
-  => p a b -> Separate p -> p s t
-atLeast0 p (Separate separator beg end) =
+  => p a b -> Sep p -> p s t
+atLeast0 p (Sep separator beg end) =
   beg >* apIso _Stream (oneP >+< p `sepBy` separator) *< end
 
 {- | More than zero operator with a separator. -}
 moreThan0
   :: (Distributor p, Stream s t a b)
-  => p a b -> Separate p -> p (a,s) (b,t)
-moreThan0 p (Separate separator beg end) =
+  => p a b -> Sep p -> p (a,s) (b,t)
+moreThan0 p (Sep separator beg end) =
   beg >* p `sepBy` separator *< end
 
 {- | Like `moreThan0`, but conses the `Stream` type. -}
 atLeast1
   :: (Distributor p, Choice p, Stream s t a b)
-  => p a b -> Separate p -> p s t
+  => p a b -> Sep p -> p s t
 atLeast1 p s = _Cons >? moreThan0 p s
 
 sepBy
@@ -167,16 +176,16 @@ sepBy p separator = p >*< several (separator >* p)
 
 {- | Used to parse multiple times, delimited `by` a separator,
 a `beginBy`, and an `endBy`. -}
-data Separate p = Separate
+data Sep p = Sep
   { by :: p () ()
   , beginBy :: p () ()
   , endBy :: p () ()
   }
 
-{- | A default `Separate` which can be modified by updating `by`,
+{- | A default `Sep` which can be modified by updating `by`,
 `beginBy`, or `endBy` fields -}
-sep :: Monoidal p => Separate p
-sep = Separate oneP oneP oneP
+sep :: Monoidal p => Sep p
+sep = Sep oneP oneP oneP
 
 instance Distributor (->) where
   zeroP = id
@@ -315,9 +324,47 @@ instance FreeDistAp Final.Ap where
   liftDist x = DistEither Left (Final.liftAp x) (DistNil id)
   hoistDist g = \case
     DistNil f -> DistNil f
-    DistEither f fastAp x ->
-      DistEither f (Final.runAp (Final.liftAp . g) fastAp) (hoistDist g x)
+    DistEither f finalAp x ->
+      DistEither f (Final.runAp (Final.liftAp . g) finalAp) (hoistDist g x)
   foldDist = foldDistAp Final.runAp
+
+liftFilterDist :: p a b -> Dist FilterAp p a b
+liftFilterDist x = DistEither Left (liftFilterAp x) (DistNil id)
+
+hoistFilterDist
+  :: (forall x y. p x y -> q x y)
+  -> Dist FilterAp p a b -> Dist FilterAp q a b
+hoistFilterDist g = \case
+  DistNil f -> DistNil f
+  DistEither f filterAp x ->
+    DistEither f
+      (foldFilterAp (liftFilterAp . g) filterAp)
+      (hoistFilterDist g x)
+
+-- foldFilterDist
+--   :: forall p q a b.
+--      ( Cochoice q
+--      , forall s. Applicative (q s)
+--      )
+--   => (forall x y. p x y -> q x y)
+--   -> ChooseDist p a b -> q a b
+
+instance ProfunctorFunctor (Dist Free.Ap) where
+  promap = hoistDist
+instance ProfunctorFunctor (Dist Fast.Ap) where
+  promap = hoistDist
+instance ProfunctorFunctor (Dist Final.Ap) where
+  promap = hoistDist
+
+instance ProfunctorMonad (Dist Free.Ap) where
+  proreturn = liftDist
+  projoin = foldDist id
+instance ProfunctorMonad (Dist Fast.Ap) where
+  proreturn = liftDist
+  projoin = foldDist id
+instance ProfunctorMonad (Dist Final.Ap) where
+  proreturn = liftDist
+  projoin = foldDist id
 
 liftDistAp :: ap (p a) b -> Dist ap p a b
 liftDistAp x = DistEither Left x (DistNil id)
@@ -390,30 +437,38 @@ instance (forall f. Filterable (ap f)) => Cochoice (Dist ap p) where
 {- | A free `Distributor` type, generated over
 a `Choice` and `Cochoice`, `Applicative` `Profunctor`. -}
 newtype ChooseDist p a b =
-  ChooseDist {distAlts :: [ChooseApF ChooseDist p a b]}
-instance (forall x. Functor (p x)) => Functor (ChooseDist p a) where
+  ChooseDist {distAlts :: [ChooseMonF ChooseDist p a b]}
+instance Functor (ChooseDist p a) where
   fmap f (ChooseDist alts) = ChooseDist (map (fmap f) alts)
-instance (forall x. Applicative (p x))
-  => Applicative (ChooseDist p a) where
-  pure b = liftChooseDist (pure b)
-  ChooseDist xs <*> ChooseDist ys =
-    ChooseDist [x <*> y | x <- xs, y <- ys]
-instance (forall x. Applicative (p x))
-  => Alternative (ChooseDist p a) where
+instance Applicative (ChooseDist p a) where
+  pure b = ChooseDist [ChoosePure b]
+  ChooseDist xs <*> y =
+    let
+      chooseDistAp
+        :: ChooseDist p a b
+        -> ChooseMonF ChooseDist p a (b -> t)
+        -> ChooseDist p a t
+      chooseDistAp = undefined
+    in
+      ChooseDist (distAlts . chooseDistAp y =<< xs)
+instance Alternative (ChooseDist p a) where
     empty = ChooseDist []
     ChooseDist altsL <|> ChooseDist altsR = ChooseDist (altsL ++ altsR)
-instance Profunctor p => Profunctor (ChooseDist p) where
+instance Profunctor (ChooseDist p) where
   dimap f g (ChooseDist alts) = ChooseDist (map (dimap f g) alts)
-instance (forall x. Applicative (p x), Profunctor p)
-  => Monoidal (ChooseDist p)
-instance Choice p => Choice (ChooseDist p) where
+instance Monoidal (ChooseDist p)
+instance Choice (ChooseDist p) where
   left' (ChooseDist alts) = ChooseDist (map left' alts)
   right' (ChooseDist alts) = ChooseDist (map right' alts)
-instance Cochoice p => Cochoice (ChooseDist p) where
+instance Cochoice (ChooseDist p) where
   unleft (ChooseDist alts) = ChooseDist (map unleft alts)
   unright (ChooseDist alts) = ChooseDist (map unright alts)
-instance (Choice p, Cochoice p, forall x. Applicative (p x))
-  => Distributor (ChooseDist p)
+instance Distributor (ChooseDist p)
+instance ProfunctorFunctor ChooseDist where
+  promap = hoistChooseDist
+instance ProfunctorMonad ChooseDist where
+  proreturn = liftChooseDist
+  projoin = foldChooseDist id
 
 liftChooseDist :: p a b -> ChooseDist p a b
 liftChooseDist p = ChooseDist [ChooseAp Just (pure Just) p]
@@ -423,25 +478,84 @@ hoistChooseDist
   -> ChooseDist p a b -> ChooseDist q a b
 hoistChooseDist f (ChooseDist alts) =
   let
-    hoistChooseAp
+    hoistChooseMonF
       :: (forall x y. p x y -> q x y)
-      -> ChooseApF ChooseDist p s t
-      -> ChooseApF ChooseDist q s t
-    hoistChooseAp g = \case
+      -> ChooseMonF ChooseDist p s t
+      -> ChooseMonF ChooseDist q s t
+    hoistChooseMonF g = \case
       ChooseNil -> ChooseNil
       ChoosePure t -> ChoosePure t
-      ChooseAp f' g' x -> ChooseAp f' (hoistChooseAp g g') (g x)
+      ChooseAp f' g' x ->
+        ChooseAp f' (hoistChooseDist g g') (g x)
   in
-    ChooseDist (map (hoistChooseAp f) alts)
+    ChooseDist (map (hoistChooseMonF f) alts)
 
--- TODO: ApFilter instances and functions
--- data ApFilter f a where
---   ApFilterNil :: ApFilter f a
---   ApFilterPure :: a -> ApFilter f a
---   ApFilter
---     :: f a
---     -> ApFilter f (a -> Maybe b)
---     -> ApFilter f b
+foldChooseDist
+  :: forall p q a b.
+     ( Choice q
+     , Cochoice q
+     , forall s. Alternative (q s)
+     )
+  => (forall x y. p x y -> q x y)
+  -> ChooseDist p a b -> q a b
+foldChooseDist u chooseDist = go chooseDist where
+
+  go :: forall s t. ChooseDist p s t -> q s t
+  go (ChooseDist alts) =
+    foldr (\r alt -> go2 r <|> alt) empty alts
+
+  go2 :: forall s t. ChooseMonF ChooseDist p s t -> q s t
+  go2 = \case
+    ChooseNil -> empty
+    ChoosePure b -> pure b
+    ChooseAp f alt x -> catMaybesP (go alt <*> dimapMaybe f Just (u x))
+
+data FilterAp f a where
+  FilterNil :: FilterAp f a
+  FilterPure :: a -> FilterAp f a
+  FilterAp
+    :: FilterAp f (a -> Maybe b)
+    -> f a
+    -> FilterAp f b
+instance Functor (FilterAp f) where
+  fmap f = \case
+    FilterNil -> FilterNil
+    FilterPure a -> FilterPure (f a)
+    FilterAp g a -> FilterAp (fmap (fmap f .) g) a
+instance Applicative (FilterAp f) where
+  pure = FilterPure
+  FilterNil <*> _ = FilterNil
+  _ <*> FilterNil = FilterNil
+  FilterPure f <*> a = f <$> a
+  f <*> FilterPure a = ($ a) <$> f
+  FilterAp f a <*> b =
+    let
+      apply g c d = ($ c) <$> g d
+    in
+      FilterAp (apply <$> f <*> b) a
+instance Filterable (FilterAp f) where
+  mapMaybe f = \case
+    FilterNil -> FilterNil
+    FilterPure a -> maybe FilterNil FilterPure (f a)
+    FilterAp g a -> FilterAp (fmap (>=> f) g) a
+
+liftFilterAp :: f a -> FilterAp f a
+liftFilterAp = FilterAp (pure Just)
+
+hoistFilterAp :: (forall x. f x -> g x) -> FilterAp f a -> FilterAp g a
+hoistFilterAp fg = \case
+  FilterNil -> FilterNil
+  FilterPure a -> FilterPure a
+  FilterAp f a -> FilterAp (hoistFilterAp fg f) (fg a)
+
+foldFilterAp
+  :: (Applicative g, Filterable g)
+  => (forall x. f x -> g x)
+  -> FilterAp f a -> g a
+foldFilterAp fg = \case
+  FilterNil -> catMaybes (pure Nothing)
+  FilterPure a -> pure a
+  FilterAp f a -> catMaybes (($) <$> foldFilterAp fg f <*> fg a)
 
 -- positional pattern matching
 eot

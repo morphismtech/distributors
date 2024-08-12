@@ -37,10 +37,12 @@ module Data.Profunctor.Monoidal
   , liftMon
   , hoistMon
   , foldMon
+  , Trav (..)
   , ChooseMon (..)
   , liftChooseMon
   , hoistChooseMon
   , foldChooseMon
+  , ChooseMonF (..)
   ) where
 
 import Control.Arrow
@@ -49,6 +51,7 @@ import Control.Lens hiding (chosen, Traversing)
 import Control.Lens.Internal.Context
 import Control.Lens.PartialIso
 import Control.Lens.Stream
+import Control.Monad
 import Data.Bifunctor.Biff
 import Data.Bifunctor.Clown
 import Data.Bifunctor.Joker
@@ -168,7 +171,6 @@ instance Monoidal p => Monoidal (Yoneda p) where
 instance Monoidal p => Monoidal (Coyoneda p) where
   oneP = proreturn oneP
   ab >*< cd = proreturn (proextract ab >*< proextract cd)
-instance Monoidal (ChooseApF mon p)
 
 {- | Like `pure` but with a `Monoidal` constraint,
 `pureP` is a functionalization of `oneP`.
@@ -296,17 +298,27 @@ instance Monoidal (Mon p) where
 
 {- | A free `Choice` and `Cochoice`, `Monoidal` `Profunctor` type. -}
 newtype ChooseMon p a b =
-  InChooseMon {outChooseMon :: ChooseApF ChooseMon p a b}
+  InChooseMon {outChooseMon :: ChooseMonF ChooseMon p a b}
   deriving newtype
     ( Functor
     , Filterable
-    , Applicative
     , Profunctor
-    , Monoidal
     , Choice
     , Cochoice
     , ProfunctorFunctor
     )
+instance Applicative (ChooseMon p a) where
+  pure = InChooseMon . ChoosePure
+  InChooseMon ChooseNil <*> _ = InChooseMon ChooseNil
+  _ <*> InChooseMon ChooseNil = InChooseMon ChooseNil
+  InChooseMon (ChoosePure f) <*> InChooseMon x = InChooseMon (f <$> x)
+  InChooseMon f <*> InChooseMon (ChoosePure x) = InChooseMon (($ x) <$> f)
+  InChooseMon (ChooseAp f g x) <*> y =
+    let
+      apply h a t = ($ a) <$> h t
+    in
+      InChooseMon (ChooseAp f (apply <$> g <*> y) x)
+instance Monoidal (ChooseMon p)
 
 {- | Folds functions to a `Choice` and `Cochoice`,
 `Monoidal` `Profunctor` over `Mon`.
@@ -314,19 +326,19 @@ Together with `liftChooseMon` and `hoistChooseMon`,
 it characterizes the free `Choice` and `Cochoice`,
 `Monoidal` `Profunctor`. -}
 foldChooseMon
-  :: (Monoidal q, Choice q, Cochoice q)
+  :: (forall x. Applicative (q x), Choice q, Cochoice q)
   => (forall x y. p x y -> q x y)
   -> ChooseMon p a b
   -> q a b
 foldChooseMon k = \case
-  InChooseMon ChooseNil -> catMaybesP (pureP Nothing)
-  InChooseMon (ChoosePure b) -> pureP b
+  InChooseMon ChooseNil -> catMaybesP (pure Nothing)
+  InChooseMon (ChoosePure b) -> pure b
   InChooseMon (ChooseAp f g x) ->
     let
-      h = foldChooseMon k (InChooseMon g)
+      h = foldChooseMon k g
       y = dimapMaybe f Just (k x)
     in
-      catMaybesP (liftA2P ($) h y)
+      catMaybesP (liftA2 ($) h y)
 
 {- | Lifts base terms to `ChooseMon`. -}
 liftChooseMon :: p a b -> ChooseMon p a b
@@ -339,9 +351,71 @@ hoistChooseMon
 hoistChooseMon h = \case
   InChooseMon ChooseNil -> InChooseMon ChooseNil
   InChooseMon (ChoosePure mb) -> InChooseMon (ChoosePure mb)
-  InChooseMon (ChooseAp f g x) -> InChooseMon
-    (ChooseAp f (outChooseMon (hoistChooseMon h (InChooseMon g))) (h x))
+  InChooseMon (ChooseAp f (InChooseMon g) x) -> InChooseMon
+    (ChooseAp f (hoistChooseMon h (InChooseMon g)) (h x))
 
+{- | `ChooseMonF` is `ChooseMon` with its recursion abstracted
+into a parameter, so it may be reused in
+`Data.Profunctor.Distributor.ChooseDist`. -}
+data ChooseMonF mon p a b where
+  ChooseNil :: ChooseMonF mon p a b
+  ChoosePure :: b -> ChooseMonF mon p a b
+  ChooseAp
+    :: (s -> Maybe a)
+    -> mon p s (b -> Maybe t)
+    -> p a b -> ChooseMonF mon p s t
+instance (forall q. Profunctor (mon q))
+  => Functor (ChooseMonF mon p a) where fmap = rmap
+instance (forall q. Choice (mon q), forall q. Cochoice (mon q))
+  => Filterable (ChooseMonF mon p a) where
+    mapMaybe = mapMaybeP
+instance (forall q. Profunctor (mon q))
+  => Profunctor (ChooseMonF mon p) where
+    dimap _ _ ChooseNil = ChooseNil
+    dimap _ g (ChoosePure b) = ChoosePure (g b)
+    dimap f' g' (ChooseAp f g x) =
+      ChooseAp (f . f') (rmap (fmap g' .) (lmap f' g)) x
+instance (forall q. Choice (mon q))
+  => Choice (ChooseMonF mon p) where
+    left' ChooseNil = ChooseNil
+    left' (ChoosePure b) = ChoosePure (Left b)
+    left' (ChooseAp f g x) =
+      let
+        apply e t = either ((Left <$>) . ($ t)) (Just . Right) e
+      in
+        ChooseAp (either f (pure Nothing)) (rmap apply (left' g)) x
+    right' ChooseNil = ChooseNil
+    right' (ChoosePure b) = ChoosePure (Right b)
+    right' (ChooseAp f g x) =
+      let
+        apply e t = either (Just . Left) ((Right <$>) . ($ t)) e
+      in
+        ChooseAp (either (pure Nothing) f) (rmap apply (right' g)) x
+instance (forall q. Cochoice (mon q))
+  => Cochoice (ChooseMonF mon p) where
+    unleft ChooseNil = ChooseNil
+    unleft (ChoosePure (Left b)) = ChoosePure b
+    unleft (ChoosePure (Right _)) = ChooseNil
+    unleft (ChooseAp f g x) =
+      let
+        g' = rmap (Left . (either Just (pure Nothing) <=<)) g
+      in
+        ChooseAp (f . Left) (unleft g') x
+    unright ChooseNil = ChooseNil
+    unright (ChoosePure (Left _)) = ChooseNil
+    unright (ChoosePure (Right b)) = ChoosePure b
+    unright (ChooseAp f g x) =
+      let
+        g' = rmap (Right . (either (pure Nothing) Just <=<)) g
+      in
+        ChooseAp (f . Right) (unright g') x
+instance ProfunctorFunctor mon => ProfunctorFunctor (ChooseMonF mon) where
+  promap _ ChooseNil = ChooseNil
+  promap _ (ChoosePure b) = ChoosePure b
+  promap h (ChooseAp f g x) = ChooseAp f (promap h g) (h x)
+
+{- | `FunList` is isomorphic to `Bazaar` @(->)@,
+but modified so its nil and cons are pattern matchable. -}
 newtype FunList a b t = FunList
   {unFunList :: Either t (a, Bazaar (->) a b (b -> t))}
 
@@ -400,3 +474,10 @@ traverseP
   :: (Choice p, Strong p, Monoidal p, Traversable f)
   => p a b -> p (f a) (f b)
 traverseP = wanderP traverse
+
+data Trav p a b where
+  TravPure :: b -> Trav p a b
+  TravAp
+    :: (s -> Either (a,c) d)
+    -> Trav p s (Either (b,c) d -> t)
+    -> p a b -> Trav p s t
