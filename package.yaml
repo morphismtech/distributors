@@ -27,6 +27,7 @@ dependencies:
 - comonad
 - containers
 - contravariant
+- distributive
 - free
 - generics-eot
 - lens

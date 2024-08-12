@@ -37,7 +37,6 @@ module Data.Profunctor.Monoidal
   , liftMon
   , hoistMon
   , foldMon
-  , Trav (..)
   , ChooseMon (..)
   , liftChooseMon
   , hoistChooseMon
@@ -251,10 +250,10 @@ foreverP p = let p' = p >* p' in p'
 data Mon p a b where
   MonPure :: b -> Mon p a b
   MonAp
-    :: (a -> s)
-    -> Mon p a (t -> b)
-    -> p s t
-    -> Mon p a b
+    :: (s -> a)
+    -> Mon p s (b -> t)
+    -> p a b
+    -> Mon p s t
 
 {- | Lifts base terms to `Mon`. -}
 liftMon :: p a b -> Mon p a b
@@ -474,10 +473,3 @@ traverseP
   :: (Choice p, Strong p, Monoidal p, Traversable f)
   => p a b -> p (f a) (f b)
 traverseP = wanderP traverse
-
-data Trav p a b where
-  TravPure :: b -> Trav p a b
-  TravAp
-    :: (s -> Either (a,c) d)
-    -> Trav p s (Either (b,c) d -> t)
-    -> p a b -> Trav p s t
