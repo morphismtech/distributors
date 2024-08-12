@@ -52,7 +52,7 @@ import Witherable
 
 {- | A `Choice` and `Cochoice` `Profunctor`
 exhibits an action `>?<` of partial isomorphisms.
-They are analagous to `Filterable` `Functor`s.
+They are analogous to `Filterable` `Functor`s.
 
 prop> i >?< p = withPartialIso i $ \f g -> dimapMaybe f g p
 
@@ -120,7 +120,7 @@ discriminate p =
   )
 
 {- | `mapMaybeP` for `Choice` and `Cochoice` `Profunctor`s
-is the analague to `mapMaybe` for `Filterable` `Functor`s.
+is the analog to `mapMaybe` for `Filterable` `Functor`s.
 -}
 mapMaybeP
   :: (Choice p, Cochoice p)
@@ -129,7 +129,7 @@ mapMaybeP
 mapMaybeP = dimapMaybe Just
 
 {- | `catMaybesP` for `Choice` and `Cochoice` `Profunctor`s
-is the analague to `catMaybes` for `Filterable` `Functor`s.
+is the analog to `catMaybes` for `Filterable` `Functor`s.
 -}
 catMaybesP
   :: (Choice p, Cochoice p)
@@ -137,7 +137,7 @@ catMaybesP
 catMaybesP = mapMaybeP id
 
 {- | `filterP` for `Choice` and `Cochoice` `Profunctor`s
-is the analague to `Witherable.filter` for `Filterable` `Functor`s.
+is the analog to `Witherable.filter` for `Filterable` `Functor`s.
 -}
 filterP
   :: (Choice p, Cochoice p)

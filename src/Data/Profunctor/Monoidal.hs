@@ -203,7 +203,7 @@ prop> (<*>) = apP
 apP :: Monoidal p => p a (b -> d) -> p a b -> p a d
 apP = liftA2P ($)
 
-{- | Analagous to `*>` but with a `Monoidal` constraint.
+{- | Analogous to `*>` but with a `Monoidal` constraint.
 
 prop> (*>) = (>*)
 -}
@@ -211,7 +211,7 @@ prop> (*>) = (>*)
 x >* y = dimap ((),) snd (x >*< y)
 infixr 5 >*
 
-{- | Analagous to `<*` but with a `Monoidal` constraint.
+{- | Analogous to `<*` but with a `Monoidal` constraint.
 
 prop> (<*) = (*<)
 -}
@@ -224,7 +224,7 @@ infixr 5 *<
 ab >:< st = _Cons >? ab >*< st
 infixr 6 >:<
 
-{- | `replicateP` is analagous to `replicateM`. -}
+{- | `replicateP` is analogous to `replicateM`. -}
 replicateP
   :: (Monoidal p, Choice p, Cochoice p, Stream s t a b)
   => Int -> p a b -> p s t
