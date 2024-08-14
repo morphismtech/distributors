@@ -33,6 +33,7 @@ dependencies:
 - lens
 - mtl
 - profunctors
+- tagged
 - text
 - vector
 - witherable

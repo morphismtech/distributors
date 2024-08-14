@@ -25,6 +25,7 @@ source-repository head
 
 library
   exposed-modules:
+      Control.Lens.Monocle
       Control.Lens.PartialIso
       Control.Lens.Stream
       Data.Profunctor.Distributor
@@ -82,6 +83,7 @@ library
     , lens
     , mtl
     , profunctors
+    , tagged
     , text
     , vector
     , witherable

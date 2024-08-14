@@ -28,10 +28,6 @@ module Data.Profunctor.Monoidal
   , replicateP'
   , replicateP_
   , foreverP
-    -- * Traversal
-  , wanderP
-  , traversalP
-  , traverseP
     -- * Free Monoidal Profunctors
   , Mon (..)
   , liftMon
@@ -42,6 +38,8 @@ module Data.Profunctor.Monoidal
   , hoistChooseMon
   , foldChooseMon
   , ChooseMonF (..)
+    -- * WrappedMonoidal
+  , WrappedMonoidal (..)
   ) where
 
 import Control.Arrow
@@ -62,6 +60,7 @@ import qualified Data.Profunctor as Pro (WrappedArrow(..))
 import Data.Profunctor.Cayley
 import Data.Profunctor.Composition
 import Data.Profunctor.Monad
+import Data.Profunctor.Traversing
 import Data.Profunctor.Yoneda
 import Witherable
 
@@ -325,19 +324,19 @@ Together with `liftChooseMon` and `hoistChooseMon`,
 it characterizes the free `Choice` and `Cochoice`,
 `Monoidal` `Profunctor`. -}
 foldChooseMon
-  :: (forall x. Applicative (q x), Choice q, Cochoice q)
+  :: (Monoidal q, Choice q, Cochoice q)
   => (forall x y. p x y -> q x y)
   -> ChooseMon p a b
   -> q a b
 foldChooseMon k = \case
-  InChooseMon ChooseNil -> catMaybesP (pure Nothing)
-  InChooseMon (ChoosePure b) -> pure b
+  InChooseMon ChooseNil -> catMaybesP (pureP Nothing)
+  InChooseMon (ChoosePure b) -> pureP b
   InChooseMon (ChooseAp f g x) ->
     let
       h = foldChooseMon k g
       y = dimapMaybe f Just (k x)
     in
-      catMaybesP (liftA2 ($) h y)
+      catMaybesP (liftA2P ($) h y)
 
 {- | Lifts base terms to `ChooseMon`. -}
 liftChooseMon :: p a b -> ChooseMon p a b
@@ -441,35 +440,30 @@ instance Applicative (FunList a b) where
   (<*>) = funList fmap (\x l l' -> more x (flip <$> l <*> fromFun l'))
 instance Sellable (->) FunList where sell a = more a (pure id)
 
-{- | The inverse to `wanderP`, converts a traversal
-from its profunctor representation function
-into a standard `Control.Lens.Traversal.Traversal`. -}
-traversalP
-  :: (forall p. (Choice p, Strong p, Monoidal p) => p a b -> p s t)
-  -> Traversal s t a b
-traversalP abst = runStar . abst . Star
-
-{- | The inverse to `traversalP`, converts
-`Control.Lens.Traversal.ATraversal`
-into its profunctor representation.
-Analogous to `Data.Profunctor.Traversing.wander`. -}
-wanderP
-  :: (Choice p, Strong p, Monoidal p)
-  => ATraversal s t a b -> p a b -> p s t
-wanderP f =
-  let
-    traverseFun
-      :: (Choice q, Strong q, Monoidal q)
-      => q u v -> q (Bazaar (->) u w x) (Bazaar (->) v w x)
-    traverseFun k = dimap
-      (unFunList . toFun)
-      (fromFun . FunList)
-      (right' (k >*< traverseFun k))
-  in
-    dimap (f sell) extract . traverseFun
-
-{- | Analogous to `Data.Profunctor.Traversing.traverse'`. -}
-traverseP
-  :: (Choice p, Strong p, Monoidal p, Traversable f)
-  => p a b -> p (f a) (f b)
-traverseP = wanderP traverse
+{- | `WrappedMonoidal` can be used to derive instances from
+a `Monoidal` `Profunctor` it wraps. -}
+newtype WrappedMonoidal p a b = WrapMonoidal
+  {unWrapMonoidal :: p a b}
+instance Monoidal p => Functor (WrappedMonoidal p a) where
+  fmap = rmap
+instance Monoidal p => Applicative (WrappedMonoidal p a) where
+  pure = pureP
+  (<*>) = apP
+deriving newtype instance Monoidal p
+  => Profunctor (WrappedMonoidal p)
+deriving newtype instance Monoidal p
+  => Monoidal (WrappedMonoidal p)
+deriving newtype instance (Monoidal p, Choice p)
+  => Choice (WrappedMonoidal p)
+deriving newtype instance (Monoidal p, Strong p)
+  => Strong (WrappedMonoidal p)
+instance (Monoidal p, Choice p, Strong p)
+  => Traversing (WrappedMonoidal p) where
+    wander f (WrapMonoidal p) = WrapMonoidal $
+      dimap (f sell) extract (travBaz p)
+        where
+          travBaz :: p u v -> p (Bazaar (->) u w x) (Bazaar (->) v w x)
+          travBaz q = dimap
+            (unFunList . toFun)
+            (fromFun . FunList)
+            (right' (q >*< travBaz q))
