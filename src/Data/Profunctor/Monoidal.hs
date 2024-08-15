@@ -28,7 +28,7 @@ module Data.Profunctor.Monoidal
   , replicateP'
   , replicateP_
   , foreverP
-  , traversalP
+  , meander
     -- * Free Monoidal Profunctors
   , Mon (..)
   , liftMon
@@ -59,6 +59,7 @@ import Data.Bifunctor.Clown
 import Data.Bifunctor.Joker
 import Data.Bifunctor.Product
 import Data.Bifunctor.Tannen
+import Data.Distributive
 import Data.Functor.Contravariant.Divisible hiding (chosen)
 import Data.Profunctor hiding (WrappedArrow(..))
 import qualified Data.Profunctor as Pro (WrappedArrow(..))
@@ -250,10 +251,10 @@ replicateP_ n p = p >* replicateP_ (n-1) p
 foreverP :: Monoidal p => p () c -> p a b
 foreverP p = let p' = p >* p' in p'
 
-traversalP
+meander
   :: (Choice p, Strong p, Monoidal p)
   => ATraversal s t a b -> p a b -> p s t
-traversalP trav
+meander trav
   = unWrapMonoidal
   . wander (cloneTraversal trav)
   . WrapMonoidal
