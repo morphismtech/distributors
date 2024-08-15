@@ -24,6 +24,7 @@ module Control.Lens.Monocle
   , monocle2
     -- * Internal
   , Shop (..)
+  , shop
   , runShop
   , Purchase (..)
   , buy
@@ -43,7 +44,7 @@ type AMonocle s t a b =
 
 withMonocle :: AMonocle s t a b -> (Shop a b s t -> r) -> r
 withMonocle mon k =
-  k (runIdentity <$> mon (Identity <$> Shop (sell id)))
+  k (runIdentity <$> mon (Identity <$> shop))
 
 (>..<) :: Monoidal p => AMonocle s t a b -> p a b -> p s t
 mon >..< p = withMonocle mon (\sh -> runShop sh (\_ -> p))
@@ -99,6 +100,9 @@ runShop
 runShop (Shop baz) f =
   unWrapMonoidal . runBazaar baz $ \sa ->
     lmap sa (WrapMonoidal (f sa))
+
+shop :: Shop a b a b
+shop = Shop (sell id)
 
 -- An indexed continuation monad
 newtype Purchase a b s = Purchase {unPurchase :: (s -> a) -> b}
