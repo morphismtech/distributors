@@ -326,6 +326,7 @@ infixr 2 ?<
 i >?< p = withPartialIso i $ \f g -> dimapMaybe f g p
 infixr 2 >?<
 
+{- | Action of `AnIso` on `Profunctor`s. -}
 mapIso :: Profunctor p => AnIso s t a b -> p a b -> p s t
 mapIso i p = withIso i $ \here there -> dimap here there p
 
