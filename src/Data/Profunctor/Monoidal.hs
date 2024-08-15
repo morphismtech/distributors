@@ -59,7 +59,6 @@ import Data.Bifunctor.Clown
 import Data.Bifunctor.Joker
 import Data.Bifunctor.Product
 import Data.Bifunctor.Tannen
-import Data.Distributive
 import Data.Functor.Contravariant.Divisible hiding (chosen)
 import Data.Profunctor hiding (WrappedArrow(..))
 import qualified Data.Profunctor as Pro (WrappedArrow(..))
