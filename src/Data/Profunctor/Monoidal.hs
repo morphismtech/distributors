@@ -45,13 +45,11 @@ module Data.Profunctor.Monoidal
   , runShop
   , Purchase (..)
   , buy
-  , _Bazaar
   ) where
 
 import Control.Arrow
 import Control.Comonad
 import Control.Lens hiding (chosen, Traversing)
-import Control.Lens.Internal.Bazaar
 import Control.Lens.Internal.Context
 import Control.Lens.PartialIso
 import Control.Lens.Stream
@@ -449,7 +447,7 @@ instance (Monoidal p, Choice p, Strong p)
     wander f (WrapMonoidal p) = WrapMonoidal $
       dimap (f sell) extract (travBaz p) where
         travBaz :: p u v -> p (Bazaar (->) u w x) (Bazaar (->) v w x)
-        travBaz q = _Bazaar >$< right' (travBaz q >*< q)
+        travBaz q = mapIso _Bazaar $ right' (travBaz q >*< q)
 
 newtype Shop a b s t = Shop
   {unShop :: Bazaar (->) (s -> a) b t}
@@ -476,9 +474,6 @@ but modified so its nil and cons are pattern matchable. -}
 data FunList a b t
   = FunPure t
   | FunAp (Bazaar (->) a b (b -> t)) a
-
-instance Bizarre (->) FunList where
-  bazaar f = bazaar f . fromFun
 
 funList
   :: (t -> x)
