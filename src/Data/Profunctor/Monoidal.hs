@@ -41,18 +41,15 @@ module Data.Profunctor.Monoidal
   , ChooseMonF (..)
     -- * Monoidal types
   , WrappedMonoidal (..)
-    -- * Internal types
+    -- * Internal
   , FunList (..)
   , _FunList
-  , Shop (..)
-  , runShop
-  , Purchase (..)
-  , buy
   ) where
 
 import Control.Arrow
 import Control.Comonad
 import Control.Lens hiding (chosen, Traversing)
+import Control.Lens.Internal.Bazaar
 import Control.Lens.Internal.Context
 import Control.Lens.PartialIso
 import Control.Lens.Stream
@@ -452,44 +449,30 @@ instance (Monoidal p, Choice p, Strong p)
         travBaz :: p u v -> p (Bazaar (->) u w x) (Bazaar (->) v w x)
         travBaz q = mapIso _Bazaar $ right' (travBaz q >*< q)
 
-newtype Shop a b s t = Shop
-  {unShop :: Bazaar (->) (s -> a) b t}
-  deriving newtype (Functor, Applicative)
-instance Profunctor (Shop a b) where
-  dimap f g (Shop baz) = Shop . fromFun $
-    case toFun baz of
-      FunPure c -> FunPure (g c)
-      FunAp baz' h ->
-        FunAp (unShop (dimap f (g .) (Shop baz'))) (h . f)
-instance Monoidal (Shop a b)
-
-runShop
-  :: Monoidal p
-  => Shop a b s t
-  -> ((s -> a) -> p a b)
-  -> p s t
-runShop (Shop baz) f =
-  unWrapMonoidal . runBazaar baz $ \sa ->
-    lmap sa (WrapMonoidal (f sa))
-
 {- | `FunList` is isomorphic to `Bazaar` @(->)@,
 but modified so its nil and cons are pattern matchable. -}
 data FunList a b t
   = FunPure t
   | FunAp (Bazaar (->) a b (b -> t)) a
 
-funList
-  :: (t -> x)
-  -> (Bazaar (->) a b (b -> t) -> a -> x)
-  -> FunList a b t -> x
-funList f g = \case
-  FunPure t -> f t
-  FunAp h a -> g h a
+instance Functor (FunList a b) where
+  fmap f = funList (pure . f) (FunAp . fmap (f .))
+instance Applicative (FunList a b) where
+  pure = FunPure
+  (<*>) = funList fmap $ \l x l' ->
+    FunAp (flip <$> l <*> review _FunList l') x
+instance Sellable (->) FunList where sell = FunAp (pure id)
+instance Bizarre (->) FunList where
+  bazaar f = bazaar f . review _FunList
 
 _FunList :: Iso
   (Bazaar (->) a1 b1 t1) (Bazaar (->) a2 b2 t2)
   (FunList a1 b1 t1) (FunList a2 b2 t2)
-_FunList = iso toFun fromFun
+_FunList = iso toFun fromFun where
+  toFun (Bazaar f) = f sell
+  fromFun = \case
+    FunPure t -> pure t
+    FunAp f a -> ($) <$> f <*> sell a
 
 _Bazaar :: Iso
   (Bazaar (->) a1 b1 t1) (Bazaar (->) a2 b2 t2)
@@ -503,30 +486,10 @@ _Bazaar = _FunList . dimap f (fmap g) where
     Left t -> FunPure t
     Right (baz, a) -> FunAp baz a
 
-toFun :: Bazaar (->) a b t -> FunList a b t
-toFun (Bazaar f) = f sell
-
-fromFun :: FunList a b t -> Bazaar (->) a b t
-fromFun (FunPure t) = pure t
-fromFun (FunAp f a) = ($) <$> f <*> sell a
-
-instance Functor (FunList a b) where
-  fmap f = funList (pure . f) (FunAp . fmap (f .))
-instance Applicative (FunList a b) where
-  pure = FunPure
-  (<*>) = funList fmap $ \l x l' ->
-    FunAp (flip <$> l <*> fromFun l') x
-instance Sellable (->) FunList where sell = FunAp (pure id)
-
--- An indexed continuation monad
-newtype Purchase a b s = Purchase {unPurchase :: (s -> a) -> b}
-
-instance Functor (Purchase a b) where
-  fmap sl (Purchase ab) = Purchase $ \la -> ab (la . sl)
-
-instance a ~ b => Applicative (Purchase a b) where
-  pure s = Purchase ($ s)
-  Purchase slab <*> Purchase ab = Purchase $ \la -> slab $ \sl -> ab (la . sl)
-
-buy :: Purchase a b a -> b
-buy (Purchase f) = f id
+funList
+  :: (t -> x)
+  -> (Bazaar (->) a b (b -> t) -> a -> x)
+  -> FunList a b t -> x
+funList f g = \case
+  FunPure t -> f t
+  FunAp h a -> g h a

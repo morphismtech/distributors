@@ -22,6 +22,11 @@ module Control.Lens.Monocle
   , monGrate
   , monocle0
   , monocle2
+    -- * Internal
+  , Shop (..)
+  , runShop
+  , Purchase (..)
+  , buy
   ) where
 
 import Control.Lens hiding (index, Traversing)
@@ -74,3 +79,36 @@ monocle0 _ = pureP (pure ())
 
 monocle2 :: Monocle (a,a) (b,b) a b
 monocle2 p = dimap2 fst snd (liftA2 (,)) p p
+
+newtype Shop a b s t = Shop
+  {unShop :: Bazaar (->) (s -> a) b t}
+  deriving newtype (Functor, Applicative)
+instance Profunctor (Shop a b) where
+  dimap f g (Shop baz) = Shop . review _FunList $
+    case view _FunList baz of
+      FunPure c -> FunPure (g c)
+      FunAp baz' h ->
+        FunAp (unShop (dimap f (g .) (Shop baz'))) (h . f)
+instance Monoidal (Shop a b)
+
+runShop
+  :: Monoidal p
+  => Shop a b s t
+  -> ((s -> a) -> p a b)
+  -> p s t
+runShop (Shop baz) f =
+  unWrapMonoidal . runBazaar baz $ \sa ->
+    lmap sa (WrapMonoidal (f sa))
+
+-- An indexed continuation monad
+newtype Purchase a b s = Purchase {unPurchase :: (s -> a) -> b}
+
+instance Functor (Purchase a b) where
+  fmap sl (Purchase ab) = Purchase $ \la -> ab (la . sl)
+
+instance a ~ b => Applicative (Purchase a b) where
+  pure s = Purchase ($ s)
+  Purchase slab <*> Purchase ab = Purchase $ \la -> slab $ \sl -> ab (la . sl)
+
+buy :: Purchase a b a -> b
+buy (Purchase f) = f id
