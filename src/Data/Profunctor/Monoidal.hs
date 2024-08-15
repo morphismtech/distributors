@@ -495,7 +495,7 @@ _Bazaar :: Iso
   (Bazaar (->) a1 b1 t1) (Bazaar (->) a2 b2 t2)
   (Either t1 (Bazaar (->) a1 b1 (b1 -> t1), a1))
   (Either t2 (Bazaar (->) a2 b2 (b2 -> t2), a2))
-_Bazaar = iso toFun fromFun . dimap f (fmap g) where
+_Bazaar = _FunList . dimap f (fmap g) where
   f = \case
     FunPure t -> Left t
     FunAp baz a -> Right (baz, a)
