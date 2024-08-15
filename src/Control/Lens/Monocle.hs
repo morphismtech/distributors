@@ -7,12 +7,8 @@ Maintainer  :  Eitan Chatav <eitan.chatav@gmail.com>
 Stability   :  provisional
 Portability :  non-portable
 
-`Monocle`s
-It also provides functions which define
-`Control.Lens.Traversal.Traversal` optics
-in a profunctor representation using `Strong` and `Choice`,
-`Monoidal` `Profunctor`s. It also defines the `Monocle`
-optic which combines `Traversal`s and `Cotraversal`s.
+`Monocle`s are optics that combine `Traversal`s and
+cotraversals, also known as grates.
 -}
 module Control.Lens.Monocle
   ( Monocle
@@ -68,7 +64,7 @@ monCotraversal :: Functor f => AMonocle s t a b -> (f a -> b) -> f s -> t
 monCotraversal mon = runCostar . (mon >..<) . Costar
 
 monGrate :: Closed p => AMonocle s t a b -> p a b -> p s t
-monGrate mon = dimap (&) ((monCotraversal mon buy) . Purchase) . closed
+monGrate mon = dimap (&) (monCotraversal mon buy . Purchase) . closed
 
 monBitraversal
   :: (Functor f, Applicative g)

@@ -38,7 +38,7 @@ module Control.Lens.PartialIso
   , (>?)
   , (?<)
   , (>?<)
-  , (>$<)
+  , mapIso
     -- * Common (Partial) Isomorphisms
   , _Guard
   , _Normal
@@ -326,9 +326,8 @@ infixr 2 ?<
 i >?< p = withPartialIso i $ \f g -> dimapMaybe f g p
 infixr 2 >?<
 
-(>$<) :: Profunctor p => AnIso s t a b -> p a b -> p s t
-i >$< p = withIso i $ \here there -> dimap here there p
-infixr 4 >$<
+mapIso :: Profunctor p => AnIso s t a b -> p a b -> p s t
+mapIso i p = withIso i $ \here there -> dimap here there p
 
 {- | `_Guard` is the prototypical proper partial isomorphism,
 identifying a subset which satisfies a predicate. -}

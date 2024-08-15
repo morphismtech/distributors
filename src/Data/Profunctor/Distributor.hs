@@ -124,7 +124,7 @@ class Monoidal p => Distributor p where
   `several` is the Kleene star operator, of zero or more times.
   -}
   several :: (SimpleStream s a, SimpleStream t b) => p a b -> p s t
-  several p = _Stream >$< (oneP >+< severalPlus p)
+  several p = mapIso _Stream $ oneP >+< severalPlus p
 
   {- |
   `severalPlus` is the Kleene plus operator, of one or more times.
@@ -138,7 +138,7 @@ class Monoidal p => Distributor p where
   `possibly` is zero or one times.
   -}
   possibly :: p a b -> p (Maybe a) (Maybe b)
-  possibly p = _M2E >$< (oneP >+< p)
+  possibly p = mapIso _M2E $ oneP >+< p
 
 {- | Like `severalPlus`, but conses the `Stream` type. -}
 several1
@@ -151,7 +151,7 @@ atLeast0
   :: (Distributor p, Stream s t a b)
   => p a b -> Sep p -> p s t
 atLeast0 p (Sep separator beg end) =
-  beg >* (_Stream >$< ((oneP >+< p `sepBy` separator) *< end))
+  beg >* (mapIso _Stream ((oneP >+< p `sepBy` separator) *< end))
 
 {- | More than zero operator with a separator. -}
 moreThan0

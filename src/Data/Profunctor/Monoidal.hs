@@ -28,6 +28,7 @@ module Data.Profunctor.Monoidal
   , replicateP'
   , replicateP_
   , foreverP
+  , traversalP
     -- * Free Monoidal Profunctors
   , Mon (..)
   , liftMon
@@ -42,10 +43,9 @@ module Data.Profunctor.Monoidal
   , WrappedMonoidal (..)
   , Shop (..)
   , runShop
-  , FunList (..)
-  , funListBazaar
   , Purchase (..)
   , buy
+  , _Bazaar
   ) where
 
 import Control.Arrow
@@ -252,6 +252,14 @@ replicateP_ n p = p >* replicateP_ (n-1) p
 foreverP :: Monoidal p => p () c -> p a b
 foreverP p = let p' = p >* p' in p'
 
+traversalP
+  :: (Choice p, Strong p, Monoidal p)
+  => ATraversal s t a b -> p a b -> p s t
+traversalP trav
+  = unWrapMonoidal
+  . wander (cloneTraversal trav)
+  . WrapMonoidal
+
 {- | A free `Monoidal` `Profunctor` type. -}
 data Mon p a b where
   MonPure :: b -> Mon p a b
@@ -441,7 +449,7 @@ instance (Monoidal p, Choice p, Strong p)
     wander f (WrapMonoidal p) = WrapMonoidal $
       dimap (f sell) extract (travBaz p) where
         travBaz :: p u v -> p (Bazaar (->) u w x) (Bazaar (->) v w x)
-        travBaz q = eitherBazaar >$< right' (travBaz q >*< q)
+        travBaz q = _Bazaar >$< right' (travBaz q >*< q)
 
 newtype Shop a b s t = Shop
   {unShop :: Bazaar (->) (s -> a) b t}
@@ -480,16 +488,11 @@ funList f g = \case
   FunPure t -> f t
   FunAp h a -> g h a
 
-funListBazaar :: Iso
-  (Bazaar (->) a1 b1 t1) (Bazaar (->) a2 b2 t2)
-  (FunList a1 b1 t1) (FunList a2 b2 t2)
-funListBazaar = iso toFun fromFun
-
-eitherBazaar :: Iso
+_Bazaar :: Iso
   (Bazaar (->) a1 b1 t1) (Bazaar (->) a2 b2 t2)
   (Either t1 (Bazaar (->) a1 b1 (b1 -> t1), a1))
   (Either t2 (Bazaar (->) a2 b2 (b2 -> t2), a2))
-eitherBazaar = funListBazaar . dimap f (fmap g) where
+_Bazaar = iso toFun fromFun . dimap f (fmap g) where
   f = \case
     FunPure t -> Left t
     FunAp baz a -> Right (baz, a)
