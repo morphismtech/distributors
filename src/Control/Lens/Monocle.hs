@@ -15,11 +15,11 @@ module Control.Lens.Monocle
   , AMonocle
   , withMonocle
   , (>..<)
+  , monBitraversal
   , cloneMonocle
-  , monGrate
   , monTraversal
   , monCotraversal
-  , monBitraversal
+  , monGrate
   , monocle0
   , monocle2
   ) where
@@ -43,31 +43,34 @@ withMonocle mon k =
 (>..<) :: Monoidal p => AMonocle s t a b -> p a b -> p s t
 mon >..< p = withMonocle mon (\sh -> runShop sh (\_ -> p))
 
+monBitraversal
+  :: (Functor f, Applicative g, Monoidal p)
+  => AMonocle s t a b
+  -> p (f a) (g b) -> p (f s) (g t)
+monBitraversal mon = runBiff . (mon >..<) . Biff
+
 cloneMonocle :: AMonocle s t a b -> Monocle s t a b
 cloneMonocle mon
   = lmap Identity
-  . runBiff
-  . (mon >..<)
-  . Biff
+  . monBitraversal mon
   . lmap runIdentity
 
 monTraversal :: AMonocle s t a b -> Traversal s t a b
-monTraversal mon = runStar . (mon >..<) . Star
+monTraversal = cloneMonocle
+
+monCotraversal
+  :: (Functor f, Monoidal p)
+  => AMonocle s t a b -> p (f a) b -> p (f s) t
+monCotraversal mon
+  = rmap runIdentity
+  . monBitraversal mon
+  . rmap Identity
+
+monGrate :: Closed p => AMonocle s t a b -> p a b -> p s t
+monGrate mon = dimap (&) (monCotraversal mon buy . Purchase) . closed
 
 monocle0 :: Monocle () () a b
 monocle0 _ = pureP (pure ())
 
 monocle2 :: Monocle (a,a) (b,b) a b
 monocle2 p = dimap2 fst snd (liftA2 (,)) p p
-
-monCotraversal :: Functor f => AMonocle s t a b -> (f a -> b) -> f s -> t
-monCotraversal mon = runCostar . (mon >..<) . Costar
-
-monGrate :: Closed p => AMonocle s t a b -> p a b -> p s t
-monGrate mon = dimap (&) (monCotraversal mon buy . Purchase) . closed
-
-monBitraversal
-  :: (Functor f, Applicative g)
-  => AMonocle s t a b
-  -> (f a -> g b) -> f s -> g t
-monBitraversal mon = runBiff . (mon >..<) . Biff
