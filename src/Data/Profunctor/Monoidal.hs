@@ -41,6 +41,9 @@ module Data.Profunctor.Monoidal
   , ChooseMonF (..)
     -- * Monoidal types
   , WrappedMonoidal (..)
+    -- * Internal types
+  , FunList (..)
+  , _FunList
   , Shop (..)
   , runShop
   , Purchase (..)
@@ -482,6 +485,11 @@ funList
 funList f g = \case
   FunPure t -> f t
   FunAp h a -> g h a
+
+_FunList :: Iso
+  (Bazaar (->) a1 b1 t1) (Bazaar (->) a2 b2 t2)
+  (FunList a1 b1 t1) (FunList a2 b2 t2)
+_FunList = iso toFun fromFun
 
 _Bazaar :: Iso
   (Bazaar (->) a1 b1 t1) (Bazaar (->) a2 b2 t2)
