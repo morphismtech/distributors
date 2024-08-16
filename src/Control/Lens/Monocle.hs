@@ -36,6 +36,16 @@ import Data.Bifunctor.Biff
 import Data.Profunctor
 import Data.Profunctor.Monoidal
 
+{- | A `Monocle` is a fixed length homogeneous tuple isomorphism.
+
+prop> Monocle s t a b ~ (s -> (a,..,a), (b,..,b) -> t)
+
+`Monocle` is part of a subtyping order:
+
+prop> Iso s t a b < Monocle s t a b < Traversal s t a b
+
+`Monocle`s may be used as cotraversals or equivalently, grates.
+-}
 type Monocle s t a b = forall p f.
   (Monoidal p, Applicative f) => p a (f b) -> p s (f t)
 
