@@ -22,13 +22,9 @@ module Data.Profunctor.Distributor
   , sep
     -- * Free Distributive Profunctors
   , Dist (..)
-  , FreeDistAp (..)
-  , liftFilterDist
-  , hoistFilterDist
-  -- , foldFilterDist
+  , FreeDistributor (..)
+  , foldFilterDist
   , ChooseDist (..)
-  , liftChooseDist
-  , hoistChooseDist
   , foldChooseDist
   , FilterAp (..)
   , liftFilterAp
@@ -40,6 +36,7 @@ module Data.Profunctor.Distributor
   ) where
 
 import Control.Applicative hiding (WrappedArrow(..))
+import Control.Applicative.Filterable
 import qualified Control.Applicative.Free as Free
 import qualified Control.Applicative.Free.Fast as Fast
 import qualified Control.Applicative.Free.Final as Final
@@ -47,7 +44,6 @@ import Control.Arrow
 import Control.Lens hiding (chosen, Traversing)
 import Control.Lens.PartialIso
 import Control.Lens.Stream
-import Control.Monad
 import Data.Bifunctor.Biff
 import Data.Bifunctor.Clown
 import Data.Bifunctor.Joker
@@ -65,6 +61,7 @@ import Data.Kind
 import Data.Profunctor.Monad
 import Data.Profunctor.Monoidal
 import Data.Profunctor.Yoneda
+import Data.Quiver.Functor
 import Data.Void
 import Generics.Eot
 import Witherable
@@ -240,6 +237,8 @@ instance Distributor p => Distributor (Yoneda p) where
 instance Distributor p => Distributor (Coyoneda p) where
   zeroP = proreturn zeroP
   ab >+< cd = proreturn (proextract ab >+< proextract cd)
+deriving newtype instance Distributor p
+  => Distributor (WrappedMonoidal p)
 
 {- | The `Distributor` version of `empty`,
 `emptyP` is a functionalization of `zeroP`.
@@ -282,102 +281,85 @@ data Dist ap p a b where
     -> Dist ap p c b
     -> Dist ap p a b
 
-{- |
-`FreeDistAp` characterizes the free `Distributor`, `Dist` @ap@,
-over a free `Applicative` @ap@,
--}
-class (forall f. Applicative (ap f)) => FreeDistAp ap where
-  {- | lifts base terms to `Dist`. -}
-  liftDist :: p a b -> Dist ap p a b
-  {- | hoists base functions to `Dist`. -}
-  hoistDist
-    :: (forall x y. p x y -> q x y)
-    -> Dist ap p a b -> Dist ap q a b
-  {- | `foldDist` folds functions to a
-  `Distributor` over `Dist` @Ap@.
-  -}
-  foldDist
-    :: (Distributor q, forall x. Applicative (q x))
-    => (forall x y. p x y -> q x y)
-    -> Dist ap p a b -> q a b
-instance FreeDistAp Free.Ap where
-  liftDist x = DistEither Left (Free.liftAp x) (DistNil id)
-  hoistDist g = \case
-    DistNil f -> DistNil f
-    DistEither f (Free.Pure b) x ->
-      DistEither f (pure b) (hoistDist g x)
-    DistEither f (Free.Ap t db) x ->
-      DistEither f (Free.Ap (g t) (Free.hoistAp g db)) (hoistDist g x)
-  foldDist = foldDistAp Free.runAp
-
-instance FreeDistAp Fast.Ap where
-  liftDist x = DistEither Left (Fast.liftAp x) (DistNil id)
-  hoistDist g = \case
+instance QFunctor (Dist Free.Ap) where
+  qmap g = \case
     DistNil f -> DistNil f
     DistEither f fastAp x ->
-      DistEither f (Fast.runAp (Fast.liftAp . g) fastAp) (hoistDist g x)
-  foldDist = foldDistAp Fast.runAp
-
-instance FreeDistAp Final.Ap where
-  liftDist x = DistEither Left (Final.liftAp x) (DistNil id)
-  hoistDist g = \case
+      DistEither f (Free.runAp (Free.liftAp . g) fastAp) (qmap g x)
+instance QFunctor (Dist Final.Ap) where
+  qmap g = \case
     DistNil f -> DistNil f
-    DistEither f finalAp x ->
-      DistEither f (Final.runAp (Final.liftAp . g) finalAp) (hoistDist g x)
-  foldDist = foldDistAp Final.runAp
+    DistEither f fastAp x ->
+      DistEither f (Final.runAp (Final.liftAp . g) fastAp) (qmap g x)
+instance QFunctor (Dist Fast.Ap) where
+  qmap g = \case
+    DistNil f -> DistNil f
+    DistEither f fastAp x ->
+      DistEither f (Fast.runAp (Fast.liftAp . g) fastAp) (qmap g x)
+instance QFunctor (Dist FilterAp) where
+  qmap g = \case
+    DistNil f -> DistNil f
+    DistEither f filterAp x ->
+      DistEither f
+        (foldFilterAp (liftFilterAp . g) filterAp)
+        (qmap g x)
+instance QPointed (Dist Free.Ap) where
+  qsingle x = DistEither Left (Free.liftAp x) (DistNil id)
+instance QPointed (Dist Final.Ap) where
+  qsingle x = DistEither Left (Final.liftAp x) (DistNil id)
+instance QPointed (Dist Fast.Ap) where
+  qsingle x = DistEither Left (Fast.liftAp x) (DistNil id)
+instance QPointed (Dist FilterAp) where
+  qsingle x = DistEither Left (liftFilterAp x) (DistNil id)
+class (QMonad dist, forall p. Distributor (dist p))
+  => FreeDistributor dist where
+    foldDist
+      :: Distributor q
+      => (forall x y. p x y -> q x y)
+      -> dist p a b -> q a b
+instance FreeDistributor (Dist Free.Ap) where
+  foldDist k
+    = unWrapMonoidal
+    . foldDistAp Free.runAp (WrapMonoidal . k)
+instance FreeDistributor (Dist Final.Ap) where
+  foldDist k
+    = unWrapMonoidal
+    . foldDistAp Final.runAp (WrapMonoidal . k)
+instance FreeDistributor (Dist Fast.Ap) where
+  foldDist k
+    = unWrapMonoidal
+    . foldDistAp Fast.runAp (WrapMonoidal . k)
+instance QMonad (Dist Free.Ap) where
+  qjoin = foldDist id
+instance QMonad (Dist Final.Ap) where
+  qjoin = foldDist id
+instance QMonad (Dist Fast.Ap) where
+  qjoin = foldDist id
+instance QMonad (Dist FilterAp) where
+  qjoin = foldFilterDist id
 
-liftFilterDist :: p a b -> Dist FilterAp p a b
-liftFilterDist x = DistEither Left (liftFilterAp x) (DistNil id)
-
-hoistFilterDist
-  :: (forall x y. p x y -> q x y)
-  -> Dist FilterAp p a b -> Dist FilterAp q a b
-hoistFilterDist g = \case
-  DistNil f -> DistNil f
-  DistEither f filterAp x ->
-    DistEither f
-      (foldFilterAp (liftFilterAp . g) filterAp)
-      (hoistFilterDist g x)
-
--- foldFilterDist
---   :: forall p q a b.
---      ( Cochoice q
---      , forall s. Applicative (q s)
---      )
---   => (forall x y. p x y -> q x y)
---   -> ChooseDist p a b -> q a b
-
-instance ProfunctorFunctor (Dist Free.Ap) where
-  promap = hoistDist
-instance ProfunctorFunctor (Dist Fast.Ap) where
-  promap = hoistDist
-instance ProfunctorFunctor (Dist Final.Ap) where
-  promap = hoistDist
-
-instance ProfunctorMonad (Dist Free.Ap) where
-  proreturn = liftDist
-  projoin = foldDist id
-instance ProfunctorMonad (Dist Fast.Ap) where
-  proreturn = liftDist
-  projoin = foldDist id
-instance ProfunctorMonad (Dist Final.Ap) where
-  proreturn = liftDist
-  projoin = foldDist id
+foldFilterDist
+  :: forall p q a b.
+     ( Distributor q
+     , forall s. Filterable (q s)
+     )
+  => (forall x y. p x y -> q x y)
+  -> Dist FilterAp p a b -> q a b
+foldFilterDist k
+  = unWrapMonoidal
+  . foldDistAp foldFilterAp (WrapMonoidal . k)
 
 liftDistAp :: ap (p a) b -> Dist ap p a b
 liftDistAp x = DistEither Left x (DistNil id)
 
 foldDistAp
-  :: ( Distributor q
-     , forall x. Applicative (q x)
-     )
+  :: Distributor q
   => (forall s t. (forall x y. p x y -> q x y) -> ap (p s) t -> q s t)
      -- ^ use the @runAp@ fold-function of the free `Applicative` @ap@
   -> (forall x y. p x y -> q x y)
   -> Dist ap p a b -> q a b
 foldDistAp foldAp k = \case
-  DistNil f ->
-    emptyP f
+  DistNil f -> emptyP f
   DistEither f b x ->
     altP f (foldAp k b) (foldDistAp foldAp k x)
 
@@ -387,7 +369,7 @@ instance (forall f. Applicative (ap f))
   => Applicative (Dist ap p a) where
   pure b = liftDistAp (pure b)
   -- 0*x=0
-  liftA2 _ (DistNil absurdum) _ = DistNil absurdum
+  liftA2 _ (DistNil vac) _ = DistNil vac
   -- (x+y)*z=x*z+y*z
   liftA2 g (DistEither f x y) z =
     let
@@ -398,7 +380,7 @@ instance (forall f. Applicative (ap f))
         (uncurry g <$> (y >*< z))
 instance (forall f. Functor (ap f))
   => Profunctor (Dist ap p) where
-  dimap f _ (DistNil absurdum) = DistNil (absurdum . f)
+  dimap f _ (DistNil vac) = DistNil (vac . f)
   dimap f' g' (DistEither f x y) =
     DistEither (f . f') (g' <$> x) (g' <$> y)
 instance (forall f. Applicative (ap f)) => Monoidal (Dist ap p)
@@ -406,8 +388,8 @@ instance (forall f. Applicative (ap f))
   => Distributor (Dist ap p) where
   zeroP = DistNil absurd
   -- 0+x=x
-  DistNil absurdum >+< x =
-    dimap (either (absurd . absurdum) id) Right x
+  DistNil vac >+< x =
+    dimap (either (absurd . vac) id) Right x
   -- (x+y)+z=x+(y+z)
   DistEither f x y >+< z =
     let
@@ -418,15 +400,15 @@ instance (forall f. Applicative (ap f))
     in
       dialt f' Left id (liftDistAp x) (y >+< z)
 instance (forall f. Filterable (ap f)) => Filterable (Dist ap p x) where
-  catMaybes (DistNil absurdum) = DistNil absurdum
+  catMaybes (DistNil vac) = DistNil vac
   catMaybes (DistEither f x y) = DistEither f (catMaybes x) (catMaybes y)
 instance (forall f. Filterable (ap f)) => Cochoice (Dist ap p) where
-  unleft (DistNil absurdum) = DistNil (absurdum . Left)
+  unleft (DistNil vac) = DistNil (vac . Left)
   unleft (DistEither f x y) =
     DistEither (f . Left)
       (mapMaybe (either Just (const Nothing)) x)
       (mapMaybe (either Just (const Nothing)) y)
-  unright (DistNil absurdum) = DistNil (absurdum . Right)
+  unright (DistNil vac) = DistNil (vac . Right)
   unright (DistEither f x y) =
     DistEither (f . Right)
       (mapMaybe (either (const Nothing) Just) x)
@@ -462,31 +444,24 @@ instance Cochoice (ChooseDist p) where
   unleft (ChooseDist alts) = ChooseDist (map unleft alts)
   unright (ChooseDist alts) = ChooseDist (map unright alts)
 instance Distributor (ChooseDist p)
-instance ProfunctorFunctor ChooseDist where
-  promap = hoistChooseDist
-instance ProfunctorMonad ChooseDist where
-  proreturn = liftChooseDist
-  projoin = foldChooseDist id
-
-liftChooseDist :: p a b -> ChooseDist p a b
-liftChooseDist p = ChooseDist [ChooseAp Just (pure Just) p]
-
-hoistChooseDist
-  :: (forall x y. p x y -> q x y)
-  -> ChooseDist p a b -> ChooseDist q a b
-hoistChooseDist f (ChooseDist alts) =
-  let
-    hoistChooseMonF
-      :: (forall x y. p x y -> q x y)
-      -> ChooseMonF ChooseDist p s t
-      -> ChooseMonF ChooseDist q s t
-    hoistChooseMonF g = \case
-      ChooseNil -> ChooseNil
-      ChoosePure t -> ChoosePure t
-      ChooseAp f' g' x ->
-        ChooseAp f' (hoistChooseDist g g') (g x)
-  in
-    ChooseDist (map (hoistChooseMonF f) alts)
+instance QFunctor ChooseDist where
+  qmap f (ChooseDist alts) =
+    let
+      hoistChooseMonF
+        :: (forall x y. p x y -> q x y)
+        -> ChooseMonF ChooseDist p s t
+        -> ChooseMonF ChooseDist q s t
+      hoistChooseMonF g = \case
+        ChooseNil -> ChooseNil
+        ChoosePure t -> ChoosePure t
+        ChooseAp f' g' x ->
+          ChooseAp f' (qmap g g') (g x)
+    in
+      ChooseDist (map (hoistChooseMonF f) alts)
+instance QPointed ChooseDist where
+  qsingle p = ChooseDist [ChooseAp Just (pure Just) p]
+instance QMonad ChooseDist where
+  qjoin = foldChooseDist id
 
 foldChooseDist
   :: forall p q a b.
@@ -507,53 +482,6 @@ foldChooseDist u chooseDist = go chooseDist where
     ChooseNil -> empty
     ChoosePure b -> pure b
     ChooseAp f alt x -> catMaybesP (go alt <*> dimapMaybe f Just (u x))
-
-data FilterAp f a where
-  FilterNil :: FilterAp f a
-  FilterPure :: a -> FilterAp f a
-  FilterAp
-    :: FilterAp f (a -> Maybe b)
-    -> f a
-    -> FilterAp f b
-instance Functor (FilterAp f) where
-  fmap f = \case
-    FilterNil -> FilterNil
-    FilterPure a -> FilterPure (f a)
-    FilterAp g a -> FilterAp (fmap (fmap f .) g) a
-instance Applicative (FilterAp f) where
-  pure = FilterPure
-  FilterNil <*> _ = FilterNil
-  _ <*> FilterNil = FilterNil
-  FilterPure f <*> a = f <$> a
-  f <*> FilterPure a = ($ a) <$> f
-  FilterAp f a <*> b =
-    let
-      apply g c d = ($ c) <$> g d
-    in
-      FilterAp (apply <$> f <*> b) a
-instance Filterable (FilterAp f) where
-  mapMaybe f = \case
-    FilterNil -> FilterNil
-    FilterPure a -> maybe FilterNil FilterPure (f a)
-    FilterAp g a -> FilterAp (fmap (>=> f) g) a
-
-liftFilterAp :: f a -> FilterAp f a
-liftFilterAp = FilterAp (pure Just)
-
-hoistFilterAp :: (forall x. f x -> g x) -> FilterAp f a -> FilterAp g a
-hoistFilterAp fg = \case
-  FilterNil -> FilterNil
-  FilterPure a -> FilterPure a
-  FilterAp f a -> FilterAp (hoistFilterAp fg f) (fg a)
-
-foldFilterAp
-  :: (Applicative g, Filterable g)
-  => (forall x. f x -> g x)
-  -> FilterAp f a -> g a
-foldFilterAp fg = \case
-  FilterNil -> catMaybes (pure Nothing)
-  FilterPure a -> pure a
-  FilterAp f a -> catMaybes (($) <$> foldFilterAp fg f <*> fg a)
 
 -- positional pattern matching
 eot

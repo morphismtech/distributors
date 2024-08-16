@@ -25,6 +25,7 @@ source-repository head
 
 library
   exposed-modules:
+      Control.Applicative.Filterable
       Control.Lens.Monocle
       Control.Lens.PartialIso
       Control.Lens.Stream

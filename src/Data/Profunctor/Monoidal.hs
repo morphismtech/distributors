@@ -313,7 +313,8 @@ newtype ChooseMon p a b =
     , Profunctor
     , Choice
     , Cochoice
-    , ProfunctorFunctor
+    , QFunctor
+    , QPointed
     )
 instance Applicative (ChooseMon p a) where
   pure = InChooseMon . ChoosePure
@@ -327,6 +328,8 @@ instance Applicative (ChooseMon p a) where
     in
       InChooseMon (ChooseAp f (apply <$> g <*> y) x)
 instance Monoidal (ChooseMon p)
+instance QMonad ChooseMon where
+  qjoin = foldChooseMon id
 
 {- | Folds functions to a `Choice` and `Cochoice`,
 `Monoidal` `Profunctor` over `Mon`.
@@ -347,16 +350,6 @@ foldChooseMon k = \case
       y = dimapMaybe f Just (k x)
     in
       catMaybesP (liftA2P ($) h y)
-
-instance QFunctor ChooseMon where
-  qmap h = \case
-    InChooseMon ChooseNil -> InChooseMon ChooseNil
-    InChooseMon (ChoosePure mb) -> InChooseMon (ChoosePure mb)
-    InChooseMon (ChooseAp f (InChooseMon g) x) -> InChooseMon
-      (ChooseAp f (qmap h (InChooseMon g)) (h x))
-
-instance QPointed ChooseMon where
-  qsingle = InChooseMon . ChooseAp Just (pure Just)
 
 {- | `ChooseMonF` is `ChooseMon` with its recursion abstracted
 into a parameter, so it may be reused in
@@ -413,10 +406,16 @@ instance (forall q. Cochoice (mon q))
         g' = rmap (Right . (either (pure Nothing) Just <=<)) g
       in
         ChooseAp (f . Right) (unright g') x
-instance ProfunctorFunctor mon => ProfunctorFunctor (ChooseMonF mon) where
-  promap _ ChooseNil = ChooseNil
-  promap _ (ChoosePure b) = ChoosePure b
-  promap h (ChooseAp f g x) = ChooseAp f (promap h g) (h x)
+instance QFunctor mon => QFunctor (ChooseMonF mon) where
+  qmap _ ChooseNil = ChooseNil
+  qmap _ (ChoosePure b) = ChoosePure b
+  qmap h (ChooseAp f g x) = ChooseAp f (qmap h g) (h x)
+instance
+  ( QFunctor mon
+  , forall q. Monoidal (mon q)
+  ) => QPointed (ChooseMonF mon) where
+    qsingle = ChooseAp Just (pureP Just)
+
 
 {- | `WrappedMonoidal` can be used to derive instances from
 a `Monoidal` `Profunctor` it wraps. -}
@@ -427,6 +426,8 @@ instance Monoidal p => Functor (WrappedMonoidal p a) where
 instance Monoidal p => Applicative (WrappedMonoidal p a) where
   pure = pureP
   (<*>) = apP
+deriving newtype instance (Monoidal p, forall x. Filterable (p x))
+  => Filterable (WrappedMonoidal p a)
 deriving newtype instance Monoidal p
   => Profunctor (WrappedMonoidal p)
 deriving newtype instance Monoidal p
