@@ -50,8 +50,7 @@ satisfies f = _Guard f >?< token
 
 restOfStream
   :: ( Tokenized c p
-     , SimpleStream s c
-     , SimpleStream t c
+     , Stream s t c c
      , Distributor p
      )
   => p s t

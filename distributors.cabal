@@ -42,6 +42,7 @@ library
   default-extensions:
       AllowAmbiguousTypes
       Arrows
+      ConstraintKinds
       DataKinds
       DefaultSignatures
       DeriveGeneric
