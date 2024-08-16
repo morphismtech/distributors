@@ -20,6 +20,7 @@ module Control.Lens.PartialIso
   , mapMaybeP
   , catMaybesP
   , filterP
+  , Choose (..)
     -- * Partial Isomorphisms
   , PartialIso
   , PartialIso'
@@ -344,3 +345,23 @@ _Normal a = iso (const ()) (const a) where
 {- | A useful isormorphism identifying `Maybe` and `Either` @()@. -}
 _M2E :: Iso (Maybe a) (Maybe b) (Either () a) (Either () b)
 _M2E = iso (maybe (Left ()) Right) (either (pure Nothing) Just)
+
+{- | `Choose` is the free `Choice` and `Cochoice` `Profunctor`. -}
+data Choose p a b where
+  Choose
+    :: (a -> Maybe x)
+    -> (y -> Maybe b)
+    -> p x y -> Choose p a b
+instance Profunctor (Choose p) where
+  dimap f g (Choose f' g' p) =
+    Choose (f' . f) (fmap g . g') p
+instance Choice (Choose p) where
+  left' (Choose f g p) =
+    Choose (either f (const Nothing)) (fmap Left . g) p
+  right' (Choose f g p) =
+    Choose (either (const Nothing) f) (fmap Right . g) p
+instance Cochoice (Choose p) where
+  unleft (Choose f g p) =
+    Choose (f . Left) (either Just (const Nothing) <=< g) p
+  unright (Choose f g p) =
+    Choose (f . Right) (either (const Nothing) Just <=< g) p
