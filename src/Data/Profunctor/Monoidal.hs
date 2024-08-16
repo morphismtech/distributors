@@ -248,6 +248,8 @@ replicateP_ n p = p >* replicateP_ (n-1) p
 foreverP :: Monoidal p => p () c -> p a b
 foreverP p = let p' = p >* p' in p'
 
+{- | `meander` exhibits the implicit `Traversing` 
+structure of a `Choice`, `Strong` `Monoidal`. -}
 meander
   :: (Choice p, Strong p, Monoidal p)
   => ATraversal s t a b -> p a b -> p s t
@@ -276,9 +278,7 @@ instance QPointed Mon where
 instance QMonad Mon where
   qjoin = foldMon id
 
-{- | Folds functions to a `Monoidal` `Profunctor` over `Mon`.
-Together with `liftMon` and `hoistMon`, it characterizes the
-free `Monoidal` `Profunctor`. -}
+{- | Fold to a `Monoidal` `Profunctor` over `Mon`.-}
 foldMon
   :: Monoidal q
   => (forall x y. p x y -> q x y)
@@ -411,7 +411,6 @@ instance
   , forall q. Monoidal (mon q)
   ) => QPointed (ChooseMonF mon) where
     qsingle = ChooseAp Just (pureP Just)
-
 
 {- | `WrappedMonoidal` can be used to derive instances from
 a `Monoidal` `Profunctor` it wraps. -}

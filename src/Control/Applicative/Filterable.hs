@@ -21,11 +21,23 @@ module Control.Applicative.Filterable
 import Control.Monad
 import Witherable
 
+{- | An empty value `fempty`;
+given a `Filterable` `Control.Applicative.Alternative`,
+the following property should hold.
+
+prop> fempty = mempty
+-}
 fempty
-  :: (Applicative f, Filterable f)
+  :: (Filterable f, Applicative f)
   => f a
 fempty = catMaybes (pure Nothing)
 
+{- | `FilterAp` is a free `Filterable` `Applicative`.
+
+`Data.Profunctor.Distributor.Dist` `FilterAp`
+is a free `Data.Profunctor.Cochoice`, `Filterable`
+`Data.Profunctor.Distributor.Distributor`.
+-}
 data FilterAp f a where
   FilterNil :: FilterAp f a
   FilterPure :: a -> FilterAp f a

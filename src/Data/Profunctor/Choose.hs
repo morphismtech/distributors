@@ -27,14 +27,13 @@ import Data.Profunctor
 import Data.Quiver.Functor
 import Witherable
 
-{- | A `Choice` and `Cochoice` `Profunctor`
-exhibits an action `>?<` of partial isomorphisms.
-They are analogous to `Filterable` `Functor`s.
+{- |
+`Choice` and `Cochoice` profunctors generalize
+`Filterable` functors.
 
-prop> i >?< p = withPartialIso i $ \f g -> dimapMaybe f g p
-
-`dimapMaybe` is the structural morphism for `Choice` and `Cochoice`
-profunctors.
+`dimapMaybe` is the structural method for
+`Choice` and `Cochoice` profunctors,
+as `mapMaybe` is for `Filterable` functors.
 -}
 dimapMaybe
   :: (Choice p, Cochoice p)
@@ -96,8 +95,8 @@ discriminate p =
   , dimapMaybe (Just . Right) (either (pure Nothing) Just) p
   )
 
-{- | `mapMaybeP` for `Choice` and `Cochoice` `Profunctor`s
-is the analog to `mapMaybe` for `Filterable` `Functor`s.
+{- | `mapMaybeP` is for `Choice` and `Cochoice`
+as `mapMaybe` is for `Filterable`.
 -}
 mapMaybeP
   :: (Choice p, Cochoice p)
@@ -105,16 +104,16 @@ mapMaybeP
   -> p a b -> p a t
 mapMaybeP = dimapMaybe Just
 
-{- | `catMaybesP` for `Choice` and `Cochoice` `Profunctor`s
-is the analog to `catMaybes` for `Filterable` `Functor`s.
+{- | `catMaybesP` is for `Choice` and `Cochoice`
+as `catMaybes` is for `Filterable`.
 -}
 catMaybesP
   :: (Choice p, Cochoice p)
   => p a (Maybe b) -> p a b
 catMaybesP = mapMaybeP id
 
-{- | `filterP` for `Choice` and `Cochoice` `Profunctor`s
-is the analog to `Witherable.filter` for `Filterable` `Functor`s.
+{- | `filterP` is for `Choice` and `Cochoice`
+as `Witherable.filter` is for `Filterable`.
 -}
 filterP
   :: (Choice p, Cochoice p)
