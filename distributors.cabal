@@ -28,6 +28,7 @@ library
       Control.Lens.Monocle
       Control.Lens.PartialIso
       Control.Lens.Stream
+      Data.Profunctor.Choose
       Data.Profunctor.Distributor
       Data.Profunctor.Monoidal
       Text.Distributor.Grammar
@@ -79,6 +80,7 @@ library
     , contravariant
     , distributive
     , free
+    , free-categories
     , generics-eot
     , lens
     , mtl

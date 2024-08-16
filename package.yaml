@@ -29,6 +29,7 @@ dependencies:
 - contravariant
 - distributive
 - free
+- free-categories
 - generics-eot
 - lens
 - mtl

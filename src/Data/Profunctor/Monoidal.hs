@@ -31,12 +31,8 @@ module Data.Profunctor.Monoidal
   , meander
     -- * Free Monoidal Profunctors
   , Mon (..)
-  , liftMon
-  , hoistMon
   , foldMon
   , ChooseMon (..)
-  , liftChooseMon
-  , hoistChooseMon
   , foldChooseMon
   , ChooseMonF (..)
     -- * Monoidal types
@@ -63,10 +59,12 @@ import Data.Functor.Contravariant.Divisible hiding (chosen)
 import Data.Profunctor hiding (WrappedArrow(..))
 import qualified Data.Profunctor as Pro (WrappedArrow(..))
 import Data.Profunctor.Cayley
+import Data.Profunctor.Choose
 import Data.Profunctor.Composition
 import Data.Profunctor.Monad
 import Data.Profunctor.Traversing
 import Data.Profunctor.Yoneda
+import Data.Quiver.Functor
 import Witherable
 
 {- | A lax monoidal profunctor with respect to product
@@ -267,17 +265,16 @@ data Mon p a b where
     -> p a b
     -> Mon p s t
 
-{- | Lifts base terms to `Mon`. -}
-liftMon :: p a b -> Mon p a b
-liftMon p = MonAp id (MonPure id) p
+instance QFunctor Mon where
+  qmap h = \case
+    MonPure b -> MonPure b
+    MonAp f g x -> MonAp f (qmap h g) (h x)
 
-{- | Hoists base functions to `Mon`. -}
-hoistMon
-  :: (forall x y. p x y -> q x y)
-  -> Mon p a b -> Mon q a b
-hoistMon h = \case
-  MonPure b -> MonPure b
-  MonAp f g x -> MonAp f (hoistMon h g) (h x)
+instance QPointed Mon where
+  qsingle p = MonAp id (MonPure id) p
+
+instance QMonad Mon where
+  qjoin = foldMon id
 
 {- | Folds functions to a `Monoidal` `Profunctor` over `Mon`.
 Together with `liftMon` and `hoistMon`, it characterizes the
@@ -351,19 +348,15 @@ foldChooseMon k = \case
     in
       catMaybesP (liftA2P ($) h y)
 
-{- | Lifts base terms to `ChooseMon`. -}
-liftChooseMon :: p a b -> ChooseMon p a b
-liftChooseMon = InChooseMon . ChooseAp Just (pure Just)
+instance QFunctor ChooseMon where
+  qmap h = \case
+    InChooseMon ChooseNil -> InChooseMon ChooseNil
+    InChooseMon (ChoosePure mb) -> InChooseMon (ChoosePure mb)
+    InChooseMon (ChooseAp f (InChooseMon g) x) -> InChooseMon
+      (ChooseAp f (qmap h (InChooseMon g)) (h x))
 
-{- | Hoists base functions to `ChooseMon`. -}
-hoistChooseMon
-  :: (forall x y. p x y -> q x y)
-  -> ChooseMon p a b -> ChooseMon q a b
-hoistChooseMon h = \case
-  InChooseMon ChooseNil -> InChooseMon ChooseNil
-  InChooseMon (ChoosePure mb) -> InChooseMon (ChoosePure mb)
-  InChooseMon (ChooseAp f (InChooseMon g) x) -> InChooseMon
-    (ChooseAp f (hoistChooseMon h (InChooseMon g)) (h x))
+instance QPointed ChooseMon where
+  qsingle = InChooseMon . ChooseAp Just (pure Just)
 
 {- | `ChooseMonF` is `ChooseMon` with its recursion abstracted
 into a parameter, so it may be reused in

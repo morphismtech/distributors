@@ -59,6 +59,7 @@ import qualified Data.Functor.Contravariant.Divisible as Con (chosen)
 import Data.Profunctor hiding (WrappedArrow(..))
 import qualified Data.Profunctor as Pro (WrappedArrow(..))
 import Data.Profunctor.Cayley
+import Data.Profunctor.Choose
 import Data.Profunctor.Composition
 import Data.Kind
 import Data.Profunctor.Monad

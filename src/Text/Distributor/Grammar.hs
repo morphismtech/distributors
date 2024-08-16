@@ -27,6 +27,7 @@ import Data.Function
 import Data.Map.Lazy (Map)
 import qualified Data.Map.Lazy as Map
 import Data.Profunctor
+import Data.Profunctor.Choose
 import Data.Profunctor.Distributor
 import Data.Profunctor.Monoidal
 import Data.String

@@ -13,16 +13,8 @@ the partial isomorphism optic `PartialIso`,
 a weakening of `Control.Lens.Prism.Prism`.
 -}
 module Control.Lens.PartialIso
-  ( -- * Choice and Cochoice Profunctors
-    dimapMaybe
-  , alternate
-  , discriminate
-  , mapMaybeP
-  , catMaybesP
-  , filterP
-  , Choose (..)
-    -- * Partial Isomorphisms
-  , PartialIso
+  ( -- * Partial Isomorphisms
+    PartialIso
   , PartialIso'
   , APartialIso
   , APartialIso'
@@ -35,12 +27,12 @@ module Control.Lens.PartialIso
   , crossPartialIso
   , altPartialIso
   , iterating
-    -- * Prism, Coprism and Partial Isomorphism Actions
+    -- * Prism, Coprism and (Partial)Iso Actions
   , (>?)
   , (?<)
   , (>?<)
   , mapIso
-    -- * Common (Partial) Isomorphisms
+    -- * Common (Partial)Isos
   , _Guard
   , _Normal
   , _M2E
@@ -50,101 +42,8 @@ import Control.Applicative
 import Control.Lens
 import Control.Monad
 import Data.Profunctor
+import Data.Profunctor.Choose
 import Witherable
-
-{- | A `Choice` and `Cochoice` `Profunctor`
-exhibits an action `>?<` of partial isomorphisms.
-They are analogous to `Filterable` `Functor`s.
-
-prop> i >?< p = withPartialIso i $ \f g -> dimapMaybe f g p
-
-`dimapMaybe` is the structural morphism for `Choice` and `Cochoice`
-profunctors.
--}
-dimapMaybe
-  :: (Choice p, Cochoice p)
-  => (s -> Maybe a) -> (b -> Maybe t)
-  -> p a b -> p s t
-dimapMaybe f g =
-  let
-    m2e h = view _M2E . h
-    fg = dimap (>>= m2e f) (>>= m2e g)
-  in
-    unright . fg . right'
-
-{- | `Choice` and `Cochoice` profunctors
-generalize the `Choice` methods
-with the `alternate` function.
-
-prop> left' = alternate . Left
-prop> right' = alternate . Right
-
-`alternate` has less general constraint
-but a more general type,
-than `left'` `Control.Arrow.|||` `right'`.
-
->>> :type left' ||| right'
-left' ||| right'
-  :: Choice p =>
-     Either (p a a) (p c c) -> p (Either a c) (Either a c)
--}
-alternate
-  :: (Choice p, Cochoice p)
-  => Either (p a b) (p c d)
-  -> p (Either a c) (Either b d)
-alternate (Left p) =
-  dimapMaybe (either Just (pure Nothing)) (Just . Left) p
-alternate (Right p) =
-  dimapMaybe (either (pure Nothing) Just) (Just . Right) p
-
-{-| `Choice` and `Cochoice` profunctors
-generalize the `Cochoice` methods
-with the `discriminate` function.
-
-prop> unleft = fst . discriminate
-prop> unright = snd . discriminate
-
-`discriminate` has less general constraint
-but a more general type,
-than `unleft` `Control.Arrow.&&&` `unright`.
-
->>> :type unleft &&& unright
-unleft &&& unright
-  :: Cochoice p => p (Either a d) (Either a d) -> (p a a, p d d)
--}
-discriminate
-  :: (Choice p, Cochoice p)
-  => p (Either a c) (Either b d)
-  -> (p a b, p c d)
-discriminate p =
-  ( dimapMaybe (Just . Left) (either Just (pure Nothing)) p
-  , dimapMaybe (Just . Right) (either (pure Nothing) Just) p
-  )
-
-{- | `mapMaybeP` for `Choice` and `Cochoice` `Profunctor`s
-is the analog to `mapMaybe` for `Filterable` `Functor`s.
--}
-mapMaybeP
-  :: (Choice p, Cochoice p)
-  => (b -> Maybe t)
-  -> p a b -> p a t
-mapMaybeP = dimapMaybe Just
-
-{- | `catMaybesP` for `Choice` and `Cochoice` `Profunctor`s
-is the analog to `catMaybes` for `Filterable` `Functor`s.
--}
-catMaybesP
-  :: (Choice p, Cochoice p)
-  => p a (Maybe b) -> p a b
-catMaybesP = mapMaybeP id
-
-{- | `filterP` for `Choice` and `Cochoice` `Profunctor`s
-is the analog to `Witherable.filter` for `Filterable` `Functor`s.
--}
-filterP
-  :: (Choice p, Cochoice p)
-  => (b -> Bool) -> p a b -> p a b
-filterP f = mapMaybeP $ \a -> if f a then Just a else Nothing
 
 {- | A `PartialExchange` provides efficient access
 to the two functions that make up a `PartialIso`.
@@ -345,23 +244,3 @@ _Normal a = iso (const ()) (const a) where
 {- | A useful isormorphism identifying `Maybe` and `Either` @()@. -}
 _M2E :: Iso (Maybe a) (Maybe b) (Either () a) (Either () b)
 _M2E = iso (maybe (Left ()) Right) (either (pure Nothing) Just)
-
-{- | `Choose` is the free `Choice` and `Cochoice` `Profunctor`. -}
-data Choose p a b where
-  Choose
-    :: (a -> Maybe x)
-    -> (y -> Maybe b)
-    -> p x y -> Choose p a b
-instance Profunctor (Choose p) where
-  dimap f g (Choose f' g' p) =
-    Choose (f' . f) (fmap g . g') p
-instance Choice (Choose p) where
-  left' (Choose f g p) =
-    Choose (either f (const Nothing)) (fmap Left . g) p
-  right' (Choose f g p) =
-    Choose (either (const Nothing) f) (fmap Right . g) p
-instance Cochoice (Choose p) where
-  unleft (Choose f g p) =
-    Choose (f . Left) (either Just (const Nothing) <=< g) p
-  unright (Choose f g p) =
-    Choose (f . Right) (either (const Nothing) Just <=< g) p
