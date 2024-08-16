@@ -331,11 +331,7 @@ instance Monoidal (ChooseMon p)
 instance QMonad ChooseMon where
   qjoin = foldChooseMon id
 
-{- | Folds functions to a `Choice` and `Cochoice`,
-`Monoidal` `Profunctor` over `Mon`.
-Together with `liftChooseMon` and `hoistChooseMon`,
-it characterizes the free `Choice` and `Cochoice`,
-`Monoidal` `Profunctor`. -}
+{- | Run `ChooseMon` in any `Choice`, `Cochoice`, `Monoidal`. -}
 foldChooseMon
   :: (Monoidal q, Choice q, Cochoice q)
   => (forall x y. p x y -> q x y)
