@@ -7,7 +7,7 @@ Maintainer  :  Eitan Chatav <eitan.chatav@gmail.com>
 Stability   :  provisional
 Portability :  non-portable
 
-`Monocle`s are optics that combine `Traversal`s and
+`Monocle`s are optics that combine `Control.Lens.Traversal`s and
 cotraversals, also known as grates.
 -}
 module Control.Lens.Monocle

@@ -1,6 +1,6 @@
 {- |
 Module      :  Control.Lens.PartialIso
-Description :  choice & cochoice profunctors, and partial isomorphisms
+Description :  partial isomorphisms
 Copyright   :  (C) 2024 - Eitan Chatav
 License     :  BSD-style (see the file LICENSE)
 Maintainer  :  Eitan Chatav <eitan.chatav@gmail.com>
@@ -8,7 +8,6 @@ Stability   :  provisional
 Portability :  non-portable
 
 This module defines types and terms for
-`Choice` and `Cochoice` `Profunctor`s as well as
 the partial isomorphism optic `PartialIso`,
 a weakening of `Control.Lens.Prism.Prism`.
 -}

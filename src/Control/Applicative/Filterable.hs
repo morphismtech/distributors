@@ -1,3 +1,15 @@
+{- |
+Module      :  Control.Applicative.Filterable
+Description :  filterable applicatives
+Copyright   :  (C) 2024 - Eitan Chatav
+License     :  BSD-style (see the file LICENSE)
+Maintainer  :  Eitan Chatav <eitan.chatav@gmail.com>
+Stability   :  provisional
+Portability :  non-portable
+
+`Filterable` `Applicative`s have a `fempty` value,
+similar to `mempty`.
+-}
 module Control.Applicative.Filterable
   ( fempty
   , FilterAp (..)

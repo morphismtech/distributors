@@ -1,3 +1,15 @@
+{- |
+Module      :  Data.Profunctor.Choose
+Description :  choice & cochoice profunctors
+Copyright   :  (C) 2024 - Eitan Chatav
+License     :  BSD-style (see the file LICENSE)
+Maintainer  :  Eitan Chatav <eitan.chatav@gmail.com>
+Stability   :  provisional
+Portability :  non-portable
+
+This module defines types and terms for
+`Choice` and `Cochoice` `Profunctor`s.
+-}
 module Data.Profunctor.Choose
   ( dimapMaybe
   , alternate
