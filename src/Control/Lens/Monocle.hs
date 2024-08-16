@@ -112,7 +112,8 @@ instance Functor (Purchase a b) where
 
 instance a ~ b => Applicative (Purchase a b) where
   pure s = Purchase ($ s)
-  Purchase slab <*> Purchase ab = Purchase $ \la -> slab $ \sl -> ab (la . sl)
+  Purchase slab <*> Purchase ab =
+    Purchase $ \la -> slab $ \sl -> ab (la . sl)
 
 buy :: Purchase a b a -> b
 buy (Purchase f) = f id

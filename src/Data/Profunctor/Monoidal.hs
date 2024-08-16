@@ -456,11 +456,15 @@ data FunList a b t
   | FunAp (Bazaar (->) a b (b -> t)) a
 
 instance Functor (FunList a b) where
-  fmap f = funList (pure . f) (FunAp . fmap (f .))
+  fmap f = \case
+    FunPure t -> pure (f t)
+    FunAp h a -> FunAp (fmap (f .) h) a
 instance Applicative (FunList a b) where
   pure = FunPure
-  (<*>) = funList fmap $ \l x l' ->
-    FunAp (flip <$> l <*> review _FunList l') x
+  (<*>) = \case
+    FunPure t -> fmap t
+    FunAp h a -> \l ->
+      FunAp (flip <$> h <*> review _FunList l) a
 instance Sellable (->) FunList where sell = FunAp (pure id)
 instance Bizarre (->) FunList where
   bazaar f = bazaar f . review _FunList
@@ -485,11 +489,3 @@ _Bazaar = _FunList . dimap f (fmap g) where
   g = \case
     Left t -> FunPure t
     Right (baz, a) -> FunAp baz a
-
-funList
-  :: (t -> x)
-  -> (Bazaar (->) a b (b -> t) -> a -> x)
-  -> FunList a b t -> x
-funList f g = \case
-  FunPure t -> f t
-  FunAp h a -> g h a
