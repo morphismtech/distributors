@@ -1,6 +1,6 @@
 {-# LANGUAGE ConstraintKinds, ImpredicativeTypes, ScopedTypeVariables #-}
 module Text.Distributor.Grammar
-  ( Tokenized (token), satisfies, restOfStream, endOfStream
+  ( Tokenized (token), satisfy, restOfStream, endOfStream
   , Syntactic (terminal)
   , Grammatical (ruleRec, rule)
   , Textual (..)
@@ -39,14 +39,14 @@ class Tokenized c p | p -> c where token :: p c c
 data Token c s t where Token :: Token c c c
 instance Tokenized c (Token c) where token = Token
 
-satisfies
+satisfy
   :: ( Tokenized c p
      , Choice p
      , Cochoice p
      )
   => (c -> Bool)
   -> p c c
-satisfies f = _Guard f >?< token
+satisfy f = _Satisfy f >?< token
 
 restOfStream
   :: ( Tokenized c p
@@ -150,7 +150,7 @@ instance TextualPartial (Prod Char) where
       prodSev1 prod = rule "+" $ _ProdSev1 >? parens prod *< terminal "+"
       prodPoss prod = rule "?" $ _ProdSev >? parens prod *< terminal "?"
       quote = terminal "\'"
-      notQuote = satisfies (/= '\'')
+      notQuote = satisfy (/= '\'')
       parens x = terminal "(" >* x *< terminal ")*"
 
 data Grammar c a b = Grammar
@@ -325,7 +325,7 @@ makePrisms ''Expr
   
 -- eNumb :: Grammatical Char p => p Expr Expr
 -- eNumb = _Numb >?
---   dimap show read (several1 (satisfies isDigit))
+--   dimap show read (several1 (satisfy isDigit))
 
 -- eParens :: Grammatical Char p => p Expr Expr -> p Expr Expr
 -- eParens x = terminal ("(" :: String) >* x *< terminal (")" :: String)

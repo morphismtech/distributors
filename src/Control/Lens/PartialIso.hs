@@ -32,7 +32,7 @@ module Control.Lens.PartialIso
   , (>?<)
   , mapIso
     -- * Common (Partial)Isos
-  , _Guard
+  , _Satisfy
   , _Normal
   , _M2E
   ) where
@@ -229,10 +229,10 @@ infixr 2 >?<
 mapIso :: Profunctor p => AnIso s t a b -> p a b -> p s t
 mapIso i p = withIso i $ \here there -> dimap here there p
 
-{- | `_Guard` is the prototypical proper partial isomorphism,
+{- | `_Satisfy` is the prototypical proper partial isomorphism,
 identifying a subset which satisfies a predicate. -}
-_Guard :: (a -> Bool) -> PartialIso' a a
-_Guard f = partialIso satiate satiate where
+_Satisfy :: (a -> Bool) -> PartialIso' a a
+_Satisfy f = partialIso satiate satiate where
   satiate a = if f a then Just a else Nothing
 
 {- | `_Normal` is the prototypical improper isomorphism,

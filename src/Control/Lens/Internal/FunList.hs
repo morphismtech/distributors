@@ -20,7 +20,8 @@ of one type paired with a function from that tuple,
 of another type.
 
 prop> FunList a b t ~ Bazaar (->) a b t
-prop> FunList a b t ~ exists (,..,). ((a,..,a), (b,..,b) -> t)
+prop> FunList a b t ~ exists (..) :: Natural. ((a,..,a), b -> .. -> b -> t)
+prop> FunList a b t ~ exists (..) :: Natural. ((a,..,a), (b,..,b) -> t)
 -}
 data FunList a b t
   = DoneFun t
@@ -62,6 +63,13 @@ _Bazaar = _FunList . dimap f (fmap g) where
     Left t -> DoneFun t
     Right (baz, a) -> MoreFun baz a
 
+{- | A `Shop` is a fixed length homogeneous tuple isomorphism.
+
+prop> Shop a b s t ~ Bazaar (->) (s -> a) b t
+prop> Shop a b s t ~ FunList (s -> a) b t
+prop> Shop a b s t ~ exists (..) :: Natural. ((s -> a,..,s -> a), b -> .. -> b -> t)
+prop> Shop a b s t ~ exists (..) :: Natural. (s -> (a,..,a), (b,..,b) -> t)
+-}
 newtype Shop a b s t = Shop
   {unShop :: Bazaar (->) (s -> a) b t}
   deriving newtype (Functor, Applicative)
