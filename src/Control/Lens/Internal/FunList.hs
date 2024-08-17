@@ -7,11 +7,15 @@ module Control.Lens.Internal.FunList
   , runShop
   , Purchase (..)
   , buy
+  , V (..)
+  , Peano (..)
+  , PeanoOf
   ) where
 
 import Control.Lens
 import Control.Lens.Internal.Bazaar
 import Control.Lens.Internal.Context
+import GHC.TypeNats
 
 {- | `FunList` is isomorphic to `Bazaar` @(->)@,
 but modified so its nil and cons are pattern matchable.
@@ -103,3 +107,13 @@ instance a ~ b => Applicative (Purchase a b) where
 
 buy :: Purchase a b a -> b
 buy (Purchase f) = f id
+
+data V (n :: Peano) x where
+  VNil :: V Z x
+  (:><) :: x -> V n x -> V (S n) x
+
+data Peano = Z | S Peano
+
+type family PeanoOf (n :: Natural) where
+  PeanoOf 0 = Z
+  PeanoOf n = S (PeanoOf (n - 1))

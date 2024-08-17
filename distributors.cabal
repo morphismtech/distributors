@@ -69,6 +69,7 @@ library
       TemplateHaskell
       TupleSections
       TypeApplications
+      TypeFamilies
       TypeOperators
       UndecidableInstances
       UndecidableSuperClasses

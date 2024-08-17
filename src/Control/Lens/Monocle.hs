@@ -17,28 +17,30 @@ module Control.Lens.Monocle
   , AMonocle
   , Monocle'
   , AMonocle'
-    -- * Monocle consumers
+    -- * Monocle functions
   , withMonocle
-  , peruse
-    -- * Monocle constructors
   , monocle
   , monocle0
   , monocle2
-    -- * Monocle functions
+  , monocleN
+  , MonocleN (..)
   , (>..<)
   , cloneMonocle
   , monTraversal
   , monClosed
   , monGrate
+  , monBazaar
   , monCotraversal
   , monBitraversal
   ) where
 
 import Control.Lens hiding (index, Traversing)
+import Control.Lens.Internal.Context
 import Control.Lens.Internal.FunList
 import Data.Bifunctor.Biff
 import Data.Profunctor
 import Data.Profunctor.Monoidal
+import GHC.TypeNats
 
 {- | A `Monocle` is a representation of a
 fixed length homogeneous tuple isomorphism.
@@ -65,18 +67,12 @@ type AMonocle s t a b =
 {- | A `Simple` `Monocle`. -}
 type AMonocle' s a = AMonocle s s a a
 
--- | Run `AMonocle` with a function on a `Shop`.
+{- | Turn a `AMonocle` into a curried homogeneous tuple isomorphism. -}
 withMonocle :: AMonocle s t a b -> (Shop a b s t -> r) -> r
 withMonocle mon k =
   k (runIdentity <$> mon (Identity <$> shop))
 
--- | Turn `AMonocle` into its curried
--- homogeneous tuple isomorphism, a `Shop`.
-peruse :: AMonocle s t a b -> Shop a b s t
-peruse mon = rmap runIdentity (mon (rmap Identity shop))
-
--- | Turn  a `Shop`, a curried homogeneous tuple isomorphism,
--- into a `Monocle`.
+{- | Turn  a curried homogeneous tuple isomorphism, into a `Monocle`.-}
 monocle :: Shop a b s t -> Monocle s t a b
 monocle sh =
   cloneMonocle $ \p ->
@@ -130,6 +126,12 @@ prop> ((s -> a) -> b) -> t ~ forall f. Functor f => (f a -> b) -> (f s -> t)
 monGrate :: AMonocle s t a b -> ((s -> a) -> b) -> t
 monGrate mon = runCostar (mon >..< Costar buy) . Purchase
 
+{- | `AMonocle` @s t a b@ as a function
+@s -> ((a,..,a), b -> .. -> b -> t)@
+-}
+monBazaar :: AMonocle s t a b -> s -> Bazaar (->) a b t
+monBazaar mon = runStar (mon >..< Star sell)
+
 {- | The unit `Monocle`. -}
 monocle0 :: Monocle () () a b
 monocle0 _ = pureP (pure ())
@@ -137,3 +139,22 @@ monocle0 _ = pureP (pure ())
 {- | The pair `Monocle`. -}
 monocle2 :: Monocle (a,a) (b,b) a b
 monocle2 p = dimap2 fst snd (liftA2 (,)) p p
+
+{- | A `Monocle` for each @n :: @ `Natural` -}
+monocleN
+  :: forall (n :: Natural) n' a b. (PeanoOf n ~ n', MonocleN n')
+  => Monocle (V n' a) (V n' b) a b
+  -- ^ homogeneous tuple isomorphism
+monocleN = monocleV @(PeanoOf n)
+
+{- | A `Monocle` for each homogeneous tuple `V` @(n :: Peano)@. -}
+class MonocleN (n :: Peano) where
+  monocleV :: Monocle (V n a) (V n b) a b
+instance MonocleN Z where
+  monocleV _ = pureP (pure VNil)
+instance MonocleN n => MonocleN (S n) where
+  monocleV p = dimap2
+    (\(a :>< _) -> a)
+    (\(_ :>< v) -> v)
+    (liftA2 (:><))
+    p (monocleV @n p)

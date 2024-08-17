@@ -140,8 +140,7 @@ partialIso :: (s -> Maybe a) -> (b -> Maybe t) -> PartialIso s t a b
 partialIso f g =
   unright . iso (view _M2E . f =<<) (mapMaybe g) . right'
 
-{- | Convert `APartialIso` to the pair of
-functions that characterize it. -}
+{- | `withPartialIso` inverts `partialIso`. -}
 withPartialIso
   :: APartialIso s t a b
   -> ((s -> Maybe a) -> (b -> Maybe t) -> r)
