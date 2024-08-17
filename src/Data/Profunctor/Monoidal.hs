@@ -37,16 +37,13 @@ module Data.Profunctor.Monoidal
   , ChooseMonF (..)
     -- * Monoidal types
   , WrappedMonoidal (..)
-    -- * Internal
-  , FunList (..)
-  , _FunList
   ) where
 
 import Control.Arrow
 import Control.Comonad
 import Control.Lens hiding (chosen, Traversing)
-import Control.Lens.Internal.Bazaar
 import Control.Lens.Internal.Context
+import Control.Lens.Internal.FunList
 import Control.Lens.PartialIso
 import Control.Lens.Stream
 import Control.Monad
@@ -172,6 +169,7 @@ instance Monoidal p => Monoidal (Yoneda p) where
 instance Monoidal p => Monoidal (Coyoneda p) where
   oneP = proreturn oneP
   ab >*< cd = proreturn (proextract ab >*< proextract cd)
+instance Monoidal (Shop a b)
 
 {- | Like `pure` but with a `Monoidal` constraint,
 `pureP` is a functionalization of `oneP`.
@@ -437,44 +435,3 @@ instance (Monoidal p, Choice p, Strong p)
       dimap (f sell) extract (travBaz p) where
         travBaz :: p u v -> p (Bazaar (->) u w x) (Bazaar (->) v w x)
         travBaz q = mapIso _Bazaar $ right' (travBaz q >*< q)
-
-{- | `FunList` is isomorphic to `Bazaar` @(->)@,
-but modified so its nil and cons are pattern matchable. -}
-data FunList a b t
-  = FunPure t
-  | FunAp (Bazaar (->) a b (b -> t)) a
-
-instance Functor (FunList a b) where
-  fmap f = \case
-    FunPure t -> pure (f t)
-    FunAp h a -> FunAp (fmap (f .) h) a
-instance Applicative (FunList a b) where
-  pure = FunPure
-  (<*>) = \case
-    FunPure t -> fmap t
-    FunAp h a -> \l ->
-      FunAp (flip <$> h <*> review _FunList l) a
-instance Sellable (->) FunList where sell = FunAp (pure id)
-instance Bizarre (->) FunList where
-  bazaar f = bazaar f . review _FunList
-
-_FunList :: Iso
-  (Bazaar (->) a1 b1 t1) (Bazaar (->) a2 b2 t2)
-  (FunList a1 b1 t1) (FunList a2 b2 t2)
-_FunList = iso toFun fromFun where
-  toFun (Bazaar f) = f sell
-  fromFun = \case
-    FunPure t -> pure t
-    FunAp f a -> ($) <$> f <*> sell a
-
-_Bazaar :: Iso
-  (Bazaar (->) a1 b1 t1) (Bazaar (->) a2 b2 t2)
-  (Either t1 (Bazaar (->) a1 b1 (b1 -> t1), a1))
-  (Either t2 (Bazaar (->) a2 b2 (b2 -> t2), a2))
-_Bazaar = _FunList . dimap f (fmap g) where
-  f = \case
-    FunPure t -> Left t
-    FunAp baz a -> Right (baz, a)
-  g = \case
-    Left t -> FunPure t
-    Right (baz, a) -> FunAp baz a
