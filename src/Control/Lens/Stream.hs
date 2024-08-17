@@ -25,6 +25,7 @@ module Control.Lens.Stream
   , _HeadTailMay
   , _Tokens
   , _HeadTail
+    -- * Streaming
   , SimpleStreaming (..)
   , PartialStreaming (..)
     -- * Fold/Unfold
@@ -66,6 +67,7 @@ type Stream s t a b = (SimpleStream s a, SimpleStream t b)
 `Control.Lens.Prism.Prism'`s.
 
 prop> nil = mempty
+prop> a `cons` (b <> c) = (a `cons` b) <> c
 -}
 type SimpleStream s a = (Monoid s, Nil s a, Cons s s a a)
 
@@ -181,7 +183,7 @@ class SimpleStream s a => SimpleStreaming s a where
   {- | All tokens satisfy the predicate. -}
   _All :: (a -> Bool) -> PartialIso' s s
   {- | No tokens satisfy the predicate. -}
-  _AllNot :: (a -> Bool) -> PartialIso' s s
+  _None :: (a -> Bool) -> PartialIso' s s
   {- | A tuple where first element is
   the longest prefix (possibly empty) of tokens
   that satisfy the predicate and second element is
@@ -195,73 +197,73 @@ class SimpleStream s a => SimpleStreaming s a where
 instance SimpleStreaming [a] a where
   _All f = partialIso every every where
     every list = if all f list then Just list else Nothing
-  _AllNot f = partialIso everyNot everyNot where
+  _None f = partialIso everyNot everyNot where
     everyNot list = if all (not . f) list then Just list else Nothing
   _Span f = iso (span f) (uncurry (<>)) . crossPartialIso (_All f) id
-  _Break f = iso (break f) (uncurry (<>)) . crossPartialIso (_AllNot f) id
+  _Break f = iso (break f) (uncurry (<>)) . crossPartialIso (_None f) id
 instance SimpleStreaming (Seq a) a where
   _All f = partialIso every every where
     every list = if all f list then Just list else Nothing
-  _AllNot f = partialIso everyNot everyNot where
+  _None f = partialIso everyNot everyNot where
     everyNot list = if all (not . f) list then Just list else Nothing
   _Span f = iso (Seq.spanl f) (uncurry (<>)) . crossPartialIso (_All f) id
-  _Break f = iso (Seq.breakl f) (uncurry (<>)) . crossPartialIso (_AllNot f) id
+  _Break f = iso (Seq.breakl f) (uncurry (<>)) . crossPartialIso (_None f) id
 instance SimpleStreaming (Vector a) a where
   _All f = partialIso every every where
     every list = if all f list then Just list else Nothing
-  _AllNot f = partialIso everyNot everyNot where
+  _None f = partialIso everyNot everyNot where
     everyNot list = if all (not . f) list then Just list else Nothing
   _Span f = iso (Vector.span f) (uncurry (<>)) . crossPartialIso (_All f) id
-  _Break f = iso (Vector.break f) (uncurry (<>)) . crossPartialIso (_AllNot f) id
+  _Break f = iso (Vector.break f) (uncurry (<>)) . crossPartialIso (_None f) id
 instance Prim a => SimpleStreaming (Prim.Vector a) a where
   _All f = partialIso every every where
     every list = if Vector.all f list then Just list else Nothing
-  _AllNot f = partialIso everyNot everyNot where
+  _None f = partialIso everyNot everyNot where
     everyNot list = if Vector.all (not . f) list then Just list else Nothing
   _Span f = iso (Vector.span f) (uncurry (<>)) . crossPartialIso (_All f) id
-  _Break f = iso (Vector.break f) (uncurry (<>)) . crossPartialIso (_AllNot f) id
+  _Break f = iso (Vector.break f) (uncurry (<>)) . crossPartialIso (_None f) id
 instance Storable a => SimpleStreaming (Storable.Vector a) a where
   _All f = partialIso every every where
     every list = if Vector.all f list then Just list else Nothing
-  _AllNot f = partialIso everyNot everyNot where
+  _None f = partialIso everyNot everyNot where
     everyNot list = if Vector.all (not . f) list then Just list else Nothing
   _Span f = iso (Vector.span f) (uncurry (<>)) . crossPartialIso (_All f) id
-  _Break f = iso (Vector.break f) (uncurry (<>)) . crossPartialIso (_AllNot f) id
+  _Break f = iso (Vector.break f) (uncurry (<>)) . crossPartialIso (_None f) id
 instance Unbox a => SimpleStreaming (Unbox.Vector a) a where
   _All f = partialIso every every where
     every list = if Vector.all f list then Just list else Nothing
-  _AllNot f = partialIso everyNot everyNot where
+  _None f = partialIso everyNot everyNot where
     everyNot list = if Vector.all (not . f) list then Just list else Nothing
   _Span f = iso (Vector.span f) (uncurry (<>)) . crossPartialIso (_All f) id
-  _Break f = iso (Vector.break f) (uncurry (<>)) . crossPartialIso (_AllNot f) id
+  _Break f = iso (Vector.break f) (uncurry (<>)) . crossPartialIso (_None f) id
 instance SimpleStreaming StrictB.ByteString Word8 where
   _All f = partialIso every every where
     every list = if StrictB.all f list then Just list else Nothing
-  _AllNot f = partialIso everyNot everyNot where
+  _None f = partialIso everyNot everyNot where
     everyNot list = if StrictB.all (not . f) list then Just list else Nothing
   _Span f = iso (StrictB.span f) (uncurry (<>)) . crossPartialIso (_All f) id
-  _Break f = iso (StrictB.break f) (uncurry (<>)) . crossPartialIso (_AllNot f) id
+  _Break f = iso (StrictB.break f) (uncurry (<>)) . crossPartialIso (_None f) id
 instance SimpleStreaming LazyB.ByteString Word8 where
   _All f = partialIso every every where
     every list = if LazyB.all f list then Just list else Nothing
-  _AllNot f = partialIso everyNot everyNot where
+  _None f = partialIso everyNot everyNot where
     everyNot list = if LazyB.all (not . f) list then Just list else Nothing
   _Span f = iso (LazyB.span f) (uncurry (<>)) . crossPartialIso (_All f) id
-  _Break f = iso (LazyB.break f) (uncurry (<>)) . crossPartialIso (_AllNot f) id
+  _Break f = iso (LazyB.break f) (uncurry (<>)) . crossPartialIso (_None f) id
 instance SimpleStreaming StrictT.Text Char where
   _All f = partialIso every every where
     every list = if StrictT.all f list then Just list else Nothing
-  _AllNot f = partialIso everyNot everyNot where
+  _None f = partialIso everyNot everyNot where
     everyNot list = if StrictT.all (not . f) list then Just list else Nothing
   _Span f = iso (StrictT.span f) (uncurry (<>)) . crossPartialIso (_All f) id
-  _Break f = iso (StrictT.break f) (uncurry (<>)) . crossPartialIso (_AllNot f) id
+  _Break f = iso (StrictT.break f) (uncurry (<>)) . crossPartialIso (_None f) id
 instance SimpleStreaming LazyT.Text Char where
   _All f = partialIso every every where
     every list = if LazyT.all f list then Just list else Nothing
-  _AllNot f = partialIso everyNot everyNot where
+  _None f = partialIso everyNot everyNot where
     everyNot list = if LazyT.all (not . f) list then Just list else Nothing
   _Span f = iso (LazyT.span f) (uncurry (<>)) . crossPartialIso (_All f) id
-  _Break f = iso (LazyT.break f) (uncurry (<>)) . crossPartialIso (_AllNot f) id
+  _Break f = iso (LazyT.break f) (uncurry (<>)) . crossPartialIso (_None f) id
 
 {- | The `_Stream` `Control.Lens.Iso.Iso` with a sum of products. -}
 _Stream
