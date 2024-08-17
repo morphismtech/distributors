@@ -151,6 +151,7 @@ instance QPointed Choose where
 instance QMonad Choose where
   qjoin = foldChoose id
 
+{- | Fold to a `Choice` and `Cochoice` over `Choose`.-}
 foldChoose
   :: (Choice q, Cochoice q)
   => (forall x y. p x y -> q x y)

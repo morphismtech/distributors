@@ -11,18 +11,19 @@ This module defines optics-style interfaces for
 types which are list-like streams of tokens.
 -}
 module Control.Lens.Stream
-  ( -- * Nil
-    Nil (_Nil)
+  ( -- * Stream
+    Stream
+  , SimpleStream
+  , PartialStream
+    -- * Nil
+  , Nil (_Nil)
   , nil
     -- * Null
   , Null (_Null, _NotNull)
-    -- * Streams
-  , Stream
-  , SimpleStream
-  , PartialStream
+    -- * Optics
   , _Stream
   , _HeadTailMay
-  , _ConvertStream
+  , _Tokens
   , _HeadTail
   , SimpleStreaming (..)
   , PartialStreaming (..)
@@ -54,6 +55,22 @@ import qualified Data.Vector.Primitive as Prim (Vector)
 import Data.Vector.Unboxed (Unbox)
 import qualified Data.Vector.Unboxed as Unbox (Vector)
 import Data.Word
+
+{- | `Stream` @s@ @t@ @a@ @b@ means
+that @s@ is a stream of @a@-tokens,
+and @t@ is a stream of @b@-tokens.
+-}
+type Stream s t a b = (SimpleStream s a, SimpleStream t b)
+
+{- | A `SimpleStream` is a `Monoid` with `_Nil` and `_Cons`
+`Control.Lens.Prism.Prism'`s.
+
+prop> nil = mempty
+-}
+type SimpleStream s a = (Monoid s, Nil s a, Cons s s a a)
+
+{-| `PartialStream`s -}
+type PartialStream s t a b = (Stream s t a b, Null s t a b, Cons s t a b)
 
 {- | A class for types allowing total bidirectional pattern
 matching on empty terms. -}
@@ -96,12 +113,7 @@ nil = review _Nil ()
 
 {- | A class for types allowing partial bidirectional pattern
 matching on empty and nonempty terms. -}
-class
-  ( Nil s a
-  , Nil t b
-  , Null s s a a
-  , Null t t b b
-  ) => Null s t a b | b s -> t, a t -> s where
+class (Nil s a, Nil t b) => Null s t a b | b s -> t, a t -> s where
   {- | The `_Null` bidirectional pattern -}
   _Null :: PartialIso s t () ()
   {- | The `_NotNull` bidirectional pattern -}
@@ -161,10 +173,6 @@ instance (Storable a, Storable b) => Null (Storable.Vector a) (Storable.Vector b
 instance (Unbox a, Unbox b) => Null (Unbox.Vector a) (Unbox.Vector b) a b where
   _Null = emptyIso Vector.null Vector.empty
   _NotNull = neIso Vector.null Vector.null
-
-type SimpleStream s a = (Monoid s, Nil s a, Cons s s a a)
-type Stream s t a b = (SimpleStream s a, SimpleStream t b)
-type PartialStream s t a b = (Stream s t a b, Null s t a b, Cons s t a b)
 
 {- | A class for stream types, with a monomorphic token type,
 allowing partial bidirectional pattern matching
@@ -255,24 +263,22 @@ instance SimpleStreaming LazyT.Text Char where
   _Span f = iso (LazyT.span f) (uncurry (<>)) . crossPartialIso (_All f) id
   _Break f = iso (LazyT.break f) (uncurry (<>)) . crossPartialIso (_AllNot f) id
 
-{- | The `_Stream` `Control.Lens.Iso.Iso` which decomposes a stream as
-`Either` a @()@ or a pair. -}
+{- | The `_Stream` `Control.Lens.Iso.Iso` with a sum of products. -}
 _Stream
   :: Stream s t a b
   => Iso s t (Either () (a,s)) (Either () (b,t))
 _Stream = _HeadTailMay . _M2E
 
-{- | `_HeadTailMay` `Control.Lens.Iso.Iso` which decomposes a stream as
-`Nothing` or `Just` a pair. -}
+{- | `_HeadTailMay` `Control.Lens.Iso.Iso` with `Maybe` a pair. -}
 _HeadTailMay
   :: Stream s t a b
   => Iso s t (Maybe (a,s)) (Maybe (b,t))
 _HeadTailMay = iso (preview _Cons) (maybe nil (uncurry cons))
 
-{- | `_ConvertStream` `Control.Lens.Iso.Iso` which identifies `SimpleStream`s
-with the same token type. -}
-_ConvertStream :: Stream s t a a => Iso' s t
-_ConvertStream = iso convertStream convertStream
+{- | `_Tokens` `Control.Lens.Iso.Iso` between
+streams with the same token type. -}
+_Tokens :: Stream s t c c => Iso' s t
+_Tokens = iso convertStream convertStream
   where
     convertStream s =
       maybe

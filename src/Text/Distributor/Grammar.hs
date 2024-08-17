@@ -207,7 +207,7 @@ instance Cochoice (Grammar c) where
 instance () => Tokenized c (Grammar c) where
   token = Grammar ProdToken Map.empty
 instance Eq c => Syntactic [c] (Grammar c) where
-  terminal t = Grammar (ProdTerminal (view _ConvertStream t)) Map.empty
+  terminal t = Grammar (ProdTerminal (view _Tokens t)) Map.empty
 instance Eq c => Grammatical [c] (Grammar c) where
   ruleRec name f =
     let Grammar s rules = f (Grammar (ProdNonTerminal name) Map.empty)
@@ -270,7 +270,7 @@ instance (Eq c, SimpleStream t c) => Syntactic t (Printer t)
 instance (Eq c, SimpleStream t c) => Grammatical t (Printer t)
 instance (x ~ (), y ~ (), SimpleStream t Char)
   => IsString (Printer t x y) where
-    fromString = terminal . view _ConvertStream
+    fromString = terminal . view _Tokens
 
 newtype Linter f t a b = Linter {runLinter :: a -> f t}
 instance Functor (Linter f t a) where
@@ -303,7 +303,7 @@ instance (Alternative f, Filterable f, Eq c, SimpleStream t c)
   => Grammatical t (Linter f t) where
 instance (x ~ (), y ~ (), Alternative f, Filterable f, SimpleStream s Char)
   => IsString (Linter f s x y) where
-    fromString = terminal . view _ConvertStream
+    fromString = terminal . view _Tokens
 
 data Expr = Plus Expr Expr | Mult Expr Expr | Numb Integer
     deriving Show
