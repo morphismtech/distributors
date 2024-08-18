@@ -5,8 +5,9 @@ module Text.Distributor.Grammar
   , Textual (..)
   , PartialTextual (..)
   , Syntactic (..)
+  , token
   , satisfy
-  , tokens
+  , allTokens
   , end
   , Parser (Parser, runParser)
   , Printer (Printer, runPrinter)
@@ -87,18 +88,19 @@ class SimpleStream t c => Syntactic e t c p
       => t -> p a ()
     stream str = case view _HeadTailMay str of
       Nothing -> pureP ()
-      Just (c,t) -> (only c ?< anyToken) >* stream t
+      Just (c,t) -> token c >* stream t
     rule :: e -> p a b -> p a b
     rule e p = ruleRec e (\_ -> p)
     ruleRec :: e -> (p a b -> p a b) -> p a b
     ruleRec _ = fix
 
--- class Tokenized c p | p -> c where token :: p c c
--- data Token c s t where Token :: Token c c c
--- instance Tokenized c (Token c) where token = Token
+token
+  :: (Eq c, Syntactic e t c p, Cochoice p)
+  => c -> p () ()
+token c = only c ?< anyToken
 
-tokens :: (Syntactic e t c p, Stream s t c c, Distributor p) => p s t
-tokens = several anyToken
+allTokens :: (Syntactic e t c p, Stream s t c c, Distributor p) => p s t
+allTokens = several anyToken
 
 end
   :: forall t c p e.
@@ -107,7 +109,7 @@ end
      , Syntactic e t c p
      )
   => p () ()
-end = _Nil @t ?< tokens
+end = _Nil @t ?< allTokens
 
 satisfy
   :: ( Choice p
