@@ -13,7 +13,7 @@ module Data.Profunctor.Distributor
   , emptyP
   , dialt
   , altP
-  , several1
+  , someP
   , atLeast0
   , moreThan0
   , atLeast1
@@ -42,6 +42,7 @@ import qualified Control.Applicative.Free.Fast as Fast
 import qualified Control.Applicative.Free.Final as Final
 import Control.Arrow
 import Control.Lens hiding (chosen, Traversing)
+import Control.Lens.Internal.Profunctor
 import Control.Lens.PartialIso
 import Control.Lens.Stream
 import Data.Bifunctor.Biff
@@ -119,18 +120,18 @@ class Monoidal p => Distributor p where
   infixr 1 >+<
 
   {- |
-  `several` is the Kleene star operator, of zero or more times.
+  `manyP` is the Kleene star operator, of zero or more times.
   -}
-  several :: Stream s t a b => p a b -> p s t
-  several p = mapIso _Stream $ oneP >+< severalPlus p
+  manyP :: Stream s t a b => p a b -> p s t
+  manyP p = mapIso _Stream $ oneP >+< many1 p
 
   {- |
-  `severalPlus` is the Kleene plus operator, of one or more times.
+  `many1` is the Kleene plus operator, of one or more times.
   -}
-  severalPlus
+  many1
     :: Stream s t a b
     => p a b -> p (a,s) (b,t)
-  severalPlus p = p >*< several p
+  many1 p = p >*< manyP p
 
   {- |
   `possibly` is zero or one times.
@@ -138,36 +139,36 @@ class Monoidal p => Distributor p where
   possibly :: p a b -> p (Maybe a) (Maybe b)
   possibly p = mapIso _M2E $ oneP >+< p
 
-{- | Like `severalPlus`, but conses the token to the stream. -}
-several1
+{- | Like `many1`, but conses the token to the stream. -}
+someP
   :: (Choice p, Distributor p, PartialStream s t a b)
   => p a b -> p s t
-several1 p = _Cons >? severalPlus p
+someP p = _Cons >? many1 p
 
 {- | At least zero operator with a separator. -}
 atLeast0
   :: (Distributor p, Stream s t a b)
-  => p a b -> Sep p -> p s t
-atLeast0 p (Sep separator beg end) =
-  beg >* (mapIso _Stream ((oneP >+< p `sepBy` separator) *< end))
+  => Sep p -> p a b -> p s t
+atLeast0 (Sep comma beg end) p = mapIso _Stream $
+  beg >* (oneP >+< p `sepBy` comma) *< end
 
 {- | More than zero operator with a separator. -}
 moreThan0
   :: (Distributor p, Stream s t a b)
-  => p a b -> Sep p -> p (a,s) (b,t)
-moreThan0 p (Sep separator beg end) =
+  => Sep p -> p a b -> p (a,s) (b,t)
+moreThan0 (Sep separator beg end) p =
   beg >* p `sepBy` separator *< end
 
 {- | Like `moreThan0`, but conses the token to the stream. -}
 atLeast1
   :: (Distributor p, Choice p, PartialStream s t a b)
-  => p a b -> Sep p -> p s t
-atLeast1 p s = _Cons >? moreThan0 p s
+  => Sep p -> p a b -> p s t
+atLeast1 s p = _Cons >? moreThan0 s p
 
 sepBy
   :: (Distributor p, Stream s t a b)
   => p a b -> p () () -> p (a,s) (b,t)
-sepBy p separator = p >*< several (separator >* p)
+sepBy p separator = p >*< manyP (separator >* p)
 
 {- | Used to parse multiple times, delimited `by` a separator,
 a `beginBy`, and an `endBy`. -}
@@ -239,6 +240,11 @@ instance Distributor p => Distributor (Coyoneda p) where
   ab >+< cd = proreturn (proextract ab >+< proextract cd)
 deriving newtype instance Distributor p
   => Distributor (WrappedMonoidal p)
+instance (Distributor p, Applicative f)
+  => Distributor (WrappedPafb f p) where
+    zeroP = WrapPafb (emptyP absurd)
+    WrapPafb ab >+< WrapPafb cd =
+      WrapPafb (dialt id (fmap Left) (fmap Right) ab cd)
 
 {- | The `Distributor` version of `empty`,
 `emptyP` is a functionalization of `zeroP`.
@@ -533,7 +539,7 @@ dichainl
 dichainl i opr arg =
   let
     conj = coPartialIso . difoldl . coPartialIso
-    sev = several @p @[a]
+    sev = manyP @p @[a]
   in
     conj i >?< arg >*< sev (opr >* arg)
 
@@ -545,7 +551,7 @@ dichainl'
   -> p a a
 dichainl' p opr arg =
   let
-    sev = several @p @[a]
+    sev = manyP @p @[a]
   in
     difoldl' p ?< arg >*< sev (opr >* arg)
 
@@ -558,7 +564,7 @@ dichainr
 dichainr i opr arg =
   let
     conj = coPartialIso . difoldr . coPartialIso
-    sev = several @p @[a]
+    sev = manyP @p @[a]
   in
     conj i >?< sev (opr >* arg) >*< arg
 
@@ -570,6 +576,6 @@ dichainr'
   -> p a a
 dichainr' p opr arg =
   let
-    sev = several @p @[a]
+    sev = manyP @p @[a]
   in
     difoldr' p ?< sev (opr >* arg) >*< arg 
