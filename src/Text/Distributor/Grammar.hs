@@ -5,7 +5,6 @@ module Text.Distributor.Grammar
   , Textual (..)
   , PartialTextual (..)
   , Syntactic (..)
-  , token
   , satisfy
   , allTokens
   , end
@@ -18,6 +17,7 @@ module Text.Distributor.Grammar
 
 import Control.Applicative
 import Control.Lens
+import Control.Lens.Bifocal
 import Control.Lens.PartialIso
 import Control.Lens.Stream
 import Control.Monad
@@ -35,25 +35,17 @@ import GHC.IsList
 import Text.ParserCombinators.ReadP ( ReadP, get )
 import Witherable
 
-class Grammatical e t c a where
+class Grammatical rul str chr x where
   gramma ::
-    ( Syntactic e t c p
-    , Cochoice p
-    , Distributor p
-    , forall x. Applicative (p x)
-    , forall x. Filterable (p x)
-    , IsList (p () ())
-    , Item (p () ()) ~ c
-    ) => p a a
+    ( Syntactic rul str chr p
+    , Applicative f
+    ) => Optic p f x x a b
 
 class PartialGrammatical e t c a where
   grampa ::
     ( Syntactic e t c p
     , Choice p
-    , Cochoice p
-    , Distributor p
     , forall x. Alternative (p x)
-    , forall x. Filterable (p x)
     , IsList (p () ())
     , Item (p () ()) ~ c
     ) => p a a
@@ -61,10 +53,6 @@ class PartialGrammatical e t c a where
 class Textual e t a where
   textGramma ::
     ( Syntactic e t Char p
-    , Cochoice p
-    , Distributor p
-    , forall x. Applicative (p x)
-    , forall x. Filterable (p x)
     , IsString (p () ())
     ) => p a a
 
@@ -72,48 +60,65 @@ class PartialTextual e t a where
   textGrampa ::
     ( Syntactic e t Char p
     , Choice p
-    , Cochoice p
-    , Distributor p
     , forall x. Alternative (p x)
-    , forall x. Filterable (p x)
     , IsString (p () ())
     ) => p a a
 
-class SimpleStream t c => Syntactic e t c p
+class
+  ( Eq c
+  , SimpleStream t c
+  , Distributor p
+  , Cochoice p
+  , forall x. Filterable (p x)
+  , forall x. Applicative (p x)
+  ) => Syntactic e t c p
   | p -> e, p -> c, p -> t where
     anyToken :: p c c
     stream :: t -> p a ()
-    default stream
-      :: (Eq c, Cochoice p, Monoidal p)
-      => t -> p a ()
     stream str = case view _HeadTailMay str of
       Nothing -> pureP ()
-      Just (c,t) -> token c >* stream t
+      Just (c,t) -> (only c ?< anyToken) >* stream t
     rule :: e -> p a b -> p a b
     rule e p = ruleRec e (\_ -> p)
     ruleRec :: e -> (p a b -> p a b) -> p a b
     ruleRec _ = fix
 
-token
-  :: (Eq c, Syntactic e t c p, Cochoice p)
-  => c -> p () ()
-token c = only c ?< anyToken
+type Syntax rul str chr s t a b = forall p f.
+  (Syntactic rul str chr p, f ~ Identity)
+    => p a (f b) -> p s (f t)
 
-allTokens :: (Syntactic e t c p, Stream s t c c, Distributor p) => p s t
-allTokens = several anyToken
+type Syntax' rul str chr s a = Syntax rul str chr s s a a
+
+_Any :: Syntax' rul str chr chr ()
+_Any = (rmap pure anyToken *<)
+
+_TilEnd :: Syntax' rul str chr str ()
+_TilEnd = _Many . _Any
+
+_Str :: str -> Syntax' rul str chr () ()
+_Str t = (rmap pure (stream t) *<)
+
+_Chr :: chr -> Syntax' rul str chr () ()
+_Chr c =  _Str (cons c nil)
+
+_End :: forall str chr rul p. (Syntactic rul str chr p) => Optic' p Identity () ()
+_End = _Match (_Nil @str @chr) . _TilEnd
+
+_Match :: (Cochoice p, Identity ~ f) => APrism b a t s -> Optic p f s t a b
+_Match coprism =
+  rmap Identity . (coprism ?<) . rmap runIdentity
+
+allTokens :: (Syntactic e t c p, Stream s t c c) => p s t
+allTokens = manyP anyToken
 
 end
   :: forall t c p e.
-     ( Cochoice p
-     , Distributor p
-     , Syntactic e t c p
-     )
+     Syntactic e t c p
   => p () ()
 end = _Nil @t ?< allTokens
 
 satisfy
   :: ( Choice p
-     , Cochoice p
      , Syntactic e t c p
      )
   => (c -> Bool)
@@ -150,6 +155,7 @@ instance (x ~ (), y ~ ()) => IsString (Parser ReadP x y) where
 newtype Printer t a b = Printer {runPrinter :: a -> t}
   deriving
     ( Profunctor
+    , Choice
     , Cochoice
     , Monoidal
     , Distributor
@@ -160,12 +166,18 @@ newtype Printer t a b = Printer {runPrinter :: a -> t}
 instance Monoid t => Applicative (Printer t a) where
   pure = pureP
   (<*>) = apP
+instance (Monoid t, Nil t b) => Alternative (Printer t a) where
+  empty = catMaybes (pure Nothing)
+  Printer x <|> Printer y = Printer $ \a ->
+     case matching _Nil (x a) of
+      Left t -> t
+      Right _ -> y a
 instance Filterable (Printer t a) where
   mapMaybe _ (Printer x) = Printer x
-instance (Eq c, SimpleStream t c)
+instance (Eq c, SimpleStream t c, IsList t, Item t ~ c)
   => Syntactic String t c (Printer t) where
     anyToken = Printer (`cons` nil)
-instance (x ~ (), y ~ (), SimpleStream t Char)
+instance (x ~ (), y ~ (), SimpleStream t Char, IsList t, Item t ~ Char)
   => IsString (Printer t x y) where
     fromString = stream . view _Tokens
 
@@ -192,7 +204,7 @@ instance (Applicative f, Filterable f) => Choice (Linter f t) where
   right' (Linter linter) = Linter $
     either (\_ -> catMaybes (pure Nothing)) linter
 instance (Alternative f, Filterable f, Monoid t) => Distributor (Linter f t)
-instance (Eq c, Applicative f, Filterable f, SimpleStream t c)
+instance (Eq c, Alternative f, Filterable f, SimpleStream t c)
   => Syntactic String t c (Linter f t) where
     anyToken = Linter (pure . (`cons` nil))
 instance (x ~ (), y ~ (), Alternative f, Filterable f, SimpleStream s Char)
@@ -238,9 +250,9 @@ instance Distributor (Grammar c) where
     Grammar s0 (rules0 <> rules1)
   Grammar s0 rules0 >+< Grammar s1 rules1 =
     Grammar (ProdOr s0 s1) (rules0 <> rules1)
-  several (Grammar s rules) = Grammar (ProdSev s) rules
-  severalPlus (Grammar s rules) = Grammar (ProdSev1 s) rules
-  possibly (Grammar s rules) = Grammar (ProdPoss s) rules
+  manyP (Grammar s rules) = Grammar (ProdSev s) rules
+  many1 (Grammar s rules) = Grammar (ProdSev1 s) rules
+  optionP (Grammar s rules) = Grammar (ProdPoss s) rules
 instance Choice (Grammar c) where
   left' = coerce
   right' = coerce
@@ -268,53 +280,3 @@ data Prod c
   | ProdPoss (Prod c)
   deriving (Eq, Ord, Read, Show)
 makePrisms ''Prod
-
--- instance TextualPartial (Prod Char) where
---   textGramPa = ruleRec "production" $ \prod ->
---     prodToken
---     <|> prodTerminal
---     <|> prodEmpty
---     <|> prodSeq prod
---     <|> prodOr prod
---     <|> prodSev prod
---     <|> prodSev1 prod
---     <|> prodPoss prod
---     where
---       prodToken = rule "token" $ _ProdToken >? stream "[token]"
---       prodTerminal = rule "stream" $ _ProdTerminal >? quote >* several notQuote *< quote
---       prodEmpty = rule "empty" $ _ProdEmpty >? empty
---       prodSeq prod = rule "seq" $ _ProdSeq >? prod *< stream " " >*< prod
---       prodOr prod = rule "or" $ _ProdOr >? prod *< stream " | " >*< prod
---       prodSev prod = rule "*" $ _ProdSev >? parens prod *< stream "*"
---       prodSev1 prod = rule "+" $ _ProdSev1 >? parens prod *< stream "+"
---       prodPoss prod = rule "?" $ _ProdSev >? parens prod *< stream "?"
---       quote = stream "\'"
---       notQuote = satisfy (/= '\'')
---       parens x = stream "(" >* x *< stream ")*"
-
-
--- data Expr = Plus Expr Expr | Mult Expr Expr | Numb Integer
---     deriving Show
--- makePrisms ''Expr
-
-
--- expr :: Grammatical Char p => p Expr Expr
--- expr = recNonTerminal "expr" $ \ x -> ePlus x
-
--- ePlus :: Grammatical Char p => p Expr Expr -> p Expr Expr
--- ePlus x = rule "plus" $
---   dichainl _Plus (stream ("+" :: String)) (eMult x)
-
--- eMult :: Grammatical Char p => p Expr Expr -> p Expr Expr
--- eMult x = rule "plus" $
---   dichainl _Mult (stream ("*" :: String)) (eAtom x)
-
--- eAtom :: Grammatical Char p => p Expr Expr -> p Expr Expr
--- eAtom x = rule "atom" $ eNumb <|> eParens x
-  
--- eNumb :: Grammatical Char p => p Expr Expr
--- eNumb = _Numb >?
---   dimap show read (several1 (satisfy isDigit))
-
--- eParens :: Grammatical Char p => p Expr Expr -> p Expr Expr
--- eParens x = stream ("(" :: String) >* x *< stream (")" :: String)
