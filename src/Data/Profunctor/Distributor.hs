@@ -134,10 +134,10 @@ class Monoidal p => Distributor p where
   many1 p = p >*< manyP p
 
   {- |
-  `possibly` is zero or one times.
+  `optionP` is zero or one times.
   -}
-  possibly :: p a b -> p (Maybe a) (Maybe b)
-  possibly p = mapIso _M2E $ oneP >+< p
+  optionP :: p a b -> p (Maybe a) (Maybe b)
+  optionP p = mapIso _M2E $ oneP >+< p
 
 {- | Like `many1`, but conses the token to the stream. -}
 someP

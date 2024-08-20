@@ -56,7 +56,7 @@ bifocalSign p = iso hither thither
 _Option :: Bifocal (Maybe a) (Maybe b) a b
 _Option
   = unwrapPafb
-  . possibly
+  . optionP
   . WrapPafb
 _Many :: Stream s t a b => Bifocal s t a b
 _Many
