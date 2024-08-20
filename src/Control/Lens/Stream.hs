@@ -108,6 +108,10 @@ instance Storable a => Nil (Storable.Vector a) a where
   _Nil = emptyPrism Vector.null Vector.empty
 instance Unbox a => Nil (Unbox.Vector a) a where
   _Nil = emptyPrism Vector.null Vector.empty
+instance Nil ShowS Char where
+  _Nil = prism' (const id) $ \shw -> case shw "" of
+    [] -> Just ()
+    _ -> Nothing
 
 -- | The empty value, `nil`.
 nil :: Nil s a => s
