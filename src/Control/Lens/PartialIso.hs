@@ -203,7 +203,7 @@ altPartialIso x y =
   => APrism s t a b
   -> p a b
   -> p s t
-i >? p = withPrism i $ \f g -> dimap g (either id f) (right' p)
+(>?) pat = withPrism pat $ \f g -> dimap g (either id f) . right'
 infixr 2 >?
 
 {- | Action of a coprism on `Cochoice` `Profunctor`s. -}
@@ -212,7 +212,7 @@ infixr 2 >?
   => APrism b a t s
   -> p a b
   -> p s t
-i ?< p = withPrism i $ \f g -> unright (dimap (either id f) g p)
+(?<) pat = withPrism pat $ \f g -> unright . dimap (either id f) g
 infixr 2 ?<
 
 {- | Action of `APartialIso` on `Choice` and `Cochoice` `Profunctor`s. -}
