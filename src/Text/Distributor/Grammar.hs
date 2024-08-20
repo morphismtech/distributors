@@ -33,8 +33,8 @@ import qualified Text.ParserCombinators.ReadP as ReadP
 import Text.ParserCombinators.ReadP (ReadP)
 import Witherable
 
-class Grammatical rul str chr s t a b where
-  grammar :: Syntax rul str chr x x a b
+class Grammatical rul str chr s a where
+  grammar :: Syntax rul str chr s a
 
 class
   ( Eq chr
@@ -56,28 +56,36 @@ class
     ruleRec :: rul -> (p a b -> p a b) -> p a b
     ruleRec _ = fix
 
-type Syntax rul str chr s t a b = forall p f.
-  (Syntactic rul str chr p, f ~ Identity)
-    => p a (f b) -> p s (f t)
+type Syntactical rul str chr s t a b = forall p.
+  Syntactic rul str chr p
+    => p a (Identity b) -> p s (Identity t)
 
-type Syntax' rul str chr s a = Syntax rul str chr s s a a
+type Syntax rul str chr s a = Syntactical rul str chr s s a a
 
-_Any :: Syntax' rul str chr chr ()
+readPP :: Syntax Void String Char a () -> ReadP a
+readPP syn = case syn (pureP (pure ())) of
+  ShowReadP _ r -> fmap runIdentity r
+
+showPP :: Syntax Void String Char a () -> a -> ShowS
+showPP syn = case syn (pureP (pure())) of
+  ShowReadP s _ -> s
+
+_Any :: Syntax rul str chr chr ()
 _Any = (rmap pure anyToken *<)
 
-_TilEnd :: Syntax' rul str chr str ()
+_TilEnd :: Syntax rul str chr str ()
 _TilEnd = _Many . _Any
 
-_Str :: str -> Syntax' rul str chr () ()
+_Str :: str -> Syntax rul str chr () ()
 _Str t = (rmap pure (stream t) *<)
 
-_Chr :: chr -> Syntax' rul str chr () ()
+_Chr :: chr -> Syntax rul str chr () ()
 _Chr c =  _Str (cons c nil)
 
-_End :: forall rul str chr. Syntax' rul str chr () ()
+_End :: forall rul str chr. Syntax rul str chr () ()
 _End = _Match (_Nil @str @chr) . _TilEnd
 
-_Match :: APrism b a t s -> Syntax rul str chr s t a b
+_Match :: Prism b a t s -> Syntactical rul str chr s t a b
 _Match coprism =
   rmap Identity . (coprism ?<) . rmap runIdentity
 
