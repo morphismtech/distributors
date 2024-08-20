@@ -1,9 +1,6 @@
 {-# LANGUAGE ConstraintKinds, ImpredicativeTypes, ScopedTypeVariables #-}
 module Text.Distributor.Grammar
   ( Grammatical (..)
-  , PartialGrammatical (..)
-  , Textual (..)
-  , PartialTextual (..)
   , Syntactic (..)
   , satisfy
   , allTokens
@@ -20,8 +17,8 @@ import Control.Lens
 import Control.Lens.Bifocal
 import Control.Lens.PartialIso
 import Control.Lens.Stream
-import Control.Monad
 import Data.Bifunctor.Joker
+import Data.Void
 import Data.Coerce
 import Data.Function
 import Data.Map.Lazy (Map)
@@ -32,55 +29,31 @@ import Data.Profunctor.Distributor
 import Data.Profunctor.Monoidal
 import Data.String
 import GHC.IsList
-import Text.ParserCombinators.ReadP ( ReadP, get )
+import qualified Text.ParserCombinators.ReadP as ReadP
+import Text.ParserCombinators.ReadP (ReadP)
 import Witherable
 
-class Grammatical rul str chr x where
-  gramma ::
-    ( Syntactic rul str chr p
-    , Applicative f
-    ) => Optic p f x x a b
-
-class PartialGrammatical e t c a where
-  grampa ::
-    ( Syntactic e t c p
-    , Choice p
-    , forall x. Alternative (p x)
-    , IsList (p () ())
-    , Item (p () ()) ~ c
-    ) => p a a
-
-class Textual e t a where
-  textGramma ::
-    ( Syntactic e t Char p
-    , IsString (p () ())
-    ) => p a a
-
-class PartialTextual e t a where
-  textGrampa ::
-    ( Syntactic e t Char p
-    , Choice p
-    , forall x. Alternative (p x)
-    , IsString (p () ())
-    ) => p a a
+class Grammatical rul str chr s t a b where
+  grammar :: Syntax rul str chr x x a b
 
 class
-  ( Eq c
-  , SimpleStream t c
+  ( Eq chr
+  , SimpleStream str chr
   , Distributor p
+  , Choice p
   , Cochoice p
   , forall x. Filterable (p x)
-  , forall x. Applicative (p x)
-  ) => Syntactic e t c p
-  | p -> e, p -> c, p -> t where
-    anyToken :: p c c
-    stream :: t -> p a ()
+  , forall x. Alternative (p x)
+  ) => Syntactic rul str chr p
+  | p -> rul, p -> chr, p -> str where
+    anyToken :: p chr chr
+    stream :: str -> p a ()
     stream str = case view _HeadTailMay str of
       Nothing -> pureP ()
       Just (c,t) -> (only c ?< anyToken) >* stream t
-    rule :: e -> p a b -> p a b
+    rule :: rul -> p a b -> p a b
     rule e p = ruleRec e (\_ -> p)
-    ruleRec :: e -> (p a b -> p a b) -> p a b
+    ruleRec :: rul -> (p a b -> p a b) -> p a b
     ruleRec _ = fix
 
 type Syntax rul str chr s t a b = forall p f.
@@ -101,10 +74,10 @@ _Str t = (rmap pure (stream t) *<)
 _Chr :: chr -> Syntax' rul str chr () ()
 _Chr c =  _Str (cons c nil)
 
-_End :: forall str chr rul p. (Syntactic rul str chr p) => Optic' p Identity () ()
+_End :: forall rul str chr. Syntax' rul str chr () ()
 _End = _Match (_Nil @str @chr) . _TilEnd
 
-_Match :: (Cochoice p, Identity ~ f) => APrism b a t s -> Optic p f s t a b
+_Match :: APrism b a t s -> Syntax rul str chr s t a b
 _Match coprism =
   rmap Identity . (coprism ?<) . rmap runIdentity
 
@@ -118,8 +91,7 @@ end
 end = _Nil @t ?< allTokens
 
 satisfy
-  :: ( Choice p
-     , Syntactic e t c p
+  :: ( Syntactic e t c p
      )
   => (c -> Bool)
   -> p c c
@@ -139,17 +111,50 @@ instance Applicative f => Applicative (Parser f a) where
 instance Alternative f => Alternative (Parser f a) where
   empty = Parser empty
   Parser x <|> Parser y = Parser (x <|> y)
-instance MonadPlus f => Filterable (Parser f a) where
-  mapMaybe f (Parser x) =
-    Parser (maybe mzero return . f =<< x)
-instance MonadPlus f => Cochoice (Parser f) where
+instance Filterable f => Cochoice (Parser f) where
   unleft (Parser f) =
-    Parser (either return (const mzero) =<< f)
+    Parser (mapMaybe (either Just (const Nothing)) f)
   unright (Parser f) =
-    Parser (either (const mzero) return =<< f)
-instance Syntactic String String Char (Parser ReadP) where
-  anyToken = Parser get
-instance (x ~ (), y ~ ()) => IsString (Parser ReadP x y) where
+    Parser (mapMaybe (either (const Nothing) Just) f)
+instance Filterable f => Filterable (Parser f a) where
+  mapMaybe f (Parser x) = Parser (mapMaybe f x)
+instance Filterable ReadP where
+  catMaybes m = m >>= maybe ReadP.pfail return
+instance Syntactic Void String Char (Parser ReadP) where
+  anyToken = Parser ReadP.get
+
+data ShowReadP a b = ShowReadP (a -> ShowS) (ReadP b)
+instance Profunctor ShowReadP where
+  dimap f g (ShowReadP s r) = ShowReadP (s . f) (g <$> r)
+instance Functor (ShowReadP a) where fmap = rmap
+instance Applicative (ShowReadP a) where
+  pure b = ShowReadP (\_ -> id) (pure b)
+  ShowReadP sx rx <*> ShowReadP sy ry =
+    ShowReadP (\a -> sx a . sy a) (rx <*> ry)
+instance Monoidal ShowReadP
+instance Choice ShowReadP where
+  left' (ShowReadP s r) = ShowReadP
+    (either s (const id))
+    (runParser (left' (Parser r)))
+  right' (ShowReadP s r) = ShowReadP
+    (either (const id) s)
+    (runParser (right' (Parser r)))
+instance Cochoice ShowReadP where
+  unleft (ShowReadP s r) = ShowReadP
+    (s . Left)
+    (r >>= either return (\_ -> ReadP.pfail))
+instance Filterable (ShowReadP a) where
+  catMaybes (ShowReadP s r) =
+    ShowReadP s (r >>= maybe ReadP.pfail return)
+instance Alternative (ShowReadP a) where
+  empty = ShowReadP (\_ -> id) ReadP.pfail
+  ShowReadP xs xr <|> ShowReadP ys yr = ShowReadP
+    (\a -> if isn't _Nil (xs a) then xs a else ys a)
+    (xr ReadP.+++ yr)
+instance Distributor ShowReadP
+instance Syntactic Void String Char ShowReadP where
+  anyToken = ShowReadP (:) ReadP.get
+instance (a ~ (), b ~ ()) => IsString (ShowReadP a b) where
   fromString = stream
 
 newtype Printer t a b = Printer {runPrinter :: a -> t}
@@ -157,6 +162,7 @@ newtype Printer t a b = Printer {runPrinter :: a -> t}
     ( Profunctor
     , Choice
     , Cochoice
+    , Strong
     , Monoidal
     , Distributor
     ) via Forget t
