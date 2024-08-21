@@ -231,7 +231,7 @@ infixr 6 >:<
 
 {- | `replicateP` is analogous to `replicateM`. -}
 replicateP
-  :: (Monoidal p, Choice p, Cochoice p, PartialStream s t a b)
+  :: (Monoidal p, Choice p, Cochoice p, Stream s t a b, Cons s t a b)
   => Int -> p a b -> p s t
 replicateP n _ | n <= 0 = _Null >?< oneP
 replicateP n p = p >:< replicateP (n-1) p
@@ -240,7 +240,7 @@ replicateP n p = p >:< replicateP (n-1) p
 replicateP'
   :: (Monoidal p, Choice p, SimpleStream s a)
   => Int -> p a a -> p s s
-replicateP' n _ | n <= 0 = _Nil >? oneP
+replicateP' n _ | n <= 0 = _Empty >? oneP
 replicateP' n p = p >:< replicateP' (n-1) p
 
 {- | `replicateP_` is like `replicateM_`. -}

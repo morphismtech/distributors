@@ -14,20 +14,16 @@ module Control.Lens.Stream
   ( -- * Stream
     Stream
   , SimpleStream
-  , PartialStream
-    -- * Nil
-  , Nil (_Nil)
-  , nil
-    -- * Null
-  , Null (_Null, _NotNull)
     -- * Optics
   , _Stream
   , _HeadTailMay
   , _Tokens
   , _HeadTail
+  , _Null
+  , _NotNull
     -- * Streaming
   , SimpleStreaming (..)
-  , PartialStreaming (..)
+  , Streaming (..)
     -- * Fold/Unfold
   , difoldl1
   , difoldr1
@@ -37,7 +33,7 @@ module Control.Lens.Stream
   , difoldr'
   ) where
 
-import Control.Applicative (ZipList(..))
+-- import Control.Applicative (ZipList(..))
 import Control.Lens
 import Control.Lens.PartialIso
 import qualified Data.ByteString as StrictB
@@ -51,8 +47,8 @@ import Data.Vector (Vector)
 import qualified Data.Vector.Generic as Vector
 import Data.Vector.Storable (Storable)
 import qualified Data.Vector.Storable as Storable (Vector)
-import Data.Vector.Primitive (Prim)
-import qualified Data.Vector.Primitive as Prim (Vector)
+-- import Data.Vector.Primitive (Prim)
+-- import qualified Data.Vector.Primitive as Prim (Vector)
 import Data.Vector.Unboxed (Unbox)
 import qualified Data.Vector.Unboxed as Unbox (Vector)
 import Data.Word
@@ -69,116 +65,7 @@ type Stream s t a b = (SimpleStream s a, SimpleStream t b)
 prop> nil = mempty
 prop> a `cons` (b <> c) = (a `cons` b) <> c
 -}
-type SimpleStream s a = (Monoid s, Nil s a, Cons s s a a)
-
-{-| `PartialStream`s -}
-type PartialStream s t a b = (Stream s t a b, Null s t a b, Cons s t a b)
-
-{- | A class for types allowing total bidirectional pattern
-matching on empty terms. -}
-class Nil s a | s -> a where
-  {- | The `_Nil` bidirectional pattern -}
-  _Nil :: Prism' s ()
-instance Nil (Maybe a) a where
-  _Nil = _Nothing
-instance Nil (Either () a) a where
-  _Nil = _Left
-emptyPrism :: (t -> Bool) -> t -> Prism' t ()
-emptyPrism null' empty' = prism (pure empty') $ \x ->
-  if null' x then Right () else Left x
-instance Nil [a] a where
-  _Nil = emptyPrism null []
-instance Nil (ZipList a) a where
-  _Nil = iso getZipList ZipList . _Nil
-instance Nil (Seq a) a where
-  _Nil = emptyPrism Seq.null Seq.empty
-instance Nil StrictB.ByteString Word8 where
-  _Nil = emptyPrism StrictB.null StrictB.empty
-instance Nil LazyB.ByteString Word8 where
-  _Nil = emptyPrism LazyB.null LazyB.empty
-instance Nil StrictT.Text Char where
-  _Nil = emptyPrism StrictT.null StrictT.empty
-instance Nil LazyT.Text Char where
-  _Nil = emptyPrism LazyT.null LazyT.empty
-instance Nil (Vector a) a where
-  _Nil = emptyPrism Vector.null Vector.empty
-instance Prim a => Nil (Prim.Vector a) a where
-  _Nil = emptyPrism Vector.null Vector.empty
-instance Storable a => Nil (Storable.Vector a) a where
-  _Nil = emptyPrism Vector.null Vector.empty
-instance Unbox a => Nil (Unbox.Vector a) a where
-  _Nil = emptyPrism Vector.null Vector.empty
-instance Nil ShowS Char where
-  _Nil = prism' (const id) $ \shw -> case shw "" of
-    [] -> Just ()
-    _ -> Nothing
-
--- | The empty value, `nil`.
-nil :: Nil s a => s
-nil = review _Nil ()
-
-{- | A class for types allowing partial bidirectional pattern
-matching on empty and nonempty terms. -}
-class (Nil s a, Nil t b) => Null s t a b | b s -> t, a t -> s where
-  {- | The `_Null` bidirectional pattern -}
-  _Null :: PartialIso s t () ()
-  {- | The `_NotNull` bidirectional pattern -}
-  _NotNull :: PartialIso s t s t
-instance Null (Maybe a) (Maybe b) a b where
-  _Null = partialIso
-    (maybe (Just ()) (pure Nothing))
-    (pure (Just Nothing))
-  _NotNull = partialIso nonemp nonemp where
-    nonemp Nothing = Nothing
-    nonemp (Just x) = Just (Just x)
-instance Null (Either () a) (Either () b) a b where
-  _Null = partialIso
-    (either Just (pure Nothing))
-    (pure (Just (Left ())))
-  _NotNull = partialIso nonemp nonemp where
-    nonemp (Left ()) = Nothing
-    nonemp (Right x) = Just (Right x)
-emptyIso :: (s -> Bool) -> t -> PartialIso s t () ()
-emptyIso null' empty' = partialIso
-  (\l -> if null' l then Just () else Nothing)
-  (pure (Just empty'))
-neIso :: (s -> Bool) -> (t -> Bool) -> PartialIso s t s t
-neIso null0 null1 = partialIso (ne null0) (ne null1)
-  where
-    ne null' l = if not (null' l) then Just l else Nothing
-instance Null [a] [b] a b where
-  _Null = emptyIso null []
-  _NotNull = neIso null null
-instance Null (ZipList a) (ZipList b) a b where
-  _Null = iso getZipList ZipList . _Null
-  _NotNull = iso getZipList ZipList . _NotNull . iso ZipList getZipList
-instance Null (Seq a) (Seq b) a b where
-  _Null = emptyIso Seq.null Seq.empty
-  _NotNull = neIso Seq.null Seq.null
-instance Null StrictB.ByteString StrictB.ByteString Word8 Word8 where
-  _Null = emptyIso StrictB.null StrictB.empty
-  _NotNull = neIso StrictB.null StrictB.null
-instance Null LazyB.ByteString LazyB.ByteString Word8 Word8 where
-  _Null = emptyIso LazyB.null LazyB.empty
-  _NotNull = neIso LazyB.null LazyB.null
-instance Null StrictT.Text StrictT.Text Char Char where
-  _Null = emptyIso StrictT.null StrictT.empty
-  _NotNull = neIso StrictT.null StrictT.null
-instance Null LazyT.Text LazyT.Text Char Char where
-  _Null = emptyIso LazyT.null LazyT.empty
-  _NotNull = neIso LazyT.null LazyT.null
-instance Null (Vector a) (Vector b) a b where
-  _Null = emptyIso Vector.null Vector.empty
-  _NotNull = neIso Vector.null Vector.null
-instance (Prim a, Prim b) => Null (Prim.Vector a) (Prim.Vector b) a b where
-  _Null = emptyIso Vector.null Vector.empty
-  _NotNull = neIso Vector.null Vector.null
-instance (Storable a, Storable b) => Null (Storable.Vector a) (Storable.Vector b) a b where
-  _Null = emptyIso Vector.null Vector.empty
-  _NotNull = neIso Vector.null Vector.null
-instance (Unbox a, Unbox b) => Null (Unbox.Vector a) (Unbox.Vector b) a b where
-  _Null = emptyIso Vector.null Vector.empty
-  _NotNull = neIso Vector.null Vector.null
+type SimpleStream s a = (Monoid s, AsEmpty s, Cons s s a a)
 
 {- | A class for stream types, with a monomorphic token type,
 allowing partial bidirectional pattern matching
@@ -219,13 +106,13 @@ instance SimpleStreaming (Vector a) a where
     everyNot list = if all (not . f) list then Just list else Nothing
   _Span f = iso (Vector.span f) (uncurry (<>)) . crossPartialIso (_All f) id
   _Break f = iso (Vector.break f) (uncurry (<>)) . crossPartialIso (_None f) id
-instance Prim a => SimpleStreaming (Prim.Vector a) a where
-  _All f = partialIso every every where
-    every list = if Vector.all f list then Just list else Nothing
-  _None f = partialIso everyNot everyNot where
-    everyNot list = if Vector.all (not . f) list then Just list else Nothing
-  _Span f = iso (Vector.span f) (uncurry (<>)) . crossPartialIso (_All f) id
-  _Break f = iso (Vector.break f) (uncurry (<>)) . crossPartialIso (_None f) id
+-- instance Prim a => SimpleStreaming (Prim.Vector a) a where
+--   _All f = partialIso every every where
+--     every list = if Vector.all f list then Just list else Nothing
+--   _None f = partialIso everyNot everyNot where
+--     everyNot list = if Vector.all (not . f) list then Just list else Nothing
+--   _Span f = iso (Vector.span f) (uncurry (<>)) . crossPartialIso (_All f) id
+--   _Break f = iso (Vector.break f) (uncurry (<>)) . crossPartialIso (_None f) id
 instance Storable a => SimpleStreaming (Storable.Vector a) a where
   _All f = partialIso every every where
     every list = if Vector.all f list then Just list else Nothing
@@ -279,7 +166,7 @@ _Stream = _HeadTailMay . _M2E
 _HeadTailMay
   :: Stream s t a b
   => Iso s t (Maybe (a,s)) (Maybe (b,t))
-_HeadTailMay = iso (preview _Cons) (maybe nil (uncurry cons))
+_HeadTailMay = iso (preview _Cons) (maybe Empty (uncurry cons))
 
 {- | `_Tokens` `Control.Lens.Iso.Iso` between
 streams with the same token type. -}
@@ -288,20 +175,20 @@ _Tokens = iso convertStream convertStream
   where
     convertStream s =
       maybe
-        nil
+        Empty
         (\(h,t) -> cons h (convertStream t))
         (view _HeadTailMay s)
 
 {- | A class for stream types, with a potentially polymorphic token type,
 allowing partial bidirectional pattern matching with a list-like interface. -}
-class PartialStream s t a b => PartialStreaming s t a b where
+class Stream s t a b => Streaming s t a b where
   {- | Matches on streams which satisfy a predicate on their length. -}
   _LengthIs :: (Int -> Bool) -> PartialIso s t s t
   {- | A tuple where first element is
   the stream of tokens of given length and second element is
   the remainder of the stream. -}
   _SplitAt :: Int -> PartialIso s t (s,s) (t,t)
-instance PartialStreaming [a] [b] a b where
+instance Streaming [a] [b] a b where
   _LengthIs f = partialIso lengthen lengthen where
     lengthen :: [c] -> Maybe [c]
     lengthen list = if f (length list) then Just list else Nothing
@@ -309,7 +196,7 @@ instance PartialStreaming [a] [b] a b where
     = _LengthIs (>= n)
     . iso (splitAt n) (uncurry (<>))
     . crossPartialIso (_LengthIs (== max 0 n)) id
-instance PartialStreaming (Seq a) (Seq b) a b where
+instance Streaming (Seq a) (Seq b) a b where
   _LengthIs f = partialIso lengthen lengthen where
     lengthen :: Seq c -> Maybe (Seq c)
     lengthen list = if f (Seq.length list) then Just list else Nothing
@@ -317,7 +204,7 @@ instance PartialStreaming (Seq a) (Seq b) a b where
     = _LengthIs (>= n)
     . iso (Seq.splitAt n) (uncurry (<>))
     . crossPartialIso (_LengthIs (== max 0 n)) id
-instance PartialStreaming (Vector a) (Vector b) a b where
+instance Streaming (Vector a) (Vector b) a b where
   _LengthIs f = partialIso lengthen lengthen where
     lengthen :: Vector c -> Maybe (Vector c)
     lengthen list = if f (Vector.length list) then Just list else Nothing
@@ -326,7 +213,7 @@ instance PartialStreaming (Vector a) (Vector b) a b where
     . iso (Vector.splitAt n) (uncurry (<>))
     . crossPartialIso (_LengthIs (== max 0 n)) id
 instance (Storable a, Storable b)
-  => PartialStreaming (Storable.Vector a) (Storable.Vector b) a b where
+  => Streaming (Storable.Vector a) (Storable.Vector b) a b where
   _LengthIs f = partialIso lengthen lengthen where
     lengthen :: Storable c => Storable.Vector c -> Maybe (Storable.Vector c)
     lengthen list = if f (Vector.length list) then Just list else Nothing
@@ -335,7 +222,7 @@ instance (Storable a, Storable b)
     . iso (Vector.splitAt n) (uncurry (<>))
     . crossPartialIso (_LengthIs (== max 0 n)) id
 instance (Unbox a, Unbox b)
-  => PartialStreaming (Unbox.Vector a) (Unbox.Vector b) a b where
+  => Streaming (Unbox.Vector a) (Unbox.Vector b) a b where
   _LengthIs f = partialIso lengthen lengthen where
     lengthen :: Unbox c => Unbox.Vector c -> Maybe (Unbox.Vector c)
     lengthen list = if f (Vector.length list) then Just list else Nothing
@@ -343,16 +230,16 @@ instance (Unbox a, Unbox b)
     = _LengthIs (>= n)
     . iso (Vector.splitAt n) (uncurry (<>))
     . crossPartialIso (_LengthIs (== max 0 n)) id
-instance (Prim a, Prim b)
-  => PartialStreaming (Prim.Vector a) (Prim.Vector b) a b where
-  _LengthIs f = partialIso lengthen lengthen where
-    lengthen :: Prim c => Prim.Vector c -> Maybe (Prim.Vector c)
-    lengthen list = if f (Vector.length list) then Just list else Nothing
-  _SplitAt n
-    = _LengthIs (>= n)
-    . iso (Vector.splitAt n) (uncurry (<>))
-    . crossPartialIso (_LengthIs (== max 0 n)) id
-instance PartialStreaming StrictB.ByteString StrictB.ByteString Word8 Word8 where
+-- instance (Prim a, Prim b)
+--   => Streaming (Prim.Vector a) (Prim.Vector b) a b where
+--   _LengthIs f = partialIso lengthen lengthen where
+--     lengthen :: Prim c => Prim.Vector c -> Maybe (Prim.Vector c)
+--     lengthen list = if f (Vector.length list) then Just list else Nothing
+--   _SplitAt n
+--     = _LengthIs (>= n)
+--     . iso (Vector.splitAt n) (uncurry (<>))
+--     . crossPartialIso (_LengthIs (== max 0 n)) id
+instance Streaming StrictB.ByteString StrictB.ByteString Word8 Word8 where
   _LengthIs f = partialIso lengthen lengthen where
     lengthen :: StrictB.ByteString -> Maybe StrictB.ByteString
     lengthen list = if f (StrictB.length list) then Just list else Nothing
@@ -360,7 +247,7 @@ instance PartialStreaming StrictB.ByteString StrictB.ByteString Word8 Word8 wher
     = _LengthIs (>= n)
     . iso (StrictB.splitAt n) (uncurry (<>))
     . crossPartialIso (_LengthIs (== max 0 n)) id
-instance PartialStreaming LazyB.ByteString LazyB.ByteString Word8 Word8 where
+instance Streaming LazyB.ByteString LazyB.ByteString Word8 Word8 where
   _LengthIs f = partialIso lengthen lengthen where
     lengthen :: LazyB.ByteString -> Maybe LazyB.ByteString
     lengthen list =
@@ -370,7 +257,7 @@ instance PartialStreaming LazyB.ByteString LazyB.ByteString Word8 Word8 where
     = _LengthIs (>= n)
     . iso (LazyB.splitAt (fromIntegral n)) (uncurry (<>))
     . crossPartialIso (_LengthIs (== max 0 n)) id
-instance PartialStreaming StrictT.Text StrictT.Text Char Char where
+instance Streaming StrictT.Text StrictT.Text Char Char where
   _LengthIs f = partialIso lengthen lengthen where
     lengthen :: StrictT.Text -> Maybe StrictT.Text
     lengthen list = if f (StrictT.length list) then Just list else Nothing
@@ -378,7 +265,7 @@ instance PartialStreaming StrictT.Text StrictT.Text Char Char where
     = _LengthIs (>= n)
     . iso (StrictT.splitAt n) (uncurry (<>))
     . crossPartialIso (_LengthIs (== max 0 n)) id
-instance PartialStreaming LazyT.Text LazyT.Text Char Char where
+instance Streaming LazyT.Text LazyT.Text Char Char where
   _LengthIs f = partialIso lengthen lengthen where
     lengthen :: LazyT.Text -> Maybe LazyT.Text
     lengthen list =
@@ -392,9 +279,22 @@ instance PartialStreaming LazyT.Text LazyT.Text Char Char where
 {- | `_HeadTail` `PartialIso` which decomposes a stream as
 into a pair of its head and tail. -}
 _HeadTail
-  :: PartialStream s t a b
+  :: Stream s t a b
   => PartialIso s t (a,s) (b,t)
 _HeadTail = _NotNull . _HeadTailMay . _Just
+
+_NotNull
+  :: (AsEmpty s, AsEmpty t)
+  => PartialIso s t s t
+_NotNull = partialIso notemp notemp where
+  notemp s = if isn't _Empty s then Just s else Nothing
+
+_Null
+  :: (AsEmpty s, AsEmpty t)
+  => PartialIso s t () ()
+_Null = partialIso empA empB where
+  empA s = if isn't _Empty s then Nothing else Just ()
+  empB _ = Just Empty
 
 {- | Bidirectional left fold/unfold with no empty case. -}
 difoldl1
@@ -430,7 +330,7 @@ difoldr1 i =
 
 {- | Bidirectional left fold/unfold with an empty case. -}
 difoldl
-  :: PartialStream s t a b
+  :: (Stream s t a b, Cons s t a b)
   => APartialIso (c,a) (d,b) c d
   -> PartialIso (c,s) (d,t) c d
 difoldl i =
@@ -455,12 +355,12 @@ difoldl' i =
       (\a -> (a,()))
   in
     difoldl1 (clonePrism i)
-    . aside _Nil
+    . aside _Empty
     . unit'
 
 {- | Bidirectional right fold/unfold with an empty case. -}
 difoldr
-  :: PartialStream s t a b
+  :: (Stream s t a b, Cons s t a b)
   => APartialIso (a,c) (b,d) c d
   -> PartialIso (s,c) (t,d) c d
 difoldr i =
@@ -491,5 +391,5 @@ difoldr' i =
             Right a -> Right (a,e)
   in
     difoldr1 (clonePrism i)
-    . asideFst _Nil
+    . asideFst _Empty
     . unit'

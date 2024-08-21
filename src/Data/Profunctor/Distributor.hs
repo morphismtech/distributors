@@ -141,7 +141,7 @@ class Monoidal p => Distributor p where
 
 {- | Like `many1`, but conses the token to the stream. -}
 someP
-  :: (Choice p, Distributor p, PartialStream s t a b)
+  :: (Choice p, Distributor p, Stream s t a b, Cons s t a b)
   => p a b -> p s t
 someP p = _Cons >? many1 p
 
@@ -161,7 +161,7 @@ moreThan0 (Sep separator beg end) p =
 
 {- | Like `moreThan0`, but conses the token to the stream. -}
 atLeast1
-  :: (Distributor p, Choice p, PartialStream s t a b)
+  :: (Distributor p, Choice p, Stream s t a b, Cons s t a b)
   => Sep p -> p a b -> p s t
 atLeast1 s p = _Cons >? moreThan0 s p
 

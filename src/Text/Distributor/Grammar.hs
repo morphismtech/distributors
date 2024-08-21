@@ -76,10 +76,10 @@ _Str :: str -> Syntax rul str chr () ()
 _Str t = (rmap pure (stream t) *<)
 
 _Chr :: chr -> Syntax rul str chr () ()
-_Chr c =  _Str (cons c nil)
+_Chr c =  _Str (cons c Empty)
 
 _End :: forall rul str chr. Syntax rul str chr () ()
-_End = _Match (_Nil @str @chr) . _TilEnd
+_End = _Match (_Empty @str) . _TilEnd
 
 _Match :: Prism b a t s -> Syntactical rul str chr s t a b
 _Match coprism =
@@ -92,7 +92,7 @@ end
   :: forall t c p e.
      Syntactic e t c p
   => p () ()
-end = _Nil @t ?< allTokens
+end = _Empty @t ?< allTokens
 
 satisfy
   :: ( Syntactic e t c p
@@ -159,7 +159,7 @@ instance Filterable (ShowReadP a) where
 instance Alternative (ShowReadP a) where
   empty = ShowReadP (\_ -> id) ReadP.pfail
   ShowReadP xs xr <|> ShowReadP ys yr = ShowReadP
-    (\a -> if isn't _Nil (xs a) then xs a else ys a)
+    (\a -> if isn't _Empty (xs a "") then xs a else ys a)
     (xr ReadP.+++ yr)
   many shrd = lmap (:[]) (manyP shrd)
 instance Distributor ShowReadP where
@@ -186,17 +186,17 @@ newtype Printer t a b = Printer {runPrinter :: a -> t}
 instance Monoid t => Applicative (Printer t a) where
   pure = pureP
   (<*>) = apP
-instance (Monoid t, Nil t b) => Alternative (Printer t a) where
+instance (Monoid t, AsEmpty t) => Alternative (Printer t a) where
   empty = catMaybes (pure Nothing)
   Printer x <|> Printer y = Printer $ \a ->
-     case matching _Nil (x a) of
+     case matching _Empty (x a) of
       Left t -> t
       Right _ -> y a
 instance Filterable (Printer t a) where
   mapMaybe _ (Printer x) = Printer x
 instance (Eq c, SimpleStream t c, IsList t, Item t ~ c)
   => Syntactic String t c (Printer t) where
-    anyToken = Printer (`cons` nil)
+    anyToken = Printer (`cons` Empty)
 instance (x ~ (), y ~ (), SimpleStream t Char, IsList t, Item t ~ Char)
   => IsString (Printer t x y) where
     fromString = stream . view _Tokens
@@ -226,7 +226,7 @@ instance (Applicative f, Filterable f) => Choice (Linter f t) where
 instance (Alternative f, Filterable f, Monoid t) => Distributor (Linter f t)
 instance (Eq c, Alternative f, Filterable f, SimpleStream t c)
   => Syntactic String t c (Linter f t) where
-    anyToken = Linter (pure . (`cons` nil))
+    anyToken = Linter (pure . (`cons` Empty))
 instance (x ~ (), y ~ (), Alternative f, Filterable f, SimpleStream s Char)
   => IsString (Linter f s x y) where
     fromString = stream . view _Tokens
