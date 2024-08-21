@@ -62,6 +62,7 @@ default-extensions:
 - DeriveGeneric
 - DerivingStrategies
 - DerivingVia
+- EmptyCase
 - FlexibleContexts
 - FlexibleInstances
 - FunctionalDependencies

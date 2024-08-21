@@ -7,14 +7,16 @@ Maintainer  :  Eitan Chatav <eitan.chatav@gmail.com>
 Stability   :  provisional
 Portability :  non-portable
 
-`Bifocal`s are fixed-shape homogeneous forest isomorphisms.
+A `Bifocal`s is an isomorphism to
+one of a fixed list of fixed lengths of tuples.
 -}
 module Control.Lens.Bifocal
   ( Bifocal
   , bifocal0
   , bifocal2
-  , bifocalFlag
-  , bifocalSign
+  , BifocalNs (..)
+  , _Flag
+  , _Sign
   , _Option
   , _Many
   , _Many1
@@ -25,7 +27,9 @@ module Control.Lens.Bifocal
   ) where
 
 import Control.Lens
+import Control.Lens.Internal.FunList
 import Control.Lens.Internal.Profunctor
+import Control.Lens.Monocle
 import Control.Lens.Stream
 import Data.Profunctor.Distributor
 import Data.Void
@@ -38,14 +42,14 @@ bifocal0 :: Bifocal Void t a b
 bifocal0 _ = emptyP absurd
 bifocal2 :: Bifocal (Either a a) (Either b b) a b
 bifocal2 p = dialt id (fmap Left) (fmap Right) p p
-bifocalFlag :: Bifocal (Bool, a) (Bool, b) a b
-bifocalFlag = iso hither thither . bifocal2 where
+_Flag :: Bifocal (Bool, a) (Bool, b) a b
+_Flag = iso hither thither . bifocal2 where
   hither (False, a) = Left a
   hither (True, a) = Right a
   thither (Left a) = (False, a)
   thither (Right a) = (True, a)
-bifocalSign :: Bifocal (Ordering, a) (Ordering, b) a b
-bifocalSign p = iso hither thither
+_Sign :: Bifocal (Ordering, a) (Ordering, b) a b
+_Sign p = iso hither thither
   (dialt id (fmap Left) (fmap Right) p (bifocal2 p)) where
     hither (LT, a) = Left a
     hither (EQ, a) = Right (Left a)
@@ -108,3 +112,24 @@ _SepSome
      )
   => Sep p -> Optic p f s t a b
 _SepSome s = _Cons . _Sep1 s
+
+data SomeV (ns :: [Peano]) x where
+  Fst :: V n x -> SomeV (n ': ns) x
+  Nxt :: SomeV ns x -> SomeV (n ': ns) x
+eSomeV :: SomeV (n ': ns) x -> Either (V n x) (SomeV ns x)
+eSomeV = \case
+  Fst v -> Left v
+  Nxt sv -> Right sv
+
+class BifocalNs (ns :: [Peano]) where
+  bifocalV :: Bifocal (SomeV ns a) (SomeV ns b) a b
+instance BifocalNs '[] where
+  bifocalV _ = emptyP (\case)
+instance (MonocleN n, BifocalNs ns) =>
+  BifocalNs (n ': ns) where
+    bifocalV p = dialt
+      eSomeV
+      (fmap Fst)
+      (fmap Nxt)
+      (monocleV @n p)
+      (bifocalV @ns p)

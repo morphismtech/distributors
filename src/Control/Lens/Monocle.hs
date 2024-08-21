@@ -22,7 +22,6 @@ module Control.Lens.Monocle
   , monocle
   , monocle0
   , monocle2
-  , monocleN
   , MonocleN (..)
   , (>..<)
   , cloneMonocle
@@ -40,7 +39,6 @@ import Control.Lens.Internal.FunList
 import Data.Bifunctor.Biff
 import Data.Profunctor
 import Data.Profunctor.Monoidal
-import GHC.TypeNats
 
 {- | A `Monocle` is a representation of a
 fixed length homogeneous tuple isomorphism.
@@ -139,13 +137,6 @@ monocle0 _ = pureP (pure ())
 {- | The pair `Monocle`. -}
 monocle2 :: Monocle (a,a) (b,b) a b
 monocle2 p = dimap2 fst snd (liftA2 (,)) p p
-
-{- | A `Monocle` for each @n :: @ `Natural` -}
-monocleN
-  :: forall (n :: Natural) n' a b. (PeanoOf n ~ n', MonocleN n')
-  => Monocle (V n' a) (V n' b) a b
-  -- ^ homogeneous tuple isomorphism
-monocleN = monocleV @(PeanoOf n)
 
 {- | A `Monocle` for each homogeneous tuple `V` @(n :: Peano)@. -}
 class MonocleN (n :: Peano) where

@@ -9,7 +9,8 @@ module Control.Lens.Internal.FunList
   , buy
   , V (..)
   , Peano (..)
-  , PeanoOf
+  , N
+  , Ns
   ) where
 
 import Control.Lens
@@ -114,6 +115,10 @@ data V (n :: Peano) x where
 
 data Peano = Z | S Peano
 
-type family PeanoOf (n :: Natural) where
-  PeanoOf 0 = Z
-  PeanoOf n = S (PeanoOf (n - 1))
+type family N (n :: Natural) where
+  N 0 = Z
+  N n = S (N (n - 1))
+
+type family Ns (ns :: [Natural]) where
+  Ns '[] = '[]
+  Ns (n ': ns) = N n ': Ns ns
