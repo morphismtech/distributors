@@ -10,6 +10,10 @@ module Text.Distributor.Grammar
   , Linter (Linter, runLinter)
   , Prod (..)
   , Grammar (Grammar, grammarRules, grammarStart)
+  , ShowReadP (..)
+  , readP
+  , showP
+  , showRead
   ) where
 
 import Control.Applicative
@@ -61,14 +65,6 @@ type Syntactical rul str chr s t a b = forall p.
     => p a (Identity b) -> p s (Identity t)
 
 type Syntax rul str chr s a = Syntactical rul str chr s s a a
-
-readPP :: Syntax Void String Char a () -> ReadP a
-readPP syn = case syn (pureP (pure ())) of
-  ShowReadP _ r -> fmap runIdentity r
-
-showPP :: Syntax Void String Char a () -> a -> ShowS
-showPP syn = case syn (pureP (pure())) of
-  ShowReadP s _ -> s
 
 _Any :: Syntax rul str chr chr ()
 _Any = (rmap pure anyToken *<)
@@ -131,6 +127,12 @@ instance Filterable ReadP where
 instance Syntactic Void String Char (Parser ReadP) where
   anyToken = Parser ReadP.get
 
+showP :: ShowReadP a b -> a -> String
+showP (ShowReadP s _) a = s a ""
+readP :: ShowReadP a b -> String -> [(b, String)]
+readP (ShowReadP _ r) str = ReadP.readP_to_S r str
+showRead :: (Show a, Read a) => ShowReadP a a
+showRead = ShowReadP shows (ReadP.readS_to_P reads)
 data ShowReadP a b = ShowReadP (a -> ShowS) (ReadP b)
 instance Profunctor ShowReadP where
   dimap f g (ShowReadP s r) = ShowReadP (s . f) (g <$> r)
@@ -159,7 +161,11 @@ instance Alternative (ShowReadP a) where
   ShowReadP xs xr <|> ShowReadP ys yr = ShowReadP
     (\a -> if isn't _Nil (xs a) then xs a else ys a)
     (xr ReadP.+++ yr)
-instance Distributor ShowReadP
+  many shrd = lmap (:[]) (manyP shrd)
+instance Distributor ShowReadP where
+  manyP (ShowReadP sh rd) = ShowReadP
+    (\s -> foldl (.) id [sh a | a <- view _Tokens s])
+    (view _Tokens <$> many rd)
 instance Syntactic Void String Char ShowReadP where
   anyToken = ShowReadP (:) ReadP.get
 instance (a ~ (), b ~ ()) => IsString (ShowReadP a b) where
