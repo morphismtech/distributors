@@ -41,7 +41,7 @@ import Data.Profunctor
 import Data.Profunctor.Monoidal
 
 {- | A `Monocle` is a representation of a
-fixed length homogeneous tuple isomorphism.
+fixed length homogeneous tuple dimorphism.
 
 prop> Monocle s t a b ~ exists (..) :: Natural. (s -> (a,..,a), (b,..,b) -> t)
 
@@ -65,12 +65,12 @@ type AMonocle s t a b =
 {- | A `Simple` `Monocle`. -}
 type AMonocle' s a = AMonocle s s a a
 
-{- | Turn a `AMonocle` into a curried homogeneous tuple isomorphism. -}
+{- | Turn a `AMonocle` into a curried homogeneous tuple dimorphism. -}
 withMonocle :: AMonocle s t a b -> (Shop a b s t -> r) -> r
 withMonocle mon k =
   k (runIdentity <$> mon (Identity <$> shop))
 
-{- | Turn  a curried homogeneous tuple isomorphism, into a `Monocle`.-}
+{- | Turn  a curried homogeneous tuple dimorphism, into a `Monocle`.-}
 monocle :: Shop a b s t -> Monocle s t a b
 monocle sh =
   cloneMonocle $ \p ->
