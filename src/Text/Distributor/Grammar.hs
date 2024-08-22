@@ -42,7 +42,7 @@ class Grammatical rul str chr s a where
 
 class
   ( Eq chr
-  , SimpleStream str chr
+  , Stream' str chr
   , Distributor p
   , Choice p
   , Cochoice p
@@ -194,10 +194,10 @@ instance (Monoid t, AsEmpty t) => Alternative (Printer t a) where
       Right _ -> y a
 instance Filterable (Printer t a) where
   mapMaybe _ (Printer x) = Printer x
-instance (Eq c, SimpleStream t c, IsList t, Item t ~ c)
+instance (Eq c, Stream' t c, IsList t, Item t ~ c)
   => Syntactic String t c (Printer t) where
     anyToken = Printer (`cons` Empty)
-instance (x ~ (), y ~ (), SimpleStream t Char, IsList t, Item t ~ Char)
+instance (x ~ (), y ~ (), Stream' t Char, IsList t, Item t ~ Char)
   => IsString (Printer t x y) where
     fromString = stream . view _Tokens
 
@@ -224,10 +224,10 @@ instance (Applicative f, Filterable f) => Choice (Linter f t) where
   right' (Linter linter) = Linter $
     either (\_ -> catMaybes (pure Nothing)) linter
 instance (Alternative f, Filterable f, Monoid t) => Distributor (Linter f t)
-instance (Eq c, Alternative f, Filterable f, SimpleStream t c)
+instance (Eq c, Alternative f, Filterable f, Stream' t c)
   => Syntactic String t c (Linter f t) where
     anyToken = Linter (pure . (`cons` Empty))
-instance (x ~ (), y ~ (), Alternative f, Filterable f, SimpleStream s Char)
+instance (x ~ (), y ~ (), Alternative f, Filterable f, Stream' s Char)
   => IsString (Linter f s x y) where
     fromString = stream . view _Tokens
 

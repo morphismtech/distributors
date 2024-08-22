@@ -238,7 +238,7 @@ replicateP n p = p >:< replicateP (n-1) p
 
 {- | `replicateP'` is a simple analog to `replicateM`. -}
 replicateP'
-  :: (Monoidal p, Choice p, SimpleStream s a)
+  :: (Monoidal p, Choice p, Stream' s a)
   => Int -> p a a -> p s s
 replicateP' n _ | n <= 0 = _Empty >? oneP
 replicateP' n p = p >:< replicateP' (n-1) p
