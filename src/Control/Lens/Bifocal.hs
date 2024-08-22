@@ -32,7 +32,6 @@ import Control.Lens.Internal.Profunctor
 import Control.Lens.Monocle
 import Control.Lens.Stream
 import Data.Profunctor.Distributor
-import Data.Profunctor.Monoidal
 import Data.Void
 
 type Bifocal s t a b = forall p f.
@@ -75,22 +74,22 @@ _Many1
   . WrapPafb
 _Sep
   :: (Stream s t a b, Distributor p, Applicative f)
-  => Sep p -> Optic p f s t a b
-_Sep Sep {by = comma, beginBy = beg, endBy = end}
+  => By p -> Optic p f s t a b
+_Sep By {separator = comma, beginBy = beg, endBy = end}
   = unwrapPafb
-  . atLeast0 Sep
-    { by = WrapPafb (rmap pure comma)
+  . sep By
+    { separator = WrapPafb (rmap pure comma)
     , beginBy = WrapPafb (rmap pure beg)
     , endBy = WrapPafb (rmap pure end)
     }
   . WrapPafb
 _Sep1
   :: (Stream s t a b, Choice p, Distributor p, Applicative f)
-  => Sep p -> Optic p f (a,s) (b,t) a b
-_Sep1 Sep {by = comma, beginBy = beg, endBy = end}
+  => By p -> Optic p f (a,s) (b,t) a b
+_Sep1 By {separator = comma, beginBy = beg, endBy = end}
   = unwrapPafb
-  . moreThan0 Sep
-    { by = WrapPafb (rmap pure comma)
+  . sep1 By
+    { separator = WrapPafb (rmap pure comma)
     , beginBy = WrapPafb (rmap pure beg)
     , endBy = WrapPafb (rmap pure end)
     }
@@ -111,7 +110,7 @@ _SepSome
      , Stream s t a b
      , Cons s t a b
      )
-  => Sep p -> Optic p f s t a b
+  => By p -> Optic p f s t a b
 _SepSome s = _Cons . _Sep1 s
 
 class BifocalNs (ns :: [Peano]) where

@@ -14,12 +14,12 @@ module Data.Profunctor.Distributor
   , dialt
   , altP
   , someP
-  , atLeast0
-  , moreThan0
-  , atLeast1
-    -- * Sep
-  , Sep (..)
   , sep
+  , sep1
+  , sepSome
+    -- * Sep
+  , By (..)
+  , by
     -- * Free Distributive Profunctors
   , Dist (..)
   , FreeDistributor (..)
@@ -146,42 +146,37 @@ someP
 someP p = _Cons >? many1 p
 
 {- | At least zero operator with a separator. -}
-atLeast0
+sep
   :: (Distributor p, Stream s t a b)
-  => Sep p -> p a b -> p s t
-atLeast0 (Sep comma beg end) p = mapIso _Stream $
-  beg >* (oneP >+< p `sepBy` comma) *< end
+  => By p -> p a b -> p s t
+sep (By comma beg end) p = mapIso _Stream $
+  beg >* (oneP >+< p >*< manyP (comma >* p)) *< end
 
 {- | More than zero operator with a separator. -}
-moreThan0
+sep1
   :: (Distributor p, Stream s t a b)
-  => Sep p -> p a b -> p (a,s) (b,t)
-moreThan0 (Sep separator beg end) p =
-  beg >* p `sepBy` separator *< end
+  => By p -> p a b -> p (a,s) (b,t)
+sep1 (By comma beg end) p =
+  beg >* p >*< manyP (comma >* p) *< end
 
-{- | Like `moreThan0`, but conses the token to the stream. -}
-atLeast1
+{- | Like `sep1`, but conses the token to the stream. -}
+sepSome
   :: (Distributor p, Choice p, Stream s t a b, Cons s t a b)
-  => Sep p -> p a b -> p s t
-atLeast1 s p = _Cons >? moreThan0 s p
-
-sepBy
-  :: (Distributor p, Stream s t a b)
-  => p a b -> p () () -> p (a,s) (b,t)
-sepBy p separator = p >*< manyP (separator >* p)
+  => By p -> p a b -> p s t
+sepSome s p = _Cons >? sep1 s p
 
 {- | Used to parse multiple times, delimited `by` a separator,
 a `beginBy`, and an `endBy`. -}
-data Sep p = Sep
-  { by :: p () ()
-  , beginBy :: p () ()
+data By p = By
+  { beginBy :: p () ()
   , endBy :: p () ()
+  , separator :: p () ()
   }
 
-{- | A default `Sep` which can be modified by updating `by`,
+{- | A default `By` which can be modified by updating
 `beginBy`, or `endBy` fields -}
-sep :: Monoidal p => Sep p
-sep = Sep oneP oneP oneP
+by :: Monoidal p => p () () -> By p
+by = By oneP oneP
 
 instance Distributor (->) where
   zeroP = id
