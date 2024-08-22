@@ -32,6 +32,7 @@ import Control.Lens.Internal.Profunctor
 import Control.Lens.Monocle
 import Control.Lens.Stream
 import Data.Profunctor.Distributor
+import Data.Profunctor.Monoidal
 import Data.Void
 
 type Bifocal s t a b = forall p f.
@@ -113,14 +114,6 @@ _SepSome
   => Sep p -> Optic p f s t a b
 _SepSome s = _Cons . _Sep1 s
 
-data SomeV (ns :: [Peano]) x where
-  Fst :: V n x -> SomeV (n ': ns) x
-  Nxt :: SomeV ns x -> SomeV (n ': ns) x
-eSomeV :: SomeV (n ': ns) x -> Either (V n x) (SomeV ns x)
-eSomeV = \case
-  Fst v -> Left v
-  Nxt sv -> Right sv
-
 class BifocalNs (ns :: [Peano]) where
   bifocalV :: Bifocal (SomeV ns a) (SomeV ns b) a b
 instance BifocalNs '[] where
@@ -128,8 +121,10 @@ instance BifocalNs '[] where
 instance (MonocleN n, BifocalNs ns) =>
   BifocalNs (n ': ns) where
     bifocalV p = dialt
-      eSomeV
-      (fmap Fst)
-      (fmap Nxt)
+      (\case
+        VFst v -> Left v
+        VNxt sv -> Right sv)
+      (fmap VFst)
+      (fmap VNxt)
       (monocleV @n p)
       (bifocalV @ns p)

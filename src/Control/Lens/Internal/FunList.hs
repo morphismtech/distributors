@@ -7,8 +7,9 @@ module Control.Lens.Internal.FunList
   , runShop
   , Purchase (..)
   , buy
-  , V (..)
   , Peano (..)
+  , V (..)
+  , SomeV (..)
   , N
   , Ns
   ) where
@@ -46,7 +47,6 @@ instance Bizarre (->) FunList where
   bazaar f = \case
     DoneFun t -> pure t
     MoreFun l a -> ($) <$> bazaar f l <*> f a
-
 _FunList :: Iso
   (Bazaar (->) a1 b1 t1) (Bazaar (->) a2 b2 t2)
   (FunList a1 b1 t1) (FunList a2 b2 t2)
@@ -84,36 +84,44 @@ instance Profunctor (Shop a b) where
       DoneFun c -> DoneFun (g c)
       MoreFun baz' h ->
         MoreFun (unShop (dimap f (g .) (Shop baz'))) (h . f)
-
 runShop
   :: (Profunctor p, forall x. Applicative (p x))
   => Shop a b s t
   -> ((s -> a) -> p a b)
   -> p s t
 runShop (Shop baz) f = runBazaar baz $ \sa -> lmap sa (f sa)
-
 shop :: Shop a b a b
 shop = Shop (sell id)
 
--- An indexed continuation monad
+{- | An indexed continuation monad -}
 newtype Purchase a b s = Purchase {unPurchase :: (s -> a) -> b}
-
 instance Functor (Purchase a b) where
   fmap sl (Purchase ab) = Purchase $ \la -> ab (la . sl)
-
 instance a ~ b => Applicative (Purchase a b) where
   pure s = Purchase ($ s)
   Purchase slab <*> Purchase ab =
     Purchase $ \la -> slab $ \sl -> ab (la . sl)
-
 buy :: Purchase a b a -> b
 buy (Purchase f) = f id
+
+-- Peano datatypes
+data Peano = Z | S Peano
 
 data V (n :: Peano) x where
   VNil :: V Z x
   (:><) :: x -> V n x -> V (S n) x
+instance Functor (V n) where
+  fmap f = \case
+    VNil -> VNil
+    x :>< y -> f x :>< fmap f y
 
-data Peano = Z | S Peano
+data SomeV (ns :: [Peano]) x where
+  VFst :: V n x -> SomeV (n ': ns) x
+  VNxt :: SomeV ns x -> SomeV (n ': ns) x
+instance Functor (SomeV ns) where
+  fmap f = \case
+    VFst v -> VFst (fmap f v)
+    VNxt s -> VNxt (fmap f s)
 
 type family N (n :: Natural) where
   N 0 = Z
