@@ -440,4 +440,4 @@ instance (Monoidal p, Choice p, Strong p)
     wander f (WrapMonoidal p) = WrapMonoidal $
       dimap (f sell) extract (travBaz p) where
         travBaz :: p u v -> p (Bazaar (->) u w x) (Bazaar (->) v w x)
-        travBaz q = mapIso _Bazaar $ right' (travBaz q >*< q)
+        travBaz q = mapIso _Bazaar $ right' (q >*< travBaz q)

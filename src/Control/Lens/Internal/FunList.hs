@@ -2,6 +2,9 @@ module Control.Lens.Internal.FunList
   ( FunList (..)
   , _FunList
   , _Bazaar
+  , FunV (..)
+  , _FunV
+  , FunSomeV (..)
   , Shop (..)
   , shop
   , runShop
@@ -31,42 +34,65 @@ prop> FunList a b t ~ exists (..) :: Natural. ((a,..,a), (b,..,b) -> t)
 -}
 data FunList a b t
   = DoneFun t
-  | MoreFun (Bazaar (->) a b (b -> t)) a
+  | MoreFun a (Bazaar (->) a b (b -> t))
 instance Functor (FunList a b) where
   fmap f = \case
     DoneFun t -> DoneFun (f t)
-    MoreFun h a -> MoreFun (fmap (f .) h) a
+    MoreFun a h -> MoreFun a (fmap (f .) h)
 instance Applicative (FunList a b) where
   pure = DoneFun
   (<*>) = \case
     DoneFun t -> fmap t
-    MoreFun h a -> \l ->
-      MoreFun (flip <$> h <*> review _FunList l) a
-instance Sellable (->) FunList where sell = MoreFun (pure id)
+    MoreFun a h -> \l ->
+      MoreFun a (flip <$> h <*> view _FunList l)
+instance Sellable (->) FunList where sell b = MoreFun b (pure id)
 instance Bizarre (->) FunList where
   bazaar f = \case
     DoneFun t -> pure t
-    MoreFun l a -> ($) <$> bazaar f l <*> f a
+    MoreFun a l -> ($) <$> bazaar f l <*> f a
+
 _FunList :: Iso
-  (Bazaar (->) a1 b1 t1) (Bazaar (->) a2 b2 t2)
   (FunList a1 b1 t1) (FunList a2 b2 t2)
-_FunList = iso toFun fromFun where
+  (Bazaar (->) a1 b1 t1) (Bazaar (->) a2 b2 t2)
+_FunList = iso fromFun toFun where
   toFun (Bazaar f) = f sell
   fromFun = \case
     DoneFun t -> pure t
-    MoreFun f a -> ($) <$> f <*> sell a
+    MoreFun a f -> ($) <$> f <*> sell a
 
 _Bazaar :: Iso
   (Bazaar (->) a1 b1 t1) (Bazaar (->) a2 b2 t2)
-  (Either t1 (Bazaar (->) a1 b1 (b1 -> t1), a1))
-  (Either t2 (Bazaar (->) a2 b2 (b2 -> t2), a2))
-_Bazaar = _FunList . dimap f (fmap g) where
+  (Either t1 (a1, Bazaar (->) a1 b1 (b1 -> t1)))
+  (Either t2 (a2, Bazaar (->) a2 b2 (b2 -> t2)))
+_Bazaar = from _FunList . iso f g where
   f = \case
     DoneFun t -> Left t
-    MoreFun baz a -> Right (baz, a)
+    MoreFun a baz -> Right (a, baz)
   g = \case
     Left t -> DoneFun t
-    Right (baz, a) -> MoreFun baz a
+    Right (a, baz) -> MoreFun a baz
+
+data FunV a b t = forall n. FunV (V n a) (V n b -> t)
+_FunV :: Iso
+  (FunV a0 b0 t0) (FunV a1 b1 t1)
+  (FunList a0 b0 t0) (FunList a1 b1 t1)
+_FunV = iso fromFunV toFunV where
+  fromFunV :: FunV a b t -> FunList a b t
+  fromFunV (FunV as f) = case as of
+    VNil -> DoneFun (f VNil)
+    a :>< v -> MoreFun a
+      $ view _FunList
+      . fromFunV
+      . FunV v
+      $ \bs b -> f (b :>< bs)
+  toFunV :: FunList a b t -> FunV a b t
+  toFunV = \case
+    DoneFun t -> FunV VNil (pure t)
+    MoreFun a baz -> case toFunV (review _FunList baz) of
+      FunV as f -> FunV (a :>< as) (\(b :>< bs) -> f bs b)
+
+data FunSomeV a b t =
+  forall ns. FunSomeV (SomeV ns a) (SomeV ns b -> t)
 
 {- | A `Shop` is a fixed length homogeneous tuple isomorphism.
 
@@ -79,17 +105,19 @@ newtype Shop a b s t = Shop
   {unShop :: Bazaar (->) (s -> a) b t}
   deriving newtype (Functor, Applicative)
 instance Profunctor (Shop a b) where
-  dimap f g (Shop baz) = Shop . review _FunList $
-    case view _FunList baz of
+  dimap f g (Shop baz) = Shop . view _FunList $
+    case review _FunList baz of
       DoneFun c -> DoneFun (g c)
-      MoreFun baz' h ->
-        MoreFun (unShop (dimap f (g .) (Shop baz'))) (h . f)
+      MoreFun h baz' ->
+        MoreFun (h . f) (unShop (dimap f (g .) (Shop baz')))
+
 runShop
   :: (Profunctor p, forall x. Applicative (p x))
   => Shop a b s t
   -> ((s -> a) -> p a b)
   -> p s t
 runShop (Shop baz) f = runBazaar baz $ \sa -> lmap sa (f sa)
+
 shop :: Shop a b a b
 shop = Shop (sell id)
 
