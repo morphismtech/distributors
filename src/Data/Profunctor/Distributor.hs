@@ -149,14 +149,14 @@ someP p = _Cons >? many1 p
 sep
   :: (Distributor p, Stream s t a b)
   => By p -> p a b -> p s t
-sep (By comma beg end) p = mapIso _Stream $
-  beg >* (oneP >+< p >*< manyP (comma >* p)) *< end
+sep (By {separator = comma, beginBy = beg, endBy = end}) p =
+  mapIso _Stream $ beg >* (oneP >+< p >*< manyP (comma >* p)) *< end
 
 {- | More than zero operator with a separator. -}
 sep1
   :: (Distributor p, Stream s t a b)
   => By p -> p a b -> p (a,s) (b,t)
-sep1 (By comma beg end) p =
+sep1 (By {separator = comma, beginBy = beg, endBy = end}) p =
   beg >* p >*< manyP (comma >* p) *< end
 
 {- | Like `sep1`, but conses the token to the stream. -}
