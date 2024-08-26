@@ -47,8 +47,6 @@ import Data.Vector (Vector)
 import qualified Data.Vector.Generic as Vector
 import Data.Vector.Storable (Storable)
 import qualified Data.Vector.Storable as Storable (Vector)
--- import Data.Vector.Primitive (Prim)
--- import qualified Data.Vector.Primitive as Prim (Vector)
 import Data.Vector.Unboxed (Unbox)
 import qualified Data.Vector.Unboxed as Unbox (Vector)
 import Data.Word
@@ -106,13 +104,6 @@ instance Streaming' (Vector a) a where
     everyNot list = if all (not . f) list then Just list else Nothing
   _Span f = iso (Vector.span f) (uncurry (<>)) . crossPartialIso (_All f) id
   _Break f = iso (Vector.break f) (uncurry (<>)) . crossPartialIso (_None f) id
--- instance Prim a => Streaming' (Prim.Vector a) a where
---   _All f = partialIso every every where
---     every list = if Vector.all f list then Just list else Nothing
---   _None f = partialIso everyNot everyNot where
---     everyNot list = if Vector.all (not . f) list then Just list else Nothing
---   _Span f = iso (Vector.span f) (uncurry (<>)) . crossPartialIso (_All f) id
---   _Break f = iso (Vector.break f) (uncurry (<>)) . crossPartialIso (_None f) id
 instance Storable a => Streaming' (Storable.Vector a) a where
   _All f = partialIso every every where
     every list = if Vector.all f list then Just list else Nothing
@@ -230,15 +221,6 @@ instance (Unbox a, Unbox b)
     = _LengthIs (>= n)
     . iso (Vector.splitAt n) (uncurry (<>))
     . crossPartialIso (_LengthIs (== max 0 n)) id
--- instance (Prim a, Prim b)
---   => Streaming (Prim.Vector a) (Prim.Vector b) a b where
---   _LengthIs f = partialIso lengthen lengthen where
---     lengthen :: Prim c => Prim.Vector c -> Maybe (Prim.Vector c)
---     lengthen list = if f (Vector.length list) then Just list else Nothing
---   _SplitAt n
---     = _LengthIs (>= n)
---     . iso (Vector.splitAt n) (uncurry (<>))
---     . crossPartialIso (_LengthIs (== max 0 n)) id
 instance Streaming StrictB.ByteString StrictB.ByteString Word8 Word8 where
   _LengthIs f = partialIso lengthen lengthen where
     lengthen :: StrictB.ByteString -> Maybe StrictB.ByteString
