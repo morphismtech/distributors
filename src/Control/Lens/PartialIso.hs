@@ -31,6 +31,7 @@ module Control.Lens.PartialIso
   , (?<)
   , (>?<)
   , mapIso
+  , coprism
     -- * Common (Partial)Isos
   , _Satisfy
   , _Normal
@@ -40,6 +41,7 @@ module Control.Lens.PartialIso
 import Control.Applicative
 import Control.Lens
 import Control.Monad
+import Data.Functor.Adjunction
 import Data.Profunctor
 import Data.Profunctor.Choose
 import Witherable
@@ -214,6 +216,14 @@ infixr 2 >?
   -> p s t
 (?<) pat = withPrism pat $ \f g -> unright . dimap (either id f) g
 infixr 2 ?<
+
+{- | Like the action `?<`, but lifted to a `coprism` `Optic`. -}
+coprism
+  :: (Cochoice p, Adjunction f u)
+  => APrism b a t s
+  -> Optic p f s t a b
+coprism pat = withPrism pat $ \f g ->
+  unright . dimap (either id f) (left' extractL . cozipL . fmap g)
 
 {- | Action of `APartialIso` on `Choice` and `Cochoice` `Profunctor`s. -}
 (>?<)
