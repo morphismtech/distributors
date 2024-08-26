@@ -217,7 +217,8 @@ infixr 2 >?
 (?<) pat = withPrism pat $ \f g -> unright . dimap (either id f) g
 infixr 2 ?<
 
-{- | Like the action `?<`, but lifted to a `coprism` `Optic`. -}
+{- | Clone and invert `APrism` as a `coprism`,
+ the action `?<` lifted to an `Optic`. -}
 coprism
   :: (Cochoice p, Adjunction f u)
   => APrism b a t s
