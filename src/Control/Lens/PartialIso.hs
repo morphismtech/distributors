@@ -31,7 +31,7 @@ module Control.Lens.PartialIso
   , (?<)
   , (>?<)
   , mapIso
-  , coprism
+  , coPrism
     -- * Common (Partial)Isos
   , _Satisfy
   , _Normal
@@ -208,7 +208,7 @@ altPartialIso x y =
 (>?) pat = withPrism pat $ \f g -> dimap g (either id f) . right'
 infixr 2 >?
 
-{- | Action of a coprism on `Cochoice` `Profunctor`s. -}
+{- | Action of a coPrism on `Cochoice` `Profunctor`s. -}
 (?<)
   :: Cochoice p
   => APrism b a t s
@@ -217,13 +217,15 @@ infixr 2 >?
 (?<) pat = withPrism pat $ \f g -> unright . dimap (either id f) g
 infixr 2 ?<
 
-{- | Clone and invert `APrism` as a `coprism`,
- the action `?<` lifted to an `Optic`. -}
-coprism
+{- | Clone and invert `APrism` into a `coPrism` `Optic`.
+
+prop> coPrism pat (rmap Identity p) = rmap Identity (pat ?< p)
+-}
+coPrism
   :: (Cochoice p, Adjunction f u)
   => APrism b a t s
   -> Optic p f s t a b
-coprism pat = withPrism pat $ \f g ->
+coPrism pat = withPrism pat $ \f g ->
   unright . dimap (either id f) (left' extractL . cozipL . fmap g)
 
 {- | Action of `APartialIso` on `Choice` and `Cochoice` `Profunctor`s. -}

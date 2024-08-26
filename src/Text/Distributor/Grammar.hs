@@ -79,7 +79,7 @@ _Chr :: chr -> Syntax rul str chr () ()
 _Chr c =  _Str (cons c Empty)
 
 _End :: forall rul str chr. Syntax rul str chr () ()
-_End = coprism (_Empty @str) . _TilEnd
+_End = coPrism (_Empty @str) . _TilEnd
 
 allTokens :: (Syntactic e t c p, Stream s t c c) => p s t
 allTokens = manyP anyToken
