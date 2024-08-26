@@ -252,6 +252,6 @@ identifying every term with one particular "normal" value. -}
 _Normal :: a -> Iso' a ()
 _Normal a = iso (const ()) (const a) where
 
-{- | A useful isormorphism identifying `Maybe` and `Either` @()@. -}
+{- | A useful isomorphism identifying `Maybe` and `Either` @()@. -}
 _M2E :: Iso (Maybe a) (Maybe b) (Either () a) (Either () b)
 _M2E = iso (maybe (Left ()) Right) (either (pure Nothing) Just)
