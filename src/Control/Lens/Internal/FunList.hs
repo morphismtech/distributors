@@ -10,6 +10,7 @@ module Control.Lens.Internal.FunList
   , runShop
   , Purchase (..)
   , buy
+  , Grating (..)
   , Peano (..)
   , V (..)
   , SomeV (..)
@@ -20,6 +21,9 @@ module Control.Lens.Internal.FunList
 import Control.Lens
 import Control.Lens.Internal.Bazaar
 import Control.Lens.Internal.Context
+import Data.Functor.Rep
+import Data.Distributive
+import Data.Profunctor.Closed
 import GHC.TypeNats
 
 {- | `FunList` is isomorphic to `Bazaar` @(->)@,
@@ -131,6 +135,26 @@ instance a ~ b => Applicative (Purchase a b) where
     Purchase $ \la -> slab $ \sl -> ab (la . sl)
 buy :: Purchase a b a -> b
 buy (Purchase f) = f id
+
+newtype Grating a b s t = Grating (Purchase a b s -> t)
+instance Functor (Grating a b s) where
+  fmap = rmap
+instance Applicative (Grating a b s) where
+  pure = pureRep
+  (<*>) = apRep
+instance Distributive (Grating a b s) where
+  collect = collectRep
+  distribute = distributeRep
+instance Representable (Grating a b s) where
+  type Rep (Grating a b s) = Purchase a b s
+  index (Grating d) r = d r
+  tabulate = Grating
+instance Profunctor (Grating a b) where
+  dimap f g (Grating z) = Grating $ \(Purchase d) ->
+    g . z . Purchase $ \k -> d (k . f)
+instance Closed (Grating a b) where
+  closed (Grating z) = Grating $ \(Purchase f) x ->
+    z . Purchase $ \k -> f $ \g -> k (g x)
 
 -- Peano datatypes
 data Peano = Z | S Peano

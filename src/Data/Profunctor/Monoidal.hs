@@ -176,6 +176,7 @@ instance (Monoidal p, Applicative f)
     oneP = WrapPafb (pureP (pure ()))
     WrapPafb ab >*< WrapPafb cd =
       WrapPafb (dimap2 fst snd (liftA2 (,)) ab cd)
+instance Monoidal (Grating a b)
 
 {- | Like `pure` but with a `Monoidal` constraint,
 `pureP` is a functionalization of `oneP`.
