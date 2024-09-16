@@ -136,7 +136,7 @@ instance a ~ b => Applicative (Purchase a b) where
 buy :: Purchase a b a -> b
 buy (Purchase f) = f id
 
-newtype Grating a b s t = Grating (Purchase a b s -> t)
+newtype Grating a b s t = Grating {unGrating :: Purchase a b s -> t}
 instance Functor (Grating a b s) where
   fmap = rmap
 instance Applicative (Grating a b s) where

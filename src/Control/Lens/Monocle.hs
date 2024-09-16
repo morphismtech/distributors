@@ -156,8 +156,18 @@ type Grate s t a b = forall p f.
   (Closed p, Monoidal p, Distributive f, Applicative f)
     => p a (f b) -> p s (f t)
 
+type Grate' s a = Grate s s a a
+
+type AGrate s t a b =
+  Grating a b a (Identity b) -> Grating a b s (Identity t)
+
+type AGrate' s a = AGrate s s a a
+
 cotraversed :: Distributive f => Grate (f a) (f b) a b
 cotraversed = dimap (flip ($)) (\f -> distribute (cotraverse f id)) . closed
 
 represented :: Representable f => Grate (f a) (f b) a b
 represented = dimap index (distribute . tabulate) . closed
+
+grate :: (((s -> a) -> b) -> t) -> Grate s t a b
+grate f = dimap (&) (cotraverse f) . closed
