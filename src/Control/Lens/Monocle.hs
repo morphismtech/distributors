@@ -23,18 +23,28 @@ module Control.Lens.Monocle
   , monocle0
   , monocle2
   , MonocleN (..)
-  , (>..<)
+  , cyclops
   , cloneMonocle
   , monTraversal
-  , monClosed
   , monGrate
-  , monBazaar
-  , monCotraversal
   , monBitraversal
+  , Grate
+  , Grate'
+  , AGrate
+  , AGrate'
+  , grate
+  , withGrate
+  , cloneGrate
+  , cotraversed
+  , represented
+  , closing
+  , distributing
+  , cotraverseOf
+  , collectOf
+  , distributeOf
   ) where
 
 import Control.Lens hiding (index, Traversing)
-import Control.Lens.Internal.Context
 import Control.Lens.Internal.FunList
 import Data.Bifunctor.Biff
 import Data.Distributive
@@ -72,7 +82,7 @@ withMonocle :: AMonocle s t a b -> (Shop a b s t -> r) -> r
 withMonocle mon k =
   k (runIdentity <$> mon (Identity <$> shop))
 
-{- | Turn  a curried homogeneous tuple dimorphism, into a `Monocle`.-}
+{- | Turn  a curried homogeneous tuple dimorphism into a `Monocle`.-}
 monocle :: Shop a b s t -> Monocle s t a b
 monocle sh =
   cloneMonocle $ \p ->
@@ -81,8 +91,8 @@ monocle sh =
         WrapMonoidal $ runIdentity <$> p
 
 {- | The natural action of `AMonocle` on `Monoidal`. -}
-(>..<) :: Monoidal p => AMonocle s t a b -> p a b -> p s t
-mon >..< p =
+cyclops :: Monoidal p => AMonocle s t a b -> p a b -> p s t
+cyclops mon p =
   withMonocle mon $ \sh ->
     unWrapMonoidal . runShop sh $ \_ ->
       WrapMonoidal p
@@ -92,7 +102,7 @@ monBitraversal
   :: (Functor f, Applicative g, Monoidal p)
   => AMonocle s t a b
   -> p (f a) (g b) -> p (f s) (g t)
-monBitraversal mon = runBiff . (mon >..<) . Biff
+monBitraversal mon = runBiff . cyclops mon . Biff
 
 {- | Clone `AMonocle` as a `Monocle`. -}
 cloneMonocle :: AMonocle s t a b -> Monocle s t a b
@@ -101,36 +111,13 @@ cloneMonocle mon
   . monBitraversal mon
   . lmap runIdentity
 
-{- | `AMonocle` as a lens-like `Control.Lens.Traversal.Traversal`. -}
+{- | `AMonocle` as a `Control.Lens.Traversal.Traversal`. -}
 monTraversal :: AMonocle s t a b -> Traversal s t a b
 monTraversal = cloneMonocle
 
-{- | `AMonocle` as a grate-like cotraversal. -}
-monCotraversal
-  :: (Functor f, Monoidal p)
-  => AMonocle s t a b -> p (f a) b -> p (f s) t
-monCotraversal mon
-  = rmap runIdentity
-  . monBitraversal mon
-  . rmap Identity
-
-{- | `AMonocle` can act as a grate on `Closed` profunctors. -}
-monClosed :: Closed p => AMonocle s t a b -> p a b -> p s t
-monClosed mon = dimap (&) (monCotraversal mon buy . Purchase) . closed
-
-{- | `AMonocle` @s t a b@ as a function called a grate.
-
-prop> ((s -> a) -> b) -> t ~ forall p. Closed p => p a b -> p s t
-prop> ((s -> a) -> b) -> t ~ forall f. Functor f => (f a -> b) -> (f s -> t)
--}
-monGrate :: AMonocle s t a b -> ((s -> a) -> b) -> t
-monGrate mon = runCostar (mon >..< Costar buy) . Purchase
-
-{- | `AMonocle` @s t a b@ as a function
-@s -> ((a,..,a), b -> .. -> b -> t)@
--}
-monBazaar :: AMonocle s t a b -> s -> Bazaar (->) a b t
-monBazaar mon = runStar (mon >..< Star sell)
+{- | `AMonocle` as a `Grate`. -}
+monGrate :: AMonocle s t a b -> Grate s t a b
+monGrate = cloneGrate . cloneMonocle
 
 {- | The unit `Monocle`. -}
 monocle0 :: Monocle () () a b
@@ -153,8 +140,7 @@ instance MonocleN n => MonocleN (S n) where
     p (monocleV @n p)
 
 type Grate s t a b = forall p f.
-  (Closed p, Monoidal p, Distributive f, Applicative f)
-    => p a (f b) -> p s (f t)
+  (Closed p, Monoidal p, Distributive f, Applicative f) => p a (f b) -> p s (f t)
 
 type Grate' s a = Grate s s a a
 
@@ -163,11 +149,39 @@ type AGrate s t a b =
 
 type AGrate' s a = AGrate s s a a
 
-cotraversed :: Distributive f => Grate (f a) (f b) a b
-cotraversed = dimap (flip ($)) (\f -> distribute (cotraverse f id)) . closed
+cotraversed :: Distributive g => Grate (g a) (g b) a b
+cotraversed = grate $ flip cotraverse id
 
-represented :: Representable f => Grate (f a) (f b) a b
-represented = dimap index (distribute . tabulate) . closed
+represented :: Representable g => Grate (g a) (g b) a b
+represented = grate $ tabulate . (. flip index)
 
 grate :: (((s -> a) -> b) -> t) -> Grate s t a b
 grate f = dimap (&) (cotraverse f) . closed
+
+withGrate :: AGrate s t a b -> ((s -> a) -> b) -> t
+withGrate grt = unGrating $ runIdentity <$> grt (Identity <$> grating)
+
+cloneGrate :: AGrate s t a b -> Grate s t a b
+cloneGrate grt = grate (withGrate grt)
+
+closing :: Closed p => AGrate s t a b -> p a b -> p s t
+closing grt = dimap (&) (withGrate grt) . closed
+
+distributing
+  :: (Closed p, Distributive g)
+  => AGrate s t a b -> p a (g b) -> g (p s t)
+distributing grt
+  = fmap unWrapMonoidal
+  . distribute
+  . dimap (&) (cotraverse (withGrate grt))
+  . closed
+  . WrapMonoidal
+
+cotraverseOf :: Functor f => AGrate s t a b -> (f a -> b) -> f s -> t
+cotraverseOf grt = runCostar . closing grt . Costar
+
+distributeOf :: Functor f => AGrate s t b (f b) -> f s -> t
+distributeOf grt = cotraverseOf grt id
+
+collectOf :: Functor f => AGrate s t b (f b) -> (a -> s) -> f a -> t
+collectOf grt f = distributeOf grt . fmap f

@@ -8,9 +8,8 @@ module Control.Lens.Internal.FunList
   , Shop (..)
   , shop
   , runShop
-  , Purchase (..)
-  , buy
   , Grating (..)
+  , grating
   , Peano (..)
   , V (..)
   , SomeV (..)
@@ -125,18 +124,7 @@ runShop (Shop baz) f = runBazaar baz $ \sa -> lmap sa (f sa)
 shop :: Shop a b a b
 shop = Shop (sell id)
 
-{- | An indexed continuation monad -}
-newtype Purchase a b s = Purchase {unPurchase :: (s -> a) -> b}
-instance Functor (Purchase a b) where
-  fmap sl (Purchase ab) = Purchase $ \la -> ab (la . sl)
-instance a ~ b => Applicative (Purchase a b) where
-  pure s = Purchase ($ s)
-  Purchase slab <*> Purchase ab =
-    Purchase $ \la -> slab $ \sl -> ab (la . sl)
-buy :: Purchase a b a -> b
-buy (Purchase f) = f id
-
-newtype Grating a b s t = Grating {unGrating :: Purchase a b s -> t}
+newtype Grating a b s t = Grating {unGrating :: ((s -> a) -> b) -> t}
 instance Functor (Grating a b s) where
   fmap = rmap
 instance Applicative (Grating a b s) where
@@ -146,15 +134,18 @@ instance Distributive (Grating a b s) where
   collect = collectRep
   distribute = distributeRep
 instance Representable (Grating a b s) where
-  type Rep (Grating a b s) = Purchase a b s
+  type Rep (Grating a b s) = (s -> a) -> b
   index (Grating d) r = d r
   tabulate = Grating
 instance Profunctor (Grating a b) where
-  dimap f g (Grating z) = Grating $ \(Purchase d) ->
-    g . z . Purchase $ \k -> d (k . f)
+  dimap f g (Grating z) = Grating $ \d ->
+    g . z $ \k -> d (k . f)
 instance Closed (Grating a b) where
-  closed (Grating z) = Grating $ \(Purchase f) x ->
-    z . Purchase $ \k -> f $ \g -> k (g x)
+  closed (Grating z) = Grating $ \f x ->
+    z $ \k -> f $ \g -> k (g x)
+
+grating :: Grating a b a b
+grating = Grating ($ id)
 
 -- Peano datatypes
 data Peano = Z | S Peano

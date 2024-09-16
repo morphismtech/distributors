@@ -421,15 +421,17 @@ instance
 a `Monoidal` `Profunctor` it wraps. -}
 newtype WrappedMonoidal p a b = WrapMonoidal
   {unWrapMonoidal :: p a b}
-instance Monoidal p => Functor (WrappedMonoidal p a) where
+instance Profunctor p => Functor (WrappedMonoidal p a) where
   fmap = rmap
 instance Monoidal p => Applicative (WrappedMonoidal p a) where
   pure = pureP
   (<*>) = apP
 deriving newtype instance (Monoidal p, forall x. Filterable (p x))
   => Filterable (WrappedMonoidal p a)
-deriving newtype instance Monoidal p
+deriving newtype instance Profunctor p
   => Profunctor (WrappedMonoidal p)
+deriving newtype instance Closed p
+  => Closed (WrappedMonoidal p)
 deriving newtype instance Monoidal p
   => Monoidal (WrappedMonoidal p)
 deriving newtype instance (Monoidal p, Choice p)
@@ -442,3 +444,9 @@ instance (Monoidal p, Choice p, Strong p)
       dimap (f sell) extract (travBaz p) where
         travBaz :: p u v -> p (Bazaar (->) u w x) (Bazaar (->) v w x)
         travBaz q = mapIso _Bazaar $ right' (q >*< travBaz q)
+-- instance (Monoidal p, Choice p, Strong p, Closed p)
+--   => Mapping (WrappedMonoidal p) where
+--     roam f (WrapMonoidal p) = WrapMonoidal $
+--       dimap (&) (f <$> _ <*> _) (cotrav p) where
+--         cotrav :: p u v -> p ((x -> w) -> u) ((x -> w) -> v)
+--         cotrav = closed
