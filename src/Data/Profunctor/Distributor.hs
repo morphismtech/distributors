@@ -43,6 +43,7 @@ import qualified Control.Applicative.Free.Final as Final
 import Control.Arrow
 import Control.Lens hiding (chosen, Traversing)
 import Control.Lens.Internal.Profunctor
+import Control.Lens.Internal.FunList
 import Control.Lens.PartialIso
 import Control.Lens.Stream
 import Data.Bifunctor.Biff
@@ -240,6 +241,7 @@ instance (Distributor p, Applicative f)
     zeroP = WrapPafb (emptyP absurd)
     WrapPafb ab >+< WrapPafb cd =
       WrapPafb (dialt id (fmap Left) (fmap Right) ab cd)
+instance Distributor (Posh a b)
 
 {- | The `Distributor` version of `empty`,
 `emptyP` is a functionalization of `zeroP`.

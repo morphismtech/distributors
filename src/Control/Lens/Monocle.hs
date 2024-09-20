@@ -23,7 +23,7 @@ module Control.Lens.Monocle
   , monocle0
   , monocle2
   , MonocleN (..)
-  , cyclops
+  , monocycle
   , cloneMonocle
   , monTraversal
   , monGrate
@@ -91,8 +91,8 @@ monocle sh =
         WrapMonoidal $ runIdentity <$> p
 
 {- | The natural action of `AMonocle` on `Monoidal`. -}
-cyclops :: Monoidal p => AMonocle s t a b -> p a b -> p s t
-cyclops mon p =
+monocycle :: Monoidal p => AMonocle s t a b -> p a b -> p s t
+monocycle mon p =
   withMonocle mon $ \sh ->
     unWrapMonoidal . runShop sh $ \_ ->
       WrapMonoidal p
@@ -102,7 +102,7 @@ monBitraversal
   :: (Functor f, Applicative g, Monoidal p)
   => AMonocle s t a b
   -> p (f a) (g b) -> p (f s) (g t)
-monBitraversal mon = runBiff . cyclops mon . Biff
+monBitraversal mon = runBiff . monocycle mon . Biff
 
 {- | Clone `AMonocle` as a `Monocle`. -}
 cloneMonocle :: AMonocle s t a b -> Monocle s t a b

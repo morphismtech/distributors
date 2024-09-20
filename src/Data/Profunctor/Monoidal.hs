@@ -177,6 +177,7 @@ instance (Monoidal p, Applicative f)
     WrapPafb ab >*< WrapPafb cd =
       WrapPafb (dimap2 fst snd (liftA2 (,)) ab cd)
 instance Monoidal (Grating a b)
+instance Monoidal (Posh a b)
 
 {- | Like `pure` but with a `Monoidal` constraint,
 `pureP` is a functionalization of `oneP`.
@@ -444,9 +445,3 @@ instance (Monoidal p, Choice p, Strong p)
       dimap (f sell) extract (travBaz p) where
         travBaz :: p u v -> p (Bazaar (->) u w x) (Bazaar (->) v w x)
         travBaz q = mapIso _Bazaar $ right' (q >*< travBaz q)
--- instance (Monoidal p, Choice p, Strong p, Closed p)
---   => Mapping (WrappedMonoidal p) where
---     roam f (WrapMonoidal p) = WrapMonoidal $
---       dimap (&) (f <$> _ <*> _) (cotrav p) where
---         cotrav :: p u v -> p ((x -> w) -> u) ((x -> w) -> v)
---         cotrav = closed

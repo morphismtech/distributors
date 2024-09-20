@@ -15,15 +15,26 @@ module Control.Lens.Internal.FunList
   , SomeV (..)
   , N
   , Ns
+  , Zabar (..)
+  , Posh (..)
+  , runPosh
+  , posh
   ) where
 
+import Control.Applicative
 import Control.Lens
 import Control.Lens.Internal.Bazaar
 import Control.Lens.Internal.Context
 import Data.Functor.Rep
 import Data.Distributive
-import Data.Profunctor.Closed
+import Data.Profunctor
+import Data.Profunctor.Choose
+import Data.Profunctor.Rep hiding (Representable (..))
+import qualified Data.Profunctor.Rep as Pro
+import Data.Profunctor.Sieve
 import GHC.TypeNats
+import Prelude hiding (filter)
+import Witherable
 
 {- | `FunList` is isomorphic to `Bazaar` @(->)@,
 but modified so its nil and cons are pattern matchable.
@@ -173,3 +184,64 @@ type family N (n :: Natural) where
 type family Ns (ns :: [Natural]) where
   Ns '[] = '[]
   Ns (n ': ns) = N n ': Ns ns
+
+newtype Zabar p a b t = Zabar
+  { runZabar
+      :: forall f. (Filterable f, Alternative f)
+      => p a (f b) -> f t
+  }
+instance Functor (Zabar p a b) where
+  fmap f (Zabar k) = Zabar (fmap f . k)
+instance Applicative (Zabar p a b) where
+  pure a = Zabar $ \_ -> pure a
+  Zabar mf <*> Zabar ma = Zabar $ \ pafb -> mf pafb <*> ma pafb
+instance Alternative (Zabar p a b) where
+  empty = Zabar $ \_ -> empty
+  Zabar mx <|> Zabar my = Zabar $ \ pafb -> mx pafb <|> my pafb
+instance Filterable (Zabar p a b) where
+  mapMaybe f (Zabar k) = Zabar (mapMaybe f . k)
+  catMaybes (Zabar k) = Zabar $ \ pafb -> catMaybes (k pafb)
+  filter f (Zabar k) = Zabar (filter f . k)
+instance Corepresentable p => Sellable p (Zabar p) where
+  sell
+    = cotabulate
+    $ \w -> Zabar
+    $ Pro.tabulate
+    $ \k -> pure (cosieve k w)
+
+newtype Posh a b s t = Posh
+  {unPosh :: Zabar (->) (s -> Maybe a) b t}
+  deriving newtype (Functor, Applicative, Alternative, Filterable)
+instance Profunctor (Posh a b) where
+  dimap f g (Posh (Zabar k))
+    = Posh $ Zabar $ fmap g . k . (. (. f))
+instance Cochoice (Posh a b) where
+  unleft (Posh (Zabar k))
+    = Posh $ Zabar $ catMaybes
+    . fmap (either Just (const Nothing))
+    . k . (. (. Left))
+  unright (Posh (Zabar k))
+    = Posh $ Zabar $ catMaybes
+    . fmap (either (const Nothing) Just)
+    . k . (. (. Right))
+instance Choice (Posh a b) where
+  left' (Posh (Zabar k))
+    = Posh $ Zabar $ fmap Left
+    . k . (. (\f -> either f (const Nothing)))
+  right' (Posh (Zabar k))
+    = Posh $ Zabar $ fmap Right
+    . k . (. (\f -> either (const Nothing) f))
+
+runPosh
+  :: ( Choice p
+     , Cochoice p
+     , forall x. Alternative (p x)
+     , forall x. Filterable (p x)
+     )
+  => Posh a b s t
+  -> ((s -> Maybe a) -> p a b)
+  -> p s t
+runPosh (Posh zab) f = runZabar zab $ \sa -> dimapMaybe sa Just (f sa)
+
+posh :: Posh a b a b
+posh = Posh (sell Just)
