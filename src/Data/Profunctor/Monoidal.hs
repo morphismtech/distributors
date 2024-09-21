@@ -473,6 +473,11 @@ instance (Profunctor p, forall x. Filterable (p x))
   => Cochoice (WrappedApplicator p) where
     unleft = catMaybes . dimap Left (either Just (const Nothing))
     unright = catMaybes . dimap Right (either (const Nothing) Just)
+instance
+  ( Applicative f
+  , forall x. Applicative (p x)
+  , Profunctor p
+  ) => Monoidal (Pafb f p)
 
 -- questionable instance
 -- instance Monoidal (Market a b) where

@@ -19,12 +19,14 @@ module Control.Lens.Internal.FunList
   , Posh (..)
   , runPosh
   , posh
+  , Pafb (..)
   ) where
 
 import Control.Applicative
 import Control.Lens
 import Control.Lens.Internal.Bazaar
 import Control.Lens.Internal.Context
+import Data.Functor.Compose
 import Data.Functor.Rep
 import Data.Distributive
 import Data.Profunctor
@@ -245,3 +247,50 @@ runPosh (Posh zab) f = runZabar zab $ \sa -> dimapMaybe sa Just (f sa)
 
 posh :: Posh a b a b
 posh = Posh (sell Just)
+
+
+newtype Pafb f p a b = Pafb {runPafb :: p a (f b)}
+instance
+  ( Functor f
+  , Profunctor p
+  ) => Functor (Pafb f p a) where fmap = rmap
+instance
+  ( Functor f
+  , Profunctor p
+  ) => Profunctor (Pafb f p) where
+    dimap f g (Pafb p) = Pafb (dimap f (fmap g) p)
+deriving via (Compose (p a) f) instance
+  ( Applicative f
+  , forall x. Applicative (p x)
+  , Profunctor p
+  ) => Applicative (Pafb f p a)
+instance
+  ( Filterable f
+  , Profunctor p
+  ) => Filterable (Pafb f p a) where
+    catMaybes (Pafb p) = Pafb (rmap catMaybes p)
+    mapMaybe f (Pafb p) = Pafb (rmap (mapMaybe f) p)
+instance
+  ( Filterable f
+  , Profunctor p
+  ) => Cochoice (Pafb f p) where
+    unleft (Pafb p) = Pafb $
+      dimap Left (mapMaybe (either Just (const Nothing))) p
+    unright (Pafb p) = Pafb $
+      dimap Right (mapMaybe (either (const Nothing) Just)) p
+instance
+  ( Applicative f
+  , Choice p
+  ) => Choice (Pafb f p) where
+  left' (Pafb p) = Pafb $
+    rmap (either (fmap Left) (pure . Right)) (left' p)
+deriving via (Compose (p a) f) instance
+  ( Applicative f
+  , forall x. Alternative (p x)
+  , Profunctor p
+  ) => Alternative (Pafb f p a)
+instance
+  ( Distributive f
+  , Closed p
+  ) => Closed (Pafb f p) where
+    closed (Pafb p) = Pafb (rmap distribute (closed p))

@@ -245,6 +245,12 @@ instance (Distributor p, Applicative f)
 instance Distributor (Posh a b)
 instance (Choice p, forall x. Filterable (p x), forall x. Alternative (p x))
   => Distributor (WrappedApplicator p)
+instance
+  ( Applicative f
+  , Filterable f
+  , forall x. (Alternative (p x))
+  , Choice p
+  ) => Distributor (Pafb f p)
 
 {- | The `Distributor` version of `empty`,
 `emptyP` is a functionalization of `zeroP`.
