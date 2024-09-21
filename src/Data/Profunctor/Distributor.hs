@@ -227,7 +227,8 @@ instance (Distributor p, Distributor q)
   => Distributor (Product p q) where
     zeroP = Pair zeroP zeroP
     Pair x0 y0 >+< Pair x1 y1 = Pair (x0 >+< x1) (y0 >+< y1)
-instance Monoid s => Distributor (PartialExchange s t)
+-- suspicious
+-- instance Monoid s => Distributor (PartialExchange s t)
 instance Distributor p => Distributor (Yoneda p) where
   zeroP = proreturn zeroP
   ab >+< cd = proreturn (proextract ab >+< proextract cd)

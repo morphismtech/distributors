@@ -140,7 +140,13 @@ instance MonocleN n => MonocleN (S n) where
     p (monocleV @n p)
 
 type Grate s t a b = forall p f.
-  (Closed p, Monoidal p, Distributive f, Applicative f) => p a (f b) -> p s (f t)
+  ( Closed p
+  , Monoidal p
+  , forall x. (Distributive (p x))
+  , forall x. (Applicative (p x))
+  , Distributive f
+  , Applicative f
+  ) => p a (f b) -> p s (f t)
 
 type Grate' s a = Grate s s a a
 

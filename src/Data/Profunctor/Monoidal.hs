@@ -46,7 +46,6 @@ import Control.Comonad
 import Control.Lens hiding (chosen, Traversing)
 import Control.Lens.Internal.Context
 import Control.Lens.Internal.FunList
-import Control.Lens.Internal.Prism
 import Control.Lens.Internal.Profunctor
 import Control.Lens.PartialIso
 import Control.Lens.Stream
@@ -167,7 +166,8 @@ instance (Functor f, Applicative g, Monoidal p)
       ((fst <$>) &&& (snd <$>))
       (uncurry (liftA2 (,)))
       (x >*< y)
-instance Monoid s => Monoidal (PartialExchange s t)
+-- suspicious
+-- instance Monoid s => Monoidal (PartialExchange s t)
 instance Monoidal p => Monoidal (Yoneda p) where
   oneP = proreturn oneP
   ab >*< cd = proreturn (proextract ab >*< proextract cd)
@@ -468,18 +468,20 @@ instance (Profunctor p, forall x. Applicative (p x))
 instance (Profunctor p, forall x. Distributive (p x))
   => Closed (WrappedApplicator p) where
     closed (WrapApplicator p) = WrapApplicator $
-      distribute (flip (\x -> lmap ($ x)) p)
+      distribute (flip (lmap . (&)) p)
 instance (Profunctor p, forall x. Filterable (p x))
   => Cochoice (WrappedApplicator p) where
     unleft = catMaybes . dimap Left (either Just (const Nothing))
     unright = catMaybes . dimap Right (either (const Nothing) Just)
-instance Monoidal (Market a b) where
-  oneP = Market (const ()) Left
-  Market f0 g0 >*< Market f1 g1 = Market (f0 &&& f1) $ \(a0,a1) ->
-    case (g0 a0, g1 a1) of
-      (Left b0, Left b1) -> Left (b0,b1)
-      (Right c, _) -> Right c
-      (Left _, Right c) -> Right c
+
+-- questionable instance
+-- instance Monoidal (Market a b) where
+--   oneP = Market (const ()) Left
+--   Market f0 g0 >*< Market f1 g1 = Market (f0 &&& f1) $ \(a0,a1) ->
+--     case (g0 a0, g1 a1) of
+--       (Left b0, Left b1) -> Left (b0,b1)
+--       (Right c, _) -> Right c
+--       (Left _, Right c) -> Right c
 
 -- instance (Closed p, Distributive f) 
 --   => Closed (WrappedApplicator (WrappedPafb f p)) where
