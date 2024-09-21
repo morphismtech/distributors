@@ -242,6 +242,8 @@ instance (Distributor p, Applicative f)
     WrapPafb ab >+< WrapPafb cd =
       WrapPafb (dialt id (fmap Left) (fmap Right) ab cd)
 instance Distributor (Posh a b)
+instance (Choice p, forall x. Filterable (p x), forall x. Alternative (p x))
+  => Distributor (WrappedApplicator p)
 
 {- | The `Distributor` version of `empty`,
 `emptyP` is a functionalization of `zeroP`.
@@ -470,18 +472,6 @@ instance QPointed ChooseDist where
   qsingle p = ChooseDist [ChooseAp Just (pure Just) p]
 instance QMonad ChooseDist where
   qjoin = foldChooseDist id
-
--- data KleeneDist p a b where
---   DistAlts
---     :: [ChooseMonF KleeneDist p a b]
---     -> KleeneDist p a b
---   DistSev
---     :: Stream s t a b
---     => ChooseMonF KleeneDist p a b
---     -> KleeneDist p s t
--- instance Profunctor (KleeneDist p) where
---   dimap f g (DistAlts alts) = DistAlts (map (dimap f g) alts)
---   dimap f g (DistSev p) = DistSev (dimapMaybe (_ f) (_ g) p)
 
 foldChooseDist
   :: forall p q a b.

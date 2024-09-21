@@ -35,15 +35,18 @@ module Data.Profunctor.Monoidal
   , ChooseMon (..)
   , foldChooseMon
   , ChooseMonF (..)
-    -- * Monoidal types
+    -- * Wrapped types
   , WrappedMonoidal (..)
+  , WrappedApplicator (..)
   ) where
 
+import Control.Applicative
 import Control.Arrow
 import Control.Comonad
 import Control.Lens hiding (chosen, Traversing)
 import Control.Lens.Internal.Context
 import Control.Lens.Internal.FunList
+import Control.Lens.Internal.Prism
 import Control.Lens.Internal.Profunctor
 import Control.Lens.PartialIso
 import Control.Lens.Stream
@@ -53,6 +56,7 @@ import Data.Bifunctor.Clown
 import Data.Bifunctor.Joker
 import Data.Bifunctor.Product
 import Data.Bifunctor.Tannen
+import Data.Distributive
 import Data.Functor.Contravariant.Divisible hiding (chosen)
 import Data.Profunctor hiding (WrappedArrow(..))
 import qualified Data.Profunctor as Pro (WrappedArrow(..))
@@ -445,3 +449,52 @@ instance (Monoidal p, Choice p, Strong p)
       dimap (f sell) extract (travBaz p) where
         travBaz :: p u v -> p (Bazaar (->) u w x) (Bazaar (->) v w x)
         travBaz q = mapIso _Bazaar $ right' (q >*< travBaz q)
+
+newtype WrappedApplicator p a b = WrapApplicator
+  {unWrapApplicator :: p a b}
+    deriving newtype
+      ( Functor
+      , Applicative
+      , Alternative
+      , Filterable
+      , Profunctor
+      , Choice
+      )
+instance (forall x. Distributive (p x))
+  => Distributive (WrappedApplicator p a) where
+    distribute = WrapApplicator . distribute . fmap unWrapApplicator
+instance (Profunctor p, forall x. Applicative (p x))
+  => Monoidal (WrappedApplicator p)
+instance (Profunctor p, forall x. Distributive (p x))
+  => Closed (WrappedApplicator p) where
+    closed (WrapApplicator p) = WrapApplicator $
+      distribute (flip (\x -> lmap ($ x)) p)
+instance (Profunctor p, forall x. Filterable (p x))
+  => Cochoice (WrappedApplicator p) where
+    unleft = catMaybes . dimap Left (either Just (const Nothing))
+    unright = catMaybes . dimap Right (either (const Nothing) Just)
+instance Monoidal (Market a b) where
+  oneP = Market (const ()) Left
+  Market f0 g0 >*< Market f1 g1 = Market (f0 &&& f1) $ \(a0,a1) ->
+    case (g0 a0, g1 a1) of
+      (Left b0, Left b1) -> Left (b0,b1)
+      (Right c, _) -> Right c
+      (Left _, Right c) -> Right c
+
+-- instance (Closed p, Distributive f) 
+--   => Closed (WrappedApplicator (WrappedPafb f p)) where
+--     closed (WrapApplicator (WrapPafb p))
+--       = WrapApplicator . WrapPafb $ rmap distribute (closed p)
+
+-- instance (Closed p, Functor f, Distributive g)
+--   => Closed (WrappedApplicator (Biff p f g)) where
+--     closed (WrapApplicator (Biff p))
+--       = WrapApplicator . Biff
+--       $ dimap ((>>>) (&) . (<&>)) distribute (closed p)
+
+-- instance (Cochoice p, Filterable f) 
+--   => Cochoice (WrappedPafb f p) where
+--     unleft (WrapPafb pf) = WrapPafb $
+--       unleft (rmap (Left . mapMaybe (either Just (const Nothing))) pf)
+--     unright (WrapPafb pf) = WrapPafb $
+--       unright (rmap (Right . mapMaybe (either (const Nothing) Just)) pf)
