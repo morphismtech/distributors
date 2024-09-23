@@ -80,7 +80,7 @@ type AMonocle' s a = AMonocle s s a a
 {- | Turn a `AMonocle` into a curried homogeneous tuple dimorphism. -}
 withMonocle :: AMonocle s t a b -> (Shop a b s t -> r) -> r
 withMonocle mon k =
-  k (runIdentity <$> mon (Identity <$> shop))
+  k (runIdentity <$> mon (Identity <$> anyToken))
 
 {- | Turn  a curried homogeneous tuple dimorphism into a `Monocle`.-}
 monocle :: Shop a b s t -> Monocle s t a b
@@ -165,7 +165,7 @@ grate :: (((s -> a) -> b) -> t) -> Grate s t a b
 grate f = dimap (&) (cotraverse f) . closed
 
 withGrate :: AGrate s t a b -> ((s -> a) -> b) -> t
-withGrate grt = unGrating $ runIdentity <$> grt (Identity <$> grating)
+withGrate grt = unGrating $ runIdentity <$> grt (Identity <$> anyToken)
 
 cloneGrate :: AGrate s t a b -> Grate s t a b
 cloneGrate grt = grate (withGrate grt)

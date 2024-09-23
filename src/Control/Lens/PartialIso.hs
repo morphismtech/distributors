@@ -40,6 +40,7 @@ module Control.Lens.PartialIso
 
 import Control.Applicative
 import Control.Lens
+import Control.Lens.Internal.FunList
 import Control.Monad
 import Data.Functor.Adjunction
 import Data.Profunctor
@@ -60,14 +61,15 @@ instance Monoid (PartialExchange a b s t) where
 instance Functor (PartialExchange a b s) where fmap = rmap
 instance Filterable (PartialExchange a b s) where
   mapMaybe = mapMaybeP
-instance Monoid a => Applicative (PartialExchange a b s) where
-  pure t = PartialExchange (\_ -> mempty) (\_ -> Just t)
-  PartialExchange f' g' <*> PartialExchange f g = PartialExchange
-    (\s -> (<>) <$> f' s <*> f s)
-    (\b -> g' b <*> g b)
-instance Monoid a => Alternative (PartialExchange a b s) where
-  empty = mempty
-  (<|>) = (<>)
+-- suspicious instances...
+-- instance Monoid a => Applicative (PartialExchange a b s) where
+--   pure t = PartialExchange (\_ -> mempty) (\_ -> Just t)
+--   PartialExchange f' g' <*> PartialExchange f g = PartialExchange
+--     (\s -> (<>) <$> f' s <*> f s)
+--     (\b -> g' b <*> g b)
+-- instance Monoid a => Alternative (PartialExchange a b s) where
+--   empty = mempty
+--   (<|>) = (<>)
 instance Profunctor (PartialExchange a b) where
   dimap f' g' (PartialExchange f g) =
     PartialExchange (f . f') (fmap g' . g)
@@ -81,6 +83,8 @@ instance Cochoice (PartialExchange a b) where
     PartialExchange (f . Left) (either Just (pure Nothing) <=< g)
   unright (PartialExchange f g) =
     PartialExchange (f . Right) (either (pure Nothing) Just <=< g)
+instance Tokenized a b (PartialExchange a b) where
+  anyToken = PartialExchange Just Just
 
 {- | `PartialIso` is a first class inexhaustive pattern,
 similar to how `Control.Lens.Prism.Prism` is a first class exhaustive pattern.

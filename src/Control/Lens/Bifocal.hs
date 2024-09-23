@@ -62,7 +62,7 @@ type ABifocal s t a b =
 type ABifocal' s a = ABifocal s s a a
 
 withBifocal :: ABifocal s t a b -> (Posh a b s t -> r) -> r
-withBifocal bif k = k (catMaybes (bif (Just <$> posh)))
+withBifocal bif k = k (catMaybes (bif (Just <$> anyToken)))
 
 bicycle
   :: ( Choice p

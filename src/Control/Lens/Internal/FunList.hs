@@ -6,10 +6,8 @@ module Control.Lens.Internal.FunList
   , _FunV
   , FunSomeV (..)
   , Shop (..)
-  , shop
   , runShop
   , Grating (..)
-  , grating
   , Peano (..)
   , V (..)
   , SomeV (..)
@@ -18,14 +16,16 @@ module Control.Lens.Internal.FunList
   , Zabar (..)
   , Posh (..)
   , runPosh
-  , posh
   , Pafb (..)
+  , Tokenized (..)
   ) where
 
 import Control.Applicative
 import Control.Lens
+import Control.Lens.Internal.Iso
 import Control.Lens.Internal.Bazaar
 import Control.Lens.Internal.Context
+import Control.Lens.Internal.Prism
 import Data.Functor.Compose
 import Data.Functor.Rep
 import Data.Distributive
@@ -294,3 +294,18 @@ instance
   , Closed p
   ) => Closed (Pafb f p) where
     closed (Pafb p) = Pafb (rmap distribute (closed p))
+
+class Tokenized a b p | p -> a, p -> b where
+  anyToken :: p a b
+instance Tokenized a b (Identical a b) where
+  anyToken = Identical
+instance Tokenized a b (Shop a b) where
+  anyToken = shop
+instance Tokenized a b (Posh a b) where
+  anyToken = posh
+instance Tokenized a b (Grating a b) where
+  anyToken = grating
+instance Tokenized a b (Exchange a b) where
+  anyToken = Exchange id id
+instance Tokenized a b (Market a b) where
+  anyToken = Market id Right
