@@ -61,15 +61,6 @@ instance Monoid (PartialExchange a b s t) where
 instance Functor (PartialExchange a b s) where fmap = rmap
 instance Filterable (PartialExchange a b s) where
   mapMaybe = mapMaybeP
--- suspicious instances...
--- instance Monoid a => Applicative (PartialExchange a b s) where
---   pure t = PartialExchange (\_ -> mempty) (\_ -> Just t)
---   PartialExchange f' g' <*> PartialExchange f g = PartialExchange
---     (\s -> (<>) <$> f' s <*> f s)
---     (\b -> g' b <*> g b)
--- instance Monoid a => Alternative (PartialExchange a b s) where
---   empty = mempty
---   (<|>) = (<>)
 instance Profunctor (PartialExchange a b) where
   dimap f' g' (PartialExchange f g) =
     PartialExchange (f . f') (fmap g' . g)

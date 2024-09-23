@@ -296,3 +296,29 @@ data Prod c
   | ProdPoss (Prod c)
   deriving (Eq, Ord, Read, Show)
 makePrisms ''Prod
+
+{-
+module Text.Distributor.Grammar2
+  ( Syntactic (..)
+  , Grammatical (..)
+  ) where
+
+class
+  ( PartialDistributor p
+  , Tokenized a b p
+  , Stream s t a b
+  , Cons s t a b
+  , Eq a
+  , Eq b
+  ) => Syntactic s t a b p where
+    stream :: s -> p x ()
+    stream str = case view _HeadTailMay str of
+      Nothing -> pure ()
+      Just (h,t) -> (only h ?< anyToken) >* stream t
+
+class Syntactic s t a b p => Grammatical s t a b p where
+  ruleRec :: String -> (p x y -> p x y) -> p x y
+  ruleRec e f = rule e (fix f)
+  rule :: String -> p x y -> p x y
+  rule _ = id
+-}

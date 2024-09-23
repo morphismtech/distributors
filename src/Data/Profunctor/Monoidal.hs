@@ -166,8 +166,6 @@ instance (Functor f, Applicative g, Monoidal p)
       ((fst <$>) &&& (snd <$>))
       (uncurry (liftA2 (,)))
       (x >*< y)
--- suspicious
--- instance Monoid s => Monoidal (PartialExchange s t)
 instance Monoidal p => Monoidal (Yoneda p) where
   oneP = proreturn oneP
   ab >*< cd = proreturn (proextract ab >*< proextract cd)
