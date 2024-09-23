@@ -134,9 +134,6 @@ runSpiceShop
   -> p s t
 runSpiceShop (SpiceShop baz) f = runBazaar baz $ \sa -> lmap sa (f sa)
 
-shop :: SpiceShop a b a b
-shop = SpiceShop (sell id)
-
 newtype Grating a b s t = Grating {unGrating :: ((s -> a) -> b) -> t}
 instance Functor (Grating a b s) where
   fmap = rmap
@@ -245,9 +242,6 @@ runPoshSpice
   -> p s t
 runPoshSpice (PoshSpice zab) f = runZabar zab $ \sa -> dimapMaybe sa Just (f sa)
 
-posh :: PoshSpice a b a b
-posh = PoshSpice (sell Just)
-
 newtype Pafb f p a b = Pafb {runPafb :: p a (f b)}
 instance
   ( Functor f
@@ -296,15 +290,15 @@ instance
 
 class Tokenized a b p | p -> a, p -> b where
   anyToken :: p a b
-instance Tokenized a b (Identical a b) where
-  anyToken = Identical
 instance Tokenized a b (SpiceShop a b) where
-  anyToken = shop
+  anyToken = SpiceShop (sell id)
 instance Tokenized a b (PoshSpice a b) where
-  anyToken = posh
+  anyToken = PoshSpice (sell Just)
 instance Tokenized a b (Grating a b) where
   anyToken = grating
+instance Tokenized a b (Identical a b) where
+  anyToken = Identical
 instance Tokenized a b (Exchange a b) where
   anyToken = Exchange id id
 instance Tokenized a b (Market a b) where
-  anyToken = Market id Right
+  anyToken = Market id Right 

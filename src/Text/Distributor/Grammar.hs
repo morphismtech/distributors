@@ -313,12 +313,12 @@ class
   ) => Syntactic s t a b p where
     stream :: s -> p x ()
     stream str = case view _HeadTailMay str of
-      Nothing -> pure ()
+      Nothing -> pureP ()
       Just (h,t) -> (only h ?< anyToken) >* stream t
 
 class Syntactic s t a b p => Grammatical s t a b p where
-  ruleRec :: String -> (p x y -> p x y) -> p x y
-  ruleRec e f = rule e (fix f)
   rule :: String -> p x y -> p x y
   rule _ = id
+  ruleRec :: String -> (p x y -> p x y) -> p x y
+  ruleRec e f = rule e (fix f)
 -}
