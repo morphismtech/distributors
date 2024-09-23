@@ -32,6 +32,11 @@ module Control.Lens.Bifocal
   , _Sep1
   , _Some
   , _SepSome
+  , Wither
+  , AWither
+  , withered
+  , filterOf
+  , witherPrism
   ) where
 
 import Control.Applicative
@@ -102,7 +107,7 @@ _FlagSign p = iso hither thither
     thither (Right (Right a)) = (GT, a)
 
 _Option :: Bifocal (Maybe a) (Maybe b) a b
-_Option = runPafb . optionP . Pafb
+_Option = runPafb . optionalP . Pafb
 
 _Many :: Stream s t a b => Bifocal s t a b
 _Many = runPafb . manyP . Pafb
@@ -160,3 +165,20 @@ instance (MonocleN n, BifocalNs ns) =>
       (fmap VNxt)
       (monocleV @n p)
       (bifocalV @ns p)
+
+type Wither s t a b = forall f.
+  (Alternative f, Filterable f) => (a -> f b) -> s -> f t
+
+type AWither s t a b = LensLike (Zabar (->) a b) s t a b
+
+withered :: Witherable t => Wither (t a) (t b) a b
+withered f = wither (optional . f)
+
+filterOf :: LensLike Maybe s t a a -> (a -> Bool) -> s -> Maybe t
+filterOf wth f = wth satiate where
+  satiate a = if f a then pure a else empty
+
+witherPrism :: (Choice p, Alternative f) => Prism s t a b -> Optic p f s t a b
+witherPrism prsm =
+  withPrism prsm $ \f g ->
+    dimap g (either (const empty) (fmap f)) . right'

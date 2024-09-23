@@ -74,12 +74,12 @@ class Stream' s a => Streaming' s a where
   {- | No tokens satisfy the predicate. -}
   _None :: (a -> Bool) -> PartialIso' s s
   {- | A tuple where first element is
-  the longest prefix (optionP empty) of tokens
+  the longest prefix (optionalP empty) of tokens
   that satisfy the predicate and second element is
   the remainder of the stream. -}
   _Span :: (a -> Bool) -> PartialIso' s (s,s)
   {- | A tuple where first element is
-  the longest prefix (optionP empty) of tokens
+  the longest prefix (optionalP empty) of tokens
   that don't satisfy the predicate and second element is
   the remainder of the stream. -}
   _Break :: (a -> Bool) -> PartialIso' s (s,s)

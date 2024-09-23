@@ -268,7 +268,7 @@ instance Distributor (Grammar c) where
     Grammar (ProdOr s0 s1) (rules0 <> rules1)
   manyP (Grammar s rules) = Grammar (ProdSev s) rules
   many1 (Grammar s rules) = Grammar (ProdSev1 s) rules
-  optionP (Grammar s rules) = Grammar (ProdPoss s) rules
+  optionalP (Grammar s rules) = Grammar (ProdPoss s) rules
 instance Choice (Grammar c) where
   left' = coerce
   right' = coerce
