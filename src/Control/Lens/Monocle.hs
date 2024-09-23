@@ -72,29 +72,29 @@ type Monocle' s a = Monocle s s a a
 {- | If you see this in a signature for a function,
 the function is expecting a `Monocle`. -}
 type AMonocle s t a b =
-  Shop a b a (Identity b) -> Shop a b s (Identity t)
+  SpiceShop a b a (Identity b) -> SpiceShop a b s (Identity t)
 
 {- | A `Simple` `Monocle`. -}
 type AMonocle' s a = AMonocle s s a a
 
 {- | Turn a `AMonocle` into a curried homogeneous tuple dimorphism. -}
-withMonocle :: AMonocle s t a b -> (Shop a b s t -> r) -> r
+withMonocle :: AMonocle s t a b -> (SpiceShop a b s t -> r) -> r
 withMonocle mon k =
   k (runIdentity <$> mon (Identity <$> anyToken))
 
 {- | Turn  a curried homogeneous tuple dimorphism into a `Monocle`.-}
-monocle :: Shop a b s t -> Monocle s t a b
+monocle :: SpiceShop a b s t -> Monocle s t a b
 monocle sh =
   cloneMonocle $ \p ->
     unWrapMonoidal $
-      runShop (Identity <$> sh) $ \_ ->
+      runSpiceShop (Identity <$> sh) $ \_ ->
         WrapMonoidal $ runIdentity <$> p
 
 {- | The natural action of `AMonocle` on `Monoidal`. -}
 cyclops :: Monoidal p => AMonocle s t a b -> p a b -> p s t
 cyclops mon p =
   withMonocle mon $ \sh ->
-    unWrapMonoidal . runShop sh $ \_ ->
+    unWrapMonoidal . runSpiceShop sh $ \_ ->
       WrapMonoidal p
 
 {- | `AMonocle` as a `Bitraversal`. -}

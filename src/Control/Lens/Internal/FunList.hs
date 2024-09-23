@@ -5,8 +5,8 @@ module Control.Lens.Internal.FunList
   , FunV (..)
   , _FunV
   , FunSomeV (..)
-  , Shop (..)
-  , runShop
+  , SpiceShop (..)
+  , runSpiceShop
   , Grating (..)
   , Peano (..)
   , V (..)
@@ -14,8 +14,8 @@ module Control.Lens.Internal.FunList
   , N
   , Ns
   , Zabar (..)
-  , Posh (..)
-  , runPosh
+  , PoshSpice (..)
+  , runPoshSpice
   , Pafb (..)
   , Tokenized (..)
   ) where
@@ -110,32 +110,32 @@ _FunV = iso fromFunV toFunV where
 data FunSomeV a b t =
   forall ns. FunSomeV (SomeV ns a) (SomeV ns b -> t)
 
-{- | A `Shop` is a fixed length homogeneous tuple isomorphism.
+{- | A `SpiceShop` is a fixed length homogeneous tuple isomorphism.
 
-prop> Shop a b s t ~ Bazaar (->) (s -> a) b t
-prop> Shop a b s t ~ FunList (s -> a) b t
-prop> Shop a b s t ~ exists (..) :: Natural. ((s -> a,..,s -> a), b -> .. -> b -> t)
-prop> Shop a b s t ~ exists (..) :: Natural. (s -> (a,..,a), (b,..,b) -> t)
+prop> SpiceShop a b s t ~ Bazaar (->) (s -> a) b t
+prop> SpiceShop a b s t ~ FunList (s -> a) b t
+prop> SpiceShop a b s t ~ exists (..) :: Natural. ((s -> a,..,s -> a), b -> .. -> b -> t)
+prop> SpiceShop a b s t ~ exists (..) :: Natural. (s -> (a,..,a), (b,..,b) -> t)
 -}
-newtype Shop a b s t = Shop
-  {unShop :: Bazaar (->) (s -> a) b t}
+newtype SpiceShop a b s t = SpiceShop
+  {unSpiceShop :: Bazaar (->) (s -> a) b t}
   deriving newtype (Functor, Applicative)
-instance Profunctor (Shop a b) where
-  dimap f g (Shop baz) = Shop . view _FunList $
+instance Profunctor (SpiceShop a b) where
+  dimap f g (SpiceShop baz) = SpiceShop . view _FunList $
     case review _FunList baz of
       DoneFun c -> DoneFun (g c)
       MoreFun h baz' ->
-        MoreFun (h . f) (unShop (dimap f (g .) (Shop baz')))
+        MoreFun (h . f) (unSpiceShop (dimap f (g .) (SpiceShop baz')))
 
-runShop
+runSpiceShop
   :: (Profunctor p, forall x. Applicative (p x))
-  => Shop a b s t
+  => SpiceShop a b s t
   -> ((s -> a) -> p a b)
   -> p s t
-runShop (Shop baz) f = runBazaar baz $ \sa -> lmap sa (f sa)
+runSpiceShop (SpiceShop baz) f = runBazaar baz $ \sa -> lmap sa (f sa)
 
-shop :: Shop a b a b
-shop = Shop (sell id)
+shop :: SpiceShop a b a b
+shop = SpiceShop (sell id)
 
 newtype Grating a b s t = Grating {unGrating :: ((s -> a) -> b) -> t}
 instance Functor (Grating a b s) where
@@ -211,43 +211,42 @@ instance Corepresentable p => Sellable p (Zabar p) where
     $ Pro.tabulate
     $ \k -> pure (cosieve k w)
 
-newtype Posh a b s t = Posh
-  {unPosh :: Zabar (->) (s -> Maybe a) b t}
+newtype PoshSpice a b s t = PoshSpice
+  {unPoshSpice :: Zabar (->) (s -> Maybe a) b t}
   deriving newtype (Functor, Applicative, Alternative, Filterable)
-instance Profunctor (Posh a b) where
-  dimap f g (Posh (Zabar k))
-    = Posh $ Zabar $ fmap g . k . (. (. f))
-instance Cochoice (Posh a b) where
-  unleft (Posh (Zabar k))
-    = Posh $ Zabar $ catMaybes
+instance Profunctor (PoshSpice a b) where
+  dimap f g (PoshSpice (Zabar k))
+    = PoshSpice $ Zabar $ fmap g . k . (. (. f))
+instance Cochoice (PoshSpice a b) where
+  unleft (PoshSpice (Zabar k))
+    = PoshSpice $ Zabar $ catMaybes
     . fmap (either Just (const Nothing))
     . k . (. (. Left))
-  unright (Posh (Zabar k))
-    = Posh $ Zabar $ catMaybes
+  unright (PoshSpice (Zabar k))
+    = PoshSpice $ Zabar $ catMaybes
     . fmap (either (const Nothing) Just)
     . k . (. (. Right))
-instance Choice (Posh a b) where
-  left' (Posh (Zabar k))
-    = Posh $ Zabar $ fmap Left
+instance Choice (PoshSpice a b) where
+  left' (PoshSpice (Zabar k))
+    = PoshSpice $ Zabar $ fmap Left
     . k . (. (\f -> either f (const Nothing)))
-  right' (Posh (Zabar k))
-    = Posh $ Zabar $ fmap Right
+  right' (PoshSpice (Zabar k))
+    = PoshSpice $ Zabar $ fmap Right
     . k . (. (\f -> either (const Nothing) f))
 
-runPosh
+runPoshSpice
   :: ( Choice p
      , Cochoice p
      , forall x. Alternative (p x)
      , forall x. Filterable (p x)
      )
-  => Posh a b s t
+  => PoshSpice a b s t
   -> ((s -> Maybe a) -> p a b)
   -> p s t
-runPosh (Posh zab) f = runZabar zab $ \sa -> dimapMaybe sa Just (f sa)
+runPoshSpice (PoshSpice zab) f = runZabar zab $ \sa -> dimapMaybe sa Just (f sa)
 
-posh :: Posh a b a b
-posh = Posh (sell Just)
-
+posh :: PoshSpice a b a b
+posh = PoshSpice (sell Just)
 
 newtype Pafb f p a b = Pafb {runPafb :: p a (f b)}
 instance
@@ -299,9 +298,9 @@ class Tokenized a b p | p -> a, p -> b where
   anyToken :: p a b
 instance Tokenized a b (Identical a b) where
   anyToken = Identical
-instance Tokenized a b (Shop a b) where
+instance Tokenized a b (SpiceShop a b) where
   anyToken = shop
-instance Tokenized a b (Posh a b) where
+instance Tokenized a b (PoshSpice a b) where
   anyToken = posh
 instance Tokenized a b (Grating a b) where
   anyToken = grating

@@ -57,11 +57,11 @@ type Bifocal s t a b = forall p f.
 type Bifocal' s a = Bifocal s s a a
 
 type ABifocal s t a b =
-  Posh a b a (Maybe b) -> Posh a b s (Maybe t)
+  PoshSpice a b a (Maybe b) -> PoshSpice a b s (Maybe t)
 
 type ABifocal' s a = ABifocal s s a a
 
-withBifocal :: ABifocal s t a b -> (Posh a b s t -> r) -> r
+withBifocal :: ABifocal s t a b -> (PoshSpice a b s t -> r) -> r
 withBifocal bif k = k (catMaybes (bif (Just <$> anyToken)))
 
 bicycle
@@ -73,7 +73,7 @@ bicycle
   => ABifocal s t a b -> p a b -> p s t
 bicycle bif p =
   withBifocal bif $ \po ->
-    runPosh po $ \_ -> p
+    runPoshSpice po $ \_ -> p
 
 cloneBifocal :: ABifocal s t a b -> Bifocal s t a b
 cloneBifocal bif = runPafb . bicycle bif . Pafb

@@ -174,14 +174,14 @@ instance Monoidal p => Monoidal (Yoneda p) where
 instance Monoidal p => Monoidal (Coyoneda p) where
   oneP = proreturn oneP
   ab >*< cd = proreturn (proextract ab >*< proextract cd)
-instance Monoidal (Shop a b)
+instance Monoidal (SpiceShop a b)
 instance (Monoidal p, Applicative f)
   => Monoidal (WrappedPafb f p) where
     oneP = WrapPafb (pureP (pure ()))
     WrapPafb ab >*< WrapPafb cd =
       WrapPafb (dimap2 fst snd (liftA2 (,)) ab cd)
 instance Monoidal (Grating a b)
-instance Monoidal (Posh a b)
+instance Monoidal (PoshSpice a b)
 
 {- | Like `pure` but with a `Monoidal` constraint,
 `pureP` is a functionalization of `oneP`.

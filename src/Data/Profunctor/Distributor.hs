@@ -243,7 +243,7 @@ instance (Distributor p, Applicative f)
     zeroP = WrapPafb (emptyP absurd)
     WrapPafb ab >+< WrapPafb cd =
       WrapPafb (dialt id (fmap Left) (fmap Right) ab cd)
-instance Distributor (Posh a b)
+instance Distributor (PoshSpice a b)
 instance (Choice p, forall x. Filterable (p x), forall x. Alternative (p x))
   => Distributor (WrappedApplicator p)
 instance
