@@ -37,6 +37,7 @@ module Control.Lens.Bifocal
   , withered
   , filterOf
   , witherPrism
+  , guarded
   ) where
 
 import Control.Applicative
@@ -174,7 +175,7 @@ type AWither s t a b = LensLike (Zabar (->) a b) s t a b
 withered :: Witherable t => Wither (t a) (t b) a b
 withered f = wither (optional . f)
 
-filterOf :: LensLike Maybe s t a a -> (a -> Bool) -> s -> Maybe t
+filterOf :: Alternative m => LensLike m s t a a -> (a -> Bool) -> s -> m t
 filterOf wth f = wth satiate where
   satiate a = if f a then pure a else empty
 
@@ -182,3 +183,6 @@ witherPrism :: (Choice p, Alternative f) => Prism s t a b -> Optic p f s t a b
 witherPrism prsm =
   withPrism prsm $ \f g ->
     dimap g (either (const empty) (fmap f)) . right'
+
+guarded :: (a -> Bool) -> Wither a b a b
+guarded f afb a = if f a then afb a else empty
