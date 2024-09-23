@@ -32,9 +32,9 @@ module Data.Profunctor.Monoidal
     -- * Free Monoidal Profunctors
   , Mon (..)
   , foldMon
-  , ChooseMon (..)
-  , foldChooseMon
-  , ChooseMonF (..)
+  , PartialMon (..)
+  , foldPartialMon
+  , PartialMonF (..)
     -- * Wrapped types
   , WrappedMonoidal (..)
   , WrappedApplicator (..)
@@ -60,7 +60,7 @@ import Data.Functor.Contravariant.Divisible hiding (chosen)
 import Data.Profunctor hiding (WrappedArrow(..))
 import qualified Data.Profunctor as Pro (WrappedArrow(..))
 import Data.Profunctor.Cayley
-import Data.Profunctor.Choose
+import Data.Profunctor.Partial
 import Data.Profunctor.Composition
 import Data.Profunctor.Monad
 import Data.Profunctor.Traversing
@@ -315,8 +315,8 @@ instance Monoidal (Mon p) where
   p0 >*< p1 = (,) <$> lmap fst p0 <*> lmap snd p1
 
 {- | A free `Choice` and `Cochoice`, `Monoidal` `Profunctor` type. -}
-newtype ChooseMon p a b =
-  InChooseMon {outChooseMon :: ChooseMonF ChooseMon p a b}
+newtype PartialMon p a b =
+  InPartialMon {outPartialMon :: PartialMonF PartialMon p a b}
   deriving newtype
     ( Functor
     , Filterable
@@ -326,101 +326,101 @@ newtype ChooseMon p a b =
     , QFunctor
     , QPointed
     )
-instance Applicative (ChooseMon p a) where
-  pure = InChooseMon . ChoosePure
-  InChooseMon ChooseNil <*> _ = InChooseMon ChooseNil
-  _ <*> InChooseMon ChooseNil = InChooseMon ChooseNil
-  InChooseMon (ChoosePure f) <*> InChooseMon x = InChooseMon (f <$> x)
-  InChooseMon f <*> InChooseMon (ChoosePure x) = InChooseMon (($ x) <$> f)
-  InChooseMon (ChooseAp f g x) <*> y =
+instance Applicative (PartialMon p a) where
+  pure = InPartialMon . PartialPure
+  InPartialMon PartialNil <*> _ = InPartialMon PartialNil
+  _ <*> InPartialMon PartialNil = InPartialMon PartialNil
+  InPartialMon (PartialPure f) <*> InPartialMon x = InPartialMon (f <$> x)
+  InPartialMon f <*> InPartialMon (PartialPure x) = InPartialMon (($ x) <$> f)
+  InPartialMon (PartialAp f g x) <*> y =
     let
       apply h a t = ($ a) <$> h t
     in
-      InChooseMon (ChooseAp f (apply <$> g <*> y) x)
-instance Monoidal (ChooseMon p)
-instance QMonad ChooseMon where
-  qjoin = foldChooseMon id
+      InPartialMon (PartialAp f (apply <$> g <*> y) x)
+instance Monoidal (PartialMon p)
+instance QMonad PartialMon where
+  qjoin = foldPartialMon id
 
-{- | Run `ChooseMon` in any `Choice`, `Cochoice`, `Monoidal`. -}
-foldChooseMon
+{- | Run `PartialMon` in any `Choice`, `Cochoice`, `Monoidal`. -}
+foldPartialMon
   :: (Monoidal q, Choice q, Cochoice q)
   => (forall x y. p x y -> q x y)
-  -> ChooseMon p a b
+  -> PartialMon p a b
   -> q a b
-foldChooseMon k = \case
-  InChooseMon ChooseNil -> catMaybesP (pureP Nothing)
-  InChooseMon (ChoosePure b) -> pureP b
-  InChooseMon (ChooseAp f g x) ->
+foldPartialMon k = \case
+  InPartialMon PartialNil -> catMaybesP (pureP Nothing)
+  InPartialMon (PartialPure b) -> pureP b
+  InPartialMon (PartialAp f g x) ->
     let
-      h = foldChooseMon k g
+      h = foldPartialMon k g
       y = dimapMaybe f Just (k x)
     in
       catMaybesP (liftA2P ($) h y)
 
-{- | `ChooseMonF` is `ChooseMon` with its recursion abstracted
+{- | `PartialMonF` is `PartialMon` with its recursion abstracted
 into a parameter, so it may be reused in
-`Data.Profunctor.Distributor.ChooseDist`. -}
-data ChooseMonF mon p a b where
-  ChooseNil :: ChooseMonF mon p a b
-  ChoosePure :: b -> ChooseMonF mon p a b
-  ChooseAp
+`Data.Profunctor.Distributor.PartialDist`. -}
+data PartialMonF mon p a b where
+  PartialNil :: PartialMonF mon p a b
+  PartialPure :: b -> PartialMonF mon p a b
+  PartialAp
     :: (s -> Maybe a)
     -> mon p s (b -> Maybe t)
-    -> p a b -> ChooseMonF mon p s t
+    -> p a b -> PartialMonF mon p s t
 instance (forall q. Profunctor (mon q))
-  => Functor (ChooseMonF mon p a) where fmap = rmap
+  => Functor (PartialMonF mon p a) where fmap = rmap
 instance (forall q. Choice (mon q), forall q. Cochoice (mon q))
-  => Filterable (ChooseMonF mon p a) where
+  => Filterable (PartialMonF mon p a) where
     mapMaybe = mapMaybeP
 instance (forall q. Profunctor (mon q))
-  => Profunctor (ChooseMonF mon p) where
-    dimap _ _ ChooseNil = ChooseNil
-    dimap _ g (ChoosePure b) = ChoosePure (g b)
-    dimap f' g' (ChooseAp f g x) =
-      ChooseAp (f . f') (rmap (fmap g' .) (lmap f' g)) x
+  => Profunctor (PartialMonF mon p) where
+    dimap _ _ PartialNil = PartialNil
+    dimap _ g (PartialPure b) = PartialPure (g b)
+    dimap f' g' (PartialAp f g x) =
+      PartialAp (f . f') (rmap (fmap g' .) (lmap f' g)) x
 instance (forall q. Choice (mon q))
-  => Choice (ChooseMonF mon p) where
-    left' ChooseNil = ChooseNil
-    left' (ChoosePure b) = ChoosePure (Left b)
-    left' (ChooseAp f g x) =
+  => Choice (PartialMonF mon p) where
+    left' PartialNil = PartialNil
+    left' (PartialPure b) = PartialPure (Left b)
+    left' (PartialAp f g x) =
       let
         apply e t = either ((Left <$>) . ($ t)) (Just . Right) e
       in
-        ChooseAp (either f (pure Nothing)) (rmap apply (left' g)) x
-    right' ChooseNil = ChooseNil
-    right' (ChoosePure b) = ChoosePure (Right b)
-    right' (ChooseAp f g x) =
+        PartialAp (either f (pure Nothing)) (rmap apply (left' g)) x
+    right' PartialNil = PartialNil
+    right' (PartialPure b) = PartialPure (Right b)
+    right' (PartialAp f g x) =
       let
         apply e t = either (Just . Left) ((Right <$>) . ($ t)) e
       in
-        ChooseAp (either (pure Nothing) f) (rmap apply (right' g)) x
+        PartialAp (either (pure Nothing) f) (rmap apply (right' g)) x
 instance (forall q. Cochoice (mon q))
-  => Cochoice (ChooseMonF mon p) where
-    unleft ChooseNil = ChooseNil
-    unleft (ChoosePure (Left b)) = ChoosePure b
-    unleft (ChoosePure (Right _)) = ChooseNil
-    unleft (ChooseAp f g x) =
+  => Cochoice (PartialMonF mon p) where
+    unleft PartialNil = PartialNil
+    unleft (PartialPure (Left b)) = PartialPure b
+    unleft (PartialPure (Right _)) = PartialNil
+    unleft (PartialAp f g x) =
       let
         g' = rmap (Left . (either Just (pure Nothing) <=<)) g
       in
-        ChooseAp (f . Left) (unleft g') x
-    unright ChooseNil = ChooseNil
-    unright (ChoosePure (Left _)) = ChooseNil
-    unright (ChoosePure (Right b)) = ChoosePure b
-    unright (ChooseAp f g x) =
+        PartialAp (f . Left) (unleft g') x
+    unright PartialNil = PartialNil
+    unright (PartialPure (Left _)) = PartialNil
+    unright (PartialPure (Right b)) = PartialPure b
+    unright (PartialAp f g x) =
       let
         g' = rmap (Right . (either (pure Nothing) Just <=<)) g
       in
-        ChooseAp (f . Right) (unright g') x
-instance QFunctor mon => QFunctor (ChooseMonF mon) where
-  qmap _ ChooseNil = ChooseNil
-  qmap _ (ChoosePure b) = ChoosePure b
-  qmap h (ChooseAp f g x) = ChooseAp f (qmap h g) (h x)
+        PartialAp (f . Right) (unright g') x
+instance QFunctor mon => QFunctor (PartialMonF mon) where
+  qmap _ PartialNil = PartialNil
+  qmap _ (PartialPure b) = PartialPure b
+  qmap h (PartialAp f g x) = PartialAp f (qmap h g) (h x)
 instance
   ( QFunctor mon
   , forall q. Monoidal (mon q)
-  ) => QPointed (ChooseMonF mon) where
-    qsingle = ChooseAp Just (pureP Just)
+  ) => QPointed (PartialMonF mon) where
+    qsingle = PartialAp Just (pureP Just)
 
 {- | `WrappedMonoidal` can be used to derive instances from
 a `Monoidal` `Profunctor` it wraps. -}

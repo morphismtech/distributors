@@ -1,5 +1,5 @@
 {- |
-Module      :  Data.Profunctor.Choose
+Module      :  Data.Profunctor.Partial
 Description :  choice & cochoice profunctors
 Copyright   :  (C) 2024 - Eitan Chatav
 License     :  BSD-style (see the file LICENSE)
@@ -10,15 +10,15 @@ Portability :  non-portable
 This module defines types and terms for
 `Choice` and `Cochoice` `Profunctor`s.
 -}
-module Data.Profunctor.Choose
+module Data.Profunctor.Partial
   ( dimapMaybe
   , alternate
   , discriminate
   , mapMaybeP
   , catMaybesP
   , filterP
-  , Choose (..)
-  , foldChoose
+  , Partial (..)
+  , foldPartial
   ) where
 
 import Control.Lens
@@ -120,41 +120,41 @@ filterP
   => (b -> Bool) -> p a b -> p a b
 filterP f = mapMaybeP $ \a -> if f a then Just a else Nothing
 
-{- | `Choose` is the free `Choice` and `Cochoice` `Profunctor`. -}
-data Choose p a b where
-  Choose
+{- | `Partial` is the free `Choice` and `Cochoice` `Profunctor`. -}
+data Partial p a b where
+  Partial
     :: (a -> Maybe x)
     -> (y -> Maybe b)
-    -> p x y -> Choose p a b
-instance Functor (Choose p a) where
+    -> p x y -> Partial p a b
+instance Functor (Partial p a) where
   fmap = rmap
-instance Filterable (Choose p a) where
+instance Filterable (Partial p a) where
   mapMaybe = mapMaybeP
   catMaybes = catMaybesP
-instance Profunctor (Choose p) where
-  dimap f g (Choose f' g' p) =
-    Choose (f' . f) (fmap g . g') p
-instance Choice (Choose p) where
-  left' (Choose f g p) =
-    Choose (either f (const Nothing)) (fmap Left . g) p
-  right' (Choose f g p) =
-    Choose (either (const Nothing) f) (fmap Right . g) p
-instance Cochoice (Choose p) where
-  unleft (Choose f g p) =
-    Choose (f . Left) (either Just (const Nothing) <=< g) p
-  unright (Choose f g p) =
-    Choose (f . Right) (either (const Nothing) Just <=< g) p
-instance QFunctor Choose where
-  qmap pq (Choose f g p) = Choose f g (pq p)
-instance QPointed Choose where
-  qsingle = Choose Just Just
-instance QMonad Choose where
-  qjoin = foldChoose id
+instance Profunctor (Partial p) where
+  dimap f g (Partial f' g' p) =
+    Partial (f' . f) (fmap g . g') p
+instance Choice (Partial p) where
+  left' (Partial f g p) =
+    Partial (either f (const Nothing)) (fmap Left . g) p
+  right' (Partial f g p) =
+    Partial (either (const Nothing) f) (fmap Right . g) p
+instance Cochoice (Partial p) where
+  unleft (Partial f g p) =
+    Partial (f . Left) (either Just (const Nothing) <=< g) p
+  unright (Partial f g p) =
+    Partial (f . Right) (either (const Nothing) Just <=< g) p
+instance QFunctor Partial where
+  qmap pq (Partial f g p) = Partial f g (pq p)
+instance QPointed Partial where
+  qsingle = Partial Just Just
+instance QMonad Partial where
+  qjoin = foldPartial id
 
-{- | Fold to a `Choice` and `Cochoice` over `Choose`.-}
-foldChoose
+{- | Fold to a `Choice` and `Cochoice` over `Partial`.-}
+foldPartial
   :: (Choice q, Cochoice q)
   => (forall x y. p x y -> q x y)
-  -> Choose p a b
+  -> Partial p a b
   -> q a b
-foldChoose k = \(Choose f g p) -> dimapMaybe f g (k p)
+foldPartial k = \(Partial f g p) -> dimapMaybe f g (k p)

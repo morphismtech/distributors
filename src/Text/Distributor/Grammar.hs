@@ -18,7 +18,7 @@ module Text.Distributor.Grammar
 
 import Control.Applicative
 import Control.Lens
-import Control.Lens.Bifocal
+-- import Control.Lens.Bifocal
 import Control.Lens.PartialIso
 import Control.Lens.Stream
 import Data.Bifunctor.Joker
@@ -28,7 +28,7 @@ import Data.Function
 import Data.Map.Lazy (Map)
 import qualified Data.Map.Lazy as Map
 import Data.Profunctor
-import Data.Profunctor.Choose
+import Data.Profunctor.Partial
 import Data.Profunctor.Distributor
 import Data.Profunctor.Monoidal
 import Data.String
@@ -69,8 +69,8 @@ type Syntax rul str chr s a = Syntactical rul str chr s s a a
 _Any :: Syntax rul str chr chr ()
 _Any = (rmap pure anyToken *<)
 
-_TilEnd :: Syntax rul str chr str ()
-_TilEnd = _Many . _Any
+-- _TilEnd :: Syntax rul str chr str ()
+-- _TilEnd = _Many . _Any
 
 _Str :: str -> Syntax rul str chr () ()
 _Str t = (rmap pure (stream t) *<)
@@ -78,8 +78,8 @@ _Str t = (rmap pure (stream t) *<)
 _Chr :: chr -> Syntax rul str chr () ()
 _Chr c =  _Str (cons c Empty)
 
-_End :: forall rul str chr. Syntax rul str chr () ()
-_End = coPrism (_Empty @str) . _TilEnd
+-- _End :: forall rul str chr. Syntax rul str chr () ()
+-- _End = coPrism (_Empty @str) . _TilEnd
 
 allTokens :: (Syntactic e t c p, Stream s t c c) => p s t
 allTokens = manyP anyToken

@@ -24,8 +24,8 @@ module Data.Profunctor.Distributor
   , Dist (..)
   , FreeDistributor (..)
   , foldFilterDist
-  , ChooseDist (..)
-  , foldChooseDist
+  , PartialDist (..)
+  , foldPartialDist
   , FilterAp (..)
   , liftFilterAp
   , hoistFilterAp
@@ -57,7 +57,7 @@ import qualified Data.Functor.Contravariant.Divisible as Con (chosen)
 import Data.Profunctor hiding (WrappedArrow(..))
 import qualified Data.Profunctor as Pro (WrappedArrow(..))
 import Data.Profunctor.Cayley
-import Data.Profunctor.Choose
+import Data.Profunctor.Partial
 import Data.Profunctor.Composition
 import Data.Kind
 import Data.Profunctor.Monad
@@ -430,75 +430,75 @@ instance (forall f. Filterable (ap f)) => Cochoice (Dist ap p) where
       (mapMaybe (either (const Nothing) Just) x)
       (mapMaybe (either (const Nothing) Just) y)
 
-{- | `ChooseDist` is the free `Choice` and `Cochoice`,
+{- | `PartialDist` is the free `Choice` and `Cochoice`,
 `Alternative` `Distributor`.
 -}
-newtype ChooseDist p a b =
-  ChooseDist {distAlts :: [ChooseMonF ChooseDist p a b]}
-instance Functor (ChooseDist p a) where
-  fmap f (ChooseDist alts) = ChooseDist (map (fmap f) alts)
-instance Applicative (ChooseDist p a) where
-  pure b = ChooseDist [ChoosePure b]
-  ChooseDist xs <*> y =
+newtype PartialDist p a b =
+  PartialDist {distAlts :: [PartialMonF PartialDist p a b]}
+instance Functor (PartialDist p a) where
+  fmap f (PartialDist alts) = PartialDist (map (fmap f) alts)
+instance Applicative (PartialDist p a) where
+  pure b = PartialDist [PartialPure b]
+  PartialDist xs <*> y =
     let
       chooseDistAp
-        :: ChooseDist p a b
-        -> ChooseMonF ChooseDist p a (b -> t)
-        -> ChooseDist p a t
+        :: PartialDist p a b
+        -> PartialMonF PartialDist p a (b -> t)
+        -> PartialDist p a t
       chooseDistAp = undefined
     in
-      ChooseDist (distAlts . chooseDistAp y =<< xs)
-instance Alternative (ChooseDist p a) where
-    empty = ChooseDist []
-    ChooseDist altsL <|> ChooseDist altsR = ChooseDist (altsL ++ altsR)
-instance Profunctor (ChooseDist p) where
-  dimap f g (ChooseDist alts) = ChooseDist (map (dimap f g) alts)
-instance Monoidal (ChooseDist p)
-instance Choice (ChooseDist p) where
-  left' (ChooseDist alts) = ChooseDist (map left' alts)
-  right' (ChooseDist alts) = ChooseDist (map right' alts)
-instance Cochoice (ChooseDist p) where
-  unleft (ChooseDist alts) = ChooseDist (map unleft alts)
-  unright (ChooseDist alts) = ChooseDist (map unright alts)
-instance Distributor (ChooseDist p)
-instance QFunctor ChooseDist where
-  qmap f (ChooseDist alts) =
+      PartialDist (distAlts . chooseDistAp y =<< xs)
+instance Alternative (PartialDist p a) where
+    empty = PartialDist []
+    PartialDist altsL <|> PartialDist altsR = PartialDist (altsL ++ altsR)
+instance Profunctor (PartialDist p) where
+  dimap f g (PartialDist alts) = PartialDist (map (dimap f g) alts)
+instance Monoidal (PartialDist p)
+instance Choice (PartialDist p) where
+  left' (PartialDist alts) = PartialDist (map left' alts)
+  right' (PartialDist alts) = PartialDist (map right' alts)
+instance Cochoice (PartialDist p) where
+  unleft (PartialDist alts) = PartialDist (map unleft alts)
+  unright (PartialDist alts) = PartialDist (map unright alts)
+instance Distributor (PartialDist p)
+instance QFunctor PartialDist where
+  qmap f (PartialDist alts) =
     let
-      hoistChooseMonF
+      hoistPartialMonF
         :: (forall x y. p x y -> q x y)
-        -> ChooseMonF ChooseDist p s t
-        -> ChooseMonF ChooseDist q s t
-      hoistChooseMonF g = \case
-        ChooseNil -> ChooseNil
-        ChoosePure t -> ChoosePure t
-        ChooseAp f' g' x ->
-          ChooseAp f' (qmap g g') (g x)
+        -> PartialMonF PartialDist p s t
+        -> PartialMonF PartialDist q s t
+      hoistPartialMonF g = \case
+        PartialNil -> PartialNil
+        PartialPure t -> PartialPure t
+        PartialAp f' g' x ->
+          PartialAp f' (qmap g g') (g x)
     in
-      ChooseDist (map (hoistChooseMonF f) alts)
-instance QPointed ChooseDist where
-  qsingle p = ChooseDist [ChooseAp Just (pure Just) p]
-instance QMonad ChooseDist where
-  qjoin = foldChooseDist id
+      PartialDist (map (hoistPartialMonF f) alts)
+instance QPointed PartialDist where
+  qsingle p = PartialDist [PartialAp Just (pure Just) p]
+instance QMonad PartialDist where
+  qjoin = foldPartialDist id
 
-foldChooseDist
+foldPartialDist
   :: forall p q a b.
      ( Choice q
      , Cochoice q
      , forall s. Alternative (q s)
      )
   => (forall x y. p x y -> q x y)
-  -> ChooseDist p a b -> q a b
-foldChooseDist u chooseDist = go chooseDist where
+  -> PartialDist p a b -> q a b
+foldPartialDist u chooseDist = go chooseDist where
 
-  go :: forall s t. ChooseDist p s t -> q s t
-  go (ChooseDist alts) =
+  go :: forall s t. PartialDist p s t -> q s t
+  go (PartialDist alts) =
     foldr (\r alt -> go2 r <|> alt) empty alts
 
-  go2 :: forall s t. ChooseMonF ChooseDist p s t -> q s t
+  go2 :: forall s t. PartialMonF PartialDist p s t -> q s t
   go2 = \case
-    ChooseNil -> empty
-    ChoosePure b -> pure b
-    ChooseAp f alt x -> catMaybesP (go alt <*> dimapMaybe f Just (u x))
+    PartialNil -> empty
+    PartialPure b -> pure b
+    PartialAp f alt x -> catMaybesP (go alt <*> dimapMaybe f Just (u x))
 
 -- positional pattern matching
 eot

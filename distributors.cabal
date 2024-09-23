@@ -27,14 +27,13 @@ library
   exposed-modules:
       Control.Applicative.Filterable
       Control.Lens.Bifocal
-      Control.Lens.Bifocal2
       Control.Lens.Internal.FunList
       Control.Lens.Monocle
       Control.Lens.PartialIso
       Control.Lens.Stream
-      Data.Profunctor.Choose
       Data.Profunctor.Distributor
       Data.Profunctor.Monoidal
+      Data.Profunctor.Partial
       Text.Distributor.Grammar
   other-modules:
       Paths_distributors

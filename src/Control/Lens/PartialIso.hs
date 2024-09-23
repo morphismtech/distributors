@@ -43,7 +43,7 @@ import Control.Lens
 import Control.Monad
 import Data.Functor.Adjunction
 import Data.Profunctor
-import Data.Profunctor.Choose
+import Data.Profunctor.Partial
 import Witherable
 
 {- | A `PartialExchange` provides efficient access

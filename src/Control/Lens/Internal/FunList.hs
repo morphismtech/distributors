@@ -30,7 +30,7 @@ import Data.Functor.Compose
 import Data.Functor.Rep
 import Data.Distributive
 import Data.Profunctor
-import Data.Profunctor.Choose
+import Data.Profunctor.Partial
 import Data.Profunctor.Rep hiding (Representable (..))
 import qualified Data.Profunctor.Rep as Pro
 import Data.Profunctor.Sieve
