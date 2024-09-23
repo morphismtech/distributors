@@ -10,6 +10,7 @@ Stability   : experimental
 module Data.Profunctor.Distributor
   ( -- * Lax Distributive Profunctors
     Distributor (..)
+  , PartialDistributor
   , emptyP
   , dialt
   , altP
@@ -573,3 +574,18 @@ dichainr' p opr arg =
     sev = manyP @p @[a]
   in
     difoldr' p ?< sev (opr >* arg) >*< arg 
+
+class
+  ( Distributor p
+  , Choice p
+  , Cochoice p
+  , forall x. Filterable (p x)
+  , forall x. Alternative (p x)
+  ) => PartialDistributor p where
+instance
+  ( Distributor p
+  , Choice p
+  , Cochoice p
+  , forall x. Filterable (p x)
+  , forall x. Alternative (p x)
+  ) => PartialDistributor p where
