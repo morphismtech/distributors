@@ -42,7 +42,6 @@ import Control.Applicative
 import Control.Lens
 import Control.Lens.Internal.FunList
 import Control.Monad
-import Data.Functor.Adjunction
 import Data.Profunctor
 import Data.Profunctor.Partial
 import Witherable
@@ -212,16 +211,13 @@ infixr 2 >?
 (?<) pat = withPrism pat $ \f g -> unright . dimap (either id f) g
 infixr 2 ?<
 
-{- | Clone and invert `APrism` into a `coPrism` `Optic`.
-
-prop> coPrism pat (rmap Identity p) = rmap Identity (pat ?< p)
+{- | Clone `APrism` into a `coPrism` `Optic`.
 -}
 coPrism
-  :: (Cochoice p, Adjunction f u)
+  :: (Profunctor p, Filterable f)
   => APrism b a t s
   -> Optic p f s t a b
-coPrism pat = withPrism pat $ \f g ->
-  unright . dimap (either id f) (left' extractL . cozipL . fmap g)
+coPrism pat = runPafb . (pat ?<) . Pafb
 
 {- | Action of `APartialIso` on `Choice` and `Cochoice` `Profunctor`s. -}
 (>?<)
