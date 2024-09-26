@@ -154,9 +154,6 @@ instance Closed (Grating a b) where
   closed (Grating z) = Grating $ \f x ->
     z $ \k -> f $ \g -> k (g x)
 
-grating :: Grating a b a b
-grating = Grating ($ id)
-
 -- Peano datatypes
 data Peano = Z | S Peano
 
@@ -295,7 +292,7 @@ instance Tokenized a b (SpiceShop a b) where
 instance Tokenized a b (PoshSpice a b) where
   anyToken = PoshSpice (sell Just)
 instance Tokenized a b (Grating a b) where
-  anyToken = grating
+  anyToken = Grating ($ id)
 instance Tokenized a b (Identical a b) where
   anyToken = Identical
 instance Tokenized a b (Exchange a b) where

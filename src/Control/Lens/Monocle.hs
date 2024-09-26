@@ -64,7 +64,10 @@ prop> Iso s t a b < Monocle s t a b < Traversal s t a b
 `Monocle`s may be used as cotraversals or equivalently, grates.
 -}
 type Monocle s t a b = forall p f.
-  (Monoidal p, Applicative f) => p a (f b) -> p s (f t)
+  ( Monoidal p
+  , forall x. Applicative (p x)
+  , Applicative f
+  ) => p a (f b) -> p s (f t)
 
 {- | `Simple` `Monocle`. -}
 type Monocle' s a = Monocle s s a a

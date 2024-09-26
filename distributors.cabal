@@ -35,6 +35,7 @@ library
       Data.Profunctor.Monoidal
       Data.Profunctor.Partial
       Text.Distributor.Grammar
+      Text.Distributor.Grammar2
   other-modules:
       Paths_distributors
   autogen-modules:
