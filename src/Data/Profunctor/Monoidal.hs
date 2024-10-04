@@ -46,6 +46,7 @@ import Control.Comonad
 import Control.Lens hiding (chosen, Traversing)
 import Control.Lens.Internal.Context
 import Control.Lens.Internal.FunList
+import Control.Lens.Internal.Prism
 import Control.Lens.Internal.Profunctor
 import Control.Lens.PartialIso
 import Control.Lens.Stream
@@ -66,6 +67,7 @@ import Data.Profunctor.Monad
 import Data.Profunctor.Traversing
 import Data.Profunctor.Yoneda
 import Data.Quiver.Functor
+import Data.Tagged
 import Witherable
 
 {- | A lax monoidal profunctor with respect to product
@@ -180,6 +182,7 @@ instance (Monoidal p, Applicative f)
       WrapPafb (dimap2 fst snd (liftA2 (,)) ab cd)
 instance Monoidal (Grating a b)
 instance Monoidal (PoshSpice a b)
+instance Monoidal Tagged
 
 {- | Like `pure` but with a `Monoidal` constraint,
 `pureP` is a functionalization of `oneP`.
@@ -476,6 +479,8 @@ instance
   , forall x. Applicative (p x)
   , Profunctor p
   ) => Monoidal (Pafb f p)
+
+instance Monoidal (Market a b)
 
 -- questionable instance
 -- instance Monoidal (Market a b) where

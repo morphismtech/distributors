@@ -211,12 +211,14 @@ infixr 2 >?
 (?<) pat = withPrism pat $ \f g -> unright . dimap (either id f) g
 infixr 2 ?<
 
-{- | Clone `APrism` into a `coPrism` `Optic`.
+{- | Action of a coPrism on `Profunctor`s composed with
+`Filterable` on their covariant argument.
 -}
 coPrism
   :: (Profunctor p, Filterable f)
   => APrism b a t s
-  -> Optic p f s t a b
+  -> p a (f b)
+  -> p s (f t)
 coPrism pat = runPafb . (pat ?<) . Pafb
 
 {- | Action of `APartialIso` on `Choice` and `Cochoice` `Profunctor`s. -}

@@ -160,6 +160,8 @@ data Peano = Z | S Peano
 data V (n :: Peano) x where
   VNil :: V Z x
   (:><) :: x -> V n x -> V (S n) x
+infixr 6 :><
+deriving instance Show x => Show (V n x)
 instance Functor (V n) where
   fmap f = \case
     VNil -> VNil
@@ -299,3 +301,14 @@ instance Tokenized a b (Exchange a b) where
   anyToken = Exchange id id
 instance Tokenized a b (Market a b) where
   anyToken = Market id Right 
+
+-- Come up with a newtype for this
+-- so that we can cast Monocles to improper Prisms
+-- instance Applicative (Market a b s) where
+--   pure t = Market (\_ -> t) (\_ -> Left t)
+--   Market ff fg <*> Market xf xg =
+--     Market (($) <$> ff <*> xf) $ \s ->
+--       case (fg s, xg s) of
+--         (Left f, Left x) -> Left (f x)
+--         (Right a, _) -> Right a
+--         (_, Right a) -> Right a
