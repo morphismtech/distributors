@@ -118,7 +118,7 @@ class Monoidal p => Distributor p where
   default (>+<)
     :: (Choice p, Cochoice p, forall x. Alternative (p x))
     => p a b -> p c d -> p (Either a c) (Either b d)
-  p >+< q = alternate (Left p) <|> alternate (Right q)
+  p >+< q = alternateDefault (Left p) <|> alternateDefault (Right q)
   infixr 1 >+<
 
   {- |
@@ -242,6 +242,9 @@ instance (Distributor p, Applicative f)
     WrapPafb ab >+< WrapPafb cd =
       WrapPafb (dialt id (fmap Left) (fmap Right) ab cd)
 instance Distributor (PoshSpice a b)
+instance Distributor (Choosing a b) where
+  zeroP = empty
+  p >+< q = alternate (Left p) <|> alternate (Right q)
 instance (Choice p, forall x. Filterable (p x), forall x. Alternative (p x))
   => Distributor (WrappedApplicator p)
 instance
@@ -587,3 +590,25 @@ instance
   , forall x. Filterable (p x)
   , forall x. Alternative (p x)
   ) => PartialDistributor p where
+
+class
+  ( Choice p
+  , Distributor p
+  , forall x. Alternative (p x)
+  ) => Alternator p where
+  alternate
+    :: Either (p a b) (p c d)
+    -> p (Either a c) (Either b d)
+  default alternate
+    :: Cochoice p
+    => Either (p a b) (p c d)
+    -> p (Either a c) (Either b d)
+  alternate = alternateDefault
+
+instance Alternator (Choosing a b) where
+  alternate (Left (Choosing (Altar k)))
+    = Choosing $ Altar $ fmap Left
+    . k . (. (\f -> either f (const Nothing)))
+  alternate (Right (Choosing (Altar k)))
+    = Choosing $ Altar $ fmap Right
+    . k . (. (\f -> either (const Nothing) f))

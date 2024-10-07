@@ -12,7 +12,7 @@ This module defines types and terms for
 -}
 module Data.Profunctor.Partial
   ( dimapMaybe
-  , alternate
+  , alternateDefault
   , discriminate
   , mapMaybeP
   , catMaybesP
@@ -48,12 +48,12 @@ dimapMaybe f g =
 
 {- | `Choice` and `Cochoice` profunctors
 generalize the `Choice` methods
-with the `alternate` function.
+with the `alternateDefault` function.
 
-prop> left' = alternate . Left
-prop> right' = alternate . Right
+prop> left' = alternateDefault . Left
+prop> right' = alternateDefault . Right
 
-`alternate` has less general constraint
+`alternateDefault` has less general constraint
 but a more general type,
 than `left'` `Control.Arrow.|||` `right'`.
 
@@ -62,13 +62,13 @@ left' ||| right'
   :: Choice p =>
      Either (p a a) (p c c) -> p (Either a c) (Either a c)
 -}
-alternate
+alternateDefault
   :: (Choice p, Cochoice p)
   => Either (p a b) (p c d)
   -> p (Either a c) (Either b d)
-alternate (Left p) =
+alternateDefault (Left p) =
   dimapMaybe (either Just (pure Nothing)) (Just . Left) p
-alternate (Right p) =
+alternateDefault (Right p) =
   dimapMaybe (either (pure Nothing) Just) (Just . Right) p
 
 {-| `Choice` and `Cochoice` profunctors

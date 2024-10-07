@@ -14,7 +14,9 @@ module Control.Lens.Internal.FunList
   , N
   , Ns
   , Zabar (..)
+  , Altar (..)
   , PoshSpice (..)
+  , Choosing (..)
   , runPoshSpice
   , Pafb (..)
   , Tokenized (..)
@@ -207,6 +209,50 @@ instance Corepresentable p => Sellable p (Zabar p) where
     $ Pro.tabulate
     $ \k -> pure (cosieve k w)
 
+newtype Altar p a b t = Altar
+  { runAltar
+      :: forall f. Alternative f
+      => p a (f b) -> f t
+  }
+instance Functor (Altar p a b) where
+  fmap f (Altar k) = Altar (fmap f . k)
+instance Applicative (Altar p a b) where
+  pure a = Altar $ \_ -> pure a
+  Altar mf <*> Altar ma = Altar $ \ pafb -> mf pafb <*> ma pafb
+instance Alternative (Altar p a b) where
+  empty = Altar $ \_ -> empty
+  Altar mx <|> Altar my = Altar $ \ pafb -> mx pafb <|> my pafb
+instance Corepresentable p => Sellable p (Altar p) where
+  sell
+    = cotabulate
+    $ \w -> Altar
+    $ Pro.tabulate
+    $ \k -> pure (cosieve k w)
+
+newtype Choosing a b s t = Choosing
+  {unChoosing :: Altar (->) (s -> Maybe a) b t}
+  deriving newtype (Functor, Applicative, Alternative)
+instance Profunctor (Choosing a b) where
+  dimap f g (Choosing (Altar k))
+    = Choosing $ Altar $ fmap g . k . (. (. f))
+instance Choice (Choosing a b) where
+  left' (Choosing (Altar k))
+    = Choosing $ Altar $ fmap Left
+    . k . (. (\f -> either f (const Nothing)))
+  right' (Choosing (Altar k))
+    = Choosing $ Altar $ fmap Right
+    . k . (. (\f -> either (const Nothing) f))
+
+-- runChoosing
+--   :: ( Choice p
+--      , forall x. Alternative (p x)
+--      )
+--   => Choosing a b s t
+--   -> ((s -> Maybe a) -> p a b)
+--   -> p s t
+-- runChoosing (Choosing zab) f g =
+--   runAltar zab $ \sa -> dimap (maybe _ Right . sa) (either id id) (right' (f sa))
+
 newtype PoshSpice a b s t = PoshSpice
   {unPoshSpice :: Zabar (->) (s -> Maybe a) b t}
   deriving newtype (Functor, Applicative, Alternative, Filterable)
@@ -239,7 +285,8 @@ runPoshSpice
   => PoshSpice a b s t
   -> ((s -> Maybe a) -> p a b)
   -> p s t
-runPoshSpice (PoshSpice zab) f = runZabar zab $ \sa -> dimapMaybe sa Just (f sa)
+runPoshSpice (PoshSpice zab) f =
+  runZabar zab $ \sa -> dimapMaybe sa Just (f sa)
 
 newtype Pafb f p a b = Pafb {runPafb :: p a (f b)}
 instance

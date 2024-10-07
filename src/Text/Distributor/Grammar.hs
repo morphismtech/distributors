@@ -118,10 +118,10 @@ instance Filterable f => Cochoice (Parser f) where
     Parser (mapMaybe (either (const Nothing) Just) f)
 instance Filterable f => Filterable (Parser f a) where
   mapMaybe f (Parser x) = Parser (mapMaybe f x)
-instance Filterable ReadP where
-  catMaybes m = m >>= maybe ReadP.pfail return
-instance Syntactic Void String Char (Parser ReadP) where
-  anyToken = Parser ReadP.get
+-- instance Filterable ReadP where
+--   catMaybes m = m >>= maybe ReadP.pfail return
+-- instance Syntactic Void String Char (Parser ReadP) where
+--   anyToken = Parser ReadP.get
 
 showP :: ShowReadP a b -> a -> String
 showP (ShowReadP s _) a = s a ""

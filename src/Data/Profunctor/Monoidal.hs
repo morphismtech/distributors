@@ -46,7 +46,7 @@ import Control.Comonad
 import Control.Lens hiding (chosen, Traversing)
 import Control.Lens.Internal.Context
 import Control.Lens.Internal.FunList
-import Control.Lens.Internal.Prism
+-- import Control.Lens.Internal.Prism
 import Control.Lens.Internal.Profunctor
 import Control.Lens.PartialIso
 import Control.Lens.Stream
@@ -182,6 +182,7 @@ instance (Monoidal p, Applicative f)
       WrapPafb (dimap2 fst snd (liftA2 (,)) ab cd)
 instance Monoidal (Grating a b)
 instance Monoidal (PoshSpice a b)
+instance Monoidal (Choosing a b)
 instance Monoidal Tagged
 
 {- | Like `pure` but with a `Monoidal` constraint,
@@ -480,7 +481,7 @@ instance
   , Profunctor p
   ) => Monoidal (Pafb f p)
 
-instance Monoidal (Market a b)
+-- instance Monoidal (Market a b)
 
 -- questionable instance
 -- instance Monoidal (Market a b) where
