@@ -32,6 +32,7 @@ library
       Control.Lens.PartialIso
       Control.Lens.Stream
       Data.Profunctor.Distributor
+      Data.Profunctor.Distributor1
       Data.Profunctor.Monoidal
       Data.Profunctor.Partial
       Text.Distributor.Grammar

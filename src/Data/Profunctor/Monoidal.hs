@@ -182,8 +182,12 @@ instance (Monoidal p, Applicative f)
       WrapPafb (dimap2 fst snd (liftA2 (,)) ab cd)
 instance Monoidal (Grating a b)
 instance Monoidal (PoshSpice a b)
-instance Monoidal (Choosing a b)
 instance Monoidal Tagged
+instance Monoidal (Altar1 a b) where
+  oneP = Here oneP
+  Here x >*< Here y = Here (x >*< y)
+  Here x >*< There y = There (Here x >*< y)
+  There x >*< y = There (x >*< y)
 
 {- | Like `pure` but with a `Monoidal` constraint,
 `pureP` is a functionalization of `oneP`.

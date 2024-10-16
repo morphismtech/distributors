@@ -34,6 +34,8 @@ module Data.Profunctor.Distributor
     -- * pattern matching
   , eot, onCase, onCocase
   , dichainl, dichainr, dichainl', dichainr'
+    -- * Alternator
+  , Alternator (..)
   ) where
 
 import Control.Applicative hiding (WrappedArrow(..))
@@ -242,9 +244,6 @@ instance (Distributor p, Applicative f)
     WrapPafb ab >+< WrapPafb cd =
       WrapPafb (dialt id (fmap Left) (fmap Right) ab cd)
 instance Distributor (PoshSpice a b)
-instance Distributor (Choosing a b) where
-  zeroP = empty
-  p >+< q = alternate (Left p) <|> alternate (Right q)
 instance (Choice p, forall x. Filterable (p x), forall x. Alternative (p x))
   => Distributor (WrappedApplicator p)
 instance
@@ -604,11 +603,3 @@ class
     => Either (p a b) (p c d)
     -> p (Either a c) (Either b d)
   alternate = alternateDefault
-
-instance Alternator (Choosing a b) where
-  alternate (Left (Choosing (Altar k)))
-    = Choosing $ Altar $ fmap Left
-    . k . (. (\f -> either f (const Nothing)))
-  alternate (Right (Choosing (Altar k)))
-    = Choosing $ Altar $ fmap Right
-    . k . (. (\f -> either (const Nothing) f))

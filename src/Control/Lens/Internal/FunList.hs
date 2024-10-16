@@ -14,12 +14,12 @@ module Control.Lens.Internal.FunList
   , N
   , Ns
   , Zabar (..)
-  , Altar (..)
   , PoshSpice (..)
-  , Choosing (..)
   , runPoshSpice
   , Pafb (..)
   , Tokenized (..)
+  , Altar1 (..)
+  , Altar (..)
   ) where
 
 import Control.Applicative
@@ -209,50 +209,6 @@ instance Corepresentable p => Sellable p (Zabar p) where
     $ Pro.tabulate
     $ \k -> pure (cosieve k w)
 
-newtype Altar p a b t = Altar
-  { runAltar
-      :: forall f. Alternative f
-      => p a (f b) -> f t
-  }
-instance Functor (Altar p a b) where
-  fmap f (Altar k) = Altar (fmap f . k)
-instance Applicative (Altar p a b) where
-  pure a = Altar $ \_ -> pure a
-  Altar mf <*> Altar ma = Altar $ \ pafb -> mf pafb <*> ma pafb
-instance Alternative (Altar p a b) where
-  empty = Altar $ \_ -> empty
-  Altar mx <|> Altar my = Altar $ \ pafb -> mx pafb <|> my pafb
-instance Corepresentable p => Sellable p (Altar p) where
-  sell
-    = cotabulate
-    $ \w -> Altar
-    $ Pro.tabulate
-    $ \k -> pure (cosieve k w)
-
-newtype Choosing a b s t = Choosing
-  {unChoosing :: Altar (->) (s -> Maybe a) b t}
-  deriving newtype (Functor, Applicative, Alternative)
-instance Profunctor (Choosing a b) where
-  dimap f g (Choosing (Altar k))
-    = Choosing $ Altar $ fmap g . k . (. (. f))
-instance Choice (Choosing a b) where
-  left' (Choosing (Altar k))
-    = Choosing $ Altar $ fmap Left
-    . k . (. (\f -> either f (const Nothing)))
-  right' (Choosing (Altar k))
-    = Choosing $ Altar $ fmap Right
-    . k . (. (\f -> either (const Nothing) f))
-
--- runChoosing
---   :: ( Choice p
---      , forall x. Alternative (p x)
---      )
---   => Choosing a b s t
---   -> ((s -> Maybe a) -> p a b)
---   -> p s t
--- runChoosing (Choosing zab) f g =
---   runAltar zab $ \sa -> dimap (maybe _ Right . sa) (either id id) (right' (f sa))
-
 newtype PoshSpice a b s t = PoshSpice
   {unPoshSpice :: Zabar (->) (s -> Maybe a) b t}
   deriving newtype (Functor, Applicative, Alternative, Filterable)
@@ -359,3 +315,65 @@ instance Tokenized a b (Market a b) where
 --         (Left f, Left x) -> Left (f x)
 --         (Right a, _) -> Right a
 --         (_, Right a) -> Right a
+
+-- newtype Altar p a b t = Altar
+--   { runAltar
+--       :: forall f. Alternative f
+--       => p a (f b) -> f t
+--   }
+-- instance Functor (Altar p a b) where
+--   fmap f (Altar k) = Altar (fmap f . k)
+-- instance Applicative (Altar p a b) where
+--   pure a = Altar $ \_ -> pure a
+--   Altar mf <*> Altar ma = Altar $ \ pafb -> mf pafb <*> ma pafb
+-- instance Alternative (Altar p a b) where
+--   empty = Altar $ \_ -> empty
+--   Altar mx <|> Altar my = Altar $ \ pafb -> mx pafb <|> my pafb
+-- instance Corepresentable p => Sellable p (Altar p) where
+--   sell
+--     = cotabulate
+--     $ \w -> Altar
+--     $ Pro.tabulate
+--     $ \k -> pure (cosieve k w)
+
+-- newtype Choosing a b s t = Choosing
+--   {unChoosing :: Altar (->) (s -> Maybe a) b t}
+--   deriving newtype (Functor, Applicative, Alternative)
+-- instance Profunctor (Choosing a b) where
+--   dimap f g (Choosing (Altar k))
+--     = Choosing $ Altar $ fmap g . k . (. (. f))
+-- instance Choice (Choosing a b) where
+--   left' (Choosing (Altar k))
+--     = Choosing $ Altar $ fmap Left
+--     . k . (. (\f -> either f (const Nothing)))
+--   right' (Choosing (Altar k))
+--     = Choosing $ Altar $ fmap Right
+--     . k . (. (\f -> either (const Nothing) f))
+
+-- runChoosing
+--   :: ( Choice p
+--      , forall x. Alternative (p x)
+--      )
+--   => Choosing a b s t
+--   -> ((s -> Maybe a) -> p a b)
+--   -> p s t
+-- runChoosing (Choosing zab) f g =
+--   runAltar zab $ \sa -> dimap (maybe _ Right . sa) (either id id) (right' (f sa))
+
+data Altar1 a b s t
+  = Here (SpiceShop a b s t)
+  | There (Altar1 a b s t)
+instance Functor (Altar1 a b s) where fmap = rmap
+instance Applicative (Altar1 a b s) where
+  pure = Here . pure
+  Here x <*> Here y = Here (x <*> y)
+  Here x <*> There y = There (Here x <*> y)
+  There x <*> y = There (x <*> y)
+instance Profunctor (Altar1 a b) where
+  dimap f g = \case
+    Here shp -> Here (dimap f g shp)
+    There alt -> There (dimap f g alt)
+
+data Altar a b s t
+  = Nowhere
+  | Where (Altar1 a b s t)
