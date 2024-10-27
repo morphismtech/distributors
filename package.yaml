@@ -11,12 +11,9 @@ extra-source-files:
 - CHANGELOG.md
 
 # Metadata used when publishing your package
-# synopsis:            Short description of your package
-# category:            Web
+# synopsis:            Distributors for Invertible Parsing
+# category:            Data, Control, Optics
 
-# To avoid duplicated efforts in documentation and dealing with the
-# complications of embedding Haddock markup inside cabal files, it is
-# common to point users to the README.md file.
 description:         Please see the README on GitHub at <https://github.com/morphismtech/distributors#readme>
 
 dependencies:
@@ -34,6 +31,7 @@ dependencies:
 - lens
 - mtl
 - profunctors
+- semigroupoids
 - tagged
 - text
 - vector

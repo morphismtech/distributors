@@ -27,13 +27,23 @@ library
   exposed-modules:
       Control.Applicative.Filterable
       Control.Lens.Bifocal
+      Control.Lens.Bifocal1
+      Control.Lens.Grate
       Control.Lens.Internal.FunList
+      Control.Lens.Internal.FunList1
+      Control.Lens.Internal.MixedRep
+      Control.Lens.Internal.Token
       Control.Lens.Monocle
+      Control.Lens.Monocle1
       Control.Lens.PartialIso
       Control.Lens.Stream
+      Control.Lens.Tint
+      Control.Lens.Wither
       Data.Profunctor.Distributor
+      Data.Profunctor.Distributor1
       Data.Profunctor.Monoidal
       Data.Profunctor.Partial
+      Data.Profunctor.Partial1
       Text.Distributor.Grammar
       Text.Distributor.Grammar2
   other-modules:
@@ -92,6 +102,7 @@ library
     , lens
     , mtl
     , profunctors
+    , semigroupoids
     , tagged
     , text
     , vector
