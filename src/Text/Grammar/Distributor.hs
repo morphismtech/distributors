@@ -24,7 +24,7 @@ class
     stream :: [c] -> p () ()
     stream str = case uncons str of
       Nothing -> oneP
-      Just (h,t) -> (only h ?< anyToken) >* stream t
+      Just (h,t) -> mapCoprism (only h) anyToken >* stream t
 
     rule :: String -> p a b -> p a b
     rule e p = ruleRec e (const p)

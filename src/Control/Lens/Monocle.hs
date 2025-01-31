@@ -54,8 +54,7 @@ ditraversal
 ditraversal mon = unWrapPFG . mapMonocle mon . WrapPFG
 
 mapMonocle :: Monoidal p => AMonocle s t a b -> p a b -> p s t
-mapMonocle mon p =
-  withMonocle mon $ \k -> runMonocular k $ \_ -> p
+mapMonocle mon = withMonocle mon . flip runMonocular . const
 
 meander
   :: forall p s t a b. (Monoidal p, Choice p, Strong p)

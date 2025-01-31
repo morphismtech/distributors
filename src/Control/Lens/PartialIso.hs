@@ -24,9 +24,9 @@ module Control.Lens.PartialIso
   , altPartialIso
   , iterating
     -- * Prism, Coprism and (Partial)Iso Actions
-  , (>?)
-  , (?<)
-  , (>?<)
+  , mapPrism
+  , mapCoprism
+  , mapPartialIso
   , mapIso
     -- * Common (Partial)Isos
   , _Satisfy
@@ -190,31 +190,28 @@ altPartialIso x y =
       (either ((Left <$>) . f) ((Right <$>) . h))
 
 {- | Action of `APrism` on `Choice` `Profunctor`s. -}
-(>?)
+mapPrism
   :: Choice p
   => APrism s t a b
   -> p a b
   -> p s t
-(>?) pat = withPrism pat $ \f g -> dimap g (either id f) . right'
-infixr 2 >?
+mapPrism pat = withPrism pat $ \f g -> dimap g (either id f) . right'
 
 {- | Action of a coPrism on `Cochoice` `Profunctor`s. -}
-(?<)
+mapCoprism
   :: Cochoice p
   => APrism b a t s
   -> p a b
   -> p s t
-(?<) pat = withPrism pat $ \f g -> unright . dimap (either id f) g
-infixr 2 ?<
+mapCoprism pat = withPrism pat $ \f g -> unright . dimap (either id f) g
 
 {- | Action of `APartialIso` on `Choice` and `Cochoice` `Profunctor`s. -}
-(>?<)
+mapPartialIso
   :: (Choice p, Cochoice p)
   => APartialIso s t a b
   -> p a b
   -> p s t
-i >?< p = withPartialIso i $ \f g -> dimapMaybe f g p
-infixr 2 >?<
+mapPartialIso pat = withPartialIso pat dimapMaybe
 
 {- | Action of `AnIso` on `Profunctor`s. -}
 mapIso :: Profunctor p => AnIso s t a b -> p a b -> p s t

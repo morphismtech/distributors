@@ -43,8 +43,7 @@ cloneBifocal bif = unWrapPF . mapBifocal bif . WrapPF
 mapBifocal
   :: (Alternator p, Filtrator p)
   => ABifocal s t a b -> p a b -> p s t
-mapBifocal bif p =
-  withBifocal bif $ \k -> runBinocular k $ \_ -> p
+mapBifocal bif = withBifocal bif . flip runBinocular . const
 
 withBifocal :: ABifocal s t a b -> (Binocular a b s t -> r) -> r
 withBifocal bif k = k (catMaybes (bif (Just <$> anyToken)))
