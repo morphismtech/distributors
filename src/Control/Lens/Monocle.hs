@@ -59,7 +59,7 @@ mapMonocle mon = withMonocle mon . flip runMonocular . const
 meander
   :: forall p s t a b. (Monoidal p, Choice p, Strong p)
   => ATraversal s t a b -> p a b -> p s t
-meander f p = dimap (f sell) iextract (trav p)
+meander f = dimap (f sell) iextract . trav
   where
     trav :: p u v -> p (Bazaar (->) u w x) (Bazaar (->) v w x)
     trav q = mapIso _Bazaar $ right' (q >*< trav q)
@@ -126,22 +126,3 @@ _Bazaar = from _FunList . iso f g where
   g = \case
     Left t -> DoneFun t
     Right (a, baz) -> MoreFun a baz
-
--- newtype WrappedMonoidal p a b = WrapMonoidal
---   {unWrapMonoidal :: p a b}
--- instance Monoidal p
---   => Functor (WrappedMonoidal p a) where fmap = rmap
--- deriving newtype instance Monoidal p
---   => Applicative (WrappedMonoidal p a)
--- deriving newtype instance Monoidal p
---   => Profunctor (WrappedMonoidal p)
--- deriving newtype instance (Monoidal p, Choice p)
---   => Choice (WrappedMonoidal p)
--- deriving newtype instance (Monoidal p, Strong p)
---   => Strong (WrappedMonoidal p)
--- instance (Monoidal p, Choice p, Strong p)
---   => Traversing (WrappedMonoidal p) where
---     wander f (WrapMonoidal p) = WrapMonoidal $
---       dimap (f sell) iextract (trav p) where
---         trav :: p u v -> p (Bazaar (->) u w x) (Bazaar (->) v w x)
---         trav q = mapIso _Bazaar $ right' (q >*< trav q)
