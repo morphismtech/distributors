@@ -75,8 +75,8 @@ instance Alternator ShowRead where
       shsome str = do
         (h, str') <- uncons str
         let str'' = h:convertStream str'
-        foldl (liftA2 (.)) (pure id) (map s str'')
-      rdsome = fmap convertStream (some r)
+        foldl (liftA2 (.)) (pure id) (map sh str'')
+      rdsome = fmap convertStream (some rd)
       convertStream str = maybe Empty
         (\(h,t) -> cons h (convertStream t))
         (uncons str)
