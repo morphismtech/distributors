@@ -27,6 +27,7 @@ library
   exposed-modules:
       Control.Lens.Bifocal
       Control.Lens.Grate
+      Control.Lens.Internal.Distributor
       Control.Lens.Monocle
       Control.Lens.PartialIso
       Control.Lens.Token

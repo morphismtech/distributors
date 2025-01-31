@@ -58,7 +58,7 @@ mapGrate :: Closed p => AGrate s t a b -> p a b -> p s t
 mapGrate grt = dimap (&) (withGrate grt) . closed
 
 cloneGrate :: AGrate s t a b -> Grate s t a b
-cloneGrate grt = grate (withGrate grt)
+cloneGrate = grate . withGrate
 
 withGrate :: AGrate s t a b -> ((s -> a) -> b) -> t
 withGrate grt = runGrating $ runIdentity <$> grt (Identity <$> anyToken)

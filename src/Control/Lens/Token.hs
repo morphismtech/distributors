@@ -18,4 +18,5 @@ instance Tokenized a b (Market a b) where
 
 data Token a b s t where
   Token :: Token a b a b
-instance Tokenized a b (Token a b) where anyToken = Token
+instance Tokenized a b (Token a b) where
+  anyToken = Token
