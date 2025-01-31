@@ -60,14 +60,24 @@ instance Cochoice ShowRead where
   unright (ShowRead s r) =
     ShowRead (s . Right) (r >>= either (const empty) pure)
 instance Distributor ShowRead where
-  manyP (ShowRead s r) = ShowRead
-    (foldl (liftA2 (.)) (pure id) . map s . convertStream)
-    (fmap convertStream (many r))
+  manyP (ShowRead s r) = ShowRead sh rd
     where
+      sh = foldl (liftA2 (.)) (pure id) . map s . convertStream
+      rd = fmap convertStream (many r)
       convertStream str = maybe Empty
         (\(h,t) -> cons h (convertStream t))
         (uncons str)
-instance Alternator ShowRead
+instance Alternator ShowRead where
+  someP (ShowRead s r) = ShowRead sh rd
+    where
+      sh str = do
+        (h, str') <- uncons str
+        let str'' = h:convertStream str'
+        foldl (liftA2 (.)) (pure id) (map s str'')
+      rd = fmap convertStream (some r)
+      convertStream str = maybe Empty
+        (\(h,t) -> cons h (convertStream t))
+        (uncons str)
 instance Filtrator ShowRead
 instance Filterable (ShowRead a) where
   mapMaybe = dimapMaybe Just
