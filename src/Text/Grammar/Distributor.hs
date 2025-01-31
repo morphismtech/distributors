@@ -37,44 +37,46 @@ data ShowRead a b = ShowRead (a -> Maybe ShowS) (ReadP b)
 instance Tokenized Char Char ShowRead where
   anyToken = ShowRead (Just . (:)) get
 instance Profunctor ShowRead where
-  dimap f g (ShowRead s r) = ShowRead (s . f) (g <$> r)
+  dimap f g (ShowRead sh rd) = ShowRead (sh . f) (g <$> rd)
 instance Functor (ShowRead a) where fmap = rmap
 instance Applicative (ShowRead a) where
   pure b = ShowRead (const (Just id)) (pure b)
-  ShowRead s0 r0 <*> ShowRead s1 r1 =
-    ShowRead (liftA2 (liftA2 (.)) s0 s1) (r0 <*> r1)
+  ShowRead sh0 rd0 <*> ShowRead sh1 rd1 =
+    ShowRead (liftA2 (liftA2 (.)) sh0 sh1) (rd0 <*> rd1)
 instance Alternative (ShowRead a) where
   empty = ShowRead (const Nothing) empty
-  ShowRead s0 r0 <|> ShowRead s1 r1 =
-    ShowRead (liftA2 (<|>) s0 s1) (r0 <|> r1)
-  many (ShowRead s r) = ShowRead s (many r)
-  some (ShowRead s r) = ShowRead s (some r)
+  ShowRead sh0 rd0 <|> ShowRead sh1 rd1 =
+    ShowRead (liftA2 (<|>) sh0 sh1) (rd0 <|> rd1)
+  many (ShowRead sh rd) = ShowRead sh (many rd)
+  some (ShowRead sh rd) = ShowRead sh (some rd)
 instance Choice ShowRead where
-  left' (ShowRead s r) =
-    ShowRead (either s (const Nothing)) (Left <$> r)
-  right' (ShowRead s r) =
-    ShowRead (either (const Nothing) s) (Right <$> r)
+  left' (ShowRead sh rd) =
+    ShowRead (either sh (const Nothing)) (Left <$> rd)
+  right' (ShowRead sh rd) =
+    ShowRead (either (const Nothing) sh) (Right <$> rd)
 instance Cochoice ShowRead where
-  unleft (ShowRead s r) =
-    ShowRead (s . Left) (r >>= either pure (const empty))
-  unright (ShowRead s r) =
-    ShowRead (s . Right) (r >>= either (const empty) pure)
+  unleft (ShowRead sh rd) =
+    ShowRead (sh . Left) (rd >>= either pure (const empty))
+  unright (ShowRead sh rd) =
+    ShowRead (sh . Right) (rd >>= either (const empty) pure)
 instance Distributor ShowRead where
-  manyP (ShowRead s r) = ShowRead sh rd
+  manyP (ShowRead sh rd) = ShowRead shmany rdmany
     where
-      sh = foldl (liftA2 (.)) (pure id) . map s . convertStream
-      rd = fmap convertStream (many r)
+      shmany
+        = foldl (liftA2 (.)) (pure id)
+        . map sh . convertStream
+      rdmany = fmap convertStream (many rd)
       convertStream str = maybe Empty
         (\(h,t) -> cons h (convertStream t))
         (uncons str)
 instance Alternator ShowRead where
-  someP (ShowRead s r) = ShowRead sh rd
+  someP (ShowRead sh rd) = ShowRead shsome rdsome
     where
-      sh str = do
+      shsome str = do
         (h, str') <- uncons str
         let str'' = h:convertStream str'
         foldl (liftA2 (.)) (pure id) (map s str'')
-      rd = fmap convertStream (some r)
+      rdsome = fmap convertStream (some r)
       convertStream str = maybe Empty
         (\(h,t) -> cons h (convertStream t))
         (uncons str)
