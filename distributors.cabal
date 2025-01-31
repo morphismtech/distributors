@@ -25,17 +25,13 @@ source-repository head
 
 library
   exposed-modules:
-      Control.Applicative.Filterable
       Control.Lens.Bifocal
-      Control.Lens.Internal.FunList
+      Control.Lens.Grate
       Control.Lens.Monocle
       Control.Lens.PartialIso
-      Control.Lens.Stream
+      Control.Lens.Token
+      Control.Lens.Wither
       Data.Profunctor.Distributor
-      Data.Profunctor.Monoidal
-      Data.Profunctor.Partial
-      Text.Distributor.Grammar
-      Text.Distributor.Grammar2
   other-modules:
       Paths_distributors
   autogen-modules:
@@ -57,6 +53,7 @@ library
       FunctionalDependencies
       GADTs
       GeneralizedNewtypeDeriving
+      ImpredicativeTypes
       InstanceSigs
       KindSignatures
       LambdaCase

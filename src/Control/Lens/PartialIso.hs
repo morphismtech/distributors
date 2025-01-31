@@ -1,19 +1,17 @@
 {- |
-Module      :  Control.Lens.PartialIso
-Description :  partial isomorphisms
-Copyright   :  (C) 2024 - Eitan Chatav
-License     :  BSD-style (see the file LICENSE)
-Maintainer  :  Eitan Chatav <eitan.chatav@gmail.com>
-Stability   :  provisional
-Portability :  non-portable
-
-This module defines types and terms for
-the partial isomorphism optic `PartialIso`,
-a weakening of `Control.Lens.Prism.Prism`.
+Module      : Control.Lens.PartialIso
+Description : partial isomorphisms
+Copyright   : (C) 2025 - Eitan Chatav
+License     : BSD-style (see the file LICENSE)
+Maintainer  : Eitan Chatav <eitan.chatav@gmail.com>
+Stability   : provisional
+Portability : non-portable
 -}
+
 module Control.Lens.PartialIso
-  ( -- * Partial Isomorphisms
-    PartialIso
+  ( dimapMaybe
+    -- * Partial Isomorphisms
+  , PartialIso
   , PartialIso'
   , APartialIso
   , APartialIso'
@@ -31,7 +29,6 @@ module Control.Lens.PartialIso
   , (?<)
   , (>?<)
   , mapIso
-  , coPrism
     -- * Common (Partial)Isos
   , _Satisfy
   , _Normal
@@ -40,11 +37,21 @@ module Control.Lens.PartialIso
 
 import Control.Applicative
 import Control.Lens
-import Control.Lens.Internal.FunList
+import Control.Lens.Token
 import Control.Monad
 import Data.Profunctor
-import Data.Profunctor.Partial
 import Witherable
+
+dimapMaybe
+  :: (Choice p, Cochoice p)
+  => (s -> Maybe a) -> (b -> Maybe t)
+  -> p a b -> p s t
+dimapMaybe f g =
+  let
+    m2e h = maybe (Left ()) Right . h
+    fg = dimap (>>= m2e f) (>>= m2e g)
+  in
+    unright . fg . right'
 
 {- | A `PartialExchange` provides efficient access
 to the two functions that make up a `PartialIso`.
@@ -59,7 +66,7 @@ instance Monoid (PartialExchange a b s t) where
     nope _ = Nothing
 instance Functor (PartialExchange a b s) where fmap = rmap
 instance Filterable (PartialExchange a b s) where
-  mapMaybe = mapMaybeP
+  mapMaybe = dimapMaybe Just
 instance Profunctor (PartialExchange a b) where
   dimap f' g' (PartialExchange f g) =
     PartialExchange (f . f') (fmap g' . g)
@@ -210,16 +217,6 @@ infixr 2 >?
   -> p s t
 (?<) pat = withPrism pat $ \f g -> unright . dimap (either id f) g
 infixr 2 ?<
-
-{- | Action of a coPrism on `Profunctor`s composed with
-`Filterable` on their covariant argument.
--}
-coPrism
-  :: (Profunctor p, Filterable f)
-  => APrism b a t s
-  -> p a (f b)
-  -> p s (f t)
-coPrism pat = runPafb . (pat ?<) . Pafb
 
 {- | Action of `APartialIso` on `Choice` and `Cochoice` `Profunctor`s. -}
 (>?<)
