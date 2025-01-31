@@ -1,6 +1,6 @@
 {- |
-Module      : Control.Lens.PartialIso
-Description : partial isomorphisms
+Module      : Control.Lens.Token
+Description : tokens
 Copyright   : (C) 2025 - Eitan Chatav
 License     : BSD-style (see the file LICENSE)
 Maintainer  : Eitan Chatav <eitan.chatav@gmail.com>
