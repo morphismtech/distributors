@@ -1,3 +1,13 @@
+{- |
+Module      : Control.Lens.PartialIso
+Description : partial isomorphisms
+Copyright   : (C) 2025 - Eitan Chatav
+License     : BSD-style (see the file LICENSE)
+Maintainer  : Eitan Chatav <eitan.chatav@gmail.com>
+Stability   : provisional
+Portability : non-portable
+-}
+
 module Control.Lens.Token
   ( Tokenized (anyToken)
   , Token (Token)

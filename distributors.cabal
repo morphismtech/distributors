@@ -33,6 +33,7 @@ library
       Control.Lens.Token
       Control.Lens.Wither
       Data.Profunctor.Distributor
+      Text.Grammar.Distributor
   other-modules:
       Paths_distributors
   autogen-modules:

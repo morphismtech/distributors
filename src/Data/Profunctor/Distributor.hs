@@ -14,17 +14,14 @@ module Data.Profunctor.Distributor
   , Alternator (alternate, someP)
   , Filtrator (filtrate)
   , Stream
-  , ShowRead (ShowRead)
   ) where
 
 import Control.Applicative
 import Control.Arrow
 import Control.Lens
 import Control.Lens.PartialIso
-import Control.Lens.Token
 import Data.Profunctor
 import Data.Void
-import Text.ParserCombinators.ReadP
 import Witherable
 
 type Monoidal p = (Profunctor p, forall x. Applicative (p x))
@@ -124,33 +121,3 @@ type Stream s t a b =
   , AsEmpty t
   , Cons t t b b
   )
-
-data ShowRead a b = ShowRead (a -> Maybe ShowS) (ReadP b)
-instance Tokenized Char Char ShowRead where
-  anyToken = ShowRead (Just . (:)) get
-instance Profunctor ShowRead where
-  dimap f g (ShowRead s r) = ShowRead (s . f) (g <$> r)
-instance Functor (ShowRead a) where fmap = rmap
-instance Applicative (ShowRead a) where
-  pure b = ShowRead (const (Just id)) (pure b)
-  ShowRead s0 r0 <*> ShowRead s1 r1 =
-    ShowRead (liftA2 (liftA2 (.)) s1 s0) (r0 <*> r1)
-instance Alternative (ShowRead a) where
-  empty = ShowRead (const Nothing) empty
-  ShowRead s0 r0 <|> ShowRead s1 r1 =
-    ShowRead (liftA2 (<|>) s0 s1) (r0 <|> r1)
-instance Choice ShowRead where
-  left' (ShowRead s r) =
-    ShowRead (either s (const Nothing)) (Left <$> r)
-  right' (ShowRead s r) =
-    ShowRead (either (const Nothing) s) (Right <$> r)
-instance Cochoice ShowRead where
-  unleft (ShowRead s r) =
-    ShowRead (s . Left) (r >>= either pure (const empty))
-  unright (ShowRead s r) =
-    ShowRead (s . Right) (r >>= either (const empty) pure)
-instance Distributor ShowRead
-instance Alternator ShowRead
-instance Filtrator ShowRead
-instance Filterable (ShowRead a) where
-  mapMaybe = dimapMaybe Just
