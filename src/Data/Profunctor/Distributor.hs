@@ -18,7 +18,6 @@ module Data.Profunctor.Distributor
 
 import Control.Applicative
 import Control.Arrow
-import Control.Lens
 import Data.Profunctor
 import Data.Void
 import Witherable
@@ -58,19 +57,10 @@ class Monoidal p => Distributor p where
   x >+< y = alternate (Left x) <|> alternate (Right y)
 
   optionalP :: p a b -> p (Maybe a) (Maybe b)
-  optionalP = dialt
-    (maybe (Left ()) Right)
-    (const Nothing)
-    Just
-    oneP
+  optionalP = dialt (maybe (Left ()) Right) (const Nothing) Just oneP
 
   manyP :: p a b -> p [a] [b]
-  manyP p = dialt
-    (maybe (Left ()) Right . uncons)
-    (const [])
-    (uncurry (:))
-    oneP
-    (p >*< manyP p)
+  manyP p = dialt unlist list0 list1 oneP (p >*< manyP p)
 
 dialt
   :: Distributor p
@@ -96,9 +86,17 @@ class (Choice p, Distributor p, forall x. Alternative (p x))
       dimapMaybe (either (pure Nothing) Just) (Just . Right)
 
     someP :: p a b -> p [a] [b]
-    someP p = mapPrism _Cons (p >*< manyP p) where
-      mapPrism pat = withPrism pat $ \f g ->
-        dimap g (either id f) . right'
+    someP p = dimap unlist (either list0 list1) (right' (p >*< manyP p))
+
+unlist :: [a] -> Either () (a, [a])
+unlist [] = Left ()
+unlist (a:as) = Right (a,as)
+
+list0 :: () -> [a]
+list0 _ = []
+
+list1 :: (a,[a]) -> [a]
+list1 = uncurry (:)
 
 class (Cochoice p, forall x. Filterable (p x))
   => Filtrator p where
