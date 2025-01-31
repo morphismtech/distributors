@@ -215,7 +215,7 @@ mapPartialIso pat = withPartialIso pat dimapMaybe
 
 {- | Action of `AnIso` on `Profunctor`s. -}
 mapIso :: Profunctor p => AnIso s t a b -> p a b -> p s t
-mapIso i p = withIso i $ \here there -> dimap here there p
+mapIso i = withIso i dimap
 
 {- | `_Satisfy` is the prototypical proper partial isomorphism,
 identifying a subset which satisfies a predicate. -}

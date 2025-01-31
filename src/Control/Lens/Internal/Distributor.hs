@@ -1,6 +1,6 @@
 {- |
 Module      : Control.Lens.Internal.Distributor
-Description : bifocals
+Description : internal types
 Copyright   : (C) 2025 - Eitan Chatav
 License     : BSD-style (see the file LICENSE)
 Maintainer  : Eitan Chatav <eitan.chatav@gmail.com>
