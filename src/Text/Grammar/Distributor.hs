@@ -19,10 +19,9 @@ class
   , Filtrator p
   , Eq c
   , Tokenized c c p
-  , Stream s s c c
-  ) => Syntactic s c p | p -> s where
+  ) => Syntactic c p where
 
-    stream :: s -> p () ()
+    stream :: [c] -> p () ()
     stream str = case uncons str of
       Nothing -> oneP
       Just (h,t) -> (only h ?< anyToken) >* stream t
@@ -34,8 +33,6 @@ class
     ruleRec _ = fix
 
 data ShowRead a b = ShowRead (a -> Maybe ShowS) (ReadP b)
-instance Tokenized Char Char ShowRead where
-  anyToken = ShowRead (Just . (:)) get
 instance Profunctor ShowRead where
   dimap f g (ShowRead sh rd) = ShowRead (sh . f) (g <$> rd)
 instance Functor (ShowRead a) where fmap = rmap
@@ -64,26 +61,22 @@ instance Distributor ShowRead where
     where
       shmany
         = foldl (liftA2 (.)) (pure id)
-        . map sh . convertStream
-      rdmany = fmap convertStream (many rd)
-      convertStream str = maybe Empty
-        (\(h,t) -> cons h (convertStream t))
-        (uncons str)
+        . map sh
+      rdmany = many rd
 instance Alternator ShowRead where
   someP (ShowRead sh rd) = ShowRead shsome rdsome
     where
       shsome str = do
         (h, str') <- uncons str
-        let str'' = h:convertStream str'
+        let str'' = h:str'
         foldl (liftA2 (.)) (pure id) (map sh str'')
-      rdsome = fmap convertStream (some rd)
-      convertStream str = maybe Empty
-        (\(h,t) -> cons h (convertStream t))
-        (uncons str)
+      rdsome = some rd
 instance Filtrator ShowRead
 instance Filterable (ShowRead a) where
   mapMaybe = dimapMaybe Just
-instance Syntactic String Char ShowRead
+instance Tokenized Char Char ShowRead where
+  anyToken = ShowRead (Just . (:)) get
+instance Syntactic Char ShowRead
 
 showRead :: (Show a, Read a) => ShowRead a a
 showRead = ShowRead (Just . shows) (readS_to_P reads)

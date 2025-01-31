@@ -9,9 +9,8 @@ Portability : non-portable
 -}
 
 module Control.Lens.PartialIso
-  ( dimapMaybe
-    -- * Partial Isomorphisms
-  , PartialIso
+  ( -- * Partial Isomorphisms
+    PartialIso
   , PartialIso'
   , APartialIso
   , APartialIso'
@@ -40,18 +39,8 @@ import Control.Lens
 import Control.Lens.Token
 import Control.Monad
 import Data.Profunctor
+import Data.Profunctor.Distributor
 import Witherable
-
-dimapMaybe
-  :: (Choice p, Cochoice p)
-  => (s -> Maybe a) -> (b -> Maybe t)
-  -> p a b -> p s t
-dimapMaybe f g =
-  let
-    m2e h = maybe (Left ()) Right . h
-    fg = dimap (>>= m2e f) (>>= m2e g)
-  in
-    unright . fg . right'
 
 {- | A `PartialExchange` provides efficient access
 to the two functions that make up a `PartialIso`.

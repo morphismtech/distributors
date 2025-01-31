@@ -21,7 +21,6 @@ module Control.Lens.Bifocal
 
 import Control.Applicative
 import Control.Lens.Monocle
-import Control.Lens.PartialIso
 import Control.Lens.Token
 import Data.Profunctor
 import Data.Profunctor.Distributor

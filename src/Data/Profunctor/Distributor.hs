@@ -13,13 +13,12 @@ module Data.Profunctor.Distributor
   , Distributor (zeroP, (>+<), optionalP, manyP), dialt
   , Alternator (alternate, someP)
   , Filtrator (filtrate)
-  , Stream
+  , dimapMaybe
   ) where
 
 import Control.Applicative
 import Control.Arrow
 import Control.Lens
-import Control.Lens.PartialIso
 import Data.Profunctor
 import Data.Void
 import Witherable
@@ -65,11 +64,11 @@ class Monoidal p => Distributor p where
     Just
     oneP
 
-  manyP :: Stream s t a b => p a b -> p s t
+  manyP :: p a b -> p [a] [b]
   manyP p = dialt
     (maybe (Left ()) Right . uncons)
-    (const Empty)
-    (review _Cons)
+    (const [])
+    (uncurry (:))
     oneP
     (p >*< manyP p)
 
@@ -96,8 +95,10 @@ class (Choice p, Distributor p, forall x. Alternative (p x))
       |||
       dimapMaybe (either (pure Nothing) Just) (Just . Right)
 
-    someP :: Stream s t a b => p a b -> p s t
-    someP p = _Cons >? p >*< manyP p
+    someP :: p a b -> p [a] [b]
+    someP p = mapPrism _Cons (p >*< manyP p) where
+      mapPrism pat = withPrism pat $ \f g ->
+        dimap g (either id f) . right'
 
 class (Cochoice p, forall x. Filterable (p x))
   => Filtrator p where
@@ -114,10 +115,13 @@ class (Cochoice p, forall x. Filterable (p x))
       &&&
       dimapMaybe (Just . Right) (either (pure Nothing) Just)
 
-type Stream s t a b =
-  ( Cons s t a b
-  , AsEmpty s
-  , Cons s s a a
-  , AsEmpty t
-  , Cons t t b b
-  )
+dimapMaybe
+  :: (Choice p, Cochoice p)
+  => (s -> Maybe a) -> (b -> Maybe t)
+  -> p a b -> p s t
+dimapMaybe f g =
+  let
+    m2e h = maybe (Left ()) Right . h
+    fg = dimap (>>= m2e f) (>>= m2e g)
+  in
+    unright . fg . right'
