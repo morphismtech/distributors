@@ -8,6 +8,8 @@ Stability   : provisional
 Portability : non-portable
 -}
 
+{-# OPTIONS_GHC -Wno-orphans #-}
+
 module Data.Profunctor.Distributor
   ( Monoidal, oneP, (>*<), dimap2, (>*), (*<)
   , Distributor (zeroP, (>+<), optionalP, manyP), dialt
@@ -18,6 +20,9 @@ module Data.Profunctor.Distributor
 
 import Control.Applicative
 import Control.Arrow
+import Data.Bifunctor.Clown
+import Data.Bifunctor.Joker
+import Data.Functor.Contravariant.Divisible
 import Data.Profunctor
 import Data.Void
 import Witherable
@@ -61,6 +66,19 @@ class Monoidal p => Distributor p where
 
   manyP :: p a b -> p [a] [b]
   manyP p = dialt unlist list0 list1 oneP (p >*< manyP p)
+
+instance Distributor (->) where
+  zeroP = id
+  (>+<) = (+++)
+instance Monoid s => Distributor (Forget s) where
+  zeroP = Forget absurd
+  Forget kL >+< Forget kR = Forget (either kL kR)
+instance Decidable f => Distributor (Clown f) where
+  zeroP = Clown lost
+  Clown x >+< Clown y = Clown (chosen x y)
+instance Alternative f => Distributor (Joker f) where
+  zeroP = Joker empty
+  Joker x >+< Joker y = Joker (Left <$> x <|> Right <$> y)
 
 dialt
   :: Distributor p
@@ -123,3 +141,15 @@ dimapMaybe f g =
     fg = dimap (>>= m2e f) (>>= m2e g)
   in
     unright . fg . right'
+
+-- ORPHANAGE --
+
+instance Monoid r => Applicative (Forget r a) where
+  pure _ = Forget mempty
+  Forget f <*> Forget g = Forget (f <> g)
+
+instance Decidable f => Applicative (Clown f a) where
+  pure _ = Clown conquer
+  Clown x <*> Clown y = Clown (divide (id &&& id) x y)
+
+deriving newtype instance Applicative f => Applicative (Joker f a)
