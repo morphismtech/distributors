@@ -248,7 +248,6 @@ _NotNull :: (AsEmpty s, AsEmpty t) => PartialIso s t s t
 _NotNull = partialIso nonEmp nonEmp where
   nonEmp s = if isn't _Empty s then Just s else Nothing
 
-{- | Bidirectional left fold/unfold with no empty case. -}
 difoldl1
   :: Cons s t a b
   => APartialIso (c,a) (d,b) c d
@@ -264,7 +263,6 @@ difoldl1 i =
       . crossPartialIso i id
   in iterating step
 
-{- | Bidirectional right fold/unfold with no empty case. -}
 difoldr1
   :: Cons s t a b
   => APartialIso (a,c) (b,d) c d
