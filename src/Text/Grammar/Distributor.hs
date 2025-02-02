@@ -12,7 +12,6 @@ module Text.Grammar.Distributor
 
 import Control.Applicative
 import Control.Lens
-import Control.Lens.Bifocal
 import Control.Lens.PartialIso
 import Control.Lens.Token
 import Data.Char
@@ -173,21 +172,21 @@ production
     produ
       = ruleRec "production"
       $ \prod -> seqUence <|>
-          mapBifocal _Choice (seqUence *< tokens " | " >*< prod)
+          mapPrism _Choice (seqUence *< tokens " | " >*< prod)
     seqUence
       = ruleRec "sequence"
       $ \sequ -> term <|>
-          mapBifocal _Sequence (term *< token ' ' >*< sequ)
+          mapPrism _Sequence (term *< token ' ' >*< sequ)
     term
       = rule "term"
       $ terminal <|> nonterminal
     terminal
       = rule "terminal"
-      . mapBifocal _Terminal
+      . mapPrism _Terminal
       $ token '\"' >* manyP unreserved *< token '\"'
     nonterminal
       = rule "nonterminal"
-      . mapBifocal _NonTerminal
+      . mapPrism _NonTerminal
       $ token '<' >* manyP unreserved *< token '>'
     unreserved
       = rule "unreserved"
