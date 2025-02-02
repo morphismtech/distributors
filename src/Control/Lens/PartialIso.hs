@@ -244,6 +244,10 @@ _Null = partialIso empA empB where
   empA s = if isn't _Empty s then Nothing else Just ()
   empB _ = Just Empty
 
+_NotNull :: (AsEmpty s, AsEmpty t) => PartialIso s t s t
+_NotNull = partialIso nonEmp nonEmp where
+  nonEmp s = if isn't _Empty s then Just s else Nothing
+
 {- | Bidirectional left fold/unfold with no empty case. -}
 difoldl1
   :: Cons s t a b
