@@ -1,17 +1,25 @@
 module Text.Grammar.Distributor
-  ( Syntactic (stream, rule, ruleRec)
+  ( Syntactic (tokens, rule, ruleRec)
+  , token
+  , satisfy
+  , restOfStream
+  , endOfStream
+  , char
   , ShowRead (ShowRead), showRead, readP, showP
+  , Production (..), production
   ) where
 
 import Control.Applicative
 import Control.Lens
 import Control.Lens.PartialIso
 import Control.Lens.Token
+import Data.Char
 import Data.Function
 import Data.Maybe
 import Data.Profunctor
 import Data.Profunctor.Distributor
-import Text.ParserCombinators.ReadP hiding (many)
+import Data.String
+import Text.ParserCombinators.ReadP hiding (many, satisfy, char)
 import Witherable
 
 class
@@ -21,16 +29,40 @@ class
   , Tokenized c c p
   ) => Syntactic c p where
 
-    stream :: [c] -> p () ()
-    stream str = case uncons str of
+    tokens
+      :: [c] -- ^ terminal symbol
+      -> p () ()
+    tokens str = case uncons str of
       Nothing -> oneP
-      Just (h,t) -> mapCoprism (only h) anyToken >* stream t
+      Just (h,t) -> token h *> tokens t
 
-    rule :: String -> p a b -> p a b
+    rule
+      :: String -- ^ nonterminal symbol
+      -> p a b -- ^ definition
+      -> p a b
     rule e p = ruleRec e (const p)
 
-    ruleRec :: String -> (p a b -> p a b) -> p a b
+    ruleRec
+      :: String -- ^ nonterminal symbol
+      -> (p a b -> p a b) -- ^ recursive definition
+      -> p a b
     ruleRec _ = fix
+
+token :: Syntactic c p => c -> p () ()
+token c = mapCoprism (only c) anyToken
+
+satisfy :: Syntactic c p => (c -> Bool) -> p c c
+satisfy f = mapPartialIso (_Satisfy f) anyToken
+
+restOfStream :: Syntactic c p => p [c] [c]
+restOfStream = manyP anyToken
+
+endOfStream :: Syntactic c p => p () ()
+endOfStream = mapCoprism _Empty restOfStream
+
+char :: Syntactic Char p => GeneralCategory -> p Char Char
+char cat = rule (show cat) $
+  satisfy $ \ch -> cat == generalCategory ch
 
 data ShowRead a b = ShowRead (a -> Maybe ShowS) (ReadP b)
 instance Profunctor ShowRead where
@@ -71,6 +103,7 @@ instance Filterable (ShowRead a) where
 instance Tokenized Char Char ShowRead where
   anyToken = ShowRead (Just . (:)) get
 instance Syntactic Char ShowRead
+instance IsString (ShowRead () ()) where fromString = tokens
 
 showRead :: (Show a, Read a) => ShowRead a a
 showRead = ShowRead (Just . shows) (readS_to_P reads)
@@ -80,3 +113,43 @@ readP (ShowRead _ r) s = fst <$> listToMaybe (readP_to_S r s)
 
 showP :: ShowRead a b -> a -> Maybe String
 showP (ShowRead s _) a = ($ "") <$> s a
+
+data Production c
+  = Terminal [c]
+  | NonTerminal String
+  | Choice (Production c) (Production c)
+  | Sequence (Production c) (Production c)
+  | Optional (Production c)
+  | Many (Production c)
+  | Some (Production c)
+
+makePrisms ''Production
+
+production
+  :: Syntactic Char p
+  => p (Production Char) (Production Char)
+production
+  = ruleRec "production"
+  $ \prod -> seqUence <|>
+      mapPrism _Choice (seqUence *< tokens " | " >*< prod)
+  where
+    seqUence
+      = ruleRec "sequence"
+      $ \sequ -> term <|>
+          mapPrism _Sequence (term *< token ' ' >*< sequ)
+    term
+      = rule "term"
+      $ terminal <|> nonterminal
+    terminal
+      = rule "terminal"
+      . mapPrism _Terminal
+      $ token '\"' >* manyP unreserved *< token '\"'
+    nonterminal
+      = rule "nonterminal"
+      . mapPrism _NonTerminal
+      $ token '<' >* manyP unreserved *< token '>'
+    unreserved
+      = rule "unreserved"
+      . satisfy
+      $ \ch -> ch `notElem` reserved
+    reserved :: String = "\"<>|="
