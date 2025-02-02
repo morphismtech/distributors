@@ -5,17 +5,18 @@ module Text.Grammar.Distributor
   , restOfStream
   , endOfStream
   , char
-  , ShowRead (ShowRead), showRead, readP, showP
+  , ReadSyntax (..), runReadSyntax, readSyntax
+  , ShowSyntax (ShowSyntax), runShowSyntax, showSyntax
   , Production (..), production
   ) where
 
 import Control.Applicative
 import Control.Lens
+import Control.Lens.Bifocal
 import Control.Lens.PartialIso
 import Control.Lens.Token
 import Data.Char
 import Data.Function
-import Data.Maybe
 import Data.Profunctor
 import Data.Profunctor.Distributor
 import Data.String
@@ -64,55 +65,92 @@ char :: Syntactic Char p => GeneralCategory -> p Char Char
 char cat = rule (show cat) $
   satisfy $ \ch -> cat == generalCategory ch
 
-data ShowRead a b = ShowRead (a -> Maybe ShowS) (ReadP b)
-instance Profunctor ShowRead where
-  dimap f g (ShowRead sh rd) = ShowRead (sh . f) (g <$> rd)
-instance Functor (ShowRead a) where fmap = rmap
-instance Applicative (ShowRead a) where
-  pure b = ShowRead (const (Just id)) (pure b)
-  ShowRead sh0 rd0 <*> ShowRead sh1 rd1 =
-    ShowRead (liftA2 (liftA2 (.)) sh0 sh1) (rd0 <*> rd1)
-instance Alternative (ShowRead a) where
-  empty = ShowRead (const Nothing) empty
-  ShowRead sh0 rd0 <|> ShowRead sh1 rd1 =
-    ShowRead (liftA2 (<|>) sh0 sh1) (rd0 <|> rd1)
-  many (ShowRead sh rd) = ShowRead sh (many rd)
-  some (ShowRead sh rd) = ShowRead sh (some rd)
-instance Choice ShowRead where
-  left' (ShowRead sh rd) =
-    ShowRead (either sh (const Nothing)) (Left <$> rd)
-  right' (ShowRead sh rd) =
-    ShowRead (either (const Nothing) sh) (Right <$> rd)
-instance Cochoice ShowRead where
-  unleft (ShowRead sh rd) =
-    ShowRead (sh . Left) (rd >>= either pure (const empty))
-  unright (ShowRead sh rd) =
-    ShowRead (sh . Right) (rd >>= either (const empty) pure)
-instance Distributor ShowRead where
-  manyP (ShowRead sh rd) = ShowRead shmany (many rd) where
+data ShowSyntax a b = ShowSyntax (a -> Maybe ShowS)
+instance Profunctor ShowSyntax where
+  dimap f _ (ShowSyntax sh) = ShowSyntax (sh . f)
+instance Functor (ShowSyntax a) where fmap = rmap
+instance Applicative (ShowSyntax a) where
+  pure _ = ShowSyntax (const (Just id))
+  ShowSyntax sh0 <*> ShowSyntax sh1 =
+    ShowSyntax (liftA2 (liftA2 (.)) sh0 sh1)
+instance Alternative (ShowSyntax a) where
+  empty = ShowSyntax (const Nothing)
+  ShowSyntax sh0 <|> ShowSyntax sh1 =
+    ShowSyntax (liftA2 (<|>) sh0 sh1)
+  many (ShowSyntax sh) = ShowSyntax sh
+  some (ShowSyntax sh) = ShowSyntax sh
+instance Choice ShowSyntax where
+  left' (ShowSyntax sh) =
+    ShowSyntax (either sh (const Nothing))
+  right' (ShowSyntax sh) =
+    ShowSyntax (either (const Nothing) sh)
+instance Cochoice ShowSyntax where
+  unleft (ShowSyntax sh) = ShowSyntax (sh . Left)
+  unright (ShowSyntax sh) = ShowSyntax (sh . Right)
+instance Distributor ShowSyntax where
+  manyP (ShowSyntax sh) = ShowSyntax shmany where
     shmany str =
       foldl (liftA2 (.)) (pure id) (map sh str)
-instance Alternator ShowRead where
-  someP (ShowRead sh rd) = ShowRead shsome (some rd) where
+instance Alternator ShowSyntax where
+  someP (ShowSyntax sh) = ShowSyntax shsome where
     shsome str = do
       _ <- uncons str
       foldl (liftA2 (.)) (pure id) (map sh str)
-instance Filtrator ShowRead
-instance Filterable (ShowRead a) where
+instance Filtrator ShowSyntax
+instance Filterable (ShowSyntax a) where
   mapMaybe = dimapMaybe Just
-instance Tokenized Char Char ShowRead where
-  anyToken = ShowRead (Just . (:)) get
-instance Syntactic Char ShowRead
-instance IsString (ShowRead () ()) where fromString = tokens
+instance Tokenized Char Char ShowSyntax where
+  anyToken = ShowSyntax (Just . (:))
+instance Syntactic Char ShowSyntax
+instance IsString (ShowSyntax () ()) where fromString = tokens
 
-showRead :: (Show a, Read a) => ShowRead a a
-showRead = ShowRead (Just . shows) (readS_to_P reads)
+newtype ReadSyntax a b = ReadSyntax (ReadP b)
+instance Profunctor ReadSyntax where
+  dimap _ g (ReadSyntax rd) = ReadSyntax (g <$> rd)
+instance Functor (ReadSyntax a) where fmap = rmap
+instance Applicative (ReadSyntax a) where
+  pure b = ReadSyntax (pure b)
+  ReadSyntax rd0 <*> ReadSyntax rd1 =
+    ReadSyntax (rd0 <*> rd1)
+instance Alternative (ReadSyntax a) where
+  empty = ReadSyntax empty
+  ReadSyntax rd0 <|> ReadSyntax rd1 =
+    ReadSyntax (rd0 <|> rd1)
+  many (ReadSyntax rd) = ReadSyntax (many rd)
+  some (ReadSyntax rd) = ReadSyntax (some rd)
+instance Choice ReadSyntax where
+  left' (ReadSyntax rd) =
+    ReadSyntax (Left <$> rd)
+  right' (ReadSyntax rd) =
+    ReadSyntax (Right <$> rd)
+instance Cochoice ReadSyntax where
+  unleft (ReadSyntax rd) =
+    ReadSyntax (rd >>= either pure (const empty))
+  unright (ReadSyntax rd) =
+    ReadSyntax (rd >>= either (const empty) pure)
+instance Distributor ReadSyntax where
+  manyP (ReadSyntax rd) = ReadSyntax (many rd)
+instance Alternator ReadSyntax where
+  someP (ReadSyntax rd) = ReadSyntax (some rd)
+instance Filtrator ReadSyntax
+instance Filterable (ReadSyntax a) where
+  mapMaybe = dimapMaybe Just
+instance Tokenized Char Char ReadSyntax where
+  anyToken = ReadSyntax get
+instance Syntactic Char ReadSyntax
+instance IsString (ReadSyntax () ()) where fromString = tokens
 
-readP :: ShowRead a b -> String -> Maybe b
-readP (ShowRead _ r) s = fst <$> listToMaybe (readP_to_S r s)
+runReadSyntax :: ReadSyntax a b -> String -> [(b, String)]
+runReadSyntax (ReadSyntax rd) str = readP_to_S rd str
 
-showP :: ShowRead a b -> a -> Maybe String
-showP (ShowRead s _) a = ($ "") <$> s a
+runShowSyntax :: ShowSyntax a b -> a -> Maybe String
+runShowSyntax (ShowSyntax sh) a = ($ "") <$> sh a
+
+showSyntax :: Show a => ShowSyntax a a
+showSyntax = ShowSyntax (Just . shows)
+
+readSyntax :: Read a => ReadSyntax a a
+readSyntax = ReadSyntax (readS_to_P reads)
 
 data Production c
   = Terminal [c]
@@ -122,6 +160,7 @@ data Production c
   | Optional (Production c)
   | Many (Production c)
   | Some (Production c)
+  deriving (Show, Read)
 
 makePrisms ''Production
 
@@ -129,24 +168,26 @@ production
   :: Syntactic Char p
   => p (Production Char) (Production Char)
 production
-  = ruleRec "production"
-  $ \prod -> seqUence <|>
-      mapPrism _Choice (seqUence *< tokens " | " >*< prod)
+  = produ
   where
+    produ
+      = ruleRec "production"
+      $ \prod -> seqUence <|>
+          mapBifocal _Choice (seqUence *< tokens " | " >*< prod)
     seqUence
       = ruleRec "sequence"
       $ \sequ -> term <|>
-          mapPrism _Sequence (term *< token ' ' >*< sequ)
+          mapBifocal _Sequence (term *< token ' ' >*< sequ)
     term
       = rule "term"
       $ terminal <|> nonterminal
     terminal
       = rule "terminal"
-      . mapPrism _Terminal
+      . mapBifocal _Terminal
       $ token '\"' >* manyP unreserved *< token '\"'
     nonterminal
       = rule "nonterminal"
-      . mapPrism _NonTerminal
+      . mapBifocal _NonTerminal
       $ token '<' >* manyP unreserved *< token '>'
     unreserved
       = rule "unreserved"
