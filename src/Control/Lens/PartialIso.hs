@@ -32,6 +32,13 @@ module Control.Lens.PartialIso
   , _Satisfy
   , _Normal
   , _M2E
+    -- * difold operations
+  , difoldl1
+  , difoldr1
+  , difoldl
+  , difoldl'
+  , difoldr
+  , difoldr'
   ) where
 
 import Control.Applicative
@@ -231,3 +238,101 @@ _Normal a = iso (const ()) (const a) where
 {- | A useful isomorphism identifying `Maybe` and `Either` @()@. -}
 _M2E :: Iso (Maybe a) (Maybe b) (Either () a) (Either () b)
 _M2E = iso (maybe (Left ()) Right) (either (pure Nothing) Just)
+
+_Null :: (AsEmpty s, AsEmpty t) => PartialIso s t () ()
+_Null = partialIso empA empB where
+  empA s = if isn't _Empty s then Nothing else Just ()
+  empB _ = Just Empty
+
+{- | Bidirectional left fold/unfold with no empty case. -}
+difoldl1
+  :: Cons s t a b
+  => APartialIso (c,a) (d,b) c d
+  -> Iso (c,s) (d,t) (c,s) (d,t)
+difoldl1 i =
+  let
+    associate = iso
+      (\(c,(a,s)) -> ((c,a),s))
+      (\((d,b),t) -> (d,(b,t)))
+    step
+      = crossPartialIso id _Cons
+      . associate
+      . crossPartialIso i id
+  in iterating step
+
+{- | Bidirectional right fold/unfold with no empty case. -}
+difoldr1
+  :: Cons s t a b
+  => APartialIso (a,c) (b,d) c d
+  -> Iso (s,c) (t,d) (s,c) (t,d)
+difoldr1 i =
+  let
+    reorder = iso
+      (\((a,s),c) -> (s,(a,c)))
+      (\(t,(b,d)) -> ((b,t),d))
+    step
+      = crossPartialIso _Cons id
+      . reorder
+      . crossPartialIso id i
+  in iterating step
+
+difoldl
+  :: (AsEmpty s, AsEmpty t, Cons s t a b)
+  => APartialIso (c,a) (d,b) c d
+  -> PartialIso (c,s) (d,t) c d
+difoldl i =
+  let
+    unit' = iso
+      (\(a,()) -> a)
+      (\a -> (a,()))
+  in
+    difoldl1 i
+    . crossPartialIso id _Null
+    . unit'
+
+difoldl'
+  :: (AsEmpty s, Cons s s a a)
+  => APrism' (c,a) c
+  -> Prism' (c,s) c
+difoldl' i =
+  let
+    unit' = iso
+      (\(a,()) -> a)
+      (\a -> (a,()))
+  in
+    difoldl1 (clonePrism i)
+    . aside _Empty
+    . unit'
+
+difoldr
+  :: (AsEmpty s, AsEmpty t, Cons s t a b)
+  => APartialIso (a,c) (b,d) c d
+  -> PartialIso (s,c) (t,d) c d
+difoldr i =
+  let
+    unit' = iso
+      (\((),c) -> c)
+      (\d -> ((),d))
+  in
+    difoldr1 i
+    . crossPartialIso _Null id
+    . unit'
+
+difoldr'
+  ::  APrism' (a,c) c
+  -> Prism' ([a],c) c
+difoldr' i =
+  let
+    unit' = iso
+      (\((),c) -> c)
+      (\c -> ((),c))
+    asideFst k =
+      withPrism k $ \bt seta ->
+        prism (first' bt) $ \(s,e) ->
+          case seta s of
+            Left t -> Left  (t,e)
+            Right a -> Right (a,e)
+  in
+    difoldr1 (clonePrism i)
+    . asideFst _Empty
+    . unit'
