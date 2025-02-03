@@ -7,7 +7,7 @@ module Text.Grammar.Distributor
   , char
   , ReadSyntax (..), runReadSyntax, readSyntax
   , ShowSyntax (ShowSyntax), runShowSyntax, showSyntax
-  , Production (..), production
+  , Production (..), productionBNF, productionEBNF
   ) where
 
 import Control.Applicative
@@ -163,13 +163,45 @@ data Production c
 
 makePrisms ''Production
 
-production
+productionEBNF
   :: Syntactic Char p
   => p (Production Char) (Production Char)
-production
-  = produ
+productionEBNF = ruleRec "production" $ \production ->
+  dichainl (seqUence production) (tokens " | ") _Choice
   where
-    produ
+    seqUence production
+      = rule "sequence"
+      $ dichainl (expression production) (token ' ') _Sequence
+    expression production
+      = rule "expression"
+      $ nonterminal
+      <|> terminal
+      <|> mapPrism _Optional (tokens "(" >* production *< tokens ")?")
+      <|> mapPrism _Many (tokens "(" >* production *< tokens ")*")
+      <|> mapPrism _Some (tokens "(" >* production *< tokens ")+")
+      <|> tokens "(" >* production *< tokens ")"
+    terminal
+      = rule "terminal"
+      . mapPrism _Terminal
+      $ token '\"' >* manyP unreserved *< token '\"'
+    nonterminal
+      = rule "nonterminal"
+      . mapPrism _NonTerminal
+      $ token '<' >* manyP unreserved *< token '>'
+    unreserved
+      = rule "unreserved"
+      . satisfy
+      $ \ch -> ch `notElem` reserved
+    reserved :: String = "\"<>|="
+
+
+productionBNF
+  :: Syntactic Char p
+  => p (Production Char) (Production Char)
+productionBNF
+  = production
+  where
+    production
       = rule "production"
       $ dichainl seqUence (tokens " | ") _Choice
     seqUence
