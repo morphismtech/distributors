@@ -192,8 +192,7 @@ productionEBNF = ruleRec "production" $ \production ->
       = rule "unreserved"
       . satisfy
       $ \ch -> ch `notElem` reserved
-    reserved :: String = "\"<>|="
-
+    reserved :: String = "\"<>|=()"
 
 productionBNF
   :: Syntactic Char p
