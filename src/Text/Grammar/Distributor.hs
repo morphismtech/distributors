@@ -7,7 +7,7 @@ module Text.Grammar.Distributor
   , char
   , ReadSyntax (..), runReadSyntax, readSyntax
   , ShowSyntax (ShowSyntax), runShowSyntax, showSyntax
-  , Production (..), productionBNF, productionEBNF
+  , Production (..), production
   ) where
 
 import Control.Applicative
@@ -163,23 +163,23 @@ data Production c
 
 makePrisms ''Production
 
-productionEBNF
+production
   :: Syntactic Char p
   => p (Production Char) (Production Char)
-productionEBNF = ruleRec "production" $ \production ->
-  dichainl1 _Choice (sepBy (tokens " | ")) (seqUence production)
+production = ruleRec "production" $ \pro ->
+  dichainl1 _Choice (sepBy (tokens " | ")) (seqUence pro)
   where
-    seqUence production
+    seqUence pro
       = rule "sequence"
-      $ dichainl1 _Sequence (sepBy (token ' ')) (expression production)
-    expression production
+      $ dichainl1 _Sequence (sepBy (token ' ')) (expression pro)
+    expression pro
       = rule "expression"
       $ nonterminal
       <|> terminal
-      <|> mapPrism _Optional (tokens "(" >* production *< tokens ")?")
-      <|> mapPrism _Many (tokens "(" >* production *< tokens ")*")
-      <|> mapPrism _Some (tokens "(" >* production *< tokens ")+")
-      <|> tokens "(" >* production *< tokens ")"
+      <|> mapPrism _Optional (tokens "(" >* pro *< tokens ")?")
+      <|> mapPrism _Many (tokens "(" >* pro *< tokens ")*")
+      <|> mapPrism _Some (tokens "(" >* pro *< tokens ")+")
+      <|> tokens "(" >* pro *< tokens ")"
     terminal
       = rule "terminal"
       . mapPrism _Terminal
@@ -193,32 +193,3 @@ productionEBNF = ruleRec "production" $ \production ->
       . satisfy
       $ \ch -> ch `notElem` reserved
     reserved :: String = "\"<>|=()"
-
-productionBNF
-  :: Syntactic Char p
-  => p (Production Char) (Production Char)
-productionBNF
-  = production
-  where
-    production
-      = rule "production"
-      $ dichainl1 _Choice (sepBy (tokens " | ")) seqUence
-    seqUence
-      = rule "sequence"
-      $ dichainl1 _Sequence (sepBy (token ' ')) term
-    term
-      = rule "term"
-      $ terminal <|> nonterminal
-    terminal
-      = rule "terminal"
-      . mapPrism _Terminal
-      $ token '\"' >* manyP unreserved *< token '\"'
-    nonterminal
-      = rule "nonterminal"
-      . mapPrism _NonTerminal
-      $ token '<' >* manyP unreserved *< token '>'
-    unreserved
-      = rule "unreserved"
-      . satisfy
-      $ \ch -> ch `notElem` reserved
-    reserved :: String = "\"<>|="
