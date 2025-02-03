@@ -64,7 +64,7 @@ char :: Syntactic Char p => GeneralCategory -> p Char Char
 char cat = rule (show cat) $
   satisfy $ \ch -> cat == generalCategory ch
 
-data ShowSyntax a b = ShowSyntax (a -> Maybe ShowS)
+newtype ShowSyntax a b = ShowSyntax (a -> Maybe ShowS)
 instance Profunctor ShowSyntax where
   dimap f _ (ShowSyntax sh) = ShowSyntax (sh . f)
 instance Functor (ShowSyntax a) where fmap = rmap
