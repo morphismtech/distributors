@@ -19,7 +19,7 @@ import Data.Function
 import Data.Profunctor
 import Data.Profunctor.Distributor
 import Data.String
-import Text.ParserCombinators.ReadP hiding (many, satisfy, char)
+import Text.ParserCombinators.ReadP hiding (many, satisfy, char, sepBy)
 import Witherable
 
 class
@@ -167,11 +167,11 @@ productionEBNF
   :: Syntactic Char p
   => p (Production Char) (Production Char)
 productionEBNF = ruleRec "production" $ \production ->
-  dichainl (seqUence production) (tokens " | ") _Choice
+  dichainl1 _Choice (sepBy (tokens " | ")) (seqUence production)
   where
     seqUence production
       = rule "sequence"
-      $ dichainl (expression production) (token ' ') _Sequence
+      $ dichainl1 _Sequence (sepBy (token ' ')) (expression production)
     expression production
       = rule "expression"
       $ nonterminal
@@ -202,10 +202,10 @@ productionBNF
   where
     production
       = rule "production"
-      $ dichainl seqUence (tokens " | ") _Choice
+      $ dichainl1 _Choice (sepBy (tokens " | ")) seqUence
     seqUence
       = rule "sequence"
-      $ dichainl term (token ' ') _Sequence
+      $ dichainl1 _Sequence (sepBy (token ' ')) term
     term
       = rule "term"
       $ terminal <|> nonterminal

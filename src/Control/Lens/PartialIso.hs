@@ -39,8 +39,8 @@ module Control.Lens.PartialIso
   , difoldl'
   , difoldr
   , difoldr'
-  , dichainl
-  , dichainr
+  , dichainl1
+  , dichainr1
   ) where
 
 import Control.Applicative
@@ -341,16 +341,16 @@ difoldr' i =
     . asideFst _Empty
     . unit'
 
-dichainl
+dichainl1
   :: (Alternator p, Filtrator p)
-  => p a b -> p () () -> APartialIso a b (a,a) (b,b) -> p a b
-dichainl p sep pat =
+  => APartialIso a b (a,a) (b,b) -> SepBy p -> p a b -> p a b
+dichainl1 pat SepBy{separator = comma, beginBy = beg, endBy = end} p =
   mapPartialIso (coPartialIso (difoldl (coPartialIso pat))) $
-    p >*< manyP (sep >* p)
+    beg >* p >*< manyP (comma >* p) *< end
 
-dichainr
+dichainr1
   :: (Alternator p, Filtrator p)
-  => p a b -> p () () -> APartialIso a b (a,a) (b,b) -> p a b
-dichainr p sep pat =
+  => APartialIso a b (a,a) (b,b) -> SepBy p -> p a b -> p a b
+dichainr1 pat SepBy{separator = comma, beginBy = beg, endBy = end} p =
   mapPartialIso (coPartialIso (difoldr (coPartialIso pat))) $
-    manyP (p *< sep) >*< p
+    beg >* manyP (p *< comma) >*< p *< end

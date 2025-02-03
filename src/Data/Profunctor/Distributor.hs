@@ -16,6 +16,7 @@ module Data.Profunctor.Distributor
   , Alternator (alternate, someP)
   , Filtrator (filtrate)
   , dimapMaybe
+  , atLeast0, atLeast1, SepBy (..), sepBy
   ) where
 
 import Control.Applicative
@@ -141,6 +142,31 @@ dimapMaybe f g =
     fg = dimap (>>= m2e f) (>>= m2e g)
   in
     unright . fg . right'
+
+atLeast0
+  :: Distributor p
+  => SepBy p -> p a b -> p [a] [b]
+atLeast0 SepBy{separator = comma, beginBy = beg, endBy = end} p =
+  beg >* (dialt unlist list0 list1 oneP  (p >*< manyP (comma >* p))) *< end
+
+atLeast1
+  :: Alternator p
+  => SepBy p -> p a b -> p [a] [b]
+atLeast1 SepBy{separator = comma, beginBy = beg, endBy = end} p =
+  dimap unlist (either list0 list1) (right' (beg >* p >*< manyP (comma >* p) *< end))
+
+{- | Used to parse multiple times, delimited `by` a separator,
+a `beginBy`, and an `endBy`. -}
+data SepBy p = SepBy
+  { beginBy :: p () ()
+  , endBy :: p () ()
+  , separator :: p () ()
+  }
+
+{- | A default `By` which can be modified by updating
+`beginBy`, or `endBy` fields -}
+sepBy :: Monoidal p => p () () -> SepBy p
+sepBy = SepBy oneP oneP
 
 -- ORPHANAGE --
 
