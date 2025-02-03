@@ -32,13 +32,15 @@ module Control.Lens.PartialIso
   , _Satisfy
   , _Normal
   , _M2E
-    -- * difold operations
+    -- * difold/dichain operations
   , difoldl1
   , difoldr1
   , difoldl
   , difoldl'
   , difoldr
   , difoldr'
+  , dichainl
+  , dichainr
   ) where
 
 import Control.Applicative
@@ -338,3 +340,17 @@ difoldr' i =
     difoldr1 (clonePrism i)
     . asideFst _Empty
     . unit'
+
+dichainl
+  :: (Alternator p, Filtrator p)
+  => p a b -> p () () -> APartialIso a b (a,a) (b,b) -> p a b
+dichainl p sep pat =
+  mapPartialIso (coPartialIso (difoldl (coPartialIso pat))) $
+    p >*< manyP (sep >* p)
+
+dichainr
+  :: (Alternator p, Filtrator p)
+  => p a b -> p () () -> APartialIso a b (a,a) (b,b) -> p a b
+dichainr p sep pat =
+  mapPartialIso (coPartialIso (difoldr (coPartialIso pat))) $
+    manyP (p *< sep) >*< p

@@ -170,13 +170,11 @@ production
   = produ
   where
     produ
-      = ruleRec "production"
-      $ \prod -> seqUence <|>
-          mapPrism _Choice (seqUence *< tokens " | " >*< prod)
+      = rule "production"
+      $ dichainl seqUence (tokens " | ") _Choice
     seqUence
-      = ruleRec "sequence"
-      $ \sequ -> term <|>
-          mapPrism _Sequence (term *< token ' ' >*< sequ)
+      = rule "sequence"
+      $ dichainl term (token ' ') _Sequence
     term
       = rule "term"
       $ terminal <|> nonterminal

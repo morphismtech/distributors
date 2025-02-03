@@ -45,6 +45,15 @@ mapBifocal
   => ABifocal s t a b -> p a b -> p s t
 mapBifocal bif = withBifocal bif . flip runBinocular . const
 
+_Optional :: Bifocal (Maybe a) (Maybe b) a b
+_Optional = unWrapPF . optionalP . WrapPF
+
+_Many :: Bifocal [a] [b] a b
+_Many = unWrapPF . manyP . WrapPF
+
+_Some :: Bifocal [a] [b] a b
+_Some = unWrapPF . someP . WrapPF
+
 withBifocal :: ABifocal s t a b -> (Binocular a b s t -> r) -> r
 withBifocal bif k = k (catMaybes (bif (Just <$> anyToken)))
 
