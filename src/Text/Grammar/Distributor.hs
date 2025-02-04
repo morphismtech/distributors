@@ -1,5 +1,6 @@
 module Text.Grammar.Distributor
   ( Syntax (tokens, rule, ruleRec)
+  , (>?<)
   , token
   , satisfy
   , restOfStream
@@ -12,6 +13,7 @@ module Text.Grammar.Distributor
 
 import Control.Applicative
 import Control.Lens
+import Control.Lens.Bifocal
 import Control.Lens.PartialIso
 import Control.Lens.Token
 import Data.Char
@@ -48,6 +50,11 @@ class
       -> (p a b -> p a b) -- ^ recursive definition
       -> p a b
     ruleRec _ = fix
+
+(>?<)
+  :: Syntax c p
+  => ABifocal s t a b -> p a b -> p s t
+(>?<) = mapBifocal
 
 token :: Syntax c p => c -> p () ()
 token c = mapCoprism (only c) anyToken
