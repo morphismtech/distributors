@@ -1,5 +1,5 @@
 module Text.Grammar.Distributor
-  ( Syntactic (tokens, rule, ruleRec)
+  ( Syntax (tokens, rule, ruleRec)
   , token
   , satisfy
   , restOfStream
@@ -15,6 +15,7 @@ import Control.Lens
 import Control.Lens.PartialIso
 import Control.Lens.Token
 import Data.Char
+import Data.Coerce
 import Data.Function
 import Data.Profunctor
 import Data.Profunctor.Distributor
@@ -27,7 +28,7 @@ class
   , Filtrator p
   , Eq c
   , Tokenized c c p
-  ) => Syntactic c p where
+  ) => Syntax c p where
 
     tokens
       :: [c] -- ^ terminal symbol
@@ -48,19 +49,19 @@ class
       -> p a b
     ruleRec _ = fix
 
-token :: Syntactic c p => c -> p () ()
+token :: Syntax c p => c -> p () ()
 token c = mapCoprism (only c) anyToken
 
-satisfy :: Syntactic c p => (c -> Bool) -> p c c
+satisfy :: Syntax c p => (c -> Bool) -> p c c
 satisfy f = mapPartialIso (_Satisfy f) anyToken
 
-restOfStream :: Syntactic c p => p [c] [c]
+restOfStream :: Syntax c p => p [c] [c]
 restOfStream = manyP anyToken
 
-endOfStream :: Syntactic c p => p () ()
+endOfStream :: Syntax c p => p () ()
 endOfStream = mapCoprism _Empty restOfStream
 
-char :: Syntactic Char p => GeneralCategory -> p Char Char
+char :: Syntax Char p => GeneralCategory -> p Char Char
 char cat = rule (show cat) $
   satisfy $ \ch -> cat == generalCategory ch
 
@@ -100,7 +101,7 @@ instance Filterable (ShowSyntax a) where
   mapMaybe = dimapMaybe Just
 instance Tokenized Char Char ShowSyntax where
   anyToken = ShowSyntax (Just . (:))
-instance Syntactic Char ShowSyntax
+instance Syntax Char ShowSyntax
 instance IsString (ShowSyntax () ()) where fromString = tokens
 
 newtype ReadSyntax a b = ReadSyntax (ReadP b)
@@ -136,7 +137,7 @@ instance Filterable (ReadSyntax a) where
   mapMaybe = dimapMaybe Just
 instance Tokenized Char Char ReadSyntax where
   anyToken = ReadSyntax get
-instance Syntactic Char ReadSyntax
+instance Syntax Char ReadSyntax
 instance IsString (ReadSyntax () ()) where fromString = tokens
 
 runReadSyntax :: ReadSyntax a b -> String -> [(b, String)]
@@ -152,26 +153,26 @@ readSyntax :: Read a => ReadSyntax a a
 readSyntax = ReadSyntax (readS_to_P reads)
 
 data Production c
-  = Terminal [c]
+  = Zero
+  | Terminal [c]
   | NonTerminal String
-  | Choice (Production c) (Production c)
-  | Sequence (Production c) (Production c)
+  | Plus (Production c) (Production c)
+  | Times (Production c) (Production c)
   | Optional (Production c)
   | Many (Production c)
   | Some (Production c)
-  deriving (Show, Read)
 
 makePrisms ''Production
 
 production
-  :: Syntactic Char p
+  :: Syntax Char p
   => p (Production Char) (Production Char)
 production = ruleRec "production" $ \pro ->
-  dichainl1 _Choice (sepBy (tokens " | ")) (seqUence pro)
+  dichainl1 _Plus (sepBy (tokens " | ")) (seqUence pro)
   where
     seqUence pro
       = rule "sequence"
-      $ dichainl1 _Sequence (sepBy (token ' ')) (expression pro)
+      $ dichainl1 _Times (sepBy (token ' ')) (expression pro)
     expression pro
       = rule "expression"
       $ nonterminal
@@ -193,3 +194,40 @@ production = ruleRec "production" $ \pro ->
       . satisfy
       $ \ch -> ch `notElem` reserved
     reserved :: String = "\"<>|=()"
+
+instance Show (Production Char) where
+  show prod = maybe (error "bad production") id
+    (runShowSyntax production prod)
+
+data Grammar c a b = Grammar (Production c) [(String, Production c)]
+instance Functor (Grammar c a) where fmap = rmap
+instance Applicative (Grammar c a) where
+  pure _ = Grammar (Terminal []) []
+  Grammar (Terminal []) rules0 <*> Grammar s1 rules1 =
+    Grammar s1 (rules0 <> rules1)
+  Grammar s0 rules0 <*> Grammar (Terminal []) rules1 =
+    Grammar s0 (rules0 <> rules1)
+  Grammar s0 rules0 <*> Grammar s1 rules1 =
+    Grammar (Times s0 s1) (rules0 <> rules1)
+instance Alternative (Grammar c a) where
+  empty = Grammar Zero []
+  Grammar Zero rules0 <|> Grammar s1 rules1 =
+    Grammar s1 (rules0 <> rules1)
+  Grammar s0 rules0 <|> Grammar Zero rules1 =
+    Grammar s0 (rules0 <> rules1)
+  Grammar s0 rules0 <|> Grammar s1 rules1 =
+    Grammar (Plus s0 s1) (rules0 <> rules1)
+  many (Grammar s rules) = Grammar (Many s) rules
+  some (Grammar s rules) = Grammar (Many s) rules
+instance Profunctor (Grammar c) where
+  dimap _ _ = coerce
+instance Distributor (Grammar c) where
+  zeroP = Grammar Zero []
+  Grammar Zero rules0 >+< Grammar s1 rules1 =
+    Grammar s1 (rules0 <> rules1)
+  Grammar s0 rules0 >+< Grammar Zero rules1 =
+    Grammar s0 (rules0 <> rules1)
+  Grammar s0 rules0 >+< Grammar s1 rules1 =
+    Grammar (Plus s0 s1) (rules0 <> rules1)
+  optionalP (Grammar s rules) = Grammar (Optional s) rules
+  manyP (Grammar s rules) = Grammar (Many s) rules
