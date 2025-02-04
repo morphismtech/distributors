@@ -9,6 +9,7 @@ module Text.Grammar.Distributor
   , ReadSyntax (..), runReadSyntax, readSyntax
   , ShowSyntax (ShowSyntax), runShowSyntax, showSyntax
   , Production (..), production
+  , Grammar (..), grammar
   ) where
 
 import Control.Applicative
@@ -31,6 +32,9 @@ class
   , Eq c
   , Tokenized c c p
   ) => Syntax c p where
+
+    token :: Syntax c p => c -> p () ()
+    token c = mapCoprism (only c) anyToken
 
     tokens
       :: [c] -- ^ terminal symbol
@@ -55,9 +59,6 @@ class
   :: Syntax c p
   => ABifocal s t a b -> p a b -> p s t
 (>?<) = mapBifocal
-
-token :: Syntax c p => c -> p () ()
-token c = mapCoprism (only c) anyToken
 
 satisfy :: Syntax c p => (c -> Bool) -> p c c
 satisfy f = mapPartialIso (_Satisfy f) anyToken
@@ -160,7 +161,8 @@ readSyntax :: Read a => ReadSyntax a a
 readSyntax = ReadSyntax (readS_to_P reads)
 
 data Production c
-  = Zero
+  = AnyToken
+  | Zero
   | Terminal [c]
   | NonTerminal String
   | Plus (Production c) (Production c)
@@ -168,6 +170,7 @@ data Production c
   | Optional (Production c)
   | Many (Production c)
   | Some (Production c)
+  deriving Show
 
 makePrisms ''Production
 
@@ -175,19 +178,24 @@ production
   :: Syntax Char p
   => p (Production Char) (Production Char)
 production = ruleRec "production" $ \pro ->
-  dichainl1 _Plus (sepBy (tokens " | ")) (seqUence pro)
+  dichainl1 _Plus (sepBy (tokens " | ")) (series pro)
   where
-    seqUence pro
-      = rule "sequence"
+    series pro
+      = rule "series"
       $ dichainl1 _Times (sepBy (token ' ')) (expression pro)
     expression pro
       = rule "expression"
-      $ nonterminal
+      $ anyChar
+      <|> nonterminal
       <|> terminal
       <|> mapPrism _Optional (tokens "(" >* pro *< tokens ")?")
       <|> mapPrism _Many (tokens "(" >* pro *< tokens ")*")
       <|> mapPrism _Some (tokens "(" >* pro *< tokens ")+")
       <|> tokens "(" >* pro *< tokens ")"
+    anyChar
+      = rule "any-token"
+      . mapPrism _AnyToken
+      $ tokens "<any-token>"
     terminal
       = rule "terminal"
       . mapPrism _Terminal
@@ -202,11 +210,13 @@ production = ruleRec "production" $ \pro ->
       $ \ch -> ch `notElem` reserved
     reserved :: String = "\"<>|=()"
 
-instance Show (Production Char) where
-  show prod = maybe (error "bad production") id
-    (runShowSyntax production prod)
+-- instance Show (Production Char) where
+--   show prod = maybe (error "bad production") id
+--     (runShowSyntax production prod)
 
 data Grammar c a b = Grammar (Production c) [(String, Production c)]
+  deriving Show
+makePrisms ''Grammar
 instance Functor (Grammar c a) where fmap = rmap
 instance Applicative (Grammar c a) where
   pure _ = Grammar (Terminal []) []
@@ -226,6 +236,8 @@ instance Alternative (Grammar c a) where
     Grammar (Plus s0 s1) (rules0 <> rules1)
   many (Grammar s rules) = Grammar (Many s) rules
   some (Grammar s rules) = Grammar (Many s) rules
+instance Filterable (Grammar c a) where
+  mapMaybe = dimapMaybe Just
 instance Profunctor (Grammar c) where
   dimap _ _ = coerce
 instance Distributor (Grammar c) where
@@ -237,4 +249,46 @@ instance Distributor (Grammar c) where
   Grammar s0 rules0 >+< Grammar s1 rules1 =
     Grammar (Plus s0 s1) (rules0 <> rules1)
   optionalP (Grammar s rules) = Grammar (Optional s) rules
-  manyP (Grammar s rules) = Grammar (Many s) rules
+  manyP (Grammar start rules) = Grammar (Many start) rules
+instance Choice (Grammar c) where
+  left' = coerce
+  right' = coerce
+instance Cochoice (Grammar c) where
+  unleft = coerce
+  unright = coerce
+instance Alternator (Grammar c) where
+  alternate = either coerce coerce
+  someP (Grammar start rules) = Grammar (Some start) rules
+instance Filtrator (Grammar c) where
+  filtrate g = (coerce g, coerce g)
+instance Tokenized c c (Grammar c) where
+  anyToken = Grammar AnyToken []
+instance Eq c => Syntax c (Grammar c) where
+  token ch = Grammar (Terminal [ch]) []
+  tokens str = Grammar (Terminal str) []
+  rule name (Grammar prod rules) = Grammar (NonTerminal name) ((name, prod) : rules)
+  ruleRec name f =
+    let Grammar prod rules = f (Grammar (NonTerminal name) [])
+    in Grammar (NonTerminal name) ((name, prod) : rules)
+
+grammar :: Syntax Char p => p (Grammar Char a b) (Grammar Char a b)
+grammar = mapPrism _Grammar (ruleStart >*< (token '\n' >* manyP ruleGrammar))
+  where
+    ruleStart
+      = rule "start"
+      $ tokens "start = " >* production
+    ruleGrammar
+      = rule "rule"
+      $ name >*< (tokens " = " >* production)
+    name
+      = rule "name"
+      $ manyP unreserved
+    unreserved
+      = rule "unreserved"
+      . satisfy
+      $ \ch -> ch `notElem` reserved
+    reserved :: String = "\"<>|=()"
+
+-- instance Show (Grammar Char a b) where
+--   show gram = maybe (error "bad grammar") id
+--     (runShowSyntax grammar gram)
