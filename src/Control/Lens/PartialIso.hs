@@ -36,9 +36,7 @@ module Control.Lens.PartialIso
   , difoldl1
   , difoldr1
   , difoldl
-  , difoldl'
   , difoldr
-  , difoldr'
   , dichainl1
   , dichainr1
   ) where
@@ -294,20 +292,6 @@ difoldl i =
     . crossPartialIso id _Null
     . unit'
 
-difoldl'
-  :: (AsEmpty s, Cons s s a a)
-  => APrism' (c,a) c
-  -> Prism' (c,s) c
-difoldl' i =
-  let
-    unit' = iso
-      (\(a,()) -> a)
-      (\a -> (a,()))
-  in
-    difoldl1 (clonePrism i)
-    . aside _Empty
-    . unit'
-
 difoldr
   :: (AsEmpty s, AsEmpty t, Cons s t a b)
   => APartialIso (a,c) (b,d) c d
@@ -320,26 +304,6 @@ difoldr i =
   in
     difoldr1 i
     . crossPartialIso _Null id
-    . unit'
-
-difoldr'
-  :: (AsEmpty s, Cons s s a a)
-  => APrism' (a,c) c
-  -> Prism' (s,c) c
-difoldr' i =
-  let
-    unit' = iso
-      (\((),c) -> c)
-      (\c -> ((),c))
-    asideFst k =
-      withPrism k $ \bt seta ->
-        prism (first' bt) $ \(s,e) ->
-          case seta s of
-            Left t -> Left  (t,e)
-            Right a -> Right (a,e)
-  in
-    difoldr1 (clonePrism i)
-    . asideFst _Empty
     . unit'
 
 dichainl1
