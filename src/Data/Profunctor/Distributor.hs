@@ -157,7 +157,7 @@ atLeast1
 atLeast1 sep p = dimap unlist (either list0 list1)
   (right' (beginBy sep >* p >*< manyP (separateBy sep >* p) *< endBy sep))
 
-{- | Used to parse multiple times, delimited `by` a `separateBy`,
+{- | Used to parse multiple times, delimited by a `separateBy`,
 a `beginBy`, and an `endBy`. -}
 data SepBy p = SepBy
   { beginBy :: p () ()
@@ -165,7 +165,7 @@ data SepBy p = SepBy
   , separateBy :: p () ()
   }
 
-{- | A default `By` which can be modified by updating
+{- | A default `SepBy` which can be modified by updating
 `beginBy`, or `endBy` fields -}
 sepBy :: Monoidal p => p () () -> SepBy p
 sepBy = SepBy oneP oneP
