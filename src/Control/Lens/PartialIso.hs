@@ -323,8 +323,9 @@ difoldr i =
     . unit'
 
 difoldr'
-  ::  APrism' (a,c) c
-  -> Prism' ([a],c) c
+  :: (AsEmpty s, Cons s s a a)
+  => APrism' (a,c) c
+  -> Prism' (s,c) c
 difoldr' i =
   let
     unit' = iso
