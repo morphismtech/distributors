@@ -345,13 +345,13 @@ difoldr' i =
 dichainl1
   :: (Alternator p, Filtrator p)
   => APartialIso a b (a,a) (b,b) -> SepBy p -> p a b -> p a b
-dichainl1 pat SepBy{separator = comma, beginBy = beg, endBy = end} p =
+dichainl1 pat SepBy{separateBy = comma, beginBy = beg, endBy = end} p =
   mapPartialIso (coPartialIso (difoldl (coPartialIso pat))) $
     beg >* p >*< manyP (comma >* p) *< end
 
 dichainr1
   :: (Alternator p, Filtrator p)
   => APartialIso a b (a,a) (b,b) -> SepBy p -> p a b -> p a b
-dichainr1 pat SepBy{separator = comma, beginBy = beg, endBy = end} p =
+dichainr1 pat SepBy{separateBy = comma, beginBy = beg, endBy = end} p =
   mapPartialIso (coPartialIso (difoldr (coPartialIso pat))) $
     beg >* manyP (p *< comma) >*< p *< end
