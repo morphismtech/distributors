@@ -278,7 +278,7 @@ grammar = grammar_
   where
     grammar_
       = rule "grammar"
-      $ mapPrism _Grammar (start >*< (token '\n' >* manyP rule_))
+      $ mapPrism _Grammar (start >*< manyP (token '\n' >* rule_))
     start
       = rule "start"
       $ production
