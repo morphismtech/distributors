@@ -33,7 +33,9 @@ class
   , Tokenized c c p
   ) => Syntax c p where
 
-    token :: Syntax c p => c -> p () ()
+    token
+      :: c -- ^ terminal symbol
+      -> p () ()
     token c = mapCoprism (only c) anyToken
 
     tokens
