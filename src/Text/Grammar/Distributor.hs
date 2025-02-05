@@ -177,9 +177,11 @@ makePrisms ''Production
 production
   :: Syntax Char p
   => p (Production Char) (Production Char)
-production = ruleRec "production" $ \pro ->
-  dichainl1 _Plus (sepBy (tokens " | ")) (series pro)
+production = production_
   where
+    production_
+      = ruleRec "production"
+      $ \pro -> dichainl1 _Plus (sepBy (tokens " | ")) (series pro)
     series pro
       = rule "series"
       $ dichainl1 _Times (sepBy (token ' ')) (expression pro)
@@ -272,12 +274,15 @@ instance Eq c => Syntax c (Grammar c) where
     in Grammar (NonTerminal name) ((name, prod) : rules)
 
 grammar :: Syntax Char p => p (Grammar Char a b) (Grammar Char a b)
-grammar = mapPrism _Grammar (ruleStart >*< (token '\n' >* manyP ruleGrammar))
+grammar = grammar_
   where
-    ruleStart
+    grammar_
+      = rule "grammar"
+      $ mapPrism _Grammar (start >*< (token '\n' >* manyP rule_))
+    start
       = rule "start"
-      $ tokens "start = " >* production
-    ruleGrammar
+      $ production
+    rule_
       = rule "rule"
       $ name >*< (tokens " = " >* production)
     name
@@ -292,3 +297,13 @@ grammar = mapPrism _Grammar (ruleStart >*< (token '\n' >* manyP ruleGrammar))
 -- instance Show (Grammar Char a b) where
 --   show gram = maybe (error "bad grammar") id
 --     (runShowSyntax grammar gram)
+
+-- data Summation
+--   = Digit Int
+--   | Add Summation Summation
+-- makePrisms ''Summation
+
+-- digit, summationL, summationR :: Syntax Char p => p Summation Summation
+-- digit = (_Digit . iso chr ord) >?< char DecimalNumber
+-- summationL = dichainl1 _Add (sepBy (tokens " + ")) digit
+-- summationR = dichainr1 _Add (sepBy (tokens " + ")) digit
