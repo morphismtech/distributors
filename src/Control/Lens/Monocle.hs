@@ -1,196 +1,138 @@
 {- |
-Module      :  Control.Lens.Monocle
-Description :  monocles
-Copyright   :  (C) 2024 - Eitan Chatav
-License     :  BSD-style (see the file LICENSE)
-Maintainer  :  Eitan Chatav <eitan.chatav@gmail.com>
-Stability   :  provisional
-Portability :  non-portable
-
-`Monocle`s are optics that combine
-`Control.Lens.Traversal.Traversal`s and
-cotraversals, also known as grates.
+Module      : Control.Lens.Monocle
+Description : monocles
+Copyright   : (C) 2025 - Eitan Chatav
+License     : BSD-style (see the file LICENSE)
+Maintainer  : Eitan Chatav <eitan.chatav@gmail.com>
+Stability   : provisional
+Portability : non-portable
 -}
+
+{-# OPTIONS_GHC -Wno-redundant-constraints #-}
+
 module Control.Lens.Monocle
-  ( -- * Monocle types
-    Monocle
-  , AMonocle
+  ( Monocle
   , Monocle'
+  , AMonocle
   , AMonocle'
-    -- * Monocle functions
-  , withMonocle
   , monocle
-  , monocle0
-  , monocle2
-  , MonocleN (..)
-  , cyclops
+  , ditraversed
   , cloneMonocle
-  , monTraversal
-  , monGrate
-  , monBitraversal
-  , Grate
-  , Grate'
-  , AGrate
-  , AGrate'
-  , grate
-  , withGrate
-  , cloneGrate
-  , cotraversed
-  , represented
-  , closing
-  , distributing
-  , cotraverseOf
-  , collectOf
-  , distributeOf
+  , mapMonocle
+  , meander
+  , ditraversal
+  , withMonocle
+  , Monocular (..), runMonocular
+  , WrappedPF (..), WrappedPFG (..)
   ) where
 
-import Control.Lens hiding (index, Traversing)
-import Control.Lens.Internal.FunList
-import Data.Bifunctor.Biff
+import Control.Lens hiding (Traversing)
+import Control.Lens.Internal.Bazaar
+import Control.Lens.Internal.Context
+import Control.Lens.Internal.Distributor
+import Control.Lens.PartialIso
+import Control.Lens.Token
 import Data.Distributive
-import Data.Functor.Rep
 import Data.Profunctor
-import Data.Profunctor.Monoidal
+import Data.Profunctor.Distributor
 
-{- | A `Monocle` is a representation of a
-fixed length homogeneous tuple dimorphism.
-
-prop> Monocle s t a b ~ exists (..) :: Natural. (s -> (a,..,a), (b,..,b) -> t)
-
-`Monocle` is part of a subtyping order:
-
-prop> Iso s t a b < Monocle s t a b < Traversal s t a b
-
-`Monocle`s may be used as cotraversals or equivalently, grates.
--}
 type Monocle s t a b = forall p f.
-  ( Monoidal p
-  , forall x. Applicative (p x)
-  , Applicative f
-  ) => p a (f b) -> p s (f t)
+  (Monoidal p, Applicative f)
+    => p a (f b) -> p s (f t)
 
-{- | `Simple` `Monocle`. -}
 type Monocle' s a = Monocle s s a a
 
-{- | If you see this in a signature for a function,
-the function is expecting a `Monocle`. -}
 type AMonocle s t a b =
-  SpiceShop a b a (Identity b) -> SpiceShop a b s (Identity t)
+  Monocular a b a (Identity b) -> Monocular a b s (Identity t)
 
-{- | A `Simple` `Monocle`. -}
 type AMonocle' s a = AMonocle s s a a
 
-{- | Turn a `AMonocle` into a curried homogeneous tuple dimorphism. -}
-withMonocle :: AMonocle s t a b -> (SpiceShop a b s t -> r) -> r
-withMonocle mon k =
-  k (runIdentity <$> mon (Identity <$> anyToken))
+cloneMonocle :: AMonocle s t a b -> Monocle s t a b
+cloneMonocle mon = unWrapPF . mapMonocle mon . WrapPF
 
-{- | Turn  a curried homogeneous tuple dimorphism into a `Monocle`.-}
-monocle :: SpiceShop a b s t -> Monocle s t a b
-monocle sh =
-  cloneMonocle $ \p ->
-    unWrapMonoidal $
-      runSpiceShop (Identity <$> sh) $ \_ ->
-        WrapMonoidal $ runIdentity <$> p
-
-{- | The natural action of `AMonocle` on `Monoidal`. -}
-cyclops :: Monoidal p => AMonocle s t a b -> p a b -> p s t
-cyclops mon p =
-  withMonocle mon $ \sh ->
-    unWrapMonoidal . runSpiceShop sh $ \_ ->
-      WrapMonoidal p
-
-{- | `AMonocle` as a `Bitraversal`. -}
-monBitraversal
+ditraversal
   :: (Functor f, Applicative g, Monoidal p)
   => AMonocle s t a b
   -> p (f a) (g b) -> p (f s) (g t)
-monBitraversal mon = runBiff . cyclops mon . Biff
+ditraversal mon = unWrapPFG . mapMonocle mon . WrapPFG
 
-{- | Clone `AMonocle` as a `Monocle`. -}
-cloneMonocle :: AMonocle s t a b -> Monocle s t a b
-cloneMonocle mon
-  = lmap Identity
-  . monBitraversal mon
-  . lmap runIdentity
+mapMonocle :: Monoidal p => AMonocle s t a b -> p a b -> p s t
+mapMonocle mon = withMonocle mon . flip runMonocular . const
 
-{- | `AMonocle` as a `Control.Lens.Traversal.Traversal`. -}
-monTraversal :: AMonocle s t a b -> Traversal s t a b
-monTraversal = cloneMonocle
+monocle :: Monocular a b s t -> Monocle s t a b
+monocle = withMonocle id
 
-{- | `AMonocle` as a `Grate`. -}
-monGrate :: AMonocle s t a b -> Grate s t a b
-monGrate = cloneGrate . cloneMonocle
+-- thanks to fy9 on Discord
+ditraversed :: Monocle (g a) (g b) a b
+ditraversed p = unWrapPF (traverse (\f -> lmap f (WrapPF p)) (distribute id))
 
-{- | The unit `Monocle`. -}
-monocle0 :: Monocle () () a b
-monocle0 _ = pureP (pure ())
+meander
+  :: forall p s t a b. (Monoidal p, Choice p, Strong p)
+  => ATraversal s t a b -> p a b -> p s t
+meander f = dimap (f sell) iextract . trav
+  where
+    trav :: p u v -> p (Bazaar (->) u w x) (Bazaar (->) v w x)
+    trav q = mapIso _Bazaar $ right' (q >*< trav q)
 
-{- | The pair `Monocle`. -}
-monocle2 :: Monocle (a,a) (b,b) a b
-monocle2 p = dimap2 fst snd (liftA2 (,)) p p
+withMonocle :: AMonocle s t a b -> (Monocular a b s t -> r) -> r
+withMonocle mon k =
+  k (runIdentity <$> mon (Identity <$> anyToken))
 
-{- | A `Monocle` for each homogeneous tuple `V` @(n :: Peano)@. -}
-class MonocleN (n :: Peano) where
-  monocleV :: Monocle (V n a) (V n b) a b
-instance MonocleN Z where
-  monocleV _ = pureP (pure VNil)
-instance MonocleN n => MonocleN (S n) where
-  monocleV p = dimap2
-    (\(a :>< _) -> a)
-    (\(_ :>< v) -> v)
-    (liftA2 (:><))
-    p (monocleV @n p)
+newtype Monocular a b s t = Monocular
+  {unMonocular :: forall f. Applicative f => ((s -> a) -> f b) -> f t}
+instance Tokenized a b (Monocular a b) where
+  anyToken = Monocular ($ id)
+instance Profunctor (Monocular a b) where
+  dimap f g (Monocular k) =
+    Monocular (fmap g . k . (. (. f)))
+instance Functor (Monocular a b s) where fmap = rmap
+instance Applicative (Monocular a b s) where
+  pure t = Monocular (pure (pure t))
+  Monocular x <*> Monocular y = Monocular (liftA2 (<*>) x y)
 
-type Grate s t a b = forall p f.
-  ( Closed p
-  , Monoidal p
-  , forall x. (Distributive (p x))
-  , forall x. (Applicative (p x))
-  , Distributive f
-  , Applicative f
-  ) => p a (f b) -> p s (f t)
+runMonocular
+  :: (Profunctor p, forall x. Applicative (p x))
+  => Monocular a b s t
+  -> ((s -> a) -> p a b)
+  -> p s t
+runMonocular (Monocular k) f = k $ \sa -> lmap sa (f sa)
 
-type Grate' s a = Grate s s a a
+data FunList a b t
+  = DoneFun t
+  | MoreFun a (Bazaar (->) a b (b -> t))
+instance Functor (FunList a b) where
+  fmap f = \case
+    DoneFun t -> DoneFun (f t)
+    MoreFun a h -> MoreFun a (fmap (f .) h)
+instance Applicative (FunList a b) where
+  pure = DoneFun
+  (<*>) = \case
+    DoneFun t -> fmap t
+    MoreFun a h -> \l ->
+      MoreFun a (flip <$> h <*> view _FunList l)
+instance Sellable (->) FunList where sell b = MoreFun b (pure id)
+instance Bizarre (->) FunList where
+  bazaar f = \case
+    DoneFun t -> pure t
+    MoreFun a l -> ($) <$> bazaar f l <*> f a
 
-type AGrate s t a b =
-  Grating a b a (Identity b) -> Grating a b s (Identity t)
+_FunList :: Iso
+  (FunList a1 b1 t1) (FunList a2 b2 t2)
+  (Bazaar (->) a1 b1 t1) (Bazaar (->) a2 b2 t2)
+_FunList = iso fromFun toFun where
+  toFun (Bazaar f) = f sell
+  fromFun = \case
+    DoneFun t -> pure t
+    MoreFun a f -> ($) <$> f <*> sell a
 
-type AGrate' s a = AGrate s s a a
-
-cotraversed :: Distributive g => Grate (g a) (g b) a b
-cotraversed = grate $ flip cotraverse id
-
-represented :: Representable g => Grate (g a) (g b) a b
-represented = grate $ tabulate . (. flip index)
-
-grate :: (((s -> a) -> b) -> t) -> Grate s t a b
-grate f = dimap (&) (cotraverse f) . closed
-
-withGrate :: AGrate s t a b -> ((s -> a) -> b) -> t
-withGrate grt = unGrating $ runIdentity <$> grt (Identity <$> anyToken)
-
-cloneGrate :: AGrate s t a b -> Grate s t a b
-cloneGrate grt = grate (withGrate grt)
-
-closing :: Closed p => AGrate s t a b -> p a b -> p s t
-closing grt = dimap (&) (withGrate grt) . closed
-
-distributing
-  :: (Closed p, Distributive g)
-  => AGrate s t a b -> p a (g b) -> g (p s t)
-distributing grt
-  = fmap unWrapMonoidal
-  . distribute
-  . dimap (&) (cotraverse (withGrate grt))
-  . closed
-  . WrapMonoidal
-
-cotraverseOf :: Functor f => AGrate s t a b -> (f a -> b) -> f s -> t
-cotraverseOf grt = runCostar . closing grt . Costar
-
-distributeOf :: Functor f => AGrate s t b (f b) -> f s -> t
-distributeOf grt = cotraverseOf grt id
-
-collectOf :: Functor f => AGrate s t b (f b) -> (a -> s) -> f a -> t
-collectOf grt f = distributeOf grt . fmap f
+_Bazaar :: Iso
+  (Bazaar (->) a1 b1 t1) (Bazaar (->) a2 b2 t2)
+  (Either t1 (a1, Bazaar (->) a1 b1 (b1 -> t1)))
+  (Either t2 (a2, Bazaar (->) a2 b2 (b2 -> t2)))
+_Bazaar = from _FunList . iso f g where
+  f = \case
+    DoneFun t -> Left t
+    MoreFun a baz -> Right (a, baz)
+  g = \case
+    Left t -> DoneFun t
+    Right (a, baz) -> MoreFun a baz

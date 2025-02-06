@@ -1,16 +1,13 @@
 {- |
-Module      :  Control.Lens.PartialIso
-Description :  partial isomorphisms
-Copyright   :  (C) 2024 - Eitan Chatav
-License     :  BSD-style (see the file LICENSE)
-Maintainer  :  Eitan Chatav <eitan.chatav@gmail.com>
-Stability   :  provisional
-Portability :  non-portable
-
-This module defines types and terms for
-the partial isomorphism optic `PartialIso`,
-a weakening of `Control.Lens.Prism.Prism`.
+Module      : Control.Lens.PartialIso
+Description : partial isomorphisms
+Copyright   : (C) 2025 - Eitan Chatav
+License     : BSD-style (see the file LICENSE)
+Maintainer  : Eitan Chatav <eitan.chatav@gmail.com>
+Stability   : provisional
+Portability : non-portable
 -}
+
 module Control.Lens.PartialIso
   ( -- * Partial Isomorphisms
     PartialIso
@@ -27,23 +24,29 @@ module Control.Lens.PartialIso
   , altPartialIso
   , iterating
     -- * Prism, Coprism and (Partial)Iso Actions
-  , (>?)
-  , (?<)
-  , (>?<)
+  , mapPrism
+  , mapCoprism
+  , mapPartialIso
   , mapIso
-  , coPrism
     -- * Common (Partial)Isos
   , _Satisfy
   , _Normal
   , _M2E
+    -- * difold/dichain operations
+  , difoldl1
+  , difoldr1
+  , difoldl
+  , difoldr
+  , dichainl1
+  , dichainr1
   ) where
 
 import Control.Applicative
 import Control.Lens
-import Control.Lens.Internal.FunList
+import Control.Lens.Token
 import Control.Monad
 import Data.Profunctor
-import Data.Profunctor.Partial
+import Data.Profunctor.Distributor
 import Witherable
 
 {- | A `PartialExchange` provides efficient access
@@ -59,7 +62,7 @@ instance Monoid (PartialExchange a b s t) where
     nope _ = Nothing
 instance Functor (PartialExchange a b s) where fmap = rmap
 instance Filterable (PartialExchange a b s) where
-  mapMaybe = mapMaybeP
+  mapMaybe = dimapMaybe Just
 instance Profunctor (PartialExchange a b) where
   dimap f' g' (PartialExchange f g) =
     PartialExchange (f . f') (fmap g' . g)
@@ -194,45 +197,32 @@ altPartialIso x y =
       (either ((Left <$>) . f) ((Right <$>) . h))
 
 {- | Action of `APrism` on `Choice` `Profunctor`s. -}
-(>?)
+mapPrism
   :: Choice p
   => APrism s t a b
   -> p a b
   -> p s t
-(>?) pat = withPrism pat $ \f g -> dimap g (either id f) . right'
-infixr 2 >?
+mapPrism pat = withPrism pat $ \f g -> dimap g (either id f) . right'
 
 {- | Action of a coPrism on `Cochoice` `Profunctor`s. -}
-(?<)
+mapCoprism
   :: Cochoice p
   => APrism b a t s
   -> p a b
   -> p s t
-(?<) pat = withPrism pat $ \f g -> unright . dimap (either id f) g
-infixr 2 ?<
-
-{- | Action of a coPrism on `Profunctor`s composed with
-`Filterable` on their covariant argument.
--}
-coPrism
-  :: (Profunctor p, Filterable f)
-  => APrism b a t s
-  -> p a (f b)
-  -> p s (f t)
-coPrism pat = runPafb . (pat ?<) . Pafb
+mapCoprism pat = withPrism pat $ \f g -> unright . dimap (either id f) g
 
 {- | Action of `APartialIso` on `Choice` and `Cochoice` `Profunctor`s. -}
-(>?<)
+mapPartialIso
   :: (Choice p, Cochoice p)
   => APartialIso s t a b
   -> p a b
   -> p s t
-i >?< p = withPartialIso i $ \f g -> dimapMaybe f g p
-infixr 2 >?<
+mapPartialIso pat = withPartialIso pat dimapMaybe
 
 {- | Action of `AnIso` on `Profunctor`s. -}
 mapIso :: Profunctor p => AnIso s t a b -> p a b -> p s t
-mapIso i p = withIso i $ \here there -> dimap here there p
+mapIso i = withIso i dimap
 
 {- | `_Satisfy` is the prototypical proper partial isomorphism,
 identifying a subset which satisfies a predicate. -}
@@ -248,3 +238,84 @@ _Normal a = iso (const ()) (const a) where
 {- | A useful isomorphism identifying `Maybe` and `Either` @()@. -}
 _M2E :: Iso (Maybe a) (Maybe b) (Either () a) (Either () b)
 _M2E = iso (maybe (Left ()) Right) (either (pure Nothing) Just)
+
+_Null :: (AsEmpty s, AsEmpty t) => PartialIso s t () ()
+_Null = partialIso empA empB where
+  empA s = if isn't _Empty s then Nothing else Just ()
+  empB _ = Just Empty
+
+_NotNull :: (AsEmpty s, AsEmpty t) => PartialIso s t s t
+_NotNull = partialIso nonEmp nonEmp where
+  nonEmp s = if isn't _Empty s then Just s else Nothing
+
+difoldl1
+  :: Cons s t a b
+  => APartialIso (c,a) (d,b) c d
+  -> Iso (c,s) (d,t) (c,s) (d,t)
+difoldl1 i =
+  let
+    associate = iso
+      (\(c,(a,s)) -> ((c,a),s))
+      (\((d,b),t) -> (d,(b,t)))
+    step
+      = crossPartialIso id _Cons
+      . associate
+      . crossPartialIso i id
+  in iterating step
+
+difoldr1
+  :: Cons s t a b
+  => APartialIso (a,c) (b,d) c d
+  -> Iso (s,c) (t,d) (s,c) (t,d)
+difoldr1 i =
+  let
+    reorder = iso
+      (\((a,s),c) -> (s,(a,c)))
+      (\(t,(b,d)) -> ((b,t),d))
+    step
+      = crossPartialIso _Cons id
+      . reorder
+      . crossPartialIso id i
+  in iterating step
+
+difoldl
+  :: (AsEmpty s, AsEmpty t, Cons s t a b)
+  => APartialIso (c,a) (d,b) c d
+  -> PartialIso (c,s) (d,t) c d
+difoldl i =
+  let
+    unit' = iso
+      (\(a,()) -> a)
+      (\a -> (a,()))
+  in
+    difoldl1 i
+    . crossPartialIso id _Null
+    . unit'
+
+difoldr
+  :: (AsEmpty s, AsEmpty t, Cons s t a b)
+  => APartialIso (a,c) (b,d) c d
+  -> PartialIso (s,c) (t,d) c d
+difoldr i =
+  let
+    unit' = iso
+      (\((),c) -> c)
+      (\d -> ((),d))
+  in
+    difoldr1 i
+    . crossPartialIso _Null id
+    . unit'
+
+dichainl1
+  :: (Alternator p, Filtrator p)
+  => APartialIso a b (a,a) (b,b) -> SepBy p -> p a b -> p a b
+dichainl1 pat sep p =
+  mapPartialIso (coPartialIso (difoldl (coPartialIso pat))) $
+    beginBy sep >* p >*< manyP (separateBy sep >* p) *< endBy sep
+
+dichainr1
+  :: (Alternator p, Filtrator p)
+  => APartialIso a b (a,a) (b,b) -> SepBy p -> p a b -> p a b
+dichainr1 pat sep p =
+  mapPartialIso (coPartialIso (difoldr (coPartialIso pat))) $
+    beginBy sep >* manyP (p *< separateBy sep) >*< p *< endBy sep
