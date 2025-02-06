@@ -16,6 +16,8 @@ module Control.Lens.Bifocal
   , cloneBifocal
   , mapBifocal
   , withBifocal
+  , _Many
+  , _Some
   , Binocular (..), runBinocular
   ) where
 

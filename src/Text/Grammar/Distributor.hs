@@ -169,9 +169,9 @@ data Production c
   | NonTerminal String
   | Plus (Production c) (Production c)
   | Times (Production c) (Production c)
-  | Optional (Production c)
-  | Many (Production c)
-  | Some (Production c)
+  | KleeneQ (Production c)
+  | KleeneStar (Production c)
+  | KleenePlus (Production c)
   deriving Show
 
 makePrisms ''Production
@@ -192,9 +192,9 @@ production = production_
       $ anyChar
       <|> nonterminal
       <|> terminal
-      <|> mapPrism _Optional (tokens "(" >* pro *< tokens ")?")
-      <|> mapPrism _Many (tokens "(" >* pro *< tokens ")*")
-      <|> mapPrism _Some (tokens "(" >* pro *< tokens ")+")
+      <|> mapPrism _KleeneQ (tokens "(" >* pro *< tokens ")?")
+      <|> mapPrism _KleeneStar (tokens "(" >* pro *< tokens ")*")
+      <|> mapPrism _KleenePlus (tokens "(" >* pro *< tokens ")+")
       <|> tokens "(" >* pro *< tokens ")"
     anyChar
       = rule "any-token"
@@ -238,8 +238,8 @@ instance Alternative (Grammar c a) where
     Grammar s0 (rules0 <> rules1)
   Grammar s0 rules0 <|> Grammar s1 rules1 =
     Grammar (Plus s0 s1) (rules0 <> rules1)
-  many (Grammar s rules) = Grammar (Many s) rules
-  some (Grammar s rules) = Grammar (Many s) rules
+  many (Grammar s rules) = Grammar (KleeneStar s) rules
+  some (Grammar s rules) = Grammar (KleenePlus s) rules
 instance Filterable (Grammar c a) where
   mapMaybe = dimapMaybe Just
 instance Profunctor (Grammar c) where
@@ -252,8 +252,8 @@ instance Distributor (Grammar c) where
     Grammar s0 (rules0 <> rules1)
   Grammar s0 rules0 >+< Grammar s1 rules1 =
     Grammar (Plus s0 s1) (rules0 <> rules1)
-  optionalP (Grammar s rules) = Grammar (Optional s) rules
-  manyP (Grammar start rules) = Grammar (Many start) rules
+  optionalP (Grammar s rules) = Grammar (KleeneQ s) rules
+  manyP (Grammar start rules) = Grammar (KleeneStar start) rules
 instance Choice (Grammar c) where
   left' = coerce
   right' = coerce
@@ -262,7 +262,7 @@ instance Cochoice (Grammar c) where
   unright = coerce
 instance Alternator (Grammar c) where
   alternate = either coerce coerce
-  someP (Grammar start rules) = Grammar (Some start) rules
+  someP (Grammar start rules) = Grammar (KleenePlus start) rules
 instance Filtrator (Grammar c) where
   filtrate g = (coerce g, coerce g)
 instance Tokenized c c (Grammar c) where
