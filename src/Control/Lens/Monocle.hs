@@ -62,7 +62,7 @@ mapMonocle mon = withMonocle mon . flip runMonocular . const
 monocle :: Monocular a b s t -> Monocle s t a b
 monocle = withMonocle id
 
--- thanks to fy9 on Discord
+-- thanks to Fy on Monoidal Café Discord
 ditraversed :: Monocle (g a) (g b) a b
 ditraversed p = unWrapPF (traverse (\f -> lmap f (WrapPF p)) (distribute id))
 
