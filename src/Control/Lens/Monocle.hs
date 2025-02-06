@@ -15,6 +15,8 @@ module Control.Lens.Monocle
   , Monocle'
   , AMonocle
   , AMonocle'
+  , monocle
+  , ditraversed
   , cloneMonocle
   , mapMonocle
   , meander
@@ -30,6 +32,7 @@ import Control.Lens.Internal.Context
 import Control.Lens.Internal.Distributor
 import Control.Lens.PartialIso
 import Control.Lens.Token
+import Data.Distributive
 import Data.Profunctor
 import Data.Profunctor.Distributor
 
@@ -55,6 +58,13 @@ ditraversal mon = unWrapPFG . mapMonocle mon . WrapPFG
 
 mapMonocle :: Monoidal p => AMonocle s t a b -> p a b -> p s t
 mapMonocle mon = withMonocle mon . flip runMonocular . const
+
+monocle :: Monocular a b s t -> Monocle s t a b
+monocle = withMonocle id
+
+-- thanks to fy9 on Discord
+ditraversed :: Monocle (g a) (g b) a b
+ditraversed p = unWrapPF (traverse (\f -> lmap f (WrapPF p)) (distribute id))
 
 meander
   :: forall p s t a b. (Monoidal p, Choice p, Strong p)
