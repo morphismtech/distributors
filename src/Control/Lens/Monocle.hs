@@ -60,10 +60,10 @@ mapMonocle :: Monoidal p => AMonocle s t a b -> p a b -> p s t
 mapMonocle mon = withMonocle mon . flip runMonocular . const
 
 monocle :: Monocular a b s t -> Monocle s t a b
-monocle = withMonocle id
+monocle mon p = unWrapPF (runMonocular mon (const (WrapPF p)))
 
 -- thanks to Fy on Monoidal Café Discord
-ditraversed :: Monocle (g a) (g b) a b
+ditraversed :: (Traversable g, Distributive g) => Monocle (g a) (g b) a b
 ditraversed p = unWrapPF (traverse (\f -> lmap f (WrapPF p)) (distribute id))
 
 meander
