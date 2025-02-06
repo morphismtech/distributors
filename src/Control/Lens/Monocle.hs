@@ -17,6 +17,7 @@ module Control.Lens.Monocle
   , AMonocle'
   , monocle
   , ditraversed
+  , forevered
   , cloneMonocle
   , mapMonocle
   , meander
@@ -64,7 +65,10 @@ monocle mon p = unWrapPF (runMonocular mon (const (WrapPF p)))
 
 -- thanks to Fy on Monoidal Café Discord
 ditraversed :: (Traversable g, Distributive g) => Monocle (g a) (g b) a b
-ditraversed p = unWrapPF (traverse (\f -> lmap f (WrapPF p)) (distribute id))
+ditraversed = unWrapPF . replicateP . WrapPF
+
+forevered :: Monocle s t () b
+forevered = unWrapPF . foreverP . WrapPF
 
 meander
   :: forall p s t a b. (Monoidal p, Choice p, Strong p)

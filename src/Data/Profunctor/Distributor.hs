@@ -16,6 +16,7 @@ module Data.Profunctor.Distributor
   , Alternator (alternate, someP)
   , Filtrator (filtrate)
   , dimapMaybe
+  , replicateP, foreverP
   , atLeast0, atLeast1, SepBy (..), sepBy
   ) where
 
@@ -23,6 +24,7 @@ import Control.Applicative
 import Control.Arrow
 import Data.Bifunctor.Clown
 import Data.Bifunctor.Joker
+import Data.Distributive
 import Data.Functor.Contravariant.Divisible
 import Data.Profunctor
 import Data.Void
@@ -142,6 +144,14 @@ dimapMaybe f g =
     fg = dimap (>>= m2e f) (>>= m2e g)
   in
     unright . fg . right'
+
+foreverP :: Monoidal p => p () c -> p a b
+foreverP a = let a' = a >* a' in a'
+
+replicateP
+  :: (Monoidal p, Traversable t, Distributive t)
+  => p a b -> p (t a) (t b)
+replicateP p = traverse (\f -> lmap f p) (distribute id)
 
 atLeast0
   :: Distributor p
