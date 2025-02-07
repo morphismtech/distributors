@@ -231,13 +231,11 @@ filteredP prod = rule "filtered" $
 
 exprP :: Grammatical p => p ProdStr ProdStr -> p ProdStr ProdStr
 exprP prod = rule "expression" $ asum @[]
-  [ atomP prod
-  , kleeneOptP prod
+  [ kleeneOptP prod
   , kleeneStarP prod
   , kleenePlusP prod
   , filteredP prod
-  , nonterminalP
-  , terminalP
+  , atomP prod
   ]
 
 seqP :: Grammatical p => p ProdStr ProdStr -> p ProdStr ProdStr
