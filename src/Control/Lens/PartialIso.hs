@@ -43,7 +43,6 @@ module Control.Lens.PartialIso
 
 import Control.Applicative
 import Control.Lens
-import Control.Lens.Token
 import Control.Monad
 import Data.Profunctor
 import Data.Profunctor.Distributor
@@ -76,8 +75,6 @@ instance Cochoice (PartialExchange a b) where
     PartialExchange (f . Left) (either Just (pure Nothing) <=< g)
   unright (PartialExchange f g) =
     PartialExchange (f . Right) (either (pure Nothing) Just <=< g)
-instance Tokenized a b (PartialExchange a b) where
-  anyToken = PartialExchange Just Just
 
 {- | `PartialIso` is a first class inexhaustive pattern,
 similar to how `Control.Lens.Prism.Prism` is a first class exhaustive pattern.

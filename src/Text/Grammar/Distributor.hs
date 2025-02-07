@@ -1,11 +1,6 @@
 module Text.Grammar.Distributor
-  ( Syntax (tokens, rule, ruleRec)
-  , (>?<)
-  , token
-  , satisfy
-  , restOfStream
-  , endOfStream
-  , char
+  ( Regular (..)
+  , Grammatical (..)
   , ReadSyntax (..), runReadSyntax, readSyntax
   , ShowSyntax (ShowSyntax), runShowSyntax, showSyntax
   , Production (..), production
@@ -14,7 +9,7 @@ module Text.Grammar.Distributor
 
 import Control.Applicative
 import Control.Lens
-import Control.Lens.Bifocal
+-- import Control.Lens.Bifocal
 import Control.Lens.PartialIso
 import Control.Lens.Token
 import Data.Char
@@ -29,51 +24,23 @@ import Witherable
 class
   ( Alternator p
   , Filtrator p
-  , Eq c
-  , Tokenized c c p
-  ) => Syntax c p where
+  , Tokenized Char Char p
+  , forall u. (u ~ () => IsString (p () u))
+  ) => Regular p where
+    char :: Char -> p () ()
+    char c = mapCoprism (only c) anyToken
+    charCategory :: GeneralCategory -> p Char Char
+    charCategory cat = satisfy $ \ch -> cat == generalCategory ch
 
-    token
-      :: c -- ^ terminal symbol
-      -> p () ()
-    token c = mapCoprism (only c) anyToken
+fromChars :: Regular p => String -> p () ()
+fromChars [] = oneP
+fromChars (c:cs) = char c *> fromChars cs
 
-    tokens
-      :: [c] -- ^ terminal symbol
-      -> p () ()
-    tokens str = case uncons str of
-      Nothing -> oneP
-      Just (h,t) -> token h *> tokens t
-
-    rule
-      :: String -- ^ nonterminal symbol
-      -> p a b -- ^ definition
-      -> p a b
-    rule e p = ruleRec e (const p)
-
-    ruleRec
-      :: String -- ^ nonterminal symbol
-      -> (p a b -> p a b) -- ^ recursive definition
-      -> p a b
-    ruleRec _ = fix
-
-(>?<)
-  :: Syntax c p
-  => ABifocal s t a b -> p a b -> p s t
-(>?<) = mapBifocal
-
-satisfy :: Syntax c p => (c -> Bool) -> p c c
-satisfy f = mapPartialIso (_Satisfy f) anyToken
-
-restOfStream :: Syntax c p => p [c] [c]
-restOfStream = manyP anyToken
-
-endOfStream :: Syntax c p => p () ()
-endOfStream = mapCoprism _Empty restOfStream
-
-char :: Syntax Char p => GeneralCategory -> p Char Char
-char cat = rule (show cat) $
-  satisfy $ \ch -> cat == generalCategory ch
+class Regular p => Grammatical p where
+  rule :: String -> p a b -> p a b
+  rule name p = ruleRec name (const p)
+  ruleRec :: String -> (p a b -> p a b) -> p a b
+  ruleRec _ = fix
 
 newtype ShowSyntax a b = ShowSyntax (a -> Maybe ShowS)
 instance Profunctor ShowSyntax where
@@ -111,8 +78,10 @@ instance Filterable (ShowSyntax a) where
   mapMaybe = dimapMaybe Just
 instance Tokenized Char Char ShowSyntax where
   anyToken = ShowSyntax (Just . (:))
-instance Syntax Char ShowSyntax
-instance IsString (ShowSyntax () ()) where fromString = tokens
+instance u ~ () => IsString (ShowSyntax () u) where
+  fromString = fromChars
+instance Regular ShowSyntax
+instance Grammatical ShowSyntax
 
 newtype ReadSyntax a b = ReadSyntax (ReadP b)
 instance Profunctor ReadSyntax where
@@ -147,8 +116,10 @@ instance Filterable (ReadSyntax a) where
   mapMaybe = dimapMaybe Just
 instance Tokenized Char Char ReadSyntax where
   anyToken = ReadSyntax get
-instance Syntax Char ReadSyntax
-instance IsString (ReadSyntax () ()) where fromString = tokens
+instance Regular ReadSyntax
+instance Grammatical ReadSyntax
+instance u ~ () => IsString (ReadSyntax () u) where
+  fromString = fromChars
 
 runReadSyntax :: ReadSyntax a b -> String -> [(b, String)]
 runReadSyntax (ReadSyntax rd) str = readP_to_S rd str
@@ -177,37 +148,37 @@ data Production c
 makePrisms ''Production
 
 production
-  :: Syntax Char p
+  :: Grammatical p
   => p (Production Char) (Production Char)
 production = production_
   where
     production_
       = ruleRec "production"
-      $ \pro -> dichainl1 _Plus (sepBy (tokens " | ")) (series pro)
+      $ \pro -> dichainl1 _Plus (sepBy "|") (series pro)
     series pro
       = rule "series"
-      $ dichainl1 _Times (sepBy (token ' ')) (expression pro)
+      $ dichainl1 _Times (sepBy " ") (expression pro)
     expression pro
       = rule "expression"
       $ anyChar
       <|> nonterminal
       <|> terminal
-      <|> mapPrism _KleeneQ (tokens "(" >* pro *< tokens ")?")
-      <|> mapPrism _KleeneStar (tokens "(" >* pro *< tokens ")*")
-      <|> mapPrism _KleenePlus (tokens "(" >* pro *< tokens ")+")
-      <|> tokens "(" >* pro *< tokens ")"
+      <|> mapPrism _KleeneQ ("(" >* pro *< ")?")
+      <|> mapPrism _KleeneStar ("(" >* pro *< ")*")
+      <|> mapPrism _KleenePlus ("(" >* pro *< ")+")
+      <|> "(" >* pro *< ")"
     anyChar
       = rule "any-token"
       . mapPrism _AnyToken
-      $ tokens "<any-token>"
+      $ "<any-token>"
     terminal
       = rule "terminal"
       . mapPrism _Terminal
-      $ token '\"' >* manyP unreserved *< token '\"'
+      $ "\"" >* manyP unreserved *< "\""
     nonterminal
       = rule "nonterminal"
       . mapPrism _NonTerminal
-      $ token '<' >* manyP unreserved *< token '>'
+      $ "<" >* manyP unreserved *< ">"
     unreserved
       = rule "unreserved"
       . satisfy
@@ -267,26 +238,28 @@ instance Filtrator (Grammar c) where
   filtrate g = (coerce g, coerce g)
 instance Tokenized c c (Grammar c) where
   anyToken = Grammar AnyToken []
-instance Eq c => Syntax c (Grammar c) where
-  token ch = Grammar (Terminal [ch]) []
-  tokens str = Grammar (Terminal str) []
+instance u ~ () => IsString (Grammar Char () u) where
+  fromString str = Grammar (Terminal str) []
+instance Regular (Grammar Char) where
+  char ch = Grammar (Terminal [ch]) []
+instance Grammatical (Grammar Char) where
   rule name (Grammar prod rules) = Grammar (NonTerminal name) ((name, prod) : rules)
   ruleRec name f =
     let Grammar prod rules = f (Grammar (NonTerminal name) [])
     in Grammar (NonTerminal name) ((name, prod) : rules)
 
-grammar :: Syntax Char p => p (Grammar Char a b) (Grammar Char a b)
+grammar :: Grammatical p => p (Grammar Char a b) (Grammar Char a b)
 grammar = grammar_
   where
     grammar_
       = rule "grammar"
-      $ mapPrism _Grammar (start >*< manyP (token '\n' >* rule_))
+      $ mapPrism _Grammar (start >*< manyP ("\n" >* rule_))
     start
       = rule "start"
       $ production
     rule_
       = rule "rule"
-      $ name >*< (tokens " = " >* production)
+      $ name >*< (" = " >* production)
     name
       = rule "name"
       $ manyP unreserved
@@ -307,5 +280,5 @@ grammar = grammar_
 
 -- digit, summationL, summationR :: Syntax Char p => p Summation Summation
 -- digit = (_Digit . iso chr ord) >?< char DecimalNumber
--- summationL = dichainl1 _Add (sepBy (tokens " + ")) digit
--- summationR = dichainr1 _Add (sepBy (tokens " + ")) digit
+-- summationL = dichainl1 _Add (sepBy (" + ")) digit
+-- summationR = dichainr1 _Add (sepBy (" + ")) digit
