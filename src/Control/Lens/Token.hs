@@ -40,7 +40,7 @@ instance Tokenized a b (Token a b) where
   anyToken = Token
 
 satisfy :: (Choice p, Cochoice p, Tokenized c c p) => (c -> Bool) -> p c c
-satisfy f = mapPartialIso (_Satisfy f) anyToken
+satisfy f = _Satisfy f >?< anyToken
 
 restOfStream :: (Distributor p, Tokenized c c p) => p [c] [c]
 restOfStream = manyP anyToken

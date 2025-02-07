@@ -26,7 +26,7 @@ module Control.Lens.PartialIso
     -- * Prism, Coprism and (Partial)Iso Actions
   , mapPrism
   , mapCoprism
-  , mapPartialIso
+  , (>?<)
   , mapIso
     -- * Common (Partial)Isos
   , _Satisfy
@@ -210,12 +210,13 @@ mapCoprism
 mapCoprism pat = withPrism pat $ \f g -> unright . dimap (either id f) g
 
 {- | Action of `APartialIso` on `Choice` and `Cochoice` `Profunctor`s. -}
-mapPartialIso
+(>?<)
   :: (Choice p, Cochoice p)
   => APartialIso s t a b
   -> p a b
   -> p s t
-mapPartialIso pat = withPartialIso pat dimapMaybe
+(>?<) pat = withPartialIso pat dimapMaybe
+infixl 4 >?<
 
 {- | Action of `AnIso` on `Profunctor`s. -}
 mapIso :: Profunctor p => AnIso s t a b -> p a b -> p s t
@@ -307,12 +308,12 @@ dichainl1
   :: (Alternator p, Filtrator p)
   => APartialIso a b (a,a) (b,b) -> SepBy p -> p a b -> p a b
 dichainl1 pat sep p =
-  mapPartialIso (coPartialIso (difoldl (coPartialIso pat))) $
+  coPartialIso (difoldl (coPartialIso pat)) >?<
     beginBy sep >* p >*< manyP (separateBy sep >* p) *< endBy sep
 
 dichainr1
   :: (Alternator p, Filtrator p)
   => APartialIso a b (a,a) (b,b) -> SepBy p -> p a b -> p a b
 dichainr1 pat sep p =
-  mapPartialIso (coPartialIso (difoldr (coPartialIso pat))) $
+  coPartialIso (difoldr (coPartialIso pat)) >?<
     beginBy sep >* manyP (p *< separateBy sep) >*< p *< endBy sep
