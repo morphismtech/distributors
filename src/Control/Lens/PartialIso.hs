@@ -32,6 +32,7 @@ module Control.Lens.PartialIso
   , _Satisfy
   , _Normal
   , _M2E
+  , _Null
     -- * difold/dichain operations
   , difoldl1
   , difoldr1
