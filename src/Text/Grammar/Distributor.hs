@@ -1,6 +1,6 @@
 module Text.Grammar.Distributor
   ( Grammatical (..), Grammar
-  , RegEx (..), regexP, regexString
+  , RegEx (..), regexGrammar, regexString
   , genReadP, genShowS, genRegEx, genGrammar, printGrammar
   ) where
 
@@ -36,6 +36,8 @@ class
     rule _ = id
     ruleRec :: String -> (p a b -> p a b) -> p a b
     ruleRec name = rule name . fix
+    theEnd :: p () ()
+    theEnd = endOfTokens
 
 type Grammar a = forall p. Grammatical p => p a a
 
@@ -120,6 +122,7 @@ data RegEx
   = Fail
   | Terminal String -- ^ abc123etc\.
   | Any -- ^ .
+  | End -- ^ $
   | NonTerminal String -- ^ \r{rule-name}
   | InClass String -- ^ [abc]
   | NotInClass String -- ^ [^abc]
@@ -180,6 +183,7 @@ instance Grammatical DiRegEx where
   inClass str = DiRegEx (InClass str)
   notInClass str = DiRegEx (NotInClass str)
   inCategory str = DiRegEx (InCategory str)
+  theEnd = DiRegEx End
 
 data DiGrammar a b = DiGrammar
   { grammarStart :: DiRegEx a b
@@ -255,7 +259,7 @@ regexString :: RegEx -> String
 regexString rex = maybe badRegex id stringMaybe
   where
     badRegex = "RegEx failed to print. " <> show rex
-    stringMaybe = case regexP of DiShow sh -> ($ "") <$> sh rex
+    stringMaybe = case regexGrammar of DiShow sh -> ($ "") <$> sh rex
 
 genRegEx :: Grammar a -> RegEx
 genRegEx (DiRegEx rex) = rex
@@ -272,8 +276,11 @@ printGrammar gram = for_ (genGrammar gram) $ \(name_i, rule_i) -> do
 anyP :: Grammatical p => p RegEx RegEx
 anyP = rule "any" $ "." >* pure Any
 
+endP :: Grammatical p => p RegEx RegEx
+endP = rule "end" $ "$" >* pure End
+
 reservedClass :: String
-reservedClass = "()*+.?[\\]^{|}"
+reservedClass = "$()*+.?[\\]^{|}"
 
 literalP :: Grammatical p => p Char Char
 literalP = rule "literal" $ notInClass reservedClass
@@ -355,6 +362,7 @@ atomP regex = rule "atom" $ foldl (<|>) empty
   , tokenP
   , parenP regex
   , anyP
+  , endP
   ]
 
 kleeneOptP :: Grammatical p => p RegEx RegEx -> p RegEx RegEx
@@ -386,5 +394,5 @@ altP :: Grammatical p => p RegEx RegEx -> p RegEx RegEx
 altP regex = rule "alternate" $
   dichainl1 _Alternate (sepBy "|") (seqP regex)
 
-regexP :: Grammar RegEx
-regexP = ruleRec "regex" $ \regex -> altP regex
+regexGrammar :: Grammar RegEx
+regexGrammar = ruleRec "regex" $ \regex -> altP regex
