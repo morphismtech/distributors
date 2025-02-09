@@ -73,7 +73,7 @@ replicateP
 replicateP p = traverse (\f -> lmap f p) (distribute id)
 
 meander
-  :: forall p s t a b. (Monoidal p, Choice p, Strong p)
+  :: forall p s t a b. (Monoidal p, Choice p, Strong p) -- should redundant Strong stay or go?
   => ATraversal s t a b -> p a b -> p s t
 meander f = dimap (f sell) iextract . trav
   where
