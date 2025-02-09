@@ -63,7 +63,6 @@ ditraversal
   -> p (f a) (g b) -> p (f s) (g t)
 ditraversal mon = unWrapPFG . mapMonocle mon . WrapPFG
 
--- thanks to Fy on Monoidal Café Discord
 ditraversed :: (Traversable g, Distributive g) => Monocle (g a) (g b) a b
 ditraversed = unWrapPF . replicateP . WrapPF
 

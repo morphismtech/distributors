@@ -152,6 +152,7 @@ dimapMaybe f g =
 foreverP :: Monoidal p => p () c -> p a b
 foreverP a = let a' = a >* a' in a'
 
+-- thanks to Fy on Monoidal Café Discord
 replicateP
   :: (Monoidal p, Traversable t, Distributive t)
   => p a b -> p (t a) (t b)
