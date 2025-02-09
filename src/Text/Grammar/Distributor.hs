@@ -140,6 +140,14 @@ instance Applicative (DiRegEx a) where
   pure _ = DiRegEx (Terminal [])
   DiRegEx (Terminal []) <*> regex = coerce regex
   regex <*> DiRegEx (Terminal []) = coerce regex
+  DiRegEx regex1 <*> DiRegEx (KleeneStar regex2) =
+    if regex1 == regex2
+    then DiRegEx (KleenePlus regex1)
+    else DiRegEx (Sequence regex1 (KleeneStar regex2))
+  DiRegEx (KleeneStar regex1) <*> DiRegEx regex2 =
+    if regex1 == regex2
+    then DiRegEx (KleenePlus regex1)
+    else DiRegEx (Sequence (KleeneStar regex1) regex2)
   DiRegEx (Terminal str0)
     <*> DiRegEx (Terminal str1) =
       DiRegEx (Terminal (str0 <> str1))
