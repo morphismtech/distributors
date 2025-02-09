@@ -126,11 +126,11 @@ data RegEx
   | InClass String -- ^ [abc]
   | NotInClass String -- ^ [^abc]
   | InCategory GeneralCategory -- ^ \p{Lu}
-  | Alternate RegEx RegEx
-  | Sequence RegEx RegEx
-  | KleeneOpt RegEx
-  | KleeneStar RegEx
-  | KleenePlus RegEx
+  | Alternate RegEx RegEx -- ^ p|q
+  | Sequence RegEx RegEx -- ^ pq
+  | KleeneOpt RegEx -- ^ p?
+  | KleeneStar RegEx -- ^ p*
+  | KleenePlus RegEx -- ^ p+
   deriving (Eq, Ord, Show)
 makePrisms ''RegEx
 
