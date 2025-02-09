@@ -10,6 +10,8 @@ Portability : non-portable
 
 module Control.Lens.Token
   ( Tokenized (anyToken)
+  , token
+  , stream
   , satisfy
   , restOfStream
   , endOfStream
@@ -32,6 +34,13 @@ instance Tokenized a b (Market a b) where
   anyToken = Market id Right
 instance Tokenized a b (PartialExchange a b) where
   anyToken = PartialExchange Just Just
+
+token :: (Cochoice p, Eq c, Tokenized c c p) => c -> p () ()
+token c = only c ?< anyToken
+
+stream :: (Cochoice p, Monoidal p, Eq c, Tokenized c c p) => [c] -> p () ()
+stream [] = oneP
+stream (c:cs) = token c *> stream cs
 
 satisfy :: (Choice p, Cochoice p, Tokenized c c p) => (c -> Bool) -> p c c
 satisfy f = _Satisfy f >?< anyToken

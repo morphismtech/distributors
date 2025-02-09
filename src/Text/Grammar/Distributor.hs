@@ -39,10 +39,6 @@ class
     ruleRec :: String -> (p a b -> p a b) -> p a b
     ruleRec name = rule name . fix
 
-fromChars :: Syntax p => String -> p () ()
-fromChars [] = oneP
-fromChars (c:cs) = (only c ?< anyToken) *> fromChars cs
-
 newtype DiShow a b = DiShow {unDiShow :: a -> Maybe ShowS}
 instance Profunctor DiShow where
   dimap f _ (DiShow sh) = DiShow (sh . f)
@@ -80,7 +76,7 @@ instance Filterable (DiShow a) where
 instance Tokenized Char Char DiShow where
   anyToken = DiShow (Just . (:))
 instance u ~ () => IsString (DiShow () u) where
-  fromString = fromChars
+  fromString = stream
 instance Syntax DiShow
 
 newtype DiRead a b = DiRead {unDiRead :: ReadP b}
@@ -118,7 +114,7 @@ instance Tokenized Char Char DiRead where
   anyToken = DiRead get
 instance Syntax DiRead
 instance u ~ () => IsString (DiRead () u) where
-  fromString = fromChars
+  fromString = stream
 
 runDiRead :: DiRead a b -> String -> [(b, String)]
 runDiRead (DiRead rd) str = readP_to_S rd str
