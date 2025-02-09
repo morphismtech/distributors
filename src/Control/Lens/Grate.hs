@@ -26,7 +26,6 @@ module Control.Lens.Grate
   , Grating (..)
   ) where
 
-import Control.Lens.Token
 import Data.Distributive
 import Data.Function
 import Data.Functor.Identity

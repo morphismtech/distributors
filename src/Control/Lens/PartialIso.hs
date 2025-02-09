@@ -9,8 +9,9 @@ Portability : non-portable
 -}
 
 module Control.Lens.PartialIso
-  ( -- * Partial Isomorphisms
-    PartialIso
+  ( dimapMaybe
+    -- * Partial Isomorphisms
+  , PartialIso
   , PartialIso'
   , APartialIso
   , APartialIso'
@@ -38,16 +39,25 @@ module Control.Lens.PartialIso
   , difoldr1
   , difoldl
   , difoldr
-  , dichainl1
-  , dichainr1
   ) where
 
 import Control.Applicative
 import Control.Lens
 import Control.Monad
 import Data.Profunctor
-import Data.Profunctor.Distributor
+-- import Data.Profunctor.Distributor
 import Witherable
+
+dimapMaybe
+  :: (Choice p, Cochoice p)
+  => (s -> Maybe a) -> (b -> Maybe t)
+  -> p a b -> p s t
+dimapMaybe f g =
+  let
+    m2e h = maybe (Left ()) Right . h
+    fg = dimap (>>= m2e f) (>>= m2e g)
+  in
+    unright . fg . right'
 
 {- | A `PartialExchange` provides efficient access
 to the two functions that make up a `PartialIso`.
@@ -306,17 +316,3 @@ difoldr i =
     difoldr1 i
     . crossPartialIso _Null id
     . unit'
-
-dichainl1
-  :: (Alternator p, Filtrator p)
-  => APartialIso a b (a,a) (b,b) -> SepBy p -> p a b -> p a b
-dichainl1 pat sep p =
-  coPartialIso (difoldl (coPartialIso pat)) >?<
-    beginBy sep >* p >*< manyP (separateBy sep >* p) *< endBy sep
-
-dichainr1
-  :: (Alternator p, Filtrator p)
-  => APartialIso a b (a,a) (b,b) -> SepBy p -> p a b -> p a b
-dichainr1 pat sep p =
-  coPartialIso (difoldr (coPartialIso pat)) >?<
-    beginBy sep >* manyP (p *< separateBy sep) >*< p *< endBy sep

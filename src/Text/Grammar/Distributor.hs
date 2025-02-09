@@ -7,7 +7,6 @@ module Text.Grammar.Distributor
 import Control.Applicative
 import Control.Lens
 import Control.Lens.PartialIso
-import Control.Lens.Token
 import Data.Char
 import Data.Coerce
 import Data.Foldable (for_)

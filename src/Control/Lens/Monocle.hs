@@ -32,7 +32,6 @@ import Control.Lens.Internal.Bazaar
 import Control.Lens.Internal.Context
 import Control.Lens.Internal.Distributor
 import Control.Lens.PartialIso
-import Control.Lens.Token
 import Data.Distributive
 import Data.Profunctor
 import Data.Profunctor.Distributor

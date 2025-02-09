@@ -11,17 +11,20 @@ Portability : non-portable
 {-# OPTIONS_GHC -Wno-orphans #-}
 
 module Data.Profunctor.Distributor
-  ( Monoidal, oneP, (>*<), dimap2, (>*), (*<)
+  ( Monoidal, oneP, (>*<), dimap2, (>*), (*<), replicateP, foreverP
   , Distributor (zeroP, (>+<), optionalP, manyP), dialt
   , Alternator (alternate, someP)
   , Filtrator (filtrate)
-  , dimapMaybe
-  , replicateP, foreverP
-  , atLeast0, atLeast1, SepBy (..), sepBy
+  , Tokenized (anyToken), token, tokens, satisfy, restOfTokens, endOfTokens
+  , SepBy (..), sepBy, atLeast0, atLeast1, dichainl1, dichainr1
   ) where
 
 import Control.Applicative
 import Control.Arrow
+import Control.Lens hiding (chosen)
+import Control.Lens.Internal.Iso
+import Control.Lens.Internal.Prism
+import Control.Lens.PartialIso
 import Data.Bifunctor.Clown
 import Data.Bifunctor.Joker
 import Data.Distributive
@@ -54,6 +57,15 @@ infixl 5 >*
 (*<) :: Monoidal p => p a b -> p () c -> p a b
 x *< y = x <* lmap (const ()) y
 infixl 5 *<
+
+foreverP :: Monoidal p => p () c -> p a b
+foreverP a = let a' = a >* a' in a'
+
+-- thanks to Fy on Monoidal Café Discord
+replicateP
+  :: (Monoidal p, Traversable t, Distributive t)
+  => p a b -> p (t a) (t b)
+replicateP p = traverse (\f -> lmap f p) (distribute id)
 
 class Monoidal p => Distributor p where
 
@@ -138,25 +150,45 @@ class (Cochoice p, forall x. Filterable (p x))
       &&&
       dimapMaybe (Just . Right) (either (pure Nothing) Just)
 
-dimapMaybe
-  :: (Choice p, Cochoice p)
-  => (s -> Maybe a) -> (b -> Maybe t)
-  -> p a b -> p s t
-dimapMaybe f g =
-  let
-    m2e h = maybe (Left ()) Right . h
-    fg = dimap (>>= m2e f) (>>= m2e g)
-  in
-    unright . fg . right'
+class Tokenized a b p | p -> a, p -> b where
+  anyToken :: p a b
+instance Tokenized a b (Identical a b) where
+  anyToken = Identical
+instance Tokenized a b (Exchange a b) where
+  anyToken = Exchange id id
+instance Tokenized a b (Market a b) where
+  anyToken = Market id Right
+instance Tokenized a b (PartialExchange a b) where
+  anyToken = PartialExchange Just Just
 
-foreverP :: Monoidal p => p () c -> p a b
-foreverP a = let a' = a >* a' in a'
+token :: (Cochoice p, Eq c, Tokenized c c p) => c -> p () ()
+token c = only c ?< anyToken
 
--- thanks to Fy on Monoidal Café Discord
-replicateP
-  :: (Monoidal p, Traversable t, Distributive t)
-  => p a b -> p (t a) (t b)
-replicateP p = traverse (\f -> lmap f p) (distribute id)
+tokens :: (Cochoice p, Monoidal p, Eq c, Tokenized c c p) => [c] -> p () ()
+tokens [] = oneP
+tokens (c:cs) = token c *> tokens cs
+
+satisfy :: (Choice p, Cochoice p, Tokenized c c p) => (c -> Bool) -> p c c
+satisfy f = _Satisfy f >?< anyToken
+
+restOfTokens :: (Distributor p, Tokenized c c p) => p [c] [c]
+restOfTokens = manyP anyToken
+
+endOfTokens :: (Cochoice p, Distributor p, Tokenized c c p) => p () ()
+endOfTokens = _Empty ?< restOfTokens
+
+{- | Used to parse multiple times, delimited by a `separateBy`,
+a `beginBy`, and an `endBy`. -}
+data SepBy p = SepBy
+  { beginBy :: p () ()
+  , endBy :: p () ()
+  , separateBy :: p () ()
+  }
+
+{- | A default `SepBy` which can be modified by updating
+`beginBy`, or `endBy` fields -}
+sepBy :: Monoidal p => p () () -> SepBy p
+sepBy = SepBy oneP oneP
 
 atLeast0
   :: Distributor p
@@ -172,18 +204,19 @@ atLeast1
 atLeast1 sep p = dimap unlist (either list0 list1)
   (right' (beginBy sep >* p >*< manyP (separateBy sep >* p) *< endBy sep))
 
-{- | Used to parse multiple times, delimited by a `separateBy`,
-a `beginBy`, and an `endBy`. -}
-data SepBy p = SepBy
-  { beginBy :: p () ()
-  , endBy :: p () ()
-  , separateBy :: p () ()
-  }
+dichainl1
+  :: (Alternator p, Filtrator p)
+  => APartialIso a b (a,a) (b,b) -> SepBy p -> p a b -> p a b
+dichainl1 pat sep p =
+  coPartialIso (difoldl (coPartialIso pat)) >?<
+    beginBy sep >* p >*< manyP (separateBy sep >* p) *< endBy sep
 
-{- | A default `SepBy` which can be modified by updating
-`beginBy`, or `endBy` fields -}
-sepBy :: Monoidal p => p () () -> SepBy p
-sepBy = SepBy oneP oneP
+dichainr1
+  :: (Alternator p, Filtrator p)
+  => APartialIso a b (a,a) (b,b) -> SepBy p -> p a b -> p a b
+dichainr1 pat sep p =
+  coPartialIso (difoldr (coPartialIso pat)) >?<
+    beginBy sep >* manyP (p *< separateBy sep) >*< p *< endBy sep
 
 -- ORPHANAGE --
 
