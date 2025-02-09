@@ -1,7 +1,10 @@
 module Text.Grammar.Distributor
-  ( Grammatical (..), Grammar
-  , RegEx (..), regexGrammar, regexString
+  ( -- * Grammar
+    Grammatical (..), Grammar
+    -- * Generators
   , genReadP, genShowS, genRegEx, genGrammar, printGrammar
+    -- * RegEx
+  , RegEx (..), regexGrammar, regexString
   ) where
 
 import Control.Applicative
@@ -395,7 +398,7 @@ exprP regex = rule "expression" $ foldl (<|>) empty
 
 seqP :: Grammatical p => p RegEx RegEx -> p RegEx RegEx
 seqP regex = rule "sequence" $
-  dichainl1 _Sequence (sepBy oneP) (exprP regex)
+  dichainl1 _Sequence (sepBy "") (exprP regex)
 
 altP :: Grammatical p => p RegEx RegEx -> p RegEx RegEx
 altP regex = rule "alternate" $
