@@ -8,8 +8,6 @@ Stability   : provisional
 Portability : non-portable
 -}
 
-{-# OPTIONS_GHC -Wno-redundant-constraints #-}
-
 module Control.Lens.Monocle
   ( Monocle
   , Monocle'
@@ -20,18 +18,13 @@ module Control.Lens.Monocle
   , ditraversed
   , forevered
   , cloneMonocle
-  , meander
   , withMonocle
   , Monocular (..), runMonocular
   ) where
 
 import Control.Lens hiding (Traversing)
-import Control.Lens.Internal.Bazaar
-import Control.Lens.Internal.Context
 import Control.Lens.Internal.Profunctor
-import Control.Lens.PartialIso
 import Data.Distributive
-import Data.Profunctor
 import Data.Profunctor.Distributor
 
 type Monocle s t a b = forall p f.
@@ -60,14 +53,6 @@ ditraversed = unwrapPafb . replicateP . WrapPafb
 forevered :: Monocle s t () b
 forevered = unwrapPafb . foreverP . WrapPafb
 
-meander
-  :: forall p s t a b. (Monoidal p, Choice p, Strong p)
-  => ATraversal s t a b -> p a b -> p s t
-meander f = dimap (f sell) iextract . trav
-  where
-    trav :: p u v -> p (Bazaar (->) u w x) (Bazaar (->) v w x)
-    trav q = mapIso _Bazaar $ right' (q >*< trav q)
-
 withMonocle :: AMonocle s t a b -> (Monocular a b s t -> r) -> r
 withMonocle mon k =
   k (runIdentity <$> mon (Identity <$> anyToken))
@@ -88,43 +73,3 @@ runMonocular
   :: (Profunctor p, forall x. Applicative (p x))
   => Monocular a b s t -> p a b -> p s t
 runMonocular (Monocular k) p = k $ \sa -> lmap sa p
-
-data FunList a b t
-  = DoneFun t
-  | MoreFun a (Bazaar (->) a b (b -> t))
-instance Functor (FunList a b) where
-  fmap f = \case
-    DoneFun t -> DoneFun (f t)
-    MoreFun a h -> MoreFun a (fmap (f .) h)
-instance Applicative (FunList a b) where
-  pure = DoneFun
-  (<*>) = \case
-    DoneFun t -> fmap t
-    MoreFun a h -> \l ->
-      MoreFun a (flip <$> h <*> view _FunList l)
-instance Sellable (->) FunList where sell b = MoreFun b (pure id)
-instance Bizarre (->) FunList where
-  bazaar f = \case
-    DoneFun t -> pure t
-    MoreFun a l -> ($) <$> bazaar f l <*> f a
-
-_FunList :: Iso
-  (FunList a1 b1 t1) (FunList a2 b2 t2)
-  (Bazaar (->) a1 b1 t1) (Bazaar (->) a2 b2 t2)
-_FunList = iso fromFun toFun where
-  toFun (Bazaar f) = f sell
-  fromFun = \case
-    DoneFun t -> pure t
-    MoreFun a f -> ($) <$> f <*> sell a
-
-_Bazaar :: Iso
-  (Bazaar (->) a1 b1 t1) (Bazaar (->) a2 b2 t2)
-  (Either t1 (a1, Bazaar (->) a1 b1 (b1 -> t1)))
-  (Either t2 (a2, Bazaar (->) a2 b2 (b2 -> t2)))
-_Bazaar = from _FunList . iso f g where
-  f = \case
-    DoneFun t -> Left t
-    MoreFun a baz -> Right (a, baz)
-  g = \case
-    Left t -> DoneFun t
-    Right (a, baz) -> MoreFun a baz

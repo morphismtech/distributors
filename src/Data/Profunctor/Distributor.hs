@@ -9,9 +9,10 @@ Portability : non-portable
 -}
 
 {-# OPTIONS_GHC -Wno-orphans #-}
+{-# OPTIONS_GHC -Wno-redundant-constraints #-}
 
 module Data.Profunctor.Distributor
-  ( Monoidal, oneP, (>*<), dimap2, (>*), (*<), replicateP, foreverP
+  ( Monoidal, oneP, (>*<), dimap2, (>*), (*<), replicateP, foreverP, meander
   , Distributor (zeroP, (>+<), optionalP, manyP), dialt
   , Alternator (alternate, someP)
   , Filtrator (filtrate)
@@ -22,6 +23,8 @@ module Data.Profunctor.Distributor
 import Control.Applicative
 import Control.Arrow
 import Control.Lens hiding (chosen)
+import Control.Lens.Internal.Bazaar
+import Control.Lens.Internal.Context
 import Control.Lens.Internal.Iso
 import Control.Lens.Internal.Prism
 import Control.Lens.Internal.Profunctor
@@ -68,6 +71,14 @@ replicateP
   :: (Monoidal p, Traversable t, Distributive t)
   => p a b -> p (t a) (t b)
 replicateP p = traverse (\f -> lmap f p) (distribute id)
+
+meander
+  :: forall p s t a b. (Monoidal p, Choice p, Strong p)
+  => ATraversal s t a b -> p a b -> p s t
+meander f = dimap (f sell) iextract . trav
+  where
+    trav :: p u v -> p (Bazaar (->) u w x) (Bazaar (->) v w x)
+    trav q = mapIso _Bazaar $ right' (q >*< trav q)
 
 class Monoidal p => Distributor p where
 
@@ -190,6 +201,8 @@ instance (Filtrator p, Filterable f)
         , WrapPafb pR
         )
 
+-- Tokenized --
+
 class Tokenized a b p | p -> a, p -> b where
   anyToken :: p a b
 instance Tokenized a b (Identical a b) where
@@ -216,6 +229,8 @@ restOfTokens = manyP anyToken
 
 endOfTokens :: (Cochoice p, Distributor p, Tokenized c c p) => p () ()
 endOfTokens = _Empty ?< restOfTokens
+
+-- SepBy --
 
 {- | Used to parse multiple times, delimited by a `separateBy`,
 a `beginBy`, and an `endBy`. -}
@@ -257,6 +272,48 @@ dichainr1
 dichainr1 pat sep p =
   coPartialIso (difoldr (coPartialIso pat)) >?<
     beginBy sep >* manyP (p *< separateBy sep) >*< p *< endBy sep
+
+-- FunList --
+
+data FunList a b t
+  = DoneFun t
+  | MoreFun a (Bazaar (->) a b (b -> t))
+instance Functor (FunList a b) where
+  fmap f = \case
+    DoneFun t -> DoneFun (f t)
+    MoreFun a h -> MoreFun a (fmap (f .) h)
+instance Applicative (FunList a b) where
+  pure = DoneFun
+  (<*>) = \case
+    DoneFun t -> fmap t
+    MoreFun a h -> \l ->
+      MoreFun a (flip <$> h <*> view _FunList l)
+instance Sellable (->) FunList where sell b = MoreFun b (pure id)
+instance Bizarre (->) FunList where
+  bazaar f = \case
+    DoneFun t -> pure t
+    MoreFun a l -> ($) <$> bazaar f l <*> f a
+
+_FunList :: Iso
+  (FunList a1 b1 t1) (FunList a2 b2 t2)
+  (Bazaar (->) a1 b1 t1) (Bazaar (->) a2 b2 t2)
+_FunList = iso fromFun toFun where
+  toFun (Bazaar f) = f sell
+  fromFun = \case
+    DoneFun t -> pure t
+    MoreFun a f -> ($) <$> f <*> sell a
+
+_Bazaar :: Iso
+  (Bazaar (->) a1 b1 t1) (Bazaar (->) a2 b2 t2)
+  (Either t1 (a1, Bazaar (->) a1 b1 (b1 -> t1)))
+  (Either t2 (a2, Bazaar (->) a2 b2 (b2 -> t2)))
+_Bazaar = from _FunList . iso f g where
+  f = \case
+    DoneFun t -> Left t
+    MoreFun a baz -> Right (a, baz)
+  g = \case
+    Left t -> DoneFun t
+    Right (a, baz) -> MoreFun a baz
 
 -- ORPHANAGE --
 
