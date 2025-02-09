@@ -399,7 +399,7 @@ seqP regex = rule "sequence" $
 
 altP :: Grammatical p => p RegString RegString -> p RegString RegString
 altP regex = rule "alternate" $
-  dichainl1 _Alternate (sepBy (char ('|'))) (seqP regex)
+  dichainr1 _Alternate (sepBy (char ('|'))) (seqP regex)
 
 regexP :: Grammatical p => p RegString RegString
 regexP = ruleRec "regex" $ \regex -> altP regex
