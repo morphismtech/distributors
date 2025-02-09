@@ -37,7 +37,7 @@ oneP = pure ()
 
 (>*<) :: Monoidal p => p a b -> p c d -> p (a,c) (b,d)
 (>*<) = dimap2 fst snd (,)
-infixl 6 >*<
+infixr 6 >*<
 
 dimap2
   :: Monoidal p
@@ -49,11 +49,11 @@ dimap2 f g h p q = liftA2 h (lmap f p) (lmap g q)
 
 (>*) :: Monoidal p => p () c -> p a b -> p a b
 x >* y = lmap (const ()) x *> y
-infixl 6 >*
+infixl 5 >*
 
 (*<) :: Monoidal p => p a b -> p () c -> p a b
 x *< y = x <* lmap (const ()) y
-infixl 6 *<
+infixl 5 *<
 
 class Monoidal p => Distributor p where
 
