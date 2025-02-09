@@ -365,13 +365,15 @@ parenP regex = rule "parenthesized" $
   "(" >* regex *< ")"
 
 atomP :: Syntax p => p RegString RegString -> p RegString RegString
-atomP regex = rule "atom" $ tokenP
-  <|> (_Match >?< nonterminalP)
-  <|> (_Match >?< inClassP)
-  <|> (_Match >?< notInClassP)
-  <|> (_Match >?< inCategoryP)
-  <|> (_Match >?< anyP)
-  <|> parenP regex
+atomP regex = rule "atom" $ asum
+  [ _Match >?< nonterminalP
+  , _Match >?< inClassP
+  , _Match >?< notInClassP
+  , _Match >?< inCategoryP
+  , _Match >?< anyP
+  , tokenP
+  , parenP regex
+  ]
 
 kleeneOptP :: Syntax p => p RegString RegString -> p RegString RegString
 kleeneOptP regex = rule "kleene-optional" $
