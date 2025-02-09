@@ -21,16 +21,14 @@ module Control.Lens.Monocle
   , forevered
   , cloneMonocle
   , meander
-  , ditraversal
   , withMonocle
   , Monocular (..), runMonocular
-  , WrappedPF (..), WrappedPFG (..)
   ) where
 
 import Control.Lens hiding (Traversing)
 import Control.Lens.Internal.Bazaar
 import Control.Lens.Internal.Context
-import Control.Lens.Internal.Distributor
+import Control.Lens.Internal.Profunctor
 import Control.Lens.PartialIso
 import Data.Distributive
 import Data.Profunctor
@@ -48,25 +46,19 @@ type AMonocle s t a b =
 type AMonocle' s a = AMonocle s s a a
 
 monocle :: Monocular a b s t -> Monocle s t a b
-monocle mon = unWrapPF . runMonocular mon . WrapPF
+monocle mon = unwrapPafb . runMonocular mon . WrapPafb
 
 mapMonocle :: Monoidal p => AMonocle s t a b -> p a b -> p s t
 mapMonocle mon p = withMonocle mon $ \ocular -> runMonocular ocular p
 
 cloneMonocle :: AMonocle s t a b -> Monocle s t a b
-cloneMonocle mon = unWrapPF . mapMonocle mon . WrapPF
-
-ditraversal
-  :: (Functor f, Applicative g, Monoidal p)
-  => AMonocle s t a b
-  -> p (f a) (g b) -> p (f s) (g t)
-ditraversal mon = unWrapPFG . mapMonocle mon . WrapPFG
+cloneMonocle mon = unwrapPafb . mapMonocle mon . WrapPafb
 
 ditraversed :: (Traversable g, Distributive g) => Monocle (g a) (g b) a b
-ditraversed = unWrapPF . replicateP . WrapPF
+ditraversed = unwrapPafb . replicateP . WrapPafb
 
 forevered :: Monocle s t () b
-forevered = unWrapPF . foreverP . WrapPF
+forevered = unwrapPafb . foreverP . WrapPafb
 
 meander
   :: forall p s t a b. (Monoidal p, Choice p, Strong p)

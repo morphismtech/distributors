@@ -26,7 +26,7 @@ module Control.Lens.Bifocal
   ) where
 
 import Control.Applicative
-import Control.Lens.Monocle
+import Control.Lens.Internal.Profunctor
 import Control.Lens.PartialIso
 import Data.Profunctor
 import Data.Profunctor.Distributor
@@ -52,7 +52,7 @@ type Prismoid s t a b = forall p f.
     => p a (f b) -> p s (f t)
 
 bifocal :: Binocular a b s t -> Bifocal s t a b
-bifocal bif = unWrapPF . runBinocular bif . WrapPF
+bifocal bif = unwrapPafb . runBinocular bif . WrapPafb
 
 mapBifocal
   :: (Alternator p, Filtrator p)
@@ -60,16 +60,16 @@ mapBifocal
 mapBifocal bif p = withBifocal bif $ \ocal -> runBinocular ocal p
 
 cloneBifocal :: ABifocal s t a b -> Bifocal s t a b
-cloneBifocal bif = unWrapPF . mapBifocal bif . WrapPF
+cloneBifocal bif = unwrapPafb . mapBifocal bif . WrapPafb
 
 optioned :: Diopter (Maybe a) (Maybe b) a b
-optioned = unWrapPF . optionalP . WrapPF
+optioned = unwrapPafb . optionalP . WrapPafb
 
 manied :: Diopter [a] [b] a b
-manied = unWrapPF . manyP . WrapPF
+manied = unwrapPafb . manyP . WrapPafb
 
 somed :: Prismoid [a] [b] a b
-somed = unWrapPF . someP . WrapPF
+somed = unwrapPafb . someP . WrapPafb
 
 withBifocal :: ABifocal s t a b -> (Binocular a b s t -> r) -> r
 withBifocal bif k = k (catMaybes (bif (Just <$> anyToken)))

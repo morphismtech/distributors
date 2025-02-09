@@ -24,10 +24,12 @@ import Control.Arrow
 import Control.Lens hiding (chosen)
 import Control.Lens.Internal.Iso
 import Control.Lens.Internal.Prism
+import Control.Lens.Internal.Profunctor
 import Control.Lens.PartialIso
 import Data.Bifunctor.Clown
 import Data.Bifunctor.Joker
 import Data.Distributive
+import Data.Functor.Compose
 import Data.Functor.Contravariant.Divisible
 import Data.Profunctor
 import Data.Void
@@ -223,9 +225,63 @@ dichainr1 pat sep p =
 instance Monoid r => Applicative (Forget r a) where
   pure _ = Forget mempty
   Forget f <*> Forget g = Forget (f <> g)
-
 instance Decidable f => Applicative (Clown f a) where
   pure _ = Clown conquer
   Clown x <*> Clown y = Clown (divide (id &&& id) x y)
-
 deriving newtype instance Applicative f => Applicative (Joker f a)
+instance (Profunctor p, Functor f)
+  => Functor (WrappedPafb f p a) where fmap = rmap
+deriving via Compose (p a) f instance
+  (Monoidal p, Applicative f)
+    => Applicative (WrappedPafb f p a)
+deriving via Compose (p a) f instance
+  (Profunctor p, forall x. Alternative (p x), Applicative f)
+    => Alternative (WrappedPafb f p a)
+deriving via Compose (p a) f instance
+  (Profunctor p, forall x. Functor (p x), Filterable f)
+    => Filterable (WrappedPafb f p a)
+instance (Distributor p, Applicative f)
+  => Distributor (WrappedPafb f p) where
+    zeroP = WrapPafb (rmap pure zeroP)
+    WrapPafb x >+< WrapPafb y = WrapPafb $
+      dialt id (fmap Left) (fmap Right) x y
+    -- manyP
+    -- optionalP
+instance (Profunctor p, Filterable f)
+  => Cochoice (WrappedPafb f p) where
+    unleft (WrapPafb p) = WrapPafb $
+      dimap Left (mapMaybe (either Just (const Nothing))) p
+    unright (WrapPafb p) = WrapPafb $
+      dimap Right (mapMaybe (either (const Nothing) Just)) p
+instance (Closed p, Distributive f)
+  => Closed (WrappedPafb f p) where
+    closed (WrapPafb p) = WrapPafb (rmap distribute (closed p))
+instance (Alternator p, Alternative f)
+  => Alternator (WrappedPafb f p) where
+    alternate =
+      let
+        f = WrapPafb
+          . rmap (either (fmap Left) pure)
+          . alternate
+          . Left
+          . unwrapPafb
+        g = WrapPafb
+          . rmap (either pure (fmap Right))
+          . alternate
+          . Right
+          . unwrapPafb
+      in
+        either f g
+    -- someP
+instance (Filtrator p, Filterable f)
+  => Filtrator (WrappedPafb f p) where
+    filtrate (WrapPafb p) =
+      let
+        fL = Left . mapMaybe (either Just (const Nothing))
+        fR = Right . mapMaybe (either (const Nothing) Just)
+        (pL,_) = filtrate (rmap fL p)
+        (_,pR) = filtrate (rmap fR p)
+      in
+        ( WrapPafb pL
+        , WrapPafb pR
+        )
