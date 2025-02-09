@@ -22,12 +22,15 @@ module Control.Lens.Bifocal
   , optioned
   , manied
   , somed
+  , flagged
+  , signed
   , Binocular (..), runBinocular
   ) where
 
 import Control.Applicative
 import Control.Lens.Internal.Profunctor
 import Control.Lens.PartialIso
+import Data.Bool
 import Data.Profunctor
 import Data.Profunctor.Distributor
 import Witherable
@@ -70,6 +73,20 @@ manied = unwrapPafb . manyP . WrapPafb
 
 somed :: Prismoid [a] [b] a b
 somed = unwrapPafb . someP . WrapPafb
+
+flagged :: Diopter (Bool, a) (Bool, b) a b
+flagged p = unwrapPafb $ dialt
+  (\(b,a) -> bool (Left a) (Right a) b)
+  (False,) (True,)
+  (WrapPafb p) (WrapPafb p)
+
+signed :: Diopter (Ordering, a) (Ordering, b) a b
+signed p = unwrapPafb $
+  dialt
+    (\case{(LT,a) -> Left a; (EQ,a) -> Right (False,a); (GT,a) -> Right (True, a)})
+    (\a -> (LT,a))
+    (\(b,a) -> bool (EQ,a) (GT,a) b)
+    (WrapPafb p) (WrapPafb (flagged p))
 
 withBifocal :: ABifocal s t a b -> (Binocular a b s t -> r) -> r
 withBifocal bif k = k (catMaybes (bif (Just <$> anyToken)))
