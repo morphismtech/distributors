@@ -139,7 +139,7 @@ data RegEx
   deriving (Eq, Ord, Show)
 makePrisms ''RegEx
 
-newtype DiRegEx a b = DiRegEx {regString :: RegEx} deriving (Eq, Ord)
+newtype DiRegEx a b = DiRegEx {regString :: RegEx}
 instance Functor (DiRegEx a) where fmap = rmap
 instance Applicative (DiRegEx a) where
   pure _ = DiRegEx (Terminal [])
@@ -200,7 +200,7 @@ instance Grammatical DiRegEx where
 data DiGrammar a b = DiGrammar
   { grammarStart :: DiRegEx a b
   , grammarRules :: Map String (Set RegEx)
-  } deriving (Eq, Ord)
+  }
 instance Functor (DiGrammar a) where fmap = rmap
 instance Applicative (DiGrammar a) where
   pure b = DiGrammar (pure b) mempty
