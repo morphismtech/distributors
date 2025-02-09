@@ -3,21 +3,20 @@ module Text.Grammar.Distributor
   , Grammatical (..)
   , DiRead (..), runDiRead, diRead
   , DiShow (..), runDiShow, diShow
-  , ProdStr (..), prodP
-  , Grammar (..), grammarP
+  , RegEx (..)
+  , Grammar (..)
+  , RegString (..)
+  , RegMatch (..)
   ) where
 
 import Control.Applicative
 import Control.Lens
--- import Control.Lens.Bifocal
 import Control.Lens.PartialIso
 import Control.Lens.Token
 import Data.Char
 import Data.Coerce
-import Data.Foldable (for_)
 import Data.Function
-import qualified Data.Map as Map
-import Data.Map (Map)
+import Data.Map (Map, insert)
 import Data.Profunctor
 import Data.Profunctor.Distributor
 import Data.String
@@ -32,8 +31,12 @@ class
   ) => Regular p where
     char :: Char -> p () ()
     char c = mapCoprism (only c) anyToken
-    charCategory :: GeneralCategory -> p Char Char
-    charCategory cat = satisfy $ \ch -> cat == generalCategory ch
+    inClass :: String -> p Char Char
+    inClass str = satisfy $ \ch -> elem ch str
+    notInClass :: String -> p Char Char
+    notInClass str = satisfy $ \ch -> notElem ch str
+    inCategory :: GeneralCategory -> p Char Char
+    inCategory cat = satisfy $ \ch -> cat == generalCategory ch
 
 fromChars :: Regular p => String -> p () ()
 fromChars [] = oneP
@@ -45,47 +48,48 @@ class Regular p => Grammatical p where
   ruleRec :: String -> (p a b -> p a b) -> p a b
   ruleRec _ = fix
 
-newtype DiShow a b = DiShow {unDiShow :: a -> Maybe ShowS}
-instance Profunctor DiShow where
+newtype DiShow c a b = DiShow {unDiShow :: a -> Maybe ([c] -> [c])}
+instance Profunctor (DiShow c) where
   dimap f _ (DiShow sh) = DiShow (sh . f)
-instance Functor (DiShow a) where fmap = rmap
-instance Applicative (DiShow a) where
+instance Functor (DiShow c a) where fmap = rmap
+instance Applicative (DiShow c a) where
   pure _ = DiShow (const (Just id))
   DiShow sh0 <*> DiShow sh1 =
     DiShow (liftA2 (liftA2 (.)) sh0 sh1)
-instance Alternative (DiShow a) where
+instance Alternative (DiShow c a) where
   empty = DiShow (const Nothing)
   DiShow sh0 <|> DiShow sh1 =
     DiShow (liftA2 (<|>) sh0 sh1)
   many (DiShow sh) = DiShow sh
   some (DiShow sh) = DiShow sh
-instance Choice DiShow where
+instance Choice (DiShow c) where
   left' (DiShow sh) =
     DiShow (either sh (const Nothing))
   right' (DiShow sh) =
     DiShow (either (const Nothing) sh)
-instance Cochoice DiShow where
+instance Cochoice (DiShow c) where
   unleft (DiShow sh) = DiShow (sh . Left)
   unright (DiShow sh) = DiShow (sh . Right)
-instance Distributor DiShow where
+instance Distributor (DiShow c) where
   manyP (DiShow sh) = DiShow shmany where
     shmany str =
       foldl (liftA2 (.)) (pure id) (map sh str)
-instance Alternator DiShow where
+instance Alternator (DiShow c) where
   someP (DiShow sh) = DiShow shsome where
     shsome str = do
       _ <- uncons str
       foldl (liftA2 (.)) (pure id) (map sh str)
-instance Filtrator DiShow
-instance Filterable (DiShow a) where
+instance Filtrator (DiShow c)
+instance Filterable (DiShow c a) where
   mapMaybe = dimapMaybe Just
-instance Tokenized Char Char DiShow where
+instance Tokenized c c (DiShow c) where
   anyToken = DiShow (Just . (:))
-instance u ~ () => IsString (DiShow () u) where
+instance u ~ () => IsString (DiShow Char () u) where
   fromString = fromChars
-instance Regular DiShow
-instance Grammatical DiShow
+instance Regular (DiShow Char)
+instance Grammatical (DiShow Char)
 
+-- newtype DiRead c a b = DiRead {unDiRead :: [c] -> [(b, [c])]}
 newtype DiRead a b = DiRead {unDiRead :: ReadP b}
 instance Profunctor DiRead where
   dimap _ g (DiRead rd) = DiRead (g <$> rd)
@@ -127,218 +131,242 @@ instance u ~ () => IsString (DiRead () u) where
 runDiRead :: DiRead a b -> String -> [(b, String)]
 runDiRead (DiRead rd) str = readP_to_S rd str
 
-runDiShow :: DiShow a b -> a -> Maybe String
-runDiShow (DiShow sh) a = ($ "") <$> sh a
+runDiShow :: DiShow c a b -> a -> Maybe [c]
+runDiShow (DiShow sh) a = ($ []) <$> sh a
 
-diShow :: Show a => DiShow a a
+diShow :: Show a => DiShow Char a a
 diShow = DiShow (Just . shows)
 
 diRead :: Read a => DiRead a a
 diRead = DiRead (readS_to_P reads)
 
-data ProdStr
-  = AnyToken -- ^ .
-  | Zero -- ^ <start>
-  | GenCat GeneralCategory
-  | NonTerminal String -- ^ <rule-name>
-  | Terminal String -- ^ abc123etc
-  | Times ProdStr ProdStr -- ^ pq
-  | Plus ProdStr ProdStr -- ^ p|q
-  | KleeneOpt ProdStr -- ^ p?
-  | KleeneStar ProdStr -- ^ p*
-  | KleenePlus ProdStr -- ^ p+
-  | Filtered ProdStr -- ^ p!
-  deriving (Show, Read)
-makePrisms ''ProdStr
+data RegMatch
+  = Any -- ^ .
+  | NonTerminal String -- ^ \r{rule-name}
+  | InClass String -- ^ [abc]
+  | NotInClass String -- ^ [^abc]
+  | InCategory GeneralCategory -- ^ \p{Lu}
+  deriving (Eq,Ord)
+makePrisms ''RegMatch
 
-reservedChars :: String
-reservedChars = ".<>()|?*+!~"
+data RegString
+  = Fail
+  | Terminal String -- ^ abc123etc\.
+  | Match RegMatch
+  | Alternate RegString RegString
+  | Sequence RegString RegString
+  | KleeneOpt RegString
+  | KleeneStar RegString
+  | KleenePlus RegString
+  deriving (Eq, Ord)
+makePrisms ''RegString
 
-escaped :: Iso' String String
-escaped = iso unescape (>>= escape)
+instance Show RegString where
+  show regstr = maybe "fail" show (runDiShow regexP regstr)
 
-escape :: Char -> String
-escape '.' = "\\."
-escape '{' = "\\{"
-escape '}' = "\\}"
-escape '(' = "\\("
-escape ')' = "\\)"
-escape '|' = "\\|"
-escape '?' = "\\?"
-escape '*' = "\\*"
-escape '+' = "\\+"
-escape '!' = "\\x21"
-escape '~' = "\\x7e"
-escape '\\' = "\\\\"
-escape c = [c]
+newtype RegEx a b = RegEx {regString :: RegString}
+  deriving stock (Eq, Ord)
+  deriving newtype Show
+instance Functor (RegEx a) where fmap = rmap
+instance Applicative (RegEx a) where
+  pure _ = RegEx (Terminal [])
+  RegEx (Terminal []) <*> regex = coerce regex
+  regex <*> RegEx (Terminal []) = coerce regex
+  RegEx (Terminal str0)
+    <*> RegEx (Terminal str1) =
+      RegEx (Terminal (str0 <> str1))
+  RegEx regex1 <*> RegEx regex2 =
+    RegEx (Sequence regex1 regex2)
+instance Alternative (RegEx a) where
+  empty = RegEx Fail
+  RegEx Fail <|> regex = regex
+  regex <|> RegEx Fail = regex
+  RegEx regex1 <|> RegEx regex2 =
+    RegEx (Alternate regex1 regex2)
+  many (RegEx regex) = RegEx (KleeneStar regex)
+  some (RegEx regex) = RegEx (KleenePlus regex)
+instance Filterable (RegEx a) where
+  mapMaybe _ = coerce
+instance Profunctor RegEx where
+  dimap _ _ = coerce
+instance Distributor RegEx where
+  zeroP = RegEx Fail
+  RegEx Fail >+< RegEx regex = RegEx regex
+  RegEx regex >+< RegEx Fail = RegEx regex
+  RegEx regex1 >+< RegEx regex2 =
+    RegEx (Alternate regex1 regex2)
+  optionalP (RegEx regex) = RegEx (KleeneOpt regex)
+  manyP (RegEx regex) = RegEx (KleeneStar regex)
+instance Choice RegEx where
+  left' = coerce
+  right' = coerce
+instance Cochoice RegEx where
+  unleft = coerce
+  unright = coerce
+instance Alternator RegEx where
+  someP (RegEx regex) = RegEx (KleenePlus regex)
+instance Filtrator RegEx
+instance Tokenized Char Char RegEx where
+  anyToken = RegEx (Match Any)
+instance u ~ () => IsString (RegEx () u) where
+  fromString str = RegEx (Terminal str)
+instance Regular RegEx where
+  char ch = RegEx (Terminal [ch])
+  inClass str = RegEx (Match (InClass str))
+  notInClass str = RegEx (Match (NotInClass str))
+  inCategory str = RegEx (Match (InCategory str))
+instance Grammatical RegEx
 
-unescape :: String -> String
-unescape "" = ""
-unescape ('\\':'.':cs) = '.' : unescape cs
-unescape ('\\':'<':cs) = '<' : unescape cs
-unescape ('\\':'>':cs) = '>' : unescape cs
-unescape ('\\':'(':cs) = '(' : unescape cs
-unescape ('\\':')':cs) = ')' : unescape cs
-unescape ('\\':'|':cs) = '|' : unescape cs
-unescape ('\\':'?':cs) = '?' : unescape cs
-unescape ('\\':'*':cs) = '*' : unescape cs
-unescape ('\\':'+':cs) = '+' : unescape cs
-unescape ('\\':'x':'2':'1':cs) = '!' : unescape cs
-unescape ('\\':'x':'7':'e':cs) = '~' : unescape cs
-unescape ('\\':'\\':cs) = '\\' : unescape cs
-unescape (c:cs) = c : unescape cs
-
-unreservedP :: Grammatical p => p Char Char
-unreservedP = satisfy $ \ch -> notElem ch reservedChars
-
-terminalP :: Grammatical p => p ProdStr ProdStr
-terminalP = rule "terminal" $
-  _Terminal >?< manyP unreservedP
-
-tokenP :: Grammatical p => p ProdStr ProdStr
-tokenP = rule "char" $
-  _Terminal . _Cons >?< unreservedP >*< pure ""
-
-nonterminalP :: Grammatical p => p ProdStr ProdStr
-nonterminalP = rule "nonterminal" $
-  _NonTerminal >?< "<" >* manyP unreservedP *< ">"
-
-anyP :: Grammatical p => p ProdStr ProdStr
-anyP = rule "any" $ _AnyToken >?< "."
-
-parenP :: Grammatical p => p ProdStr ProdStr -> p ProdStr ProdStr
-parenP prod = rule "parenthesized" $ "(" >* prod *< ")"
-
-atomP :: Grammatical p => p ProdStr ProdStr -> p ProdStr ProdStr
-atomP prod = rule "atom" $
-  tokenP <|> nonterminalP <|> anyP <|> parenP prod
-
-kleeneOptP :: Grammatical p => p ProdStr ProdStr -> p ProdStr ProdStr
-kleeneOptP prod = rule "kleene-optional" $
-  _KleeneOpt >?< atomP prod *< "?"
-
-kleeneStarP :: Grammatical p => p ProdStr ProdStr -> p ProdStr ProdStr
-kleeneStarP prod = rule "kleene-star" $
-  _KleeneStar >?< atomP prod *< "*"
-
-kleenePlusP :: Grammatical p => p ProdStr ProdStr -> p ProdStr ProdStr
-kleenePlusP prod = rule "kleene-plus" $
-  _KleenePlus >?< atomP prod *< "+"
-
-filteredP :: Grammatical p => p ProdStr ProdStr -> p ProdStr ProdStr
-filteredP prod = rule "filtered" $
-  _Filtered >?< atomP prod *< "!"
-
-exprP :: Grammatical p => p ProdStr ProdStr -> p ProdStr ProdStr
-exprP prod = rule "expression" $ asum @[]
-  [ kleeneOptP prod
-  , kleeneStarP prod
-  , kleenePlusP prod
-  , filteredP prod
-  , atomP prod
-  ]
-
-seqP :: Grammatical p => p ProdStr ProdStr -> p ProdStr ProdStr
-seqP prod = rule "sequence" $
-  dichainr1 _Times (sepBy "") (exprP prod)
-
-altP :: Grammatical p => p ProdStr ProdStr -> p ProdStr ProdStr
-altP prod = rule "alternate" $
-  dichainl1 _Plus (sepBy "|") (seqP prod)
-
-empty0P :: Grammatical p => p ProdStr ProdStr
-empty0P = rule "empty-language" $
-  _Zero >?< "~"
-
-empty1P :: Grammatical p => p ProdStr ProdStr
-empty1P = rule "empty-string" $ _Terminal >?< pure ""
-
-prodP :: Grammatical p => p ProdStr ProdStr
-prodP = ruleRec "production" $ \prod ->
-  empty0P <|> empty1P <|> altP prod
-
--- instance Show ProdStr where
---   show prod = maybe (error "bad production") id
---     (runDiShow production prod)
-
-data Grammar a b = Grammar ProdStr (Map String ProdStr)
-  deriving Show
-makePrisms ''Grammar
+data Grammar a b = Grammar
+  { grammarStart :: RegEx a b
+  , grammarRules :: Map String RegString
+  } deriving (Eq, Ord, Show)
 instance Functor (Grammar a) where fmap = rmap
 instance Applicative (Grammar a) where
-  pure _ = Grammar (Terminal []) []
-  Grammar (Terminal []) rules0 <*> Grammar s1 rules1 =
-    Grammar s1 (rules0 <> rules1)
-  Grammar s0 rules0 <*> Grammar (Terminal []) rules1 =
-    Grammar s0 (rules0 <> rules1)
-  Grammar (Terminal str0) rules0
-    <*> Grammar (Terminal str1) rules1 =
-      Grammar (Terminal (str0 <> str1)) (rules0 <> rules1)
-  Grammar s0 rules0 <*> Grammar s1 rules1 =
-    Grammar (Times s0 s1) (rules0 <> rules1)
+  pure b = Grammar (pure b) mempty
+  Grammar start1 rules1 <*> Grammar start2 rules2 =
+    Grammar (start1 <*> start2) (rules1 <> rules2)
 instance Alternative (Grammar a) where
-  empty = Grammar Zero []
-  Grammar Zero rules0 <|> Grammar s1 rules1 =
-    Grammar s1 (rules0 <> rules1)
-  Grammar s0 rules0 <|> Grammar Zero rules1 =
-    Grammar s0 (rules0 <> rules1)
-  Grammar s0 rules0 <|> Grammar s1 rules1 =
-    Grammar (Plus s0 s1) (rules0 <> rules1)
-  many (Grammar s rules) = Grammar (KleeneStar s) rules
-  some (Grammar s rules) = Grammar (KleenePlus s) rules
+  empty = Grammar empty mempty
+  Grammar start1 rules1 <|> Grammar start2 rules2 =
+    Grammar (start1 <|> start2) (rules1 <> rules2)
+  many (Grammar start rules) = Grammar (many start) rules
+  some (Grammar start rules) = Grammar (some start) rules
 instance Filterable (Grammar a) where
-  mapMaybe = dimapMaybe Just
+  mapMaybe f (Grammar start rules) =
+    Grammar (mapMaybe f start) rules
 instance Profunctor Grammar where
-  dimap _ _ = coerce
+  dimap f g (Grammar start rules) =
+    Grammar (dimap f g start) rules
 instance Distributor Grammar where
-  zeroP = Grammar Zero []
-  Grammar Zero rules0 >+< Grammar s1 rules1 =
-    Grammar s1 (rules0 <> rules1)
-  Grammar s0 rules0 >+< Grammar Zero rules1 =
-    Grammar s0 (rules0 <> rules1)
-  Grammar s0 rules0 >+< Grammar s1 rules1 =
-    Grammar (Plus s0 s1) (rules0 <> rules1)
-  optionalP (Grammar s rules) = Grammar (KleeneOpt s) rules
-  manyP (Grammar start rules) = Grammar (KleeneStar start) rules
+  zeroP = Grammar zeroP mempty
+  Grammar start1 rules1 >+< Grammar start2 rules2 =
+    Grammar (start1 >+< start2) (rules1 <> rules2)
+  optionalP (Grammar start rules) =
+    Grammar (optionalP start) rules
+  manyP (Grammar start rules) =
+    Grammar (manyP start) rules
 instance Choice Grammar where
-  left' (Grammar (Filtered p) rules) = Grammar (Filtered p) (rules)
-  left' (Grammar p rules) = Grammar (Filtered p) rules
-  right' (Grammar (Filtered p) rules) = Grammar (Filtered p) (rules)
-  right' (Grammar p rules) = Grammar (Filtered p) rules
+  left' = coerce
+  right' = coerce
 instance Cochoice Grammar where
   unleft = coerce
   unright = coerce
 instance Alternator Grammar where
-  someP (Grammar start rules) = Grammar (KleenePlus start) rules
+  someP (Grammar start rules) =
+    Grammar (someP start) rules
 instance Filtrator Grammar
 instance Tokenized Char Char Grammar where
-  anyToken = Grammar AnyToken []
+  anyToken = Grammar anyToken mempty
 instance u ~ () => IsString (Grammar () u) where
-  fromString str = Grammar (Terminal str) []
+  fromString str = Grammar (fromString str) mempty
 instance Regular Grammar where
-  char ch = Grammar (Terminal (escape ch)) []
+  char c = Grammar (char c) mempty
+  inClass str = Grammar (inClass str) mempty
+  notInClass str = Grammar (notInClass str) mempty
+  inCategory str = Grammar (inCategory str) mempty
 instance Grammatical Grammar where
-  rule name (Grammar prod rules) = Grammar (NonTerminal name) (Map.insert name prod rules)
+  rule name gram = 
+    let
+      start = RegEx (Match (NonTerminal name))
+      newRule = regString (grammarStart gram)
+      rules = insert name newRule (grammarRules gram)
+    in
+      Grammar start rules
   ruleRec name f =
-    let Grammar prod rules = f (Grammar (NonTerminal name) [])
-    in Grammar (NonTerminal name) (Map.insert name prod rules)
+    let
+      matchRule = RegEx (Match (NonTerminal name))
+      gram = f (Grammar matchRule mempty)
+      start = RegEx (Match (NonTerminal name))
+      newRule = regString (grammarStart gram)
+      rules = insert name newRule (grammarRules gram)
+    in
+      Grammar start rules
 
-startP :: Grammatical p => p ProdStr ProdStr
-startP = rule "start" $ "start = " >* prodP
+anyP :: Grammatical p => p RegMatch RegMatch
+anyP = rule "any" $ char '.' >* pure Any
 
-ruleP :: Grammatical p => p (String, ProdStr) (String, ProdStr)
-ruleP = rule "rule" $ manyP unreservedP >*< " = " >* prodP
+reservedClass :: String
+reservedClass = "()*+.?[\\]^{|}"
 
-grammarP :: Grammatical p => p (Grammar a b) (Grammar a b)
-grammarP = rule "grammar" $
-  _Grammar >?< startP >*< (iso Map.toList Map.fromList >?< manyP ("\n" >* ruleP))
+unreservedP :: Grammatical p => p Char Char
+unreservedP = notInClass reservedClass
 
+reservedP :: Grammatical p => p Char Char
+reservedP = inClass reservedClass
 
-gramma :: Grammar a b -> [(String, Maybe String)]
-gramma (Grammar p ps) = [(name, runDiShow prodP q) | (name, q) <- ("start",p):Map.toList ps]
+escapedP :: Grammatical p => p Char Char
+escapedP = rule "escaped" $ char '\\' >* reservedP
 
-grampa :: Grammar a b -> IO ()
-grampa g = for_ (gramma g) $ \(name, prodStrMay) -> do
-  putStr name
-  putStr " = "
-  putStrLn (maybe "failing" id prodStrMay)
+charP :: Grammatical p => p Char Char
+charP = rule "char" $ unreservedP <|> escapedP
+
+nonterminalP :: Grammatical p => p RegMatch RegMatch
+nonterminalP = rule "nonterminal" $
+  _NonTerminal >?< "\\r{" >* manyP charP *< "}"
+
+inClassP :: Grammatical p => p RegMatch RegMatch
+inClassP = rule "in-class" $
+  _InClass >?< "[" >* manyP charP *< "]"
+
+notInClassP :: Grammatical p => p RegMatch RegMatch
+notInClassP = rule "not-in-class" $
+  _NotInClass >?< "[^" >* manyP charP *< "]"
+
+-- inCategoryP :: Grammatical p => p RegMatch RegMatch
+-- inCategoryP = rule "in-gen-cat" $
+--   _InCategory >?< "\\p{" >* fromString (show )
+
+matchP :: Grammatical p => p RegString RegString
+matchP = rule "match" $ _Match >?< asum @[]
+  [ nonterminalP
+  , inClassP
+  , notInClassP
+  , anyP
+  ]
+
+terminalP :: Grammatical p => p RegString RegString
+terminalP = rule "terminal" $
+  _Terminal >?< manyP charP
+
+tokenP :: Grammatical p => p RegString RegString
+tokenP = _Terminal . _Cons >?< charP >*< pure ""
+
+parenP :: Grammatical p => p RegString RegString -> p RegString RegString
+parenP regex = rule "parenthesized" $
+  char '(' >* regex *< char ')'
+
+atomP :: Grammatical p => p RegString RegString -> p RegString RegString
+atomP regex = rule "atom" $ tokenP <|> matchP <|> parenP regex
+
+kleeneOptP :: Grammatical p => p RegString RegString -> p RegString RegString
+kleeneOptP regex = rule "kleene-optional" $
+  _KleeneOpt >?< atomP regex *< char '?'
+
+kleeneStarP :: Grammatical p => p RegString RegString -> p RegString RegString
+kleeneStarP regex = rule "kleene-star" $
+  _KleeneStar >?< atomP regex *< char '*'
+
+kleenePlusP :: Grammatical p => p RegString RegString -> p RegString RegString
+kleenePlusP regex = rule "kleene-plus" $
+  _KleenePlus >?< atomP regex *< char '+'
+
+exprP :: Grammatical p => p RegString RegString -> p RegString RegString
+exprP regex = rule "expression" $ asum @[]
+  [ terminalP
+  , kleeneOptP regex
+  , kleeneStarP regex
+  , kleenePlusP regex
+  , atomP regex
+  ]
+
+seqP :: Grammatical p => p RegString RegString -> p RegString RegString
+seqP regex = rule "sequence" $
+  dichainr1 _Sequence (sepBy oneP) (exprP regex)
+
+altP :: Grammatical p => p RegString RegString -> p RegString RegString
+altP regex = rule "alternate" $
+  dichainl1 _Alternate (sepBy (char ('|'))) (seqP regex)
+
+regexP :: Grammatical p => p RegString RegString
+regexP = ruleRec "regex" $ \regex -> altP regex
