@@ -11,10 +11,10 @@ Portability : non-portable
 module Control.Lens.Token
   ( Tokenized (anyToken)
   , token
-  , stream
+  , tokens
   , satisfy
-  , restOfStream
-  , endOfStream
+  , restOfTokens
+  , endOfTokens
   ) where
 
 import Control.Lens
@@ -38,15 +38,15 @@ instance Tokenized a b (PartialExchange a b) where
 token :: (Cochoice p, Eq c, Tokenized c c p) => c -> p () ()
 token c = only c ?< anyToken
 
-stream :: (Cochoice p, Monoidal p, Eq c, Tokenized c c p) => [c] -> p () ()
-stream [] = oneP
-stream (c:cs) = token c *> stream cs
+tokens :: (Cochoice p, Monoidal p, Eq c, Tokenized c c p) => [c] -> p () ()
+tokens [] = oneP
+tokens (c:cs) = token c *> tokens cs
 
 satisfy :: (Choice p, Cochoice p, Tokenized c c p) => (c -> Bool) -> p c c
 satisfy f = _Satisfy f >?< anyToken
 
-restOfStream :: (Distributor p, Tokenized c c p) => p [c] [c]
-restOfStream = manyP anyToken
+restOfTokens :: (Distributor p, Tokenized c c p) => p [c] [c]
+restOfTokens = manyP anyToken
 
-endOfStream :: (Cochoice p, Distributor p, Tokenized c c p) => p () ()
-endOfStream = _Empty ?< restOfStream
+endOfTokens :: (Cochoice p, Distributor p, Tokenized c c p) => p () ()
+endOfTokens = _Empty ?< restOfTokens

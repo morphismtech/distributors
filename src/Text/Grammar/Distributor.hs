@@ -76,7 +76,7 @@ instance Filterable (DiShow a) where
 instance Tokenized Char Char DiShow where
   anyToken = DiShow (Just . (:))
 instance u ~ () => IsString (DiShow () u) where
-  fromString = stream
+  fromString = tokens
 instance Syntax DiShow
 
 newtype DiRead a b = DiRead {unDiRead :: ReadP b}
@@ -114,7 +114,7 @@ instance Tokenized Char Char DiRead where
   anyToken = DiRead get
 instance Syntax DiRead
 instance u ~ () => IsString (DiRead () u) where
-  fromString = stream
+  fromString = tokens
 
 runDiRead :: DiRead a b -> String -> [(b, String)]
 runDiRead (DiRead rd) str = readP_to_S rd str
