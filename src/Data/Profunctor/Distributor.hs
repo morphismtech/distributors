@@ -100,6 +100,13 @@ instance Decidable f => Distributor (Clown f) where
 instance Alternative f => Distributor (Joker f) where
   zeroP = Joker empty
   Joker x >+< Joker y = Joker (Left <$> x <|> Right <$> y)
+instance (Distributor p, Applicative f)
+  => Distributor (WrappedPafb f p) where
+    zeroP = WrapPafb (rmap pure zeroP)
+    WrapPafb x >+< WrapPafb y = WrapPafb $
+      dialt id (fmap Left) (fmap Right) x y
+    -- manyP
+    -- optionalP
 
 dialt
   :: Distributor p
@@ -127,6 +134,24 @@ class (Choice p, Distributor p, forall x. Alternative (p x))
     someP :: p a b -> p [a] [b]
     someP p = dimap unlist (either list0 list1) (right' (p >*< manyP p))
 
+instance (Alternator p, Alternative f)
+  => Alternator (WrappedPafb f p) where
+    alternate =
+      let
+        f = WrapPafb
+          . rmap (either (fmap Left) pure)
+          . alternate
+          . Left
+          . unwrapPafb
+        g = WrapPafb
+          . rmap (either pure (fmap Right))
+          . alternate
+          . Right
+          . unwrapPafb
+      in
+        either f g
+    -- someP
+
 unlist :: [a] -> Either () (a, [a])
 unlist [] = Left ()
 unlist (a:as) = Right (a,as)
@@ -151,6 +176,19 @@ class (Cochoice p, forall x. Filterable (p x))
       dimapMaybe (Just . Left) (either Just (pure Nothing))
       &&&
       dimapMaybe (Just . Right) (either (pure Nothing) Just)
+
+instance (Filtrator p, Filterable f)
+  => Filtrator (WrappedPafb f p) where
+    filtrate (WrapPafb p) =
+      let
+        fL = Left . mapMaybe (either Just (const Nothing))
+        fR = Right . mapMaybe (either (const Nothing) Just)
+        (pL,_) = filtrate (rmap fL p)
+        (_,pR) = filtrate (rmap fR p)
+      in
+        ( WrapPafb pL
+        , WrapPafb pR
+        )
 
 class Tokenized a b p | p -> a, p -> b where
   anyToken :: p a b
@@ -240,13 +278,6 @@ deriving via Compose (p a) f instance
 deriving via Compose (p a) f instance
   (Profunctor p, forall x. Functor (p x), Filterable f)
     => Filterable (WrappedPafb f p a)
-instance (Distributor p, Applicative f)
-  => Distributor (WrappedPafb f p) where
-    zeroP = WrapPafb (rmap pure zeroP)
-    WrapPafb x >+< WrapPafb y = WrapPafb $
-      dialt id (fmap Left) (fmap Right) x y
-    -- manyP
-    -- optionalP
 instance (Profunctor p, Filterable f)
   => Cochoice (WrappedPafb f p) where
     unleft (WrapPafb p) = WrapPafb $
@@ -256,32 +287,3 @@ instance (Profunctor p, Filterable f)
 instance (Closed p, Distributive f)
   => Closed (WrappedPafb f p) where
     closed (WrapPafb p) = WrapPafb (rmap distribute (closed p))
-instance (Alternator p, Alternative f)
-  => Alternator (WrappedPafb f p) where
-    alternate =
-      let
-        f = WrapPafb
-          . rmap (either (fmap Left) pure)
-          . alternate
-          . Left
-          . unwrapPafb
-        g = WrapPafb
-          . rmap (either pure (fmap Right))
-          . alternate
-          . Right
-          . unwrapPafb
-      in
-        either f g
-    -- someP
-instance (Filtrator p, Filterable f)
-  => Filtrator (WrappedPafb f p) where
-    filtrate (WrapPafb p) =
-      let
-        fL = Left . mapMaybe (either Just (const Nothing))
-        fR = Right . mapMaybe (either (const Nothing) Just)
-        (pL,_) = filtrate (rmap fL p)
-        (_,pR) = filtrate (rmap fR p)
-      in
-        ( WrapPafb pL
-        , WrapPafb pR
-        )
