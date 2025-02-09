@@ -13,11 +13,15 @@ module Control.Lens.Bifocal
   , Bifocal'
   , ABifocal
   , ABifocal'
-  , cloneBifocal
+  , Diopter
+  , Prismoid
+  , bifocal
   , mapBifocal
+  , cloneBifocal
   , withBifocal
-  , _Many
-  , _Some
+  , optioned
+  , manied
+  , somed
   , Binocular (..), runBinocular
   ) where
 
@@ -39,22 +43,33 @@ type ABifocal s t a b =
 
 type ABifocal' s a = ABifocal s s a a
 
-cloneBifocal :: ABifocal s t a b -> Bifocal s t a b
-cloneBifocal bif = unWrapPF . mapBifocal bif . WrapPF
+type Diopter s t a b = forall p f.
+  (Distributor p, Applicative f)
+    => p a (f b) -> p s (f t)
+
+type Prismoid s t a b = forall p f.
+  (Alternator p, Alternative f)
+    => p a (f b) -> p s (f t)
+
+bifocal :: Binocular a b s t -> Bifocal s t a b
+bifocal bif = unWrapPF . runBinocular bif . WrapPF
 
 mapBifocal
   :: (Alternator p, Filtrator p)
   => ABifocal s t a b -> p a b -> p s t
-mapBifocal bif = withBifocal bif . flip runBinocular . const
+mapBifocal bif p = withBifocal bif $ \ocal -> runBinocular ocal p
 
-_Optional :: Bifocal (Maybe a) (Maybe b) a b
-_Optional = unWrapPF . optionalP . WrapPF
+cloneBifocal :: ABifocal s t a b -> Bifocal s t a b
+cloneBifocal bif = unWrapPF . mapBifocal bif . WrapPF
 
-_Many :: Bifocal [a] [b] a b
-_Many = unWrapPF . manyP . WrapPF
+optioned :: Diopter (Maybe a) (Maybe b) a b
+optioned = unWrapPF . optionalP . WrapPF
 
-_Some :: Bifocal [a] [b] a b
-_Some = unWrapPF . someP . WrapPF
+manied :: Prismoid [a] [b] a b
+manied = unWrapPF . manyP . WrapPF
+
+somed :: Prismoid [a] [b] a b
+somed = unWrapPF . someP . WrapPF
 
 withBifocal :: ABifocal s t a b -> (Binocular a b s t -> r) -> r
 withBifocal bif k = k (catMaybes (bif (Just <$> anyToken)))
@@ -105,6 +120,5 @@ runBinocular
      , forall x. Filterable (p x)
      )
   => Binocular a b s t
-  -> ((s -> Maybe a) -> p a b)
-  -> p s t
-runBinocular (Binocular k) f = k $ \sa -> dimapMaybe sa Just (f sa)
+  -> p a b -> p s t
+runBinocular (Binocular k) p = k $ \sa -> dimapMaybe sa Just p

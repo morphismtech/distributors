@@ -16,10 +16,10 @@ module Control.Lens.Monocle
   , AMonocle
   , AMonocle'
   , monocle
+  , mapMonocle
   , ditraversed
   , forevered
   , cloneMonocle
-  , mapMonocle
   , meander
   , ditraversal
   , withMonocle
@@ -48,6 +48,12 @@ type AMonocle s t a b =
 
 type AMonocle' s a = AMonocle s s a a
 
+monocle :: Monocular a b s t -> Monocle s t a b
+monocle mon = unWrapPF . runMonocular mon . WrapPF
+
+mapMonocle :: Monoidal p => AMonocle s t a b -> p a b -> p s t
+mapMonocle mon p = withMonocle mon $ \ocular -> runMonocular ocular p
+
 cloneMonocle :: AMonocle s t a b -> Monocle s t a b
 cloneMonocle mon = unWrapPF . mapMonocle mon . WrapPF
 
@@ -56,12 +62,6 @@ ditraversal
   => AMonocle s t a b
   -> p (f a) (g b) -> p (f s) (g t)
 ditraversal mon = unWrapPFG . mapMonocle mon . WrapPFG
-
-mapMonocle :: Monoidal p => AMonocle s t a b -> p a b -> p s t
-mapMonocle mon = withMonocle mon . flip runMonocular . const
-
-monocle :: Monocular a b s t -> Monocle s t a b
-monocle mon p = unWrapPF (runMonocular mon (const (WrapPF p)))
 
 -- thanks to Fy on Monoidal Café Discord
 ditraversed :: (Traversable g, Distributive g) => Monocle (g a) (g b) a b
@@ -96,10 +96,8 @@ instance Applicative (Monocular a b s) where
 
 runMonocular
   :: (Profunctor p, forall x. Applicative (p x))
-  => Monocular a b s t
-  -> ((s -> a) -> p a b)
-  -> p s t
-runMonocular (Monocular k) f = k $ \sa -> lmap sa (f sa)
+  => Monocular a b s t -> p a b -> p s t
+runMonocular (Monocular k) p = k $ \sa -> lmap sa p
 
 data FunList a b t
   = DoneFun t
