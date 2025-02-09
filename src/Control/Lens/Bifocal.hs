@@ -65,7 +65,7 @@ cloneBifocal bif = unWrapPF . mapBifocal bif . WrapPF
 optioned :: Diopter (Maybe a) (Maybe b) a b
 optioned = unWrapPF . optionalP . WrapPF
 
-manied :: Prismoid [a] [b] a b
+manied :: Diopter [a] [b] a b
 manied = unWrapPF . manyP . WrapPF
 
 somed :: Prismoid [a] [b] a b
