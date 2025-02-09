@@ -10,7 +10,6 @@ Portability : non-portable
 
 module Control.Lens.Token
   ( Tokenized (anyToken)
-  , Token (Token)
   , satisfy
   , restOfStream
   , endOfStream
@@ -34,11 +33,6 @@ instance Tokenized a b (Market a b) where
 instance Tokenized a b (PartialExchange a b) where
   anyToken = PartialExchange Just Just
 
-data Token a b s t where
-  Token :: Token a b a b
-instance Tokenized a b (Token a b) where
-  anyToken = Token
-
 satisfy :: (Choice p, Cochoice p, Tokenized c c p) => (c -> Bool) -> p c c
 satisfy f = _Satisfy f >?< anyToken
 
@@ -46,4 +40,4 @@ restOfStream :: (Distributor p, Tokenized c c p) => p [c] [c]
 restOfStream = manyP anyToken
 
 endOfStream :: (Cochoice p, Distributor p, Tokenized c c p) => p () ()
-endOfStream = mapCoprism _Empty restOfStream
+endOfStream = _Empty ?< restOfStream

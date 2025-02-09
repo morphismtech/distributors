@@ -28,7 +28,7 @@ class
   , forall u. (u ~ () => IsString (p () u))
   ) => Syntax p where
     char :: Char -> p () ()
-    char c = mapCoprism (only c) anyToken
+    char c = only c ?< anyToken
     inClass :: String -> p Char Char
     inClass str = satisfy $ \ch -> elem ch str
     notInClass :: String -> p Char Char

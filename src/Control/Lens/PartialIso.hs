@@ -24,8 +24,8 @@ module Control.Lens.PartialIso
   , altPartialIso
   , iterating
     -- * Prism, Coprism and (Partial)Iso Actions
-  , mapPrism
-  , mapCoprism
+  , (>?)
+  , (?<)
   , (>?<)
   , mapIso
     -- * Common (Partial)Isos
@@ -195,20 +195,22 @@ altPartialIso x y =
       (either ((Left <$>) . f) ((Right <$>) . h))
 
 {- | Action of `APrism` on `Choice` `Profunctor`s. -}
-mapPrism
+(>?)
   :: Choice p
   => APrism s t a b
   -> p a b
   -> p s t
-mapPrism pat = withPrism pat $ \f g -> dimap g (either id f) . right'
+(>?) pat = withPrism pat $ \f g -> dimap g (either id f) . right'
+infixl 4 >?
 
 {- | Action of a coPrism on `Cochoice` `Profunctor`s. -}
-mapCoprism
+(?<)
   :: Cochoice p
   => APrism b a t s
   -> p a b
   -> p s t
-mapCoprism pat = withPrism pat $ \f g -> unright . dimap (either id f) g
+(?<) pat = withPrism pat $ \f g -> unright . dimap (either id f) g
+infixl 4 ?<
 
 {- | Action of `APartialIso` on `Choice` and `Cochoice` `Profunctor`s. -}
 (>?<)
