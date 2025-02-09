@@ -365,9 +365,9 @@ atomP regex = rule "atom" $ asum
   , inClassP
   , notInClassP
   , inCategoryP
-  , anyP
   , tokenP
   , parenP regex
+  , anyP
   ]
 
 kleeneOptP :: Syntax p => p RE RE -> p RE RE
