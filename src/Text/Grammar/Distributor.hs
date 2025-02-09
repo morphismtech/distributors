@@ -211,7 +211,6 @@ printGrammar :: Grammar a b -> IO ()
 printGrammar (Grammar (RegEx start) rules) = do
   putStr "start = "
   putStrLn (runRegEx start)
-  
   for_ (toList rules) $ \(name,ruleN) -> do
     putStr name
     putStr " = "
