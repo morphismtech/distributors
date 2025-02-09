@@ -133,29 +133,34 @@ diShow = DiShow (Just . shows)
 diRead :: Read a => DiRead a a
 diRead = DiRead (readS_to_P reads)
 
-data RE
-  = Fail
-  | Terminal String -- ^ abc123etc\.
-  | Any -- ^ .
+data RegMatch
+  = Any -- ^ .
   | NonTerminal String -- ^ \r{rule-name}
   | InClass String -- ^ [abc]
   | NotInClass String -- ^ [^abc]
   | InCategory GeneralCategory -- ^ \p{Lu}
-  | Alternate RE RE
-  | Sequence RE RE
-  | KleeneOpt RE
-  | KleeneStar RE
-  | KleenePlus RE
-  deriving (Eq, Ord)
-makePrisms ''RE
+  deriving (Eq,Ord)
+makePrisms ''RegMatch
 
-instance Show RE where
+data RegString
+  = Fail
+  | Terminal String -- ^ abc123etc\.
+  | Match RegMatch
+  | Alternate RegString RegString
+  | Sequence RegString RegString
+  | KleeneOpt RegString
+  | KleeneStar RegString
+  | KleenePlus RegString
+  deriving (Eq, Ord)
+makePrisms ''RegString
+
+instance Show RegString where
   show regstr = maybe "fail" show (runDiShow regexP regstr)
 
-runRegEx :: RE -> String
+runRegEx :: RegString -> String
 runRegEx regstr = maybe "bad regexp" id (runDiShow regexP regstr)
 
-newtype RegEx a b = RegEx {regString :: RE}
+newtype RegEx a b = RegEx {regString :: RegString}
   deriving stock (Eq, Ord)
   deriving newtype Show
 instance Functor (RegEx a) where fmap = rmap
@@ -198,14 +203,14 @@ instance Alternator RegEx where
   someP (RegEx regex) = RegEx (KleenePlus regex)
 instance Filtrator RegEx
 instance Tokenized Char Char RegEx where
-  anyToken = RegEx Any
+  anyToken = RegEx (Match Any)
 instance u ~ () => IsString (RegEx () u) where
   fromString str = RegEx (Terminal str)
 instance Syntax RegEx where
   char ch = RegEx (Terminal [ch])
-  inClass str = RegEx (InClass str)
-  notInClass str = RegEx (NotInClass str)
-  inCategory str = RegEx (InCategory str)
+  inClass str = RegEx (Match (InClass str))
+  notInClass str = RegEx (Match (NotInClass str))
+  inCategory str = RegEx (Match (InCategory str))
 
 printGrammar :: Grammar a b -> IO ()
 printGrammar (Grammar (RegEx start) rules) = do
@@ -219,7 +224,7 @@ printGrammar (Grammar (RegEx start) rules) = do
 
 data Grammar a b = Grammar
   { grammarStart :: RegEx a b
-  , grammarRules :: Map String RE
+  , grammarRules :: Map String RegString
   } deriving (Eq, Ord, Show)
 instance Functor (Grammar a) where fmap = rmap
 instance Applicative (Grammar a) where
@@ -267,22 +272,22 @@ instance Syntax Grammar where
   inCategory str = Grammar (inCategory str) mempty
   rule name gram = 
     let
-      start = RegEx (NonTerminal name)
+      start = RegEx (Match (NonTerminal name))
       newRule = regString (grammarStart gram)
       rules = insert name newRule (grammarRules gram)
     in
       Grammar start rules
   ruleRec name f =
     let
-      matchRule = RegEx (NonTerminal name)
+      matchRule = RegEx (Match (NonTerminal name))
       gram = f (Grammar matchRule mempty)
-      start = RegEx (NonTerminal name)
+      start = RegEx (Match (NonTerminal name))
       newRule = regString (grammarStart gram)
       rules = insert name newRule (grammarRules gram)
     in
       Grammar start rules
 
-anyP :: Syntax p => p RE RE
+anyP :: Syntax p => p RegMatch RegMatch
 anyP = rule "any" $ "." >* pure Any
 
 reservedClass :: String
@@ -300,19 +305,19 @@ escapedP = rule "escaped" $ "\\" >* reservedP
 charP :: Syntax p => p Char Char
 charP = rule "char" $ unreservedP <|> escapedP
 
-nonterminalP :: Syntax p => p RE RE
+nonterminalP :: Syntax p => p RegMatch RegMatch
 nonterminalP = rule "nonterminal" $
   _NonTerminal >?< "\\r{" >* manyP charP *< "}"
 
-inClassP :: Syntax p => p RE RE
+inClassP :: Syntax p => p RegMatch RegMatch
 inClassP = rule "in-class" $
   _InClass >?< "[" >* manyP charP *< "]"
 
-notInClassP :: Syntax p => p RE RE
+notInClassP :: Syntax p => p RegMatch RegMatch
 notInClassP = rule "not-in-class" $
   _NotInClass >?< "[^" >* manyP charP *< "]"
 
-inCategoryP :: Syntax p => p RE RE
+inCategoryP :: Syntax p => p RegMatch RegMatch
 inCategoryP = rule "in-category" $
   _InCategory >?< "\\p{" >* genCat *< "}" where
     genCat = asum
@@ -348,41 +353,41 @@ inCategoryP = rule "in-category" $
       , "Cn" >* pure NotAssigned
       ]
 
-terminalP :: Syntax p => p RE RE
+terminalP :: Syntax p => p RegString RegString
 terminalP = rule "terminal" $
   _Terminal >?< manyP charP
 
-tokenP :: Syntax p => p RE RE
+tokenP :: Syntax p => p RegString RegString
 tokenP = _Terminal . _Cons >?< charP >*< pure ""
 
-parenP :: Syntax p => p RE RE -> p RE RE
+parenP :: Syntax p => p RegString RegString -> p RegString RegString
 parenP regex = rule "parenthesized" $
   "(" >* regex *< ")"
 
-atomP :: Syntax p => p RE RE -> p RE RE
+atomP :: Syntax p => p RegString RegString -> p RegString RegString
 atomP regex = rule "atom" $ asum
-  [ nonterminalP
-  , inClassP
-  , notInClassP
-  , inCategoryP
-  , anyP
+  [ _Match >?< nonterminalP
+  , _Match >?< inClassP
+  , _Match >?< notInClassP
+  , _Match >?< inCategoryP
+  , _Match >?< anyP
   , tokenP
   , parenP regex
   ]
 
-kleeneOptP :: Syntax p => p RE RE -> p RE RE
+kleeneOptP :: Syntax p => p RegString RegString -> p RegString RegString
 kleeneOptP regex = rule "kleene-optional" $
   _KleeneOpt >?< atomP regex *< "?"
 
-kleeneStarP :: Syntax p => p RE RE -> p RE RE
+kleeneStarP :: Syntax p => p RegString RegString -> p RegString RegString
 kleeneStarP regex = rule "kleene-star" $
   _KleeneStar >?< atomP regex *< "*"
 
-kleenePlusP :: Syntax p => p RE RE -> p RE RE
+kleenePlusP :: Syntax p => p RegString RegString -> p RegString RegString
 kleenePlusP regex = rule "kleene-plus" $
   _KleenePlus >?< atomP regex *< "+"
 
-exprP :: Syntax p => p RE RE -> p RE RE
+exprP :: Syntax p => p RegString RegString -> p RegString RegString
 exprP regex = rule "expression" $ asum
   [ terminalP
   , kleeneOptP regex
@@ -391,13 +396,13 @@ exprP regex = rule "expression" $ asum
   , atomP regex
   ]
 
-seqP :: Syntax p => p RE RE -> p RE RE
+seqP :: Syntax p => p RegString RegString -> p RegString RegString
 seqP regex = rule "sequence" $
   dichainl1 _Sequence (sepBy oneP) (exprP regex)
 
-altP :: Syntax p => p RE RE -> p RE RE
+altP :: Syntax p => p RegString RegString -> p RegString RegString
 altP regex = rule "alternate" $
   dichainr1 _Alternate (sepBy "|") (seqP regex)
 
-regexP :: Syntax p => p RE RE
+regexP :: Syntax p => p RegString RegString
 regexP = ruleRec "regex" $ \regex -> altP regex
