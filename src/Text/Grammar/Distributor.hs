@@ -28,8 +28,6 @@ class
   , Tokenized Char Char p
   , forall u. (u ~ () => IsString (p () u))
   ) => Syntax p where
-    char :: Char -> p () ()
-    char c = only c ?< anyToken
     inClass :: String -> p Char Char
     inClass str = satisfy $ \ch -> elem ch str
     notInClass :: String -> p Char Char
@@ -43,7 +41,7 @@ class
 
 fromChars :: Syntax p => String -> p () ()
 fromChars [] = oneP
-fromChars (c:cs) = char c *> fromChars cs
+fromChars (c:cs) = (only c ?< anyToken) *> fromChars cs
 
 newtype DiShow a b = DiShow {unDiShow :: a -> Maybe ShowS}
 instance Profunctor DiShow where
@@ -203,7 +201,6 @@ instance Tokenized Char Char RegEx where
 instance u ~ () => IsString (RegEx () u) where
   fromString str = RegEx (Terminal str)
 instance Syntax RegEx where
-  char ch = RegEx (Terminal [ch])
   inClass str = RegEx (InClass str)
   notInClass str = RegEx (NotInClass str)
   inCategory str = RegEx (InCategory str)
@@ -261,7 +258,6 @@ instance Tokenized Char Char Grammar where
 instance u ~ () => IsString (Grammar () u) where
   fromString str = Grammar (fromString str) mempty
 instance Syntax Grammar where
-  char c = Grammar (char c) mempty
   inClass str = Grammar (inClass str) mempty
   notInClass str = Grammar (notInClass str) mempty
   inCategory str = Grammar (inCategory str) mempty
