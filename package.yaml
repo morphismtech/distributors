@@ -74,7 +74,6 @@ default-extensions:
 - LambdaCase
 - MagicHash
 - MonoLocalBinds
-- OverloadedLists
 - OverloadedStrings
 - QuantifiedConstraints
 - RankNTypes

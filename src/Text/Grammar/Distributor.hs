@@ -313,15 +313,48 @@ notInClassP :: Grammatical p => p RegMatch RegMatch
 notInClassP = rule "not-in-class" $
   _NotInClass >?< "[^" >* manyP charP *< "]"
 
--- inCategoryP :: Grammatical p => p RegMatch RegMatch
--- inCategoryP = rule "in-gen-cat" $
---   _InCategory >?< "\\p{" >* fromString (show )
+inCategoryP :: Grammatical p => p RegMatch RegMatch
+inCategoryP = rule "in-category" $
+  _InCategory >?< "\\p{" >* genCat *< "}" where
+    genCat = asum
+      [ "Lu" >* pure UppercaseLetter
+      , "Ll" >* pure LowercaseLetter
+      , "Lt" >* pure TitlecaseLetter
+      , "Lm" >* pure ModifierLetter
+      , "Lo" >* pure OtherLetter
+      , "Mn" >* pure NonSpacingMark
+      , "Mc" >* pure SpacingCombiningMark
+      , "Me" >* pure EnclosingMark
+      , "Nd" >* pure DecimalNumber
+      , "Nl" >* pure LetterNumber
+      , "No" >* pure OtherNumber
+      , "Pc" >* pure ConnectorPunctuation
+      , "Pd" >* pure DashPunctuation
+      , "Ps" >* pure OpenPunctuation
+      , "Pe" >* pure ClosePunctuation
+      , "Pi" >* pure InitialQuote
+      , "Pf" >* pure FinalQuote
+      , "Po" >* pure OtherPunctuation
+      , "Sm" >* pure MathSymbol
+      , "Sc" >* pure CurrencySymbol
+      , "Sk" >* pure ModifierSymbol
+      , "So" >* pure OtherSymbol
+      , "Zs" >* pure Space
+      , "Zl" >* pure LineSeparator
+      , "Zp" >* pure ParagraphSeparator
+      , "Cc" >* pure Control
+      , "Cf" >* pure Format
+      , "Cs" >* pure Surrogate
+      , "Co" >* pure PrivateUse
+      , "Cn" >* pure NotAssigned
+      ]
 
 matchP :: Grammatical p => p RegString RegString
-matchP = rule "match" $ _Match >?< asum @[]
+matchP = rule "match" $ _Match >?< asum
   [ nonterminalP
   , inClassP
   , notInClassP
+  , inCategoryP
   , anyP
   ]
 
@@ -352,7 +385,7 @@ kleenePlusP regex = rule "kleene-plus" $
   _KleenePlus >?< atomP regex *< char '+'
 
 exprP :: Grammatical p => p RegString RegString -> p RegString RegString
-exprP regex = rule "expression" $ asum @[]
+exprP regex = rule "expression" $ asum
   [ terminalP
   , kleeneOptP regex
   , kleeneStarP regex
