@@ -18,6 +18,8 @@ import Data.Map (Map)
 import Data.Map qualified as Map
 import Data.Profunctor
 import Data.Profunctor.Distributor
+import Data.Set (Set)
+import Data.Set qualified as Set
 import Data.String
 import Text.ParserCombinators.ReadP hiding (many, satisfy, char, sepBy)
 import Witherable
@@ -197,17 +199,17 @@ instance Grammatical DiRegEx where
 
 data DiGrammar a b = DiGrammar
   { grammarStart :: DiRegEx a b
-  , grammarRules :: Map String RegEx
+  , grammarRules :: Map String (Set RegEx)
   } deriving (Eq, Ord)
 instance Functor (DiGrammar a) where fmap = rmap
 instance Applicative (DiGrammar a) where
   pure b = DiGrammar (pure b) mempty
   DiGrammar start1 rules1 <*> DiGrammar start2 rules2 =
-    DiGrammar (start1 <*> start2) (rules1 <> rules2)
+    DiGrammar (start1 <*> start2) (Map.unionWith Set.union rules1 rules2)
 instance Alternative (DiGrammar a) where
   empty = DiGrammar empty mempty
   DiGrammar start1 rules1 <|> DiGrammar start2 rules2 =
-    DiGrammar (start1 <|> start2) (rules1 <> rules2)
+    DiGrammar (start1 <|> start2) (Map.unionWith Set.union rules1 rules2)
   many (DiGrammar start rules) = DiGrammar (many start) rules
   some (DiGrammar start rules) = DiGrammar (some start) rules
 instance Filterable (DiGrammar a) where
@@ -219,7 +221,7 @@ instance Profunctor DiGrammar where
 instance Distributor DiGrammar where
   zeroP = DiGrammar zeroP mempty
   DiGrammar start1 rules1 >+< DiGrammar start2 rules2 =
-    DiGrammar (start1 >+< start2) (rules1 <> rules2)
+    DiGrammar (start1 >+< start2) (Map.unionWith Set.union rules1 rules2)
   optionalP (DiGrammar start rules) =
     DiGrammar (optionalP start) rules
   manyP (DiGrammar start rules) =
@@ -245,8 +247,8 @@ instance Grammatical DiGrammar where
   rule name gram = 
     let
       start = DiRegEx (NonTerminal name)
-      newRule = regString (grammarStart gram)
-      rules = Map.insert name newRule (grammarRules gram)
+      newRule = Set.singleton (regString (grammarStart gram))
+      rules = Map.insertWith Set.union name newRule (grammarRules gram)
     in
       DiGrammar start rules
   ruleRec name f =
@@ -254,8 +256,8 @@ instance Grammatical DiGrammar where
       matchRule = DiRegEx (NonTerminal name)
       gram = f (DiGrammar matchRule mempty)
       start = DiRegEx (NonTerminal name)
-      newRule = regString (grammarStart gram)
-      rules = Map.insert name newRule (grammarRules gram)
+      newRule = Set.singleton (regString (grammarStart gram))
+      rules = Map.insertWith Set.union name newRule (grammarRules gram)
     in
       DiGrammar start rules
 
@@ -275,7 +277,11 @@ genRegEx :: Grammar a -> RegEx
 genRegEx (DiRegEx rex) = rex
 
 genGrammar :: Grammar a -> [(String, RegEx)]
-genGrammar (DiGrammar (DiRegEx start) rules) = ("start", start) : Map.toList rules
+genGrammar (DiGrammar (DiRegEx start) rules) = ("start", start) :
+  [ (name_i, rule_j)
+  | (name_i, rules_i) <- Map.toList rules
+  , rule_j <- Set.toList rules_i
+  ]
 
 printGrammar :: Grammar a -> IO ()
 printGrammar gram = for_ (genGrammar gram) $ \(name_i, rule_i) -> do
