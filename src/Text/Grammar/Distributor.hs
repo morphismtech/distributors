@@ -14,7 +14,8 @@ import Data.Char
 import Data.Coerce
 import Data.Foldable hiding (toList)
 import Data.Function
-import Data.Map (Map, insert, toList)
+import Data.Map (Map)
+import Data.Map qualified as Map
 import Data.Profunctor
 import Data.Profunctor.Distributor
 import Data.String
@@ -211,7 +212,7 @@ printGrammar :: Grammar a b -> IO ()
 printGrammar (Grammar (RegEx start) rules) = do
   putStr "start = "
   putStrLn (runRegEx start)
-  for_ (toList rules) $ \(name,ruleN) -> do
+  for_ (Map.toList rules) $ \(name,ruleN) -> do
     putStr name
     putStr " = "
     putStrLn (runRegEx ruleN)
@@ -268,7 +269,7 @@ instance Syntax Grammar where
     let
       start = RegEx (NonTerminal name)
       newRule = regString (grammarStart gram)
-      rules = insert name newRule (grammarRules gram)
+      rules = Map.insert name newRule (grammarRules gram)
     in
       Grammar start rules
   ruleRec name f =
@@ -277,7 +278,7 @@ instance Syntax Grammar where
       gram = f (Grammar matchRule mempty)
       start = RegEx (NonTerminal name)
       newRule = regString (grammarStart gram)
-      rules = insert name newRule (grammarRules gram)
+      rules = Map.insert name newRule (grammarRules gram)
     in
       Grammar start rules
 
@@ -287,8 +288,8 @@ anyP = rule "any" $ "." >* pure Any
 reservedClass :: String
 reservedClass = "()*+.?[\\]^{|}"
 
-unreservedP :: Syntax p => p Char Char
-unreservedP = notInClass reservedClass
+literalP :: Syntax p => p Char Char
+literalP = rule "literal" $ notInClass reservedClass
 
 reservedP :: Syntax p => p Char Char
 reservedP = inClass reservedClass
@@ -297,7 +298,7 @@ escapedP :: Syntax p => p Char Char
 escapedP = rule "escaped" $ "\\" >* reservedP
 
 charP :: Syntax p => p Char Char
-charP = rule "char" $ unreservedP <|> escapedP
+charP = rule "char" $ literalP <|> escapedP
 
 nonterminalP :: Syntax p => p RE RE
 nonterminalP = rule "nonterminal" $
@@ -314,7 +315,7 @@ notInClassP = rule "not-in-class" $
 inCategoryP :: Syntax p => p RE RE
 inCategoryP = rule "in-category" $
   _InCategory >?< "\\p{" >* genCat *< "}" where
-    genCat = asum
+    genCat = foldl (<|>) empty
       [ "Lu" >* pure UppercaseLetter
       , "Ll" >* pure LowercaseLetter
       , "Lt" >* pure TitlecaseLetter
@@ -359,7 +360,7 @@ parenP regex = rule "parenthesized" $
   "(" >* regex *< ")"
 
 atomP :: Syntax p => p RE RE -> p RE RE
-atomP regex = rule "atom" $ asum
+atomP regex = rule "atom" $ foldl (<|>) empty
   [ nonterminalP
   , inClassP
   , notInClassP
@@ -382,7 +383,7 @@ kleenePlusP regex = rule "kleene-plus" $
   _KleenePlus >?< atomP regex *< "+"
 
 exprP :: Syntax p => p RE RE -> p RE RE
-exprP regex = rule "expression" $ asum
+exprP regex = rule "expression" $ foldl (<|>) empty
   [ terminalP
   , kleeneOptP regex
   , kleeneStarP regex
@@ -396,7 +397,7 @@ seqP regex = rule "sequence" $
 
 altP :: Syntax p => p RE RE -> p RE RE
 altP regex = rule "alternate" $
-  dichainr1 _Alternate (sepBy "|") (seqP regex)
+  dichainl1 _Alternate (sepBy "|") (seqP regex)
 
 regexP :: Syntax p => p RE RE
 regexP = ruleRec "regex" $ \regex -> altP regex

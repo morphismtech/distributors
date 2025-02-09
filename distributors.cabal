@@ -55,6 +55,7 @@ library
       FunctionalDependencies
       GADTs
       GeneralizedNewtypeDeriving
+      ImportQualifiedPost
       ImpredicativeTypes
       InstanceSigs
       KindSignatures

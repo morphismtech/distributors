@@ -68,6 +68,7 @@ default-extensions:
 - FunctionalDependencies
 - GADTs
 - GeneralizedNewtypeDeriving
+- ImportQualifiedPost
 - ImpredicativeTypes
 - InstanceSigs
 - KindSignatures
