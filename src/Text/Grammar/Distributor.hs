@@ -395,7 +395,7 @@ exprP regex = rule "expression" $ asum
 
 seqP :: Grammatical p => p RegString RegString -> p RegString RegString
 seqP regex = rule "sequence" $
-  dichainr1 _Sequence (sepBy oneP) (exprP regex)
+  dichainl1 _Sequence (sepBy oneP) (exprP regex)
 
 altP :: Grammatical p => p RegString RegString -> p RegString RegString
 altP regex = rule "alternate" $
