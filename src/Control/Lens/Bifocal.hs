@@ -83,7 +83,11 @@ flagged p = unwrapPafb $ dialt
 signed :: Diopter (Ordering, a) (Ordering, b) a b
 signed p = unwrapPafb $
   dialt
-    (\case{(LT,a) -> Left a; (EQ,a) -> Right (False,a); (GT,a) -> Right (True, a)})
+    (\case
+      (LT,a) -> Left a
+      (EQ,a) -> Right (False,a)
+      (GT,a) -> Right (True, a)
+    )
     (\a -> (LT,a))
     (\(b,a) -> bool (EQ,a) (GT,a) b)
     (WrapPafb p) (WrapPafb (flagged p))
