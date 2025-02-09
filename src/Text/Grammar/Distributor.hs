@@ -284,7 +284,7 @@ instance Grammatical Grammar where
       Grammar start rules
 
 anyP :: Grammatical p => p RegMatch RegMatch
-anyP = rule "any" $ char '.' >* pure Any
+anyP = rule "any" $ "." >* pure Any
 
 reservedClass :: String
 reservedClass = "()*+.?[\\]^{|}"
@@ -296,7 +296,7 @@ reservedP :: Grammatical p => p Char Char
 reservedP = inClass reservedClass
 
 escapedP :: Grammatical p => p Char Char
-escapedP = rule "escaped" $ char '\\' >* reservedP
+escapedP = rule "escaped" $ "\\" >* reservedP
 
 charP :: Grammatical p => p Char Char
 charP = rule "char" $ unreservedP <|> escapedP
@@ -367,22 +367,22 @@ tokenP = _Terminal . _Cons >?< charP >*< pure ""
 
 parenP :: Grammatical p => p RegString RegString -> p RegString RegString
 parenP regex = rule "parenthesized" $
-  char '(' >* regex *< char ')'
+  "(" >* regex *< ")"
 
 atomP :: Grammatical p => p RegString RegString -> p RegString RegString
 atomP regex = rule "atom" $ tokenP <|> matchP <|> parenP regex
 
 kleeneOptP :: Grammatical p => p RegString RegString -> p RegString RegString
 kleeneOptP regex = rule "kleene-optional" $
-  _KleeneOpt >?< atomP regex *< char '?'
+  _KleeneOpt >?< atomP regex *< "?"
 
 kleeneStarP :: Grammatical p => p RegString RegString -> p RegString RegString
 kleeneStarP regex = rule "kleene-star" $
-  _KleeneStar >?< atomP regex *< char '*'
+  _KleeneStar >?< atomP regex *< "*"
 
 kleenePlusP :: Grammatical p => p RegString RegString -> p RegString RegString
 kleenePlusP regex = rule "kleene-plus" $
-  _KleenePlus >?< atomP regex *< char '+'
+  _KleenePlus >?< atomP regex *< "+"
 
 exprP :: Grammatical p => p RegString RegString -> p RegString RegString
 exprP regex = rule "expression" $ asum
@@ -399,7 +399,7 @@ seqP regex = rule "sequence" $
 
 altP :: Grammatical p => p RegString RegString -> p RegString RegString
 altP regex = rule "alternate" $
-  dichainr1 _Alternate (sepBy (char ('|'))) (seqP regex)
+  dichainr1 _Alternate (sepBy "|") (seqP regex)
 
 regexP :: Grammatical p => p RegString RegString
 regexP = ruleRec "regex" $ \regex -> altP regex
