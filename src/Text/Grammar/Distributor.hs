@@ -12,8 +12,9 @@ import Control.Lens.PartialIso
 import Control.Lens.Token
 import Data.Char
 import Data.Coerce
+import Data.Foldable hiding (toList)
 import Data.Function
-import Data.Map (Map, insert)
+import Data.Map (Map, insert, toList)
 import Data.Profunctor
 import Data.Profunctor.Distributor
 import Data.String
@@ -156,6 +157,9 @@ makePrisms ''RegString
 instance Show RegString where
   show regstr = maybe "fail" show (runDiShow regexP regstr)
 
+runRegEx :: RegString -> String
+runRegEx regstr = maybe "bad regexp" id (runDiShow regexP regstr)
+
 newtype RegEx a b = RegEx {regString :: RegString}
   deriving stock (Eq, Ord)
   deriving newtype Show
@@ -207,6 +211,16 @@ instance Syntax RegEx where
   inClass str = RegEx (Match (InClass str))
   notInClass str = RegEx (Match (NotInClass str))
   inCategory str = RegEx (Match (InCategory str))
+
+printGrammar :: Grammar a b -> IO ()
+printGrammar (Grammar (RegEx start) rules) = do
+  putStr "start = "
+  putStrLn (runRegEx start)
+  
+  for_ (toList rules) $ \(name,ruleN) -> do
+    putStr name
+    putStr " = "
+    putStrLn (runRegEx ruleN)
 
 data Grammar a b = Grammar
   { grammarStart :: RegEx a b
@@ -339,15 +353,6 @@ inCategoryP = rule "in-category" $
       , "Cn" >* pure NotAssigned
       ]
 
-matchP :: Syntax p => p RegString RegString
-matchP = rule "match" $ _Match >?< asum
-  [ nonterminalP
-  , inClassP
-  , notInClassP
-  , inCategoryP
-  , anyP
-  ]
-
 terminalP :: Syntax p => p RegString RegString
 terminalP = rule "terminal" $
   _Terminal >?< manyP charP
@@ -360,7 +365,13 @@ parenP regex = rule "parenthesized" $
   "(" >* regex *< ")"
 
 atomP :: Syntax p => p RegString RegString -> p RegString RegString
-atomP regex = rule "atom" $ tokenP <|> matchP <|> parenP regex
+atomP regex = rule "atom" $ tokenP
+  <|> (_Match >?< nonterminalP)
+  <|> (_Match >?< inClassP)
+  <|> (_Match >?< notInClassP)
+  <|> (_Match >?< inCategoryP)
+  <|> (_Match >?< anyP)
+  <|> parenP regex
 
 kleeneOptP :: Syntax p => p RegString RegString -> p RegString RegString
 kleeneOptP regex = rule "kleene-optional" $
