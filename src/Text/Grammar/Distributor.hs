@@ -43,47 +43,46 @@ fromChars :: Syntax p => String -> p () ()
 fromChars [] = oneP
 fromChars (c:cs) = char c *> fromChars cs
 
-newtype DiShow c a b = DiShow {unDiShow :: a -> Maybe ([c] -> [c])}
-instance Profunctor (DiShow c) where
+newtype DiShow a b = DiShow {unDiShow :: a -> Maybe ShowS}
+instance Profunctor DiShow where
   dimap f _ (DiShow sh) = DiShow (sh . f)
-instance Functor (DiShow c a) where fmap = rmap
-instance Applicative (DiShow c a) where
+instance Functor (DiShow a) where fmap = rmap
+instance Applicative (DiShow a) where
   pure _ = DiShow (const (Just id))
   DiShow sh0 <*> DiShow sh1 =
     DiShow (liftA2 (liftA2 (.)) sh0 sh1)
-instance Alternative (DiShow c a) where
+instance Alternative (DiShow a) where
   empty = DiShow (const Nothing)
   DiShow sh0 <|> DiShow sh1 =
     DiShow (liftA2 (<|>) sh0 sh1)
   many (DiShow sh) = DiShow sh
   some (DiShow sh) = DiShow sh
-instance Choice (DiShow c) where
+instance Choice DiShow where
   left' (DiShow sh) =
     DiShow (either sh (const Nothing))
   right' (DiShow sh) =
     DiShow (either (const Nothing) sh)
-instance Cochoice (DiShow c) where
+instance Cochoice DiShow where
   unleft (DiShow sh) = DiShow (sh . Left)
   unright (DiShow sh) = DiShow (sh . Right)
-instance Distributor (DiShow c) where
+instance Distributor DiShow where
   manyP (DiShow sh) = DiShow shmany where
     shmany str =
       foldl (liftA2 (.)) (pure id) (map sh str)
-instance Alternator (DiShow c) where
+instance Alternator DiShow where
   someP (DiShow sh) = DiShow shsome where
     shsome str = do
       _ <- uncons str
       foldl (liftA2 (.)) (pure id) (map sh str)
-instance Filtrator (DiShow c)
-instance Filterable (DiShow c a) where
+instance Filtrator DiShow
+instance Filterable (DiShow a) where
   mapMaybe = dimapMaybe Just
-instance Tokenized c c (DiShow c) where
+instance Tokenized Char Char DiShow where
   anyToken = DiShow (Just . (:))
-instance u ~ () => IsString (DiShow Char () u) where
+instance u ~ () => IsString (DiShow () u) where
   fromString = fromChars
-instance Syntax (DiShow Char)
+instance Syntax DiShow
 
--- newtype DiRead c a b = DiRead {unDiRead :: [c] -> [(b, [c])]}
 newtype DiRead a b = DiRead {unDiRead :: ReadP b}
 instance Profunctor DiRead where
   dimap _ g (DiRead rd) = DiRead (g <$> rd)
@@ -124,10 +123,10 @@ instance u ~ () => IsString (DiRead () u) where
 runDiRead :: DiRead a b -> String -> [(b, String)]
 runDiRead (DiRead rd) str = readP_to_S rd str
 
-runDiShow :: DiShow c a b -> a -> Maybe [c]
+runDiShow :: DiShow a b -> a -> Maybe String
 runDiShow (DiShow sh) a = ($ []) <$> sh a
 
-diShow :: Show a => DiShow Char a a
+diShow :: Show a => DiShow a a
 diShow = DiShow (Just . shows)
 
 diRead :: Read a => DiRead a a
