@@ -1,12 +1,9 @@
 module Text.Grammar.Distributor
-  ( Regular (..)
-  , Grammatical (..)
+  ( Syntax (..)
   , DiRead (..), runDiRead, diRead
   , DiShow (..), runDiShow, diShow
-  , RegEx (..)
-  , Grammar (..)
-  , RegString (..)
-  , RegMatch (..)
+  , RegEx
+  , Grammar
   ) where
 
 import Control.Applicative
@@ -28,7 +25,7 @@ class
   , Filtrator p
   , Tokenized Char Char p
   , forall u. (u ~ () => IsString (p () u))
-  ) => Regular p where
+  ) => Syntax p where
     char :: Char -> p () ()
     char c = mapCoprism (only c) anyToken
     inClass :: String -> p Char Char
@@ -37,16 +34,14 @@ class
     notInClass str = satisfy $ \ch -> notElem ch str
     inCategory :: GeneralCategory -> p Char Char
     inCategory cat = satisfy $ \ch -> cat == generalCategory ch
+    rule :: String -> p a b -> p a b
+    rule _ = id
+    ruleRec :: String -> (p a b -> p a b) -> p a b
+    ruleRec name = rule name . fix
 
-fromChars :: Regular p => String -> p () ()
+fromChars :: Syntax p => String -> p () ()
 fromChars [] = oneP
 fromChars (c:cs) = char c *> fromChars cs
-
-class Regular p => Grammatical p where
-  rule :: String -> p a b -> p a b
-  rule name p = ruleRec name (const p)
-  ruleRec :: String -> (p a b -> p a b) -> p a b
-  ruleRec _ = fix
 
 newtype DiShow c a b = DiShow {unDiShow :: a -> Maybe ([c] -> [c])}
 instance Profunctor (DiShow c) where
@@ -86,8 +81,7 @@ instance Tokenized c c (DiShow c) where
   anyToken = DiShow (Just . (:))
 instance u ~ () => IsString (DiShow Char () u) where
   fromString = fromChars
-instance Regular (DiShow Char)
-instance Grammatical (DiShow Char)
+instance Syntax (DiShow Char)
 
 -- newtype DiRead c a b = DiRead {unDiRead :: [c] -> [(b, [c])]}
 newtype DiRead a b = DiRead {unDiRead :: ReadP b}
@@ -123,8 +117,7 @@ instance Filterable (DiRead a) where
   mapMaybe = dimapMaybe Just
 instance Tokenized Char Char DiRead where
   anyToken = DiRead get
-instance Regular DiRead
-instance Grammatical DiRead
+instance Syntax DiRead
 instance u ~ () => IsString (DiRead () u) where
   fromString = fromChars
 
@@ -210,12 +203,11 @@ instance Tokenized Char Char RegEx where
   anyToken = RegEx (Match Any)
 instance u ~ () => IsString (RegEx () u) where
   fromString str = RegEx (Terminal str)
-instance Regular RegEx where
+instance Syntax RegEx where
   char ch = RegEx (Terminal [ch])
   inClass str = RegEx (Match (InClass str))
   notInClass str = RegEx (Match (NotInClass str))
   inCategory str = RegEx (Match (InCategory str))
-instance Grammatical RegEx
 
 data Grammar a b = Grammar
   { grammarStart :: RegEx a b
@@ -260,12 +252,11 @@ instance Tokenized Char Char Grammar where
   anyToken = Grammar anyToken mempty
 instance u ~ () => IsString (Grammar () u) where
   fromString str = Grammar (fromString str) mempty
-instance Regular Grammar where
+instance Syntax Grammar where
   char c = Grammar (char c) mempty
   inClass str = Grammar (inClass str) mempty
   notInClass str = Grammar (notInClass str) mempty
   inCategory str = Grammar (inCategory str) mempty
-instance Grammatical Grammar where
   rule name gram = 
     let
       start = RegEx (Match (NonTerminal name))
@@ -283,37 +274,37 @@ instance Grammatical Grammar where
     in
       Grammar start rules
 
-anyP :: Grammatical p => p RegMatch RegMatch
+anyP :: Syntax p => p RegMatch RegMatch
 anyP = rule "any" $ "." >* pure Any
 
 reservedClass :: String
 reservedClass = "()*+.?[\\]^{|}"
 
-unreservedP :: Grammatical p => p Char Char
+unreservedP :: Syntax p => p Char Char
 unreservedP = notInClass reservedClass
 
-reservedP :: Grammatical p => p Char Char
+reservedP :: Syntax p => p Char Char
 reservedP = inClass reservedClass
 
-escapedP :: Grammatical p => p Char Char
+escapedP :: Syntax p => p Char Char
 escapedP = rule "escaped" $ "\\" >* reservedP
 
-charP :: Grammatical p => p Char Char
+charP :: Syntax p => p Char Char
 charP = rule "char" $ unreservedP <|> escapedP
 
-nonterminalP :: Grammatical p => p RegMatch RegMatch
+nonterminalP :: Syntax p => p RegMatch RegMatch
 nonterminalP = rule "nonterminal" $
   _NonTerminal >?< "\\r{" >* manyP charP *< "}"
 
-inClassP :: Grammatical p => p RegMatch RegMatch
+inClassP :: Syntax p => p RegMatch RegMatch
 inClassP = rule "in-class" $
   _InClass >?< "[" >* manyP charP *< "]"
 
-notInClassP :: Grammatical p => p RegMatch RegMatch
+notInClassP :: Syntax p => p RegMatch RegMatch
 notInClassP = rule "not-in-class" $
   _NotInClass >?< "[^" >* manyP charP *< "]"
 
-inCategoryP :: Grammatical p => p RegMatch RegMatch
+inCategoryP :: Syntax p => p RegMatch RegMatch
 inCategoryP = rule "in-category" $
   _InCategory >?< "\\p{" >* genCat *< "}" where
     genCat = asum
@@ -349,7 +340,7 @@ inCategoryP = rule "in-category" $
       , "Cn" >* pure NotAssigned
       ]
 
-matchP :: Grammatical p => p RegString RegString
+matchP :: Syntax p => p RegString RegString
 matchP = rule "match" $ _Match >?< asum
   [ nonterminalP
   , inClassP
@@ -358,33 +349,33 @@ matchP = rule "match" $ _Match >?< asum
   , anyP
   ]
 
-terminalP :: Grammatical p => p RegString RegString
+terminalP :: Syntax p => p RegString RegString
 terminalP = rule "terminal" $
   _Terminal >?< manyP charP
 
-tokenP :: Grammatical p => p RegString RegString
+tokenP :: Syntax p => p RegString RegString
 tokenP = _Terminal . _Cons >?< charP >*< pure ""
 
-parenP :: Grammatical p => p RegString RegString -> p RegString RegString
+parenP :: Syntax p => p RegString RegString -> p RegString RegString
 parenP regex = rule "parenthesized" $
   "(" >* regex *< ")"
 
-atomP :: Grammatical p => p RegString RegString -> p RegString RegString
+atomP :: Syntax p => p RegString RegString -> p RegString RegString
 atomP regex = rule "atom" $ tokenP <|> matchP <|> parenP regex
 
-kleeneOptP :: Grammatical p => p RegString RegString -> p RegString RegString
+kleeneOptP :: Syntax p => p RegString RegString -> p RegString RegString
 kleeneOptP regex = rule "kleene-optional" $
   _KleeneOpt >?< atomP regex *< "?"
 
-kleeneStarP :: Grammatical p => p RegString RegString -> p RegString RegString
+kleeneStarP :: Syntax p => p RegString RegString -> p RegString RegString
 kleeneStarP regex = rule "kleene-star" $
   _KleeneStar >?< atomP regex *< "*"
 
-kleenePlusP :: Grammatical p => p RegString RegString -> p RegString RegString
+kleenePlusP :: Syntax p => p RegString RegString -> p RegString RegString
 kleenePlusP regex = rule "kleene-plus" $
   _KleenePlus >?< atomP regex *< "+"
 
-exprP :: Grammatical p => p RegString RegString -> p RegString RegString
+exprP :: Syntax p => p RegString RegString -> p RegString RegString
 exprP regex = rule "expression" $ asum
   [ terminalP
   , kleeneOptP regex
@@ -393,13 +384,13 @@ exprP regex = rule "expression" $ asum
   , atomP regex
   ]
 
-seqP :: Grammatical p => p RegString RegString -> p RegString RegString
+seqP :: Syntax p => p RegString RegString -> p RegString RegString
 seqP regex = rule "sequence" $
   dichainl1 _Sequence (sepBy oneP) (exprP regex)
 
-altP :: Grammatical p => p RegString RegString -> p RegString RegString
+altP :: Syntax p => p RegString RegString -> p RegString RegString
 altP regex = rule "alternate" $
   dichainr1 _Alternate (sepBy "|") (seqP regex)
 
-regexP :: Grammatical p => p RegString RegString
+regexP :: Syntax p => p RegString RegString
 regexP = ruleRec "regex" $ \regex -> altP regex
