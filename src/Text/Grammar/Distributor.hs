@@ -28,7 +28,7 @@ class
   ( Alternator p
   , Filtrator p
   , Tokenized Char Char p
-  , forall u. (u ~ () => IsString (p () u))
+  , forall u v. ((u ~ (), v ~ ()) => IsString (p u v))
   ) => Grammatical p where
     inClass :: String -> p Char Char
     inClass str = satisfy $ \ch -> elem ch str
@@ -414,5 +414,9 @@ altP :: Grammatical p => p RegEx RegEx -> p RegEx RegEx
 altP regex = rule "alternate" $
   dichainl1 _Alternate (sepBy "|") (seqP regex)
 
+emptyP :: Grammatical p => p RegEx RegEx
+emptyP = rule "empty" $
+  dimap (\_ -> []) (\_ -> ()) (manyP "|") >* pure (Terminal "")
+
 regexGrammar :: Grammar RegEx
-regexGrammar = ruleRec "regex" $ \regex -> altP regex <|> pure (Terminal "")
+regexGrammar = ruleRec "regex" $ \regex -> altP regex <|> emptyP
