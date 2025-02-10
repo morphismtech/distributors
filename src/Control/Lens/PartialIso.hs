@@ -47,7 +47,6 @@ import Control.Applicative
 import Control.Lens
 import Control.Monad
 import Data.Profunctor
--- import Data.Profunctor.Distributor
 import Witherable
 
 dimapMaybe
