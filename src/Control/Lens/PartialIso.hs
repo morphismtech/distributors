@@ -30,10 +30,10 @@ module Control.Lens.PartialIso
   , (>?<)
   , mapIso
     -- * Common (Partial)Isos
-  , _Satisfy
-  , _Normal
-  , _M2E
-  , _Null
+  , satisfied
+  , nulled
+  , notNulled
+  , streamed
     -- * difold/dichain operations
   , difoldl1
   , difoldr1
@@ -145,7 +145,7 @@ type APartialIso' s a = APartialIso s s a a
 {- | Build a `PartialIso`. -}
 partialIso :: (s -> Maybe a) -> (b -> Maybe t) -> PartialIso s t a b
 partialIso f g =
-  unright . iso (view _M2E . f =<<) (mapMaybe g) . right'
+  unright . iso (maybe (Left ()) Right . f =<<) (mapMaybe g) . right'
 
 {- | `withPartialIso` inverts `partialIso`. -}
 withPartialIso
@@ -235,29 +235,31 @@ infixl 4 >?<
 mapIso :: Profunctor p => AnIso s t a b -> p a b -> p s t
 mapIso i = withIso i dimap
 
-{- | `_Satisfy` is the prototypical proper partial isomorphism,
+{- | `satisfied` is the prototypical proper partial isomorphism,
 identifying a subset which satisfies a predicate. -}
-_Satisfy :: (a -> Bool) -> PartialIso' a a
-_Satisfy f = partialIso satiate satiate where
+satisfied :: (a -> Bool) -> PartialIso' a a
+satisfied f = partialIso satiate satiate where
   satiate a = if f a then Just a else Nothing
 
-{- | `_Normal` is the prototypical improper isomorphism,
-identifying every term with one particular "normal" value. -}
-_Normal :: a -> Iso' a ()
-_Normal a = iso (const ()) (const a) where
-
-{- | A useful isomorphism identifying `Maybe` and `Either` @()@. -}
-_M2E :: Iso (Maybe a) (Maybe b) (Either () a) (Either () b)
-_M2E = iso (maybe (Left ()) Right) (either (pure Nothing) Just)
-
-_Null :: (AsEmpty s, AsEmpty t) => PartialIso s t () ()
-_Null = partialIso empA empB where
+nulled :: (AsEmpty s, AsEmpty t) => PartialIso s t () ()
+nulled = partialIso empA empB where
   empA s = if isn't _Empty s then Nothing else Just ()
   empB _ = Just Empty
 
-_NotNull :: (AsEmpty s, AsEmpty t) => PartialIso s t s t
-_NotNull = partialIso nonEmp nonEmp where
+notNulled :: (AsEmpty s, AsEmpty t) => PartialIso s t s t
+notNulled = partialIso nonEmp nonEmp where
   nonEmp s = if isn't _Empty s then Just s else Nothing
+
+streamed
+  :: (AsEmpty s, AsEmpty t, Cons s s c c, Cons t t c c)
+  => Iso' s t
+streamed = iso convertStream convertStream
+  where
+    convertStream s =
+      maybe
+        Empty
+        (\(h,t) -> cons h (convertStream t))
+        (uncons s)
 
 difoldl1
   :: Cons s t a b
@@ -300,7 +302,7 @@ difoldl i =
       (\a -> (a,()))
   in
     difoldl1 i
-    . crossPartialIso id _Null
+    . crossPartialIso id nulled
     . unit'
 
 difoldr
@@ -314,5 +316,5 @@ difoldr i =
       (\d -> ((),d))
   in
     difoldr1 i
-    . crossPartialIso _Null id
+    . crossPartialIso nulled id
     . unit'

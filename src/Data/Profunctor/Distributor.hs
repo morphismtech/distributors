@@ -222,7 +222,7 @@ tokens [] = oneP
 tokens (c:cs) = token c *> tokens cs
 
 satisfy :: (Choice p, Cochoice p, Tokenized c c p) => (c -> Bool) -> p c c
-satisfy f = _Satisfy f >?< anyToken
+satisfy f = satisfied f >?< anyToken
 
 restOfTokens :: (Distributor p, Tokenized c c p) => p [c] [c]
 restOfTokens = manyP anyToken
