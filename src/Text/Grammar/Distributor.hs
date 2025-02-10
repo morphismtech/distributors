@@ -23,7 +23,7 @@ import Data.Profunctor.Distributor
 import Data.Set (Set)
 import Data.Set qualified as Set
 import Data.String
-import Text.ParserCombinators.ReadP hiding (many, satisfy, char, sepBy)
+import Text.ParserCombinators.ReadP (ReadP, get, readP_to_S)
 import Witherable
 
 class
@@ -429,11 +429,11 @@ exprP regex = rule "expression" $ foldl (<|>) empty
 
 seqP :: Grammatical p => p RegEx RegEx -> p RegEx RegEx
 seqP regex = rule "sequence" $
-  dichainl1 _Sequence (sepBy "") (exprP regex)
+  chainl1 _Sequence (sepBy "") (exprP regex)
 
 altP :: Grammatical p => p RegEx RegEx -> p RegEx RegEx
 altP regex = rule "alternate" $
-  dichainl1 _Alternate (sepBy "|") (seqP regex)
+  chainl1 _Alternate (sepBy "|") (seqP regex)
 
 regexGrammar :: Grammar RegEx
 regexGrammar = ruleRec "regex" $ \regex -> altP regex

@@ -24,6 +24,8 @@ module Control.Lens.Bifocal
   , somed
   , flagged
   , signed
+  , chainedl
+  , chainedr
   , Binocular (..), runBinocular
   ) where
 
@@ -91,6 +93,12 @@ signed p = unwrapPafb $
     (\a -> (LT,a))
     (\(b,a) -> bool (EQ,a) (GT,a) b)
     (WrapPafb p) (WrapPafb (flagged p))
+
+chainedl :: APartialIso a b (a,a) (b,b) -> Bifocal a b a b
+chainedl pat = unwrapPafb . chainl1 pat (sepBy oneP) . WrapPafb
+
+chainedr :: APartialIso a b (a,a) (b,b) -> Bifocal a b a b
+chainedr pat = unwrapPafb . chainr1 pat (sepBy oneP) . WrapPafb
 
 withBifocal :: ABifocal s t a b -> (Binocular a b s t -> r) -> r
 withBifocal bif k = k (catMaybes (bif (Just <$> anyToken)))

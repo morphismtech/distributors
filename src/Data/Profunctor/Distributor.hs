@@ -17,7 +17,7 @@ module Data.Profunctor.Distributor
   , Alternator (alternate, someP)
   , Filtrator (filtrate)
   , Tokenized (anyToken), token, tokens, satisfy, restOfTokens, endOfTokens
-  , SepBy (..), sepBy, atLeast0, atLeast1, dichainl1, dichainr1
+  , SepBy (..), sepBy, atLeast0, atLeast1, chainl1, chainr1
   ) where
 
 import Control.Applicative hiding (WrappedArrow)
@@ -312,17 +312,17 @@ atLeast1
 atLeast1 sep p = dimap unlist (either list0 list1)
   (right' (beginBy sep >* p >*< manyP (separateBy sep >* p) *< endBy sep))
 
-dichainl1
+chainl1
   :: (Alternator p, Filtrator p)
   => APartialIso a b (a,a) (b,b) -> SepBy p -> p a b -> p a b
-dichainl1 pat sep p =
+chainl1 pat sep p =
   coPartialIso (difoldl (coPartialIso pat)) >?<
     beginBy sep >* p >*< manyP (separateBy sep >* p) *< endBy sep
 
-dichainr1
+chainr1
   :: (Alternator p, Filtrator p)
   => APartialIso a b (a,a) (b,b) -> SepBy p -> p a b -> p a b
-dichainr1 pat sep p =
+chainr1 pat sep p =
   coPartialIso (difoldr (coPartialIso pat)) >?<
     beginBy sep >* manyP (p *< separateBy sep) >*< p *< endBy sep
 
