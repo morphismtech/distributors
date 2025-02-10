@@ -408,15 +408,11 @@ exprP regex = rule "expression" $ foldl (<|>) empty
 
 seqP :: Grammatical p => p RegEx RegEx -> p RegEx RegEx
 seqP regex = rule "sequence" $
-  dichainl1 _Sequence (sepBy "") (exprP regex)
+  dichainl1 _Sequence (sepBy "") (exprP regex) <|> pure (Terminal "")
 
 altP :: Grammatical p => p RegEx RegEx -> p RegEx RegEx
 altP regex = rule "alternate" $
   dichainl1 _Alternate (sepBy "|") (seqP regex)
 
-emptyP :: Grammatical p => p RegEx RegEx
-emptyP = rule "empty" $
-  dimap (\_ -> []) (\_ -> ()) (manyP "|") >* pure (Terminal "")
-
 regexGrammar :: Grammar RegEx
-regexGrammar = ruleRec "regex" $ \regex -> altP regex <|> emptyP
+regexGrammar = ruleRec "regex" $ \regex -> altP regex
