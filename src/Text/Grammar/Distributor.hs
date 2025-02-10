@@ -36,12 +36,12 @@ class
     notInClass str = satisfy $ \ch -> notElem ch str
     inCategory :: GeneralCategory -> p Char Char
     inCategory cat = satisfy $ \ch -> cat == generalCategory ch
+    theEnd :: p () ()
+    theEnd = endOfTokens
     rule :: String -> p a b -> p a b
     rule _ = id
     ruleRec :: String -> (p a b -> p a b) -> p a b
     ruleRec name = rule name . fix
-    theEnd :: p () ()
-    theEnd = endOfTokens
 
 type Grammar a = forall p. Grammatical p => p a a
 
