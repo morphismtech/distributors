@@ -1,6 +1,6 @@
 module Text.Grammar.Distributor
   ( -- * Grammar
-    Grammatical (..), Grammar
+    Grammatical (..), Grammar, Gramarr
     -- * Generators
   , genReadP, readGrammar
   , genShowS, showGrammar
@@ -46,6 +46,8 @@ class
     ruleRec name = rule name . fix
 
 type Grammar a = forall p. Grammatical p => p a a
+
+type Gramarr a b = forall p. Grammatical p => p a a -> p b b
 
 newtype DiShow a b = DiShow (a -> Maybe ShowS)
 instance Profunctor DiShow where
@@ -314,41 +316,41 @@ printGrammar gram = for_ (genGrammar gram) $ \(name_i, rule_i) -> do
   putStr " = "
   putStrLn (regexString rule_i)
 
-anyP :: Grammatical p => p RegEx RegEx
-anyP = rule "any" $ "." >* pure Any
+anyG :: Grammar RegEx
+anyG = rule "any" $ "." >* pure Any
 
-endP :: Grammatical p => p RegEx RegEx
-endP = rule "end" $ "$" >* pure End
+endG :: Grammar RegEx
+endG = rule "end" $ "$" >* pure End
 
 reservedClass :: String
 reservedClass = "$()*+.?[\\]^{|}"
 
-literalP :: Grammatical p => p Char Char
-literalP = rule "literal" $ notInClass reservedClass
+literalG :: Grammar Char
+literalG = rule "literal" $ notInClass reservedClass
 
-reservedP :: Grammatical p => p Char Char
-reservedP = inClass reservedClass
+reservedG :: Grammar Char
+reservedG = inClass reservedClass
 
-escapedP :: Grammatical p => p Char Char
-escapedP = rule "escaped" $ "\\" >* reservedP
+escapedG :: Grammar Char
+escapedG = rule "escaped" $ "\\" >* reservedG
 
-charP :: Grammatical p => p Char Char
-charP = rule "char" $ literalP <|> escapedP
+charG :: Grammar Char
+charG = rule "char" $ literalG <|> escapedG
 
-nonterminalP :: Grammatical p => p RegEx RegEx
-nonterminalP = rule "nonterminal" $
-  _NonTerminal >?< "\\r{" >* manyP charP *< "}"
+nonterminalG :: Grammar RegEx
+nonterminalG = rule "nonterminal" $
+  _NonTerminal >?< "\\r{" >* manyP charG *< "}"
 
-inClassP :: Grammatical p => p RegEx RegEx
-inClassP = rule "in-class" $
-  _InClass >?< "[" >* manyP charP *< "]"
+inClassG :: Grammar RegEx
+inClassG = rule "in-class" $
+  _InClass >?< "[" >* manyP charG *< "]"
 
-notInClassP :: Grammatical p => p RegEx RegEx
-notInClassP = rule "not-in-class" $
-  _NotInClass >?< "[^" >* manyP charP *< "]"
+notInClassG :: Grammar RegEx
+notInClassG = rule "not-in-class" $
+  _NotInClass >?< "[^" >* manyP charG *< "]"
 
-inCategoryP :: Grammatical p => p RegEx RegEx
-inCategoryP = rule "in-category" $
+inCategoryG :: Grammar RegEx
+inCategoryG = rule "in-category" $
   _InCategory >?< "\\p{" >* genCat *< "}" where
     genCat = foldl (<|>) empty
       [ "Lu" >* pure UppercaseLetter
@@ -383,57 +385,57 @@ inCategoryP = rule "in-category" $
       , "Cn" >* pure NotAssigned
       ]
 
-terminalP :: Grammatical p => p RegEx RegEx
-terminalP = rule "terminal" $
-  _Terminal >?< someP charP
+terminalG :: Grammar RegEx
+terminalG = rule "terminal" $
+  _Terminal >?< someP charG
 
-tokenP :: Grammatical p => p RegEx RegEx
-tokenP = _Terminal . _Cons >?< charP >*< pure ""
+tokenG :: Grammar RegEx
+tokenG = _Terminal . _Cons >?< charG >*< pure ""
 
-parenP :: Grammatical p => p RegEx RegEx -> p RegEx RegEx
-parenP regex = rule "parenthesized" $
+parenG :: Gramarr RegEx RegEx
+parenG regex = rule "parenthesized" $
   "(" >* regex *< ")"
 
-atomP :: Grammatical p => p RegEx RegEx -> p RegEx RegEx
-atomP regex = rule "atom" $ foldl (<|>) empty
-  [ nonterminalP
-  , inClassP
-  , notInClassP
-  , inCategoryP
-  , tokenP
-  , parenP regex
-  , anyP
-  , endP
+atomG :: Gramarr RegEx RegEx
+atomG regex = rule "atom" $ foldl (<|>) empty
+  [ nonterminalG
+  , inClassG
+  , notInClassG
+  , inCategoryG
+  , tokenG
+  , parenG regex
+  , anyG
+  , endG
   ]
 
-kleeneOptP :: Grammatical p => p RegEx RegEx -> p RegEx RegEx
-kleeneOptP regex = rule "kleene-optional" $
-  _KleeneOpt >?< atomP regex *< "?"
+kleeneOptG :: Gramarr RegEx RegEx
+kleeneOptG regex = rule "kleene-optional" $
+  _KleeneOpt >?< atomG regex *< "?"
 
-kleeneStarP :: Grammatical p => p RegEx RegEx -> p RegEx RegEx
-kleeneStarP regex = rule "kleene-star" $
-  _KleeneStar >?< atomP regex *< "*"
+kleeneStarG :: Gramarr RegEx RegEx
+kleeneStarG regex = rule "kleene-star" $
+  _KleeneStar >?< atomG regex *< "*"
 
-kleenePlusP :: Grammatical p => p RegEx RegEx -> p RegEx RegEx
-kleenePlusP regex = rule "kleene-plus" $
-  _KleenePlus >?< atomP regex *< "+"
+kleenePlusG :: Gramarr RegEx RegEx
+kleenePlusG regex = rule "kleene-plus" $
+  _KleenePlus >?< atomG regex *< "+"
 
-exprP :: Grammatical p => p RegEx RegEx -> p RegEx RegEx
-exprP regex = rule "expression" $ foldl (<|>) empty
-  [ terminalP
-  , kleeneOptP regex
-  , kleeneStarP regex
-  , kleenePlusP regex
-  , atomP regex
+exprG :: Gramarr RegEx RegEx
+exprG regex = rule "expression" $ foldl (<|>) empty
+  [ terminalG
+  , kleeneOptG regex
+  , kleeneStarG regex
+  , kleenePlusG regex
+  , atomG regex
   ]
 
-seqP :: Grammatical p => p RegEx RegEx -> p RegEx RegEx
-seqP regex = rule "sequence" $
-  chainl1 _Sequence (sepBy "") (exprP regex)
+seqG :: Gramarr RegEx RegEx
+seqG regex = rule "sequence" $
+  chainl1 _Sequence (sepBy "") (exprG regex)
 
-altP :: Grammatical p => p RegEx RegEx -> p RegEx RegEx
-altP regex = rule "alternate" $
-  chainl1 _Alternate (sepBy "|") (seqP regex)
+altG :: Gramarr RegEx RegEx
+altG regex = rule "alternate" $
+  chainl1 _Alternate (sepBy "|") (seqG regex)
 
 regexGrammar :: Grammar RegEx
-regexGrammar = ruleRec "regex" $ \regex -> altP regex
+regexGrammar = ruleRec "regex" $ \regex -> altG regex
