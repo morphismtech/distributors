@@ -9,7 +9,6 @@ Portability : non-portable
 -}
 
 {-# OPTIONS_GHC -Wno-orphans #-}
-{-# OPTIONS_GHC -Wno-redundant-constraints #-}
 
 module Data.Profunctor.Distributor
   ( Monoidal, oneP, (>*<), dimap2, (>*), (*<), replicateP, foreverP, meander
@@ -80,7 +79,7 @@ replicateP
 replicateP p = traverse (\f -> lmap f p) (distribute id)
 
 meander
-  :: forall p s t a b. (Monoidal p, Choice p, Strong p) -- should redundant Strong stay or go?
+  :: forall p s t a b. (Monoidal p, Choice p)
   => ATraversal s t a b -> p a b -> p s t
 meander f = dimap (f sell) iextract . trav
   where
