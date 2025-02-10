@@ -364,7 +364,7 @@ inCategoryP = rule "in-category" $
 
 terminalP :: Grammatical p => p RegEx RegEx
 terminalP = rule "terminal" $
-  _Terminal >?< manyP charP
+  _Terminal >?< someP charP
 
 tokenP :: Grammatical p => p RegEx RegEx
 tokenP = _Terminal . _Cons >?< charP >*< pure ""
@@ -415,4 +415,4 @@ altP regex = rule "alternate" $
   dichainl1 _Alternate (sepBy "|") (seqP regex)
 
 regexGrammar :: Grammar RegEx
-regexGrammar = ruleRec "regex" $ \regex -> altP regex
+regexGrammar = ruleRec "regex" $ \regex -> altP regex <|> pure (Terminal "")
