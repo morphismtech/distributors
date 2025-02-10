@@ -20,7 +20,8 @@ module Data.Profunctor.Distributor
   , SepBy (..), sepBy, atLeast0, atLeast1, dichainl1, dichainr1
   ) where
 
-import Control.Applicative
+import Control.Applicative hiding (WrappedArrow)
+import Control.Applicative qualified as Ap (WrappedArrow)
 import Control.Arrow
 import Control.Lens hiding (chosen)
 import Control.Lens.Internal.Bazaar
@@ -31,10 +32,16 @@ import Control.Lens.Internal.Profunctor
 import Control.Lens.PartialIso
 import Data.Bifunctor.Clown
 import Data.Bifunctor.Joker
+import Data.Bifunctor.Product
 import Data.Distributive
+import Data.Functor.Adjunction
 import Data.Functor.Compose
 import Data.Functor.Contravariant.Divisible
-import Data.Profunctor
+import Data.Profunctor hiding (WrappedArrow)
+import Data.Profunctor qualified as Pro (WrappedArrow)
+import Data.Profunctor.Composition
+import Data.Profunctor.Monad
+import Data.Profunctor.Yoneda
 import Data.Void
 import Witherable
 
@@ -118,6 +125,52 @@ instance (Distributor p, Applicative f)
       dialt id (fmap Left) (fmap Right) x y
     -- manyP
     -- optionalP
+
+instance Applicative f => Distributor (Star f) where
+  zeroP = Star absurd
+  Star f >+< Star g =
+    Star (either (fmap Left . f) (fmap Right . g))
+deriving via (Star m) instance Monad m => Distributor (Kleisli m)
+instance Adjunction f u => Distributor (Costar f) where
+  zeroP = Costar unabsurdL
+  Costar f >+< Costar g = Costar (bimap f g . cozipL)
+-- instance (Applicative f, Distributor p)
+--   => Distributor (Tannen f p) where
+--     zeroP = Tannen (pure zeroP)
+--     Tannen x >+< Tannen y = Tannen ((>+<) <$> x <*> y)
+-- instance (Applicative f, Distributor p)
+--   => Distributor (Cayley f p) where
+--     zeroP = Cayley (pure zeroP)
+--     Cayley x >+< Cayley y = Cayley ((>+<) <$> x <*> y)
+-- instance (Adjunction f u, Applicative g, Distributor p)
+--   => Distributor (Biff p f g) where
+--     zeroP = Biff (dimap unabsurdL absurd zeroP)
+--     Biff x >+< Biff y = Biff $ dimap
+--       cozipL
+--       (either (Left <$>) (Right <$>))
+--       (x >+< y)
+instance (ArrowZero p, ArrowChoice p)
+  => Distributor (Pro.WrappedArrow p) where
+    zeroP = zeroArrow
+    (>+<) = (+++)
+deriving via (Pro.WrappedArrow p)
+  instance (ArrowZero p, ArrowChoice p)
+    => Distributor (Ap.WrappedArrow p)
+instance (Distributor p, Distributor q)
+  => Distributor (Procompose p q) where
+    zeroP = Procompose zeroP zeroP
+    Procompose xL yL >+< Procompose xR yR =
+      Procompose (xL >+< xR) (yL >+< yR)
+instance (Distributor p, Distributor q)
+  => Distributor (Product p q) where
+    zeroP = Pair zeroP zeroP
+    Pair x0 y0 >+< Pair x1 y1 = Pair (x0 >+< x1) (y0 >+< y1)
+instance Distributor p => Distributor (Yoneda p) where
+  zeroP = proreturn zeroP
+  ab >+< cd = proreturn (proextract ab >+< proextract cd)
+instance Distributor p => Distributor (Coyoneda p) where
+  zeroP = proreturn zeroP
+  ab >+< cd = proreturn (proextract ab >+< proextract cd)
 
 dialt
   :: Distributor p
@@ -344,3 +397,38 @@ instance (Profunctor p, Filterable f)
 instance (Closed p, Distributive f)
   => Closed (WrappedPafb f p) where
     closed (WrapPafb p) = WrapPafb (rmap distribute (closed p))
+deriving via (Ap.WrappedArrow p x) instance Arrow p
+  => Functor (Pro.WrappedArrow p x)
+deriving via (Ap.WrappedArrow p x) instance Arrow p
+  => Applicative (Pro.WrappedArrow p x)
+deriving via (Pro.WrappedArrow p) instance Arrow p
+  => Profunctor (Ap.WrappedArrow p)
+instance (Monoidal p, Monoidal q)
+  => Applicative (Procompose p q x) where
+    pure b = Procompose (pure b) (pure b)
+    Procompose wb aw <*> Procompose vb av = Procompose
+      (dimap2 fst snd ($) wb vb)
+      (liftA2 (,) aw av)
+instance (Monoidal p, Monoidal q)
+  => Applicative (Product p q x) where
+    pure b = Pair (pure b) (pure b)
+    Pair x0 y0 <*> Pair x1 y1 = Pair (x0 <*> x1) (y0 <*> y1)
+-- instance (Applicative f, Monoidal p) => Monoidal (Tannen f p) where
+--   oneP = Tannen (pure oneP)
+--   Tannen x >*< Tannen y = Tannen ((>*<) <$> x <*> y)
+-- instance (Applicative f, Monoidal p) => Monoidal (Cayley f p) where
+--   oneP = Cayley (pure oneP)
+--   Cayley x >*< Cayley y = Cayley ((>*<) <$> x <*> y)
+-- instance (Functor f, Applicative g, Monoidal p)
+--   => Monoidal (Biff p f g) where
+--     oneP = Biff (dimap (const ()) pure oneP)
+--     Biff x >*< Biff y = Biff $ dimap
+--       ((fst <$>) &&& (snd <$>))
+--       (uncurry (liftA2 (,)))
+--       (x >*< y)
+instance Monoidal p => Applicative (Yoneda p x) where
+  pure = proreturn . pure
+  ab <*> cd = proreturn (proextract ab <*> proextract cd)
+instance Monoidal p => Applicative (Coyoneda p x) where
+  pure = proreturn . pure
+  ab <*> cd = proreturn (proextract ab <*> proextract cd)
