@@ -174,6 +174,8 @@ instance Distributor DiRegEx where
   zeroP = DiRegEx Fail
   DiRegEx Fail >+< DiRegEx regex = DiRegEx regex
   DiRegEx regex >+< DiRegEx Fail = DiRegEx regex
+  DiRegEx (Terminal "") >+< DiRegEx regex = DiRegEx (KleeneOpt regex)
+  DiRegEx regex >+< DiRegEx (Terminal "") = DiRegEx (KleeneOpt regex)
   DiRegEx regex1 >+< DiRegEx regex2 =
     DiRegEx (Alternate regex1 regex2)
   optionalP (DiRegEx regex) = DiRegEx (KleeneOpt regex)
