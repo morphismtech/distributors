@@ -162,6 +162,8 @@ instance Alternative (DiRegEx a) where
   empty = DiRegEx Fail
   DiRegEx Fail <|> regex = regex
   regex <|> DiRegEx Fail = regex
+  DiRegEx (Terminal "") <|> DiRegEx regex = DiRegEx (KleeneOpt regex)
+  DiRegEx regex <|> DiRegEx (Terminal "") = DiRegEx (KleeneOpt regex)
   DiRegEx regex1 <|> DiRegEx regex2 =
     DiRegEx (Alternate regex1 regex2)
   many (DiRegEx regex) = DiRegEx (KleeneStar regex)
