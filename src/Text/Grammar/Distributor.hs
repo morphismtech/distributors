@@ -2,7 +2,9 @@ module Text.Grammar.Distributor
   ( -- * Grammar
     Grammatical (..), Grammar
     -- * Generators
-  , genReadP, genShowS, genRegEx, genGrammar, printGrammar
+  , genReadP, readGrammar
+  , genShowS, showGrammar
+  , genRegEx, genGrammar, printGrammar
     -- * RegEx
   , RegEx (..), regexGrammar, regexString
   ) where
@@ -162,6 +164,10 @@ instance Alternative (DiRegEx a) where
   empty = DiRegEx Fail
   DiRegEx Fail <|> regex = regex
   regex <|> DiRegEx Fail = regex
+  DiRegEx (Terminal "") <|> DiRegEx (KleenePlus regex) =
+    DiRegEx (KleeneStar regex)
+  DiRegEx (KleenePlus regex) <|> DiRegEx (Terminal "") =
+    DiRegEx (KleeneStar regex)
   DiRegEx (Terminal "") <|> DiRegEx regex = DiRegEx (KleeneOpt regex)
   DiRegEx regex <|> DiRegEx (Terminal "") = DiRegEx (KleeneOpt regex)
   DiRegEx regex1 <|> DiRegEx regex2 =
@@ -176,10 +182,15 @@ instance Distributor DiRegEx where
   zeroP = DiRegEx Fail
   DiRegEx Fail >+< DiRegEx regex = DiRegEx regex
   DiRegEx regex >+< DiRegEx Fail = DiRegEx regex
+  DiRegEx (Terminal "") >+< DiRegEx (KleenePlus regex) =
+    DiRegEx (KleeneStar regex)
+  DiRegEx (KleenePlus regex) >+< DiRegEx (Terminal "") =
+    DiRegEx (KleeneStar regex)
   DiRegEx (Terminal "") >+< DiRegEx regex = DiRegEx (KleeneOpt regex)
   DiRegEx regex >+< DiRegEx (Terminal "") = DiRegEx (KleeneOpt regex)
   DiRegEx regex1 >+< DiRegEx regex2 =
     DiRegEx (Alternate regex1 regex2)
+  optionalP (DiRegEx (KleenePlus regex)) = DiRegEx (KleeneStar regex)
   optionalP (DiRegEx regex) = DiRegEx (KleeneOpt regex)
   manyP (DiRegEx regex) = DiRegEx (KleeneStar regex)
 instance Choice DiRegEx where
@@ -268,8 +279,18 @@ instance Grammatical DiGrammar where
 genReadP :: Grammar a -> ReadP a
 genReadP (DiRead p) = p
 
+readGrammar :: Grammar a -> String -> [a]
+readGrammar grammar str =
+  [ a
+  | (a, remaining) <- readP_to_S (genReadP grammar) str
+  , remaining == []
+  ]
+
 genShowS :: Grammar a -> a -> Maybe ShowS
 genShowS (DiShow p) = p
+
+showGrammar :: Grammar a -> a -> Maybe String
+showGrammar grammar a = ($ "") <$> genShowS grammar a
 
 regexString :: RegEx -> String
 regexString rex = maybe badRegex id stringMaybe
@@ -408,7 +429,7 @@ exprP regex = rule "expression" $ foldl (<|>) empty
 
 seqP :: Grammatical p => p RegEx RegEx -> p RegEx RegEx
 seqP regex = rule "sequence" $
-  dichainl1 _Sequence (sepBy "") (exprP regex) <|> pure (Terminal "")
+  dichainl1 _Sequence (sepBy "") (exprP regex)
 
 altP :: Grammatical p => p RegEx RegEx -> p RegEx RegEx
 altP regex = rule "alternate" $
