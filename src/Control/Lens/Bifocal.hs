@@ -88,7 +88,7 @@ signed p = unwrapPafb $
     (\case
       (LT,a) -> Left a
       (EQ,a) -> Right (False,a)
-      (GT,a) -> Right (True, a)
+      (GT,a) -> Right (True,a)
     )
     (\a -> (LT,a))
     (\(b,a) -> bool (EQ,a) (GT,a) b)
