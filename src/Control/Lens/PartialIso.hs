@@ -34,11 +34,13 @@ module Control.Lens.PartialIso
   , nulled
   , notNulled
   , streamed
-    -- * difold/dichain operations
+    -- * difold operations
   , difoldl1
   , difoldr1
   , difoldl
   , difoldr
+  , difoldl'
+  , difoldr'
   ) where
 
 import Control.Applicative
@@ -317,4 +319,38 @@ difoldr i =
   in
     difoldr1 i
     . crossPartialIso nulled id
+    . unit'
+
+difoldl'
+  :: (AsEmpty s, Cons s s a a)
+  => APrism' (c,a) c
+  -> Prism' (c,s) c
+difoldl' i =
+  let
+    unit' = iso
+      (\(a,()) -> a)
+      (\a -> (a,()))
+  in
+    difoldl1 (clonePrism i)
+    . aside _Empty
+    . unit'
+
+difoldr'
+  :: (AsEmpty s, Cons s s a a)
+  => APrism' (a,c) c
+  -> Prism' (s,c) c
+difoldr' i =
+  let
+    unit' = iso
+      (\((),c) -> c)
+      (\c -> ((),c))
+    asideFst k =
+      withPrism k $ \bt seta ->
+        prism (first' bt) $ \(s,e) ->
+          case seta s of
+            Left t -> Left  (t,e)
+            Right a -> Right (a,e)
+  in
+    difoldr1 (clonePrism i)
+    . asideFst _Empty
     . unit'
