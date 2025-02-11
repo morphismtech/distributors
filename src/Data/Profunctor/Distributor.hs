@@ -188,6 +188,12 @@ dialt f g h p q = dimap f (either g h) (p >+< q)
 class (Choice p, Distributor p, forall x. Alternative (p x))
   => Alternator p where
 
+    {- |
+    prop> left' = alternate . Left
+    prop> right' = alternate . Right
+    prop> zeroP = empty
+    prop> x >+< y = alternate (Left x) <|> alternate (Right y)
+    -}
     alternate
       :: Either (p a b) (p c d)
       -> p (Either a c) (Either b d)
@@ -234,6 +240,10 @@ list1 = uncurry (:)
 class (Cochoice p, forall x. Filterable (p x))
   => Filtrator p where
 
+    {- |
+    prop> unleft = fst . filtrate
+    prop> unright = snd . filtrate
+    -}
     filtrate
       :: p (Either a c) (Either b d)
       -> (p a b, p c d)
@@ -388,13 +398,13 @@ deriving newtype instance Applicative f => Applicative (Joker f a)
 instance (Profunctor p, Functor f)
   => Functor (WrappedPafb f p a) where fmap = rmap
 deriving via Compose (p a) f instance
-  (Monoidal p, Applicative f)
+  (Profunctor p, Applicative (p a), Applicative f)
     => Applicative (WrappedPafb f p a)
 deriving via Compose (p a) f instance
-  (Profunctor p, forall x. Alternative (p x), Applicative f)
+  (Profunctor p, Alternative (p a), Applicative f)
     => Alternative (WrappedPafb f p a)
 deriving via Compose (p a) f instance
-  (Profunctor p, forall x. Functor (p x), Filterable f)
+  (Profunctor p, Functor (p a), Filterable f)
     => Filterable (WrappedPafb f p a)
 instance (Profunctor p, Filterable f)
   => Cochoice (WrappedPafb f p) where
@@ -405,20 +415,20 @@ instance (Profunctor p, Filterable f)
 instance (Closed p, Distributive f)
   => Closed (WrappedPafb f p) where
     closed (WrapPafb p) = WrapPafb (rmap distribute (closed p))
-deriving via (Ap.WrappedArrow p x) instance Arrow p
-  => Functor (Pro.WrappedArrow p x)
-deriving via (Ap.WrappedArrow p x) instance Arrow p
-  => Applicative (Pro.WrappedArrow p x)
+deriving via (Ap.WrappedArrow p a) instance Arrow p
+  => Functor (Pro.WrappedArrow p a)
+deriving via (Ap.WrappedArrow p a) instance Arrow p
+  => Applicative (Pro.WrappedArrow p a)
 deriving via (Pro.WrappedArrow p) instance Arrow p
   => Profunctor (Ap.WrappedArrow p)
-instance (Monoidal p, Monoidal q)
-  => Applicative (Procompose p q x) where
+instance (Monoidal p, Applicative (q a))
+  => Applicative (Procompose p q a) where
     pure b = Procompose (pure b) (pure b)
     Procompose wb aw <*> Procompose vb av = Procompose
       (dimap2 fst snd ($) wb vb)
       (liftA2 (,) aw av)
 instance (Monoidal p, Monoidal q)
-  => Applicative (Product p q x) where
+  => Applicative (Product p q a) where
     pure b = Pair (pure b) (pure b)
     Pair x0 y0 <*> Pair x1 y1 = Pair (x0 <*> x1) (y0 <*> y1)
 -- instance (Applicative f, Monoidal p) => Monoidal (Tannen f p) where
@@ -434,9 +444,11 @@ instance (Monoidal p, Monoidal q)
 --       ((fst <$>) &&& (snd <$>))
 --       (uncurry (liftA2 (,)))
 --       (x >*< y)
-instance Monoidal p => Applicative (Yoneda p x) where
-  pure = proreturn . pure
-  ab <*> cd = proreturn (proextract ab <*> proextract cd)
-instance Monoidal p => Applicative (Coyoneda p x) where
-  pure = proreturn . pure
-  ab <*> cd = proreturn (proextract ab <*> proextract cd)
+instance (Profunctor p, Applicative (p a))
+  => Applicative (Yoneda p a) where
+    pure = proreturn . pure
+    ab <*> cd = proreturn (proextract ab <*> proextract cd)
+instance (Profunctor p, Applicative (p a))
+  => Applicative (Coyoneda p a) where
+    pure = proreturn . pure
+    ab <*> cd = proreturn (proextract ab <*> proextract cd)
