@@ -1,3 +1,13 @@
+{-|
+Module      : Text.Grammar.Distributor
+Description : grammars
+Copyright   : (C) 2025 - Eitan Chatav
+License     : BSD-style (see the file LICENSE)
+Maintainer  : Eitan Chatav <eitan.chatav@gmail.com>
+Stability   : provisional
+Portability : non-portable
+-}
+
 module Text.Grammar.Distributor
   ( -- * Grammar
     Grammatical (..), Grammar, Grammarr
