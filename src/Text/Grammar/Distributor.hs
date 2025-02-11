@@ -182,7 +182,7 @@ optK, starK, plusK :: RegEx -> RegEx
 
 optK Fail = Terminal ""
 optK (Terminal "") = Terminal ""
-optK (KleenePlus rex) = KleeneStar rex
+optK (KleenePlus rex) = starK rex
 optK rex = KleeneOpt rex
 
 starK Fail = Terminal ""
