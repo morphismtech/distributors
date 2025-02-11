@@ -53,6 +53,13 @@ ghc-options:
 library:
   source-dirs: src
 
+tests:
+  doctest:
+    main: Doc.hs
+    source-dirs: test
+    dependencies:
+      - doctest
+
 default-extensions:
 - AllowAmbiguousTypes
 - Arrows
