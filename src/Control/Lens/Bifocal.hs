@@ -71,7 +71,7 @@ bifocal bif = unwrapPafb . runBinocular bif . WrapPafb
 mapBifocal
   :: (Alternator p, Filtrator p)
   => ABifocal s t a b -> p a b -> p s t
-mapBifocal bif p = withBifocal bif $ \ocal -> runBinocular ocal p
+mapBifocal bif p = withBifocal bif $ \f -> dimapMaybe f Just p
 
 cloneBifocal :: ABifocal s t a b -> Bifocal s t a b
 cloneBifocal bif = unwrapPafb . mapBifocal bif . WrapPafb
@@ -121,8 +121,10 @@ chainedl pat = unwrapPafb . chainl1 pat noSep . WrapPafb
 chainedr :: APartialIso a b (a,a) (b,b) -> Bifocal a b a b
 chainedr pat = unwrapPafb . chainr1 pat noSep . WrapPafb
 
-withBifocal :: ABifocal s t a b -> (Binocular a b s t -> r) -> r
-withBifocal bif k = k (catMaybes (bif (Just <$> anyToken)))
+withBifocal
+  :: (Filterable f, Alternative f)
+  => ABifocal s t a b -> ((s -> Maybe a) -> f b) -> f t
+withBifocal bif = unBinocular (catMaybes (bif (Just <$> anyToken)))
 
 newtype Binocular a b s t = Binocular
   { unBinocular

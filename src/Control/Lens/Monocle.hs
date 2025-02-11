@@ -42,7 +42,7 @@ monocle :: Monocular a b s t -> Monocle s t a b
 monocle mon = unwrapPafb . runMonocular mon . WrapPafb
 
 mapMonocle :: Monoidal p => AMonocle s t a b -> p a b -> p s t
-mapMonocle mon p = withMonocle mon $ \ocular -> runMonocular ocular p
+mapMonocle mon p = withMonocle mon $ \f -> lmap f p
 
 cloneMonocle :: AMonocle s t a b -> Monocle s t a b
 cloneMonocle mon = unwrapPafb . mapMonocle mon . WrapPafb
@@ -53,9 +53,8 @@ ditraversed = unwrapPafb . replicateP . WrapPafb
 forevered :: Monocle s t () b
 forevered = unwrapPafb . foreverP . WrapPafb
 
-withMonocle :: AMonocle s t a b -> (Monocular a b s t -> r) -> r
-withMonocle mon k =
-  k (runIdentity <$> mon (Identity <$> anyToken))
+withMonocle :: Applicative f => AMonocle s t a b -> ((s -> a) -> f b) -> f t
+withMonocle mon = unMonocular (runIdentity <$> mon (Identity <$> anyToken))
 
 newtype Monocular a b s t = Monocular
   {unMonocular :: forall f. Applicative f => ((s -> a) -> f b) -> f t}
