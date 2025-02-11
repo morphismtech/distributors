@@ -149,8 +149,8 @@ data RegEx
   | KleeneOpt RegEx -- ^ @x?@
   | KleeneStar RegEx -- ^ @x*@
   | KleenePlus RegEx -- ^ @x+@
-  | Any -- ^ @.@
-  | End -- ^ @$@
+  | AnyChar -- ^ @.@
+  | TheEnd -- ^ @$@
   | InClass String -- ^ @[abc]@
   | NotInClass String -- ^ @[^abc]@
   | InCategory GeneralCategory -- ^ @\\p{Lu}@
@@ -223,14 +223,14 @@ instance Alternator DiRegEx where
   someP (DiRegEx rex) = DiRegEx (KleenePlus rex)
 instance Filtrator DiRegEx
 instance Tokenized Char Char DiRegEx where
-  anyToken = DiRegEx Any
+  anyToken = DiRegEx AnyChar
 instance IsString (DiRegEx () ()) where
   fromString str = DiRegEx (Terminal str)
 instance Grammatical DiRegEx where
   inClass str = DiRegEx (InClass str)
   notInClass str = DiRegEx (NotInClass str)
   inCategory str = DiRegEx (InCategory str)
-  theEnd = DiRegEx End
+  theEnd = DiRegEx TheEnd
 
 data DiGrammar a b = DiGrammar
   { grammarStart :: DiRegEx a b
@@ -369,7 +369,7 @@ altG rex = rule "alternate" $
   chainl1 _Alternate (sepBy "|") (seqG rex)
 
 anyG :: Grammar RegEx
-anyG = rule "any" $ "." >* pure Any
+anyG = rule "any" $ "." >* pure AnyChar
 
 atomG :: Grammarr RegEx RegEx
 atomG rex = rule "atom" $ foldl (<|>) empty
@@ -384,7 +384,7 @@ atomG rex = rule "atom" $ foldl (<|>) empty
   ]
 
 endG :: Grammar RegEx
-endG = rule "end" $ "$" >* pure End
+endG = rule "end" $ "$" >* pure TheEnd
 
 charG :: Grammar Char
 charG = rule "char" $ literalG <|> escapedG
