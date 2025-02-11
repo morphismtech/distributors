@@ -15,6 +15,7 @@ module Control.Lens.Bifocal
   , ABifocal'
   , Diopter
   , Prismoid
+  , Filtroid
   , bifocal
   , mapBifocal
   , cloneBifocal
@@ -22,6 +23,10 @@ module Control.Lens.Bifocal
   , optioned
   , manied
   , somed
+  , lefted
+  , righted
+  , unlefted
+  , unrighted
   , flagged
   , signed
   , chainedl
@@ -56,6 +61,10 @@ type Prismoid s t a b = forall p f.
   (Alternator p, Alternative f)
     => p a (f b) -> p s (f t)
 
+type Filtroid s t a b = forall p f.
+  (Filtrator p, Filterable f)
+    => p a (f b) -> p s (f t)
+
 bifocal :: Binocular a b s t -> Bifocal s t a b
 bifocal bif = unwrapPafb . runBinocular bif . WrapPafb
 
@@ -75,6 +84,18 @@ manied = unwrapPafb . manyP . WrapPafb
 
 somed :: Prismoid [a] [b] a b
 somed = unwrapPafb . someP . WrapPafb
+
+lefted :: Prismoid (Either a c) (Either b d) a b
+lefted = unwrapPafb . alternate . Left . WrapPafb
+
+righted :: Prismoid (Either c a) (Either d b) a b
+righted = unwrapPafb . alternate . Right . WrapPafb
+
+unlefted :: Filtroid a b (Either a c) (Either b d)
+unlefted = unwrapPafb . fst . filtrate . WrapPafb
+
+unrighted :: Filtroid a b (Either c a) (Either d b)
+unrighted = unwrapPafb . snd . filtrate . WrapPafb
 
 flagged :: Diopter (Bool, a) (Bool, b) a b
 flagged p = unwrapPafb $ dialt
