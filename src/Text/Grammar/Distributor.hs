@@ -30,7 +30,7 @@ class
   ( Alternator p
   , Filtrator p
   , Tokenized Char Char p
-  , forall u v. ((u ~ (), v ~ ()) => IsString (p u v))
+  , forall t. t ~ p () () => IsString t
   ) => Grammatical p where
     inClass :: String -> p Char Char
     inClass str = satisfy $ \ch -> elem ch str
