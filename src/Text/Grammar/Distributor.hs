@@ -143,37 +143,49 @@ data RegEx
   deriving (Eq, Ord, Show)
 makePrisms ''RegEx
 
+(-*-), (|||) :: RegEx -> RegEx -> RegEx
+
+Terminal "" -*- rex = rex
+rex -*- Terminal "" = rex
+Fail -*- _ = Fail
+_ -*- Fail = Fail
+Terminal str0 -*- Terminal str1 = Terminal (str0 <> str1)
+KleeneStar rex0 -*- rex1 | rex0 == rex1 = plusK rex0
+rex0 -*- KleeneStar rex1 | rex0 == rex1 = plusK rex0
+rex0 -*- rex1 = Sequence rex0 rex1
+
+KleenePlus rex ||| Terminal "" = starK rex
+Terminal "" ||| KleenePlus rex = starK rex
+rex ||| Terminal "" = optK rex
+Terminal "" ||| rex = optK rex
+rex ||| Fail = rex
+Fail ||| rex = rex
+rex0 ||| rex1 | rex0 == rex1 = rex0
+rex0 ||| rex1 = Alternate rex0 rex1
+
+optK, starK, plusK :: RegEx -> RegEx
+
+optK Fail = Terminal ""
+optK (Terminal "") = Terminal ""
+optK (KleenePlus rex) = KleeneStar rex
+optK rex = KleeneOpt rex
+
+starK Fail = Terminal ""
+starK (Terminal "") = Terminal ""
+starK rex = KleeneStar rex
+
+plusK Fail = Fail
+plusK (Terminal "") = Terminal ""
+plusK rex = KleenePlus rex
+
 newtype DiRegEx a b = DiRegEx {regString :: RegEx}
 instance Functor (DiRegEx a) where fmap = rmap
 instance Applicative (DiRegEx a) where
   pure _ = DiRegEx (Terminal [])
-  DiRegEx (Terminal []) <*> regex = coerce regex
-  regex <*> DiRegEx (Terminal []) = coerce regex
-  DiRegEx regex1 <*> DiRegEx (KleeneStar regex2) =
-    if regex1 == regex2
-    then DiRegEx (KleenePlus regex1)
-    else DiRegEx (Sequence regex1 (KleeneStar regex2))
-  DiRegEx (KleeneStar regex1) <*> DiRegEx regex2 =
-    if regex1 == regex2
-    then DiRegEx (KleenePlus regex1)
-    else DiRegEx (Sequence (KleeneStar regex1) regex2)
-  DiRegEx (Terminal str0)
-    <*> DiRegEx (Terminal str1) =
-      DiRegEx (Terminal (str0 <> str1))
-  DiRegEx regex1 <*> DiRegEx regex2 =
-    DiRegEx (Sequence regex1 regex2)
+  DiRegEx rex1 <*> DiRegEx rex2 = DiRegEx (rex1 -*- rex2)
 instance Alternative (DiRegEx a) where
   empty = DiRegEx Fail
-  DiRegEx Fail <|> regex = regex
-  regex <|> DiRegEx Fail = regex
-  DiRegEx (Terminal "") <|> DiRegEx (KleenePlus regex) =
-    DiRegEx (KleeneStar regex)
-  DiRegEx (KleenePlus regex) <|> DiRegEx (Terminal "") =
-    DiRegEx (KleeneStar regex)
-  DiRegEx (Terminal "") <|> DiRegEx regex = DiRegEx (KleeneOpt regex)
-  DiRegEx regex <|> DiRegEx (Terminal "") = DiRegEx (KleeneOpt regex)
-  DiRegEx regex1 <|> DiRegEx regex2 =
-    DiRegEx (Alternate regex1 regex2)
+  DiRegEx rex1 <|> DiRegEx rex2 = DiRegEx (rex1 ||| rex2)
   many (DiRegEx regex) = DiRegEx (KleeneStar regex)
   some (DiRegEx regex) = DiRegEx (KleenePlus regex)
 instance Filterable (DiRegEx a) where
@@ -182,16 +194,7 @@ instance Profunctor DiRegEx where
   dimap _ _ = coerce
 instance Distributor DiRegEx where
   zeroP = DiRegEx Fail
-  DiRegEx Fail >+< DiRegEx regex = DiRegEx regex
-  DiRegEx regex >+< DiRegEx Fail = DiRegEx regex
-  DiRegEx (Terminal "") >+< DiRegEx (KleenePlus regex) =
-    DiRegEx (KleeneStar regex)
-  DiRegEx (KleenePlus regex) >+< DiRegEx (Terminal "") =
-    DiRegEx (KleeneStar regex)
-  DiRegEx (Terminal "") >+< DiRegEx regex = DiRegEx (KleeneOpt regex)
-  DiRegEx regex >+< DiRegEx (Terminal "") = DiRegEx (KleeneOpt regex)
-  DiRegEx regex1 >+< DiRegEx regex2 =
-    DiRegEx (Alternate regex1 regex2)
+  DiRegEx rex1 >+< DiRegEx rex2 = DiRegEx (rex1 ||| rex2)
   optionalP (DiRegEx (KleenePlus regex)) = DiRegEx (KleeneStar regex)
   optionalP (DiRegEx regex) = DiRegEx (KleeneOpt regex)
   manyP (DiRegEx regex) = DiRegEx (KleeneStar regex)
