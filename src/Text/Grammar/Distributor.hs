@@ -127,19 +127,19 @@ instance u ~ () => IsString (DiRead () u) where
   fromString = tokens
 
 data RegEx
-  = Fail
-  | Terminal String -- ^ abc123etc\.
-  | Any -- ^ .
-  | End -- ^ $
-  | NonTerminal String -- ^ \r{rule-name}
-  | InClass String -- ^ [abc]
-  | NotInClass String -- ^ [^abc]
-  | InCategory GeneralCategory -- ^ \p{Lu}
-  | Alternate RegEx RegEx -- ^ p|q
-  | Sequence RegEx RegEx -- ^ pq
-  | KleeneOpt RegEx -- ^ p?
-  | KleeneStar RegEx -- ^ p*
-  | KleenePlus RegEx -- ^ p+
+  = Terminal String -- ^ @abc123etc\.@
+  | Sequence RegEx RegEx -- ^ @xy@
+  | Fail
+  | Alternate RegEx RegEx -- ^ @x|y@
+  | KleeneOpt RegEx -- ^ @x?@
+  | KleeneStar RegEx -- ^ @x*@
+  | KleenePlus RegEx -- ^ @x+@
+  | Any -- ^ @.@
+  | End -- ^ @$@
+  | InClass String -- ^ @[abc]@
+  | NotInClass String -- ^ @[^abc]@
+  | InCategory GeneralCategory -- ^ @\\p{Lu}@
+  | NonTerminal String -- ^ @\\r{rule-name}@
   deriving (Eq, Ord, Show)
 makePrisms ''RegEx
 
