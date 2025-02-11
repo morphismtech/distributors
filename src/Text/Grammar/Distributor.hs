@@ -29,19 +29,32 @@ import Witherable
 class
   ( Alternator p
   , Filtrator p
-  , Tokenized Char Char p
   , forall t. t ~ p () () => IsString t
   ) => Grammatical p where
-    inClass :: String -> p Char Char
-    inClass str = satisfy $ \ch -> elem ch str
-    notInClass :: String -> p Char Char
-    notInClass str = satisfy $ \ch -> notElem ch str
-    inCategory :: GeneralCategory -> p Char Char
-    inCategory cat = satisfy $ \ch -> cat == generalCategory ch
+
+    anyChar :: p Char Char
+    default anyChar :: Tokenized Char Char p => p Char Char
+    anyChar = anyToken
+
     theEnd :: p () ()
+    default theEnd :: Tokenized Char Char p => p () ()
     theEnd = endOfTokens
+
+    inClass :: String -> p Char Char
+    default inClass :: Tokenized Char Char p => String -> p Char Char
+    inClass str = satisfy $ \ch -> elem ch str
+
+    notInClass :: String -> p Char Char
+    default notInClass :: Tokenized Char Char p => String -> p Char Char
+    notInClass str = satisfy $ \ch -> notElem ch str
+
+    inCategory :: GeneralCategory -> p Char Char
+    default inCategory :: Tokenized Char Char p => GeneralCategory -> p Char Char
+    inCategory cat = satisfy $ \ch -> cat == generalCategory ch
+
     rule :: String -> p a b -> p a b
     rule _ = id
+
     ruleRec :: String -> (p a b -> p a b) -> p a b
     ruleRec name = rule name . fix
 
@@ -85,7 +98,7 @@ instance Filterable (DiShow a) where
   mapMaybe = dimapMaybe Just
 instance Tokenized Char Char DiShow where
   anyToken = DiShow (Just . (:))
-instance u ~ () => IsString (DiShow () u) where
+instance IsString (DiShow () ()) where
   fromString = tokens
 instance Grammatical DiShow
 
@@ -123,13 +136,13 @@ instance Filterable (DiRead a) where
 instance Tokenized Char Char DiRead where
   anyToken = DiRead get
 instance Grammatical DiRead
-instance u ~ () => IsString (DiRead () u) where
+instance IsString (DiRead () ()) where
   fromString = tokens
 
 -- RegEx --
 
 data RegEx
-  = Terminal String -- ^ @abc123etc\.@
+  = Terminal String -- ^ @abc123etc\\.@
   | Sequence RegEx RegEx -- ^ @xy@
   | Fail
   | Alternate RegEx RegEx -- ^ @x|y@
@@ -188,8 +201,8 @@ instance Applicative (DiRegEx a) where
 instance Alternative (DiRegEx a) where
   empty = DiRegEx Fail
   DiRegEx rex1 <|> DiRegEx rex2 = DiRegEx (rex1 ||| rex2)
-  many (DiRegEx regex) = DiRegEx (KleeneStar regex)
-  some (DiRegEx regex) = DiRegEx (KleenePlus regex)
+  many (DiRegEx rex) = DiRegEx (KleeneStar rex)
+  some (DiRegEx rex) = DiRegEx (KleenePlus rex)
 instance Filterable (DiRegEx a) where
   mapMaybe _ = coerce
 instance Profunctor DiRegEx where
@@ -197,9 +210,9 @@ instance Profunctor DiRegEx where
 instance Distributor DiRegEx where
   zeroP = DiRegEx Fail
   DiRegEx rex1 >+< DiRegEx rex2 = DiRegEx (rex1 ||| rex2)
-  optionalP (DiRegEx (KleenePlus regex)) = DiRegEx (KleeneStar regex)
-  optionalP (DiRegEx regex) = DiRegEx (KleeneOpt regex)
-  manyP (DiRegEx regex) = DiRegEx (KleeneStar regex)
+  optionalP (DiRegEx (KleenePlus rex)) = DiRegEx (KleeneStar rex)
+  optionalP (DiRegEx rex) = DiRegEx (KleeneOpt rex)
+  manyP (DiRegEx rex) = DiRegEx (KleeneStar rex)
 instance Choice DiRegEx where
   left' = coerce
   right' = coerce
@@ -207,11 +220,11 @@ instance Cochoice DiRegEx where
   unleft = coerce
   unright = coerce
 instance Alternator DiRegEx where
-  someP (DiRegEx regex) = DiRegEx (KleenePlus regex)
+  someP (DiRegEx rex) = DiRegEx (KleenePlus rex)
 instance Filtrator DiRegEx
 instance Tokenized Char Char DiRegEx where
   anyToken = DiRegEx Any
-instance u ~ () => IsString (DiRegEx () u) where
+instance IsString (DiRegEx () ()) where
   fromString str = DiRegEx (Terminal str)
 instance Grammatical DiRegEx where
   inClass str = DiRegEx (InClass str)
@@ -260,7 +273,7 @@ instance Alternator DiGrammar where
 instance Filtrator DiGrammar
 instance Tokenized Char Char DiGrammar where
   anyToken = DiGrammar anyToken mempty
-instance u ~ () => IsString (DiGrammar () u) where
+instance IsString (DiGrammar () ()) where
   fromString str = DiGrammar (fromString str) mempty
 instance Grammatical DiGrammar where
   inClass str = DiGrammar (inClass str) mempty
@@ -325,38 +338,45 @@ printGrammar gram = for_ (genGrammar gram) $ \(name_i, rule_i) -> do
 
 -- Grammar RegEx --
 
+regexGrammar :: Grammar RegEx
+regexGrammar = ruleRec "regex" $ \rex -> altG rex
+
+altG :: Grammarr RegEx RegEx
+altG rex = rule "alternate" $
+  chainl1 _Alternate (sepBy "|") (seqG rex)
+
 anyG :: Grammar RegEx
 anyG = rule "any" $ "." >* pure Any
+
+atomG :: Grammarr RegEx RegEx
+atomG rex = rule "atom" $ foldl (<|>) empty
+  [ nonterminalG
+  , inClassG
+  , notInClassG
+  , inCategoryG
+  , tokenG
+  , parenG rex
+  , anyG
+  , endG
+  ]
 
 endG :: Grammar RegEx
 endG = rule "end" $ "$" >* pure End
 
-reservedClass :: String
-reservedClass = "$()*+.?[\\]^{|}"
-
-literalG :: Grammar Char
-literalG = rule "literal" $ notInClass reservedClass
-
-reservedG :: Grammar Char
-reservedG = inClass reservedClass
-
-escapedG :: Grammar Char
-escapedG = rule "escaped" $ "\\" >* reservedG
-
 charG :: Grammar Char
 charG = rule "char" $ literalG <|> escapedG
 
-nonterminalG :: Grammar RegEx
-nonterminalG = rule "nonterminal" $
-  _NonTerminal >?< "\\r{" >* manyP charG *< "}"
+escapedG :: Grammar Char
+escapedG = rule "escaped" $ "\\" >* inClass reservedClass
 
-inClassG :: Grammar RegEx
-inClassG = rule "in-class" $
-  _InClass >?< "[" >* manyP charG *< "]"
-
-notInClassG :: Grammar RegEx
-notInClassG = rule "not-in-class" $
-  _NotInClass >?< "[^" >* manyP charG *< "]"
+exprG :: Grammarr RegEx RegEx
+exprG rex = rule "expression" $ foldl (<|>) empty
+  [ terminalG
+  , kleeneOptG rex
+  , kleeneStarG rex
+  , kleenePlusG rex
+  , atomG rex
+  ]
 
 inCategoryG :: Grammar RegEx
 inCategoryG = rule "in-category" $
@@ -394,6 +414,24 @@ inCategoryG = rule "in-category" $
       , "Cn" >* pure NotAssigned
       ]
 
+inClassG :: Grammar RegEx
+inClassG = rule "in-class" $
+  _InClass >?< "[" >* manyP charG *< "]"
+
+literalG :: Grammar Char
+literalG = rule "literal" $ notInClass reservedClass
+
+nonterminalG :: Grammar RegEx
+nonterminalG = rule "nonterminal" $
+  _NonTerminal >?< "\\r{" >* manyP charG *< "}"
+
+notInClassG :: Grammar RegEx
+notInClassG = rule "not-in-class" $
+  _NotInClass >?< "[^" >* manyP charG *< "]"
+
+reservedClass :: String
+reservedClass = "$()*+.?[\\]^{|}"
+
 terminalG :: Grammar RegEx
 terminalG = rule "terminal" $
   _Terminal >?< someP charG
@@ -402,49 +440,21 @@ tokenG :: Grammar RegEx
 tokenG = _Terminal . _Cons >?< charG >*< pure ""
 
 parenG :: Grammarr RegEx RegEx
-parenG regex = rule "parenthesized" $
-  "(" >* regex *< ")"
-
-atomG :: Grammarr RegEx RegEx
-atomG regex = rule "atom" $ foldl (<|>) empty
-  [ nonterminalG
-  , inClassG
-  , notInClassG
-  , inCategoryG
-  , tokenG
-  , parenG regex
-  , anyG
-  , endG
-  ]
+parenG rex = rule "parenthesized" $
+  "(" >* rex *< ")"
 
 kleeneOptG :: Grammarr RegEx RegEx
-kleeneOptG regex = rule "kleene-optional" $
-  _KleeneOpt >?< atomG regex *< "?"
+kleeneOptG rex = rule "kleene-optional" $
+  _KleeneOpt >?< atomG rex *< "?"
 
 kleeneStarG :: Grammarr RegEx RegEx
-kleeneStarG regex = rule "kleene-star" $
-  _KleeneStar >?< atomG regex *< "*"
+kleeneStarG rex = rule "kleene-star" $
+  _KleeneStar >?< atomG rex *< "*"
 
 kleenePlusG :: Grammarr RegEx RegEx
-kleenePlusG regex = rule "kleene-plus" $
-  _KleenePlus >?< atomG regex *< "+"
-
-exprG :: Grammarr RegEx RegEx
-exprG regex = rule "expression" $ foldl (<|>) empty
-  [ terminalG
-  , kleeneOptG regex
-  , kleeneStarG regex
-  , kleenePlusG regex
-  , atomG regex
-  ]
+kleenePlusG rex = rule "kleene-plus" $
+  _KleenePlus >?< atomG rex *< "+"
 
 seqG :: Grammarr RegEx RegEx
-seqG regex = rule "sequence" $
-  chainl1 _Sequence noSep (exprG regex)
-
-altG :: Grammarr RegEx RegEx
-altG regex = rule "alternate" $
-  chainl1 _Alternate (sepBy "|") (seqG regex)
-
-regexGrammar :: Grammar RegEx
-regexGrammar = ruleRec "regex" $ \regex -> altG regex
+seqG rex = rule "sequence" $
+  chainl1 _Sequence noSep (exprG rex)
