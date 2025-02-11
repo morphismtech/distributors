@@ -338,6 +338,29 @@ printGrammar gram = for_ (genGrammar gram) $ \(name_i, rule_i) -> do
 
 -- Grammar RegEx --
 
+{- |
+>>> printGrammar regexGrammar
+start = \r{regex}
+alternate = \r{sequence}(\|\r{sequence})*
+any = \.
+atom = \r{nonterminal}|\r{in-class}|\r{not-in-class}|\r{in-category}|\r{char}|\r{parenthesized}|\r{any}|\r{end}
+char = \r{literal}|\r{escaped}
+end = \$
+escaped = \\[\$\(\)\*\+\.\?\[\\\]\^\{\|\}]
+expression = \r{terminal}|\r{kleene-optional}|\r{kleene-star}|\r{kleene-plus}|\r{atom}
+in-category = \\p\{(Lu|Ll|Lt|Lm|Lo|Mn|Mc|Me|Nd|Nl|No|Pc|Pd|Ps|Pe|Pi|Pf|Po|Sm|Sc|Sk|So|Zs|Zl|Zp|Cc|Cf|Cs|Co|Cn)\}
+in-class = \[\r{char}*\]
+kleene-optional = \r{atom}\?
+kleene-plus = \r{atom}\+
+kleene-star = \r{atom}\*
+literal = [^\$\(\)\*\+\.\?\[\\\]\^\{\|\}]
+nonterminal = \\r\{\r{char}*\}
+not-in-class = \[\^\r{char}*\]
+parenthesized = \(\r{regex}\)
+regex = \r{alternate}
+sequence = \r{expression}+
+terminal = \r{char}+
+-}
 regexGrammar :: Grammar RegEx
 regexGrammar = ruleRec "regex" $ \rex -> altG rex
 
