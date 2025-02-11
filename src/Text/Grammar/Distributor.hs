@@ -1,6 +1,6 @@
 module Text.Grammar.Distributor
   ( -- * Grammar
-    Grammatical (..), Grammar, Gramarr
+    Grammatical (..), Grammar, Grammarr
     -- * Generators
   , genReadP, readGrammar
   , genShowS, showGrammar
@@ -47,7 +47,7 @@ class
 
 type Grammar a = forall p. Grammatical p => p a a
 
-type Gramarr a b = forall p. Grammatical p => p a a -> p b b
+type Grammarr a b = forall p. Grammatical p => p a a -> p b b
 
 newtype DiShow a b = DiShow (a -> Maybe ShowS)
 instance Profunctor DiShow where
@@ -125,6 +125,8 @@ instance Tokenized Char Char DiRead where
 instance Grammatical DiRead
 instance u ~ () => IsString (DiRead () u) where
   fromString = tokens
+
+-- RegEx --
 
 data RegEx
   = Terminal String -- ^ @abc123etc\.@
@@ -281,6 +283,8 @@ instance Grammatical DiGrammar where
     in
       DiGrammar start rules
 
+-- Generators --
+
 genReadP :: Grammar a -> ReadP a
 genReadP (DiRead p) = p
 
@@ -318,6 +322,8 @@ printGrammar gram = for_ (genGrammar gram) $ \(name_i, rule_i) -> do
   putStr name_i
   putStr " = "
   putStrLn (regexString rule_i)
+
+-- Grammar RegEx --
 
 anyG :: Grammar RegEx
 anyG = rule "any" $ "." >* pure Any
@@ -395,11 +401,11 @@ terminalG = rule "terminal" $
 tokenG :: Grammar RegEx
 tokenG = _Terminal . _Cons >?< charG >*< pure ""
 
-parenG :: Gramarr RegEx RegEx
+parenG :: Grammarr RegEx RegEx
 parenG regex = rule "parenthesized" $
   "(" >* regex *< ")"
 
-atomG :: Gramarr RegEx RegEx
+atomG :: Grammarr RegEx RegEx
 atomG regex = rule "atom" $ foldl (<|>) empty
   [ nonterminalG
   , inClassG
@@ -411,19 +417,19 @@ atomG regex = rule "atom" $ foldl (<|>) empty
   , endG
   ]
 
-kleeneOptG :: Gramarr RegEx RegEx
+kleeneOptG :: Grammarr RegEx RegEx
 kleeneOptG regex = rule "kleene-optional" $
   _KleeneOpt >?< atomG regex *< "?"
 
-kleeneStarG :: Gramarr RegEx RegEx
+kleeneStarG :: Grammarr RegEx RegEx
 kleeneStarG regex = rule "kleene-star" $
   _KleeneStar >?< atomG regex *< "*"
 
-kleenePlusG :: Gramarr RegEx RegEx
+kleenePlusG :: Grammarr RegEx RegEx
 kleenePlusG regex = rule "kleene-plus" $
   _KleenePlus >?< atomG regex *< "+"
 
-exprG :: Gramarr RegEx RegEx
+exprG :: Grammarr RegEx RegEx
 exprG regex = rule "expression" $ foldl (<|>) empty
   [ terminalG
   , kleeneOptG regex
@@ -432,11 +438,11 @@ exprG regex = rule "expression" $ foldl (<|>) empty
   , atomG regex
   ]
 
-seqG :: Gramarr RegEx RegEx
+seqG :: Grammarr RegEx RegEx
 seqG regex = rule "sequence" $
   chainl1 _Sequence (sepBy "") (exprG regex)
 
-altG :: Gramarr RegEx RegEx
+altG :: Grammarr RegEx RegEx
 altG regex = rule "alternate" $
   chainl1 _Alternate (sepBy "|") (seqG regex)
 
