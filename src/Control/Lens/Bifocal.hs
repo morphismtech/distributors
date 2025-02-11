@@ -22,13 +22,13 @@ module Control.Lens.Bifocal
   , withBifocal
   , optioned
   , manied
+  , flagged
+  , signed
   , somed
   , lefted
   , righted
   , unlefted
   , unrighted
-  , flagged
-  , signed
   , chainedl
   , chainedr
   , Binocular (..), runBinocular
@@ -82,21 +82,6 @@ optioned = unwrapPafb . optionalP . WrapPafb
 manied :: Diopter [a] [b] a b
 manied = unwrapPafb . manyP . WrapPafb
 
-somed :: Prismoid [a] [b] a b
-somed = unwrapPafb . someP . WrapPafb
-
-lefted :: Prismoid (Either a c) (Either b d) a b
-lefted = unwrapPafb . alternate . Left . WrapPafb
-
-righted :: Prismoid (Either c a) (Either d b) a b
-righted = unwrapPafb . alternate . Right . WrapPafb
-
-unlefted :: Filtroid a b (Either a c) (Either b d)
-unlefted = unwrapPafb . fst . filtrate . WrapPafb
-
-unrighted :: Filtroid a b (Either c a) (Either d b)
-unrighted = unwrapPafb . snd . filtrate . WrapPafb
-
 flagged :: Diopter (Bool, a) (Bool, b) a b
 flagged p = unwrapPafb $ dialt
   (\(b,a) -> bool (Left a) (Right a) b)
@@ -114,6 +99,21 @@ signed p = unwrapPafb $
     (\a -> (LT,a))
     (\(b,a) -> bool (EQ,a) (GT,a) b)
     (WrapPafb p) (WrapPafb (flagged p))
+
+somed :: Prismoid [a] [b] a b
+somed = unwrapPafb . someP . WrapPafb
+
+lefted :: Prismoid (Either a c) (Either b d) a b
+lefted = unwrapPafb . alternate . Left . WrapPafb
+
+righted :: Prismoid (Either c a) (Either d b) a b
+righted = unwrapPafb . alternate . Right . WrapPafb
+
+unlefted :: Filtroid a b (Either a c) (Either b d)
+unlefted = unwrapPafb . fst . filtrate . WrapPafb
+
+unrighted :: Filtroid a b (Either c a) (Either d b)
+unrighted = unwrapPafb . snd . filtrate . WrapPafb
 
 chainedl :: APartialIso a b (a,a) (b,b) -> Bifocal a b a b
 chainedl pat = unwrapPafb . chainl1 pat noSep . WrapPafb
