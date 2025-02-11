@@ -69,4 +69,4 @@ instance Applicative (Monocular a b s) where
   Monocular x <*> Monocular y = Monocular (liftA2 (<*>) x y)
 
 runMonocular :: Monoidal p => Monocular a b s t -> p a b -> p s t
-runMonocular (Monocular k) p = k $ \sa -> lmap sa p
+runMonocular (Monocular k) p = k $ \f -> lmap f p

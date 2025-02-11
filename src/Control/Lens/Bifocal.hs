@@ -169,4 +169,4 @@ runBinocular
   :: (Alternator p, Filtrator p)
   => Binocular a b s t
   -> p a b -> p s t
-runBinocular (Binocular k) p = k $ \sa -> dimapMaybe sa Just p
+runBinocular (Binocular k) p = k $ \f -> dimapMaybe f Just p

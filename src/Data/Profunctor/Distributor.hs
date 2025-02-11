@@ -128,8 +128,8 @@ instance (Distributor p, Applicative f)
     zeroP = WrapPafb (rmap pure zeroP)
     WrapPafb x >+< WrapPafb y = WrapPafb $
       dialt id (fmap Left) (fmap Right) x y
-    -- manyP
-    -- optionalP
+    manyP (WrapPafb x) = WrapPafb (rmap sequenceA (manyP x))
+    optionalP (WrapPafb x) = WrapPafb (rmap sequenceA (optionalP x))
 
 instance Applicative f => Distributor (Star f) where
   zeroP = Star absurd
