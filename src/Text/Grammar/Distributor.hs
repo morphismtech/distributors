@@ -210,9 +210,8 @@ instance Profunctor DiRegEx where
 instance Distributor DiRegEx where
   zeroP = DiRegEx Fail
   DiRegEx rex1 >+< DiRegEx rex2 = DiRegEx (rex1 ||| rex2)
-  optionalP (DiRegEx (KleenePlus rex)) = DiRegEx (KleeneStar rex)
-  optionalP (DiRegEx rex) = DiRegEx (KleeneOpt rex)
-  manyP (DiRegEx rex) = DiRegEx (KleeneStar rex)
+  optionalP (DiRegEx rex) = DiRegEx (optK rex)
+  manyP (DiRegEx rex) = DiRegEx (starK rex)
 instance Choice DiRegEx where
   left' = coerce
   right' = coerce
@@ -220,7 +219,7 @@ instance Cochoice DiRegEx where
   unleft = coerce
   unright = coerce
 instance Alternator DiRegEx where
-  someP (DiRegEx rex) = DiRegEx (KleenePlus rex)
+  someP (DiRegEx rex) = DiRegEx (plusK rex)
 instance Filtrator DiRegEx
 instance IsString (DiRegEx () ()) where
   fromString str = DiRegEx (Terminal str)
