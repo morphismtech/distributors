@@ -42,6 +42,7 @@ import Data.Functor.Compose
 import Data.Functor.Contravariant.Divisible
 import Data.Profunctor hiding (WrappedArrow)
 import Data.Profunctor qualified as Pro (WrappedArrow)
+import Data.Profunctor.Cayley
 import Data.Profunctor.Composition
 import Data.Profunctor.Monad
 import Data.Profunctor.Yoneda
@@ -143,10 +144,10 @@ instance Adjunction f u => Distributor (Costar f) where
 --   => Distributor (Tannen f p) where
 --     zeroP = Tannen (pure zeroP)
 --     Tannen x >+< Tannen y = Tannen ((>+<) <$> x <*> y)
--- instance (Applicative f, Distributor p)
---   => Distributor (Cayley f p) where
---     zeroP = Cayley (pure zeroP)
---     Cayley x >+< Cayley y = Cayley ((>+<) <$> x <*> y)
+instance (Applicative f, Distributor p)
+  => Distributor (Cayley f p) where
+    zeroP = Cayley (pure zeroP)
+    Cayley x >+< Cayley y = Cayley ((>+<) <$> x <*> y)
 -- instance (Adjunction f u, Applicative g, Distributor p)
 --   => Distributor (Biff p f g) where
 --     zeroP = Biff (dimap unabsurdL absurd zeroP)
@@ -431,19 +432,11 @@ instance (Monoidal p, Monoidal q)
   => Applicative (Product p q a) where
     pure b = Pair (pure b) (pure b)
     Pair x0 y0 <*> Pair x1 y1 = Pair (x0 <*> x1) (y0 <*> y1)
--- instance (Applicative f, Monoidal p) => Monoidal (Tannen f p) where
---   oneP = Tannen (pure oneP)
---   Tannen x >*< Tannen y = Tannen ((>*<) <$> x <*> y)
--- instance (Applicative f, Monoidal p) => Monoidal (Cayley f p) where
---   oneP = Cayley (pure oneP)
---   Cayley x >*< Cayley y = Cayley ((>*<) <$> x <*> y)
--- instance (Functor f, Applicative g, Monoidal p)
---   => Monoidal (Biff p f g) where
---     oneP = Biff (dimap (const ()) pure oneP)
---     Biff x >*< Biff y = Biff $ dimap
---       ((fst <$>) &&& (snd <$>))
---       (uncurry (liftA2 (,)))
---       (x >*< y)
+instance (Functor f, Functor (p a)) => Functor (Cayley f p a) where
+  fmap f (Cayley x) = Cayley (fmap (fmap f) x)
+instance (Applicative f, Applicative (p a)) => Applicative (Cayley f p a) where
+  pure b = Cayley (pure (pure b))
+  Cayley x <*> Cayley y = Cayley ((<*>) <$> x <*> y)
 instance (Profunctor p, Applicative (p a))
   => Applicative (Yoneda p a) where
     pure = proreturn . pure
