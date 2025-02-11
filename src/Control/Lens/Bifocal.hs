@@ -95,10 +95,10 @@ signed p = unwrapPafb $
     (WrapPafb p) (WrapPafb (flagged p))
 
 chainedl :: APartialIso a b (a,a) (b,b) -> Bifocal a b a b
-chainedl pat = unwrapPafb . chainl1 pat (sepBy oneP) . WrapPafb
+chainedl pat = unwrapPafb . chainl1 pat noSep . WrapPafb
 
 chainedr :: APartialIso a b (a,a) (b,b) -> Bifocal a b a b
-chainedr pat = unwrapPafb . chainr1 pat (sepBy oneP) . WrapPafb
+chainedr pat = unwrapPafb . chainr1 pat noSep . WrapPafb
 
 withBifocal :: ABifocal s t a b -> (Binocular a b s t -> r) -> r
 withBifocal bif k = k (catMaybes (bif (Just <$> anyToken)))

@@ -440,7 +440,7 @@ exprG regex = rule "expression" $ foldl (<|>) empty
 
 seqG :: Grammarr RegEx RegEx
 seqG regex = rule "sequence" $
-  chainl1 _Sequence (sepBy "") (exprG regex)
+  chainl1 _Sequence noSep (exprG regex)
 
 altG :: Grammarr RegEx RegEx
 altG regex = rule "alternate" $

@@ -11,12 +11,16 @@ Portability : non-portable
 {-# OPTIONS_GHC -Wno-orphans #-}
 
 module Data.Profunctor.Distributor
-  ( Monoidal, oneP, (>*<), dimap2, (>*), (*<), replicateP, foreverP, meander
+  ( -- * Monoidal
+    Monoidal, oneP, (>*<), dimap2, (>*), (*<), replicateP, foreverP, meander
+    -- * Distributor
   , Distributor (zeroP, (>+<), optionalP, manyP), dialt
-  , Alternator (alternate, someP)
-  , Filtrator (filtrate)
+    -- * Alternator/Filtrator
+  , Alternator (alternate, someP), Filtrator (filtrate)
+    -- * SepBy
+  , SepBy (..), noSep, sepBy, atLeast0, atLeast1, chainl1, chainr1
+    -- * Tokenized
   , Tokenized (anyToken), token, tokens, satisfy, restOfTokens, endOfTokens
-  , SepBy (..), sepBy, atLeast0, atLeast1, chainl1, chainr1
   ) where
 
 import Control.Applicative hiding (WrappedArrow)
@@ -79,11 +83,13 @@ replicateP
 replicateP p = traverse (\f -> lmap f p) (distribute id)
 
 meander
-  :: forall p s t a b. (Monoidal p, Choice p)
+  :: (Monoidal p, Choice p)
   => ATraversal s t a b -> p a b -> p s t
 meander f = dimap (f sell) iextract . trav
   where
-    trav :: p u v -> p (Bazaar (->) u w x) (Bazaar (->) v w x)
+    trav
+      :: (Monoidal q, Choice q)
+      => q u v -> q (Bazaar (->) u w x) (Bazaar (->) v w x)
     trav q = mapIso _Bazaar $ right' (q >*< trav q)
 
 class Monoidal p => Distributor p where
@@ -253,35 +259,6 @@ instance (Filtrator p, Filterable f)
         , WrapPafb pR
         )
 
--- Tokenized --
-
-class Tokenized a b p | p -> a, p -> b where
-  anyToken :: p a b
-instance Tokenized a b (Identical a b) where
-  anyToken = Identical
-instance Tokenized a b (Exchange a b) where
-  anyToken = Exchange id id
-instance Tokenized a b (Market a b) where
-  anyToken = Market id Right
-instance Tokenized a b (PartialExchange a b) where
-  anyToken = PartialExchange Just Just
-
-token :: (Cochoice p, Eq c, Tokenized c c p) => c -> p () ()
-token c = only c ?< anyToken
-
-tokens :: (Cochoice p, Monoidal p, Eq c, Tokenized c c p) => [c] -> p () ()
-tokens [] = oneP
-tokens (c:cs) = token c *> tokens cs
-
-satisfy :: (Choice p, Cochoice p, Tokenized c c p) => (c -> Bool) -> p c c
-satisfy f = satisfied f >?< anyToken
-
-restOfTokens :: (Distributor p, Tokenized c c p) => p [c] [c]
-restOfTokens = manyP anyToken
-
-endOfTokens :: (Cochoice p, Distributor p, Tokenized c c p) => p () ()
-endOfTokens = _Empty ?< restOfTokens
-
 -- SepBy --
 
 {- | Used to parse multiple times, delimited by a `separateBy`,
@@ -291,6 +268,9 @@ data SepBy p = SepBy
   , endBy :: p () ()
   , separateBy :: p () ()
   }
+
+noSep :: Monoidal p => SepBy p
+noSep = SepBy oneP oneP oneP
 
 {- | A default `SepBy` which can be modified by updating
 `beginBy`, or `endBy` fields -}
@@ -324,6 +304,35 @@ chainr1
 chainr1 pat sep p =
   coPartialIso (difoldr (coPartialIso pat)) >?<
     beginBy sep >* manyP (p *< separateBy sep) >*< p *< endBy sep
+
+-- Tokenized --
+
+class Tokenized a b p | p -> a, p -> b where
+  anyToken :: p a b
+instance Tokenized a b (Identical a b) where
+  anyToken = Identical
+instance Tokenized a b (Exchange a b) where
+  anyToken = Exchange id id
+instance Tokenized a b (Market a b) where
+  anyToken = Market id Right
+instance Tokenized a b (PartialExchange a b) where
+  anyToken = PartialExchange Just Just
+
+token :: (Cochoice p, Eq c, Tokenized c c p) => c -> p () ()
+token c = only c ?< anyToken
+
+tokens :: (Cochoice p, Monoidal p, Eq c, Tokenized c c p) => [c] -> p () ()
+tokens [] = oneP
+tokens (c:cs) = token c *> tokens cs
+
+satisfy :: (Choice p, Cochoice p, Tokenized c c p) => (c -> Bool) -> p c c
+satisfy f = satisfied f >?< anyToken
+
+restOfTokens :: (Distributor p, Tokenized c c p) => p [c] [c]
+restOfTokens = manyP anyToken
+
+endOfTokens :: (Cochoice p, Distributor p, Tokenized c c p) => p () ()
+endOfTokens = _Empty ?< restOfTokens
 
 -- FunList --
 
