@@ -69,7 +69,5 @@ instance Applicative (Monocular a b s) where
   pure t = Monocular (pure (pure t))
   Monocular x <*> Monocular y = Monocular (liftA2 (<*>) x y)
 
-runMonocular
-  :: (Profunctor p, forall x. Applicative (p x))
-  => Monocular a b s t -> p a b -> p s t
+runMonocular :: Monoidal p => Monocular a b s t -> p a b -> p s t
 runMonocular (Monocular k) p = k $ \sa -> lmap sa p

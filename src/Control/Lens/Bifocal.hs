@@ -143,11 +143,7 @@ instance Alternator (Binocular a b)
 instance Filtrator (Binocular a b)
 
 runBinocular
-  :: ( Choice p
-     , Cochoice p
-     , forall x. Alternative (p x)
-     , forall x. Filterable (p x)
-     )
+  :: (Alternator p, Filtrator p)
   => Binocular a b s t
   -> p a b -> p s t
 runBinocular (Binocular k) p = k $ \sa -> dimapMaybe sa Just p
