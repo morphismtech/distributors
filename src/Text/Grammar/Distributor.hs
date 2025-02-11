@@ -222,15 +222,14 @@ instance Cochoice DiRegEx where
 instance Alternator DiRegEx where
   someP (DiRegEx rex) = DiRegEx (KleenePlus rex)
 instance Filtrator DiRegEx
-instance Tokenized Char Char DiRegEx where
-  anyToken = DiRegEx AnyChar
 instance IsString (DiRegEx () ()) where
   fromString str = DiRegEx (Terminal str)
 instance Grammatical DiRegEx where
+  anyChar = DiRegEx AnyChar
+  theEnd = DiRegEx TheEnd
   inClass str = DiRegEx (InClass str)
   notInClass str = DiRegEx (NotInClass str)
   inCategory str = DiRegEx (InCategory str)
-  theEnd = DiRegEx TheEnd
 
 data DiGrammar a b = DiGrammar
   { grammarStart :: DiRegEx a b
@@ -271,11 +270,11 @@ instance Alternator DiGrammar where
   someP (DiGrammar start rules) =
     DiGrammar (someP start) rules
 instance Filtrator DiGrammar
-instance Tokenized Char Char DiGrammar where
-  anyToken = DiGrammar anyToken mempty
 instance IsString (DiGrammar () ()) where
   fromString str = DiGrammar (fromString str) mempty
 instance Grammatical DiGrammar where
+  anyChar = DiGrammar anyChar mempty
+  theEnd = DiGrammar theEnd mempty
   inClass str = DiGrammar (inClass str) mempty
   notInClass str = DiGrammar (notInClass str) mempty
   inCategory str = DiGrammar (inCategory str) mempty
