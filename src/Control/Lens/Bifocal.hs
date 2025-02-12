@@ -22,8 +22,6 @@ module Control.Lens.Bifocal
   , withBifocal
   , optioned
   , manied
-  , flagged
-  , signed
   , somed
   , lefted
   , righted
@@ -81,24 +79,6 @@ optioned = unwrapPafb . optionalP . WrapPafb
 
 manied :: Diopter [a] [b] a b
 manied = unwrapPafb . manyP . WrapPafb
-
-flagged :: Diopter (Bool, a) (Bool, b) a b
-flagged p = unwrapPafb $ dialt
-  (\(b,a) -> bool (Left a) (Right a) b)
-  (False,) (True,)
-  (WrapPafb p) (WrapPafb p)
-
-signed :: Diopter (Ordering, a) (Ordering, b) a b
-signed p = unwrapPafb $
-  dialt
-    (\case
-      (LT,a) -> Left a
-      (EQ,a) -> Right (False,a)
-      (GT,a) -> Right (True,a)
-    )
-    (\a -> (LT,a))
-    (\(b,a) -> bool (EQ,a) (GT,a) b)
-    (WrapPafb p) (WrapPafb (flagged p))
 
 somed :: Prismoid [a] [b] a b
 somed = unwrapPafb . someP . WrapPafb
