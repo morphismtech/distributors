@@ -140,21 +140,10 @@ deriving via (Star m) instance Monad m => Distributor (Kleisli m)
 instance Adjunction f u => Distributor (Costar f) where
   zeroP = Costar unabsurdL
   Costar f >+< Costar g = Costar (bimap f g . cozipL)
--- instance (Applicative f, Distributor p)
---   => Distributor (Tannen f p) where
---     zeroP = Tannen (pure zeroP)
---     Tannen x >+< Tannen y = Tannen ((>+<) <$> x <*> y)
 instance (Applicative f, Distributor p)
   => Distributor (Cayley f p) where
     zeroP = Cayley (pure zeroP)
     Cayley x >+< Cayley y = Cayley ((>+<) <$> x <*> y)
--- instance (Adjunction f u, Applicative g, Distributor p)
---   => Distributor (Biff p f g) where
---     zeroP = Biff (dimap unabsurdL absurd zeroP)
---     Biff x >+< Biff y = Biff $ dimap
---       cozipL
---       (either (Left <$>) (Right <$>))
---       (x >+< y)
 instance (ArrowZero p, ArrowChoice p)
   => Distributor (Pro.WrappedArrow p) where
     zeroP = zeroArrow
@@ -226,7 +215,8 @@ instance (Alternator p, Alternative f)
           . unwrapPafb
       in
         either f g
-    -- someP
+
+    someP (WrapPafb x) = WrapPafb (rmap sequenceA (someP x))
 
 unlist :: [a] -> Either () (a, [a])
 unlist [] = Left ()
