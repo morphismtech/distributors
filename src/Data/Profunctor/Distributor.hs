@@ -107,10 +107,10 @@ class Monoidal p => Distributor p where
   infixr 3 >+<
 
   optionalP :: p a b -> p (Maybe a) (Maybe b)
-  optionalP = dialt (maybe (Left ()) Right) (const Nothing) Just oneP
+  optionalP p = mapIso maybeEot (oneP >+< p)
 
   manyP :: p a b -> p [a] [b]
-  manyP p = dialt unlist list0 list1 oneP (p >*< manyP p)
+  manyP p = mapIso listEot (oneP >+< p >*< manyP p)
 
 instance Distributor (->) where
   zeroP = id
@@ -131,7 +131,6 @@ instance (Distributor p, Applicative f)
       dialt id (fmap Left) (fmap Right) x y
     manyP (WrapPafb x) = WrapPafb (rmap sequenceA (manyP x))
     optionalP (WrapPafb x) = WrapPafb (rmap sequenceA (optionalP x))
-
 instance Applicative f => Distributor (Star f) where
   zeroP = Star absurd
   Star f >+< Star g =
@@ -197,7 +196,7 @@ class (Choice p, Distributor p, forall x. Alternative (p x))
       dimapMaybe (either (pure Nothing) Just) (Just . Right)
 
     someP :: p a b -> p [a] [b]
-    someP p = dimap unlist (either list0 list1) (right' (p >*< manyP p))
+    someP p = _Cons >? p >*< manyP p
 
 instance (Alternator p, Alternative f)
   => Alternator (WrappedPafb f p) where
@@ -217,16 +216,6 @@ instance (Alternator p, Alternative f)
         either f g
 
     someP (WrapPafb x) = WrapPafb (rmap sequenceA (someP x))
-
-unlist :: [a] -> Either () (a, [a])
-unlist [] = Left ()
-unlist (a:as) = Right (a,as)
-
-list0 :: () -> [a]
-list0 _ = []
-
-list1 :: (a,[a]) -> [a]
-list1 = uncurry (:)
 
 class (Cochoice p, forall x. Filterable (p x))
   => Filtrator p where
@@ -281,16 +270,14 @@ sepBy = SepBy oneP oneP
 atLeast0
   :: Distributor p
   => SepBy p -> p a b -> p [a] [b]
-atLeast0 sep p =
-  beginBy sep >* 
-  dialt unlist list0 list1 oneP (p >*< manyP (separateBy sep >* p))
-  *< endBy sep
+atLeast0 sep p = mapIso listEot $
+  beginBy sep >* oneP >+< p >*< manyP (separateBy sep >* p) *< endBy sep
 
 atLeast1
   :: Alternator p
   => SepBy p -> p a b -> p [a] [b]
-atLeast1 sep p = dimap unlist (either list0 list1)
-  (right' (beginBy sep >* p >*< manyP (separateBy sep >* p) *< endBy sep))
+atLeast1 sep p = _Cons >?
+  beginBy sep >* p >*< manyP (separateBy sep >* p) *< endBy sep
 
 chainl1
   :: (Alternator p, Filtrator p)
