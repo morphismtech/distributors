@@ -333,6 +333,8 @@ endOfTokens = _Empty ?< restOfTokens
 
 newtype Printor c f a b = Printor {runPrintor :: a -> f ([c] -> [c])}
   deriving Functor
+instance Contravariant (Printor c f a) where
+  contramap _ (Printor p) = Printor p
 instance Applicative f => Applicative (Printor c f a) where
   pure _ = Printor (\_ -> pure id)
   Printor p <*> Printor q = Printor (\a -> (.) <$> p a <*> q a)
@@ -376,6 +378,8 @@ instance (Alternative f, Monad f) => Alternative (Parsor c f a) where
   Parsor p <|> Parsor q = Parsor (\str -> p str <|> q str)
 instance Filterable f => Filterable (Parsor c f a) where
   mapMaybe f (Parsor p) = Parsor (mapMaybe (\(a,str) -> (,str) <$> f a) . p)
+instance Functor f => Bifunctor (Parsor c f) where
+  bimap _ g (Parsor p) = Parsor (fmap (\(c,str) -> (g c, str)) . p)
 instance Functor f => Profunctor (Parsor c f) where
   dimap _ g (Parsor p) = Parsor (fmap (\(c,str) -> (g c, str)) . p)
 instance (Monad f, Alternative f) => Choice (Parsor c f) where
