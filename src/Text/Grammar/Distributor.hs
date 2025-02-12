@@ -468,7 +468,7 @@ terminalG = rule "terminal" $
   _Terminal >?< someP charG
 
 tokenG :: Grammar RegEx
-tokenG = _Terminal . _Cons >?< charG >*< pure ""
+tokenG = _Terminal >?< charG >:< pure ""
 
 parenG :: Grammarr RegEx RegEx
 parenG rex = rule "parenthesized" $

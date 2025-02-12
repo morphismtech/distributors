@@ -35,7 +35,6 @@ module Control.Lens.Bifocal
 import Control.Applicative
 import Control.Lens.Internal.Profunctor
 import Control.Lens.PartialIso
-import Data.Bool
 import Data.Profunctor
 import Data.Profunctor.Distributor
 import Witherable

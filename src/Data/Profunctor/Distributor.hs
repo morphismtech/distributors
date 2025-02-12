@@ -12,7 +12,7 @@ Portability : non-portable
 
 module Data.Profunctor.Distributor
   ( -- * Monoidal
-    Monoidal, oneP, (>*<), dimap2, (>*), (*<), replicateP, foreverP, meander
+    Monoidal, oneP, (>*<), (>*), (*<), dimap2, replicateP, foreverP, meander, (>:<)
     -- * Distributor
   , Distributor (zeroP, (>+<), optionalP, manyP), dialt
     -- * Alternator/Filtrator
@@ -58,14 +58,6 @@ oneP = pure ()
 (>*<) = dimap2 fst snd (,)
 infixr 6 >*<
 
-dimap2
-  :: Monoidal p
-  => (s -> a)
-  -> (s -> c)
-  -> (b -> d -> t)
-  -> p a b -> p c d -> p s t
-dimap2 f g h p q = liftA2 h (lmap f p) (lmap g q)
-
 (>*) :: Monoidal p => p () c -> p a b -> p a b
 x >* y = lmap (const ()) x *> y
 infixl 5 >*
@@ -73,6 +65,14 @@ infixl 5 >*
 (*<) :: Monoidal p => p a b -> p () c -> p a b
 x *< y = x <* lmap (const ()) y
 infixl 5 *<
+
+dimap2
+  :: Monoidal p
+  => (s -> a)
+  -> (s -> c)
+  -> (b -> d -> t)
+  -> p a b -> p c d -> p s t
+dimap2 f g h p q = liftA2 h (lmap f p) (lmap g q)
 
 foreverP :: Monoidal p => p () c -> p a b
 foreverP a = let a' = a >* a' in a'
@@ -92,6 +92,10 @@ meander f = dimap (f sell) iextract . trav
       :: (Monoidal q, Choice q)
       => q u v -> q (Bazaar (->) u w x) (Bazaar (->) v w x)
     trav q = mapIso _Bazaar $ right' (q >*< trav q)
+
+(>:<) :: (Monoidal p, Choice p, Cons s t a b) => p a b -> p s t -> p s t
+x >:< xs = _Cons >? x >*< xs
+infixr 5 >:<
 
 class Monoidal p => Distributor p where
 
