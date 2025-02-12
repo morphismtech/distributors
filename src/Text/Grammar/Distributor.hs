@@ -46,10 +46,6 @@ class
     default anyChar :: Tokenized Char Char p => p Char Char
     anyChar = anyToken
 
-    theEnd :: p () ()
-    default theEnd :: Tokenized Char Char p => p () ()
-    theEnd = endOfTokens
-
     inClass :: String -> p Char Char
     default inClass :: Tokenized Char Char p => String -> p Char Char
     inClass str = satisfy $ \ch -> elem ch str
@@ -154,13 +150,12 @@ instance IsString (DiRead () ()) where
 data RegEx
   = Terminal String -- ^ @abc123etc\\.@
   | Sequence RegEx RegEx -- ^ @xy@
-  | Fail
+  | Fail -- ^ @\\f@
   | Alternate RegEx RegEx -- ^ @x|y@
   | KleeneOpt RegEx -- ^ @x?@
   | KleeneStar RegEx -- ^ @x*@
   | KleenePlus RegEx -- ^ @x+@
   | AnyChar -- ^ @.@
-  | TheEnd -- ^ @$@
   | InClass String -- ^ @[abc]@
   | NotInClass String -- ^ @[^abc]@
   | InCategory GeneralCategory -- ^ @\\p{Lu}@
@@ -235,7 +230,6 @@ instance IsString (DiRegEx () ()) where
   fromString str = DiRegEx (Terminal str)
 instance Grammatical DiRegEx where
   anyChar = DiRegEx AnyChar
-  theEnd = DiRegEx TheEnd
   inClass str = DiRegEx (InClass str)
   notInClass str = DiRegEx (NotInClass str)
   inCategory str = DiRegEx (InCategory str)
@@ -283,7 +277,6 @@ instance IsString (DiGrammar () ()) where
   fromString str = DiGrammar (fromString str) mempty
 instance Grammatical DiGrammar where
   anyChar = DiGrammar anyChar mempty
-  theEnd = DiGrammar theEnd mempty
   inClass str = DiGrammar (inClass str) mempty
   notInClass str = DiGrammar (notInClass str) mempty
   inCategory str = DiGrammar (inCategory str) mempty
@@ -388,11 +381,7 @@ atomG rex = rule "atom" $ foldl (<|>) empty
   , tokenG
   , parenG rex
   , anyG
-  , endG
   ]
-
-endG :: Grammar RegEx
-endG = rule "end" $ "$" >* pure TheEnd
 
 charG :: Grammar Char
 charG = rule "char" $ literalG <|> escapedG
@@ -461,7 +450,7 @@ notInClassG = rule "not-in-class" $
   _NotInClass >?< "[^" >* manyP charG *< "]"
 
 reservedClass :: String
-reservedClass = "$()*+.?[\\]^{|}"
+reservedClass = "$()*+.?[\\]^{|}\f"
 
 terminalG :: Grammar RegEx
 terminalG = rule "terminal" $
