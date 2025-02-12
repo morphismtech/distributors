@@ -12,7 +12,7 @@ module Text.Grammar.Distributor
   ( -- * Grammar
     Grammatical (..), Grammar, Grammarr
     -- * Generators
-  , genReadP, readGrammar
+  , genReadS, readGrammar
   , genShowS, showGrammar
   , genRegEx, genGrammar, printGrammar
     -- * RegEx
@@ -33,29 +33,22 @@ import Data.Profunctor.Distributor
 import Data.Set (Set)
 import Data.Set qualified as Set
 import Data.String
-import Text.ParserCombinators.ReadP (ReadP, get, readP_to_S)
 import Witherable
 
 class
   ( Alternator p
   , Filtrator p
+  , Tokenized Char Char p
   , forall t. t ~ p () () => IsString t
   ) => Grammatical p where
 
-    anyChar :: p Char Char
-    default anyChar :: Tokenized Char Char p => p Char Char
-    anyChar = anyToken
-
     inClass :: String -> p Char Char
-    default inClass :: Tokenized Char Char p => String -> p Char Char
     inClass str = satisfy $ \ch -> elem ch str
 
     notInClass :: String -> p Char Char
-    default notInClass :: Tokenized Char Char p => String -> p Char Char
     notInClass str = satisfy $ \ch -> notElem ch str
 
     inCategory :: GeneralCategory -> p Char Char
-    default inCategory :: Tokenized Char Char p => GeneralCategory -> p Char Char
     inCategory cat = satisfy $ \ch -> cat == generalCategory ch
 
     rule :: String -> p a b -> p a b
@@ -64,86 +57,12 @@ class
     ruleRec :: String -> (p a b -> p a b) -> p a b
     ruleRec name = rule name . fix
 
+instance Alternative f => Grammatical (Printor Char f)
+instance (Monad f, Alternative f, Filterable f) => Grammatical (Parsor Char f)
+
 type Grammar a = forall p. Grammatical p => p a a
 
 type Grammarr a b = forall p. Grammatical p => p a a -> p b b
-
-newtype DiShow a b = DiShow (a -> Maybe ShowS)
-instance Profunctor DiShow where
-  dimap f _ (DiShow sh) = DiShow (sh . f)
-instance Functor (DiShow a) where fmap = rmap
-instance Applicative (DiShow a) where
-  pure _ = DiShow (const (Just id))
-  DiShow sh0 <*> DiShow sh1 =
-    DiShow (liftA2 (liftA2 (.)) sh0 sh1)
-instance Alternative (DiShow a) where
-  empty = DiShow (const Nothing)
-  DiShow sh0 <|> DiShow sh1 =
-    DiShow (liftA2 (<|>) sh0 sh1)
-  many (DiShow sh) = DiShow sh
-  some (DiShow sh) = DiShow sh
-instance Choice DiShow where
-  left' (DiShow sh) =
-    DiShow (either sh (const Nothing))
-  right' (DiShow sh) =
-    DiShow (either (const Nothing) sh)
-instance Cochoice DiShow where
-  unleft (DiShow sh) = DiShow (sh . Left)
-  unright (DiShow sh) = DiShow (sh . Right)
-instance Distributor DiShow where
-  manyP (DiShow sh) = DiShow shmany where
-    shmany str =
-      foldl (liftA2 (.)) (pure id) (map sh str)
-instance Alternator DiShow where
-  someP (DiShow sh) = DiShow shsome where
-    shsome str = do
-      _ <- uncons str
-      foldl (liftA2 (.)) (pure id) (map sh str)
-instance Filtrator DiShow
-instance Filterable (DiShow a) where
-  mapMaybe = dimapMaybe Just
-instance Tokenized Char Char DiShow where
-  anyToken = DiShow (Just . (:))
-instance IsString (DiShow () ()) where
-  fromString = tokens
-instance Grammatical DiShow
-
-newtype DiRead a b = DiRead (ReadP b)
-instance Profunctor DiRead where
-  dimap _ g (DiRead rd) = DiRead (g <$> rd)
-instance Functor (DiRead a) where fmap = rmap
-instance Applicative (DiRead a) where
-  pure b = DiRead (pure b)
-  DiRead rd0 <*> DiRead rd1 =
-    DiRead (rd0 <*> rd1)
-instance Alternative (DiRead a) where
-  empty = DiRead empty
-  DiRead rd0 <|> DiRead rd1 =
-    DiRead (rd0 <|> rd1)
-  many (DiRead rd) = DiRead (many rd)
-  some (DiRead rd) = DiRead (some rd)
-instance Choice DiRead where
-  left' (DiRead rd) =
-    DiRead (Left <$> rd)
-  right' (DiRead rd) =
-    DiRead (Right <$> rd)
-instance Cochoice DiRead where
-  unleft (DiRead rd) =
-    DiRead (rd >>= either pure (const empty))
-  unright (DiRead rd) =
-    DiRead (rd >>= either (const empty) pure)
-instance Distributor DiRead where
-  manyP (DiRead rd) = DiRead (many rd)
-instance Alternator DiRead where
-  someP (DiRead rd) = DiRead (some rd)
-instance Filtrator DiRead
-instance Filterable (DiRead a) where
-  mapMaybe = dimapMaybe Just
-instance Tokenized Char Char DiRead where
-  anyToken = DiRead get
-instance Grammatical DiRead
-instance IsString (DiRead () ()) where
-  fromString = tokens
 
 -- RegEx --
 
@@ -228,8 +147,9 @@ instance Alternator DiRegEx where
 instance Filtrator DiRegEx
 instance IsString (DiRegEx () ()) where
   fromString str = DiRegEx (Terminal str)
+instance Tokenized Char Char DiRegEx where
+  anyToken = DiRegEx AnyChar
 instance Grammatical DiRegEx where
-  anyChar = DiRegEx AnyChar
   inClass str = DiRegEx (InClass str)
   notInClass str = DiRegEx (NotInClass str)
   inCategory str = DiRegEx (InCategory str)
@@ -275,8 +195,9 @@ instance Alternator DiGrammar where
 instance Filtrator DiGrammar
 instance IsString (DiGrammar () ()) where
   fromString str = DiGrammar (fromString str) mempty
+instance Tokenized Char Char DiGrammar where
+  anyToken = DiGrammar anyToken mempty
 instance Grammatical DiGrammar where
-  anyChar = DiGrammar anyChar mempty
   inClass str = DiGrammar (inClass str) mempty
   notInClass str = DiGrammar (notInClass str) mempty
   inCategory str = DiGrammar (inCategory str) mempty
@@ -299,18 +220,18 @@ instance Grammatical DiGrammar where
 
 -- Generators --
 
-genReadP :: Grammar a -> ReadP a
-genReadP (DiRead p) = p
+genReadS :: Grammar a -> ReadS a
+genReadS = runParsor
 
 readGrammar :: Grammar a -> String -> [a]
 readGrammar grammar str =
   [ a
-  | (a, remaining) <- readP_to_S (genReadP grammar) str
+  | (a, remaining) <- genReadS grammar str
   , remaining == []
   ]
 
 genShowS :: Grammar a -> a -> Maybe ShowS
-genShowS (DiShow p) = p
+genShowS = runPrintor
 
 showGrammar :: Grammar a -> a -> Maybe String
 showGrammar grammar a = ($ "") <$> genShowS grammar a
@@ -319,7 +240,7 @@ regexString :: RegEx -> String
 regexString rex = maybe badRegex id stringMaybe
   where
     badRegex = "RegEx failed to print. " <> show rex
-    stringMaybe = case regexGrammar of DiShow sh -> ($ "") <$> sh rex
+    stringMaybe = case regexGrammar of Printor sh -> ($ "") <$> sh rex
 
 genRegEx :: Grammar a -> RegEx
 genRegEx (DiRegEx rex) = rex
@@ -450,7 +371,7 @@ notInClassG = rule "not-in-class" $
   _NotInClass >?< "[^" >* manyP charG *< "]"
 
 reservedClass :: String
-reservedClass = "$()*+.?[\\]^{|}\f"
+reservedClass = "$()*+.?[\\]^{|}"
 
 terminalG :: Grammar RegEx
 terminalG = rule "terminal" $

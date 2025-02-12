@@ -21,6 +21,8 @@ module Data.Profunctor.Distributor
   , SepBy (..), noSep, sepBy, atLeast0, atLeast1, chainl1, chainr1
     -- * Tokenized
   , Tokenized (anyToken), token, tokens, satisfy, restOfTokens, endOfTokens
+    -- * Printor/Parsor
+  , Printor (..), Parsor (..)
   ) where
 
 import Control.Applicative hiding (WrappedArrow)
@@ -46,6 +48,7 @@ import Data.Profunctor.Cayley
 import Data.Profunctor.Composition
 import Data.Profunctor.Monad
 import Data.Profunctor.Yoneda
+import Data.String
 import Data.Void
 import Witherable
 
@@ -325,6 +328,84 @@ restOfTokens = manyP anyToken
 
 endOfTokens :: (Cochoice p, Distributor p, Tokenized c c p) => p () ()
 endOfTokens = _Empty ?< restOfTokens
+
+-- Printor/Parsor --
+
+newtype Printor c f a b = Printor {runPrintor :: a -> f ([c] -> [c])}
+  deriving Functor
+instance Applicative f => Applicative (Printor c f a) where
+  pure _ = Printor (\_ -> pure id)
+  Printor p <*> Printor q = Printor (\a -> (.) <$> p a <*> q a)
+instance Alternative f => Alternative (Printor c f a) where
+  empty = Printor (\_ -> empty)
+  Printor p <|> Printor q = Printor (\a -> p a <|> q a)
+instance Filterable (Printor c f a) where
+  mapMaybe _ (Printor p) = Printor p
+instance Profunctor (Printor c f) where
+  dimap f _ (Printor p) = Printor (p . f)
+instance Alternative f => Choice (Printor c f) where
+  left' = alternate . Left
+  right' = alternate . Right
+instance Cochoice (Printor c f) where
+  unleft = fst . filtrate
+  unright = snd . filtrate
+instance Applicative f => Distributor (Printor c f) where
+  zeroP = Printor absurd
+  Printor p >+< Printor q = Printor (either p q)
+instance Alternative f => Alternator (Printor c f) where
+  alternate = \case
+    Left (Printor p) -> Printor (either p (\_ -> empty))
+    Right (Printor p) -> Printor (either (\_ -> empty) p)
+instance Filtrator (Printor c f) where
+  filtrate (Printor p) = (Printor (p . Left), Printor (p . Right))
+instance Applicative f => Tokenized c c (Printor c f) where
+  anyToken = Printor (\c -> pure (c:))
+instance Applicative f => IsString (Printor Char f () ()) where
+  fromString = tokens
+
+newtype Parsor c f a b = Parsor {runParsor :: [c] -> f (b,[c])}
+  deriving Functor
+instance Monad f => Applicative (Parsor c f a) where
+  pure b = Parsor (\str -> return (b,str))
+  Parsor x <*> Parsor y = Parsor $ \str -> do
+    (f, str') <- x str
+    (a, str'') <- y str'
+    return (f a, str'')
+instance (Alternative f, Monad f) => Alternative (Parsor c f a) where
+  empty = Parsor (\_ -> empty)
+  Parsor p <|> Parsor q = Parsor (\str -> p str <|> q str)
+instance Filterable f => Filterable (Parsor c f a) where
+  mapMaybe f (Parsor p) = Parsor (mapMaybe (\(a,str) -> (,str) <$> f a) . p)
+instance Functor f => Profunctor (Parsor c f) where
+  dimap _ g (Parsor p) = Parsor (fmap (\(c,str) -> (g c, str)) . p)
+instance (Monad f, Alternative f) => Choice (Parsor c f) where
+  left' = alternate . Left
+  right' = alternate . Right
+instance Filterable f => Cochoice (Parsor c f) where
+  unleft = fst . filtrate
+  unright = snd . filtrate
+instance (Monad f, Alternative f) => Distributor (Parsor c f) where
+  zeroP = Parsor (\_ -> empty)
+  Parsor p >+< Parsor q = Parsor $ \str ->
+    (\(b,str') -> (Left b, str')) <$> p str
+    <|>
+    (\(d,str') -> (Right d, str')) <$> q str
+instance (Monad f, Alternative f) => Alternator (Parsor c f) where
+  alternate = \case
+    Left (Parsor p) -> Parsor (fmap (\(b, str) -> (Left b, str)) . p)
+    Right (Parsor p) -> Parsor (fmap (\(b, str) -> (Right b, str)) . p)
+instance Filterable f => Filtrator (Parsor c f) where
+  filtrate (Parsor p) =
+    ( Parsor (mapMaybe leftMay . p)
+    , Parsor (mapMaybe rightMay . p)
+    ) where
+      leftMay (e, str) = either (\b -> Just (b, str)) (\_ -> Nothing) e
+      rightMay (e, str) = either (\_ -> Nothing) (\b -> Just (b, str)) e
+instance Alternative f => Tokenized c c (Parsor c f) where
+  anyToken = Parsor (\str -> maybe empty pure (uncons str))
+instance (Alternative f, Filterable f, Monad f)
+  => IsString (Parsor Char f () ()) where
+    fromString = tokens
 
 -- FunList --
 
