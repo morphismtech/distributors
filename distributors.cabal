@@ -44,6 +44,7 @@ library
       ConstraintKinds
       DataKinds
       DefaultSignatures
+      DeriveFunctor
       DeriveGeneric
       DerivingStrategies
       DerivingVia

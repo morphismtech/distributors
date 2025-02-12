@@ -15,6 +15,7 @@ module Control.Lens.Bifocal
   , ABifocal'
   , Diopter
   , Prismoid
+  , Filtroid
   , bifocal
   , mapBifocal
   , cloneBifocal
@@ -22,8 +23,10 @@ module Control.Lens.Bifocal
   , optioned
   , manied
   , somed
-  , flagged
-  , signed
+  , lefted
+  , righted
+  , unlefted
+  , unrighted
   , chainedl
   , chainedr
   , Binocular (..), runBinocular
@@ -32,7 +35,6 @@ module Control.Lens.Bifocal
 import Control.Applicative
 import Control.Lens.Internal.Profunctor
 import Control.Lens.PartialIso
-import Data.Bool
 import Data.Profunctor
 import Data.Profunctor.Distributor
 import Witherable
@@ -56,13 +58,17 @@ type Prismoid s t a b = forall p f.
   (Alternator p, Alternative f)
     => p a (f b) -> p s (f t)
 
+type Filtroid s t a b = forall p f.
+  (Filtrator p, Filterable f)
+    => p a (f b) -> p s (f t)
+
 bifocal :: Binocular a b s t -> Bifocal s t a b
 bifocal bif = unwrapPafb . runBinocular bif . WrapPafb
 
 mapBifocal
   :: (Alternator p, Filtrator p)
   => ABifocal s t a b -> p a b -> p s t
-mapBifocal bif p = withBifocal bif $ \ocal -> runBinocular ocal p
+mapBifocal bif p = withBifocal bif $ \f -> dimapMaybe f Just p
 
 cloneBifocal :: ABifocal s t a b -> Bifocal s t a b
 cloneBifocal bif = unwrapPafb . mapBifocal bif . WrapPafb
@@ -76,23 +82,17 @@ manied = unwrapPafb . manyP . WrapPafb
 somed :: Prismoid [a] [b] a b
 somed = unwrapPafb . someP . WrapPafb
 
-flagged :: Diopter (Bool, a) (Bool, b) a b
-flagged p = unwrapPafb $ dialt
-  (\(b,a) -> bool (Left a) (Right a) b)
-  (False,) (True,)
-  (WrapPafb p) (WrapPafb p)
+lefted :: Prismoid (Either a c) (Either b d) a b
+lefted = unwrapPafb . alternate . Left . WrapPafb
 
-signed :: Diopter (Ordering, a) (Ordering, b) a b
-signed p = unwrapPafb $
-  dialt
-    (\case
-      (LT,a) -> Left a
-      (EQ,a) -> Right (False,a)
-      (GT,a) -> Right (True,a)
-    )
-    (\a -> (LT,a))
-    (\(b,a) -> bool (EQ,a) (GT,a) b)
-    (WrapPafb p) (WrapPafb (flagged p))
+righted :: Prismoid (Either c a) (Either d b) a b
+righted = unwrapPafb . alternate . Right . WrapPafb
+
+unlefted :: Filtroid a b (Either a c) (Either b d)
+unlefted = unwrapPafb . fst . filtrate . WrapPafb
+
+unrighted :: Filtroid a b (Either c a) (Either d b)
+unrighted = unwrapPafb . snd . filtrate . WrapPafb
 
 chainedl :: APartialIso a b (a,a) (b,b) -> Bifocal a b a b
 chainedl pat = unwrapPafb . chainl1 pat noSep . WrapPafb
@@ -100,8 +100,10 @@ chainedl pat = unwrapPafb . chainl1 pat noSep . WrapPafb
 chainedr :: APartialIso a b (a,a) (b,b) -> Bifocal a b a b
 chainedr pat = unwrapPafb . chainr1 pat noSep . WrapPafb
 
-withBifocal :: ABifocal s t a b -> (Binocular a b s t -> r) -> r
-withBifocal bif k = k (catMaybes (bif (Just <$> anyToken)))
+withBifocal
+  :: (Filterable f, Alternative f)
+  => ABifocal s t a b -> ((s -> Maybe a) -> f b) -> f t
+withBifocal bif = unBinocular (catMaybes (bif (Just <$> anyToken)))
 
 newtype Binocular a b s t = Binocular
   { unBinocular
@@ -146,4 +148,4 @@ runBinocular
   :: (Alternator p, Filtrator p)
   => Binocular a b s t
   -> p a b -> p s t
-runBinocular (Binocular k) p = k $ \sa -> dimapMaybe sa Just p
+runBinocular (Binocular k) p = k $ \f -> dimapMaybe f Just p

@@ -1,8 +1,18 @@
+{-|
+Module      : Text.Grammar.Distributor
+Description : grammars
+Copyright   : (C) 2025 - Eitan Chatav
+License     : BSD-style (see the file LICENSE)
+Maintainer  : Eitan Chatav <eitan.chatav@gmail.com>
+Stability   : provisional
+Portability : non-portable
+-}
+
 module Text.Grammar.Distributor
   ( -- * Grammar
     Grammatical (..), Grammar, Grammarr
     -- * Generators
-  , genReadP, readGrammar
+  , genReadS, readGrammar
   , genShowS, showGrammar
   , genRegEx, genGrammar, printGrammar
     -- * RegEx
@@ -23,33 +33,22 @@ import Data.Profunctor.Distributor
 import Data.Set (Set)
 import Data.Set qualified as Set
 import Data.String
-import Text.ParserCombinators.ReadP (ReadP, get, readP_to_S)
 import Witherable
 
 class
   ( Alternator p
   , Filtrator p
+  , Tokenized Char Char p
   , forall t. t ~ p () () => IsString t
   ) => Grammatical p where
 
-    anyChar :: p Char Char
-    default anyChar :: Tokenized Char Char p => p Char Char
-    anyChar = anyToken
-
-    theEnd :: p () ()
-    default theEnd :: Tokenized Char Char p => p () ()
-    theEnd = endOfTokens
-
     inClass :: String -> p Char Char
-    default inClass :: Tokenized Char Char p => String -> p Char Char
     inClass str = satisfy $ \ch -> elem ch str
 
     notInClass :: String -> p Char Char
-    default notInClass :: Tokenized Char Char p => String -> p Char Char
     notInClass str = satisfy $ \ch -> notElem ch str
 
     inCategory :: GeneralCategory -> p Char Char
-    default inCategory :: Tokenized Char Char p => GeneralCategory -> p Char Char
     inCategory cat = satisfy $ \ch -> cat == generalCategory ch
 
     rule :: String -> p a b -> p a b
@@ -58,99 +57,24 @@ class
     ruleRec :: String -> (p a b -> p a b) -> p a b
     ruleRec name = rule name . fix
 
+instance Alternative f => Grammatical (Printor Char f)
+instance (Monad f, Alternative f, Filterable f) => Grammatical (Parsor Char f)
+
 type Grammar a = forall p. Grammatical p => p a a
 
 type Grammarr a b = forall p. Grammatical p => p a a -> p b b
-
-newtype DiShow a b = DiShow (a -> Maybe ShowS)
-instance Profunctor DiShow where
-  dimap f _ (DiShow sh) = DiShow (sh . f)
-instance Functor (DiShow a) where fmap = rmap
-instance Applicative (DiShow a) where
-  pure _ = DiShow (const (Just id))
-  DiShow sh0 <*> DiShow sh1 =
-    DiShow (liftA2 (liftA2 (.)) sh0 sh1)
-instance Alternative (DiShow a) where
-  empty = DiShow (const Nothing)
-  DiShow sh0 <|> DiShow sh1 =
-    DiShow (liftA2 (<|>) sh0 sh1)
-  many (DiShow sh) = DiShow sh
-  some (DiShow sh) = DiShow sh
-instance Choice DiShow where
-  left' (DiShow sh) =
-    DiShow (either sh (const Nothing))
-  right' (DiShow sh) =
-    DiShow (either (const Nothing) sh)
-instance Cochoice DiShow where
-  unleft (DiShow sh) = DiShow (sh . Left)
-  unright (DiShow sh) = DiShow (sh . Right)
-instance Distributor DiShow where
-  manyP (DiShow sh) = DiShow shmany where
-    shmany str =
-      foldl (liftA2 (.)) (pure id) (map sh str)
-instance Alternator DiShow where
-  someP (DiShow sh) = DiShow shsome where
-    shsome str = do
-      _ <- uncons str
-      foldl (liftA2 (.)) (pure id) (map sh str)
-instance Filtrator DiShow
-instance Filterable (DiShow a) where
-  mapMaybe = dimapMaybe Just
-instance Tokenized Char Char DiShow where
-  anyToken = DiShow (Just . (:))
-instance IsString (DiShow () ()) where
-  fromString = tokens
-instance Grammatical DiShow
-
-newtype DiRead a b = DiRead (ReadP b)
-instance Profunctor DiRead where
-  dimap _ g (DiRead rd) = DiRead (g <$> rd)
-instance Functor (DiRead a) where fmap = rmap
-instance Applicative (DiRead a) where
-  pure b = DiRead (pure b)
-  DiRead rd0 <*> DiRead rd1 =
-    DiRead (rd0 <*> rd1)
-instance Alternative (DiRead a) where
-  empty = DiRead empty
-  DiRead rd0 <|> DiRead rd1 =
-    DiRead (rd0 <|> rd1)
-  many (DiRead rd) = DiRead (many rd)
-  some (DiRead rd) = DiRead (some rd)
-instance Choice DiRead where
-  left' (DiRead rd) =
-    DiRead (Left <$> rd)
-  right' (DiRead rd) =
-    DiRead (Right <$> rd)
-instance Cochoice DiRead where
-  unleft (DiRead rd) =
-    DiRead (rd >>= either pure (const empty))
-  unright (DiRead rd) =
-    DiRead (rd >>= either (const empty) pure)
-instance Distributor DiRead where
-  manyP (DiRead rd) = DiRead (many rd)
-instance Alternator DiRead where
-  someP (DiRead rd) = DiRead (some rd)
-instance Filtrator DiRead
-instance Filterable (DiRead a) where
-  mapMaybe = dimapMaybe Just
-instance Tokenized Char Char DiRead where
-  anyToken = DiRead get
-instance Grammatical DiRead
-instance IsString (DiRead () ()) where
-  fromString = tokens
 
 -- RegEx --
 
 data RegEx
   = Terminal String -- ^ @abc123etc\\.@
   | Sequence RegEx RegEx -- ^ @xy@
-  | Fail
+  | Fail -- ^ @\\f@
   | Alternate RegEx RegEx -- ^ @x|y@
   | KleeneOpt RegEx -- ^ @x?@
   | KleeneStar RegEx -- ^ @x*@
   | KleenePlus RegEx -- ^ @x+@
-  | Any -- ^ @.@
-  | End -- ^ @$@
+  | AnyChar -- ^ @.@
   | InClass String -- ^ @[abc]@
   | NotInClass String -- ^ @[^abc]@
   | InCategory GeneralCategory -- ^ @\\p{Lu}@
@@ -182,7 +106,7 @@ optK, starK, plusK :: RegEx -> RegEx
 
 optK Fail = Terminal ""
 optK (Terminal "") = Terminal ""
-optK (KleenePlus rex) = KleeneStar rex
+optK (KleenePlus rex) = starK rex
 optK rex = KleeneOpt rex
 
 starK Fail = Terminal ""
@@ -210,9 +134,8 @@ instance Profunctor DiRegEx where
 instance Distributor DiRegEx where
   zeroP = DiRegEx Fail
   DiRegEx rex1 >+< DiRegEx rex2 = DiRegEx (rex1 ||| rex2)
-  optionalP (DiRegEx (KleenePlus rex)) = DiRegEx (KleeneStar rex)
-  optionalP (DiRegEx rex) = DiRegEx (KleeneOpt rex)
-  manyP (DiRegEx rex) = DiRegEx (KleeneStar rex)
+  optionalP (DiRegEx rex) = DiRegEx (optK rex)
+  manyP (DiRegEx rex) = DiRegEx (starK rex)
 instance Choice DiRegEx where
   left' = coerce
   right' = coerce
@@ -220,17 +143,16 @@ instance Cochoice DiRegEx where
   unleft = coerce
   unright = coerce
 instance Alternator DiRegEx where
-  someP (DiRegEx rex) = DiRegEx (KleenePlus rex)
+  someP (DiRegEx rex) = DiRegEx (plusK rex)
 instance Filtrator DiRegEx
-instance Tokenized Char Char DiRegEx where
-  anyToken = DiRegEx Any
 instance IsString (DiRegEx () ()) where
   fromString str = DiRegEx (Terminal str)
+instance Tokenized Char Char DiRegEx where
+  anyToken = DiRegEx AnyChar
 instance Grammatical DiRegEx where
   inClass str = DiRegEx (InClass str)
   notInClass str = DiRegEx (NotInClass str)
   inCategory str = DiRegEx (InCategory str)
-  theEnd = DiRegEx End
 
 data DiGrammar a b = DiGrammar
   { grammarStart :: DiRegEx a b
@@ -271,10 +193,10 @@ instance Alternator DiGrammar where
   someP (DiGrammar start rules) =
     DiGrammar (someP start) rules
 instance Filtrator DiGrammar
-instance Tokenized Char Char DiGrammar where
-  anyToken = DiGrammar anyToken mempty
 instance IsString (DiGrammar () ()) where
   fromString str = DiGrammar (fromString str) mempty
+instance Tokenized Char Char DiGrammar where
+  anyToken = DiGrammar anyToken mempty
 instance Grammatical DiGrammar where
   inClass str = DiGrammar (inClass str) mempty
   notInClass str = DiGrammar (notInClass str) mempty
@@ -298,18 +220,18 @@ instance Grammatical DiGrammar where
 
 -- Generators --
 
-genReadP :: Grammar a -> ReadP a
-genReadP (DiRead p) = p
+genReadS :: Grammar a -> ReadS a
+genReadS = runParsor
 
 readGrammar :: Grammar a -> String -> [a]
 readGrammar grammar str =
   [ a
-  | (a, remaining) <- readP_to_S (genReadP grammar) str
+  | (a, remaining) <- genReadS grammar str
   , remaining == []
   ]
 
 genShowS :: Grammar a -> a -> Maybe ShowS
-genShowS (DiShow p) = p
+genShowS = runPrintor
 
 showGrammar :: Grammar a -> a -> Maybe String
 showGrammar grammar a = ($ "") <$> genShowS grammar a
@@ -318,7 +240,7 @@ regexString :: RegEx -> String
 regexString rex = maybe badRegex id stringMaybe
   where
     badRegex = "RegEx failed to print. " <> show rex
-    stringMaybe = case regexGrammar of DiShow sh -> ($ "") <$> sh rex
+    stringMaybe = case regexGrammar of Printor sh -> ($ "") <$> sh rex
 
 genRegEx :: Grammar a -> RegEx
 genRegEx (DiRegEx rex) = rex
@@ -369,7 +291,7 @@ altG rex = rule "alternate" $
   chainl1 _Alternate (sepBy "|") (seqG rex)
 
 anyG :: Grammar RegEx
-anyG = rule "any" $ "." >* pure Any
+anyG = rule "any" $ "." >* pure AnyChar
 
 atomG :: Grammarr RegEx RegEx
 atomG rex = rule "atom" $ foldl (<|>) empty
@@ -380,11 +302,7 @@ atomG rex = rule "atom" $ foldl (<|>) empty
   , tokenG
   , parenG rex
   , anyG
-  , endG
   ]
-
-endG :: Grammar RegEx
-endG = rule "end" $ "$" >* pure End
 
 charG :: Grammar Char
 charG = rule "char" $ literalG <|> escapedG
@@ -460,7 +378,7 @@ terminalG = rule "terminal" $
   _Terminal >?< someP charG
 
 tokenG :: Grammar RegEx
-tokenG = _Terminal . _Cons >?< charG >*< pure ""
+tokenG = _Terminal >?< charG >:< pure ""
 
 parenG :: Grammarr RegEx RegEx
 parenG rex = rule "parenthesized" $

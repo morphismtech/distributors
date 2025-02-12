@@ -12,7 +12,7 @@ Portability : non-portable
 
 module Data.Profunctor.Distributor
   ( -- * Monoidal
-    Monoidal, oneP, (>*<), dimap2, (>*), (*<), replicateP, foreverP, meander
+    Monoidal, oneP, (>*<), (>*), (*<), dimap2, replicateP, foreverP, meander, (>:<)
     -- * Distributor
   , Distributor (zeroP, (>+<), optionalP, manyP), dialt
     -- * Alternator/Filtrator
@@ -21,6 +21,8 @@ module Data.Profunctor.Distributor
   , SepBy (..), noSep, sepBy, atLeast0, atLeast1, chainl1, chainr1
     -- * Tokenized
   , Tokenized (anyToken), token, tokens, satisfy, restOfTokens, endOfTokens
+    -- * Printor/Parsor
+  , Printor (..), Parsor (..)
   ) where
 
 import Control.Applicative hiding (WrappedArrow)
@@ -42,9 +44,11 @@ import Data.Functor.Compose
 import Data.Functor.Contravariant.Divisible
 import Data.Profunctor hiding (WrappedArrow)
 import Data.Profunctor qualified as Pro (WrappedArrow)
+import Data.Profunctor.Cayley
 import Data.Profunctor.Composition
 import Data.Profunctor.Monad
 import Data.Profunctor.Yoneda
+import Data.String
 import Data.Void
 import Witherable
 
@@ -57,14 +61,6 @@ oneP = pure ()
 (>*<) = dimap2 fst snd (,)
 infixr 6 >*<
 
-dimap2
-  :: Monoidal p
-  => (s -> a)
-  -> (s -> c)
-  -> (b -> d -> t)
-  -> p a b -> p c d -> p s t
-dimap2 f g h p q = liftA2 h (lmap f p) (lmap g q)
-
 (>*) :: Monoidal p => p () c -> p a b -> p a b
 x >* y = lmap (const ()) x *> y
 infixl 5 >*
@@ -72,6 +68,14 @@ infixl 5 >*
 (*<) :: Monoidal p => p a b -> p () c -> p a b
 x *< y = x <* lmap (const ()) y
 infixl 5 *<
+
+dimap2
+  :: Monoidal p
+  => (s -> a)
+  -> (s -> c)
+  -> (b -> d -> t)
+  -> p a b -> p c d -> p s t
+dimap2 f g h p q = liftA2 h (lmap f p) (lmap g q)
 
 foreverP :: Monoidal p => p () c -> p a b
 foreverP a = let a' = a >* a' in a'
@@ -92,6 +96,10 @@ meander f = dimap (f sell) iextract . trav
       => q u v -> q (Bazaar (->) u w x) (Bazaar (->) v w x)
     trav q = mapIso _Bazaar $ right' (q >*< trav q)
 
+(>:<) :: (Monoidal p, Choice p, Cons s t a b) => p a b -> p s t -> p s t
+x >:< xs = _Cons >? x >*< xs
+infixr 5 >:<
+
 class Monoidal p => Distributor p where
 
   zeroP :: p Void Void
@@ -106,10 +114,10 @@ class Monoidal p => Distributor p where
   infixr 3 >+<
 
   optionalP :: p a b -> p (Maybe a) (Maybe b)
-  optionalP = dialt (maybe (Left ()) Right) (const Nothing) Just oneP
+  optionalP p = mapIso maybeEot (oneP >+< p)
 
   manyP :: p a b -> p [a] [b]
-  manyP p = dialt unlist list0 list1 oneP (p >*< manyP p)
+  manyP p = mapIso listEot (oneP >+< p >*< manyP p)
 
 instance Distributor (->) where
   zeroP = id
@@ -128,9 +136,8 @@ instance (Distributor p, Applicative f)
     zeroP = WrapPafb (rmap pure zeroP)
     WrapPafb x >+< WrapPafb y = WrapPafb $
       dialt id (fmap Left) (fmap Right) x y
-    -- manyP
-    -- optionalP
-
+    manyP (WrapPafb x) = WrapPafb (rmap sequenceA (manyP x))
+    optionalP (WrapPafb x) = WrapPafb (rmap sequenceA (optionalP x))
 instance Applicative f => Distributor (Star f) where
   zeroP = Star absurd
   Star f >+< Star g =
@@ -139,21 +146,10 @@ deriving via (Star m) instance Monad m => Distributor (Kleisli m)
 instance Adjunction f u => Distributor (Costar f) where
   zeroP = Costar unabsurdL
   Costar f >+< Costar g = Costar (bimap f g . cozipL)
--- instance (Applicative f, Distributor p)
---   => Distributor (Tannen f p) where
---     zeroP = Tannen (pure zeroP)
---     Tannen x >+< Tannen y = Tannen ((>+<) <$> x <*> y)
--- instance (Applicative f, Distributor p)
---   => Distributor (Cayley f p) where
---     zeroP = Cayley (pure zeroP)
---     Cayley x >+< Cayley y = Cayley ((>+<) <$> x <*> y)
--- instance (Adjunction f u, Applicative g, Distributor p)
---   => Distributor (Biff p f g) where
---     zeroP = Biff (dimap unabsurdL absurd zeroP)
---     Biff x >+< Biff y = Biff $ dimap
---       cozipL
---       (either (Left <$>) (Right <$>))
---       (x >+< y)
+instance (Applicative f, Distributor p)
+  => Distributor (Cayley f p) where
+    zeroP = Cayley (pure zeroP)
+    Cayley x >+< Cayley y = Cayley ((>+<) <$> x <*> y)
 instance (ArrowZero p, ArrowChoice p)
   => Distributor (Pro.WrappedArrow p) where
     zeroP = zeroArrow
@@ -207,7 +203,7 @@ class (Choice p, Distributor p, forall x. Alternative (p x))
       dimapMaybe (either (pure Nothing) Just) (Just . Right)
 
     someP :: p a b -> p [a] [b]
-    someP p = dimap unlist (either list0 list1) (right' (p >*< manyP p))
+    someP p = _Cons >? p >*< manyP p
 
 instance (Alternator p, Alternative f)
   => Alternator (WrappedPafb f p) where
@@ -225,17 +221,8 @@ instance (Alternator p, Alternative f)
           . unwrapPafb
       in
         either f g
-    -- someP
 
-unlist :: [a] -> Either () (a, [a])
-unlist [] = Left ()
-unlist (a:as) = Right (a,as)
-
-list0 :: () -> [a]
-list0 _ = []
-
-list1 :: (a,[a]) -> [a]
-list1 = uncurry (:)
+    someP (WrapPafb x) = WrapPafb (rmap sequenceA (someP x))
 
 class (Cochoice p, forall x. Filterable (p x))
   => Filtrator p where
@@ -290,16 +277,14 @@ sepBy = SepBy oneP oneP
 atLeast0
   :: Distributor p
   => SepBy p -> p a b -> p [a] [b]
-atLeast0 sep p =
-  beginBy sep >* 
-  dialt unlist list0 list1 oneP (p >*< manyP (separateBy sep >* p))
-  *< endBy sep
+atLeast0 sep p = mapIso listEot $
+  beginBy sep >* oneP >+< p >*< manyP (separateBy sep >* p) *< endBy sep
 
 atLeast1
   :: Alternator p
   => SepBy p -> p a b -> p [a] [b]
-atLeast1 sep p = dimap unlist (either list0 list1)
-  (right' (beginBy sep >* p >*< manyP (separateBy sep >* p) *< endBy sep))
+atLeast1 sep p = _Cons >?
+  beginBy sep >* p >*< manyP (separateBy sep >* p) *< endBy sep
 
 chainl1
   :: (Alternator p, Filtrator p)
@@ -343,6 +328,88 @@ restOfTokens = manyP anyToken
 
 endOfTokens :: (Cochoice p, Distributor p, Tokenized c c p) => p () ()
 endOfTokens = _Empty ?< restOfTokens
+
+-- Printor/Parsor --
+
+newtype Printor c f a b = Printor {runPrintor :: a -> f ([c] -> [c])}
+  deriving Functor
+instance Contravariant (Printor c f a) where
+  contramap _ (Printor p) = Printor p
+instance Applicative f => Applicative (Printor c f a) where
+  pure _ = Printor (\_ -> pure id)
+  Printor p <*> Printor q = Printor (\a -> (.) <$> p a <*> q a)
+instance Alternative f => Alternative (Printor c f a) where
+  empty = Printor (\_ -> empty)
+  Printor p <|> Printor q = Printor (\a -> p a <|> q a)
+instance Filterable (Printor c f a) where
+  mapMaybe _ (Printor p) = Printor p
+instance Profunctor (Printor c f) where
+  dimap f _ (Printor p) = Printor (p . f)
+instance Alternative f => Choice (Printor c f) where
+  left' = alternate . Left
+  right' = alternate . Right
+instance Cochoice (Printor c f) where
+  unleft = fst . filtrate
+  unright = snd . filtrate
+instance Applicative f => Distributor (Printor c f) where
+  zeroP = Printor absurd
+  Printor p >+< Printor q = Printor (either p q)
+instance Alternative f => Alternator (Printor c f) where
+  alternate = \case
+    Left (Printor p) -> Printor (either p (\_ -> empty))
+    Right (Printor p) -> Printor (either (\_ -> empty) p)
+instance Filtrator (Printor c f) where
+  filtrate (Printor p) = (Printor (p . Left), Printor (p . Right))
+instance Applicative f => Tokenized c c (Printor c f) where
+  anyToken = Printor (\c -> pure (c:))
+instance Applicative f => IsString (Printor Char f () ()) where
+  fromString = tokens
+
+newtype Parsor c f a b = Parsor {runParsor :: [c] -> f (b,[c])}
+  deriving Functor
+instance Monad f => Applicative (Parsor c f a) where
+  pure b = Parsor (\str -> return (b,str))
+  Parsor x <*> Parsor y = Parsor $ \str -> do
+    (f, str') <- x str
+    (a, str'') <- y str'
+    return (f a, str'')
+instance (Alternative f, Monad f) => Alternative (Parsor c f a) where
+  empty = Parsor (\_ -> empty)
+  Parsor p <|> Parsor q = Parsor (\str -> p str <|> q str)
+instance Filterable f => Filterable (Parsor c f a) where
+  mapMaybe f (Parsor p) = Parsor (mapMaybe (\(a,str) -> (,str) <$> f a) . p)
+instance Functor f => Bifunctor (Parsor c f) where
+  bimap _ g (Parsor p) = Parsor (fmap (\(c,str) -> (g c, str)) . p)
+instance Functor f => Profunctor (Parsor c f) where
+  dimap _ g (Parsor p) = Parsor (fmap (\(c,str) -> (g c, str)) . p)
+instance (Monad f, Alternative f) => Choice (Parsor c f) where
+  left' = alternate . Left
+  right' = alternate . Right
+instance Filterable f => Cochoice (Parsor c f) where
+  unleft = fst . filtrate
+  unright = snd . filtrate
+instance (Monad f, Alternative f) => Distributor (Parsor c f) where
+  zeroP = Parsor (\_ -> empty)
+  Parsor p >+< Parsor q = Parsor $ \str ->
+    (\(b,str') -> (Left b, str')) <$> p str
+    <|>
+    (\(d,str') -> (Right d, str')) <$> q str
+instance (Monad f, Alternative f) => Alternator (Parsor c f) where
+  alternate = \case
+    Left (Parsor p) -> Parsor (fmap (\(b, str) -> (Left b, str)) . p)
+    Right (Parsor p) -> Parsor (fmap (\(b, str) -> (Right b, str)) . p)
+instance Filterable f => Filtrator (Parsor c f) where
+  filtrate (Parsor p) =
+    ( Parsor (mapMaybe leftMay . p)
+    , Parsor (mapMaybe rightMay . p)
+    ) where
+      leftMay (e, str) = either (\b -> Just (b, str)) (\_ -> Nothing) e
+      rightMay (e, str) = either (\_ -> Nothing) (\b -> Just (b, str)) e
+instance Alternative f => Tokenized c c (Parsor c f) where
+  anyToken = Parsor (\str -> maybe empty pure (uncons str))
+instance (Alternative f, Filterable f, Monad f)
+  => IsString (Parsor Char f () ()) where
+    fromString = tokens
 
 -- FunList --
 
@@ -431,19 +498,11 @@ instance (Monoidal p, Monoidal q)
   => Applicative (Product p q a) where
     pure b = Pair (pure b) (pure b)
     Pair x0 y0 <*> Pair x1 y1 = Pair (x0 <*> x1) (y0 <*> y1)
--- instance (Applicative f, Monoidal p) => Monoidal (Tannen f p) where
---   oneP = Tannen (pure oneP)
---   Tannen x >*< Tannen y = Tannen ((>*<) <$> x <*> y)
--- instance (Applicative f, Monoidal p) => Monoidal (Cayley f p) where
---   oneP = Cayley (pure oneP)
---   Cayley x >*< Cayley y = Cayley ((>*<) <$> x <*> y)
--- instance (Functor f, Applicative g, Monoidal p)
---   => Monoidal (Biff p f g) where
---     oneP = Biff (dimap (const ()) pure oneP)
---     Biff x >*< Biff y = Biff $ dimap
---       ((fst <$>) &&& (snd <$>))
---       (uncurry (liftA2 (,)))
---       (x >*< y)
+instance (Functor f, Functor (p a)) => Functor (Cayley f p a) where
+  fmap f (Cayley x) = Cayley (fmap (fmap f) x)
+instance (Applicative f, Applicative (p a)) => Applicative (Cayley f p a) where
+  pure b = Cayley (pure (pure b))
+  Cayley x <*> Cayley y = Cayley ((<*>) <$> x <*> y)
 instance (Profunctor p, Applicative (p a))
   => Applicative (Yoneda p a) where
     pure = proreturn . pure

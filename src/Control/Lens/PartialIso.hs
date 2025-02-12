@@ -34,6 +34,8 @@ module Control.Lens.PartialIso
   , nulled
   , notNulled
   , streamed
+  , maybeEot
+  , listEot
     -- * difold operations
   , difoldl1
   , difoldr1
@@ -261,6 +263,18 @@ streamed = iso convertStream convertStream
         Empty
         (\(h,t) -> cons h (convertStream t))
         (uncons s)
+
+maybeEot :: Iso (Maybe a) (Maybe b) (Either () a) (Either () b)
+maybeEot = iso
+  (maybe (Left ()) Right)
+  (either (pure Nothing) Just)
+
+listEot
+  :: (Cons s s a a, AsEmpty t, Cons t t b b)
+  => Iso s t (Either () (a,s)) (Either () (b,t))
+listEot = iso
+  (maybe (Left ()) Right . uncons)
+  (either (const Empty) (review _Cons))
 
 difoldl1
   :: Cons s t a b
