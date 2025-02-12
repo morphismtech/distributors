@@ -112,6 +112,7 @@ test-suite doctest
       ConstraintKinds
       DataKinds
       DefaultSignatures
+      DeriveFunctor
       DeriveGeneric
       DerivingStrategies
       DerivingVia
