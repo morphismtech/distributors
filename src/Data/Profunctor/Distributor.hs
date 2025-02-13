@@ -261,6 +261,21 @@ instance (Filtrator p, Filterable f)
         ( WrapPafb pL
         , WrapPafb pR
         )
+instance Filtrator p => Filtrator (Coyoneda p) where
+  filtrate p =
+    let (q,r) = filtrate (proextract p)
+    in (proreturn q, proreturn r)
+instance Filtrator p => Filtrator (Yoneda p) where
+  filtrate p =
+    let (q,r) = filtrate (proextract p)
+    in (proreturn q, proreturn r)
+instance Filtrator (Forget r) where
+  filtrate (Forget f) = (Forget (f . Left), Forget (f . Right))
+instance (Filterable f, Traversable f) => Filtrator (Star f) where
+  filtrate (Star f) =
+    ( Star (mapMaybe (either Just (const Nothing)) . f . Left)
+    , Star (mapMaybe (either (const Nothing) Just) . f . Right)
+    )
 
 -- SepBy --
 
@@ -512,7 +527,17 @@ instance (Profunctor p, Applicative (p a))
   => Applicative (Yoneda p a) where
     pure = proreturn . pure
     ab <*> cd = proreturn (proextract ab <*> proextract cd)
+instance (Profunctor p, Filterable (p a))
+  => Filterable (Yoneda p a) where
+    catMaybes = proreturn . catMaybes . proextract
 instance (Profunctor p, Applicative (p a))
   => Applicative (Coyoneda p a) where
     pure = proreturn . pure
     ab <*> cd = proreturn (proextract ab <*> proextract cd)
+instance (Profunctor p, Filterable (p a))
+  => Filterable (Coyoneda p a) where
+    catMaybes = proreturn . catMaybes . proextract
+instance Filterable (Forget r a) where
+  catMaybes (Forget f) = Forget f
+instance Filterable f => Filterable (Star f a) where
+  catMaybes (Star f) = Star (catMaybes . f)
