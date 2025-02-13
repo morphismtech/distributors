@@ -380,7 +380,7 @@ instance Filtrator (Printor s f) where
   filtrate (Printor p) = (Printor (p . Left), Printor (p . Right))
 instance (Applicative f, Cons s s c c)
   => Tokenized c c (Printor s f) where
-    anyToken = Printor (\c -> pure (cons c))
+    anyToken = Printor (pure . cons)
 instance (Applicative f, Cons s s Char Char)
   => IsString (Printor s f () ()) where
     fromString = tokens
