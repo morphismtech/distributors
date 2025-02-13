@@ -425,27 +425,26 @@ instance Applicative (FunList a b) where
   (<*>) = \case
     DoneFun t -> fmap t
     MoreFun a h -> \l ->
-      MoreFun a (flip <$> h <*> view _FunList l)
+      MoreFun a (flip <$> h <*> fromFun l)
 instance Sellable (->) FunList where sell b = MoreFun b (pure id)
 instance Bizarre (->) FunList where
   bazaar f = \case
     DoneFun t -> pure t
     MoreFun a l -> ($) <$> bazaar f l <*> f a
 
-_FunList :: Iso
-  (FunList a1 b1 t1) (FunList a2 b2 t2)
-  (Bazaar (->) a1 b1 t1) (Bazaar (->) a2 b2 t2)
-_FunList = iso fromFun toFun where
-  toFun (Bazaar f) = f sell
-  fromFun = \case
-    DoneFun t -> pure t
-    MoreFun a f -> ($) <$> f <*> sell a
+toFun :: Bazaar (->) a b t -> FunList a b t
+toFun (Bazaar f) = f sell
+
+fromFun :: FunList a b t -> Bazaar (->) a b t
+fromFun = \case
+  DoneFun t -> pure t
+  MoreFun a f -> ($) <$> f <*> sell a
 
 _Bazaar :: Iso
   (Bazaar (->) a1 b1 t1) (Bazaar (->) a2 b2 t2)
   (Either t1 (a1, Bazaar (->) a1 b1 (b1 -> t1)))
   (Either t2 (a2, Bazaar (->) a2 b2 (b2 -> t2)))
-_Bazaar = from _FunList . iso f g where
+_Bazaar = iso toFun fromFun . iso f g where
   f = \case
     DoneFun t -> Left t
     MoreFun a baz -> Right (a, baz)
