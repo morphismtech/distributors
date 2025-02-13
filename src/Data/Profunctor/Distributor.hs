@@ -96,7 +96,7 @@ meander f = dimap (f sell) iextract . trav
     trav
       :: (Monoidal q, Choice q)
       => q u v -> q (Bazaar (->) u w x) (Bazaar (->) v w x)
-    trav q = mapIso _Bazaar $ right' (q >*< trav q)
+    trav q = mapIso funlistEot $ right' (q >*< trav q)
 
 (>:<) :: (Monoidal p, Choice p, Cons s t a b) => p a b -> p s t -> p s t
 x >:< xs = _Cons >? x >*< xs
@@ -461,11 +461,11 @@ fromFun = \case
   DoneFun t -> pure t
   MoreFun a f -> ($) <$> f <*> sell a
 
-_Bazaar :: Iso
+funlistEot :: Iso
   (Bazaar (->) a1 b1 t1) (Bazaar (->) a2 b2 t2)
   (Either t1 (a1, Bazaar (->) a1 b1 (b1 -> t1)))
   (Either t2 (a2, Bazaar (->) a2 b2 (b2 -> t2)))
-_Bazaar = iso toFun fromFun . iso f g where
+funlistEot = iso toFun fromFun . iso f g where
   f = \case
     DoneFun t -> Left t
     MoreFun a baz -> Right (a, baz)
