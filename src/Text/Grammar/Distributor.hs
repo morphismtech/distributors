@@ -280,7 +280,7 @@ terminal = \r{char}+
 
 -}
 regexGrammar :: Grammar RegEx
-regexGrammar = ruleRec "regex" $ \rex -> altG rex
+regexGrammar = ruleRec "regex" $ \rex -> altG rex <|> failG
 
 altG :: Grammarr RegEx RegEx
 altG rex = rule "alternate" $
@@ -292,12 +292,13 @@ anyG = rule "any" $ "." >* pure AnyChar
 atomG :: Grammarr RegEx RegEx
 atomG rex = rule "atom" $ foldl (<|>) empty
   [ nonterminalG
+  , failG
   , inClassG
   , notInClassG
   , inCategoryG
   , tokenG
-  , parenG rex
   , anyG
+  , parenG rex
   ]
 
 charG :: Grammar Char
@@ -314,6 +315,9 @@ exprG rex = rule "expression" $ foldl (<|>) empty
   , kleenePlusG rex
   , atomG rex
   ]
+
+failG :: Grammar RegEx
+failG = rule "fail" $ _Fail >?< "\\q"
 
 inCategoryG :: Grammar RegEx
 inCategoryG = rule "in-category" $
@@ -360,7 +364,7 @@ literalG = rule "literal" $ notInClass reservedClass
 
 nonterminalG :: Grammar RegEx
 nonterminalG = rule "nonterminal" $
-  _NonTerminal >?< "\\r{" >* manyP charG *< "}"
+  _NonTerminal >?< "\\q{" >* manyP charG *< "}"
 
 notInClassG :: Grammar RegEx
 notInClassG = rule "not-in-class" $

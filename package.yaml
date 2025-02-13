@@ -86,3 +86,11 @@ default-extensions:
 - TypeOperators
 - UndecidableInstances
 - UndecidableSuperClasses
+
+tests:
+  spec:
+    main: Spec.hs
+    source-dirs: test
+    dependencies:
+      - distributors
+      - hspec

@@ -92,3 +92,69 @@ library
     , vector
     , witherable
   default-language: Haskell2010
+
+test-suite spec
+  type: exitcode-stdio-1.0
+  main-is: Spec.hs
+  other-modules:
+      Paths_distributors
+  autogen-modules:
+      Paths_distributors
+  hs-source-dirs:
+      test
+  default-extensions:
+      AllowAmbiguousTypes
+      Arrows
+      ConstraintKinds
+      DataKinds
+      DefaultSignatures
+      DeriveFunctor
+      DeriveGeneric
+      DerivingStrategies
+      DerivingVia
+      EmptyCase
+      FlexibleContexts
+      FlexibleInstances
+      FunctionalDependencies
+      GADTs
+      GeneralizedNewtypeDeriving
+      ImportQualifiedPost
+      ImpredicativeTypes
+      InstanceSigs
+      KindSignatures
+      LambdaCase
+      MagicHash
+      MonoLocalBinds
+      OverloadedStrings
+      QuantifiedConstraints
+      RankNTypes
+      RecursiveDo
+      ScopedTypeVariables
+      StandaloneDeriving
+      StandaloneKindSignatures
+      TemplateHaskell
+      TupleSections
+      TypeApplications
+      TypeFamilies
+      TypeOperators
+      UndecidableInstances
+      UndecidableSuperClasses
+  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints
+  build-depends:
+      adjunctions
+    , base >=4.7 && <5
+    , bifunctors
+    , bytestring
+    , containers
+    , contravariant
+    , distributive
+    , distributors
+    , hspec
+    , lens
+    , mtl
+    , profunctors
+    , tagged
+    , text
+    , vector
+    , witherable
+  default-language: Haskell2010
