@@ -265,7 +265,7 @@ printGrammar gram = for_ (genGrammar gram) $ \(name_i, rule_i) -> do
 {- |
 >>> printGrammar regexGrammar
 start = \q{regex}
-alternate = (\q{sequence-empty}|\q{sequence-nonempty})(\|(\q{sequence-empty}|\q{sequence-nonempty}))*
+alternate = \q{sequence}(\|\q{sequence})*
 any = \.
 atom = \q{nonterminal}|\q{fail}|\q{class-in}|\q{class-not-in}|\q{category-in}|\q{category-in}|\q{char}|\q{any}|\q{parenthesized}
 category = Ll|Lu|Lt|Lm|Lo|Mn|Mc|Me|Nd|Nl|No|Pc|Pd|Ps|Pe|Pi|Pf|Po|Sm|Sc|Sk|So|Zs|Zl|Zp|Cc|Cf|Cs|Co|Cn
@@ -284,6 +284,7 @@ kleene-star = \q{atom}\*
 nonterminal = \\q\{\q{char}*\}
 parenthesized = \(\q{regex}\)
 regex = \q{alternate}|\q{fail}
+sequence = \q{sequence-empty}|\q{sequence-nonempty}
 sequence-empty = 
 sequence-nonempty = \q{expression}+
 terminal = \q{char}+
