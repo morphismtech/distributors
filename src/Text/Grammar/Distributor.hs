@@ -284,7 +284,7 @@ kleene-plus = \q{atom}\+
 kleene-star = \q{atom}\*
 nonterminal = \\q\{\q{char}*\}
 parenthesized = \(\q{regex}\)
-regex = \q{alternate}|\q{fail}
+regex = \q{alternate}
 sequence = \q{sequence-empty}|\q{sequence-nonempty}
 sequence-empty = 
 sequence-nonempty = \q{expression}+
@@ -292,7 +292,7 @@ terminal = \q{char}+
 
 -}
 regexGrammar :: Grammar RegEx
-regexGrammar = ruleRec "regex" $ \rex -> altG rex <|> failG
+regexGrammar = ruleRec "regex" $ \rex -> altG rex
 
 altG :: Grammarr RegEx RegEx
 altG rex = rule "alternate" $
