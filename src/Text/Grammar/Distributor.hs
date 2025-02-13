@@ -267,21 +267,21 @@ printGrammar gram = for_ (genGrammar gram) $ \(name_i, rule_i) -> do
 start = \q{regex}
 alternate = \q{sequence}.*
 any = \.
-atom = \q{nonterminal}|\q{fail}|\q{in-class}|\q{not-in-class}|\q{in-category}|\q{not-in-category}|\q{char}|\q{any}|\q{parenthesized}
-char = \q{literal}|\q{escaped}
-escaped = \\[\$\(\)\*\+\.\?\[\\\]\^\{\|\}]
+atom = \q{nonterminal}|\q{fail}|\q{class-in}|\q{class-not-in}|\q{category-in}|\q{category-in}|\q{char}|\q{any}|\q{parenthesized}
+category = Ll|Lu|Lt|Lm|Lo|Mn|Mc|Me|Nd|Nl|No|Pc|Pd|Ps|Pe|Pi|Pf|Po|Sm|Sc|Sk|So|Zs|Zl|Zp|Cc|Cf|Cs|Co|Cn
+category-in = \\P\{\q{category}\}
+category-in = \\p\{\q{category}\}
+char = \q{char-literal}|\q{char-escaped}
+char-escaped = \\[\$\(\)\*\+\.\?\[\\\]\^\{\|\}]
+char-literal = [^\$\(\)\*\+\.\?\[\\\]\^\{\|\}]
+class-in = \[\q{char}*\]
+class-not-in = \[\^\q{char}*\]
 expression = \q{terminal}|\q{kleene-optional}|\q{kleene-star}|\q{kleene-plus}|\q{atom}
 fail = \\q
-general-category = Ll|Lu|Lt|Lm|Lo|Mn|Mc|Me|Nd|Nl|No|Pc|Pd|Ps|Pe|Pi|Pf|Po|Sm|Sc|Sk|So|Zs|Zl|Zp|Cc|Cf|Cs|Co|Cn
-in-category = \\p\{\q{general-category}\}
-in-class = \[\q{char}*\]
 kleene-optional = \q{atom}\?
 kleene-plus = \q{atom}\+
 kleene-star = \q{atom}\*
-literal = [^\$\(\)\*\+\.\?\[\\\]\^\{\|\}]
 nonterminal = \\q\{\q{char}*\}
-not-in-category = \\P\{\q{general-category}\}
-not-in-class = \[\^\q{char}*\]
 parenthesized = \(\q{regex}\)
 regex = \q{alternate}|\q{fail}
 sequence = \q{expression}+
@@ -302,43 +302,17 @@ atomG :: Grammarr RegEx RegEx
 atomG rex = rule "atom" $ foldl (<|>) empty
   [ nonterminalG
   , failG
-  , inClassG
-  , notInClassG
-  , inCategoryG
-  , notInCategoryG
+  , classInG
+  , classNotInG
+  , categoryInG
+  , categoryNotInG
   , tokenG
   , anyG
   , parenG rex
   ]
 
-charG :: Grammar Char
-charG = rule "char" $ literalG <|> escapedG
-
-escapedG :: Grammar Char
-escapedG = rule "escaped" $ "\\" >* inClass reservedClass
-
-exprG :: Grammarr RegEx RegEx
-exprG rex = rule "expression" $ foldl (<|>) empty
-  [ terminalG
-  , kleeneOptG rex
-  , kleeneStarG rex
-  , kleenePlusG rex
-  , atomG rex
-  ]
-
-failG :: Grammar RegEx
-failG = rule "fail" $ _Fail >?< "\\q"
-
-inCategoryG :: Grammar RegEx
-inCategoryG = rule "in-category" $
-  _InCategory >?< "\\p{" >* genCatG *< "}"
-
-notInCategoryG :: Grammar RegEx
-notInCategoryG = rule "not-in-category" $
-  _NotInCategory >?< "\\P{" >* genCatG *< "}"
-
-genCatG :: Grammar GeneralCategory
-genCatG = rule "general-category" $ foldl (<|>) empty
+categoryG :: Grammar GeneralCategory
+categoryG = rule "category" $ foldl (<|>) empty
   [ _LowercaseLetter >?< "Ll"
   , _UppercaseLetter >?< "Lu"
   , _TitlecaseLetter >?< "Lt"
@@ -371,23 +345,49 @@ genCatG = rule "general-category" $ foldl (<|>) empty
   , _NotAssigned >?< "Cn"
   ]
 
-inClassG :: Grammar RegEx
-inClassG = rule "in-class" $
+categoryInG :: Grammar RegEx
+categoryInG = rule "category-in" $
+  _InCategory >?< "\\p{" >* categoryG *< "}"
+
+categoryNotInG :: Grammar RegEx
+categoryNotInG = rule "category-in" $
+  _NotInCategory >?< "\\P{" >* categoryG *< "}"
+
+charG :: Grammar Char
+charG = rule "char" $ charLiteralG <|> charEscapedG
+
+charEscapedG :: Grammar Char
+charEscapedG = rule "char-escaped" $ "\\" >* inClass charsReserved
+
+charLiteralG :: Grammar Char
+charLiteralG = rule "char-literal" $ notInClass charsReserved
+
+charsReserved :: String
+charsReserved = "$()*+.?[\\]^{|}"
+
+classInG :: Grammar RegEx
+classInG = rule "class-in" $
   _InClass >?< "[" >* manyP charG *< "]"
 
-literalG :: Grammar Char
-literalG = rule "literal" $ notInClass reservedClass
+classNotInG :: Grammar RegEx
+classNotInG = rule "class-not-in" $
+  _NotInClass >?< "[^" >* manyP charG *< "]"
+
+exprG :: Grammarr RegEx RegEx
+exprG rex = rule "expression" $ foldl (<|>) empty
+  [ terminalG
+  , kleeneOptG rex
+  , kleeneStarG rex
+  , kleenePlusG rex
+  , atomG rex
+  ]
+
+failG :: Grammar RegEx
+failG = rule "fail" $ _Fail >?< "\\q"
 
 nonterminalG :: Grammar RegEx
 nonterminalG = rule "nonterminal" $
   _NonTerminal >?< "\\q{" >* manyP charG *< "}"
-
-notInClassG :: Grammar RegEx
-notInClassG = rule "not-in-class" $
-  _NotInClass >?< "[^" >* manyP charG *< "]"
-
-reservedClass :: String
-reservedClass = "$()*+.?[\\]^{|}"
 
 terminalG :: Grammar RegEx
 terminalG = rule "terminal" $
