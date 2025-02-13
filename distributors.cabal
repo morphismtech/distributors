@@ -81,13 +81,9 @@ library
     , base >=4.7 && <5
     , bifunctors
     , bytestring
-    , comonad
     , containers
     , contravariant
     , distributive
-    , free
-    , free-categories
-    , generics-eot
     , lens
     , mtl
     , profunctors
