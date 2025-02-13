@@ -52,6 +52,8 @@ import Data.String
 import Data.Void
 import Witherable
 
+-- Monoidal --
+
 type Monoidal p = (Profunctor p, forall x. Applicative (p x))
 
 oneP :: Monoidal p => p () ()
@@ -99,6 +101,8 @@ meander f = dimap (f sell) iextract . trav
 (>:<) :: (Monoidal p, Choice p, Cons s t a b) => p a b -> p s t -> p s t
 x >:< xs = _Cons >? x >*< xs
 infixr 5 >:<
+
+-- Distributor --
 
 class Monoidal p => Distributor p where
 
@@ -180,6 +184,8 @@ dialt
   -> (d -> t)
   -> p a b -> p c d -> p s t
 dialt f g h p q = dimap f (either g h) (p >+< q)
+
+-- Alternator/Filtrator --
 
 class (Choice p, Distributor p, forall x. Alternative (p x))
   => Alternator p where
@@ -452,7 +458,7 @@ _Bazaar = iso toFun fromFun . iso f g where
     Left t -> DoneFun t
     Right (a, baz) -> MoreFun a baz
 
--- ORPHANAGE --
+-- Orphanage --
 
 instance Monoid r => Applicative (Forget r a) where
   pure _ = Forget mempty

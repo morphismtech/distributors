@@ -23,7 +23,6 @@ module Control.Lens.PartialIso
   , coPartialIso
   , crossPartialIso
   , altPartialIso
-  , iterating
     -- * Prism, Coprism and (Partial)Iso Actions
   , (>?)
   , (?<)
@@ -43,6 +42,7 @@ module Control.Lens.PartialIso
   , difoldr
   , difoldl'
   , difoldr'
+  , iterating
   ) where
 
 import Control.Applicative
@@ -174,13 +174,6 @@ coPartialIso
 coPartialIso i =
   withPartialIso i $ \f g -> partialIso g f
 
-{- | Iterate the application of a partial isomorphism,
-useful for constructing fold/unfold isomorphisms. -}
-iterating :: APartialIso a b a b -> Iso a b a b
-iterating i = withPartialIso i $ \f g ->
-  iso (iter f) (iter g) where
-    iter h state = maybe state (iter h) (h state)
-
 {- | Construct a `PartialIso` on pairs from components. -}
 crossPartialIso
   :: APartialIso s t a b
@@ -275,6 +268,13 @@ listEot
 listEot = iso
   (maybe (Left ()) Right . uncons)
   (either (const Empty) (review _Cons))
+
+{- | Iterate the application of a partial isomorphism,
+useful for constructing fold/unfold isomorphisms. -}
+iterating :: APartialIso a b a b -> Iso a b a b
+iterating i = withPartialIso i $ \f g ->
+  iso (iter f) (iter g) where
+    iter h state = maybe state (iter h) (h state)
 
 difoldl1
   :: Cons s t a b
