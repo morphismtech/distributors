@@ -122,7 +122,7 @@ plusK Fail = Fail
 plusK (Terminal "") = Terminal ""
 plusK rex = KleenePlus rex
 
-newtype DiRegEx a b = DiRegEx {regString :: RegEx}
+newtype DiRegEx a b = DiRegEx RegEx
 instance Functor (DiRegEx a) where fmap = rmap
 instance Applicative (DiRegEx a) where
   pure _ = DiRegEx (Terminal [])
@@ -210,7 +210,7 @@ instance Grammatical DiGrammar where
   rule name gram = 
     let
       start = DiRegEx (NonTerminal name)
-      newRule = regString (grammarStart gram)
+      DiRegEx newRule = grammarStart gram
       rules = insert (name, newRule) (grammarRules gram)
     in
       DiGrammar start rules
@@ -219,7 +219,7 @@ instance Grammatical DiGrammar where
       matchRule = DiRegEx (NonTerminal name)
       gram = f (DiGrammar matchRule mempty)
       start = DiRegEx (NonTerminal name)
-      newRule = regString (grammarStart gram)
+      DiRegEx newRule = grammarStart gram
       rules = insert (name, newRule) (grammarRules gram)
     in
       DiGrammar start rules
