@@ -30,6 +30,7 @@ import Data.Profunctor
 import Data.Profunctor.Distributor
 import Data.Set (Set, insert)
 import Data.String
+import GHC.Generics
 import Witherable
 
 class
@@ -82,7 +83,7 @@ data RegEx
   | InCategory GeneralCategory -- ^ @\\p{Lu}@
   | NotInCategory GeneralCategory -- ^ @\\P{Ll}@
   | NonTerminal String -- ^ @\\q{rule-name}@
-  deriving (Eq, Ord, Show)
+  deriving stock (Eq, Ord, Show, Generic)
 makePrisms ''RegEx
 makePrisms ''GeneralCategory
 
