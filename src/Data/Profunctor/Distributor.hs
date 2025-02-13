@@ -20,7 +20,7 @@ module Data.Profunctor.Distributor
     -- * SepBy
   , SepBy (..), noSep, sepBy, atLeast0, atLeast1, chainl1, chainr1
     -- * Tokenized
-  , Tokenized (anyToken), token, tokens, satisfy, restOfTokens, endOfTokens
+  , Tokenized (anyToken), token, satisfy, tokens, restOfTokens, endOfTokens
     -- * Printor/Parsor
   , Printor (..), Parsor (..)
   ) where
@@ -322,12 +322,12 @@ instance Tokenized a b (PartialExchange a b) where
 token :: (Cochoice p, Eq c, Tokenized c c p) => c -> p () ()
 token c = only c ?< anyToken
 
+satisfy :: (Choice p, Cochoice p, Tokenized c c p) => (c -> Bool) -> p c c
+satisfy f = satisfied f >?< anyToken
+
 tokens :: (Cochoice p, Monoidal p, Eq c, Tokenized c c p) => [c] -> p () ()
 tokens [] = oneP
 tokens (c:cs) = token c *> tokens cs
-
-satisfy :: (Choice p, Cochoice p, Tokenized c c p) => (c -> Bool) -> p c c
-satisfy f = satisfied f >?< anyToken
 
 restOfTokens :: (Distributor p, Tokenized c c p) => p [c] [c]
 restOfTokens = manyP anyToken
