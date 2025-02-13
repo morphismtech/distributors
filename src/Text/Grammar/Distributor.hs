@@ -48,6 +48,9 @@ class
     inCategory :: GeneralCategory -> p Char Char
     inCategory cat = satisfy $ \ch -> cat == generalCategory ch
 
+    notInCategory :: GeneralCategory -> p Char Char
+    notInCategory cat = satisfy $ \ch -> cat /= generalCategory ch
+
     rule :: String -> p a b -> p a b
     rule _ = id
 
@@ -77,9 +80,11 @@ data RegEx
   | InClass String -- ^ @[abc]@
   | NotInClass String -- ^ @[^abc]@
   | InCategory GeneralCategory -- ^ @\\p{Lu}@
+  | NotInCategory GeneralCategory -- ^ @\\P{Ll}@
   | NonTerminal String -- ^ @\\q{rule-name}@
   deriving (Eq, Ord, Show)
 makePrisms ''RegEx
+makePrisms ''GeneralCategory
 
 (-*-), (|||) :: RegEx -> RegEx -> RegEx
 
@@ -151,7 +156,8 @@ instance Tokenized Char Char DiRegEx where
 instance Grammatical DiRegEx where
   inClass str = DiRegEx (InClass str)
   notInClass str = DiRegEx (NotInClass str)
-  inCategory str = DiRegEx (InCategory str)
+  inCategory cat = DiRegEx (InCategory cat)
+  notInCategory cat = DiRegEx (NotInCategory cat)
 
 data DiGrammar a b = DiGrammar
   { grammarStart :: DiRegEx a b
@@ -258,25 +264,28 @@ printGrammar gram = for_ (genGrammar gram) $ \(name_i, rule_i) -> do
 
 {- |
 >>> printGrammar regexGrammar
-start = \r{regex}
-alternate = \r{sequence}(\|\r{sequence})*
+start = \q{regex}
+alternate = \q{sequence}.*
 any = \.
-atom = \r{nonterminal}|\r{in-class}|\r{not-in-class}|\r{in-category}|\r{char}|\r{parenthesized}|\r{any}
-char = \r{literal}|\r{escaped}
+atom = \q{nonterminal}|\q{fail}|\q{in-class}|\q{not-in-class}|\q{in-category}|\q{not-in-category}|\q{char}|\q{any}|\q{parenthesized}
+char = \q{literal}|\q{escaped}
 escaped = \\[\$\(\)\*\+\.\?\[\\\]\^\{\|\}]
-expression = \r{terminal}|\r{kleene-optional}|\r{kleene-star}|\r{kleene-plus}|\r{atom}
-in-category = \\p\{(Lu|Ll|Lt|Lm|Lo|Mn|Mc|Me|Nd|Nl|No|Pc|Pd|Ps|Pe|Pi|Pf|Po|Sm|Sc|Sk|So|Zs|Zl|Zp|Cc|Cf|Cs|Co|Cn)\}
-in-class = \[\r{char}*\]
-kleene-optional = \r{atom}\?
-kleene-plus = \r{atom}\+
-kleene-star = \r{atom}\*
+expression = \q{terminal}|\q{kleene-optional}|\q{kleene-star}|\q{kleene-plus}|\q{atom}
+fail = \\q
+general-category = Ll|Lu|Lt|Lm|Lo|Mn|Mc|Me|Nd|Nl|No|Pc|Pd|Ps|Pe|Pi|Pf|Po|Sm|Sc|Sk|So|Zs|Zl|Zp|Cc|Cf|Cs|Co|Cn
+in-category = \\p\{\q{general-category}\}
+in-class = \[\q{char}*\]
+kleene-optional = \q{atom}\?
+kleene-plus = \q{atom}\+
+kleene-star = \q{atom}\*
 literal = [^\$\(\)\*\+\.\?\[\\\]\^\{\|\}]
-nonterminal = \\r\{\r{char}*\}
-not-in-class = \[\^\r{char}*\]
-parenthesized = \(\r{regex}\)
-regex = \r{alternate}
-sequence = \r{expression}+
-terminal = \r{char}+
+nonterminal = \\q\{\q{char}*\}
+not-in-category = \\P\{\q{general-category}\}
+not-in-class = \[\^\q{char}*\]
+parenthesized = \(\q{regex}\)
+regex = \q{alternate}|\q{fail}
+sequence = \q{expression}+
+terminal = \q{char}+
 
 -}
 regexGrammar :: Grammar RegEx
@@ -296,6 +305,7 @@ atomG rex = rule "atom" $ foldl (<|>) empty
   , inClassG
   , notInClassG
   , inCategoryG
+  , notInCategoryG
   , tokenG
   , anyG
   , parenG rex
@@ -321,39 +331,45 @@ failG = rule "fail" $ _Fail >?< "\\q"
 
 inCategoryG :: Grammar RegEx
 inCategoryG = rule "in-category" $
-  _InCategory >?< "\\p{" >* genCat *< "}" where
-    genCat = foldl (<|>) empty
-      [ "Lu" >* pure UppercaseLetter
-      , "Ll" >* pure LowercaseLetter
-      , "Lt" >* pure TitlecaseLetter
-      , "Lm" >* pure ModifierLetter
-      , "Lo" >* pure OtherLetter
-      , "Mn" >* pure NonSpacingMark
-      , "Mc" >* pure SpacingCombiningMark
-      , "Me" >* pure EnclosingMark
-      , "Nd" >* pure DecimalNumber
-      , "Nl" >* pure LetterNumber
-      , "No" >* pure OtherNumber
-      , "Pc" >* pure ConnectorPunctuation
-      , "Pd" >* pure DashPunctuation
-      , "Ps" >* pure OpenPunctuation
-      , "Pe" >* pure ClosePunctuation
-      , "Pi" >* pure InitialQuote
-      , "Pf" >* pure FinalQuote
-      , "Po" >* pure OtherPunctuation
-      , "Sm" >* pure MathSymbol
-      , "Sc" >* pure CurrencySymbol
-      , "Sk" >* pure ModifierSymbol
-      , "So" >* pure OtherSymbol
-      , "Zs" >* pure Space
-      , "Zl" >* pure LineSeparator
-      , "Zp" >* pure ParagraphSeparator
-      , "Cc" >* pure Control
-      , "Cf" >* pure Format
-      , "Cs" >* pure Surrogate
-      , "Co" >* pure PrivateUse
-      , "Cn" >* pure NotAssigned
-      ]
+  _InCategory >?< "\\p{" >* genCatG *< "}"
+
+notInCategoryG :: Grammar RegEx
+notInCategoryG = rule "not-in-category" $
+  _NotInCategory >?< "\\P{" >* genCatG *< "}"
+
+genCatG :: Grammar GeneralCategory
+genCatG = rule "general-category" $ foldl (<|>) empty
+  [ _LowercaseLetter >?< "Ll"
+  , _UppercaseLetter >?< "Lu"
+  , _TitlecaseLetter >?< "Lt"
+  , _ModifierLetter >?< "Lm"
+  , _OtherLetter >?< "Lo"
+  , _NonSpacingMark >?< "Mn"
+  , _SpacingCombiningMark >?< "Mc"
+  , _EnclosingMark >?< "Me"
+  , _DecimalNumber >?< "Nd"
+  , _LetterNumber >?< "Nl"
+  , _OtherNumber >?< "No"
+  , _ConnectorPunctuation >?< "Pc"
+  , _DashPunctuation >?< "Pd"
+  , _OpenPunctuation >?< "Ps"
+  , _ClosePunctuation >?< "Pe"
+  , _InitialQuote >?< "Pi"
+  , _FinalQuote >?< "Pf"
+  , _OtherPunctuation >?< "Po"
+  , _MathSymbol >?< "Sm"
+  , _CurrencySymbol >?< "Sc"
+  , _ModifierSymbol >?< "Sk"
+  , _OtherSymbol >?< "So"
+  , _Space >?< "Zs"
+  , _LineSeparator >?< "Zl"
+  , _ParagraphSeparator >?< "Zp"
+  , _Control >?< "Cc"
+  , _Format >?< "Cf"
+  , _Surrogate >?< "Cs"
+  , _PrivateUse >?< "Co"
+  , _NotAssigned >?< "Cn"
+  ]
 
 inClassG :: Grammar RegEx
 inClassG = rule "in-class" $
