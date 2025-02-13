@@ -50,11 +50,11 @@ main = hspec $ do
   describe "RegEx Grammar Test" $ do
     it "should generate a correct grammar" $
       genGrammar regexGrammar `shouldBe` expectedRegexGrammar
-  describe "RegEx Print Test" $ do
+  describe "RegEx Printer Test" $ do
     for_ regexExamples $ \(rex, str) -> do
       it ("should print " <> show rex <> " correctly") $
         ($ "") <$> genShowS regexGrammar rex `shouldBe` Just str
-  describe "RegEx Parse Test" $ do
+  describe "RegEx Parser Test" $ do
     for_ regexExamples $ \(rex, str) -> do
       it ("should parse " <> str <> " correctly") $
         genReadS regexGrammar str `shouldSatisfy` ((rex,"") `elem`)
