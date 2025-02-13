@@ -267,10 +267,10 @@ printGrammar gram = for_ (genGrammar gram) $ \(name_i, rule_i) -> do
 start = \q{regex}
 alternate = \q{sequence}(\|\q{sequence})*
 any = \.
-atom = \q{nonterminal}|\q{fail}|\q{class-in}|\q{class-not-in}|\q{category-in}|\q{category-in}|\q{char}|\q{any}|\q{parenthesized}
+atom = \q{nonterminal}|\q{fail}|\q{class-in}|\q{class-not-in}|\q{category-in}|\q{category-not-in}|\q{char}|\q{any}|\q{parenthesized}
 category = Ll|Lu|Lt|Lm|Lo|Mn|Mc|Me|Nd|Nl|No|Pc|Pd|Ps|Pe|Pi|Pf|Po|Sm|Sc|Sk|So|Zs|Zl|Zp|Cc|Cf|Cs|Co|Cn
-category-in = \\P\{\q{category}\}
 category-in = \\p\{\q{category}\}
+category-not-in = \\P\{\q{category}\}
 char = \q{char-literal}|\q{char-escaped}
 char-escaped = \\[\$\(\)\*\+\.\?\[\\\]\^\{\|\}]
 char-literal = [^\$\(\)\*\+\.\?\[\\\]\^\{\|\}]
@@ -352,7 +352,7 @@ categoryInG = rule "category-in" $
   _InCategory >?< "\\p{" >* categoryG *< "}"
 
 categoryNotInG :: Grammar RegEx
-categoryNotInG = rule "category-in" $
+categoryNotInG = rule "category-not-in" $
   _NotInCategory >?< "\\P{" >* categoryG *< "}"
 
 charG :: Grammar Char
