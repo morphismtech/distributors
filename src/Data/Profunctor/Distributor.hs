@@ -337,84 +337,87 @@ endOfTokens = _Empty ?< restOfTokens
 
 -- Printor/Parsor --
 
-newtype Printor c f a b = Printor {runPrintor :: a -> f ([c] -> [c])}
+newtype Printor s f a b = Printor {runPrintor :: a -> f (s -> s)}
   deriving Functor
-instance Contravariant (Printor c f a) where
+instance Contravariant (Printor s f a) where
   contramap _ (Printor p) = Printor p
-instance Applicative f => Applicative (Printor c f a) where
+instance Applicative f => Applicative (Printor s f a) where
   pure _ = Printor (\_ -> pure id)
   Printor p <*> Printor q = Printor (\a -> (.) <$> p a <*> q a)
-instance Alternative f => Alternative (Printor c f a) where
+instance Alternative f => Alternative (Printor s f a) where
   empty = Printor (\_ -> empty)
   Printor p <|> Printor q = Printor (\a -> p a <|> q a)
-instance Filterable (Printor c f a) where
+instance Filterable (Printor s f a) where
   mapMaybe _ (Printor p) = Printor p
-instance Profunctor (Printor c f) where
+instance Profunctor (Printor s f) where
   dimap f _ (Printor p) = Printor (p . f)
-instance Alternative f => Choice (Printor c f) where
+instance Alternative f => Choice (Printor s f) where
   left' = alternate . Left
   right' = alternate . Right
-instance Cochoice (Printor c f) where
+instance Cochoice (Printor s f) where
   unleft = fst . filtrate
   unright = snd . filtrate
-instance Applicative f => Distributor (Printor c f) where
+instance Applicative f => Distributor (Printor s f) where
   zeroP = Printor absurd
   Printor p >+< Printor q = Printor (either p q)
-instance Alternative f => Alternator (Printor c f) where
+instance Alternative f => Alternator (Printor s f) where
   alternate = \case
     Left (Printor p) -> Printor (either p (\_ -> empty))
     Right (Printor p) -> Printor (either (\_ -> empty) p)
-instance Filtrator (Printor c f) where
+instance Filtrator (Printor s f) where
   filtrate (Printor p) = (Printor (p . Left), Printor (p . Right))
-instance Applicative f => Tokenized c c (Printor c f) where
-  anyToken = Printor (\c -> pure (c:))
-instance Applicative f => IsString (Printor Char f () ()) where
-  fromString = tokens
+instance (Applicative f, Cons s s c c)
+  => Tokenized c c (Printor s f) where
+    anyToken = Printor (\c -> pure (cons c))
+instance (Applicative f, Cons s s Char Char)
+  => IsString (Printor s f () ()) where
+    fromString = tokens
 
-newtype Parsor c f a b = Parsor {runParsor :: [c] -> f (b,[c])}
+newtype Parsor s f a b = Parsor {runParsor :: s -> f (b,s)}
   deriving Functor
-instance Monad f => Applicative (Parsor c f a) where
+instance Monad f => Applicative (Parsor s f a) where
   pure b = Parsor (\str -> return (b,str))
   Parsor x <*> Parsor y = Parsor $ \str -> do
     (f, str') <- x str
     (a, str'') <- y str'
     return (f a, str'')
-instance (Alternative f, Monad f) => Alternative (Parsor c f a) where
+instance (Alternative f, Monad f) => Alternative (Parsor s f a) where
   empty = Parsor (\_ -> empty)
   Parsor p <|> Parsor q = Parsor (\str -> p str <|> q str)
-instance Filterable f => Filterable (Parsor c f a) where
+instance Filterable f => Filterable (Parsor s f a) where
   mapMaybe f (Parsor p) = Parsor (mapMaybe (\(a,str) -> (,str) <$> f a) . p)
-instance Functor f => Bifunctor (Parsor c f) where
+instance Functor f => Bifunctor (Parsor s f) where
   bimap _ g (Parsor p) = Parsor (fmap (\(c,str) -> (g c, str)) . p)
-instance Functor f => Profunctor (Parsor c f) where
+instance Functor f => Profunctor (Parsor s f) where
   dimap _ g (Parsor p) = Parsor (fmap (\(c,str) -> (g c, str)) . p)
-instance (Monad f, Alternative f) => Choice (Parsor c f) where
+instance (Monad f, Alternative f) => Choice (Parsor s f) where
   left' = alternate . Left
   right' = alternate . Right
-instance Filterable f => Cochoice (Parsor c f) where
+instance Filterable f => Cochoice (Parsor s f) where
   unleft = fst . filtrate
   unright = snd . filtrate
-instance (Monad f, Alternative f) => Distributor (Parsor c f) where
+instance (Monad f, Alternative f) => Distributor (Parsor s f) where
   zeroP = Parsor (\_ -> empty)
   Parsor p >+< Parsor q = Parsor $ \str ->
     (\(b,str') -> (Left b, str')) <$> p str
     <|>
     (\(d,str') -> (Right d, str')) <$> q str
-instance (Monad f, Alternative f) => Alternator (Parsor c f) where
+instance (Monad f, Alternative f) => Alternator (Parsor s f) where
   alternate = \case
     Left (Parsor p) -> Parsor (fmap (\(b, str) -> (Left b, str)) . p)
     Right (Parsor p) -> Parsor (fmap (\(b, str) -> (Right b, str)) . p)
-instance Filterable f => Filtrator (Parsor c f) where
+instance Filterable f => Filtrator (Parsor s f) where
   filtrate (Parsor p) =
     ( Parsor (mapMaybe leftMay . p)
     , Parsor (mapMaybe rightMay . p)
     ) where
       leftMay (e, str) = either (\b -> Just (b, str)) (\_ -> Nothing) e
       rightMay (e, str) = either (\_ -> Nothing) (\b -> Just (b, str)) e
-instance Alternative f => Tokenized c c (Parsor c f) where
-  anyToken = Parsor (\str -> maybe empty pure (uncons str))
-instance (Alternative f, Filterable f, Monad f)
-  => IsString (Parsor Char f () ()) where
+instance (Alternative f, Cons s s c c)
+  => Tokenized c c (Parsor s f) where
+    anyToken = Parsor (\str -> maybe empty pure (uncons str))
+instance (Alternative f, Filterable f, Monad f, Cons s s Char Char)
+  => IsString (Parsor s f () ()) where
     fromString = tokens
 
 -- FunList --

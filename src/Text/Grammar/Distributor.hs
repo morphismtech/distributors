@@ -54,8 +54,8 @@ class
     ruleRec :: String -> (p a b -> p a b) -> p a b
     ruleRec name = rule name . fix
 
-instance Alternative f => Grammatical (Printor Char f)
-instance (Monad f, Alternative f, Filterable f) => Grammatical (Parsor Char f)
+instance Alternative f => Grammatical (Printor String f)
+instance (Monad f, Alternative f, Filterable f) => Grammatical (Parsor String f)
 
 type Grammar a = forall p. Grammatical p => p a a
 
