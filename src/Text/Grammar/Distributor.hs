@@ -308,7 +308,7 @@ atomG rex = rule "atom" $ foldl (<|>) empty
   , classNotInG
   , categoryInG
   , categoryNotInG
-  , tokenG
+  , _Terminal >?< charG >:< pure ""
   , anyG
   , parenG rex
   ]
@@ -394,9 +394,6 @@ nonterminalG = rule "nonterminal" $
 terminalG :: Grammar RegEx
 terminalG = rule "terminal" $
   _Terminal >?< someP charG
-
-tokenG :: Grammar RegEx
-tokenG = _Terminal >?< charG >:< pure ""
 
 parenG :: Grammarr RegEx RegEx
 parenG rex = rule "parenthesized" $
