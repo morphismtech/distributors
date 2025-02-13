@@ -27,7 +27,9 @@ expectedRegexGrammar =
   ,("nonterminal",Sequence (Sequence (Terminal "\\q{") (KleeneStar (NonTerminal "char"))) (Terminal "}"))
   ,("parenthesized",Sequence (Sequence (Terminal "(") (NonTerminal "regex")) (Terminal ")"))
   ,("regex",Alternate (NonTerminal "alternate") (NonTerminal "fail"))
-  ,("sequence",KleenePlus (NonTerminal "expression"))
+  ,("sequence",Alternate (NonTerminal "sequence-empty") (NonTerminal "sequence-nonempty"))
+  ,("sequence-empty",Terminal "")
+  ,("sequence-nonempty",KleenePlus (NonTerminal "expression"))
   ,("terminal",KleenePlus (NonTerminal "char"))
   ]
 
@@ -46,6 +48,7 @@ regexExamples =
   , (InCategory UppercaseLetter, "\\p{Lu}")
   , (NotInCategory LowercaseLetter, "\\P{Ll}")
   , (NonTerminal "rule-name", "\\q{rule-name}")
+  , (Terminal "", "")
   ]
 
 main :: IO ()

@@ -265,7 +265,7 @@ printGrammar gram = for_ (genGrammar gram) $ \(name_i, rule_i) -> do
 {- |
 >>> printGrammar regexGrammar
 start = \q{regex}
-alternate = \q{sequence}.*
+alternate = (\q{sequence-empty}|\q{sequence-nonempty})(\|(\q{sequence-empty}|\q{sequence-nonempty}))*
 any = \.
 atom = \q{nonterminal}|\q{fail}|\q{class-in}|\q{class-not-in}|\q{category-in}|\q{category-in}|\q{char}|\q{any}|\q{parenthesized}
 category = Ll|Lu|Lt|Lm|Lo|Mn|Mc|Me|Nd|Nl|No|Pc|Pd|Ps|Pe|Pi|Pf|Po|Sm|Sc|Sk|So|Zs|Zl|Zp|Cc|Cf|Cs|Co|Cn
@@ -284,7 +284,8 @@ kleene-star = \q{atom}\*
 nonterminal = \\q\{\q{char}*\}
 parenthesized = \(\q{regex}\)
 regex = \q{alternate}|\q{fail}
-sequence = \q{expression}+
+sequence-empty = 
+sequence-nonempty = \q{expression}+
 terminal = \q{char}+
 
 -}
@@ -296,7 +297,7 @@ altG rex = rule "alternate" $
   chainl1 _Alternate (sepBy "|") (seqG rex)
 
 anyG :: Grammar RegEx
-anyG = rule "any" $ "." >* pure AnyChar
+anyG = rule "any" $ _AnyChar >?< "."
 
 atomG :: Grammarr RegEx RegEx
 atomG rex = rule "atom" $ foldl (<|>) empty
@@ -413,5 +414,11 @@ kleenePlusG rex = rule "kleene-plus" $
   _KleenePlus >?< atomG rex *< "+"
 
 seqG :: Grammarr RegEx RegEx
-seqG rex = rule "sequence" $
+seqG rex = rule "sequence" $ seqEmptyG <|> seqNonEmptyG rex
+
+seqNonEmptyG :: Grammarr RegEx RegEx
+seqNonEmptyG rex = rule "sequence-nonempty" $
   chainl1 _Sequence noSep (exprG rex)
+
+seqEmptyG :: Grammar RegEx
+seqEmptyG = rule "sequence-empty" $ _Terminal . _Empty >?< ""
