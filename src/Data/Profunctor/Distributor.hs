@@ -18,7 +18,7 @@ module Data.Profunctor.Distributor
     -- * Alternator/Filtrator
   , Alternator (alternate, someP), Filtrator (filtrate)
     -- * SepBy
-  , SepBy (..), noSep, sepBy, atLeast0, atLeast1, chainl1, chainr1
+  , SepBy (..), noSep, sepBy, atLeast0, atLeast1, chainl1, chainr1, chainl, chainr
     -- * Tokenized
   , Tokenized (anyToken), satisfy, token, tokens, endOfTokens
     -- * Printor/Parsor
@@ -309,17 +309,33 @@ atLeast1 sep p = _Cons >?
 
 chainl1
   :: (Alternator p, Filtrator p)
-  => APartialIso a b (a,a) (b,b) -> SepBy p -> p a b -> p a b
+  => APartialIso a b (a,a) (b,b)
+  -> SepBy p -> p a b -> p a b
 chainl1 pat sep p =
   coPartialIso (difoldl (coPartialIso pat)) >?<
     beginBy sep >* p >*< manyP (separateBy sep >* p) *< endBy sep
 
 chainr1
   :: (Alternator p, Filtrator p)
-  => APartialIso a b (a,a) (b,b) -> SepBy p -> p a b -> p a b
-chainr1 pat sep p =
-  coPartialIso (difoldr (coPartialIso pat)) >?<
+  => APartialIso a b (a,a) (b,b)
+  -> SepBy p -> p a b -> p a b
+chainr1 c2 sep p =
+  coPartialIso (difoldr (coPartialIso c2)) >?<
     beginBy sep >* manyP (p *< separateBy sep) >*< p *< endBy sep
+
+chainl
+  :: (Alternator p, Filtrator p)
+  => APartialIso a b (a,a) (b,b)
+  -> APartialIso a b () ()
+  -> SepBy p -> p a b -> p a b
+chainl c2 c0 sep p = c0 >?< pure () <|> chainl1 c2 sep p
+
+chainr
+  :: (Alternator p, Filtrator p)
+  => APartialIso a b (a,a) (b,b)
+  -> APartialIso a b () ()
+  -> SepBy p -> p a b -> p a b
+chainr c2 c0 sep p = c0 >?< pure () <|> chainr1 c2 sep p
 
 -- Tokenized --
 

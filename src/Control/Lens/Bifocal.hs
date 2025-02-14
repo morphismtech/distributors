@@ -27,6 +27,8 @@ module Control.Lens.Bifocal
   , righted
   , unlefted
   , unrighted
+  , chainedl1
+  , chainedr1
   , chainedl
   , chainedr
   , Binocular (..), runBinocular
@@ -94,11 +96,17 @@ unlefted = unwrapPafb . fst . filtrate . WrapPafb
 unrighted :: Filtroid a b (Either c a) (Either d b)
 unrighted = unwrapPafb . snd . filtrate . WrapPafb
 
-chainedl :: APartialIso a b (a,a) (b,b) -> Bifocal a b a b
-chainedl pat = unwrapPafb . chainl1 pat noSep . WrapPafb
+chainedl1 :: APartialIso a b (a,a) (b,b) -> Bifocal a b a b
+chainedl1 pat = unwrapPafb . chainl1 pat noSep . WrapPafb
 
-chainedr :: APartialIso a b (a,a) (b,b) -> Bifocal a b a b
-chainedr pat = unwrapPafb . chainr1 pat noSep . WrapPafb
+chainedr1 :: APartialIso a b (a,a) (b,b) -> Bifocal a b a b
+chainedr1 pat = unwrapPafb . chainr1 pat noSep . WrapPafb
+
+chainedl :: APartialIso a b (a,a) (b,b) -> APartialIso a b () () -> Bifocal a b a b
+chainedl c2 c0 = unwrapPafb . chainl c2 c0 noSep . WrapPafb
+
+chainedr :: APartialIso a b (a,a) (b,b) -> APartialIso a b () () -> Bifocal a b a b
+chainedr c2 c0 = unwrapPafb . chainr c2 c0 noSep . WrapPafb
 
 withBifocal
   :: (Filterable f, Alternative f)

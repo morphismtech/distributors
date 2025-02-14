@@ -285,9 +285,7 @@ kleene-star = \q{atom}\*
 nonterminal = \\q\{\q{char}*\}
 parenthesized = \(\q{regex}\)
 regex = \q{alternate}
-sequence = \q{sequence-empty}|\q{sequence-nonempty}
-sequence-empty = 
-sequence-nonempty = \q{expression}+
+sequence = \q{expression}*
 terminal = \q{char}+
 
 -}
@@ -413,11 +411,5 @@ kleenePlusG rex = rule "kleene-plus" $
   _KleenePlus >?< atomG rex *< "+"
 
 seqG :: Grammarr RegEx RegEx
-seqG rex = rule "sequence" $ seqEmptyG <|> seqNonEmptyG rex
-
-seqNonEmptyG :: Grammarr RegEx RegEx
-seqNonEmptyG rex = rule "sequence-nonempty" $
-  chainl1 _Sequence noSep (exprG rex)
-
-seqEmptyG :: Grammar RegEx
-seqEmptyG = rule "sequence-empty" $ _Terminal . _Empty >?< ""
+seqG rex = rule "sequence" $
+  chainl _Sequence (_Terminal . _Empty) noSep (exprG rex)
