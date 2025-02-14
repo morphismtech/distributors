@@ -6,6 +6,9 @@ License     : BSD-style (see the file LICENSE)
 Maintainer  : Eitan Chatav <eitan.chatav@gmail.com>
 Stability   : provisional
 Portability : non-portable
+
+See Chris Penner,
+[Composable Filters Using Witherable Optics](https://chrispenner.ca/posts/witherable-optics)
 -}
 
 module Control.Lens.Wither

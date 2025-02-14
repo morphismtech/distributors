@@ -6,6 +6,9 @@ License     : BSD-style (see the file LICENSE)
 Maintainer  : Eitan Chatav <eitan.chatav@gmail.com>
 Stability   : provisional
 Portability : non-portable
+
+See Rendel & Ostermann
+[Invertible syntax descriptions](https://www.informatik.uni-marburg.de/~rendel/unparse/)
 -}
 
 module Control.Lens.PartialIso
