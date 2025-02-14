@@ -7,7 +7,7 @@ Maintainer  : Eitan Chatav <eitan.chatav@gmail.com>
 Stability   : provisional
 Portability : non-portable
 
-See Rendel & Ostermann
+See Rendel & Ostermann,
 [Invertible syntax descriptions](https://www.informatik.uni-marburg.de/~rendel/unparse/)
 -}
 
