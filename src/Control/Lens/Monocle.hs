@@ -7,7 +7,7 @@ Maintainer  : Eitan Chatav <eitan.chatav@gmail.com>
 Stability   : provisional
 Portability : non-portable
 
-See Oliveira, Jaskelioff, de Melo
+See Oliveira, Jaskelioff & de Melo,
 [On Structuring Functional Programs with Monoidal Profunctors](https://arxiv.org/abs/2207.00852)
 -}
 
