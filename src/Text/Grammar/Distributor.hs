@@ -390,10 +390,6 @@ nonterminalG :: Grammar RegEx
 nonterminalG = rule "nonterminal" $
   _NonTerminal >?< "\\q{" >* manyP charG *< "}"
 
-terminalG :: Grammar RegEx
-terminalG = rule "terminal" $
-  _Terminal >?< someP charG
-
 parenG :: Grammarr RegEx RegEx
 parenG rex = rule "parenthesized" $
   "(" >* rex *< ")"
@@ -413,3 +409,7 @@ kleenePlusG rex = rule "kleene-plus" $
 seqG :: Grammarr RegEx RegEx
 seqG rex = rule "sequence" $
   chainl _Sequence (_Terminal . _Empty) noSep (exprG rex)
+
+terminalG :: Grammar RegEx
+terminalG = rule "terminal" $
+  _Terminal >?< someP charG
