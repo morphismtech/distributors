@@ -216,9 +216,8 @@ instance Grammatical DiGrammar where
       DiGrammar start rules
   ruleRec name f =
     let
-      matchRule = DiRegEx (NonTerminal name)
-      gram = f (DiGrammar matchRule mempty)
       start = DiRegEx (NonTerminal name)
+      gram = f (DiGrammar start mempty)
       DiRegEx newRule = grammarStart gram
       rules = insert (name, newRule) (grammarRules gram)
     in
