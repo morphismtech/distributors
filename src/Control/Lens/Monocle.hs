@@ -22,10 +22,12 @@ module Control.Lens.Monocle
   , forevered
   , cloneMonocle
   , withMonocle
+  , imprism
   , Monocular (..), runMonocular
   ) where
 
 import Control.Lens hiding (Traversing)
+import Control.Lens.Internal.Prism
 import Control.Lens.Internal.Profunctor
 import Data.Distributive
 import Data.Profunctor.Distributor
@@ -58,6 +60,20 @@ forevered = unwrapPafb . foreverP . WrapPafb
 
 withMonocle :: Applicative f => AMonocle s t a b -> ((s -> a) -> f b) -> f t
 withMonocle mon = unMonocular (runIdentity <$> mon (Identity <$> anyToken))
+
+imprism :: AMonocle s t a b -> APrism s t a b
+imprism mon x =
+  Identity <$> unImpMarket (mapMonocle mon (ImpMarket (runIdentity <$> x)))
+
+newtype ImpMarket s t a b = ImpMarket {unImpMarket :: Market s t a b}
+  deriving newtype (Profunctor, Functor, Choice)
+instance Applicative (ImpMarket s t a) where
+  pure b = ImpMarket (Market (const b) (const (Left b)))
+  ImpMarket (Market fx gx) <*> ImpMarket (Market fy gy) = ImpMarket $
+    Market (fx <*> fy) (\a -> swap (swap (gx a) <*> swap (gy a)))
+      where
+        swap (Left x) = Right x
+        swap (Right x) = Left x
 
 newtype Monocular a b s t = Monocular
   {unMonocular :: forall f. Applicative f => ((s -> a) -> f b) -> f t}
