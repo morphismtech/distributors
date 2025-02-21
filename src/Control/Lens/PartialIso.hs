@@ -11,6 +11,8 @@ See Rendel & Ostermann,
 [Invertible syntax descriptions](https://www.informatik.uni-marburg.de/~rendel/unparse/)
 -}
 
+{-# OPTIONS_GHC -Wno-orphans #-}
+
 module Control.Lens.PartialIso
   ( dimapMaybe
     -- * Partial Isomorphisms
@@ -31,6 +33,7 @@ module Control.Lens.PartialIso
   , (?<)
   , (>?<)
   , mapIso
+  , coPrism
     -- * Common (Partial)Isos
   , satisfied
   , nulled
@@ -50,8 +53,12 @@ module Control.Lens.PartialIso
 
 import Control.Applicative
 import Control.Lens
+import Control.Lens.Internal.Profunctor
 import Control.Monad
+import Data.Functor.Compose
 import Data.Profunctor
+import Data.Profunctor.Monad
+import Data.Profunctor.Yoneda
 import Witherable
 
 dimapMaybe
@@ -234,6 +241,9 @@ infixl 4 >?<
 mapIso :: Profunctor p => AnIso s t a b -> p a b -> p s t
 mapIso i = withIso i dimap
 
+coPrism :: (Profunctor p, Filterable f) => APrism b a t s -> p a (f b) -> p s (f t)
+coPrism p = unwrapPafb . (?<) p . WrapPafb
+
 {- | `satisfied` is the prototypical proper partial isomorphism,
 identifying a subset which satisfies a predicate. -}
 satisfied :: (a -> Bool) -> PartialIso' a a
@@ -370,3 +380,30 @@ difoldr' i =
     difoldr1 (clonePrism i)
     . asideFst _Empty
     . unit'
+
+-- Orphanage --
+
+instance (Profunctor p, Functor f)
+  => Functor (WrappedPafb f p a) where fmap = rmap
+deriving via Compose (p a) f instance
+  (Profunctor p, Functor (p a), Filterable f)
+    => Filterable (WrappedPafb f p a)
+instance (Profunctor p, Filterable f)
+  => Cochoice (WrappedPafb f p) where
+    unleft (WrapPafb p) = WrapPafb $
+      dimap Left (mapMaybe (either Just (const Nothing))) p
+    unright (WrapPafb p) = WrapPafb $
+      dimap Right (mapMaybe (either (const Nothing) Just)) p
+
+instance (Profunctor p, Filterable (p a))
+  => Filterable (Yoneda p a) where
+    catMaybes = proreturn . catMaybes . proextract
+
+instance (Profunctor p, Filterable (p a))
+  => Filterable (Coyoneda p a) where
+    catMaybes = proreturn . catMaybes . proextract
+
+instance Filterable (Forget r a) where
+  catMaybes (Forget f) = Forget f
+instance Filterable f => Filterable (Star f a) where
+  catMaybes (Star f) = Star (catMaybes . f)

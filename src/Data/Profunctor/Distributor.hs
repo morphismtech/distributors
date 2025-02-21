@@ -498,23 +498,12 @@ instance Decidable f => Applicative (Clown f a) where
   pure _ = Clown conquer
   Clown x <*> Clown y = Clown (divide (id &&& id) x y)
 deriving newtype instance Applicative f => Applicative (Joker f a)
-instance (Profunctor p, Functor f)
-  => Functor (WrappedPafb f p a) where fmap = rmap
 deriving via Compose (p a) f instance
   (Profunctor p, Applicative (p a), Applicative f)
     => Applicative (WrappedPafb f p a)
 deriving via Compose (p a) f instance
   (Profunctor p, Alternative (p a), Applicative f)
     => Alternative (WrappedPafb f p a)
-deriving via Compose (p a) f instance
-  (Profunctor p, Functor (p a), Filterable f)
-    => Filterable (WrappedPafb f p a)
-instance (Profunctor p, Filterable f)
-  => Cochoice (WrappedPafb f p) where
-    unleft (WrapPafb p) = WrapPafb $
-      dimap Left (mapMaybe (either Just (const Nothing))) p
-    unright (WrapPafb p) = WrapPafb $
-      dimap Right (mapMaybe (either (const Nothing) Just)) p
 instance (Closed p, Distributive f)
   => Closed (WrappedPafb f p) where
     closed (WrapPafb p) = WrapPafb (rmap distribute (closed p))
@@ -543,17 +532,7 @@ instance (Profunctor p, Applicative (p a))
   => Applicative (Yoneda p a) where
     pure = proreturn . pure
     ab <*> cd = proreturn (proextract ab <*> proextract cd)
-instance (Profunctor p, Filterable (p a))
-  => Filterable (Yoneda p a) where
-    catMaybes = proreturn . catMaybes . proextract
 instance (Profunctor p, Applicative (p a))
   => Applicative (Coyoneda p a) where
     pure = proreturn . pure
     ab <*> cd = proreturn (proextract ab <*> proextract cd)
-instance (Profunctor p, Filterable (p a))
-  => Filterable (Coyoneda p a) where
-    catMaybes = proreturn . catMaybes . proextract
-instance Filterable (Forget r a) where
-  catMaybes (Forget f) = Forget f
-instance Filterable f => Filterable (Star f a) where
-  catMaybes (Star f) = Star (catMaybes . f)
