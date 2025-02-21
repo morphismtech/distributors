@@ -2,7 +2,6 @@ module Main (main) where
 
 import Data.Char
 import Data.Foldable
-import Data.Profunctor.Distributor
 import Text.Grammar.Distributor
 import Test.Hspec
 
@@ -61,8 +60,3 @@ main = hspec $ do
     for_ regexExamples $ \(rex, str) -> do
       it ("should parse " <> str <> " correctly") $
         readGrammar regexGrammar str `shouldSatisfy` elem rex
-  describe "endOfTokens" $ do
-    it "should parse the empty string" $
-      readGrammar endOfTokens "" `shouldBe` [()]
-    it "should not parse a nonempty string" $
-      readGrammar endOfTokens "abc" `shouldBe` []
