@@ -50,6 +50,7 @@ module Control.Lens.PartialIso
 
 import Control.Applicative
 import Control.Lens
+import Control.Lens.Token
 import Control.Monad
 import Data.Profunctor
 import Witherable
@@ -70,6 +71,8 @@ to the two functions that make up a `PartialIso`.
 -}
 data PartialExchange a b s t =
   PartialExchange (s -> Maybe a) (b -> Maybe t)
+instance Tokenized a b (PartialExchange a b) where
+  anyToken = PartialExchange Just Just
 instance Semigroup (PartialExchange a b s t) where
   PartialExchange f g <> PartialExchange f' g' =
     PartialExchange (\s -> f s <|> f' s) (\b -> g b <|> g' b)    
@@ -159,7 +162,7 @@ withPartialIso
   -> ((s -> Maybe a) -> (b -> Maybe t) -> r)
   -> r
 withPartialIso i k =
-  case i (PartialExchange Just (Just . Just)) of
+  case i (Just <$> anyToken) of
     PartialExchange f g -> k f (join . g)
 
 {- | Clone `APartialIso` so that you can reuse the same

@@ -29,6 +29,7 @@ library
       Control.Lens.Grate
       Control.Lens.Monocle
       Control.Lens.PartialIso
+      Control.Lens.Token
       Control.Lens.Wither
       Data.Profunctor.Distributor
       Text.Grammar.Distributor

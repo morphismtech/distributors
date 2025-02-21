@@ -27,6 +27,7 @@ module Control.Lens.Monocle
 
 import Control.Lens hiding (Traversing)
 import Control.Lens.Internal.Profunctor
+import Control.Lens.Token
 import Data.Distributive
 import Data.Profunctor.Distributor
 

@@ -17,10 +17,10 @@ module Data.Profunctor.Distributor
   , Distributor (zeroP, (>+<), optionalP, manyP), dialt
     -- * Alternator/Filtrator
   , Alternator (alternate, someP), Filtrator (filtrate)
-    -- * SepBy
+    -- * SepBy combinators
   , SepBy (..), noSep, sepBy, atLeast0, atLeast1, chainl1, chainr1, chainl, chainr
-    -- * Tokenized
-  , Tokenized (anyToken), satisfy, token, tokens, endOfTokens
+    -- * Token combinators
+  , satisfy, token, tokens, endOfTokens
     -- * Printor/Parsor
   , Printor (..), Parsor (..)
   ) where
@@ -31,10 +31,9 @@ import Control.Arrow
 import Control.Lens hiding (chosen)
 import Control.Lens.Internal.Bazaar
 import Control.Lens.Internal.Context
-import Control.Lens.Internal.Iso
-import Control.Lens.Internal.Prism
 import Control.Lens.Internal.Profunctor
 import Control.Lens.PartialIso
+import Control.Lens.Token
 import Data.Bifunctor.Clown
 import Data.Bifunctor.Joker
 import Data.Bifunctor.Product
@@ -277,7 +276,7 @@ instance (Filterable f, Traversable f) => Filtrator (Star f) where
     , Star (mapMaybe (either (const Nothing) Just) . f . Right)
     )
 
--- SepBy --
+-- SepBy combinators --
 
 {- | Used to parse multiple times, delimited by a `separateBy`,
 a `beginBy`, and an `endBy`. -}
@@ -337,18 +336,7 @@ chainr
   -> SepBy p -> p a b -> p a b
 chainr c2 c0 sep p = c0 >?< pure () <|> chainr1 c2 sep p
 
--- Tokenized --
-
-class Tokenized a b p | p -> a, p -> b where
-  anyToken :: p a b
-instance Tokenized a b (Identical a b) where
-  anyToken = Identical
-instance Tokenized a b (Exchange a b) where
-  anyToken = Exchange id id
-instance Tokenized a b (Market a b) where
-  anyToken = Market id Right
-instance Tokenized a b (PartialExchange a b) where
-  anyToken = PartialExchange Just Just
+-- Token combinators --
 
 satisfy :: (Choice p, Cochoice p, Tokenized c c p) => (c -> Bool) -> p c c
 satisfy f = satisfied f >?< anyToken
