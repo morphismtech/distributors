@@ -394,15 +394,12 @@ instance (Profunctor p, Filterable f)
       dimap Left (mapMaybe (either Just (const Nothing))) p
     unright (WrapPafb p) = WrapPafb $
       dimap Right (mapMaybe (either (const Nothing) Just)) p
-
 instance (Profunctor p, Filterable (p a))
   => Filterable (Yoneda p a) where
     catMaybes = proreturn . catMaybes . proextract
-
 instance (Profunctor p, Filterable (p a))
   => Filterable (Coyoneda p a) where
     catMaybes = proreturn . catMaybes . proextract
-
 instance Filterable (Forget r a) where
   catMaybes (Forget f) = Forget f
 instance Filterable f => Filterable (Star f a) where
