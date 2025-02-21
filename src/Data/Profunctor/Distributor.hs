@@ -20,7 +20,7 @@ module Data.Profunctor.Distributor
     -- * SepBy
   , SepBy (..), noSep, sepBy, atLeast0, atLeast1, chainl1, chainr1, chainl, chainr
     -- * Tokenized
-  , Tokenized (anyToken), satisfy, token, tokens, endOfTokens
+  , Tokenized (anyToken), satisfy, token, tokens
     -- * Printor/Parsor
   , Printor (..), Parsor (..)
   ) where
@@ -359,9 +359,6 @@ token c = only c ?< anyToken
 tokens :: (Cochoice p, Monoidal p, Eq c, Tokenized c c p) => [c] -> p () ()
 tokens [] = oneP
 tokens (c:cs) = token c *> tokens cs
-
-endOfTokens :: (Cochoice p, Distributor p, Tokenized c c p) => p () ()
-endOfTokens = _Empty ?< manyP anyToken
 
 -- Printor/Parsor --
 
