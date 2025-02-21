@@ -276,8 +276,8 @@ category = Ll|Lu|Lt|Lm|Lo|Mn|Mc|Me|Nd|Nl|No|Pc|Pd|Ps|Pe|Pi|Pf|Po|Sm|Sc|Sk|So|Zs|
 category-in = \\p\{\q{category}\}
 category-not-in = \\P\{\q{category}\}
 char = \q{char-literal}|\q{char-escaped}
-char-escaped = \\[\$\(\)\*\+\.\?\[\\\]\^\{\|\}]
-char-literal = [^\$\(\)\*\+\.\?\[\\\]\^\{\|\}]
+char-escaped = \\[\(\)\*\+\.\?\[\\\]\^\{\|\}]
+char-literal = [^\(\)\*\+\.\?\[\\\]\^\{\|\}]
 class-in = \[\q{char}*\]
 class-not-in = \[\^\q{char}*\]
 expression = \q{terminal}|\q{kleene-optional}|\q{kleene-star}|\q{kleene-plus}|\q{atom}
@@ -367,7 +367,7 @@ charLiteralG :: Grammar Char
 charLiteralG = rule "char-literal" $ notInClass charsReserved
 
 charsReserved :: String
-charsReserved = "$()*+.?[\\]^{|}"
+charsReserved = "()*+.?[\\]^{|}"
 
 classInG :: Grammar RegEx
 classInG = rule "class-in" $
