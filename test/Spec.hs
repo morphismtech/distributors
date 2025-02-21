@@ -2,6 +2,7 @@ module Main (main) where
 
 import Data.Char
 import Data.Foldable
+import Data.Profunctor.Distributor
 import Text.Grammar.Distributor
 import Test.Hspec
 
@@ -51,14 +52,17 @@ regexExamples =
 
 main :: IO ()
 main = hspec $ do
-  describe "RegEx Grammar Test" $ do
+  describe "regexGrammar" $ do
     it "should generate a correct grammar" $
       genGrammar regexGrammar `shouldBe` expectedRegexGrammar
-  describe "RegEx Printer Test" $ do
     for_ regexExamples $ \(rex, str) -> do
       it ("should print " <> show rex <> " correctly") $
-        ($ "") <$> genShowS regexGrammar rex `shouldBe` Just str
-  describe "RegEx Parser Test" $ do
+        showGrammar regexGrammar rex `shouldBe` Just str
     for_ regexExamples $ \(rex, str) -> do
       it ("should parse " <> str <> " correctly") $
-        genReadS regexGrammar str `shouldSatisfy` ((rex,"") `elem`)
+        readGrammar regexGrammar str `shouldSatisfy` elem rex
+  describe "endOfTokens" $ do
+    it "should parse the empty string" $
+      readGrammar endOfTokens "" `shouldBe` [()]
+    it "should not parse a nonempty string" $
+      readGrammar endOfTokens "abc" `shouldBe` []
