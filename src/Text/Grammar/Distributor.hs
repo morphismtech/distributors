@@ -6,6 +6,10 @@ License     : BSD-style (see the file LICENSE)
 Maintainer  : Eitan Chatav <eitan.chatav@gmail.com>
 Stability   : provisional
 Portability : non-portable
+
+See Joachim Breitner,
+[Showcasing Applicative](https://www.joachim-breitner.de/blog/710-Showcasing_Applicative)
+for idea to unify grammars.
 -}
 
 module Text.Grammar.Distributor
