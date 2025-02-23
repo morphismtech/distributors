@@ -18,6 +18,7 @@ module Control.Lens.Wither
   , AWither'
   , cloneWither
   , withered
+  , filtraversed
   , filterOf
   , Altar (..)
   ) where
@@ -42,6 +43,9 @@ cloneWither w f = (\g z -> runAltar z g) f . w sell
 
 withered :: Witherable t => Wither (t a) (t b) a b
 withered f = wither (optional . f)
+
+filtraversed :: (Filterable t, Traversable t) => Wither (t a) (t b) a b
+filtraversed f = fmap catMaybes . traverse (optional . f)
 
 filterOf :: Alternative m => Wither s t a a -> (a -> Bool) -> s -> m t
 filterOf w p s = w guardingp s where
