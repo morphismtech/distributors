@@ -16,14 +16,17 @@ module Control.Lens.Wither
   , Wither'
   , AWither
   , AWither'
+  , Witheroid
   , cloneWither
   , withered
   , filtraversed
   , filterOf
+  , witherPrism
   , Altar (..)
   ) where
 
 import Control.Applicative
+import Control.Lens
 import Control.Lens.Internal.Context
 import Data.Profunctor.Rep
 import Data.Profunctor.Sieve
@@ -37,6 +40,10 @@ type Wither' s a = Wither s s a a
 type AWither s t a b = (a -> Altar a b b) -> s -> Altar a b t
 
 type AWither' s a = AWither s s a a
+
+type Witheroid s t a b = forall p f.
+  (Choice p, Alternative f)
+    => p a (f b) -> p s (f t)
 
 cloneWither :: AWither s t a b -> Wither s t a b
 cloneWither w f = (\g z -> runAltar z g) f . w sell
@@ -52,6 +59,11 @@ filterOf w p s = w guardingp s where
   guardingp a
     | p a = pure a
     | otherwise = empty
+
+witherPrism :: APrism s t a b -> Witheroid s t a b
+witherPrism prsm =
+  withPrism prsm $ \embed match ->
+    dimap match (either (const empty) (fmap embed)) . right'
 
 newtype Altar a b t = Altar
   { runAltar :: forall f. Alternative f => (a -> f b) -> f t }
