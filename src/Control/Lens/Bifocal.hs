@@ -14,6 +14,7 @@ module Control.Lens.Bifocal
   , ABifocal
   , ABifocal'
   , Diopter
+  , Witheroid
   , Prismoid
   , Filtroid
   , bifocal
@@ -58,6 +59,10 @@ type Diopter s t a b = forall p f.
   (Distributor p, Applicative f)
     => p a (f b) -> p s (f t)
 
+type Witheroid s t a b = forall p f.
+  (Choice p, Alternative f)
+    => p a (f b) -> p s (f t)
+
 type Prismoid s t a b = forall p f.
   (Alternator p, Alternative f)
     => p a (f b) -> p s (f t)
@@ -83,13 +88,13 @@ optioned = unwrapPafb . optionalP . WrapPafb
 manied :: Diopter [a] [b] a b
 manied = unwrapPafb . manyP . WrapPafb
 
-somed :: Prismoid [a] [b] a b
-somed = unwrapPafb . someP . WrapPafb
-
-witheroid :: APrism s t a b -> Prismoid s t a b
+witheroid :: APrism s t a b -> Witheroid s t a b
 witheroid prsm =
   withPrism prsm $ \embed match ->
     dimap match (either (const empty) (fmap embed)) . right'
+
+somed :: Prismoid [a] [b] a b
+somed = unwrapPafb . someP . WrapPafb
 
 lefted :: Prismoid (Either a c) (Either b d) a b
 lefted = unwrapPafb . alternate . Left . WrapPafb
