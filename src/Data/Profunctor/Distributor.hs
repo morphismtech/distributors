@@ -219,7 +219,7 @@ instance (Homogeneous s, Homogeneous t)
       (homogeneously p)
 instance Homogeneous t
   => Homogeneous (M1 i c t) where
-    homogeneously p = dimap unM1 M1 (homogeneously @t p)
+    homogeneously p = dimap unM1 M1 (homogeneously p)
 
 -- Alternator/Filtrator --
 
