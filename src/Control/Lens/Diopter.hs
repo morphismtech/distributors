@@ -16,6 +16,7 @@ module Control.Lens.Diopter
   , diopter
   , withDiopter
   , cloneDiopter
+  , mapDiopter
   , optioned
   , manied
   , homogenized
@@ -48,6 +49,9 @@ withDiopter
   -> r
 withDiopter dio k = case (runIdentity <$> dio (Identity <$> anyToken)) of
   Dioptrice f g -> k f g
+
+mapDiopter :: Distributor p => ADiopter s t a b -> p a b -> p s t
+mapDiopter dio = withDiopter dio $ \f g -> dimap f g . homogeneously
 
 cloneDiopter :: ADiopter s t a b -> Diopter s t a b
 cloneDiopter dio = withDiopter dio diopter
@@ -96,4 +100,4 @@ runDioptrice
   :: Distributor p
   => Dioptrice a b s t
   -> p a b -> p s t
-runDioptrice (Dioptrice f g) p = dimap f g (homogeneously p)
+runDioptrice (Dioptrice f g) = dimap f g . homogeneously
