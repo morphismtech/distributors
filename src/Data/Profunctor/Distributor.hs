@@ -220,6 +220,10 @@ instance (Homogeneous s, Homogeneous t)
 instance Homogeneous t
   => Homogeneous (M1 i c t) where
     homogeneously p = dimap unM1 M1 (homogeneously p)
+instance Homogeneous Maybe where
+  homogeneously = optionalP
+instance Homogeneous [] where
+  homogeneously = manyP
 
 -- Alternator/Filtrator --
 

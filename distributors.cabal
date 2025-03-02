@@ -26,6 +26,7 @@ source-repository head
 library
   exposed-modules:
       Control.Lens.Bifocal
+      Control.Lens.Diopter
       Control.Lens.Grate
       Control.Lens.Monocle
       Control.Lens.PartialIso
