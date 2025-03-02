@@ -14,6 +14,7 @@ module Control.Lens.Diopter
   , ADiopter
   , ADiopter'
   , diopter
+  , withDiopter
   , cloneDiopter
   , optioned
   , manied
@@ -27,24 +28,6 @@ import Data.Profunctor.Distributor
 import Data.Void
 import GHC.Generics
 
-diopter :: Homogeneous h => (s -> h a) -> (h b -> t) -> Diopter s t a b
-diopter f g = unwrapPafb . runDioptrice (Dioptrice f g) . WrapPafb
-
-cloneDiopter :: ADiopter s t a b -> Diopter s t a b
-cloneDiopter dio
-  = unwrapPafb
-  . runDioptrice (runIdentity <$> dio (Identity <$> anyToken))
-  . WrapPafb
-
-optioned :: Diopter (Maybe a) (Maybe b) a b
-optioned = unwrapPafb . optionalP . WrapPafb
-
-manied :: Diopter [a] [b] a b
-manied = unwrapPafb . manyP . WrapPafb
-
-homogenized :: Homogeneous t => Diopter (t a) (t b) a b
-homogenized = unwrapPafb . homogeneously . WrapPafb
-
 type Diopter s t a b = forall p f.
   (Distributor p, Applicative f)
     => p a (f b) -> p s (f t)
@@ -55,6 +38,28 @@ type ADiopter s t a b =
   Dioptrice a b a (Identity b) -> Dioptrice a b s (Identity t)
 
 type ADiopter' s a = ADiopter s s a a
+
+diopter :: Homogeneous h => (s -> h a) -> (h b -> t) -> Diopter s t a b
+diopter f g = unwrapPafb . runDioptrice (Dioptrice f g) . WrapPafb
+
+withDiopter
+  :: ADiopter s t a b
+  -> (forall h. Homogeneous h => (s -> h a) -> (h b -> t) -> r)
+  -> r
+withDiopter dio k = case (runIdentity <$> dio (Identity <$> anyToken)) of
+  Dioptrice f g -> k f g
+
+cloneDiopter :: ADiopter s t a b -> Diopter s t a b
+cloneDiopter dio = withDiopter dio diopter
+
+optioned :: Diopter (Maybe a) (Maybe b) a b
+optioned = unwrapPafb . optionalP . WrapPafb
+
+manied :: Diopter [a] [b] a b
+manied = unwrapPafb . manyP . WrapPafb
+
+homogenized :: Homogeneous t => Diopter (t a) (t b) a b
+homogenized = unwrapPafb . homogeneously . WrapPafb
 
 data Dioptrice a b s t where
   Dioptrice
