@@ -22,6 +22,7 @@ module Control.Lens.Bifocal
   , withBifocal
   , optioned
   , manied
+  , homogenized
   , somed
   , lefted
   , righted
@@ -81,6 +82,9 @@ optioned = unwrapPafb . optionalP . WrapPafb
 
 manied :: Diopter [a] [b] a b
 manied = unwrapPafb . manyP . WrapPafb
+
+homogenized :: Homogeneous t => Diopter (t a) (t b) a b
+homogenized = unwrapPafb . homogeneously . WrapPafb
 
 somed :: Prismoid [a] [b] a b
 somed = unwrapPafb . someP . WrapPafb

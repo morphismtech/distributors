@@ -14,7 +14,7 @@ module Data.Profunctor.Distributor
   ( -- * Monoidal
     Monoidal, oneP, (>*<), (>*), (*<), dimap2, replicateP, foreverP, meander, (>:<)
     -- * Distributor
-  , Distributor (zeroP, (>+<), optionalP, manyP), dialt
+  , Distributor (zeroP, (>+<), optionalP, manyP), dialt, Homogeneous (homogeneously)
     -- * Alternator/Filtrator
   , Alternator (alternate, someP), Filtrator (filtrate)
     -- * SepBy
@@ -50,6 +50,7 @@ import Data.Profunctor.Monad
 import Data.Profunctor.Yoneda
 import Data.String
 import Data.Void
+import GHC.Generics
 import Witherable
 
 -- Monoidal --
@@ -184,6 +185,41 @@ dialt
   -> (d -> t)
   -> p a b -> p c d -> p s t
 dialt f g h p q = dimap f (either g h) (p >+< q)
+
+class Traversable t => Homogeneous t where
+  homogeneously :: Distributor p => p a b -> p (t a) (t b)
+  default homogeneously
+    :: (Generic1 t, Homogeneous (Rep1 t), Distributor p)
+    => p a b -> p (t a) (t b)
+  homogeneously = dimap from1 to1 . homogeneously
+instance Homogeneous Par1 where
+  homogeneously = dimap unPar1 Par1
+instance (Homogeneous s, Homogeneous t)
+  => Homogeneous (s :.: t) where
+    homogeneously = dimap unComp1 Comp1 . homogeneously . homogeneously
+instance Homogeneous U1 where
+  homogeneously _ = dimap (const ()) (const U1) oneP
+instance (Homogeneous s, Homogeneous t)
+  => Homogeneous (s :*: t) where
+    homogeneously p = dimap2
+      (\(s :*: _) -> s)
+      (\(_ :*: t) -> t)
+      (:*:)
+      (homogeneously p)
+      (homogeneously p)
+instance Homogeneous V1 where
+  homogeneously _ = dimap (\case) (\case) zeroP
+instance (Homogeneous s, Homogeneous t)
+  => Homogeneous (s :+: t) where
+    homogeneously p = dialt
+      (\case {L1 s -> Left s; R1 t -> Right t})
+      L1
+      R1
+      (homogeneously p)
+      (homogeneously p)
+instance Homogeneous t
+  => Homogeneous (M1 i c t) where
+    homogeneously p = dimap unM1 M1 (homogeneously @t p)
 
 -- Alternator/Filtrator --
 
