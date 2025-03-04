@@ -13,15 +13,12 @@ module Control.Lens.Bifocal
   , Bifocal'
   , ABifocal
   , ABifocal'
-  , Diopter
   , Prismoid
   , Filtroid
   , bifocal
   , mapBifocal
   , cloneBifocal
   , withBifocal
-  , optioned
-  , manied
   , somed
   , lefted
   , righted
@@ -53,10 +50,6 @@ type ABifocal s t a b =
 
 type ABifocal' s a = ABifocal s s a a
 
-type Diopter s t a b = forall p f.
-  (Distributor p, Applicative f)
-    => p a (f b) -> p s (f t)
-
 type Prismoid s t a b = forall p f.
   (Alternator p, Alternative f)
     => p a (f b) -> p s (f t)
@@ -75,12 +68,6 @@ mapBifocal bif p = withBifocal bif $ \f -> dimapMaybe f Just p
 
 cloneBifocal :: ABifocal s t a b -> Bifocal s t a b
 cloneBifocal bif = unwrapPafb . mapBifocal bif . WrapPafb
-
-optioned :: Diopter (Maybe a) (Maybe b) a b
-optioned = unwrapPafb . optionalP . WrapPafb
-
-manied :: Diopter [a] [b] a b
-manied = unwrapPafb . manyP . WrapPafb
 
 somed :: Prismoid [a] [b] a b
 somed = unwrapPafb . someP . WrapPafb
