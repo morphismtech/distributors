@@ -14,44 +14,42 @@ See Rendel & Ostermann,
 {-# OPTIONS_GHC -Wno-orphans #-}
 
 module Control.Lens.PartialIso
-  ( dimapMaybe
-    -- * Partial Isomorphisms
+  ( -- * PartialIso
+    dimapMaybe
   , PartialIso
   , PartialIso'
   , APartialIso
-  , APartialIso'
   , PartialExchange (PartialExchange)
-    -- * Constructing and Consuming Partial Isomorphisms
+    -- Combinators
   , partialIso
   , withPartialIso
   , clonePartialIso
   , coPartialIso
   , crossPartialIso
   , altPartialIso
-    -- * Prism, Coprism and (Partial)Iso Actions
+    -- * Actions
   , (>?)
   , (?<)
   , (>?<)
   , mapIso
   , coPrism
-    -- * Common (Partial)Isos
+    -- * Patterns
   , satisfied
   , nulled
   , notNulled
   , streamed
   , maybeEot
   , listEot
-    -- * difold operations
+    -- * Iterations
+  , iterating
   , difoldl1
   , difoldr1
   , difoldl
   , difoldr
   , difoldl'
   , difoldr'
-  , iterating
   ) where
 
-import Control.Applicative
 import Control.Lens
 import Control.Lens.Internal.Profunctor
 import Control.Monad
@@ -61,6 +59,10 @@ import Data.Profunctor.Monad
 import Data.Profunctor.Yoneda
 import Witherable
 
+{- | The `dimapMaybe` function endows
+`Choice` & `Cochoice` "partial profunctors"
+with an action `>?<` of `PartialIso`s.
+-}
 dimapMaybe
   :: (Choice p, Cochoice p)
   => (s -> Maybe a) -> (b -> Maybe t)
@@ -77,12 +79,6 @@ to the two functions that make up a `PartialIso`.
 -}
 data PartialExchange a b s t =
   PartialExchange (s -> Maybe a) (b -> Maybe t)
-instance Semigroup (PartialExchange a b s t) where
-  PartialExchange f g <> PartialExchange f' g' =
-    PartialExchange (\s -> f s <|> f' s) (\b -> g b <|> g' b)    
-instance Monoid (PartialExchange a b s t) where
-  mempty = PartialExchange nope nope where
-    nope _ = Nothing
 instance Functor (PartialExchange a b s) where fmap = rmap
 instance Filterable (PartialExchange a b s) where
   mapMaybe = dimapMaybe Just
@@ -103,11 +99,11 @@ instance Cochoice (PartialExchange a b) where
 {- | `PartialIso` is a first class inexhaustive pattern,
 similar to how `Control.Lens.Prism.Prism` is a first class exhaustive pattern.
 
-`PartialIso` is part of a subtyping order:
+Every `Control.Lens.Iso.Iso` & `Control.Lens.Prism.Prism` is `APartialIso`.
 
-prop> Iso s t a b < Prism s t a b < PartialIso s t a b
+`PartialIso`s combine `Control.Lens.Prism.Prism`s and coPrisms.
 
-`PartialIso`s are a functionalization of `PartialExchange`s.
+`PartialIso`s are isomorphic to `PartialExchange`s.
 
 >>> :{
 let
@@ -151,9 +147,6 @@ type PartialIso' s a = PartialIso s s a a
 the function is expecting a `PartialIso`. -}
 type APartialIso s t a b =
   PartialExchange a b a (Maybe b) -> PartialExchange a b s (Maybe t)
-
-{- | `Simple` `APartialIso` -}
-type APartialIso' s a = APartialIso s s a a
 
 {- | Build a `PartialIso`. -}
 partialIso :: (s -> Maybe a) -> (b -> Maybe t) -> PartialIso s t a b
@@ -241,6 +234,9 @@ infixl 4 >?<
 mapIso :: Profunctor p => AnIso s t a b -> p a b -> p s t
 mapIso i = withIso i dimap
 
+{- | Action of a `coPrism`
+on the composition of a `Profunctor` and `Filterable`.
+-}
 coPrism :: (Profunctor p, Filterable f) => APrism b a t s -> p a (f b) -> p s (f t)
 coPrism p = unwrapPafb . (?<) p . WrapPafb
 
@@ -250,15 +246,19 @@ satisfied :: (a -> Bool) -> PartialIso' a a
 satisfied f = partialIso satiate satiate where
   satiate a = if f a then Just a else Nothing
 
+{- | `nulled` matches an `Empty` pattern, like `_Empty`. -}
 nulled :: (AsEmpty s, AsEmpty t) => PartialIso s t () ()
 nulled = partialIso empA empB where
   empA s = if isn't _Empty s then Nothing else Just ()
   empB _ = Just Empty
 
+{- | `notNulled` matches a non-`Empty` pattern. -}
 notNulled :: (AsEmpty s, AsEmpty t) => PartialIso s t s t
 notNulled = partialIso nonEmp nonEmp where
   nonEmp s = if isn't _Empty s then Just s else Nothing
 
+{- | `streamed` is an isomorphism between
+two stream types with the same token type. -}
 streamed
   :: (AsEmpty s, AsEmpty t, Cons s s c c, Cons t t c c)
   => Iso' s t
@@ -270,11 +270,13 @@ streamed = iso convertStream convertStream
         (\(h,t) -> cons h (convertStream t))
         (uncons s)
 
+{- | The either-of-tuples representation of `Maybe`. -}
 maybeEot :: Iso (Maybe a) (Maybe b) (Either () a) (Either () b)
 maybeEot = iso
   (maybe (Left ()) Right)
   (either (pure Nothing) Just)
 
+{- | The either-of-tuples representation of list-like streams. -}
 listEot
   :: (Cons s s a a, AsEmpty t, Cons t t b b)
   => Iso s t (Either () (a,s)) (Either () (b,t))
@@ -289,6 +291,7 @@ iterating i = withPartialIso i $ \f g ->
   iso (iter f) (iter g) where
     iter h state = maybe state (iter h) (h state)
 
+{- | Left fold & unfold `APartialIso` to an `Control.Lens.Iso.Iso`. -}
 difoldl1
   :: Cons s t a b
   => APartialIso (c,a) (d,b) c d
@@ -304,6 +307,7 @@ difoldl1 i =
       . crossPartialIso i id
   in iterating step
 
+{- | Right fold & unfold `APartialIso` to an `Control.Lens.Iso.Iso`. -}
 difoldr1
   :: Cons s t a b
   => APartialIso (a,c) (b,d) c d
@@ -319,6 +323,7 @@ difoldr1 i =
       . crossPartialIso id i
   in iterating step
 
+{- | Left fold & unfold `APartialIso` to a `PartialIso`. -}
 difoldl
   :: (AsEmpty s, AsEmpty t, Cons s t a b)
   => APartialIso (c,a) (d,b) c d
@@ -333,6 +338,7 @@ difoldl i =
     . crossPartialIso id nulled
     . unit'
 
+{- | Right fold & unfold `APartialIso` to a `PartialIso`. -}
 difoldr
   :: (AsEmpty s, AsEmpty t, Cons s t a b)
   => APartialIso (a,c) (b,d) c d
@@ -347,6 +353,8 @@ difoldr i =
     . crossPartialIso nulled id
     . unit'
 
+{- | Left fold & unfold `Control.Lens.Prism.APrism'`
+to a `Control.Lens.Prism.Prism'`. -}
 difoldl'
   :: (AsEmpty s, Cons s s a a)
   => APrism' (c,a) c
@@ -361,6 +369,8 @@ difoldl' i =
     . aside _Empty
     . unit'
 
+{- | Right fold & unfold `Control.Lens.Prism.APrism'`
+to a `Control.Lens.Prism.Prism'`. -}
 difoldr'
   :: (AsEmpty s, Cons s s a a)
   => APrism' (a,c) c
