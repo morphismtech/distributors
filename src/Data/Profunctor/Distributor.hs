@@ -35,6 +35,7 @@ import Control.Lens.Internal.Iso
 import Control.Lens.Internal.Prism
 import Control.Lens.Internal.Profunctor
 import Control.Lens.PartialIso
+import Control.Monad
 import Data.Bifunctor.Clown
 import Data.Bifunctor.Joker
 import Data.Bifunctor.Product
@@ -315,6 +316,11 @@ instance (Filterable f, Traversable f) => Filtrator (Star f) where
   filtrate (Star f) =
     ( Star (mapMaybe (either Just (const Nothing)) . f . Left)
     , Star (mapMaybe (either (const Nothing) Just) . f . Right)
+    )
+instance Filtrator (PartialExchange a b) where
+  filtrate (PartialExchange f g) =
+    ( PartialExchange (f . Left) (either Just (pure Nothing) <=< g)
+    , PartialExchange (f . Right) (either (pure Nothing) Just <=< g)
     )
 
 -- SepBy --
