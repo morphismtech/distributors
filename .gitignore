@@ -3,7 +3,6 @@ dist-*
 cabal-dev
 *.o
 *.hi
-*.hie
 *.chi
 *.chs.h
 *.dyn_o
@@ -18,6 +17,8 @@ cabal.sandbox.config
 *.eventlog
 .stack-work/
 cabal.project.local
-cabal.project.local~
-.HTF/
-.ghc.environment.*
+.DS_Store
+stack.yaml.lock
+*.yaml.lock
+tags
+.*.swp
