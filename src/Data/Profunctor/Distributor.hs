@@ -429,6 +429,14 @@ instance (Alternator p, Alternative f)
         either f g
 
     someP (WrapPafb x) = WrapPafb (rmap sequenceA (someP x))
+instance Alternator p => Alternator (Coyoneda p) where
+  alternate (Left p) = proreturn (alternate (Left (proextract p)))
+  alternate (Right p) = proreturn (alternate (Right (proextract p)))
+  someP = proreturn . someP . proextract
+instance Alternator p => Alternator (Yoneda p) where
+  alternate (Left p) = proreturn (alternate (Left (proextract p)))
+  alternate (Right p) = proreturn (alternate (Right (proextract p)))
+  someP = proreturn . someP . proextract
 
 {- | The `Filtrator` class extends `Cochoice`,
 as well as `Filterable`, adding the `filtrate` method,
@@ -769,3 +777,14 @@ instance (Profunctor p, Applicative (p a))
   => Applicative (Coyoneda p a) where
     pure = proreturn . pure
     ab <*> cd = proreturn (proextract ab <*> proextract cd)
+
+instance (Profunctor p, Alternative (p a))
+  => Alternative (Yoneda p a) where
+    empty = proreturn empty
+    ab <|> cd = proreturn (proextract ab <|> proextract cd)
+    many = proreturn . many . proextract
+instance (Profunctor p, Alternative (p a))
+  => Alternative (Coyoneda p a) where
+    empty = proreturn empty
+    ab <|> cd = proreturn (proextract ab <|> proextract cd)
+    many = proreturn . many . proextract
