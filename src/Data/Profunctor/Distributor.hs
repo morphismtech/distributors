@@ -43,6 +43,8 @@ import Data.Distributive
 import Data.Functor.Adjunction
 import Data.Functor.Compose
 import Data.Functor.Contravariant.Divisible
+import qualified Data.Functor.Product as Functor
+import qualified Data.Functor.Sum as Functor
 import Data.Profunctor hiding (WrappedArrow)
 import Data.Profunctor qualified as Pro (WrappedArrow)
 import Data.Profunctor.Cayley
@@ -115,7 +117,7 @@ foreverP a = let a' = a >* a' in a'
 `replicateP` is roughly analagous to `replicateM`,
 repeating an action a number of times.
 However, instead of an `Int` term, it expects
-a `Traversable` & `Distributive` container type. Such a
+a `Traversable` & `Distributive` type. Such a
 type is a homogeneous countable product.
 -}
 replicateP
@@ -254,7 +256,7 @@ instance Distributor p => Distributor (Coyoneda p) where
   ab >+< cd = proreturn (proextract ab >+< proextract cd)
 
 
-{- | `dialt` is a curried, functionalized form of `>+<`. -}
+{- | `dialt` is a functionalized form of `>+<`. -}
 dialt
   :: Distributor p
   => (s -> Either a c)
@@ -263,7 +265,23 @@ dialt
   -> p a b -> p c d -> p s t
 dialt f g h p q = dimap f (either g h) (p >+< q)
 
+{- | A class of `Homogeneous`
+countable sums of countable products.
+-}
 class Traversable t => Homogeneous t where
+  {- | Sequences actions `homogeneously`.
+
+  prop> optionalP = homogeneously
+  prop> manyP = homogeneously
+  
+  Any `Traversable` & `Distributive` countable product
+  can be given a default implementation for the `homogeneously` method.
+
+  prop> homogeneously = replicateP
+
+  And any user-defined homogeneous algebraic datatype has
+  a default instance for `Homogeneous`, by deriving `Generic1`.
+  -}
   homogeneously :: Distributor p => p a b -> p (t a) (t b)
   default homogeneously
     :: (Generic1 t, Homogeneous (Rep1 t), Distributor p)
@@ -271,17 +289,38 @@ class Traversable t => Homogeneous t where
   homogeneously = dimap from1 to1 . homogeneously
 instance Homogeneous Par1 where
   homogeneously = dimap unPar1 Par1
+instance Homogeneous Identity where
+  homogeneously = dimap runIdentity Identity
 instance (Homogeneous s, Homogeneous t)
   => Homogeneous (s :.: t) where
-    homogeneously = dimap unComp1 Comp1 . homogeneously . homogeneously
+    homogeneously
+      = dimap unComp1 Comp1
+      . homogeneously . homogeneously
+instance (Homogeneous s, Homogeneous t)
+  => Homogeneous (Compose s t) where
+    homogeneously
+      = dimap getCompose Compose
+      . homogeneously . homogeneously
 instance Homogeneous U1 where
   homogeneously _ = dimap (const ()) (const U1) oneP
+instance Homogeneous (K1 i ()) where
+  homogeneously _ = dimap (const ()) (const (K1 ())) oneP
+instance Homogeneous (Const ()) where
+  homogeneously _ = dimap (const ()) (const (Const ())) oneP
 instance (Homogeneous s, Homogeneous t)
   => Homogeneous (s :*: t) where
     homogeneously p = dimap2
       (\(s :*: _) -> s)
       (\(_ :*: t) -> t)
       (:*:)
+      (homogeneously p)
+      (homogeneously p)
+instance (Homogeneous s, Homogeneous t)
+  => Homogeneous (Functor.Product s t) where
+    homogeneously p = dimap2
+      (\(Functor.Pair s _) -> s)
+      (\(Functor.Pair _ t) -> t)
+      Functor.Pair
       (homogeneously p)
       (homogeneously p)
 instance Homogeneous V1 where
@@ -292,6 +331,14 @@ instance (Homogeneous s, Homogeneous t)
       (\case {L1 s -> Left s; R1 t -> Right t})
       L1
       R1
+      (homogeneously p)
+      (homogeneously p)
+instance (Homogeneous s, Homogeneous t)
+  => Homogeneous (Functor.Sum s t) where
+    homogeneously p = dialt
+      (\case {Functor.InL s -> Left s; Functor.InR t -> Right t})
+      Functor.InL
+      Functor.InR
       (homogeneously p)
       (homogeneously p)
 instance Homogeneous t
