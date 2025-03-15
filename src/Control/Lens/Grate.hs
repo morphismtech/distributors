@@ -7,7 +7,8 @@ Maintainer  : Eitan Chatav <eitan.chatav@gmail.com>
 Stability   : provisional
 Portability : non-portable
 
-See [Grate: A new kind of Optic](https://r6research.livejournal.com/28050.html)
+See O'Connor, [Grate: A new kind of Optic]
+(https://r6research.livejournal.com/28050.html)
 -}
 
 module Control.Lens.Grate
