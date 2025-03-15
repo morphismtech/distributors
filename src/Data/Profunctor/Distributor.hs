@@ -583,6 +583,16 @@ chainr c2 c0 sep p = c0 >?< pure () <|> chainr1 c2 sep p
 
 -- Tokenized --
 
+{- | `Tokenized` serves two different purposes.
+The `anyToken` method is used
+
+* by token-stream printer-parsers, to produce or consume a single token;
+* and for concrete optics, as an identity morphism.
+
+In the former case the associated input and output token types
+are same. In the latter case, observe that `Identical` is
+a free `Tokenized`.
+-}
 class Tokenized a b p | p -> a, p -> b where
   anyToken :: p a b
 instance Tokenized a b (Identical a b) where
@@ -594,18 +604,29 @@ instance Tokenized a b (Market a b) where
 instance Tokenized a b (PartialExchange a b) where
   anyToken = PartialExchange Just Just
 
+{- | Produces or consumes a single token that satisfies a predicate. -}
 satisfy :: (Choice p, Cochoice p, Tokenized c c p) => (c -> Bool) -> p c c
 satisfy f = satisfied f >?< anyToken
 
+{- | Produces or consumes a single specified token. -}
 token :: (Cochoice p, Eq c, Tokenized c c p) => c -> p () ()
 token c = only c ?< anyToken
 
+{- | Produces or consumes a specified stream of `tokens`.
+It can be used as a default definition for the `fromString`
+method of `IsString` for a `Tokenized` `Char` `Char` printer-parser.
+-}
 tokens :: (Cochoice p, Monoidal p, Eq c, Tokenized c c p) => [c] -> p () ()
 tokens [] = oneP
 tokens (c:cs) = token c *> tokens cs
 
 -- Printor/Parsor --
 
+{- | A function from things to containers of
+functions of strings to strings.
+`Printor` is a degenerate `Profunctor` which
+is constant in its covariant argument.
+-}
 newtype Printor s f a b = Printor {runPrintor :: a -> f (s -> s)}
   deriving Functor
 instance Contravariant (Printor s f a) where
@@ -642,6 +663,11 @@ instance (Applicative f, Cons s s Char Char)
   => IsString (Printor s f () ()) where
     fromString = tokens
 
+{- | A function from strings to containers of
+pairs of things and strings.
+`Parsor` is a degenerate `Profunctor` which
+is constant in its contravariant argument.
+-}
 newtype Parsor s f a b = Parsor {runParsor :: s -> f (b,s)}
   deriving Functor
 instance Monad f => Applicative (Parsor s f a) where
