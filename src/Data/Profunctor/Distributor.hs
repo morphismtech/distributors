@@ -86,13 +86,21 @@ oneP = pure ()
 infixr 6 >*<
 
 {- | `>*` sequences actions, discarding the value of the first argument;
-analagous to `*>`, extending it to `Monoidal`. -}
+analagous to `*>`, extending it to `Monoidal`.
+
+prop> oneP >* p = p
+
+-}
 (>*) :: Monoidal p => p () c -> p a b -> p a b
 x >* y = lmap (const ()) x *> y
 infixl 5 >*
 
 {- | `*<` sequences actions, discarding the value of the first argument;
-analagous to `<*`, extending it to `Monoidal`. -}
+analagous to `<*`, extending it to `Monoidal`.
+
+prop> p *< oneP = p
+
+-}
 (*<) :: Monoidal p => p a b -> p () c -> p a b
 x *< y = x <* lmap (const ()) y
 infixl 5 *<
