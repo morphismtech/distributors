@@ -586,7 +586,7 @@ chainr c2 c0 sep p = c0 >?< pure () <|> chainr1 c2 sep p
 {- | `Tokenized` serves two different purposes.
 The `anyToken` method is used
 
-* by token-stream printer-parsers, to produce or consume a single token;
+* by token-stream printer/parsers, to sequence a single token;
 * and for concrete optics, as an identity morphism.
 
 In the former case the associated input and output token types
@@ -604,17 +604,17 @@ instance Tokenized a b (Market a b) where
 instance Tokenized a b (PartialExchange a b) where
   anyToken = PartialExchange Just Just
 
-{- | Produces or consumes a single token that satisfies a predicate. -}
+{- | Sequences a single token that satisfies a predicate. -}
 satisfy :: (Choice p, Cochoice p, Tokenized c c p) => (c -> Bool) -> p c c
 satisfy f = satisfied f >?< anyToken
 
-{- | Produces or consumes a single specified token. -}
+{- | Sequences a single specified token. -}
 token :: (Cochoice p, Eq c, Tokenized c c p) => c -> p () ()
 token c = only c ?< anyToken
 
-{- | Produces or consumes a specified stream of `tokens`.
+{- | Sequences a specified stream of `tokens`.
 It can be used as a default definition for the `fromString`
-method of `IsString` for a `Tokenized` `Char` `Char` printer-parser.
+method of `IsString` when `Tokenized` `Char` `Char`.
 -}
 tokens :: (Cochoice p, Monoidal p, Eq c, Tokenized c c p) => [c] -> p () ()
 tokens [] = oneP
