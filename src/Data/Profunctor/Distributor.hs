@@ -12,7 +12,7 @@ Portability : non-portable
 
 module Data.Profunctor.Distributor
   ( -- * Monoidal
-    Monoidal, oneP, (>*<), (>*), (*<), dimap2, replicateP, foreverP, meander, (>:<)
+    Monoidal, oneP, (>*<), (>*), (*<), dimap2, foreverP, replicateP, meander, (>:<)
     -- * Distributor
   , Distributor (zeroP, (>+<), optionalP, manyP), dialt, Homogeneous (homogeneously)
     -- * Alternator/Filtrator
@@ -56,23 +56,47 @@ import Witherable
 
 -- Monoidal --
 
+{- | A lax `Monoidal` product `Profunctor` has a unit `oneP`
+and a product `>*<`. This is equivalent to the
+`Profunctor` also being `Applicative`.
+
+Laws:
+
+>>> let (f >< g) (a,c) = (f a, g c)
+>>> let lunit = dimap (\((),a) -> a) (\a -> ((),a))
+>>> let runit = dimap (\(a,()) -> a) (\a -> (a,()))
+>>> let assoc = dimap (\(a,(b,c)) -> ((a,b),c)) (\((a,b),c) -> (a,(b,c)))
+prop> dimap (f >< g) (h >< i) (p >*< q) = dimap f h p >*< dimap g i q
+prop> oneP >*< p = lunit p
+prop> p >*< oneP = runit p
+prop> p >*< q >*< r = assoc ((p >*< q) >*< r)
+
+-}
 type Monoidal p = (Profunctor p, forall x. Applicative (p x))
 
+{- | `oneP` is the unit of a `Monoidal` `Profunctor`. -}
 oneP :: Monoidal p => p () ()
 oneP = pure ()
 
+{- | `>*<` is the product of a `Monoidal` `Profunctor`. -}
 (>*<) :: Monoidal p => p a b -> p c d -> p (a,c) (b,d)
 (>*<) = dimap2 fst snd (,)
 infixr 6 >*<
 
+{- | `>*` sequences actions, discarding the value of the first argument;
+analagous to `*>`, extending it to `Monoidal`. -}
 (>*) :: Monoidal p => p () c -> p a b -> p a b
 x >* y = lmap (const ()) x *> y
 infixl 5 >*
 
+{- | `*<` sequences actions, discarding the value of the first argument;
+analagous to `<*`, extending it to `Monoidal`. -}
 (*<) :: Monoidal p => p a b -> p () c -> p a b
 x *< y = x <* lmap (const ()) y
 infixl 5 *<
 
+{- | `dimap2` is a curried, functionalized form of `>*<`,
+analagous to `liftA2`. -}
 dimap2
   :: Monoidal p
   => (s -> a)
@@ -81,15 +105,35 @@ dimap2
   -> p a b -> p c d -> p s t
 dimap2 f g h p q = liftA2 h (lmap f p) (lmap g q)
 
+{- | `foreverP` repeats an action indefinitely;
+ analagous to `forever`, extending it to `Monoidal`. -}
 foreverP :: Monoidal p => p () c -> p a b
 foreverP a = let a' = a >* a' in a'
 
--- thanks to Fy on Monoidal Café Discord
+{- | Thanks to Fy on Monoidal Café Discord.
+
+`replicateP` is roughly analagous to `replicateM`,
+repeating an action a number of times.
+However, instead of an `Int` term, it expects
+a `Traversable` & `Distributive` container type. Such a
+type is a homogeneous countable product.
+-}
 replicateP
-  :: (Monoidal p, Traversable t, Distributive t)
+  :: (Traversable t, Distributive t, Monoidal p)
   => p a b -> p (t a) (t b)
 replicateP p = traverse (\f -> lmap f p) (distribute id)
 
+{- | `meander` gives a default implementation for the
+`Data.Profunctor.Traversing.wander`
+method of `Data.Profunctor.Traversing.Traversing`
+for any `Monoidal`, `Choice` & `Strong` `Profunctor`.
+
+It is invertible when @p@ is `Strong`,
+though it's not needed for its definition.
+
+See Pickering, Gibbons & Wu,
+[Profunctor Optics - Modular Data Accessors](https://arxiv.org/abs/1703.10857)
+-}
 meander
   :: (Monoidal p, Choice p)
   => ATraversal s t a b -> p a b -> p s t
@@ -100,18 +144,46 @@ meander f = dimap (f sell) iextract . trav
       => q u v -> q (Bazaar (->) u w x) (Bazaar (->) v w x)
     trav q = mapIso funListEot $ right' (q >*< trav q)
 
+{- | A `Monoidal` `Cons` operator. -}
 (>:<) :: (Monoidal p, Choice p, Cons s t a b) => p a b -> p s t -> p s t
 x >:< xs = _Cons >? x >*< xs
 infixr 5 >:<
 
 -- Distributor --
 
+{- | A `Distributor`, or lax distributive profunctor,
+respects [distributive category]
+(https://ncatlab.org/nlab/show/distributive+category)
+structure, that is nilary and binary products and coproducts,
+@()@, @(,)@, `Void` and `Either`.
+
+In addition to the product laws for `Monoidal`, we have
+sum laws for `Distributor`.
+
+Laws:
+
+>>> :{
+let f |+| g = either (Left . f) (Right . g)
+    lunit = dimap (either absurd id) Right
+    runit = dimap (either id absurd) Left
+    assoc = dimap
+      (either (Left . Left) (either (Left . Right) Right))
+      (either (either Left (Right . Left)) (Right . Right))
+:}
+prop> dimap (f |+| g) (h |+| i) (p >+< q) = dimap f h p >+< dimap g i q
+prop> zeroP >+< p = lunit p
+prop> p >+< zeroP = runit p
+prop> p >+< q >+< r = assoc ((p >+< q) >+< r)
+
+-}
 class Monoidal p => Distributor p where
 
+  {- | The zero structure morphism of a `Distributor`. -}
   zeroP :: p Void Void
   default zeroP :: Alternator p => p Void Void
   zeroP = empty
 
+  {- | The sum structure morphism of a `Distributor`. -}
   (>+<) :: p a b -> p c d -> p (Either a c) (Either b d)
   default (>+<)
     :: Alternator p
@@ -119,9 +191,11 @@ class Monoidal p => Distributor p where
   x >+< y = alternate (Left x) <|> alternate (Right y)
   infixr 3 >+<
 
+  {- | One or none. -}
   optionalP :: p a b -> p (Maybe a) (Maybe b)
   optionalP p = mapIso maybeEot (oneP >+< p)
 
+  {- | Zero or more. -}
   manyP :: p a b -> p [a] [b]
   manyP p = mapIso listEot (oneP >+< p >*< manyP p)
 
@@ -179,6 +253,8 @@ instance Distributor p => Distributor (Coyoneda p) where
   zeroP = proreturn zeroP
   ab >+< cd = proreturn (proextract ab >+< proextract cd)
 
+
+{- | `dialt` is a curried, functionalized form of `>+<`. -}
 dialt
   :: Distributor p
   => (s -> Either a c)
