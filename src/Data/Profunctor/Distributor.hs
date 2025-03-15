@@ -351,6 +351,14 @@ instance Homogeneous [] where
 
 -- Alternator/Filtrator --
 
+{- | The `Alternator` class co-extends `Choice` and `Distributor`,
+as well as `Alternative`, adding the `alternate` method,
+which is a lax monoidal structure morphism on sums.
+
+For the case of `Functor`s the analog of `alternate` can be defined
+without any other constraint, but the case of `Profunctor`s turns
+out to be slighly more complex.
+-}
 class (Choice p, Distributor p, forall x. Alternative (p x))
   => Alternator p where
 
@@ -359,6 +367,8 @@ class (Choice p, Distributor p, forall x. Alternative (p x))
     prop> right' = alternate . Right
     prop> zeroP = empty
     prop> x >+< y = alternate (Left x) <|> alternate (Right y)
+
+    `alternate` has a default when `Cochoice`.
     -}
     alternate
       :: Either (p a b) (p c d)
@@ -372,6 +382,7 @@ class (Choice p, Distributor p, forall x. Alternative (p x))
       |||
       dimapMaybe (either (pure Nothing) Just) (Just . Right)
 
+    {- | One or more. -}
     someP :: p a b -> p [a] [b]
     someP p = _Cons >? p >*< manyP p
 
@@ -394,12 +405,20 @@ instance (Alternator p, Alternative f)
 
     someP (WrapPafb x) = WrapPafb (rmap sequenceA (someP x))
 
+{- | The `Filtrator` class extends `Cochoice`,
+as well as `Filterable`, adding the `filtrate` method,
+which is an oplax monoidal structure morphism dual to `>+<`.
+
+`filtrate` is a distant relative to `Data.Either.partitionEithers`.
+-}
 class (Cochoice p, forall x. Filterable (p x))
   => Filtrator p where
 
     {- |
     prop> unleft = fst . filtrate
     prop> unright = snd . filtrate
+
+    `filtrate` has a default when `Choice`.
     -}
     filtrate
       :: p (Either a c) (Either b d)
