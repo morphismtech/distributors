@@ -221,6 +221,8 @@ instance Decidable f => Distributor (Clown f) where
 instance Alternative f => Distributor (Joker f) where
   zeroP = Joker empty
   Joker x >+< Joker y = Joker (Left <$> x <|> Right <$> y)
+  optionalP (Joker x) = Joker (optional x)
+  manyP (Joker x) = Joker (many x)
 instance (Distributor p, Applicative f)
   => Distributor (WrappedPafb f p) where
     zeroP = WrapPafb (rmap pure zeroP)
@@ -232,6 +234,8 @@ instance Applicative f => Distributor (Star f) where
   zeroP = Star absurd
   Star f >+< Star g =
     Star (either (fmap Left . f) (fmap Right . g))
+  optionalP (Star f) = Star (traverse f)
+  manyP (Star f) = Star (traverse f)
 deriving via (Star m) instance Monad m => Distributor (Kleisli m)
 instance Adjunction f u => Distributor (Costar f) where
   zeroP = Costar unabsurdL
@@ -240,6 +244,8 @@ instance (Applicative f, Distributor p)
   => Distributor (Cayley f p) where
     zeroP = Cayley (pure zeroP)
     Cayley x >+< Cayley y = Cayley ((>+<) <$> x <*> y)
+    optionalP (Cayley x) = Cayley (optionalP <$> x)
+    manyP (Cayley x) = Cayley (manyP <$> x)
 instance (ArrowZero p, ArrowChoice p)
   => Distributor (Pro.WrappedArrow p) where
     zeroP = zeroArrow
@@ -252,17 +258,28 @@ instance (Distributor p, Distributor q)
     zeroP = Procompose zeroP zeroP
     Procompose xL yL >+< Procompose xR yR =
       Procompose (xL >+< xR) (yL >+< yR)
+    optionalP (Procompose f g) =
+      Procompose (optionalP f) (optionalP g)
+    manyP (Procompose f g) =
+      Procompose (manyP f) (manyP g)
 instance (Distributor p, Distributor q)
   => Distributor (Product p q) where
     zeroP = Pair zeroP zeroP
     Pair x0 y0 >+< Pair x1 y1 = Pair (x0 >+< x1) (y0 >+< y1)
+    optionalP (Pair f g) =
+      Pair (optionalP f) (optionalP g)
+    manyP (Pair f g) =
+      Pair (manyP f) (manyP g)
 instance Distributor p => Distributor (Yoneda p) where
   zeroP = proreturn zeroP
   ab >+< cd = proreturn (proextract ab >+< proextract cd)
+  optionalP = proreturn . optionalP . proextract
+  manyP = proreturn . manyP . proextract
 instance Distributor p => Distributor (Coyoneda p) where
   zeroP = proreturn zeroP
   ab >+< cd = proreturn (proextract ab >+< proextract cd)
-
+  optionalP = proreturn . optionalP . proextract
+  manyP = proreturn . manyP . proextract
 
 {- | `dialt` is a functionalized form of `>+<`. -}
 dialt
