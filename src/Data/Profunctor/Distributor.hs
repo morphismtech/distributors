@@ -567,7 +567,10 @@ chainl
   => APartialIso a b (a,a) (b,b) -- ^ binary constructor pattern
   -> APartialIso a b () () -- ^ nilary constructor pattern
   -> SepBy p -> p a b -> p a b
-chainl c2 c0 sep p = c0 >?< oneP <|> chainl1 c2 sep p
+chainl c2 c0 sep p =
+  beginBy sep >*
+  (c0 >?< oneP <|> chainl1 c2 (sepBy (separateBy sep)) p)
+  *< endBy sep
 
 {- |
 Right associate a binary constructor pattern to sequence one or more times,
@@ -578,7 +581,10 @@ chainr
   => APartialIso a b (a,a) (b,b) -- ^ binary constructor pattern
   -> APartialIso a b () () -- ^ nilary constructor pattern
   -> SepBy p -> p a b -> p a b
-chainr c2 c0 sep p = c0 >?< oneP <|> chainr1 c2 sep p
+chainr c2 c0 sep p =
+  beginBy sep >*
+  (c0 >?< oneP <|> chainr1 c2 (sepBy (separateBy sep)) p)
+  *< endBy sep
 
 -- Tokenized --
 
