@@ -29,7 +29,6 @@ import Control.Applicative hiding (WrappedArrow)
 import Control.Applicative qualified as Ap (WrappedArrow)
 import Control.Arrow
 import Control.Lens hiding (chosen)
-import Control.Lens.Internal.Bazaar
 import Control.Lens.Internal.Context
 import Control.Lens.Internal.Iso
 import Control.Lens.Internal.Prism
@@ -116,7 +115,7 @@ dimap2
 dimap2 f g h p q = liftA2 h (lmap f p) (lmap g q)
 
 {- | `foreverP` repeats an action indefinitely;
- analagous to `forever`, extending it to `Monoidal`. -}
+analagous to `forever`, extending it to `Monoidal`. -}
 foreverP :: Monoidal p => p () c -> p a b
 foreverP a = let a' = a >* a' in a'
 
@@ -296,8 +295,8 @@ countable sums of countable products.
 class Traversable t => Homogeneous t where
   {- | Sequences actions `homogeneously`.
 
-  prop> optionalP = homogeneously
-  prop> manyP = homogeneously
+  prop> homogeneously @Maybe = optionalP
+  prop> homogeneously @[] = manyP
   
   Any `Traversable` & `Distributive` countable product
   can be given a default implementation for the `homogeneously` method.
@@ -441,8 +440,6 @@ instance Alternator p => Alternator (Yoneda p) where
 {- | The `Filtrator` class extends `Cochoice`,
 as well as `Filterable`, adding the `filtrate` method,
 which is an oplax monoidal structure morphism dual to `>+<`.
-
-`filtrate` is a distant relative to `Data.Either.partitionEithers`.
 -}
 class (Cochoice p, forall x. Filterable (p x))
   => Filtrator p where
@@ -450,6 +447,8 @@ class (Cochoice p, forall x. Filterable (p x))
     {- |
     prop> unleft = fst . filtrate
     prop> unright = snd . filtrate
+
+    `filtrate` is a distant relative to `Data.Either.partitionEithers`.
 
     `filtrate` has a default when `Choice`.
     -}
@@ -568,7 +567,7 @@ chainl
   => APartialIso a b (a,a) (b,b) -- ^ binary constructor pattern
   -> APartialIso a b () () -- ^ nilary constructor pattern
   -> SepBy p -> p a b -> p a b
-chainl c2 c0 sep p = c0 >?< pure () <|> chainl1 c2 sep p
+chainl c2 c0 sep p = c0 >?< oneP <|> chainl1 c2 sep p
 
 {- |
 Right associate a binary constructor pattern to sequence one or more times,
@@ -579,7 +578,7 @@ chainr
   => APartialIso a b (a,a) (b,b) -- ^ binary constructor pattern
   -> APartialIso a b () () -- ^ nilary constructor pattern
   -> SepBy p -> p a b -> p a b
-chainr c2 c0 sep p = c0 >?< pure () <|> chainr1 c2 sep p
+chainr c2 c0 sep p = c0 >?< oneP <|> chainr1 c2 sep p
 
 -- Tokenized --
 
@@ -608,7 +607,7 @@ instance Tokenized a b (PartialExchange a b) where
 satisfy :: (Choice p, Cochoice p, Tokenized c c p) => (c -> Bool) -> p c c
 satisfy f = satisfied f >?< anyToken
 
-{- | Sequences a single specified token. -}
+{- | Sequences a single specified `token`. -}
 token :: (Cochoice p, Eq c, Tokenized c c p) => c -> p () ()
 token c = only c ?< anyToken
 
@@ -717,6 +716,13 @@ instance (Alternative f, Filterable f, Monad f, Cons s s Char Char)
 
 -- FunList --
 
+{- |
+`FunList` is isomorphic to `Bazaar` `(->)`.
+It's needed to define `meander`.
+
+See van Laarhoven, A non-regular data type challenge
+[https://twanvl.nl/blog/haskell/non-regular1]
+-}
 data FunList a b t
   = DoneFun t
   | MoreFun a (Bazaar (->) a b (b -> t))
@@ -731,10 +737,6 @@ instance Applicative (FunList a b) where
     MoreFun a h -> \l ->
       MoreFun a (flip <$> h <*> fromFun l)
 instance Sellable (->) FunList where sell b = MoreFun b (pure id)
-instance Bizarre (->) FunList where
-  bazaar f = \case
-    DoneFun t -> pure t
-    MoreFun a l -> ($) <$> bazaar f l <*> f a
 
 toFun :: Bazaar (->) a b t -> FunList a b t
 toFun (Bazaar f) = f sell
