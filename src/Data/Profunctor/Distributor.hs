@@ -18,7 +18,7 @@ module Data.Profunctor.Distributor
     -- * Alternator/Filtrator
   , Alternator (alternate, someP), Filtrator (filtrate)
     -- * SepBy
-  , SepBy (..), noSep, sepBy, atLeast0, atLeast1, chainl1, chainr1, chainl, chainr
+  , SepBy (..), sepBy, noSep, zeroOrMore, oneOrMore, chainl1, chainr1, chainl, chainr
     -- * Tokenized
   , Tokenized (anyToken), satisfy, token, tokens
     -- * Printor/Parsor
@@ -467,61 +467,84 @@ instance Filtrator (PartialExchange a b) where
 
 -- SepBy --
 
-{- | Used to parse multiple times, delimited by a `separateBy`,
-a `beginBy`, and an `endBy`. -}
+{- | Used to sequence multiple times,
+separated by a `separateBy`,
+begun by a `beginBy`,
+and ended by an `endBy`. -}
 data SepBy p = SepBy
   { beginBy :: p () ()
   , endBy :: p () ()
   , separateBy :: p () ()
   }
 
-noSep :: Monoidal p => SepBy p
-noSep = SepBy oneP oneP oneP
-
-{- | A default `SepBy` which can be modified by updating
-`beginBy`, or `endBy` fields -}
+{- | A default `SepBy` constructor which can be modified
+by updating `beginBy`, or `endBy` fields -}
 sepBy :: Monoidal p => p () () -> SepBy p
 sepBy = SepBy oneP oneP
 
-atLeast0
+{- | No separator, beginning or ending delimiters. -}
+noSep :: Monoidal p => SepBy p
+noSep = sepBy oneP
+
+{- |
+prop> zeroOrMore (sepBy noSep) = manyP
+-}
+zeroOrMore
   :: Distributor p
   => SepBy p -> p a b -> p [a] [b]
-atLeast0 sep p = mapIso listEot $
+zeroOrMore sep p = mapIso listEot $
   beginBy sep >* oneP >+< p >*< manyP (separateBy sep >* p) *< endBy sep
 
-atLeast1
+{- |
+prop> oneOrMore (sepBy noSep) = someP
+-}
+oneOrMore
   :: Alternator p
   => SepBy p -> p a b -> p [a] [b]
-atLeast1 sep p = _Cons >?
+oneOrMore sep p = _Cons >?
   beginBy sep >* p >*< manyP (separateBy sep >* p) *< endBy sep
 
+{- |
+Left associate a binary constructor pattern to sequence one or more times.
+-}
 chainl1
-  :: (Alternator p, Filtrator p)
-  => APartialIso a b (a,a) (b,b)
+  :: (Choice p, Cochoice p, Distributor p)
+  => APartialIso a b (a,a) (b,b) -- ^ binary constructor pattern
   -> SepBy p -> p a b -> p a b
 chainl1 pat sep p =
   coPartialIso (difoldl (coPartialIso pat)) >?<
     beginBy sep >* p >*< manyP (separateBy sep >* p) *< endBy sep
 
+{- |
+Right associate a binary constructor pattern to sequence one or more times.
+-}
 chainr1
-  :: (Alternator p, Filtrator p)
-  => APartialIso a b (a,a) (b,b)
+  :: (Choice p, Cochoice p, Distributor p)
+  => APartialIso a b (a,a) (b,b) -- ^ binary constructor pattern
   -> SepBy p -> p a b -> p a b
 chainr1 c2 sep p =
   coPartialIso (difoldr (coPartialIso c2)) >?<
     beginBy sep >* manyP (p *< separateBy sep) >*< p *< endBy sep
 
+{- |
+Left associate a binary constructor pattern to sequence one or more times,
+or use a nilary constructor pattern to sequence zero times.
+-}
 chainl
   :: (Alternator p, Filtrator p)
-  => APartialIso a b (a,a) (b,b)
-  -> APartialIso a b () ()
+  => APartialIso a b (a,a) (b,b) -- ^ binary constructor pattern
+  -> APartialIso a b () () -- ^ nilary constructor pattern
   -> SepBy p -> p a b -> p a b
 chainl c2 c0 sep p = c0 >?< pure () <|> chainl1 c2 sep p
 
+{- |
+Right associate a binary constructor pattern to sequence one or more times,
+or use a nilary constructor pattern to sequence zero times.
+-}
 chainr
   :: (Alternator p, Filtrator p)
-  => APartialIso a b (a,a) (b,b)
-  -> APartialIso a b () ()
+  => APartialIso a b (a,a) (b,b) -- ^ binary constructor pattern
+  -> APartialIso a b () () -- ^ nilary constructor pattern
   -> SepBy p -> p a b -> p a b
 chainr c2 c0 sep p = c0 >?< pure () <|> chainr1 c2 sep p
 
