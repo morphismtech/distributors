@@ -8,19 +8,24 @@ Stability   : provisional
 Portability : non-portable
 
 See Joachim Breitner,
-[Showcasing Applicative](https://www.joachim-breitner.de/blog/710-Showcasing_Applicative)
+[Showcasing Applicative]
+(https://www.joachim-breitner.de/blog/710-Showcasing_Applicative)
 for idea to unify grammars.
 -}
 
 module Text.Grammar.Distributor
   ( -- * Grammar
-    Grammatical (..), Grammar, Grammarr
-    -- * Generators
-  , genReadS, readGrammar
-  , genShowS, showGrammar
-  , genRegEx, genGrammar, printGrammar
+    Grammar, Grammarr, Grammatical (..)
     -- * RegEx
-  , RegEx (..), regexGrammar, regexString
+  , RegEx (..), regexString, regexGrammar
+    -- * Generators
+  , genReadS
+  , readGrammar
+  , genShowS
+  , showGrammar
+  , genRegEx
+  , genGrammar
+  , printGrammar
   ) where
 
 import Control.Applicative
@@ -37,6 +42,28 @@ import Data.String
 import GHC.Generics
 import Witherable
 
+{- | A `Grammar` is an EDSL for writing extended
+Backus-Naur form grammars.
+-}
+type Grammar a = forall p. Grammatical p => p a a
+
+{- | A `Grammarr` is just a function of `Grammar`s,
+useful for expressing one in terms of another `Grammar`.
+-}
+type Grammarr a b = forall p. Grammatical p => p a a -> p b b
+
+{- | The `Grammatical` class extends `Alternator` & `Filtrator`
+which gives it Kleene's regular expression combinators. It also has
+`rule` and `ruleRec` for defining grammar rules and
+recursive grammar rules, i.e. nonterminal expressions. Finally,
+terminal expressions can be expressed as string literals since
+`Grammatical` also implies `IsString`.
+
+One can create new "generators" from a `Grammar` by defining
+instances of `Grammatical`. For instance, one could create
+generators for Parsec style parsers, and use `rule` for
+labeling of parse errors.
+-}
 class
   ( Alternator p
   , Filtrator p
@@ -44,21 +71,27 @@ class
   , forall t. t ~ p () () => IsString t
   ) => Grammatical p where
 
+    {- | Only characters which are in the given `String`.-}
     inClass :: String -> p Char Char
     inClass str = satisfy $ \ch -> elem ch str
 
+    {- | Only characters which are not in the given `String`.-}
     notInClass :: String -> p Char Char
     notInClass str = satisfy $ \ch -> notElem ch str
 
+    {- | Only characters which are in the given `GeneralCategory`.-}
     inCategory :: GeneralCategory -> p Char Char
     inCategory cat = satisfy $ \ch -> cat == generalCategory ch
 
+    {- | Only characters which are not in the given `GeneralCategory`.-}
     notInCategory :: GeneralCategory -> p Char Char
     notInCategory cat = satisfy $ \ch -> cat /= generalCategory ch
 
+    {- | A nonterminal rule. -}
     rule :: String -> p a b -> p a b
     rule _ = id
 
+    {- | A recursive, nonterminal rule. -}
     ruleRec :: String -> (p a b -> p a b) -> p a b
     ruleRec name = rule name . fix
 
@@ -67,12 +100,9 @@ instance (Alternative f, Cons s s Char Char)
 instance (Monad f, Alternative f, Filterable f, Cons s s Char Char)
   => Grammatical (Parsor s f)
 
-type Grammar a = forall p. Grammatical p => p a a
-
-type Grammarr a b = forall p. Grammatical p => p a a -> p b b
-
 -- RegEx --
 
+{- | A version of regular expressions extended by nonterminals. -}
 data RegEx
   = Terminal String -- ^ @abc123etc\\.@
   | Sequence RegEx RegEx -- ^ @xy@
@@ -91,182 +121,16 @@ data RegEx
 makePrisms ''RegEx
 makePrisms ''GeneralCategory
 
-(-*-), (|||) :: RegEx -> RegEx -> RegEx
-
-Terminal "" -*- rex = rex
-rex -*- Terminal "" = rex
-Fail -*- _ = Fail
-_ -*- Fail = Fail
-Terminal str0 -*- Terminal str1 = Terminal (str0 <> str1)
-KleeneStar rex0 -*- rex1 | rex0 == rex1 = plusK rex0
-rex0 -*- KleeneStar rex1 | rex0 == rex1 = plusK rex0
-rex0 -*- rex1 = Sequence rex0 rex1
-
-KleenePlus rex ||| Terminal "" = starK rex
-Terminal "" ||| KleenePlus rex = starK rex
-rex ||| Terminal "" = optK rex
-Terminal "" ||| rex = optK rex
-rex ||| Fail = rex
-Fail ||| rex = rex
-rex0 ||| rex1 | rex0 == rex1 = rex0
-rex0 ||| rex1 = Alternate rex0 rex1
-
-optK, starK, plusK :: RegEx -> RegEx
-
-optK Fail = Terminal ""
-optK (Terminal "") = Terminal ""
-optK (KleenePlus rex) = starK rex
-optK rex = KleeneOpt rex
-
-starK Fail = Terminal ""
-starK (Terminal "") = Terminal ""
-starK rex = KleeneStar rex
-
-plusK Fail = Fail
-plusK (Terminal "") = Terminal ""
-plusK rex = KleenePlus rex
-
-newtype DiRegEx a b = DiRegEx RegEx
-instance Functor (DiRegEx a) where fmap = rmap
-instance Applicative (DiRegEx a) where
-  pure _ = DiRegEx (Terminal [])
-  DiRegEx rex1 <*> DiRegEx rex2 = DiRegEx (rex1 -*- rex2)
-instance Alternative (DiRegEx a) where
-  empty = DiRegEx Fail
-  DiRegEx rex1 <|> DiRegEx rex2 = DiRegEx (rex1 ||| rex2)
-  many (DiRegEx rex) = DiRegEx (KleeneStar rex)
-  some (DiRegEx rex) = DiRegEx (KleenePlus rex)
-instance Filterable (DiRegEx a) where
-  mapMaybe _ = coerce
-instance Profunctor DiRegEx where
-  dimap _ _ = coerce
-instance Distributor DiRegEx where
-  zeroP = DiRegEx Fail
-  DiRegEx rex1 >+< DiRegEx rex2 = DiRegEx (rex1 ||| rex2)
-  optionalP (DiRegEx rex) = DiRegEx (optK rex)
-  manyP (DiRegEx rex) = DiRegEx (starK rex)
-instance Choice DiRegEx where
-  left' = coerce
-  right' = coerce
-instance Cochoice DiRegEx where
-  unleft = coerce
-  unright = coerce
-instance Alternator DiRegEx where
-  someP (DiRegEx rex) = DiRegEx (plusK rex)
-instance Filtrator DiRegEx
-instance IsString (DiRegEx () ()) where
-  fromString str = DiRegEx (Terminal str)
-instance Tokenized Char Char DiRegEx where
-  anyToken = DiRegEx AnyChar
-instance Grammatical DiRegEx where
-  inClass str = DiRegEx (InClass str)
-  notInClass str = DiRegEx (NotInClass str)
-  inCategory cat = DiRegEx (InCategory cat)
-  notInCategory cat = DiRegEx (NotInCategory cat)
-
-data DiGrammar a b = DiGrammar
-  { grammarStart :: DiRegEx a b
-  , grammarRules :: Set (String, RegEx)
-  }
-instance Functor (DiGrammar a) where fmap = rmap
-instance Applicative (DiGrammar a) where
-  pure b = DiGrammar (pure b) mempty
-  DiGrammar start1 rules1 <*> DiGrammar start2 rules2 =
-    DiGrammar (start1 <*> start2) (rules1 <> rules2)
-instance Alternative (DiGrammar a) where
-  empty = DiGrammar empty mempty
-  DiGrammar start1 rules1 <|> DiGrammar start2 rules2 =
-    DiGrammar (start1 <|> start2) (rules1 <> rules2)
-  many (DiGrammar start rules) = DiGrammar (many start) rules
-  some (DiGrammar start rules) = DiGrammar (some start) rules
-instance Filterable (DiGrammar a) where
-  mapMaybe f (DiGrammar start rules) =
-    DiGrammar (mapMaybe f start) rules
-instance Profunctor DiGrammar where
-  dimap f g (DiGrammar start rules) =
-    DiGrammar (dimap f g start) rules
-instance Distributor DiGrammar where
-  zeroP = DiGrammar zeroP mempty
-  DiGrammar start1 rules1 >+< DiGrammar start2 rules2 =
-    DiGrammar (start1 >+< start2) (rules1 <> rules2)
-  optionalP (DiGrammar start rules) =
-    DiGrammar (optionalP start) rules
-  manyP (DiGrammar start rules) =
-    DiGrammar (manyP start) rules
-instance Choice DiGrammar where
-  left' = coerce
-  right' = coerce
-instance Cochoice DiGrammar where
-  unleft = coerce
-  unright = coerce
-instance Alternator DiGrammar where
-  someP (DiGrammar start rules) =
-    DiGrammar (someP start) rules
-instance Filtrator DiGrammar
-instance IsString (DiGrammar () ()) where
-  fromString str = DiGrammar (fromString str) mempty
-instance Tokenized Char Char DiGrammar where
-  anyToken = DiGrammar anyToken mempty
-instance Grammatical DiGrammar where
-  inClass str = DiGrammar (inClass str) mempty
-  notInClass str = DiGrammar (notInClass str) mempty
-  inCategory str = DiGrammar (inCategory str) mempty
-  rule name gram = 
-    let
-      start = DiRegEx (NonTerminal name)
-      DiRegEx newRule = grammarStart gram
-      rules = insert (name, newRule) (grammarRules gram)
-    in
-      DiGrammar start rules
-  ruleRec name f =
-    let
-      start = DiRegEx (NonTerminal name)
-      gram = f (DiGrammar start mempty)
-      DiRegEx newRule = grammarStart gram
-      rules = insert (name, newRule) (grammarRules gram)
-    in
-      DiGrammar start rules
-
--- Generators --
-
-genReadS :: Grammar a -> ReadS a
-genReadS = runParsor
-
-readGrammar :: Grammar a -> String -> [a]
-readGrammar grammar str =
-  [ a
-  | (a, remaining) <- genReadS grammar str
-  , remaining == []
-  ]
-
-genShowS :: Grammar a -> a -> Maybe ShowS
-genShowS = runPrintor
-
-showGrammar :: Grammar a -> a -> Maybe String
-showGrammar grammar a = ($ "") <$> genShowS grammar a
-
+{- | The `RegEx` `String`. -}
 regexString :: RegEx -> String
 regexString rex = maybe badRegex id stringMaybe
   where
-    badRegex = "RegEx failed to print. " <> show rex
+    badRegex = "\\q"
     stringMaybe = case regexGrammar of Printor sh -> ($ "") <$> sh rex
 
-genRegEx :: Grammar a -> RegEx
-genRegEx (DiRegEx rex) = rex
+{- | `regexGrammar` provides an example of a `Grammar`.
+Take a look at the source to see how it is defined as an EDSL.
 
-genGrammar :: Grammar a -> [(String, RegEx)]
-genGrammar (DiGrammar (DiRegEx start) rules) =
-  ("start", start) : toList rules
-
-printGrammar :: Grammar a -> IO ()
-printGrammar gram = for_ (genGrammar gram) $ \(name_i, rule_i) -> do
-  putStr name_i
-  putStr " = "
-  putStrLn (regexString rule_i)
-
--- Grammar RegEx --
-
-{- |
 >>> printGrammar regexGrammar
 start = \q{regex}
 alternate = \q{sequence}(\|\q{sequence})*
@@ -416,3 +280,185 @@ seqG rex = rule "sequence" $
 terminalG :: Grammar RegEx
 terminalG = rule "terminal" $
   _Terminal >?< someP charG
+
+(-*-), (|||) :: RegEx -> RegEx -> RegEx
+
+Terminal "" -*- rex = rex
+rex -*- Terminal "" = rex
+Fail -*- _ = Fail
+_ -*- Fail = Fail
+Terminal str0 -*- Terminal str1 = Terminal (str0 <> str1)
+KleeneStar rex0 -*- rex1 | rex0 == rex1 = plusK rex0
+rex0 -*- KleeneStar rex1 | rex0 == rex1 = plusK rex0
+rex0 -*- rex1 = Sequence rex0 rex1
+
+KleenePlus rex ||| Terminal "" = starK rex
+Terminal "" ||| KleenePlus rex = starK rex
+rex ||| Terminal "" = optK rex
+Terminal "" ||| rex = optK rex
+rex ||| Fail = rex
+Fail ||| rex = rex
+rex0 ||| rex1 | rex0 == rex1 = rex0
+rex0 ||| rex1 = Alternate rex0 rex1
+
+optK, starK, plusK :: RegEx -> RegEx
+
+optK Fail = Terminal ""
+optK (Terminal "") = Terminal ""
+optK (KleenePlus rex) = starK rex
+optK rex = KleeneOpt rex
+
+starK Fail = Terminal ""
+starK (Terminal "") = Terminal ""
+starK rex = KleeneStar rex
+
+plusK Fail = Fail
+plusK (Terminal "") = Terminal ""
+plusK rex = KleenePlus rex
+
+newtype DiRegEx a b = DiRegEx RegEx
+instance Functor (DiRegEx a) where fmap = rmap
+instance Applicative (DiRegEx a) where
+  pure _ = DiRegEx (Terminal [])
+  DiRegEx rex1 <*> DiRegEx rex2 = DiRegEx (rex1 -*- rex2)
+instance Alternative (DiRegEx a) where
+  empty = DiRegEx Fail
+  DiRegEx rex1 <|> DiRegEx rex2 = DiRegEx (rex1 ||| rex2)
+  many (DiRegEx rex) = DiRegEx (KleeneStar rex)
+  some (DiRegEx rex) = DiRegEx (KleenePlus rex)
+instance Filterable (DiRegEx a) where
+  mapMaybe _ = coerce
+instance Profunctor DiRegEx where
+  dimap _ _ = coerce
+instance Distributor DiRegEx where
+  zeroP = DiRegEx Fail
+  DiRegEx rex1 >+< DiRegEx rex2 = DiRegEx (rex1 ||| rex2)
+  optionalP (DiRegEx rex) = DiRegEx (optK rex)
+  manyP (DiRegEx rex) = DiRegEx (starK rex)
+instance Choice DiRegEx where
+  left' = coerce
+  right' = coerce
+instance Cochoice DiRegEx where
+  unleft = coerce
+  unright = coerce
+instance Alternator DiRegEx where
+  someP (DiRegEx rex) = DiRegEx (plusK rex)
+instance Filtrator DiRegEx
+instance IsString (DiRegEx () ()) where
+  fromString str = DiRegEx (Terminal str)
+instance Tokenized Char Char DiRegEx where
+  anyToken = DiRegEx AnyChar
+instance Grammatical DiRegEx where
+  inClass str = DiRegEx (InClass str)
+  notInClass str = DiRegEx (NotInClass str)
+  inCategory cat = DiRegEx (InCategory cat)
+  notInCategory cat = DiRegEx (NotInCategory cat)
+
+data DiGrammar a b = DiGrammar
+  { grammarStart :: DiRegEx a b
+  , grammarRules :: Set (String, RegEx)
+  }
+instance Functor (DiGrammar a) where fmap = rmap
+instance Applicative (DiGrammar a) where
+  pure b = DiGrammar (pure b) mempty
+  DiGrammar start1 rules1 <*> DiGrammar start2 rules2 =
+    DiGrammar (start1 <*> start2) (rules1 <> rules2)
+instance Alternative (DiGrammar a) where
+  empty = DiGrammar empty mempty
+  DiGrammar start1 rules1 <|> DiGrammar start2 rules2 =
+    DiGrammar (start1 <|> start2) (rules1 <> rules2)
+  many (DiGrammar start rules) = DiGrammar (many start) rules
+  some (DiGrammar start rules) = DiGrammar (some start) rules
+instance Filterable (DiGrammar a) where
+  mapMaybe f (DiGrammar start rules) =
+    DiGrammar (mapMaybe f start) rules
+instance Profunctor DiGrammar where
+  dimap f g (DiGrammar start rules) =
+    DiGrammar (dimap f g start) rules
+instance Distributor DiGrammar where
+  zeroP = DiGrammar zeroP mempty
+  DiGrammar start1 rules1 >+< DiGrammar start2 rules2 =
+    DiGrammar (start1 >+< start2) (rules1 <> rules2)
+  optionalP (DiGrammar start rules) =
+    DiGrammar (optionalP start) rules
+  manyP (DiGrammar start rules) =
+    DiGrammar (manyP start) rules
+instance Choice DiGrammar where
+  left' = coerce
+  right' = coerce
+instance Cochoice DiGrammar where
+  unleft = coerce
+  unright = coerce
+instance Alternator DiGrammar where
+  someP (DiGrammar start rules) =
+    DiGrammar (someP start) rules
+instance Filtrator DiGrammar
+instance IsString (DiGrammar () ()) where
+  fromString str = DiGrammar (fromString str) mempty
+instance Tokenized Char Char DiGrammar where
+  anyToken = DiGrammar anyToken mempty
+instance Grammatical DiGrammar where
+  inClass str = DiGrammar (inClass str) mempty
+  notInClass str = DiGrammar (notInClass str) mempty
+  inCategory str = DiGrammar (inCategory str) mempty
+  rule name gram = 
+    let
+      start = DiRegEx (NonTerminal name)
+      DiRegEx newRule = grammarStart gram
+      rules = insert (name, newRule) (grammarRules gram)
+    in
+      DiGrammar start rules
+  ruleRec name f =
+    let
+      start = DiRegEx (NonTerminal name)
+      gram = f (DiGrammar start mempty)
+      DiRegEx newRule = grammarStart gram
+      rules = insert (name, newRule) (grammarRules gram)
+    in
+      DiGrammar start rules
+
+-- Generators --
+
+{- | Generate a `ReadS` from a `Grammar`. -}
+genReadS :: Grammar a -> ReadS a
+genReadS = runParsor
+
+{- | Use a `Grammar` to parse a `String`. -}
+readGrammar :: Grammar a -> String -> [a]
+readGrammar grammar str =
+  [ a
+  | (a, remaining) <- genReadS grammar str
+  , remaining == []
+  ]
+
+{- | Generate `ShowS`s from a `Grammar`. -}
+genShowS :: Grammar a -> a -> [ShowS]
+genShowS = runPrintor
+
+{- | Use a `Grammar` to print `String`s. -}
+showGrammar :: Grammar a -> a -> [String]
+showGrammar grammar a = ($ "") <$> genShowS grammar a
+
+{- | Generate `RegEx`es from a `Grammar`.
+This will infinite loop if you your `Grammar` includes a `ruleRec`,
+otherwise it will inline all rules and produce a valid
+regular expression.
+-}
+genRegEx :: Grammar a -> RegEx
+genRegEx (DiRegEx rex) = rex
+
+{- | Generate a Backus-Naur form grammar,
+extended by regular expressions, from a `Grammar`.
+-}
+genGrammar :: Grammar a -> [(String, RegEx)]
+genGrammar (DiGrammar (DiRegEx start) rules) =
+  ("start", start) : toList rules
+
+{- | Print a Backus-Naur form grammar,
+extended by regular expressions, from a `Grammar`.
+-}
+printGrammar :: Grammar a -> IO ()
+printGrammar gram = for_ (genGrammar gram) $ \(name_i, rule_i) -> do
+  putStr name_i
+  putStr " = "
+  putStrLn (regexString rule_i)

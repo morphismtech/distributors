@@ -723,7 +723,7 @@ instance (Alternative f, Filterable f, Monad f, Cons s s Char Char)
 -- FunList --
 
 {- |
-`FunList` is isomorphic to `Bazaar` `(->)`.
+`FunList` is isomorphic to `Bazaar` @(->)@.
 It's needed to define `meander`.
 
 See van Laarhoven, A non-regular data type challenge

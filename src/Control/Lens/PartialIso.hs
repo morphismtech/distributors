@@ -74,28 +74,6 @@ dimapMaybe f g =
   in
     unright . fg . right'
 
-{- | A `PartialExchange` provides efficient access
-to the two functions that make up a `PartialIso`.
--}
-data PartialExchange a b s t =
-  PartialExchange (s -> Maybe a) (b -> Maybe t)
-instance Functor (PartialExchange a b s) where fmap = rmap
-instance Filterable (PartialExchange a b s) where
-  mapMaybe = dimapMaybe Just
-instance Profunctor (PartialExchange a b) where
-  dimap f' g' (PartialExchange f g) =
-    PartialExchange (f . f') (fmap g' . g)
-instance Choice (PartialExchange a b) where
-  left' (PartialExchange f g) =
-    PartialExchange (either f (pure Nothing)) ((Left <$>) . g)
-  right' (PartialExchange f g) =
-    PartialExchange (either (pure Nothing) f) ((Right <$>) . g)
-instance Cochoice (PartialExchange a b) where
-  unleft (PartialExchange f g) =
-    PartialExchange (f . Left) (either Just (pure Nothing) <=< g)
-  unright (PartialExchange f g) =
-    PartialExchange (f . Right) (either (pure Nothing) Just <=< g)
-
 {- | `PartialIso` is a first class inexhaustive pattern,
 similar to how `Control.Lens.Prism.Prism` is a first class exhaustive pattern.
 
@@ -147,6 +125,28 @@ type PartialIso' s a = PartialIso s s a a
 the function is expecting a `PartialIso`. -}
 type APartialIso s t a b =
   PartialExchange a b a (Maybe b) -> PartialExchange a b s (Maybe t)
+
+{- | A `PartialExchange` provides efficient access
+to the two functions that make up a `PartialIso`.
+-}
+data PartialExchange a b s t =
+  PartialExchange (s -> Maybe a) (b -> Maybe t)
+instance Functor (PartialExchange a b s) where fmap = rmap
+instance Filterable (PartialExchange a b s) where
+  mapMaybe = dimapMaybe Just
+instance Profunctor (PartialExchange a b) where
+  dimap f' g' (PartialExchange f g) =
+    PartialExchange (f . f') (fmap g' . g)
+instance Choice (PartialExchange a b) where
+  left' (PartialExchange f g) =
+    PartialExchange (either f (pure Nothing)) ((Left <$>) . g)
+  right' (PartialExchange f g) =
+    PartialExchange (either (pure Nothing) f) ((Right <$>) . g)
+instance Cochoice (PartialExchange a b) where
+  unleft (PartialExchange f g) =
+    PartialExchange (f . Left) (either Just (pure Nothing) <=< g)
+  unright (PartialExchange f g) =
+    PartialExchange (f . Right) (either (pure Nothing) Just <=< g)
 
 {- | Build a `PartialIso`. -}
 partialIso :: (s -> Maybe a) -> (b -> Maybe t) -> PartialIso s t a b
