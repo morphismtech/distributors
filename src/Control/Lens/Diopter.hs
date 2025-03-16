@@ -35,18 +35,22 @@ import GHC.Generics
 
 Every `Control.Lens.Iso.Iso` and `Control.Lens.Monocle` is a `Diopter`.
 
-`Monocle`s are isomorphic to `Monocular`s.
+`Diopter`s are isomorphic to `Dioptrice`s.
 -}
 type Diopter s t a b = forall p f.
   (Distributor p, Applicative f)
     => p a (f b) -> p s (f t)
 
+{- | If you see `ADiopter` in a signature for a function,
+the function is expecting a `Diopter`. -}
 type ADiopter s t a b =
   Dioptrice a b a (Identity b) -> Dioptrice a b s (Identity t)
 
+{- | Build a `Diopter`. -}
 diopter :: Homogeneous h => (s -> h a) -> (h b -> t) -> Diopter s t a b
 diopter f g = unwrapPafb . runDioptrice (Dioptrice f g) . WrapPafb
 
+{- | Convert `ADiopter` to the pair of functions that characterize it. -}
 withDiopter
   :: ADiopter s t a b
   -> (forall h. Homogeneous h => (s -> h a) -> (h b -> t) -> r)
@@ -54,21 +58,34 @@ withDiopter
 withDiopter dio k = case (runIdentity <$> dio (Identity <$> anyToken)) of
   Dioptrice f g -> k f g
 
+{- | Action of `ADiopter` on `Distributor`s. -}
 mapDiopter :: Distributor p => ADiopter s t a b -> p a b -> p s t
 mapDiopter dio = withDiopter dio $ \f g -> dimap f g . homogeneously
 
+{- | Clone `ADiopter` so that you can reuse the same
+monomorphically typed `Diopter` for different purposes.
+-}
 cloneDiopter :: ADiopter s t a b -> Diopter s t a b
 cloneDiopter dio = withDiopter dio diopter
 
+{- | One or none. -}
 optioned :: Diopter (Maybe a) (Maybe b) a b
 optioned = unwrapPafb . optionalP . WrapPafb
 
+{- | Zero or more. -}
 manied :: Diopter [a] [b] a b
 manied = unwrapPafb . manyP . WrapPafb
 
+{- |
+prop> traverse = homogenized
+prop> homogenized = ditraversed
+-}
 homogenized :: Homogeneous t => Diopter (t a) (t b) a b
 homogenized = unwrapPafb . homogeneously . WrapPafb
 
+{- | A `Dioptrice` provides efficient access
+to some pair of functions that make up a `Diopter`.
+-}
 data Dioptrice a b s t where
   Dioptrice
     :: Homogeneous h
@@ -100,6 +117,7 @@ instance Distributor (Dioptrice a b) where
     (Comp1 . fmap f)
     (fmap g . unComp1)
 
+{- | Run a `Dioptrice` on a `Distributor`. -}
 runDioptrice
   :: Distributor p
   => Dioptrice a b s t
