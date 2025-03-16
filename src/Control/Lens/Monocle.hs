@@ -12,14 +12,17 @@ See Oliveira, Jaskelioff & de Melo,
 -}
 
 module Control.Lens.Monocle
-  ( Monocle
+  ( -- * Monocle
+    Monocle
   , AMonocle
   , monocle
+    -- * Combinators
+  , withMonocle
+  , cloneMonocle
   , mapMonocle
   , ditraversed
   , forevered
-  , cloneMonocle
-  , withMonocle
+    -- * Monocular
   , Monocular (..), runMonocular
   ) where
 
