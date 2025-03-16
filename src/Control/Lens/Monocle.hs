@@ -15,8 +15,8 @@ module Control.Lens.Monocle
   ( -- * Monocle
     Monocle
   , AMonocle
-  , monocle
     -- * Combinators
+  , monocle
   , withMonocle
   , cloneMonocle
   , mapMonocle
@@ -56,7 +56,7 @@ mapMonocle :: Monoidal p => AMonocle s t a b -> p a b -> p s t
 mapMonocle mon p = withMonocle mon $ \f -> lmap f p
 
 {- | Clone `AMonocle` so that you can reuse the same
-monomorphically typed monocle for different purposes.
+monomorphically typed `Monocle` for different purposes.
 -}
 cloneMonocle :: AMonocle s t a b -> Monocle s t a b
 cloneMonocle mon = unwrapPafb . mapMonocle mon . WrapPafb
