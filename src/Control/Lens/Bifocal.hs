@@ -187,7 +187,7 @@ instance Distributor (Binocular a b)
 instance Alternator (Binocular a b)
 instance Filtrator (Binocular a b)
 
-{- | Run a `Monocular` on a `Monoidal` `Profunctor`. -}
+{- | Run a `Binocular` on a partial `Distributor`. -}
 runBinocular
   :: (Alternator p, Filtrator p)
   => Binocular a b s t
