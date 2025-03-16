@@ -75,31 +75,20 @@ dimapMaybe f g =
     unright . fg . right'
 
 {- | `PartialIso` is a first class inexhaustive pattern,
-similar to how `Control.Lens.Prism.Prism` is a first class exhaustive pattern.
+similar to how `Control.Lens.Prism.Prism` is a first class exhaustive pattern,
+by combining `Control.Lens.Prism.Prism`s and coPrisms.
 
 Every `Control.Lens.Iso.Iso` & `Control.Lens.Prism.Prism` is `APartialIso`.
 
-`PartialIso`s combine `Control.Lens.Prism.Prism`s and coPrisms.
-
 `PartialIso`s are isomorphic to `PartialExchange`s.
-
->>> :{
-let
-  fromPartialIso :: APartialIso s t a b -> PartialExchange a b s t
-  fromPartialIso i = withPartialIso i PartialExchange
-  toPartialIso :: PartialExchange a b s t -> PartialIso s t a b
-  toPartialIso (PartialExchange f g) = partialIso f g
-:}
-prop> id = fromPartialIso . toPartialIso
-prop> id = toPartialIso . fromPartialIso
 -}
 type PartialIso s t a b = forall p f.
   (Choice p, Cochoice p, Applicative f, Filterable f)
     => p a (f b) -> p s (f t)
 
 {- |
-A `PartialIso'` @s a@ is a `Simple` `PartialIso`.
-It is an identification of a subset of @s@ with a subset of @a@.
+A simple `PartialIso'` @s a@ is an identification of
+a subset of @s@ with a subset of @a@.
 
 Given a simple `PartialIso'`, @partialIso f g@, has properties:
 
@@ -153,7 +142,7 @@ partialIso :: (s -> Maybe a) -> (b -> Maybe t) -> PartialIso s t a b
 partialIso f g =
   unright . iso (maybe (Left ()) Right . f =<<) (mapMaybe g) . right'
 
-{- | `withPartialIso` inverts `partialIso`. -}
+{- | Convert `APartialIso` to the pair of functions that characterize it. -}
 withPartialIso
   :: APartialIso s t a b
   -> ((s -> Maybe a) -> (b -> Maybe t) -> r)
