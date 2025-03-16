@@ -121,12 +121,13 @@ data RegEx
 makePrisms ''RegEx
 makePrisms ''GeneralCategory
 
-{- | The `RegEx` `String`. -}
+{- | The `RegEx` `String`.
+
+>>> putStrLn (regexString (Alternate (Sequence (Terminal "x") (Terminal "y")) (KleenePlus (Terminal "z"))))
+xy|z+
+-}
 regexString :: RegEx -> String
-regexString rex = maybe badRegex id stringMaybe
-  where
-    badRegex = "\\q"
-    stringMaybe = case regexGrammar of Printor sh -> ($ "") <$> sh rex
+regexString rex = maybe "\\q" id (showGrammar regexGrammar rex)
 
 {- | `regexGrammar` provides an important example of a `Grammar`.
 Take a look at the source to see its definition.
