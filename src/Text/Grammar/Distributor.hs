@@ -128,8 +128,8 @@ regexString rex = maybe badRegex id stringMaybe
     badRegex = "\\q"
     stringMaybe = case regexGrammar of Printor sh -> ($ "") <$> sh rex
 
-{- | `regexGrammar` provides an example of a `Grammar`.
-Take a look at the source to see how it is defined as an EDSL.
+{- | `regexGrammar` provides an important example of a `Grammar`.
+Take a look at the source to see its definition.
 
 >>> printGrammar regexGrammar
 start = \q{regex}
@@ -281,6 +281,8 @@ terminalG :: Grammar RegEx
 terminalG = rule "terminal" $
   _Terminal >?< someP charG
 
+-- Kleene Star Algebra Operators
+
 (-*-), (|||) :: RegEx -> RegEx -> RegEx
 
 Terminal "" -*- rex = rex
@@ -315,6 +317,8 @@ starK rex = KleeneStar rex
 plusK Fail = Fail
 plusK (Terminal "") = Terminal ""
 plusK rex = KleenePlus rex
+
+-- RegEx generator
 
 newtype DiRegEx a b = DiRegEx RegEx
 instance Functor (DiRegEx a) where fmap = rmap
@@ -353,6 +357,8 @@ instance Grammatical DiRegEx where
   notInClass str = DiRegEx (NotInClass str)
   inCategory cat = DiRegEx (InCategory cat)
   notInCategory cat = DiRegEx (NotInCategory cat)
+
+-- Grammar generator
 
 data DiGrammar a b = DiGrammar
   { grammarStart :: DiRegEx a b
@@ -432,11 +438,11 @@ readGrammar grammar str =
   ]
 
 {- | Generate `ShowS`s from a `Grammar`. -}
-genShowS :: Grammar a -> a -> [ShowS]
+genShowS :: Alternative f => Grammar a -> a -> f ShowS
 genShowS = runPrintor
 
 {- | Use a `Grammar` to print `String`s. -}
-showGrammar :: Grammar a -> a -> [String]
+showGrammar :: Alternative f => Grammar a -> a -> f String
 showGrammar grammar a = ($ "") <$> genShowS grammar a
 
 {- | Generate `RegEx`es from a `Grammar`.
