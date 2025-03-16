@@ -123,7 +123,8 @@ makePrisms ''GeneralCategory
 
 {- | The `RegEx` `String`.
 
->>> putStrLn (regexString (Alternate (Sequence (Terminal "x") (Terminal "y")) (KleenePlus (Terminal "z"))))
+>>> let rex = Alternate (Sequence (Terminal "x") (Terminal "y")) (KleenePlus (Terminal "z"))
+>>> putStrLn (regexString rex)
 xy|z+
 -}
 regexString :: RegEx -> String
