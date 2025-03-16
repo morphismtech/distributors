@@ -9,10 +9,10 @@ Portability : non-portable
 -}
 
 module Control.Lens.Diopter
-  ( Diopter
-  , Diopter'
+  ( -- * Diopter
+    Diopter
   , ADiopter
-  , ADiopter'
+    -- * Combinators
   , diopter
   , withDiopter
   , cloneDiopter
@@ -20,6 +20,7 @@ module Control.Lens.Diopter
   , optioned
   , manied
   , homogenized
+    -- * Dioptrice
   , Dioptrice (..), runDioptrice
   ) where
 
@@ -29,16 +30,19 @@ import Data.Profunctor.Distributor
 import Data.Void
 import GHC.Generics
 
+{- | `Diopter`s are an optic that generalizes
+`Control.Lens.Bifocal.Bifocal`s and `Control.Lens.Traversal.Traversal`s.
+
+Every `Control.Lens.Iso.Iso` and `Control.Lens.Monocle` is a `Diopter`.
+
+`Monocle`s are isomorphic to `Monocular`s.
+-}
 type Diopter s t a b = forall p f.
   (Distributor p, Applicative f)
     => p a (f b) -> p s (f t)
 
-type Diopter' s a = Diopter s s a a
-
 type ADiopter s t a b =
   Dioptrice a b a (Identity b) -> Dioptrice a b s (Identity t)
-
-type ADiopter' s a = ADiopter s s a a
 
 diopter :: Homogeneous h => (s -> h a) -> (h b -> t) -> Diopter s t a b
 diopter f g = unwrapPafb . runDioptrice (Dioptrice f g) . WrapPafb
