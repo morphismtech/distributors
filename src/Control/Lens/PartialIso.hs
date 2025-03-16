@@ -110,7 +110,7 @@ some equivalence class of terms.
 -}
 type PartialIso' s a = PartialIso s s a a
 
-{- | If you see this in a signature for a function,
+{- | If you see `APartialIso` in a signature for a function,
 the function is expecting a `PartialIso`. -}
 type APartialIso s t a b =
   PartialExchange a b a (Maybe b) -> PartialExchange a b s (Maybe t)
