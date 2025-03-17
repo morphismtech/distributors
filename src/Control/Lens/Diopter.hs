@@ -76,7 +76,9 @@ optioned = unwrapPafb . optionalP . WrapPafb
 manied :: Diopter [a] [b] a b
 manied = unwrapPafb . manyP . WrapPafb
 
-{- |
+{- | Build a `Diopter` from a `Homogeneous`
+countable sum of countable products.
+
 prop> traverse = homogenized
 prop> homogenized = ditraversed
 -}
