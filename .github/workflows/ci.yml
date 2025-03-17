@@ -37,32 +37,15 @@ jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ github.head_ref }}
-          token: ${{ secrets.GITHUB_TOKEN }}
+    - uses: actions/checkout@v4
 
-      - name: Setup Haskell Stack
-        uses: haskell/actions/setup@v2
-        with:
-          enable-stack: true
+    - name: 'Set up HLint'
+      uses: haskell-actions/hlint-setup@v2
+      with:
+        version: '3.1.6'
 
-      - name: Install hlint
-        run: stack install hlint
-
-      - name: Run hlint
-        run: hlint --refactor --inplace .
-
-      - name: Check for changes
-        id: git-diff
-        run: |
-          git diff --quiet || echo "changes=true" >> $GITHUB_ENV
-
-      - name: Commit changes
-        if: env.changes == 'true'
-        run: |
-          git config --global user.name "github-actions"
-          git config --global user.email "github-actions@github.com"
-          git commit -am "Apply hlint suggestions"
-          git push
+    - name: 'Run HLint'
+      uses: haskell-actions/hlint-run@v2
+      with:
+        path: src/
+        fail-on: warning
