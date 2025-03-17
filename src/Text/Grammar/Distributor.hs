@@ -129,16 +129,10 @@ data RegEx
 makePrisms ''RegEx
 makePrisms ''GeneralCategory
 
-instance Semigroup RegEx where
-  (<>) = (-*-)
-instance Monoid RegEx where
-  mempty = Terminal ""
-
 {- | The `RegEx` `String`.
 
->>> let xy = Terminal "x" <> Terminal "y"
->>> let xyz = xy `Alternate` KleenePlus (Terminal "z")
->>> putStrLn (regexString xyz)
+>>> let rex = Terminal "xy" `Alternate` KleenePlus (Terminal "z")
+>>> putStrLn (regexString rex)
 xy|z+
 -}
 regexString :: RegEx -> String
