@@ -61,7 +61,9 @@ monomorphically typed `Monocle` for different purposes.
 cloneMonocle :: AMonocle s t a b -> Monocle s t a b
 cloneMonocle mon = unwrapPafb . mapMonocle mon . WrapPafb
 
-{- |
+{- | Build a `Monocle` from a `Traversable` & `Distributive`,
+homogeneous, countable product.
+
 prop> traverse = ditraversed
 prop> cotraversed = ditraversed
 -}
