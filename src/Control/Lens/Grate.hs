@@ -12,20 +12,21 @@ See O'Connor, [Grate: A new kind of Optic]
 -}
 
 module Control.Lens.Grate
-  ( Grate
-  , Grate'
+  ( -- * Grate
+    Grate
   , AGrate
-  , AGrate'
+    -- * Combinators
   , grate
+  , withGrate
+  , cloneGrate
+  , mapGrate
   , cotraversed
   , represented
-  , mapGrate
-  , cloneGrate
-  , withGrate
-  , distributing
   , cotraverseOf
   , distributeOf
   , collectOf
+  , distributing
+    -- * Grating
   , Grating (..)
   ) where
 
@@ -36,35 +37,49 @@ import Data.Functor.Rep
 import Data.Profunctor
 import Data.Profunctor.Distributor
 
+{- | `Grate`s are an optic that are dual to
+`Control.Lens.Traversal.Traversal`s, as `Distributive` is `Traversable`.
+
+Every `Control.Lens.Monocle.Monocle` is a `Grate`.
+
+`Grate`s are isomorphic to `Grating`s.
+-}
 type Grate s t a b = forall p f.
   (Closed p, Monoidal p, Distributive f, Applicative f)
     => p a (f b) -> p s (f t)
 
-type Grate' s a = Grate s s a a
-
+{- | If you see `AGrate` in a signature for a function,
+the function is expecting a `Grate`. -}
 type AGrate s t a b =
   Grating a b a (Identity b) -> Grating a b s (Identity t)
 
-type AGrate' s a = AGrate s s a a
-
+{- | Build a `Grate`. -}
 grate :: (((s -> a) -> b) -> t) -> Grate s t a b
 grate f = dimap (&) (cotraverse f) . closed
 
+{- | Build a `Grate` from a `Distributive`. -}
 cotraversed :: Distributive g => Grate (g a) (g b) a b
 cotraversed = grate $ flip cotraverse id
 
+{- | Build a `Grate` from a `Representable`. -}
 represented :: Representable g => Grate (g a) (g b) a b
 represented = grate $ tabulate . (. flip index)
 
+{- | Action of `AGrate` on `Closed` `Profunctor`s. -}
 mapGrate :: Closed p => AGrate s t a b -> p a b -> p s t
 mapGrate grt = dimap (&) (withGrate grt) . closed
 
+{- | Clone `AGrate` so that you can reuse the same
+monomorphically typed `Grate` for different purposes.
+-}
 cloneGrate :: AGrate s t a b -> Grate s t a b
 cloneGrate = grate . withGrate
 
+{- | Run `AGrate`. -}
 withGrate :: AGrate s t a b -> ((s -> a) -> b) -> t
 withGrate grt = runGrating $ runIdentity <$> grt (Identity <$> anyToken)
 
+{- | Distribute over a `Closed` `Profunctor`. -}
 distributing
   :: (Closed p, forall x. Functor (p x), Distributive g)
   => AGrate s t a b -> p a (g b) -> g (p s t)
@@ -73,15 +88,20 @@ distributing grt
   . dimap (&) (cotraverse (withGrate grt))
   . closed
 
+{- | Dual to `Control.Lens.Combinators.traverseOf`. -}
 cotraverseOf :: Functor f => AGrate s t a b -> (f a -> b) -> f s -> t
 cotraverseOf grt = runCostar . mapGrate grt . Costar
 
+{- | Dual to `Control.Lens.Combinators.sequenceAOf`. -}
 distributeOf :: Functor f => AGrate s t b (f b) -> f s -> t
 distributeOf grt = cotraverseOf grt id
 
+{- | `collect` with `AGrate`. -}
 collectOf :: Functor f => AGrate s t b (f b) -> (a -> s) -> f a -> t
 collectOf grt f = distributeOf grt . fmap f
 
+{- | `Grating` provides an efficient
+concrete representation of `Grate`s. -}
 newtype Grating a b s t = Grating
   {runGrating :: ((s -> a) -> b) -> t}
 instance Functor (Grating a b s) where fmap = fmapRep
