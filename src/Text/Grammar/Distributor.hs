@@ -62,8 +62,8 @@ recursive grammar rules, i.e. nonterminal expressions. Finally,
 terminal expressions can be expressed as string literals since
 `Grammatical` also implies `IsString`.
 
-`Prism`s and `PartialIso`s can act on `Grammatical` terms
-via the `>?<` combinator,
+`Control.Lens.Prism.Prism`s and `PartialIso`s can act
+on `Grammatical` terms via the `>?<` combinator,
 analogously to how constructors act on `Applicative` parsers
 with `<$>`.
 
