@@ -129,6 +129,11 @@ data RegEx
 makePrisms ''RegEx
 makePrisms ''GeneralCategory
 
+instance Semigroup RegEx where
+  (<>) = (-*-)
+instance Monoid RegEx where
+  mempty = Terminal ""
+
 {- | The `RegEx` `String`.
 
 >>> let xy = Terminal "x" <> Terminal "y"
@@ -328,11 +333,6 @@ starK rex = KleeneStar rex
 plusK Fail = Fail
 plusK (Terminal "") = Terminal ""
 plusK rex = KleenePlus rex
-
-instance Semigroup RegEx where
-  (<>) = (-*-)
-instance Monoid RegEx where
-  mempty = Terminal ""
 
 -- RegEx generator
 
