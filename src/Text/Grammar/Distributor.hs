@@ -131,8 +131,9 @@ makePrisms ''GeneralCategory
 
 {- | The `RegEx` `String`.
 
->>> let rex = Alternate (Sequence (Terminal "x") (Terminal "y")) (KleenePlus (Terminal "z"))
->>> putStrLn (regexString rex)
+>>> let xy = Terminal "x" <> Terminal "y"
+>>> let xyz = xy `Alternate` KleenePlus (Terminal "z")
+>>> putStrLn (regexString xyz)
 xy|z+
 -}
 regexString :: RegEx -> String
@@ -327,6 +328,11 @@ starK rex = KleeneStar rex
 plusK Fail = Fail
 plusK (Terminal "") = Terminal ""
 plusK rex = KleenePlus rex
+
+instance Semigroup RegEx where
+  (<>) = (-*-)
+instance Monoid RegEx where
+  mempty = Terminal ""
 
 -- RegEx generator
 
