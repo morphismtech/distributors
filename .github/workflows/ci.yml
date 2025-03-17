@@ -37,15 +37,8 @@ jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
-
-    - name: 'Set up HLint'
-      uses: haskell-actions/hlint-setup@v2
-      with:
-        version: '3.1.6'
-
-    - name: 'Run HLint'
-      uses: haskell-actions/hlint-run@v2
-      with:
-        path: src/
-        fail-on: warning
+      # Note that you must checkout your code before running haskell-actions/run-fourmolu
+      - uses: actions/checkout@v3
+      - uses: haskell-actions/run-fourmolu@v9
+        with:
+          version: "0.13.0.0"
