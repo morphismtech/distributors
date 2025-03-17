@@ -1,0 +1,68 @@
+name: CI
+
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Haskell Stack
+        uses: haskell/actions/setup@v2
+        with:
+          enable-stack: true
+
+      - name: Cache Stack dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.stack
+          key: stack-${{ runner.os }}-${{ hashFiles('stack.yaml', 'package.yaml') }}
+          restore-keys: |
+            stack-${{ runner.os }}-
+
+      - name: Install dependencies
+        run: stack build --only-dependencies
+
+      - name: Build project
+        run: stack build
+
+      - name: Run tests
+        run: stack test
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Haskell Stack
+        uses: haskell/actions/setup@v2
+        with:
+          enable-stack: true
+
+      - name: Install hlint
+        run: stack install hlint
+
+      - name: Run hlint
+        run: hlint --refactor --inplace .
+
+      - name: Check for changes
+        id: git-diff
+        run: |
+          git diff --quiet || echo "changes=true" >> $GITHUB_ENV
+
+      - name: Commit changes
+        if: env.changes == 'true'
+        run: |
+          git config --global user.name "github-actions"
+          git config --global user.email "github-actions@github.com"
+          git commit -am "Apply hlint suggestions"
+          git push
