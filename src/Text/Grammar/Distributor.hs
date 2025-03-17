@@ -42,8 +42,11 @@ import Data.String
 import GHC.Generics
 import Witherable
 
-{- | A `Grammar` is an EDSL for writing extended
-Backus-Naur form grammars.
+{- | `Grammar` is a Backus-Naur form grammar,
+extended by regular expressions,
+embedded in Haskell.
+
+To see an example of a `Grammar`, look at `regexGrammar`.
 -}
 type Grammar a = forall p. Grammatical p => p a a
 
@@ -58,6 +61,11 @@ which gives it Kleene's regular expression combinators. It also has
 recursive grammar rules, i.e. nonterminal expressions. Finally,
 terminal expressions can be expressed as string literals since
 `Grammatical` also implies `IsString`.
+
+`Prism`s and `PartialIso`s can act on `Grammatical` terms
+via the `>?<` combinator,
+analogously to how constructors act on `Applicative` parsers
+with `<$>`.
 
 One can create new "generators" from a `Grammar` by defining
 instances of `Grammatical`. For instance, one could create
