@@ -57,9 +57,9 @@ import Witherable
 
 -- Monoidal --
 
-{- | A lax `Monoidal` product `Profunctor` has a unit `oneP`
-and a product `>*<`. This is equivalent to the
-`Profunctor` also being `Applicative`.
+{- | A lax `Monoidal` product `Profunctor` has unit `oneP`
+and product `>*<` lax monoidal structure morphisms.
+This is equivalent to the `Profunctor` also being `Applicative`.
 
 Laws:
 
@@ -164,7 +164,8 @@ infixr 5 >:<
 respects [distributive category]
 (https://ncatlab.org/nlab/show/distributive+category)
 structure, that is nilary and binary products and coproducts,
-@()@, @(,)@, `Void` and `Either`.
+@()@, @(,)@, `Void` and `Either`. It has zero `zeroP`
+and sum `>+<` lax monoidal structure morphisms.
 
 In addition to the product laws for `Monoidal`, we have
 sum laws for `Distributor`.
