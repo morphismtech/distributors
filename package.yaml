@@ -1,23 +1,22 @@
-name:                distributors
-version:             0.1.0.0
-github:              "morphismtech/distributors"
-license:             BSD-3-Clause
-author:              "Eitan Chatav"
-maintainer:          "eitan.chatav@gmail.com"
-copyright:           "2023 Eitan Chatav"
+name: distributors
+version: 0.1.0.0
+github: "morphismtech/distributors"
+license: BSD-3-Clause
+author: "Eitan Chatav"
+maintainer: "eitan.chatav@gmail.com"
+copyright: "2023 Eitan Chatav"
 
 extra-source-files:
 - README.md
 - CHANGELOG.md
 
-# Metadata used when publishing your package
-# synopsis:            Short description of your package
-# category:            Web
 
-# To avoid duplicated efforts in documentation and dealing with the
-# complications of embedding Haddock markup inside cabal files, it is
-# common to point users to the README.md file.
-description:         Please see the README on GitHub at <https://github.com/morphismtech/distributors#readme>
+category: Profunctors, Optics, Parsing
+synopsis:
+  Distributors provides mathematically inspired abstractions
+  for coders to write parsers that can also be inverted to printers.
+description:
+  Distributors - Unifying Parsers, Printers & Grammars
 
 dependencies:
 - base >= 4.7 && < 5

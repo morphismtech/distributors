@@ -6,7 +6,9 @@ cabal-version: 2.2
 
 name:           distributors
 version:        0.1.0.0
-description:    Please see the README on GitHub at <https://github.com/morphismtech/distributors#readme>
+synopsis:       Distributors provides mathematically inspired abstractions for coders to write parsers that can also be inverted to printers.
+description:    Distributors - Unifying Parsers, Printers & Grammars
+category:       Profunctors, Optics, Parsing
 homepage:       https://github.com/morphismtech/distributors#readme
 bug-reports:    https://github.com/morphismtech/distributors/issues
 author:         Eitan Chatav
