@@ -1,7 +1,7 @@
 # Distributors
 ## Unifying Parsers, Printers & Grammars
 
-This library provides mathematical abstractions for coders to write parsers that can also be inverted to printers.
+This library provides mathematically inspired abstractions for coders to write parsers that can also be inverted to printers.
 
 ## introduction
 The term "distributor" is a synonym for "[profunctor](https://ncatlab.org/nlab/show/profunctor)". Jean Bénabou who invented the term and originally used “profunctor,” then preferred “[distributor](http://www.entretemps.asso.fr/maths/Distributors.pdf)”, which is supposed to carry the intuition that a distributor generalizes a functor in a similar way to how a distribution generalizes a function.
