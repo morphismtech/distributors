@@ -1,5 +1,5 @@
 name: distributors
-version: 0.1.0.0
+version: 0.1.0.1
 github: "morphismtech/distributors"
 license: BSD-3-Clause
 author: "Eitan Chatav"
@@ -8,15 +8,16 @@ copyright: "2023 Eitan Chatav"
 
 extra-source-files:
 - README.md
+extra-doc-files:
 - CHANGELOG.md
 
 
 category: Profunctors, Optics, Parsing
 synopsis:
+  Distributors - Unifying Parsers, Printers & Grammars
+description:
   Distributors provides mathematically inspired abstractions
   for coders to write parsers that can also be inverted to printers.
-description:
-  Distributors - Unifying Parsers, Printers & Grammars
 
 dependencies:
 - base >= 4.7 && < 5
