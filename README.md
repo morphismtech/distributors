@@ -1,6 +1,9 @@
 # Distributors
 ## Unifying Parsers, Printers & Grammars
 
+[![GithubWorkflowCI](https://github.com/morphismtech/squeal/actions/workflows/ci.yml/badge.svg)](https://github.com/morphismtech/squeal/actions/workflows/ci.yml)
+
+
 This library provides mathematically inspired abstractions for coders to write parsers that can also be inverted to printers.
 
 ## introduction
@@ -31,3 +34,8 @@ The person deserving the most credit for bringing the power of optics to program
 None of the ideas in this library are particularly original and a lot of related ideas have been explored, in Tom Ellis' [product-profunctors](https://github.com/tomjaguarpaw/product-profunctors) as well as Sjoerd Visscher's [one-liner](https://github.com/sjoerdvisscher/one-liner) and more. Such explorations are _not_ limited to Haskell. Brandon Williams and Stephen Celis' excellent [swift-parsing](https://github.com/pointfreeco/swift-parsing) was also influenced by invertible parser theory.
 
 Some optics in this library are [grates](https://r6research.livejournal.com/28050.html), a new kind of optic, discovered by Russel O'Connor and James Deikun; monocles which are studied by Alexandre Garcia de Oliveira, Mauro Jaskelioff, and Ana Cristina Vieira de Melo in [On Structuring Functional Programs with Monoidal Profunctors](https://arxiv.org/abs/2207.00852); and withers, discovered by Chris Penner in [Composable filters using Witherable optics](https://chrispenner.ca/posts/witherable-optics).
+
+## contributing
+
+We welcome contributors. The [Issues](https://github.com/morphismtech/squeal/issues) page is a good place to communicate.
+
