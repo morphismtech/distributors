@@ -13,13 +13,7 @@ The term "distributor" is a synonym for "[profunctor](https://ncatlab.org/nlab/s
 
 Since "profunctor" became the standard nomenclature, we reappropriate "distributor" to describe a profunctor on a [distributive category](https://ncatlab.org/nlab/show/distributive+category).
 
-This library provides a study of `Monoidal` profunctors, `Distributor`s, `Alternator`s and `Filtrator`s. These profunctor constraints are analogous to `Applicative`, `Alternative` and `Filterable` functors.
-
-Examples of `Distributor`s will include printers and parsers, and it will be demonstrated how to write a single term for both.
-
-Profunctors naturally give rise to optics and this library also studies some previously discovered optics, `PartialIso`s, `Monocle`s, `Grate`s and `Wither`s and also defines new optics, `Diopter`s and `Bifocal`s.
-
-Finally, an application of distributors is demonstrated by unifying Backus-Naur form grammars with invertible parsers, giving users a powerful playground for front-end language design.
+This library provides a study of `Monoidal` profunctors, `Distributor`s, `Alternator`s and `Filtrator`s. These profunctor constraints are analogous to `Applicative`, `Alternative` and `Filterable` functors. Examples of `Distributor`s will include printers and parsers, and it is demonstrated how to write a single term for both. Profunctors naturally give rise to optics and this library also studies some previously discovered optics, `PartialIso`s, `Monocle`s, `Grate`s and `Wither`s and also defines new optics, `Diopter`s and `Bifocal`s. Finally, an application of distributors is demonstrated by unifying Backus-Naur form grammars with invertible parsers, giving users a powerful playground for front-end language design.
 
 ## previous work
 
@@ -33,9 +27,9 @@ The person deserving the most credit for bringing the power of optics to program
 
 None of the ideas in this library are particularly original and a lot of related ideas have been explored, in Tom Ellis' [product-profunctors](https://github.com/tomjaguarpaw/product-profunctors) as well as Sjoerd Visscher's [one-liner](https://github.com/sjoerdvisscher/one-liner) and more. Such explorations are _not_ limited to Haskell. Brandon Williams and Stephen Celis' excellent [swift-parsing](https://github.com/pointfreeco/swift-parsing) was also influenced by invertible parser theory.
 
-Some optics in this library are [grates](https://r6research.livejournal.com/28050.html), a new kind of optic, discovered by Russel O'Connor and James Deikun; monocles which are studied by Alexandre Garcia de Oliveira, Mauro Jaskelioff, and Ana Cristina Vieira de Melo in [On Structuring Functional Programs with Monoidal Profunctors](https://arxiv.org/abs/2207.00852); and withers, discovered by Chris Penner in [Composable filters using Witherable optics](https://chrispenner.ca/posts/witherable-optics).
+Some optics in this library are [grates, a new kind of optic](https://r6research.livejournal.com/28050.html), discovered by Russel O'Connor and James Deikun; monocles which are studied by Alexandre Garcia de Oliveira, Mauro Jaskelioff, and Ana Cristina Vieira de Melo in [On Structuring Functional Programs with Monoidal Profunctors](https://arxiv.org/abs/2207.00852); and withers, discovered by Chris Penner in [Composable filters using Witherable optics](https://chrispenner.ca/posts/witherable-optics).
 
 ## contributing
 
-We welcome contributors. The [Issues](https://github.com/morphismtech/squeal/issues) page is a good place to communicate.
+Contributors are welcome. The [Issues](https://github.com/morphismtech/squeal/issues) page is a good place to communicate.
 
