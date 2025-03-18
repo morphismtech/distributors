@@ -31,5 +31,5 @@ Some optics in this library are [grates, a new kind of optic](https://r6research
 
 ## contributing
 
-Contributors are welcome. The [Issues](https://github.com/morphismtech/squeal/issues) page is a good place to communicate.
+Contributors are welcome. The [Issues](https://github.com/distributors/squeal/issues) page is a good place to communicate.
 
