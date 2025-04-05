@@ -177,51 +177,49 @@ anyG :: Grammar RegEx
 anyG = rule "any" $ _AnyChar >?< "."
 
 atomG :: Grammarr RegEx RegEx
-atomG rex = rule "atom" $ foldl (<|>) empty
-  [ nonterminalG
-  , failG
-  , classInG
-  , classNotInG
-  , categoryInG
-  , categoryNotInG
-  , _Terminal >?< charG >:< pure ""
-  , anyG
-  , parenG rex
-  ]
+atomG rex = rule "atom" $
+  nonterminalG
+  <|> failG
+  <|> classInG
+  <|> classNotInG
+  <|> categoryInG
+  <|> categoryNotInG
+  <|> _Terminal >?< charG >:< pure ""
+  <|> anyG
+  <|> parenG rex
 
 categoryG :: Grammar GeneralCategory
-categoryG = rule "category" $ foldl (<|>) empty
-  [ _LowercaseLetter >?< "Ll"
-  , _UppercaseLetter >?< "Lu"
-  , _TitlecaseLetter >?< "Lt"
-  , _ModifierLetter >?< "Lm"
-  , _OtherLetter >?< "Lo"
-  , _NonSpacingMark >?< "Mn"
-  , _SpacingCombiningMark >?< "Mc"
-  , _EnclosingMark >?< "Me"
-  , _DecimalNumber >?< "Nd"
-  , _LetterNumber >?< "Nl"
-  , _OtherNumber >?< "No"
-  , _ConnectorPunctuation >?< "Pc"
-  , _DashPunctuation >?< "Pd"
-  , _OpenPunctuation >?< "Ps"
-  , _ClosePunctuation >?< "Pe"
-  , _InitialQuote >?< "Pi"
-  , _FinalQuote >?< "Pf"
-  , _OtherPunctuation >?< "Po"
-  , _MathSymbol >?< "Sm"
-  , _CurrencySymbol >?< "Sc"
-  , _ModifierSymbol >?< "Sk"
-  , _OtherSymbol >?< "So"
-  , _Space >?< "Zs"
-  , _LineSeparator >?< "Zl"
-  , _ParagraphSeparator >?< "Zp"
-  , _Control >?< "Cc"
-  , _Format >?< "Cf"
-  , _Surrogate >?< "Cs"
-  , _PrivateUse >?< "Co"
-  , _NotAssigned >?< "Cn"
-  ]
+categoryG = rule "category" $
+  _LowercaseLetter >?< "Ll"
+  <|> _UppercaseLetter >?< "Lu"
+  <|> _TitlecaseLetter >?< "Lt"
+  <|> _ModifierLetter >?< "Lm"
+  <|> _OtherLetter >?< "Lo"
+  <|> _NonSpacingMark >?< "Mn"
+  <|> _SpacingCombiningMark >?< "Mc"
+  <|> _EnclosingMark >?< "Me"
+  <|> _DecimalNumber >?< "Nd"
+  <|> _LetterNumber >?< "Nl"
+  <|> _OtherNumber >?< "No"
+  <|> _ConnectorPunctuation >?< "Pc"
+  <|> _DashPunctuation >?< "Pd"
+  <|> _OpenPunctuation >?< "Ps"
+  <|> _ClosePunctuation >?< "Pe"
+  <|> _InitialQuote >?< "Pi"
+  <|> _FinalQuote >?< "Pf"
+  <|> _OtherPunctuation >?< "Po"
+  <|> _MathSymbol >?< "Sm"
+  <|> _CurrencySymbol >?< "Sc"
+  <|> _ModifierSymbol >?< "Sk"
+  <|> _OtherSymbol >?< "So"
+  <|> _Space >?< "Zs"
+  <|> _LineSeparator >?< "Zl"
+  <|> _ParagraphSeparator >?< "Zp"
+  <|> _Control >?< "Cc"
+  <|> _Format >?< "Cf"
+  <|> _Surrogate >?< "Cs"
+  <|> _PrivateUse >?< "Co"
+  <|> _NotAssigned >?< "Cn"
 
 categoryInG :: Grammar RegEx
 categoryInG = rule "category-in" $
@@ -252,13 +250,12 @@ classNotInG = rule "class-not-in" $
   _NotInClass >?< "[^" >* manyP charG *< "]"
 
 exprG :: Grammarr RegEx RegEx
-exprG rex = rule "expression" $ foldl (<|>) empty
-  [ terminalG
-  , kleeneOptG rex
-  , kleeneStarG rex
-  , kleenePlusG rex
-  , atomG rex
-  ]
+exprG rex = rule "expression" $
+  terminalG
+  <|> kleeneOptG rex
+  <|> kleeneStarG rex
+  <|> kleenePlusG rex
+  <|> atomG rex
 
 failG :: Grammar RegEx
 failG = rule "fail" $ _Fail >?< "\\q"
