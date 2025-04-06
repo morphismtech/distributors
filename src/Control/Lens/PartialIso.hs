@@ -48,9 +48,12 @@ module Control.Lens.PartialIso
   , difoldr
   , difoldl'
   , difoldr'
+    -- Template Haskell
+  , makeNestedPrisms
   ) where
 
 import Control.Lens
+import Control.Lens.Internal.NestedPrismTH
 import Control.Lens.Internal.Profunctor
 import Control.Monad
 import Data.Functor.Compose

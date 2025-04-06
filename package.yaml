@@ -30,7 +30,9 @@ dependencies:
 - mtl >= 2.3 && < 3
 - profunctors >= 5.6 && < 6
 - tagged >= 0.8 && < 1
+- template-haskell
 - text >= 2 && < 3
+- th-abstraction
 - vector >= 0.13 && < 1
 - witherable >= 0.4 && < 1
 

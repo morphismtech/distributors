@@ -126,8 +126,8 @@ data RegEx
   | NotInCategory GeneralCategory -- ^ @\\P{Ll}@
   | NonTerminal String -- ^ @\\q{rule-name}@
   deriving stock (Eq, Ord, Show, Generic)
-makePrisms ''RegEx
-makePrisms ''GeneralCategory
+makeNestedPrisms ''RegEx
+makeNestedPrisms ''GeneralCategory
 
 {- | The `RegEx` `String`.
 
