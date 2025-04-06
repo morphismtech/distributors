@@ -285,6 +285,8 @@ prismName n =
     prefix :: Char -> String -> String
     prefix char str = char:str
 
+
+-- | Construct a tuple type given a list of types.
 toNestedTupleT :: [TypeQ] -> TypeQ
 toNestedTupleT [] = appsT (tupleT 0) []
 toNestedTupleT [x] = x
