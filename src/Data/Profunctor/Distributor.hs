@@ -94,7 +94,7 @@ prop> oneP >* p = p
 x >* y = lmap (const ()) x *> y
 infixl 5 >*
 
-{- | `*<` sequences actions, discarding the value of the first argument;
+{- | `*<` sequences actions, discarding the value of the second argument;
 analagous to `<*`, extending it to `Monoidal`.
 
 prop> p *< oneP = p
