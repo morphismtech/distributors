@@ -1,7 +1,7 @@
 # Distributors
 ## Unifying Parsers, Printers & Grammars
 
-[![GithubWorkflowCI](https://github.com/morphismtech/squeal/actions/workflows/ci.yml/badge.svg)](https://github.com/morphismtech/squeal/actions/workflows/ci.yml)
+[![GithubWorkflowCI](https://github.com/morphismtech/distributors/actions/workflows/ci.yml/badge.svg)](https://github.com/morphismtech/distributors/actions/workflows/ci.yml)
 
 
 This library provides mathematically inspired abstractions for coders to write parsers that can also be inverted to printers.
