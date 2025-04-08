@@ -38,19 +38,25 @@ import Control.Monad
 import Data.Bifunctor.Clown
 import Data.Bifunctor.Joker
 import Data.Bifunctor.Product
+import Data.Complex
 import Data.Distributive
 import Data.Functor.Adjunction
 import Data.Functor.Compose
 import Data.Functor.Contravariant.Divisible
 import qualified Data.Functor.Product as Functor
 import qualified Data.Functor.Sum as Functor
+import qualified Data.Monoid as Monoid
 import Data.Profunctor hiding (WrappedArrow)
 import Data.Profunctor qualified as Pro (WrappedArrow)
 import Data.Profunctor.Cayley
 import Data.Profunctor.Composition
 import Data.Profunctor.Monad
 import Data.Profunctor.Yoneda
+import Data.Proxy
+import Data.Sequence (Seq)
 import Data.String
+import Data.Tagged
+import Data.Vector (Vector)
 import Data.Void
 import GHC.Generics
 import Witherable
@@ -316,6 +322,22 @@ instance Homogeneous Par1 where
   homogeneously = dimap unPar1 Par1
 instance Homogeneous Identity where
   homogeneously = dimap runIdentity Identity
+instance Homogeneous Monoid.Dual where
+  homogeneously = dimap Monoid.getDual Monoid.Dual
+instance Homogeneous Monoid.Product where
+  homogeneously = dimap Monoid.getProduct Monoid.Product
+instance Homogeneous Monoid.Sum where
+  homogeneously = dimap Monoid.getSum Monoid.Sum
+instance Homogeneous (Tagged s) where
+  homogeneously = dimap unTagged Tagged
+instance Homogeneous U1 where
+  homogeneously _ = pure U1
+instance Homogeneous (K1 i ()) where
+  homogeneously _ = pure (K1 ())
+instance Homogeneous (Const ()) where
+  homogeneously _ = pure (Const ())
+instance Homogeneous Proxy where
+  homogeneously _ = pure Proxy
 instance (Homogeneous s, Homogeneous t)
   => Homogeneous (s :.: t) where
     homogeneously
@@ -326,12 +348,6 @@ instance (Homogeneous s, Homogeneous t)
     homogeneously
       = dimap getCompose Compose
       . homogeneously . homogeneously
-instance Homogeneous U1 where
-  homogeneously _ = dimap (const ()) (const U1) oneP
-instance Homogeneous (K1 i ()) where
-  homogeneously _ = dimap (const ()) (const (K1 ())) oneP
-instance Homogeneous (Const ()) where
-  homogeneously _ = dimap (const ()) (const (Const ())) oneP
 instance (Homogeneous s, Homogeneous t)
   => Homogeneous (s :*: t) where
     homogeneously p = dimap2
@@ -350,6 +366,10 @@ instance (Homogeneous s, Homogeneous t)
       (homogeneously p)
 instance Homogeneous V1 where
   homogeneously _ = dimap (\case) (\case) zeroP
+instance Homogeneous (K1 i Void) where
+  homogeneously _ = dimap unK1 K1 zeroP
+instance Homogeneous (Const Void) where
+  homogeneously _ = dimap getConst Const zeroP
 instance (Homogeneous s, Homogeneous t)
   => Homogeneous (s :+: t) where
     homogeneously p = dialt
@@ -368,11 +388,19 @@ instance (Homogeneous s, Homogeneous t)
       (homogeneously p)
 instance Homogeneous t
   => Homogeneous (M1 i c t) where
-    homogeneously p = dimap unM1 M1 (homogeneously p)
+    homogeneously = dimap unM1 M1 . homogeneously
+instance Homogeneous f => Homogeneous (Rec1 f) where
+  homogeneously = dimap unRec1 Rec1 . homogeneously
 instance Homogeneous Maybe where
   homogeneously = optionalP
 instance Homogeneous [] where
   homogeneously = manyP
+instance Homogeneous Vector where
+  homogeneously p = mapIso listEot (oneP >+< p >*< homogeneously p)
+instance Homogeneous Seq where
+  homogeneously p = mapIso listEot (oneP >+< p >*< homogeneously p)
+instance Homogeneous Complex where
+  homogeneously p = dimap2 realPart imagPart (:+) p p
 
 -- Alternator/Filtrator --
 
