@@ -23,7 +23,7 @@ While `Distributor`s in the library are lax distributive endoprofunctors, a math
 
 The idea for unifying Backus-Naur grammars with parsers comes from Joachim Breitner in a post [Showcasing Applicative](https://www.joachim-breitner.de/blog/710-Showcasing_Applicative).
 
-The person deserving the most credit for bringing the power of optics to programming is Ed Kmett, to whom I am very grateful for teaching me a lot, with his [lens library](https://github.com/ekmett/lens/).
+The person deserving the most credit for bringing the power of optics to programming, with his [lens library](https://github.com/ekmett/lens/), is Ed Kmett, to whom I am very grateful for teaching me a lot.
 
 None of the ideas in this library are particularly original and a lot of related ideas have been explored, in Tom Ellis' [product-profunctors](https://github.com/tomjaguarpaw/product-profunctors) as well as Sjoerd Visscher's [one-liner](https://github.com/sjoerdvisscher/one-liner) and more. Such explorations are _not_ limited to Haskell. Brandon Williams and Stephen Celis' excellent [swift-parsing](https://github.com/pointfreeco/swift-parsing) was also influenced by invertible parser theory.
 
