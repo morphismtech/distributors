@@ -56,7 +56,7 @@ import Data.Proxy
 import Data.Sequence (Seq)
 import Data.String
 import Data.Tagged
-import Data.Tree (Tree)
+import Data.Tree (Tree (..))
 import Data.Vector (Vector)
 import Data.Void
 import GHC.Generics
@@ -402,7 +402,8 @@ instance Homogeneous Seq where
   homogeneously p = mapIso listEot (oneP >+< p >*< homogeneously p)
 instance Homogeneous Complex where
   homogeneously p = dimap2 realPart imagPart (:+) p p
-instance Homogeneous Tree
+instance Homogeneous Tree where
+  homogeneously p = dimap2 rootLabel subForest Node p (manyP (homogeneously p))
 
 -- Alternator/Filtrator --
 
