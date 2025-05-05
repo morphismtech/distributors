@@ -551,7 +551,7 @@ noSep :: Monoidal p => SepBy p
 noSep = sepBy oneP
 
 {- |
-prop> zeroOrMore (sepBy noSep) = manyP
+prop> zeroOrMore noSep = manyP
 -}
 zeroOrMore
   :: Distributor p
@@ -560,7 +560,7 @@ zeroOrMore sep p = mapIso listEot $
   beginBy sep >* oneP >+< p >*< manyP (separateBy sep >* p) *< endBy sep
 
 {- |
-prop> oneOrMore (sepBy noSep) = someP
+prop> oneOrMore noSep = someP
 -}
 oneOrMore
   :: Alternator p
