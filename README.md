@@ -13,7 +13,7 @@ The term "distributor" is a synonym for "[profunctor](https://ncatlab.org/nlab/s
 
 Since "profunctor" became the standard nomenclature, we reappropriate "distributor" to describe a profunctor on a [distributive category](https://ncatlab.org/nlab/show/distributive+category).
 
-This library provides a study of `Monoidal` profunctors, `Distributor`s, `Alternator`s and `Filtrator`s. These profunctor constraints are analogous to `Applicative`, `Alternative` and `Filterable` functors. Examples of `Distributor`s will include printers and parsers, and it is demonstrated how to write a single term for both. Profunctors naturally give rise to optics and this library also studies some previously discovered optics, `PartialIso`s, `Monocle`s, `Grate`s and `Wither`s and also defines new optics, `Diopter`s and `Bifocal`s. Finally, an application of distributors is demonstrated by unifying Backus-Naur form grammars with invertible parsers, giving users a powerful playground for front-end language design.
+This library provides a study of `Monoidal` profunctors, `Distributor`s, `Alternator`s and `Filtrator`s. These profunctor constraints are analogous to `Applicative`, `Alternative` and `Filterable` functors. Examples of `Distributor`s will include printers and parsers, and it is demonstrated how to write a single term for both. Profunctors naturally give rise to optics and this library also studies some previously discovered optics, `PartialIso`s, `Monocle`s, `Grate`s and `Wither`s and also defines new optics, `Diopter`s and `Bifocal`s. Finally, an application of distributors is demonstrated by unifying Backus-Naur form grammars with invertible parsers, giving users a powerful playground for language syntax design.
 
 ## previous work
 
