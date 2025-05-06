@@ -3,6 +3,11 @@
 
 [![GithubWorkflowCI](https://github.com/morphismtech/distributors/actions/workflows/ci.yml/badge.svg)](https://github.com/morphismtech/distributors/actions/workflows/ci.yml)
 
+[Github](https://github.com/morphismtech/distributors)
+
+[Hackage](https://hackage.haskell.org/package/distributors)
+
+[YouTube](https://www.youtube.com/watch?v=tZErj7XYpVI)
 
 This library provides mathematically inspired abstractions for coders to write parsers that can also be inverted to printers.
 
