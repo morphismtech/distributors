@@ -728,12 +728,7 @@ instance (Monad f, Alternative f) => Choice (Parsor s f) where
 instance Filterable f => Cochoice (Parsor s f) where
   unleft = fst . filtrate
   unright = snd . filtrate
-instance (Monad f, Alternative f) => Distributor (Parsor s f) where
-  zeroP = Parsor (\_ -> empty)
-  Parsor p >+< Parsor q = Parsor $ \str ->
-    (\(b,str') -> (Left b, str')) <$> p str
-    <|>
-    (\(d,str') -> (Right d, str')) <$> q str
+instance (Monad f, Alternative f) => Distributor (Parsor s f)
 instance (Monad f, Alternative f) => Alternator (Parsor s f) where
   alternate = \case
     Left (Parsor p) -> Parsor (fmap (\(b, str) -> (Left b, str)) . p)
