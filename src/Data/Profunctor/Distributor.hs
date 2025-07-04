@@ -74,6 +74,7 @@ Laws:
 >>> let lunit = dimap (\((),a) -> a) (\a -> ((),a))
 >>> let runit = dimap (\(a,()) -> a) (\a -> (a,()))
 >>> let assoc = dimap (\(a,(b,c)) -> ((a,b),c)) (\((a,b),c) -> (a,(b,c)))
+
 prop> dimap (f >< g) (h >< i) (p >*< q) = dimap f h p >*< dimap g i q
 prop> oneP >*< p = lunit p
 prop> p >*< oneP = runit p
@@ -139,13 +140,11 @@ replicateP
   => p a b -> p (t a) (t b)
 replicateP p = traverse (\f -> lmap f p) (distribute id)
 
-{- | `meander` gives a default implementation for the
+{- | For any `Monoidal`, `Choice` & `Strong` `Profunctor`,
+`meander` is invertible, and gives a default implementation for the
 `Data.Profunctor.Traversing.wander`
-method of `Data.Profunctor.Traversing.Traversing`
-for any `Monoidal`, `Choice` & `Strong` `Profunctor`.
-
-It is invertible when @p@ is `Strong`,
-though it's not needed for its definition.
+method of `Data.Profunctor.Traversing.Traversing`,
+though `Strong` is not needed for its definition.
 
 See Pickering, Gibbons & Wu,
 [Profunctor Optics - Modular Data Accessors](https://arxiv.org/abs/1703.10857)
@@ -187,6 +186,7 @@ let f |+| g = either (Left . f) (Right . g)
       (either (Left . Left) (either (Left . Right) Right))
       (either (either Left (Right . Left)) (Right . Right))
 :}
+
 prop> dimap (f |+| g) (h |+| i) (p >+< q) = dimap f h p >+< dimap g i q
 prop> zeroP >+< p = lunit p
 prop> p >+< zeroP = runit p

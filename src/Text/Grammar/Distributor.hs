@@ -16,8 +16,6 @@ for idea to unify grammars.
 module Text.Grammar.Distributor
   ( -- * Grammar
     Grammar, Grammarr, Grammatical (..)
-    -- * RegEx
-  , RegEx (..), regexString, regexGrammar
     -- * Generators
   , genReadS
   , readGrammar
@@ -26,6 +24,8 @@ module Text.Grammar.Distributor
   , genRegEx
   , genGrammar
   , printGrammar
+    -- * RegEx
+  , RegEx (..), regexString, regexGrammar
   ) where
 
 import Control.Applicative
@@ -44,34 +44,34 @@ import Witherable
 
 {- | `Grammar` is a Backus-Naur form grammar,
 extended by regular expressions,
-embedded in Haskell.
+embedded in Haskell, with combinators:
 
-To see an example of a `Grammar`, look at `regexGrammar`.
+* pattern matching `>?`, `>?<`
+* alternation `<|>`
+* sequencing `>*<`, `>*`, `*<`
+* Kleene's combinators `optionalP`, `manyP`, `someP`
+* any character `anyToken`
+* regular predicates `inClass`, `notInClass`, `inCategory`, `notInCategory`
+* nonregular predicate `satisfy`
+* terminal strings `tokens`, `fromString` and -XOverloadedStrings
+* nonterminal rules `rule`, `ruleRec`
+
+To see an example of a `Grammar`, look at the source of `regexGrammar`.
+
+One can create new generators from a `Grammar` by defining
+instances of `Grammatical`. For instance, one could create
+generators for Parsec style parsers, and use `rule` for
+labeling of parse errors.
 -}
 type Grammar a = forall p. Grammatical p => p a a
 
 {- | A `Grammarr` is just a function of `Grammar`s,
 useful for expressing one in terms of another `Grammar`.
+The arr is for arrow; and should be pronounced like a pirate.
 -}
 type Grammarr a b = forall p. Grammatical p => p a a -> p b b
 
-{- | The `Grammatical` class extends `Alternator` & `Filtrator`
-which gives it Kleene's regular expression combinators. It also has
-`rule` and `ruleRec` for defining grammar rules and
-recursive grammar rules, i.e. nonterminal expressions. Finally,
-terminal expressions can be expressed as string literals since
-`Grammatical` also implies `IsString`.
-
-`Control.Lens.Prism.Prism`s and `PartialIso`s can act
-on `Grammatical` terms via the `>?<` combinator,
-analogously to how constructors act on `Applicative` parsers
-with `<$>`.
-
-One can create new "generators" from a `Grammar` by defining
-instances of `Grammatical`. For instance, one could create
-generators for Parsec style parsers, and use `rule` for
-labeling of parse errors.
--}
+{- | A class for generators of `Grammar`s.-}
 class
   ( Alternator p
   , Filtrator p
@@ -444,7 +444,7 @@ readGrammar grammar str =
   , remaining == []
   ]
 
-{- | Generate `ShowS`s from a `Grammar`. -}
+{- | Generate a `ShowS` from a `Grammar`. -}
 genShowS :: Alternative f => Grammar a -> a -> f ShowS
 genShowS = runPrintor
 
@@ -452,24 +452,21 @@ genShowS = runPrintor
 showGrammar :: Alternative f => Grammar a -> a -> f String
 showGrammar grammar a = ($ "") <$> genShowS grammar a
 
-{- | Generate `RegEx`es from a `Grammar`.
-This will infinite loop if you your `Grammar` includes a `ruleRec`,
-otherwise it will inline all rules and produce a valid
-regular expression.
+{- | Generate a `RegEx` from a `Grammar`.
+This will infinite loop if your `Grammar` includes a `ruleRec`,
+otherwise it will inline all rules and produce a regular expression.
 -}
 genRegEx :: Grammar a -> RegEx
 genRegEx (DiRegEx rex) = rex
 
-{- | Generate a Backus-Naur form grammar,
-extended by regular expressions, from a `Grammar`.
+{- | Generate a context free grammar,
+consisting of a @"start"@ and named `RegEx`es, from a `Grammar`.
 -}
 genGrammar :: Grammar a -> [(String, RegEx)]
 genGrammar (DiGrammar (DiRegEx start) rules) =
   ("start", start) : toList rules
 
-{- | Print a Backus-Naur form grammar,
-extended by regular expressions, from a `Grammar`.
--}
+{- | Print a `Grammar`.-}
 printGrammar :: Grammar a -> IO ()
 printGrammar gram = for_ (genGrammar gram) $ \(name_i, rule_i) -> do
   putStr name_i
