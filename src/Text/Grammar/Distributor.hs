@@ -67,11 +67,11 @@ type Grammar a = forall p. Grammatical p => p a a
 
 {- | A `Grammarr` is just a function of `Grammar`s,
 useful for expressing one in terms of another `Grammar`.
-The arr is for arrow; and should be pronounced like a pirate.
+The arr is for arrow; and it should be pronounced like a pirate.
 -}
 type Grammarr a b = forall p. Grammatical p => p a a -> p b b
 
-{- | A class for generators of `Grammar`s.-}
+{- | A class for generators from `Grammar`s.-}
 class
   ( Alternator p
   , Filtrator p
