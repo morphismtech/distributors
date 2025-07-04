@@ -29,7 +29,20 @@ import qualified Data.Set as Set
 import Data.Set (Set)
 import Prelude
 
--- | Main entry point into Prism generation for a given type constructor name.
+-- | Generate a `Control.Lens.Prism.Prism`
+-- for each constructor of a data type.
+-- `Control.Lens.Iso.Iso`s generated when possible.
+-- `Control.Lens.Review.Review`s are created for constructors with existentially
+-- quantified constructors and GADTs.
+--
+-- See `Control.Lens.Internal.PrismTH.makePrisms` for details and examples.
+-- The difference in `makeNestedPrisms`
+-- is that constructors with more than 2 arguments
+-- will use right-nested pairs, rather than a flat tuple.
+-- This makes them suitable for use on the left-hand-side of
+-- `Control.Lens.PartialIso.>?` and `Control.Lens.PartialIso.>?<`;
+-- with repeated use of `Data.Profunctor.Distributor.>*<`
+-- on the right-hand-side, resulting in right-nested pairs.
 makeNestedPrisms :: Name -> DecsQ
 makeNestedPrisms typeName =
   do info <- D.reifyDatatype typeName

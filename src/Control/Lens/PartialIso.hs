@@ -48,7 +48,7 @@ module Control.Lens.PartialIso
   , difoldr
   , difoldl'
   , difoldr'
-    -- Template Haskell
+    -- * Template Haskell
   , makeNestedPrisms
   ) where
 
