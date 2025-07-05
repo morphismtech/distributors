@@ -57,6 +57,5 @@ main = hspec $ do
     for_ regexExamples $ \(rex, str) -> do
       it ("should print " <> show rex <> " correctly") $
         showGrammar regexGrammar rex `shouldBe` Just str
-    for_ regexExamples $ \(rex, str) -> do
       it ("should parse " <> str <> " correctly") $
         readGrammar regexGrammar str `shouldSatisfy` elem rex
