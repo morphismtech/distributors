@@ -71,6 +71,14 @@ type Grammarr a b = forall p. Grammatical p => p a a -> p b b
 instances of `Grammatical`. For instance, one could create
 generators for Parsec style parsers, and use `rule` for
 labeling of parse errors.
+
+A `Grammatical` `Profunctor` is a partial distributor,
+being an `Alternator` & `Filtrator`.
+It is also `Tokenized` with `Char` input & output tokens,
+and `IsString` with the property:
+
+prop> fromString = tokens
+
 -}
 class
   ( Alternator p
