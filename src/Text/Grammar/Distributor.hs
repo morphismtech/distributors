@@ -323,6 +323,8 @@ xy|z+
 regexString :: RegEx -> String
 regexString rex = maybe "\\q" id (showGrammar regexGrammar rex)
 
+-- RegEx Grammar --
+
 {- | `regexGrammar` provides an important example of a `Grammar`.
 Take a look at the source to see its definition.
 
