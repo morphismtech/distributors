@@ -195,12 +195,22 @@ prop> p >+< q >+< r = assoc ((p >+< q) >+< r)
 -}
 class Monoidal p => Distributor p where
 
-  {- | The zero structure morphism of a `Distributor`. -}
+  {- | The zero structure morphism of a `Distributor`.
+
+  `zeroP` has a default for `Alternator`.
+
+  prop> zeroP = empty
+  -}
   zeroP :: p Void Void
   default zeroP :: Alternator p => p Void Void
   zeroP = empty
 
-  {- | The sum structure morphism of a `Distributor`. -}
+  {- | The sum structure morphism of a `Distributor`.
+  
+  `>+<` has a default for `Alternator`.
+
+  prop> x >+< y = alternate (Left x) <|> alternate (Right y)
+  -}
   (>+<) :: p a b -> p c d -> p (Either a c) (Either b d)
   default (>+<)
     :: Alternator p
@@ -424,7 +434,7 @@ class (Choice p, Distributor p, forall x. Alternative (p x))
     prop> zeroP = empty
     prop> x >+< y = alternate (Left x) <|> alternate (Right y)
 
-    `alternate` has a default when `Cochoice`.
+    `alternate` has a default for `Cochoice`.
     -}
     alternate
       :: Either (p a b) (p c d)
@@ -482,7 +492,7 @@ class (Cochoice p, forall x. Filterable (p x))
 
     `filtrate` is a distant relative to `Data.Either.partitionEithers`.
 
-    `filtrate` has a default when `Choice`.
+    `filtrate` has a default for `Choice`.
     -}
     filtrate
       :: p (Either a c) (Either b d)
