@@ -55,13 +55,9 @@ embedded in Haskell, with combinators:
 * nonregular predicate `satisfy`
 * terminal strings `tokens`, `fromString` and -XOverloadedStrings
 * nonterminal rules `rule`, `ruleRec`
+* and more.
 
 To see an example of a `Grammar`, look at the source of `regexGrammar`.
-
-One can create new generators from a `Grammar` by defining
-instances of `Grammatical`. For instance, one could create
-generators for Parsec style parsers, and use `rule` for
-labeling of parse errors.
 -}
 type Grammar a = forall p. Grammatical p => p a a
 
@@ -71,7 +67,11 @@ The arr is for arrow; and it should be pronounced like a pirate.
 -}
 type Grammarr a b = forall p. Grammatical p => p a a -> p b b
 
-{- | A class for generators from `Grammar`s.-}
+{- | One can create new generators from a `Grammar` by defining
+instances of `Grammatical`. For instance, one could create
+generators for Parsec style parsers, and use `rule` for
+labeling of parse errors.
+-}
 class
   ( Alternator p
   , Filtrator p
