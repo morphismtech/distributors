@@ -129,165 +129,6 @@ data RegEx
 makeNestedPrisms ''RegEx
 makeNestedPrisms ''GeneralCategory
 
-{- | The `RegEx` `String`.
-
->>> let rex = Terminal "xy" `Alternate` KleenePlus (Terminal "z")
->>> putStrLn (regexString rex)
-xy|z+
--}
-regexString :: RegEx -> String
-regexString rex = maybe "\\q" id (showGrammar regexGrammar rex)
-
-{- | `regexGrammar` provides an important example of a `Grammar`.
-Take a look at the source to see its definition.
-
->>> printGrammar regexGrammar
-start = \q{regex}
-alternate = \q{sequence}(\|\q{sequence})*
-any = \.
-atom = \q{nonterminal}|\q{fail}|\q{class-in}|\q{class-not-in}|\q{category-in}|\q{category-not-in}|\q{char}|\q{any}|\q{parenthesized}
-category = Ll|Lu|Lt|Lm|Lo|Mn|Mc|Me|Nd|Nl|No|Pc|Pd|Ps|Pe|Pi|Pf|Po|Sm|Sc|Sk|So|Zs|Zl|Zp|Cc|Cf|Cs|Co|Cn
-category-in = \\p\{\q{category}\}
-category-not-in = \\P\{\q{category}\}
-char = \q{char-literal}|\q{char-escaped}
-char-escaped = \\[\$\(\)\*\+\.\?\[\\\]\^\{\|\}]
-char-literal = [^\$\(\)\*\+\.\?\[\\\]\^\{\|\}]
-class-in = \[\q{char}*\]
-class-not-in = \[\^\q{char}*\]
-expression = \q{terminal}|\q{kleene-optional}|\q{kleene-star}|\q{kleene-plus}|\q{atom}
-fail = \\q
-kleene-optional = \q{atom}\?
-kleene-plus = \q{atom}\+
-kleene-star = \q{atom}\*
-nonterminal = \\q\{\q{char}*\}
-parenthesized = \(\q{regex}\)
-regex = \q{alternate}
-sequence = \q{expression}*
-terminal = \q{char}+
-
--}
-regexGrammar :: Grammar RegEx
-regexGrammar = ruleRec "regex" $ \rex -> altG rex
-
-altG :: Grammarr RegEx RegEx
-altG rex = rule "alternate" $
-  chainl1 _Alternate (sepBy "|") (seqG rex)
-
-anyG :: Grammar RegEx
-anyG = rule "any" $ _AnyChar >?< "."
-
-atomG :: Grammarr RegEx RegEx
-atomG rex = rule "atom" $
-  nonterminalG
-  <|> failG
-  <|> classInG
-  <|> classNotInG
-  <|> categoryInG
-  <|> categoryNotInG
-  <|> _Terminal >?< charG >:< pure ""
-  <|> anyG
-  <|> parenG rex
-
-categoryG :: Grammar GeneralCategory
-categoryG = rule "category" $
-  _LowercaseLetter >?< "Ll"
-  <|> _UppercaseLetter >?< "Lu"
-  <|> _TitlecaseLetter >?< "Lt"
-  <|> _ModifierLetter >?< "Lm"
-  <|> _OtherLetter >?< "Lo"
-  <|> _NonSpacingMark >?< "Mn"
-  <|> _SpacingCombiningMark >?< "Mc"
-  <|> _EnclosingMark >?< "Me"
-  <|> _DecimalNumber >?< "Nd"
-  <|> _LetterNumber >?< "Nl"
-  <|> _OtherNumber >?< "No"
-  <|> _ConnectorPunctuation >?< "Pc"
-  <|> _DashPunctuation >?< "Pd"
-  <|> _OpenPunctuation >?< "Ps"
-  <|> _ClosePunctuation >?< "Pe"
-  <|> _InitialQuote >?< "Pi"
-  <|> _FinalQuote >?< "Pf"
-  <|> _OtherPunctuation >?< "Po"
-  <|> _MathSymbol >?< "Sm"
-  <|> _CurrencySymbol >?< "Sc"
-  <|> _ModifierSymbol >?< "Sk"
-  <|> _OtherSymbol >?< "So"
-  <|> _Space >?< "Zs"
-  <|> _LineSeparator >?< "Zl"
-  <|> _ParagraphSeparator >?< "Zp"
-  <|> _Control >?< "Cc"
-  <|> _Format >?< "Cf"
-  <|> _Surrogate >?< "Cs"
-  <|> _PrivateUse >?< "Co"
-  <|> _NotAssigned >?< "Cn"
-
-categoryInG :: Grammar RegEx
-categoryInG = rule "category-in" $
-  _InCategory >?< "\\p{" >* categoryG *< "}"
-
-categoryNotInG :: Grammar RegEx
-categoryNotInG = rule "category-not-in" $
-  _NotInCategory >?< "\\P{" >* categoryG *< "}"
-
-charG :: Grammar Char
-charG = rule "char" $ charLiteralG <|> charEscapedG
-
-charEscapedG :: Grammar Char
-charEscapedG = rule "char-escaped" $ "\\" >* inClass charsReserved
-
-charLiteralG :: Grammar Char
-charLiteralG = rule "char-literal" $ notInClass charsReserved
-
-charsReserved :: String
-charsReserved = "$()*+.?[\\]^{|}"
-
-classInG :: Grammar RegEx
-classInG = rule "class-in" $
-  _InClass >?< "[" >* manyP charG *< "]"
-
-classNotInG :: Grammar RegEx
-classNotInG = rule "class-not-in" $
-  _NotInClass >?< "[^" >* manyP charG *< "]"
-
-exprG :: Grammarr RegEx RegEx
-exprG rex = rule "expression" $
-  terminalG
-  <|> kleeneOptG rex
-  <|> kleeneStarG rex
-  <|> kleenePlusG rex
-  <|> atomG rex
-
-failG :: Grammar RegEx
-failG = rule "fail" $ _Fail >?< "\\q"
-
-nonterminalG :: Grammar RegEx
-nonterminalG = rule "nonterminal" $
-  _NonTerminal >?< "\\q{" >* manyP charG *< "}"
-
-parenG :: Grammarr RegEx RegEx
-parenG rex = rule "parenthesized" $
-  "(" >* rex *< ")"
-
-kleeneOptG :: Grammarr RegEx RegEx
-kleeneOptG rex = rule "kleene-optional" $
-  _KleeneOpt >?< atomG rex *< "?"
-
-kleeneStarG :: Grammarr RegEx RegEx
-kleeneStarG rex = rule "kleene-star" $
-  _KleeneStar >?< atomG rex *< "*"
-
-kleenePlusG :: Grammarr RegEx RegEx
-kleenePlusG rex = rule "kleene-plus" $
-  _KleenePlus >?< atomG rex *< "+"
-
-seqG :: Grammarr RegEx RegEx
-seqG rex = rule "sequence" $
-  chainl _Sequence (_Terminal . _Empty) noSep (exprG rex)
-
-terminalG :: Grammar RegEx
-terminalG = rule "terminal" $
-  _Terminal >?< someP charG
-
 -- Kleene Star Algebra Operators
 
 (-*-), (|||) :: RegEx -> RegEx -> RegEx
@@ -472,3 +313,162 @@ printGrammar gram = for_ (genGrammar gram) $ \(name_i, rule_i) -> do
   putStr name_i
   putStr " = "
   putStrLn (regexString rule_i)
+
+{- | The `RegEx` `String`.
+
+>>> let rex = Terminal "xy" `Alternate` KleenePlus (Terminal "z")
+>>> putStrLn (regexString rex)
+xy|z+
+-}
+regexString :: RegEx -> String
+regexString rex = maybe "\\q" id (showGrammar regexGrammar rex)
+
+{- | `regexGrammar` provides an important example of a `Grammar`.
+Take a look at the source to see its definition.
+
+>>> printGrammar regexGrammar
+start = \q{regex}
+alternate = \q{sequence}(\|\q{sequence})*
+any = \.
+atom = \q{nonterminal}|\q{fail}|\q{class-in}|\q{class-not-in}|\q{category-in}|\q{category-not-in}|\q{char}|\q{any}|\q{parenthesized}
+category = Ll|Lu|Lt|Lm|Lo|Mn|Mc|Me|Nd|Nl|No|Pc|Pd|Ps|Pe|Pi|Pf|Po|Sm|Sc|Sk|So|Zs|Zl|Zp|Cc|Cf|Cs|Co|Cn
+category-in = \\p\{\q{category}\}
+category-not-in = \\P\{\q{category}\}
+char = \q{char-literal}|\q{char-escaped}
+char-escaped = \\[\$\(\)\*\+\.\?\[\\\]\^\{\|\}]
+char-literal = [^\$\(\)\*\+\.\?\[\\\]\^\{\|\}]
+class-in = \[\q{char}*\]
+class-not-in = \[\^\q{char}*\]
+expression = \q{terminal}|\q{kleene-optional}|\q{kleene-star}|\q{kleene-plus}|\q{atom}
+fail = \\q
+kleene-optional = \q{atom}\?
+kleene-plus = \q{atom}\+
+kleene-star = \q{atom}\*
+nonterminal = \\q\{\q{char}*\}
+parenthesized = \(\q{regex}\)
+regex = \q{alternate}
+sequence = \q{expression}*
+terminal = \q{char}+
+
+-}
+regexGrammar :: Grammar RegEx
+regexGrammar = ruleRec "regex" $ \rex -> altG rex
+
+altG :: Grammarr RegEx RegEx
+altG rex = rule "alternate" $
+  chainl1 _Alternate (sepBy "|") (seqG rex)
+
+anyG :: Grammar RegEx
+anyG = rule "any" $ _AnyChar >?< "."
+
+atomG :: Grammarr RegEx RegEx
+atomG rex = rule "atom" $
+  nonterminalG
+  <|> failG
+  <|> classInG
+  <|> classNotInG
+  <|> categoryInG
+  <|> categoryNotInG
+  <|> _Terminal >?< charG >:< pure ""
+  <|> anyG
+  <|> parenG rex
+
+categoryG :: Grammar GeneralCategory
+categoryG = rule "category" $
+  _LowercaseLetter >?< "Ll"
+  <|> _UppercaseLetter >?< "Lu"
+  <|> _TitlecaseLetter >?< "Lt"
+  <|> _ModifierLetter >?< "Lm"
+  <|> _OtherLetter >?< "Lo"
+  <|> _NonSpacingMark >?< "Mn"
+  <|> _SpacingCombiningMark >?< "Mc"
+  <|> _EnclosingMark >?< "Me"
+  <|> _DecimalNumber >?< "Nd"
+  <|> _LetterNumber >?< "Nl"
+  <|> _OtherNumber >?< "No"
+  <|> _ConnectorPunctuation >?< "Pc"
+  <|> _DashPunctuation >?< "Pd"
+  <|> _OpenPunctuation >?< "Ps"
+  <|> _ClosePunctuation >?< "Pe"
+  <|> _InitialQuote >?< "Pi"
+  <|> _FinalQuote >?< "Pf"
+  <|> _OtherPunctuation >?< "Po"
+  <|> _MathSymbol >?< "Sm"
+  <|> _CurrencySymbol >?< "Sc"
+  <|> _ModifierSymbol >?< "Sk"
+  <|> _OtherSymbol >?< "So"
+  <|> _Space >?< "Zs"
+  <|> _LineSeparator >?< "Zl"
+  <|> _ParagraphSeparator >?< "Zp"
+  <|> _Control >?< "Cc"
+  <|> _Format >?< "Cf"
+  <|> _Surrogate >?< "Cs"
+  <|> _PrivateUse >?< "Co"
+  <|> _NotAssigned >?< "Cn"
+
+categoryInG :: Grammar RegEx
+categoryInG = rule "category-in" $
+  _InCategory >?< "\\p{" >* categoryG *< "}"
+
+categoryNotInG :: Grammar RegEx
+categoryNotInG = rule "category-not-in" $
+  _NotInCategory >?< "\\P{" >* categoryG *< "}"
+
+charG :: Grammar Char
+charG = rule "char" $ charLiteralG <|> charEscapedG
+
+charEscapedG :: Grammar Char
+charEscapedG = rule "char-escaped" $ "\\" >* inClass charsReserved
+
+charLiteralG :: Grammar Char
+charLiteralG = rule "char-literal" $ notInClass charsReserved
+
+charsReserved :: String
+charsReserved = "$()*+.?[\\]^{|}"
+
+classInG :: Grammar RegEx
+classInG = rule "class-in" $
+  _InClass >?< "[" >* manyP charG *< "]"
+
+classNotInG :: Grammar RegEx
+classNotInG = rule "class-not-in" $
+  _NotInClass >?< "[^" >* manyP charG *< "]"
+
+exprG :: Grammarr RegEx RegEx
+exprG rex = rule "expression" $
+  terminalG
+  <|> kleeneOptG rex
+  <|> kleeneStarG rex
+  <|> kleenePlusG rex
+  <|> atomG rex
+
+failG :: Grammar RegEx
+failG = rule "fail" $ _Fail >?< "\\q"
+
+nonterminalG :: Grammar RegEx
+nonterminalG = rule "nonterminal" $
+  _NonTerminal >?< "\\q{" >* manyP charG *< "}"
+
+parenG :: Grammarr RegEx RegEx
+parenG rex = rule "parenthesized" $
+  "(" >* rex *< ")"
+
+kleeneOptG :: Grammarr RegEx RegEx
+kleeneOptG rex = rule "kleene-optional" $
+  _KleeneOpt >?< atomG rex *< "?"
+
+kleeneStarG :: Grammarr RegEx RegEx
+kleeneStarG rex = rule "kleene-star" $
+  _KleeneStar >?< atomG rex *< "*"
+
+kleenePlusG :: Grammarr RegEx RegEx
+kleenePlusG rex = rule "kleene-plus" $
+  _KleenePlus >?< atomG rex *< "+"
+
+seqG :: Grammarr RegEx RegEx
+seqG rex = rule "sequence" $
+  chainl _Sequence (_Terminal . _Empty) noSep (exprG rex)
+
+terminalG :: Grammar RegEx
+terminalG = rule "terminal" $
+  _Terminal >?< someP charG
