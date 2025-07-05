@@ -141,7 +141,7 @@ replicateP
 replicateP p = traverse (\f -> lmap f p) (distribute id)
 
 {- | For any `Monoidal`, `Choice` & `Strong` `Profunctor`,
-`meander` is invertible, and gives a default implementation for the
+`meander` is invertible and gives a default implementation for the
 `Data.Profunctor.Traversing.wander`
 method of `Data.Profunctor.Traversing.Traversing`,
 though `Strong` is not needed for its definition.
@@ -551,12 +551,15 @@ data SepBy p = SepBy
   , separateBy :: p () ()
   }
 
-{- | A default `SepBy` constructor which can be modified
-by updating `beginBy`, or `endBy` fields -}
+{- | A `SepBy` smart constructor,
+setting the `separateBy` field,
+with no beginning or ending delimitors,
+except by updating `beginBy` or `endBy` fields. -}
 sepBy :: Monoidal p => p () () -> SepBy p
 sepBy = SepBy oneP oneP
 
-{- | No separator, beginning or ending delimiters. -}
+{- | A `SepBy` smart constructor for no separator,
+beginning or ending delimiters. -}
 noSep :: Monoidal p => SepBy p
 noSep = sepBy oneP
 

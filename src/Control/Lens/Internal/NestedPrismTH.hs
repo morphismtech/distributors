@@ -6,10 +6,14 @@ License     : BSD-style (see the file LICENSE)
 Maintainer  : Eitan Chatav <eitan.chatav@gmail.com>
 Stability   : provisional
 Portability : non-portable
+
+Code is duplicated from `Control.Lens.Internal.PrismTH`,
+with small tweaks to support nested pairs.
 -}
 
 module Control.Lens.Internal.NestedPrismTH
-  ( makeNestedPrisms
+  ( -- * Nested Prisms
+    makeNestedPrisms
   ) where
 
 import Control.Applicative
@@ -37,8 +41,8 @@ import Prelude
 --
 -- See `Control.Lens.Internal.PrismTH.makePrisms` for details and examples.
 -- The difference in `makeNestedPrisms`
--- is that constructors with more than 2 arguments
--- will use right-nested pairs, rather than a flat tuple.
+-- is that constructors with @n > 2@ arguments
+-- will use right-nested pairs, rather than a flat @n@-tuple.
 -- This makes them suitable for use on the left-hand-side of
 -- `Control.Lens.PartialIso.>?` and `Control.Lens.PartialIso.>?<`;
 -- with repeated use of `Data.Profunctor.Distributor.>*<`
@@ -49,7 +53,7 @@ makeNestedPrisms typeName =
      let cons = D.datatypeCons info
      makeConsPrisms (datatypeTypeKinded info) (map normalizeCon cons)
 
--- | Generate prisms for the given type, and normalized constructors.
+-- Generate prisms for the given type, and normalized constructors.
 -- This function dispatches between Iso generation, and normal top-level
 makeConsPrisms :: Type -> [NCon] -> DecsQ
 -- special case: single constructor -> make iso
@@ -99,10 +103,10 @@ computeReviewType s' cx tys =
   do let t = s'
      s <- fmap VarT (newName "s")
      a <- fmap VarT (newName "a")
-     b <- toNestedTupleT (map return tys)
+     b <- toNestedPairT (map return tys)
      return (Stab cx ReviewType s t a b)
 
--- | Compute the full type-changing Prism type given an outer type,
+-- Compute the full type-changing Prism type given an outer type,
 -- list of constructors, and target constructor name. Additionally
 -- return 'True' if the resulting type is a "simple" prism.
 computePrismType :: Type -> Cxt -> [NCon] -> NCon -> Q Stab
@@ -110,8 +114,8 @@ computePrismType t cx cons con =
   do let ts      = view nconTypes con
          unbound = setOf typeVars t Set.\\ setOf typeVars cons
      sub <- sequenceA (Map.fromSet (newName . nameBase) unbound)
-     b   <- toNestedTupleT (map return ts)
-     a   <- toNestedTupleT (map return (substTypeVars sub ts))
+     b   <- toNestedPairT (map return ts)
+     a   <- toNestedPairT (map return (substTypeVars sub ts))
      let s = substTypeVars sub t
      return (Stab cx PrismType s t a b)
 
@@ -120,20 +124,20 @@ computeIsoType t' fields =
   do sub <- sequenceA (Map.fromSet (newName . nameBase) (setOf typeVars t'))
      let t = return                    t'
          s = return (substTypeVars sub t')
-         b = toNestedTupleT (map return                    fields)
-         a = toNestedTupleT (map return (substTypeVars sub fields))
+         b = toNestedPairT (map return                    fields)
+         a = toNestedPairT (map return (substTypeVars sub fields))
          ty | Map.null sub = appsT (conT iso'TypeName) [t,b]
             | otherwise    = appsT (conT isoTypeName) [s,t,a,b]
      quantifyType [] <$> ty
 
--- | Construct either a Review or Prism as appropriate
+-- Construct either a Review or Prism as appropriate
 makeConOpticExp :: Stab -> [NCon] -> NCon -> ExpQ
 makeConOpticExp stab cons con =
   case stabType stab of
     PrismType  -> makeConPrismExp stab cons con
     ReviewType -> makeConReviewExp con
 
--- | Construct an iso declaration
+-- Construct an iso declaration
 makeConIso :: Type -> NCon -> DecsQ
 makeConIso s con =
   do let ty      = computeIsoType s (view nconTypes con)
@@ -145,7 +149,7 @@ makeConIso s con =
          inlinePragma defName
        )
 
--- | Construct prism expression
+-- Construct prism expression
 --
 -- prism <<reviewer>> <<remitter>>
 makeConPrismExp ::
@@ -162,7 +166,7 @@ makeConPrismExp stab cons con = appsE [varE prismValName, reviewer, remitter]
   remitter | stabSimple stab = makeSimpleRemitter conName (length cons) fields
            | otherwise       = makeFullRemitter cons conName
 
--- | Construct an Iso expression
+-- Construct an Iso expression
 --
 -- iso <<reviewer>> <<remitter>>
 makeConIsoExp :: NCon -> ExpQ
@@ -173,7 +177,7 @@ makeConIsoExp con = appsE [varE isoValName, remitter, reviewer]
   reviewer = makeReviewer    conName fields
   remitter = makeIsoRemitter conName fields
 
--- | Construct a Review expression
+-- Construct a Review expression
 --
 -- unto (\(x,y,z) -> Con x y z)
 makeConReviewExp :: NCon -> ExpQ
@@ -187,23 +191,22 @@ makeConReviewExp con = appE (varE untoValName) reviewer
 -- Prism and Iso component builders
 ------------------------------------------------------------------------
 
--- | Construct the review portion of a prism.
+-- Construct the review portion of a prism.
 --
 -- (\(x,y,z) -> Con x y z) :: b -> t
 makeReviewer :: Name -> Int -> ExpQ
 makeReviewer conName fields =
   do xs <- newNames "x" fields
-     lam1E (toNestedTupleP (map varP xs))
+     lam1E (toNestedPairP (map varP xs))
            (conE conName `appsE1` map varE xs)
 
--- | Construct the remit portion of a prism.
+-- Construct the remit portion of a prism.
 -- Pattern match only target constructor, no type changing
 --
 -- (\x -> case s of
 --          Con x y z -> Right (x,y,z)
 --          _         -> Left x
 -- ) :: s -> Either s a
-
 makeSimpleRemitter ::
   Name {- The name of the constructor on which this prism focuses -} ->
   Int  {- The number of constructors the parent data type has     -} ->
@@ -214,7 +217,7 @@ makeSimpleRemitter conName numCons fields =
      xs <- newNames "y" fields
      let matches =
            [ match (conP conName (map varP xs))
-                   (normalB (appE (conE rightDataName) (toNestedTupleE (map varE xs))))
+                   (normalB (appE (conE rightDataName) (toNestedPairE (map varE xs))))
                    []
            ] ++
            [ match wildP (normalB (appE (conE leftDataName) (varE x))) []
@@ -223,7 +226,7 @@ makeSimpleRemitter conName numCons fields =
            ]
      lam1E (varP x) (caseE (varE x) matches)
 
--- | Pattern match all constructors to enable type-changing
+-- Pattern match all constructors to enable type-changing
 --
 -- (\x -> case s of
 --          Con x y z -> Right (x,y,z)
@@ -239,24 +242,24 @@ makeFullRemitter cons target =
        match (conP conName (map varP xs))
              (normalB
                (if conName == target
-                  then appE (conE rightDataName) (toNestedTupleE (map varE xs))
+                  then appE (conE rightDataName) (toNestedPairE (map varE xs))
                   else appE (conE leftDataName) (conE conName `appsE1` map varE xs)))
              []
 
--- | Construct the remitter suitable for use in an 'Iso'
+-- Construct the remitter suitable for use in an 'Iso'
 --
 -- (\(Con x y z) -> (x,y,z)) :: s -> a
 makeIsoRemitter :: Name -> Int -> ExpQ
 makeIsoRemitter conName fields =
   do xs <- newNames "x" fields
      lam1E (conP conName (map varP xs))
-           (toNestedTupleE (map varE xs))
+           (toNestedPairE (map varE xs))
 
 ------------------------------------------------------------------------
 -- Utilities
 ------------------------------------------------------------------------
 
--- | Normalized constructor
+-- Normalized constructor
 data NCon = NCon
   { _nconName :: Name
   , _nconVars :: [Name]
@@ -277,18 +280,18 @@ nconCxt f x = fmap (\y -> x {_nconCxt = y}) (f (_nconCxt x))
 nconTypes :: Lens' NCon [Type]
 nconTypes f x = fmap (\y -> x {_nconTypes = y}) (f (_nconTypes x))
 
--- | Normalize a single 'Con' to its constructor name and field types.
+-- Normalize a single 'Con' to its constructor name and field types.
 normalizeCon :: D.ConstructorInfo -> NCon
 normalizeCon info = NCon (D.constructorName info)
                          (D.tvName <$> D.constructorVars info)
                          (D.constructorContext info)
                          (D.constructorFields info)
 
--- | Compute a prism's name by prefixing an underscore for normal
+-- Compute a prism's name by prefixing an underscore for normal
 -- constructors and period for operators.
 prismName ::
-  Name {- ^ type constructor        -} ->
-  Name {- ^ prism name              -}
+  Name {- type constructor        -} ->
+  Name {- prism name              -}
 prismName n =
   case nameBase n of
     [] -> error "prismName: empty name base?"
@@ -298,21 +301,20 @@ prismName n =
     prefix :: Char -> String -> String
     prefix char str = char:str
 
+-- Construct a tuple type given a list of types.
+toNestedPairT :: [TypeQ] -> TypeQ
+toNestedPairT [] = appsT (tupleT 0) []
+toNestedPairT [x] = x
+toNestedPairT (x:xs) = appsT (tupleT 2) [x, toNestedPairT xs]
 
--- | Construct a tuple type given a list of types.
-toNestedTupleT :: [TypeQ] -> TypeQ
-toNestedTupleT [] = appsT (tupleT 0) []
-toNestedTupleT [x] = x
-toNestedTupleT (x:xs) = appsT (tupleT 2) [x, toNestedTupleT xs]
+-- Construct a tuple value given a list of expressions.
+toNestedPairE :: [ExpQ] -> ExpQ
+toNestedPairE [] = tupE []
+toNestedPairE [x] = x
+toNestedPairE (x:xs) = tupE [x, toNestedPairE xs]
 
--- | Construct a tuple value given a list of expressions.
-toNestedTupleE :: [ExpQ] -> ExpQ
-toNestedTupleE [] = tupE []
-toNestedTupleE [x] = x
-toNestedTupleE (x:xs) = tupE [x, toNestedTupleE xs]
-
--- | Construct a tuple pattern given a list of patterns.
-toNestedTupleP :: [PatQ] -> PatQ
-toNestedTupleP [] = tupP []
-toNestedTupleP [x] = x
-toNestedTupleP (x:xs) = tupP [x, toNestedTupleP xs]
+-- Construct a tuple pattern given a list of patterns.
+toNestedPairP :: [PatQ] -> PatQ
+toNestedPairP [] = tupP []
+toNestedPairP [x] = x
+toNestedPairP (x:xs) = tupP [x, toNestedPairP xs]
