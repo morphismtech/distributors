@@ -49,7 +49,7 @@ embedded in Haskell, with combinators:
 * pattern matching `>?`, `>?<`
 * alternation `<|>`
 * sequencing `>*<`, `>*`, `*<`
-* Kleene's combinators `optionalP`, `manyP`, `someP`
+* Kleene quantifiers `optionalP`, `manyP`, `someP`
 * any character `anyToken`
 * regular predicates `inClass`, `notInClass`, `inCategory`, `notInCategory`
 * nonregular predicate `satisfy`
