@@ -26,6 +26,7 @@ module Text.Grammar.Distributor
   , printGrammar
     -- * RegEx
   , RegEx (..)
+  , normRegEx
   , regexString
   , stringRegEx
   , regexGrammar
@@ -176,6 +177,20 @@ starK rex = KleeneStar rex
 plusK Fail = Fail
 plusK (Terminal "") = Terminal ""
 plusK rex = KleenePlus rex
+
+{- | Normalize a `RegEx`.
+
+>>> normRegEx (Sequence (Terminal "abc") (Terminal "xyz"))
+Terminal "abcxyz"
+-}
+normRegEx :: RegEx -> RegEx
+normRegEx = \case
+  Sequence rex0 rex1 -> normRegEx rex0 -*- normRegEx rex1
+  Alternate rex0 rex1 -> normRegEx rex0 ||| normRegEx rex1
+  KleeneOpt rex -> optK (normRegEx rex)
+  KleeneStar rex -> starK (normRegEx rex)
+  KleenePlus rex -> plusK (normRegEx rex)
+  otherRegEx -> otherRegEx
 
 -- RegEx generator
 
@@ -344,7 +359,7 @@ Alternate (Sequence (Terminal "x") (Terminal "y")) (KleenePlus (Terminal "z"))
 stringRegEx :: String -> RegEx
 stringRegEx str = case readGrammar regexGrammar str of
   [] -> Fail
-  rex:_ -> rex
+  rex:_ -> normRegEx rex
 
 -- RegEx Grammar --
 
