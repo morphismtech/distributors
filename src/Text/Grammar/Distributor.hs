@@ -25,7 +25,10 @@ module Text.Grammar.Distributor
   , genGrammar
   , printGrammar
     -- * RegEx
-  , RegEx (..), regexString, regexGrammar
+  , RegEx (..)
+  , regexString
+  , stringRegEx
+  , regexGrammar
   ) where
 
 import Control.Applicative
@@ -281,7 +284,7 @@ instance Grammatical DiGrammar where
 
 -- Generators --
 
-{- | Generate a `ReadS` from a `Grammar`. -}
+{- | Generate a `ReadS` parser from a `Grammar`. -}
 genReadS :: Grammar a -> ReadS a
 genReadS = runParsor
 
@@ -293,7 +296,7 @@ readGrammar grammar str =
   , remaining == []
   ]
 
-{- | Generate a `ShowS` from a `Grammar`. -}
+{- | Generate `ShowS` printers from a `Grammar`. -}
 genShowS :: Alternative f => Grammar a -> a -> f ShowS
 genShowS = runPrintor
 
@@ -330,6 +333,18 @@ xy|z+
 -}
 regexString :: RegEx -> String
 regexString rex = maybe "\\q" id (showGrammar regexGrammar rex)
+
+{- | Parse a `RegEx` from a `String`.
+`Fail` if the `String` is not a valid regular expression.
+
+>>> let str = "xy|z+"
+>>> stringRegEx str
+Alternate (Sequence (Terminal "x") (Terminal "y")) (KleenePlus (Terminal "z"))
+-}
+stringRegEx :: String -> RegEx
+stringRegEx str = case readGrammar regexGrammar str of
+  [] -> Fail
+  rex:_ -> rex
 
 -- RegEx Grammar --
 
