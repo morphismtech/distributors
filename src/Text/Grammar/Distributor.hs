@@ -145,8 +145,6 @@ data RegEx
 makeNestedPrisms ''RegEx
 makeNestedPrisms ''GeneralCategory
 
--- Kleene Star Algebra Operators
-
 (-*-), (|||) :: RegEx -> RegEx -> RegEx
 
 Terminal "" -*- rex = rex
@@ -196,7 +194,33 @@ normRegEx = \case
   KleenePlus rex -> plusK (normRegEx rex)
   otherRegEx -> otherRegEx
 
--- RegEx generator
+{- | The `RegEx` `String`.
+
+>>> let rex = Alternate (Terminal "xy") (KleenePlus (Terminal "z"))
+>>> putStrLn (regexString rex)
+xy|z+
+-}
+regexString :: RegEx -> String
+regexString rex = maybe "\\q" id (showGrammar regexGrammar rex)
+
+{- | Parse a `RegEx` from a `String`.
+
+>>> let str = "xy|z+"
+>>> stringRegEx str
+Alternate (Terminal "xy") (KleenePlus (Terminal "z"))
+
+`Fail` if the `String` is not a valid regular expression.
+
+>>> let bad = ")("
+>>> stringRegEx bad
+Fail
+-}
+stringRegEx :: String -> RegEx
+stringRegEx str = case readGrammar regexGrammar str of
+  [] -> Fail
+  rex:_ -> normRegEx rex
+
+-- RegEx Generator --
 
 newtype DiRegEx a b = DiRegEx RegEx
 instance Functor (DiRegEx a) where fmap = rmap
@@ -236,7 +260,7 @@ instance Grammatical DiRegEx where
   inCategory cat = DiRegEx (InCategory cat)
   notInCategory cat = DiRegEx (NotInCategory cat)
 
--- Grammar generator
+-- Grammar Generator --
 
 data DiGrammar a b = DiGrammar
   { grammarStart :: DiRegEx a b
@@ -343,32 +367,6 @@ printGrammar gram = for_ (genGrammar gram) $ \(name_i, rule_i) -> do
   putStr name_i
   putStr " = "
   putStrLn (regexString rule_i)
-
-{- | The `RegEx` `String`.
-
->>> let rex = Alternate (Terminal "xy") (KleenePlus (Terminal "z"))
->>> putStrLn (regexString rex)
-xy|z+
--}
-regexString :: RegEx -> String
-regexString rex = maybe "\\q" id (showGrammar regexGrammar rex)
-
-{- | Parse a `RegEx` from a `String`.
-
->>> let str = "xy|z+"
->>> stringRegEx str
-Alternate (Terminal "xy") (KleenePlus (Terminal "z"))
-
-`Fail` if the `String` is not a valid regular expression.
-
->>> let bad = ")("
->>> stringRegEx bad
-Fail
--}
-stringRegEx :: String -> RegEx
-stringRegEx str = case readGrammar regexGrammar str of
-  [] -> Fail
-  rex:_ -> normRegEx rex
 
 -- RegEx Grammar --
 
