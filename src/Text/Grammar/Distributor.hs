@@ -83,6 +83,10 @@ and `IsString` with the property:
 
 prop> fromString = tokens
 
+`Grammatical` has defaults for methods
+`inClass`, `notInClass`, `inCategory`, `notInCategory`
+in terms of `satisfy`;
+and `rule` & `ruleRec` in terms of `id` & `fix`.
 -}
 class
   ( Alternator p
@@ -108,11 +112,11 @@ class
     notInCategory cat = satisfy $ \ch -> cat /= generalCategory ch
 
     {- | A nonterminal rule. -}
-    rule :: String -> p a b -> p a b
+    rule :: String -> p a a -> p a a
     rule _ = id
 
     {- | A recursive, nonterminal rule. -}
-    ruleRec :: String -> (p a b -> p a b) -> p a b
+    ruleRec :: String -> (p a a -> p a a) -> p a a
     ruleRec name = rule name . fix
 
 instance (Alternative f, Cons s s Char Char)
