@@ -331,7 +331,7 @@ genRegEx :: Grammar a -> RegEx
 genRegEx (DiRegEx rex) = rex
 
 {- | Generate a context free grammar,
-consisting of a @"start"@ and named `RegEx`es, from a `Grammar`.
+consisting of @"start"@ & named `RegEx` rules, from a `Grammar`.
 -}
 genGrammar :: Grammar a -> [(String, RegEx)]
 genGrammar (DiGrammar (DiRegEx start) rules) =
