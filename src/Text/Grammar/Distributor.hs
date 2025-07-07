@@ -342,7 +342,7 @@ printGrammar gram = for_ (genGrammar gram) $ \(name_i, rule_i) -> do
 
 {- | The `RegEx` `String`.
 
->>> let rex = Terminal "xy" `Alternate` KleenePlus (Terminal "z")
+>>> let rex = Alternate (Terminal "xy") (KleenePlus (Terminal "z"))
 >>> putStrLn (regexString rex)
 xy|z+
 -}
@@ -350,11 +350,16 @@ regexString :: RegEx -> String
 regexString rex = maybe "\\q" id (showGrammar regexGrammar rex)
 
 {- | Parse a `RegEx` from a `String`.
-`Fail` if the `String` is not a valid regular expression.
 
 >>> let str = "xy|z+"
 >>> stringRegEx str
-Alternate (Sequence (Terminal "x") (Terminal "y")) (KleenePlus (Terminal "z"))
+Alternate (Terminal "xy") (KleenePlus (Terminal "z"))
+
+`Fail` if the `String` is not a valid regular expression.
+
+>>> let bad = ")("
+>>> stringRegEx bad
+Fail
 -}
 stringRegEx :: String -> RegEx
 stringRegEx str = case readGrammar regexGrammar str of
