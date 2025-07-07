@@ -61,4 +61,4 @@ main = hspec $ do
       it ("should parse " <> str <> " correctly") $ do
         let parses = readGrammar regexGrammar str
         parses `shouldSatisfy` elem rex
-        length (nub (map normRegEx parses)) `shouldBe` 1
+        length (nub (map regexNorm parses)) `shouldBe` 1
