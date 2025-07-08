@@ -5,7 +5,7 @@ cabal-version: 2.2
 -- see: https://github.com/sol/hpack
 
 name:           distributors
-version:        0.2.0.0
+version:        0.2.0.1
 synopsis:       Unifying Parsers, Printers & Grammars
 description:    Distributors provides mathematically inspired abstractions for coders to write parsers that can also be inverted to printers.
 category:       Profunctors, Optics, Parsing
@@ -62,7 +62,6 @@ library
       ImportQualifiedPost
       ImpredicativeTypes
       InstanceSigs
-      KindSignatures
       LambdaCase
       MagicHash
       MonoLocalBinds
@@ -72,7 +71,6 @@ library
       RecursiveDo
       ScopedTypeVariables
       StandaloneDeriving
-      StandaloneKindSignatures
       TemplateHaskell
       TupleSections
       TypeApplications
@@ -128,7 +126,6 @@ test-suite spec
       ImportQualifiedPost
       ImpredicativeTypes
       InstanceSigs
-      KindSignatures
       LambdaCase
       MagicHash
       MonoLocalBinds
@@ -138,7 +135,6 @@ test-suite spec
       RecursiveDo
       ScopedTypeVariables
       StandaloneDeriving
-      StandaloneKindSignatures
       TemplateHaskell
       TupleSections
       TypeApplications
