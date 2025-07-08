@@ -25,7 +25,11 @@ module Text.Grammar.Distributor
   , genGrammar
   , printGrammar
     -- * RegEx
-  , RegEx (..), regexString, regexGrammar
+  , RegEx (..)
+  , regexNorm
+  , regexParse
+  , regexString
+  , regexGrammar
   ) where
 
 import Control.Applicative
@@ -79,6 +83,10 @@ and `IsString` with the property:
 
 prop> fromString = tokens
 
+`Grammatical` has defaults for methods
+`inClass`, `notInClass`, `inCategory`, `notInCategory`
+in terms of `satisfy`;
+and `rule` & `ruleRec` in terms of `id` & `fix`.
 -}
 class
   ( Alternator p
@@ -104,11 +112,11 @@ class
     notInCategory cat = satisfy $ \ch -> cat /= generalCategory ch
 
     {- | A nonterminal rule. -}
-    rule :: String -> p a b -> p a b
+    rule :: String -> p a a -> p a a
     rule _ = id
 
     {- | A recursive, nonterminal rule. -}
-    ruleRec :: String -> (p a b -> p a b) -> p a b
+    ruleRec :: String -> (p a a -> p a a) -> p a a
     ruleRec name = rule name . fix
 
 instance (Alternative f, Cons s s Char Char)
@@ -136,8 +144,6 @@ data RegEx
   deriving stock (Eq, Ord, Show, Generic)
 makeNestedPrisms ''RegEx
 makeNestedPrisms ''GeneralCategory
-
--- Kleene Star Algebra Operators
 
 (-*-), (|||) :: RegEx -> RegEx -> RegEx
 
@@ -174,7 +180,47 @@ plusK Fail = Fail
 plusK (Terminal "") = Terminal ""
 plusK rex = KleenePlus rex
 
--- RegEx generator
+{- | Normalize a `RegEx`.
+
+>>> regexNorm (Sequence (Terminal "abc") (Terminal "xyz"))
+Terminal "abcxyz"
+-}
+regexNorm :: RegEx -> RegEx
+regexNorm = \case
+  Sequence rex0 rex1 -> regexNorm rex0 -*- regexNorm rex1
+  Alternate rex0 rex1 -> regexNorm rex0 ||| regexNorm rex1
+  KleeneOpt rex -> optK (regexNorm rex)
+  KleeneStar rex -> starK (regexNorm rex)
+  KleenePlus rex -> plusK (regexNorm rex)
+  otherRegEx -> otherRegEx
+
+{- | Parse a `RegEx` from a `String`.
+
+>>> let str = "xy|z+"
+>>> regexParse str
+Alternate (Terminal "xy") (KleenePlus (Terminal "z"))
+
+`Fail` if the `String` is not a valid regular expression.
+
+>>> let bad = ")("
+>>> regexParse bad
+Fail
+-}
+regexParse :: String -> RegEx
+regexParse str = case readGrammar regexGrammar str of
+  [] -> Fail
+  rex:_ -> regexNorm rex
+
+{- | The `RegEx` `String`.
+
+>>> let rex = Alternate (Terminal "xy") (KleenePlus (Terminal "z"))
+>>> putStrLn (regexString rex)
+xy|z+
+-}
+regexString :: RegEx -> String
+regexString rex = maybe "\\q" id (showGrammar regexGrammar rex)
+
+-- RegEx Generator --
 
 newtype DiRegEx a b = DiRegEx RegEx
 instance Functor (DiRegEx a) where fmap = rmap
@@ -214,7 +260,7 @@ instance Grammatical DiRegEx where
   inCategory cat = DiRegEx (InCategory cat)
   notInCategory cat = DiRegEx (NotInCategory cat)
 
--- Grammar generator
+-- Grammar Generator --
 
 data DiGrammar a b = DiGrammar
   { grammarStart :: DiRegEx a b
@@ -281,7 +327,7 @@ instance Grammatical DiGrammar where
 
 -- Generators --
 
-{- | Generate a `ReadS` from a `Grammar`. -}
+{- | Generate a `ReadS` parser from a `Grammar`. -}
 genReadS :: Grammar a -> ReadS a
 genReadS = runParsor
 
@@ -293,7 +339,7 @@ readGrammar grammar str =
   , remaining == []
   ]
 
-{- | Generate a `ShowS` from a `Grammar`. -}
+{- | Generate `ShowS` printers from a `Grammar`. -}
 genShowS :: Alternative f => Grammar a -> a -> f ShowS
 genShowS = runPrintor
 
@@ -309,7 +355,7 @@ genRegEx :: Grammar a -> RegEx
 genRegEx (DiRegEx rex) = rex
 
 {- | Generate a context free grammar,
-consisting of a @"start"@ and named `RegEx`es, from a `Grammar`.
+consisting of @"start"@ & named `RegEx` rules, from a `Grammar`.
 -}
 genGrammar :: Grammar a -> [(String, RegEx)]
 genGrammar (DiGrammar (DiRegEx start) rules) =
@@ -321,15 +367,6 @@ printGrammar gram = for_ (genGrammar gram) $ \(name_i, rule_i) -> do
   putStr name_i
   putStr " = "
   putStrLn (regexString rule_i)
-
-{- | The `RegEx` `String`.
-
->>> let rex = Terminal "xy" `Alternate` KleenePlus (Terminal "z")
->>> putStrLn (regexString rex)
-xy|z+
--}
-regexString :: RegEx -> String
-regexString rex = maybe "\\q" id (showGrammar regexGrammar rex)
 
 -- RegEx Grammar --
 
@@ -459,7 +496,7 @@ nonterminalG :: Grammar RegEx
 nonterminalG = rule "nonterminal" $
   _NonTerminal >?< "\\q{" >* manyP charG *< "}"
 
-parenG :: Grammarr RegEx RegEx
+parenG :: Grammarr a a
 parenG rex = rule "parenthesized" $
   "(" >* rex *< ")"
 
