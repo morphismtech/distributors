@@ -452,7 +452,7 @@ class (Choice p, Distributor p, forall x. Alternative (p x))
     someP :: p a b -> p [a] [b]
     someP p = _Cons >? p >*< manyP p
 
-instance (Alternator p, Alternative f)
+instance (Alternator p, Applicative f)
   => Alternator (WrappedPafb f p) where
     alternate =
       let
@@ -653,6 +653,9 @@ instance Tokenized a b (Market a b) where
   anyToken = Market id Right
 instance Tokenized a b (PartialExchange a b) where
   anyToken = PartialExchange Just Just
+instance (Tokenized a b p, Profunctor p, Applicative f)
+  => Tokenized a b (WrappedPafb f p) where
+    anyToken = WrapPafb (rmap pure anyToken)
 
 {- | Sequences a single token that satisfies a predicate. -}
 satisfy :: (Choice p, Cochoice p, Tokenized c c p) => (c -> Bool) -> p c c
