@@ -729,9 +729,14 @@ instance Monad f => Applicative (Parsor s f a) where
     (f, str') <- x str
     (a, str'') <- y str'
     return (f a, str'')
+instance Monad f => Monad (Parsor s f a) where
+  Parsor p >>= f = Parsor $ \s -> do
+    (a, s') <- p s
+    runParsor (f a) s'
 instance (Alternative f, Monad f) => Alternative (Parsor s f a) where
   empty = Parsor (\_ -> empty)
   Parsor p <|> Parsor q = Parsor (\str -> p str <|> q str)
+instance (Alternative f, Monad f) => MonadPlus (Parsor s f a)
 instance Filterable f => Filterable (Parsor s f a) where
   mapMaybe f (Parsor p) = Parsor (mapMaybe (\(a,str) -> (,str) <$> f a) . p)
 instance Functor f => Bifunctor (Parsor s f) where
