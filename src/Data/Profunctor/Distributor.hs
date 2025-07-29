@@ -506,18 +506,12 @@ class (Cochoice p, forall x. Filterable (p x))
       &&&
       dimapMaybe (Just . Right) (either (pure Nothing) Just)
 
-instance (Filtrator p, Filterable f)
+instance (Profunctor p, forall x. Functor (p x), Filterable f)
   => Filtrator (WrappedPafb f p) where
     filtrate (WrapPafb p) =
-      let
-        fL = Left . mapMaybe (either Just (const Nothing))
-        fR = Right . mapMaybe (either (const Nothing) Just)
-        (pL,_) = filtrate (rmap fL p)
-        (_,pR) = filtrate (rmap fR p)
-      in
-        ( WrapPafb pL
-        , WrapPafb pR
-        )
+      ( WrapPafb $ dimap Left (mapMaybe (either Just (const Nothing))) p
+      , WrapPafb $ dimap Right (mapMaybe (either (const Nothing) Just)) p
+      )
 instance Filtrator p => Filtrator (Coyoneda p) where
   filtrate p =
     let (q,r) = filtrate (proextract p)
