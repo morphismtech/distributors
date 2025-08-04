@@ -48,7 +48,7 @@ module Control.Lens.PartialIso
   , difoldr
   , difoldl'
   , difoldr'
-    -- Template Haskell
+    -- * Template Haskell
   , makeNestedPrisms
   ) where
 
@@ -79,7 +79,7 @@ dimapMaybe f g =
 
 {- | `PartialIso` is a first class inexhaustive pattern,
 similar to how `Control.Lens.Prism.Prism` is a first class exhaustive pattern,
-by combining `Control.Lens.Prism.Prism`s and coPrisms.
+by combining `Control.Lens.Prism.Prism`s and `coPrism`s.
 
 Every `Control.Lens.Iso.Iso` & `Control.Lens.Prism.Prism` is `APartialIso`.
 

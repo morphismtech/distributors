@@ -1,5 +1,5 @@
 name: distributors
-version: 0.1.0.3
+version: 0.2.0.1
 github: "morphismtech/distributors"
 license: BSD-3-Clause
 author: "Eitan Chatav"
@@ -69,7 +69,6 @@ default-extensions:
 - ImportQualifiedPost
 - ImpredicativeTypes
 - InstanceSigs
-- KindSignatures
 - LambdaCase
 - MagicHash
 - MonoLocalBinds
@@ -79,7 +78,6 @@ default-extensions:
 - RecursiveDo
 - ScopedTypeVariables
 - StandaloneDeriving
-- StandaloneKindSignatures
 - TemplateHaskell
 - TupleSections
 - TypeApplications

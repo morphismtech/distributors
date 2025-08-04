@@ -2,6 +2,7 @@ module Main (main) where
 
 import Data.Char
 import Data.Foldable
+import Data.List (nub)
 import Text.Grammar.Distributor
 import Test.Hspec
 
@@ -57,6 +58,7 @@ main = hspec $ do
     for_ regexExamples $ \(rex, str) -> do
       it ("should print " <> show rex <> " correctly") $
         showGrammar regexGrammar rex `shouldBe` Just str
-    for_ regexExamples $ \(rex, str) -> do
-      it ("should parse " <> str <> " correctly") $
-        readGrammar regexGrammar str `shouldSatisfy` elem rex
+      it ("should parse " <> str <> " correctly") $ do
+        let parses = readGrammar regexGrammar str
+        parses `shouldSatisfy` elem rex
+        length (nub (map regexNorm parses)) `shouldBe` 1

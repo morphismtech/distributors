@@ -74,6 +74,7 @@ Laws:
 >>> let lunit = dimap (\((),a) -> a) (\a -> ((),a))
 >>> let runit = dimap (\(a,()) -> a) (\a -> (a,()))
 >>> let assoc = dimap (\(a,(b,c)) -> ((a,b),c)) (\((a,b),c) -> (a,(b,c)))
+
 prop> dimap (f >< g) (h >< i) (p >*< q) = dimap f h p >*< dimap g i q
 prop> oneP >*< p = lunit p
 prop> p >*< oneP = runit p
@@ -139,13 +140,11 @@ replicateP
   => p a b -> p (t a) (t b)
 replicateP p = traverse (\f -> lmap f p) (distribute id)
 
-{- | `meander` gives a default implementation for the
+{- | For any `Monoidal`, `Choice` & `Strong` `Profunctor`,
+`meander` is invertible and gives a default implementation for the
 `Data.Profunctor.Traversing.wander`
-method of `Data.Profunctor.Traversing.Traversing`
-for any `Monoidal`, `Choice` & `Strong` `Profunctor`.
-
-It is invertible when @p@ is `Strong`,
-though it's not needed for its definition.
+method of `Data.Profunctor.Traversing.Traversing`,
+though `Strong` is not needed for its definition.
 
 See Pickering, Gibbons & Wu,
 [Profunctor Optics - Modular Data Accessors](https://arxiv.org/abs/1703.10857)
@@ -187,6 +186,7 @@ let f |+| g = either (Left . f) (Right . g)
       (either (Left . Left) (either (Left . Right) Right))
       (either (either Left (Right . Left)) (Right . Right))
 :}
+
 prop> dimap (f |+| g) (h |+| i) (p >+< q) = dimap f h p >+< dimap g i q
 prop> zeroP >+< p = lunit p
 prop> p >+< zeroP = runit p
@@ -195,12 +195,22 @@ prop> p >+< q >+< r = assoc ((p >+< q) >+< r)
 -}
 class Monoidal p => Distributor p where
 
-  {- | The zero structure morphism of a `Distributor`. -}
+  {- | The zero structure morphism of a `Distributor`.
+
+  `zeroP` has a default for `Alternator`.
+
+  prop> zeroP = empty
+  -}
   zeroP :: p Void Void
   default zeroP :: Alternator p => p Void Void
   zeroP = empty
 
-  {- | The sum structure morphism of a `Distributor`. -}
+  {- | The sum structure morphism of a `Distributor`.
+  
+  `>+<` has a default for `Alternator`.
+
+  prop> x >+< y = alternate (Left x) <|> alternate (Right y)
+  -}
   (>+<) :: p a b -> p c d -> p (Either a c) (Either b d)
   default (>+<)
     :: Alternator p
@@ -424,7 +434,7 @@ class (Choice p, Distributor p, forall x. Alternative (p x))
     prop> zeroP = empty
     prop> x >+< y = alternate (Left x) <|> alternate (Right y)
 
-    `alternate` has a default when `Cochoice`.
+    `alternate` has a default for `Cochoice`.
     -}
     alternate
       :: Either (p a b) (p c d)
@@ -442,7 +452,7 @@ class (Choice p, Distributor p, forall x. Alternative (p x))
     someP :: p a b -> p [a] [b]
     someP p = _Cons >? p >*< manyP p
 
-instance (Alternator p, Alternative f)
+instance (Alternator p, Applicative f)
   => Alternator (WrappedPafb f p) where
     alternate =
       let
@@ -482,7 +492,7 @@ class (Cochoice p, forall x. Filterable (p x))
 
     `filtrate` is a distant relative to `Data.Either.partitionEithers`.
 
-    `filtrate` has a default when `Choice`.
+    `filtrate` has a default for `Choice`.
     -}
     filtrate
       :: p (Either a c) (Either b d)
@@ -496,18 +506,12 @@ class (Cochoice p, forall x. Filterable (p x))
       &&&
       dimapMaybe (Just . Right) (either (pure Nothing) Just)
 
-instance (Filtrator p, Filterable f)
+instance (Profunctor p, forall x. Functor (p x), Filterable f)
   => Filtrator (WrappedPafb f p) where
     filtrate (WrapPafb p) =
-      let
-        fL = Left . mapMaybe (either Just (const Nothing))
-        fR = Right . mapMaybe (either (const Nothing) Just)
-        (pL,_) = filtrate (rmap fL p)
-        (_,pR) = filtrate (rmap fR p)
-      in
-        ( WrapPafb pL
-        , WrapPafb pR
-        )
+      ( WrapPafb $ dimap Left (mapMaybe (either Just (const Nothing))) p
+      , WrapPafb $ dimap Right (mapMaybe (either (const Nothing) Just)) p
+      )
 instance Filtrator p => Filtrator (Coyoneda p) where
   filtrate p =
     let (q,r) = filtrate (proextract p)
@@ -541,12 +545,15 @@ data SepBy p = SepBy
   , separateBy :: p () ()
   }
 
-{- | A default `SepBy` constructor which can be modified
-by updating `beginBy`, or `endBy` fields -}
+{- | A `SepBy` smart constructor,
+setting the `separateBy` field,
+with no beginning or ending delimitors,
+except by updating `beginBy` or `endBy` fields. -}
 sepBy :: Monoidal p => p () () -> SepBy p
 sepBy = SepBy oneP oneP
 
-{- | No separator, beginning or ending delimiters. -}
+{- | A `SepBy` smart constructor for no separator,
+beginning or ending delimiters. -}
 noSep :: Monoidal p => SepBy p
 noSep = sepBy oneP
 
@@ -640,6 +647,9 @@ instance Tokenized a b (Market a b) where
   anyToken = Market id Right
 instance Tokenized a b (PartialExchange a b) where
   anyToken = PartialExchange Just Just
+instance (Tokenized a b p, Profunctor p, Applicative f)
+  => Tokenized a b (WrappedPafb f p) where
+    anyToken = WrapPafb (rmap pure anyToken)
 
 {- | Sequences a single token that satisfies a predicate. -}
 satisfy :: (Choice p, Cochoice p, Tokenized c c p) => (c -> Bool) -> p c c
@@ -713,9 +723,14 @@ instance Monad f => Applicative (Parsor s f a) where
     (f, str') <- x str
     (a, str'') <- y str'
     return (f a, str'')
+instance Monad f => Monad (Parsor s f a) where
+  Parsor p >>= f = Parsor $ \s -> do
+    (a, s') <- p s
+    runParsor (f a) s'
 instance (Alternative f, Monad f) => Alternative (Parsor s f a) where
   empty = Parsor (\_ -> empty)
   Parsor p <|> Parsor q = Parsor (\str -> p str <|> q str)
+instance (Alternative f, Monad f) => MonadPlus (Parsor s f a)
 instance Filterable f => Filterable (Parsor s f a) where
   mapMaybe f (Parsor p) = Parsor (mapMaybe (\(a,str) -> (,str) <$> f a) . p)
 instance Functor f => Bifunctor (Parsor s f) where
