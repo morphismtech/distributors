@@ -1,6 +1,8 @@
 # Distributors
+
 **Unifying Parsers, Printers & Grammars**
 **Eitan Chatav**
+
 ## Parsers & Printers
 The Haskell programming language is well known to provide a rich environment in which to study parsing. It is in this setting that a major advance in understanding was explained by Conor McBride & Ross Paterson in [Applicative Programming with Effects](https://www.staff.city.ac.uk/~ross/papers/Applicative.html). This paper introduced the `Applicative` interface in programming, idiom brackets, and the `Traversable` interface. The final section gives a category theoretical perspective, identifying `Applicative` with lax monoidal functors. These ideas set off a bonanza of work, including on the closely related `Alternative` interface and "parser combinators".
 
