@@ -703,8 +703,8 @@ instance Alternative f => Alternator (Printor s f) where
     Right (Printor p) -> Printor (either (\_ -> empty) p)
 instance Filtrator (Printor s f) where
   filtrate (Printor p) = (Printor (p . Left), Printor (p . Right))
-instance (Applicative f, Cons s s c c)
-  => Tokenized c c (Printor s f) where
+instance (Applicative f, Cons s t a b, s ~ t, a ~ b)
+  => Tokenized a b (Printor s f) where
     anyToken = Printor (pure . cons)
 instance (Applicative f, Cons s s Char Char)
   => IsString (Printor s f () ()) where
@@ -755,8 +755,8 @@ instance Filterable f => Filtrator (Parsor s f) where
     ) where
       leftMay (e, str) = either (\b -> Just (b, str)) (\_ -> Nothing) e
       rightMay (e, str) = either (\_ -> Nothing) (\b -> Just (b, str)) e
-instance (Alternative f, Cons s s c c)
-  => Tokenized c c (Parsor s f) where
+instance (Alternative f, Cons s t a b, s ~ t, a ~ b)
+  => Tokenized a b (Parsor s f) where
     anyToken = Parsor (\str -> maybe empty pure (uncons str))
 instance (Alternative f, Filterable f, Monad f, Cons s s Char Char)
   => IsString (Parsor s f () ()) where
