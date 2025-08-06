@@ -177,7 +177,7 @@ class Functor f => Filterable f where
 optional :: Alternative f => f a -> f (Maybe a)
 ```
 
-We can then turn `dimapMaybe` into a combinator on `PartialIso`s.
+We can now turn `dimapMaybe` into a combinator on `PartialIso`s.
 
 ```
 (>?<) :: (Choice p, Cochoice p) => PartialIso s t a b -> p a b -> p s t
