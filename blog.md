@@ -30,7 +30,7 @@ class Profunctor p where
   dimap :: (s -> a) -> (b -> t) -> p a b -> p s t
 
   lmap :: (s -> a) -> p a b -> p s b
-  lmap g = dimap id g
+  lmap f = dimap f id
 
   rmap :: (b -> t) -> p a b -> p a t
   rmap g = dimap id g
@@ -240,14 +240,16 @@ token c = only c ?< anyToken
 satisfy :: (Choice p, Cochoice p, Tokenized c c p) => (c -> Bool) -> p c c
 satisfy f = satisfied f >?< anyToken
 
->>> runParsor (token 'x') "xyz" :: [(Char,String)]
-[('x',"yz")]
+>>> runParsor (token 'x') "xyz" :: [((),String)]
+[((),"yz")]
 >>> runParsor (satisfy isLower) "xyz" :: [(Char,String)]
 [('x',"yz")]
 >>> runParsor (satisfy isLower) "X" :: [(Char,String)]
 []
 >>> [pr "" | pr <- runPrintor (satisfy isLower) 'X'] :: [String]
 []
+>>> [pr "yz" | pr <- runPrintor (satisfy isLower) 'x'] :: [String]
+["xyz"]
 ```
 
 ## Monoidal Profunctors
@@ -331,7 +333,7 @@ More combinators can be added and monoidal profunctors have been well studied, i
 
 ## Distributors
 
-The `Applicative` interface is the star of the show when it comes to parsing, while the `Alternative` interface by comparison gets too little attention. Let's revisit it.
+The `Applicative` interface is always the star of the show when it comes to parsing, while the `Alternative` interface by comparison gets too little attention. Let's revisit it.
 
 ```
 class Applicative f => Alternative f where
@@ -376,7 +378,7 @@ listEot
   => Iso s t (Either () (a,s)) (Either () (b,t))
 ```
 
-The prototypical example of a `Distributor` is `(->)`. Unlike monoidal profunctors, distributors have not been very well studied. Like `Alternative` this interface doesn't seem to get the attention it deserves. The name was coined by Jean Bénabou who invented the term and originally used “profunctor,” then preferred “[distributor](http://www.entretemps.asso.fr/maths/Distributors.pdf)”. Since "profunctor" became the preferred nomenclature, we use "distributor" or lax distributive profunctor for this more restrictive interface since it uses the distributive structure on the category with `()`, `(,)`, `Void` & `Either`. Its corresponding optics which I dubbed "diopters" can be thought of as positional patterns. If you transform an algebraic datatype into its "eithers-of-tuples" representation, you can match its algebraic structure with the algebraic combinators `>*<`, `oneP`, `>+<` & `zeroP`.
+The prototypical example of a `Distributor` is `(->)`. Unlike monoidal profunctors, distributors have not been very well studied. Like `Alternative` this interface doesn't seem to get the attention it deserves. The name was coined by Jean Bénabou who invented the term and originally used “profunctor,” then preferred “[distributor](http://www.entretemps.asso.fr/maths/Distributors.pdf)”. Since "profunctor" became the preferred nomenclature, we use "distributor" or lax distributive profunctor for this more restrictive interface since it uses the distributive structure on the category with `()`, `(,)`, `Void` & `Either`. `Distributor`s have corresponding optics I dubbed "diopters" which can be thought of as positional patterns. If you transform an algebraic datatype into its [eithers-of-tuples](https://hackage.haskell.org/package/generics-eot-0.4.0.1/docs/Generics-Eot.html) representation, you can match its algebraic structure with the algebraic combinators `>*<`, `oneP`, `>+<` & `zeroP`.
 
 `Distributor`s are like an _exhaustive_ analog to `Alternative` for profunctors, but if we want to have partiality and failure we need this next interface with an even stronger analogy to `Alternative`.
 
@@ -445,16 +447,16 @@ instance Filtrator (Printor s f) where
   filtrate (Printor p) = (Printor (p . Left), Printor (p . Right))
 ```
 
-Now that we've developed all of our basic combinators, let's write a simple printer-parser example for positive decimal integers.
+Compare the signature of `filtrate` to that of `uncurry (>+<)` to see why `Filtrator`s are dual to `Distributor`s. Now that we've developed all of our basic combinators, let's write a simple printer-parser example for positive decimal integers.
 
 ```
 >>> :{
-posDecInt :: (Tokenized Char Char p, Alternator p) => p Int Int
-posDecInt = _Show >?
+posDecInt :: (Tokenized Char Char p, Alternator p, Filtrator p) => p Int Int
+posDecInt = iso show read >?<
   someP (satisfy (\c -> generalCategory c == DecimalNumber))
 :}
 >>> runParsor posDecInt "2001 A Space Odyssey" :: [(Int,String)]
-[(2,"001 A Space Odyssey"), (20,"01 A Space Odyssey"), (200,"1 A Space Odyssey"), (2001," A Space Odyssey")]
+[(2,"001 A Space Odyssey"),(20,"01 A Space Odyssey"),(200,"1 A Space Odyssey"),(2001," A Space Odyssey")]
 >>> [pr " A Space Odyssey" | pr <- runPrintor posDecInt 2001] :: [String]
 ["2001 A Space Odyssey"]
 ```
@@ -512,7 +514,7 @@ genShowS = runPrintor
 
 In a lot of discussions about different options in the space of parsing tools, much is made of contrasting parser combinators and parser generators. However, this is a false dichotomy. Combinators are methods (or functions derived from methods) of type classes. Generators as we can see from `genReadS` and `genShowS` come from instances of those type classes. This makes the final tagless embedding approach extensible. To define a new generator, for instance for a parsec style parser, you just need to define a new type and instances for it up to `Grammatical`.
 
-Even with only very low level combinators, we have almost enough to give a non-trivial example of a `Grammar` for an abstract syntax tree. The syntax we choose for the example is a form of regular expressions. This is an ideal example because it is (hopefully) familiar. It is prototypical as an "arithmetic expression algebra". It is complex enough to stress test `Grammar`s. It's almost the homework problem at the end of the blog post. And it matches up with the embedded language which will let us define _more_ generators.
+Even with only very low level combinators, we have almost enough to give a non-trivial example of a `Grammar` for an abstract syntax tree. The syntax we choose for the example is a form of regular expressions. This is an ideal example because it is (hopefully) familiar. It is prototypical as an "arithmetic expression algebra". It is complex enough to stress test `Grammar`s. And it matches up with the embedded language which will let us define _more_ generators.
 
 ```
 data RegEx
@@ -684,7 +686,7 @@ genGrammar (DiGrammar (DiRegEx start) rules) =
   ("start", start) : toList rules
 ```
 
-Putting together the regular expression grammar `regexGrammar` with the grammar generator `genGrammar` and the printer generator `genShowS`, we can even print  a self-contained Backus-Naur form grammar extended by regular expressions (regexBNF) -- of regular expressions.
+Putting together the regular expression grammar `regexGrammar` with the grammar generator `genGrammar` and the printer generator `genShowS`, we can even print  a self-defining Backus-Naur form grammar extended by regular expressions (regexBNF) -- of regular expressions.
 
 ```
 >>> printGrammar regexGrammar
@@ -713,4 +715,4 @@ terminal = \q{char}+
 ```
 
 ## Extroduction
-This post is _not_ literate Haskell. Instead of trying to compile the post, play with this code on [GitHub](https://github.com/morphismtech/distributors/) where it is hopefully kept compiling & tested. This project is a result of a years long obsession. While I am pleased that my obsession has been slaked, there are still more ways these ideas could be extended. `Applicative` & `Alternative` interfaces are useful for more than just parsers. What else are `Monoidal`, `Distributor`, `Alternator` & `Filtrator` useful for? Obviously we need much more than _one_ non-trivial example of a `Grammar`. Want to make and push some more examples? Want to optimize or clean up or document the code some how? Can you construct a useful free `Grammatical` distributor, starting with a base of `Identical Char Char`? Can you use that free `Grammatical` distributor to define a function to left factor and do other useful transformations of grammars? What extensions of distributors can you do besides character stream grammars, like JSON grammars with aeson and typescript type generators? Want to investigate how grammars fit into the pattern optic hierarchy? Want to add some useful higher level grammar combinators? Want to factor exhaustive grammars or regular grammars out from grammar interfaces? Can `Grammar`s generate parsers which aren't recursive descent like an Earley parser, by over-writing `ruleRec`  perhaps?
+This post is _not_ literate Haskell. Instead of trying to compile the post, play with this code on [GitHub](https://github.com/morphismtech/distributors/) where it is hopefully kept compiling & tested. This project is a result of a years long obsession. While I am pleased that my obsession has been slaked, there are still more paths to follow and I invite you to investigate these ideas further. `Applicative` & `Alternative` interfaces are useful for more than just parsers. What else are `Monoidal`, `Distributor`, `Alternator` & `Filtrator` useful for? Obviously we need much more than _one_ non-trivial example of a `Grammar`. Want to make and push some more examples? Want to optimize or clean up or document the code some how? Can you construct a useful free `Grammatical` distributor, starting with a base of `Identical Char Char`? Can you use that free `Grammatical` distributor to define a function to left factor and do other useful transformations of grammars? What extensions of distributors can you do besides character stream grammars, like JSON grammars with aeson and typescript type generators? Want to investigate how grammars fit into the pattern optic hierarchy? Want to add some useful higher level grammar combinators? Want to factor exhaustive grammars or regular grammars out from grammar interfaces? Can `Grammar`s generate parsers which aren't recursive descent like an Earley parser, by over-writing `ruleRec`  perhaps? Maybe you'd like to pair program on one of these topics?
