@@ -671,7 +671,7 @@ seqG rex = rule "sequence" $
 terminalG = rule "terminal" $ _Terminal >?< someP charG
 ```
 
-It's not as beautiful as it could be but it works and its rough edges can be smoothed. Now, the `RegExp` type morally has the same "shape" as the `Grammatical` interface. So, to create a new generators we define a couple invariant profunctors inspired by the blog post, and I leave their instances as exercises.
+It's not as beautiful as it could be but it works and its rough edges can be smoothed. Now, the `RegExp` type morally has the same "shape" as the `Grammatical` interface. So, to create new generators we define a couple invariant profunctors inspired by the blog post, and I leave their instances as exercises.
 
 ```
 newtype DiRegEx a b = DiRegEx RegEx
