@@ -64,6 +64,46 @@ Besides changing a vowel in the names, we added a few generalizations to the par
 
 Printing is usually conceived as an exhaustive affair; one defines a single function `X -> String` by pattern matching on each case of an `X`. Parsing however is usually a partial affair; one defines a bunch of partial parsers for each case of the `X` and combines them into one with the `Alternative` combinator `(<|>)`. By polymorphizing `f` in the definitions of the `Printor`, we can address either situation by restricting to only `Applicative f` when we want exhaustivity and allowing `Alternative f` when we want partiality.
 
+## Tokens
+
+Combinators are great for generating new printer-parsers from existing ones, but if we want to generate examples we need an interface which generates basic printer-parsers from scratch. For that purpose, we define the `Tokenized` interface.
+
+```
+class Tokenized a b p | p -> a, p -> b where
+  anyToken :: p a b
+
+data Identical a b s t where
+  Identical :: Identical a b a b
+instance Tokenized a b (Identical a b) where
+  anyToken = Identical
+```
+
+The `Tokenized` interface is so abstract it would lack any obvious motivation if not for its name. We want `anyToken` to sequence any single token from the head of the printer-parser stream type `s`. Recall that `s` appears as both input and output in the definitions of `Parsor` & `Printor`. If `s` were `String` then `anyToken` would correspond to the "cons" pattern `(:)` which conses (prints) or unconses (parses) any single `Char` to or from the head of the `String`. The lens library provides a `Cons` interface which generalizes the `(:)` pattern, letting us remain polymorphic over the stream type.
+
+```
+class Cons s t a b | s -> a, t -> b, s b -> t, t a -> s where
+  _Cons :: Prism s t (a,s) (b,t)
+
+instance (Applicative f, Cons s s c c)
+  => Tokenized c c (Printor s f) where
+    anyToken = Printor (pure . cons)
+
+instance (Alternative f, Cons s s c c)
+  => Tokenized c c (Parsor s f) where
+    anyToken = Parsor (maybe empty pure . uncons)
+```
+
+Now we can see our first printer-parser in action.
+
+```
+>>> runParsor anyToken "xyz" :: [(Char,String)]
+[('x',"yz")]
+>>> runParsor anyToken "" :: [(Char,String)]
+[]
+>>> [pr "yz" | pr <- runPrintor anyToken 'x'] :: [String]
+["xyz"]
+```
+
 ## Optics & Patterns
 
 Optics are an ongoing field of advanced study in applied category theory and computer science which makes giving an exact definition challenging. In Haskell, research into "semantic editor combinators" led to noticing the composability of such combinators as record field accessors or data constructor patterns, leading to the discovery of optics. Much can  and has been written about lenses, traversals & prisms that can't be written about here. The most important thing from our perspective will be the relation between profunctors and optics. Moreover the variety of optics that we will be most interested in will represent "patterns".
@@ -130,6 +170,14 @@ Actually, we don't really need to encode coprisms. Since they are dual to prisms
 ```
 (?<) :: Cochoice p => Prism b a t s -> p a b -> p s t
 (?<) pattern = withPrism pattern $ \f g -> unright . dimap (either id f) g
+
+token :: (Cochoice p, Eq c, Tokenized c c p) => c -> p () ()
+token c = only c ?< anyToken
+
+>>> runParsor (token 'x') "xyz" :: [((),String)]
+[((),"yz")]
+>>> [pr "yz" | pr <- runPrintor (token 'x') ()] :: [String]
+["xyz"]
 ```
 
 Both `Parsor` and `Printor` have `Cochoice` instances too. We will call a profunctor with both `Choice` & `Cochoice` instances a "partial profunctor". Partial profunctors support a combinator `dimapMaybe`.
@@ -192,59 +240,10 @@ The prototypical example of a `PartialIso` is a subset which has `satisfied` a p
 satisfied :: (a -> Bool) -> PartialIso' a a
 satisfied f = partialIso satiate satiate where
   satiate a = if f a then Just a else Nothing
-```
-
-## Tokens
-
-Combinators are great for generating new printer-parsers from existing ones, but if we want to generate examples we need an interface which generates basic printer-parsers from scratch. For that purpose, we define the `Tokenized` interface.
-
-```
-class Tokenized a b p | p -> a, p -> b where
-  anyToken :: p a b
-
-data Identical a b s t where
-  Identical :: Identical a b a b
-instance Tokenized a b (Identical a b) where
-  anyToken = Identical
-```
-
-The `Tokenized` interface is so abstract it would lack any obvious motivation if not for its name. We want `anyToken` to sequence any single token from the head of the printer-parser stream type `s`. Recall that `s` appears as both input and output in the definitions of `Parsor` & `Printor`. If `s` were `String` then `anyToken` would correspond to the "cons" pattern `(:)` which conses (prints) or unconses (parses) any single `Char` to or from the head of the `String`. The lens library provides a `Cons` interface which generalizes the `(:)` pattern, letting us remain polymorphic over the stream type.
-
-```
-class Cons s t a b | s -> a, t -> b, s b -> t, t a -> s where
-  _Cons :: Prism s t (a,s) (b,t)
-
-instance (Applicative f, Cons s s c c)
-  => Tokenized c c (Printor s f) where
-    anyToken = Printor (pure . cons)
-
-instance (Alternative f, Cons s s c c)
-  => Tokenized c c (Parsor s f) where
-    anyToken = Parsor (maybe empty pure . uncons)
-```
-
-Now we can see our first printer-parser in action.
-
-```
->>> runParsor anyToken "xyz" :: [(Char,String)]
-[('x',"yz")]
->>> runParsor anyToken "" :: [(Char,String)]
-[]
->>> [pr "yz" | pr <- runPrintor anyToken 'x'] :: [String]
-["xyz"]
-```
-
-We can also form a couple new combinators.
-
-```
-token :: (Cochoice p, Eq c, Tokenized c c p) => c -> p () ()
-token c = only c ?< anyToken
 
 satisfy :: (Choice p, Cochoice p, Tokenized c c p) => (c -> Bool) -> p c c
 satisfy f = satisfied f >?< anyToken
 
->>> runParsor (token 'x') "xyz" :: [((),String)]
-[((),"yz")]
 >>> runParsor (satisfy isLower) "xyz" :: [(Char,String)]
 [('x',"yz")]
 >>> runParsor (satisfy isLower) "X" :: [(Char,String)]
