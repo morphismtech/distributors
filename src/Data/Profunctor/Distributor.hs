@@ -706,8 +706,8 @@ instance Filtrator (Printor s f) where
 instance (Applicative f, Cons s t a b, s ~ t, a ~ b)
   => Tokenized a b (Printor s f) where
     anyToken = Printor (pure . cons)
-instance (Applicative f, Cons s s Char Char)
-  => IsString (Printor s f () ()) where
+instance (Applicative f, Cons s s Char Char, a ~ (), b ~ ())
+  => IsString (Printor s f a b) where
     fromString = tokens
 
 {- | A function from strings to containers of
@@ -758,8 +758,8 @@ instance Filterable f => Filtrator (Parsor s f) where
 instance (Alternative f, Cons s t a b, s ~ t, a ~ b)
   => Tokenized a b (Parsor s f) where
     anyToken = Parsor (\str -> maybe empty pure (uncons str))
-instance (Alternative f, Filterable f, Monad f, Cons s s Char Char)
-  => IsString (Parsor s f () ()) where
+instance (Alternative f, Filterable f, Monad f, Cons s s Char Char, a ~ (), b ~ ())
+  => IsString (Parsor s f a b) where
     fromString = tokens
 
 -- FunList --
