@@ -9,7 +9,7 @@ The Haskell programming language is well known to provide a rich environment in 
 
 Next, Tillmann Rendel & Klaus Ostermann, noticing that parsing & printing are inverse to one another set out to unify their interfaces in [Invertible Syntax Descriptions](https://www.informatik.uni-marburg.de/~rendel/unparse/). When designing a language syntax, programmers usually have to write both a parser _and_ a printer, violating the [Don't Repeat Yourself](https://en.wikipedia.org/wiki/Don%27t_repeat_yourself) principle. The paper reasons that if a syntax is described using parser combinators, then one should be able to use the same combinators to generate both parsers _and_ printers. But unifying the interfaces runs into an immediate issue; while the `Parser` type is a covariant `Functor`, the `Printer` type is instead a `Contravariant` functor.
 
-```
+```Haskell
 newtype Parser a = Parser (String -> [(a,String)])
 
 instance Functor Parser where
@@ -28,7 +28,7 @@ Any covariant `Functor` which is _also_ `Contravariant` is an "invariant", or "p
 
 A profunctor is a bifunctor which is contravariant in its first argument and covariant in its second argument.
 
-```
+```Haskell
 class Profunctor p where
   dimap :: (s -> a) -> (b -> t) -> p a b -> p s t
 
@@ -41,14 +41,14 @@ class Profunctor p where
 
 The `Profunctor` interface was introduced to Haskell by Ed Kmett who noticed their utility in representing optics, more on which later. The prototypical example of a `Profunctor` is `(->)`.
 
-```
+```Haskell
 instance Profunctor (->) where
   dimap sa bt ab = bt . ab . sa
 ```
 
 Let's see how we can unify parsers & printers with a `Profunctor` interface.
 
-```
+```Haskell
 newtype Parsor s f a b = Parsor {runParsor :: s -> f (b,s)}
 
 instance Functor f => Profunctor (Parsor s f) where
@@ -68,7 +68,7 @@ Printing is usually conceived as an exhaustive affair; one defines a single func
 
 Combinators are great for generating new printer-parsers from existing ones, but if we want to generate examples we need an interface which generates basic printer-parsers from scratch. For that purpose, we define the `Tokenized` interface.
 
-```
+```Haskell
 class Tokenized a b p | p -> a, p -> b where
   anyToken :: p a b
 
@@ -80,7 +80,7 @@ instance Tokenized a b (Identical a b) where
 
 The `Tokenized` interface is so abstract it would lack any obvious motivation if not for its name. We want `anyToken` to sequence any single token from the head of the printer-parser stream type `s`. Recall that `s` appears as both input and output in the definitions of `Parsor` & `Printor`. If `s` were `String` then `anyToken` would correspond to the "cons" pattern `(:)` which conses (prints) or unconses (parses) any single `Char` to or from the head of the `String`. The lens library provides a `Cons` interface which generalizes the `(:)` pattern, letting us remain polymorphic over the stream type.
 
-```
+```Haskell
 class Cons s t a b | s -> a, t -> b, s b -> t, t a -> s where
   _Cons :: Prism s t (a,s) (b,t)
 
@@ -95,7 +95,7 @@ instance (Alternative f, Cons s s c c)
 
 Now we can see our first printer-parser in action.
 
-```
+```Haskell
 >>> runParsor anyToken "xyz" :: [(Char,String)]
 [('x',"yz")]
 >>> runParsor anyToken "" :: [(Char,String)]
@@ -110,7 +110,7 @@ Optics are an ongoing field of advanced study in applied category theory and com
 
 Let's start with two definitions of _isomorphism_ optics. Isomorphism optics are pairs of functions, one in a "backwards" direction and one in a "forwards" direction, like a `newtype` constructor pattern.
 
-```
+```Haskell
 data Exchange a b s t = Exchange (s -> a) (b -> t)
 
 type Iso s t a b = forall p f.
@@ -119,14 +119,14 @@ type Iso s t a b = forall p f.
 
 The `Exchange` type is a "concrete representation" of the isomorphism optic and `Iso` is a "Kmett representation". They're equivalent and you can convert between representations. The [lens library](https://hackage.haskell.org/package/lens) uses Kmett's representation as it provides a convenient specialization to a "Van Laarhoven representation" when `p` is `(->)`. However, a pure profunctorial representation (without `f`), which is also equivalent, can be simpler. We can observe the profunctorial representation with a combinator.
 
-```
+```Haskell
 mapIso :: Profunctor p => Iso s t a b -> p a b -> p s t
 mapIso pattern = withIso pattern dimap
 ```
 
 Now, let's move on to our next optic example, prisms. `Prism`s encode exhaustive patterns. To encode them we first need the `Choice` interface.
 
-```
+```Haskell
 class Profunctor p => Choice p where
   left' :: p a b -> p (Either a c) (Either b c)
   right' :: p a b -> p (Either c a) (Either c b)
@@ -134,7 +134,7 @@ class Profunctor p => Choice p where
 
 Now we can define a concrete prism type consisting of a pair of functions, a constructor and destructor for a pattern match, as well as defining the abstract `Prism` type.
 
-```
+```Haskell
 data Market a b s t = Market (b -> t) (s -> Either t a)
 
 type Prism s t a b = forall p f.
@@ -145,21 +145,21 @@ type Prism' s a = Prism s s a a
 
 The `Applicative f` in the definition of `Prism` makes it so that every `Prism` is automatically a `Traversal`. But again, for our purpose we're most interested in the pure profunctor representation which we can observe with a new combinator.
 
-```
+```Haskell
 (>?) :: Choice p => Prism s t a b -> p a b -> p s t
 (>?) pattern = withPrism pattern $ \f g -> dimap g (either id f) . right'
 ```
 
 It turns out that both `Parsor` and `Printor` have `Choice` instances so that `(>?)` becomes both a parser combinator _and_ a printer combinator. The lens library provides Template Haskell functions to make `Prism`s from the pattern constructors of algebraic datatypes. Or we can construct `Prism`s like `only` from a pair of functions using the `prism'` or `prism` smart constructors.
 
-```
+```Haskell
 only :: Eq a => a -> Prism' a ()
 only a = prism' (\() -> a) $ guard . (a ==)
 ```
 
 Next, we may consider the dual to prisms, coprisms. If `Prism`s encode pattern matching, then coprisms encode pattern filtering. To encode them we first need the `Cochoice` interface, which we get from `Choice` by reversing arrows.
 
-```
+```Haskell
 class Profunctor p => Cochoice p where
   unleft :: p (Either a c) (Either b c) -> p a b
   unright :: p (Either c a) (Either c b) -> p a b
@@ -167,7 +167,7 @@ class Profunctor p => Cochoice p where
 
 Actually, we don't really need to encode coprisms. Since they are dual to prisms we can just shuffle the indices of the `Prism` type to encode coprisms and observe the pure profunctor representation with our next combinator.
 
-```
+```Haskell
 (?<) :: Cochoice p => Prism b a t s -> p a b -> p s t
 (?<) pattern = withPrism pattern $ \f g -> unright . dimap (either id f) g
 
@@ -182,7 +182,7 @@ token c = only c ?< anyToken
 
 Both `Parsor` and `Printor` have `Cochoice` instances too. We will call a profunctor with both `Choice` & `Cochoice` instances a "partial profunctor". Partial profunctors support a combinator `dimapMaybe`.
 
-```
+```Haskell
 dimapMaybe
   :: (Choice p, Cochoice p)
   => (s -> Maybe a) -> (b -> Maybe t)
@@ -197,7 +197,7 @@ dimapMaybe f g =
 
 We can turn the pair of partial functions into another optic, partial isomorphisms.
 
-```
+```Haskell
 data PartialExchange a b s t = PartialExchange (s -> Maybe a) (b -> Maybe t)
 
 type PartialIso s t a b = forall p f.
@@ -210,7 +210,7 @@ type PartialIso' s a = PartialIso s s a a
 
 You may not have seen the `Filterable` interface before. It is a very simple interface from the [witherable library](https://hackage.haskell.org/package/witherable) that generalizes the list functions `catMaybes`, `filter` and `mapMaybe`.
 
-```
+```Haskell
 class Functor f => Filterable f where
   mapMaybe :: (a -> Maybe b) -> f a -> f b
   mapMaybe f = catMaybes . fmap f
@@ -224,19 +224,19 @@ class Functor f => Filterable f where
 
 `Filterable` is dual to the `Alternative` interface, which can be seen by comparing the signature of `catMaybes` to `optional`.
 
-```
+```Haskell
 optional :: Alternative f => f a -> f (Maybe a)
 ```
 
 We can now turn `dimapMaybe` into a combinator on `PartialIso`s.
 
-```
+```Haskell
 (>?<) :: (Choice p, Cochoice p) => PartialIso s t a b -> p a b -> p s t
 ```
 
 The prototypical example of a `PartialIso` is a subset which has `satisfied` a predicate which we can construct from a pair of functions with the smart constructor `partialIso`.
 
-```
+```Haskell
 satisfied :: (a -> Bool) -> PartialIso' a a
 satisfied f = partialIso satiate satiate where
   satiate a = if f a then Just a else Nothing
@@ -272,13 +272,13 @@ So `Arrow`s are already `Applicative` but they're _also_ already (`Strong`) `Pro
 
 This interface has variously been called a product profunctor or a (lax) monoidal profunctor. It turns out it's equivalent to a constraint synonym, hinted at in the quote.
 
-```
+```Haskell
 type Monoidal p = (Profunctor p, forall x. Applicative (p x))
 ```
 
 It's not new at all, just the combination of the two interfaces, enabled by the quantified constraints extension. Both `Parsor` and `Printor` support this interface since they have `Applicative` instances.
 
-```
+```Haskell
 instance Monad f => Applicative (Parsor s f a) where
   pure b = Parsor (\str -> return (b,str))
   Parsor x <*> Parsor y = Parsor $ \str -> do
@@ -293,7 +293,7 @@ instance Applicative f => Applicative (Printor s f a) where
 
 We can now define sequencing combinators for `Monoidal` profunctors.
 
-```
+```Haskell
 oneP :: Monoidal p => p () ()
 oneP = pure ()
 
@@ -311,7 +311,7 @@ In `Applicative` parsing one uses an "idiom style"  with the functor mapping com
 
 We can also form the `tokens` combinator, which we can use to give `IsString` instances to `Parsor` and `Printor`.
 
-```
+```Haskell
 tokens :: (Cochoice p, Monoidal p, Eq c, Tokenized c c p) => [c] -> p () ()
 tokens [] = oneP
 tokens (c:cs) = token c *> tokens cs
@@ -337,7 +337,7 @@ More combinators can be added and monoidal profunctors have been well studied, i
 
 The `Applicative` interface is always the star of the show when it comes to parsing, while the `Alternative` interface by comparison gets too little attention. Let's revisit it.
 
-```
+```Haskell
 class Applicative f => Alternative f where
   empty :: f a
   (<|>) :: f a -> f a -> f a
@@ -345,7 +345,7 @@ class Applicative f => Alternative f where
 
 We can re-characterize `Alternative` with methods `zeroF` & `(<+>)` instead of `empty` & `(<|>)`, in order to see more clearly how the `Alternative` interface relates to the nilary and binary coproducts `Void` and `Either`.
 
-```
+```Haskell
 zeroF :: Alternative f => f Void
 zeroF = empty
 
@@ -358,7 +358,7 @@ prop> a <|> b = either id id <$> (a <+> b)
 
 Unfortunately, the same trick used to define `Monoidal` as a combination of `Profunctor` and `Applicative` does not work for the `Alternative` interface. So we introduce the `Distributor` interface, which analogizes the above re-characterization of `Alternative` to profunctors.
 
-```
+```Haskell
 class Monoidal p => Distributor p where
   zeroP :: p Void Void
   (>+<) :: p a b -> p c d -> p (Either a c) (Either b d)
@@ -366,7 +366,7 @@ class Monoidal p => Distributor p where
 
 Just as `Alternative` has 0-or-more `many` and 0-or-1 `optional` combinators, we can define `manyP` and `optionalP`.
 
-```
+```Haskell
 optionalP :: Distributor p => p a b -> p (Maybe a) (Maybe b)
 optionalP p = mapIso maybeEot (oneP >+< p)
 
@@ -384,21 +384,21 @@ The prototypical example of a `Distributor` is `(->)`. Unlike monoidal profuncto
 
 `Distributor`s are like an _exhaustive_ analog to `Alternative` for profunctors, but if we want to have partiality and failure we need this next interface with an even stronger analogy to `Alternative`.
 
-```
+```Haskell
 class (Choice p, Distributor p, forall x. Alternative (p x)) => Alternator p where
   alternate :: Either (p a b) (p c d) -> p (Either a c) (Either b d)
 ```
 
 The `Alternator` interface extends `Choice`, `Distributor` & `Alternative` with a method `alternate` that lets us default the `Distributor` methods.
 
-```
+```Haskell
 prop> zeroP = empty
 prop> x >+< y = alternate (Left x) <|> alternate (Right y)
 ```
 
 In the functorial case, the two descriptions of `Alternative` in terms of either `zeroF` & `<+>` or `empty` & `<|>` are equivalent but in the profunctorial case, they're distinguished into the `Distributor` interface which can be exhaustive and the `Alternator` interface which must be partial. Since `(->)` is not `Alternative`, it is an example of a `Choice` `Distributor` which is not an `Alternator`. However, `Parsor` and `Printor` have instances.
 
-```
+```Haskell
 instance (Alternative f, Monad f) => Alternative (Parsor s f a) where
   empty = Parsor (\_ -> empty)
   Parsor p <|> Parsor q = Parsor (\str -> p str <|> q str)
@@ -426,14 +426,14 @@ instance Alternative f => Alternator (Printor s f) where
 
 `Parsor`s are `Distributor`s exactly when they are `Alternator`s, using default methods for `zeroP` and `>+<`. Notice however that `Printor`'s `Distributor` instance works for exhaustive printers while its `Alternator` instance only works for partial printers. With `Alternator`, we can extend `Alternative`s partial 1-or-more combinator `some` profunctorially.
 
-```
+```Haskell
 someP :: Alternator p => p a b -> p [a] [b]
 someP p = _Cons >? p >*< manyP p
 ```
 
 Recall that the `Filterable` interface was dual to the `Alternative` interface. We can extend `Filterable` profunctorially, dualizing the `Distributor` interface. A "partial distributor" means both `Alternator` & `Filtrator`.
 
-```
+```Haskell
 class (Cochoice p, forall x. Filterable (p x)) => Filtrator p where
   filtrate :: p (Either a c) (Either b d) -> (p a b, p c d)
 
@@ -451,7 +451,7 @@ instance Filtrator (Printor s f) where
 
 Compare the signature of `filtrate` to that of `uncurry (>+<)` to see why `Filtrator`s are dual to `Distributor`s. Now that we've developed all of our basic combinators, let's write a simple printer-parser example for positive decimal integers.
 
-```
+```Haskell
 >>> :{
 posDecInt :: (Tokenized Char Char p, Alternator p, Filtrator p) => p Int Int
 posDecInt = iso show read >?<
@@ -469,7 +469,7 @@ Partial distributors have associated optics which I dubbed "bifocals".
 
 In a blog post [Showcasing Applicative](https://www.joachim-breitner.de/blog/710-Showcasing_Applicative) by Joachim Breitner, he demonstrates an example of extended Backus-Naur form grammars as a constant `Applicative` functor. Inspired by this idea and the similar example of regular expressions as `Applicative`s, we can extend partial distributors to `Grammatical` distributors.
 
-```
+```Haskell
 class
   ( Alternator p, Filtrator p
   , Tokenized Char Char p
@@ -504,7 +504,7 @@ Notice that all the methods of `Grammatical` have defaults which the `Printor` a
 
 Now, we can define a type `Grammar` which gives us a "final tagless encoding" of Backus-Naur grammars extended by regular expressions and "type-directed" by a Haskell type `a`.
 
-```
+```Haskell
 type Grammar a = forall p. Grammatical p => p a a
 
 genReadS :: Grammar a -> ReadS a
@@ -518,7 +518,7 @@ In a lot of discussions about different options in the space of parsing tools, m
 
 Even with only very low level combinators, we have almost enough to give a non-trivial example of a `Grammar` for an abstract syntax tree. The syntax we choose for the example is a form of regular expressions. This is an ideal example because it is (hopefully) familiar. It is prototypical as an "arithmetic expression algebra". It is complex enough to stress test `Grammar`s. And it matches up with the embedded language which will let us define _more_ generators.
 
-```
+```Haskell
 data RegEx
   = Terminal String -- abc123etc\.
   | Sequence RegEx RegEx -- xy
@@ -538,7 +538,7 @@ data RegEx
 
 Before we are able however to write our grammar, we will need a couple slightly higher level combinators. A very common feature of syntax is lists which are recognized using beginning, ending and separator delimiters.
 
-```
+```Haskell
 data SepBy p = SepBy
   { beginBy :: p () ()
   , endBy :: p () ()
@@ -565,7 +565,7 @@ chainl
 
 Assuming these combinators have definitions, we are now in a position to define our regular expression `Grammar`.
 
-```
+```Haskell
 regexGrammar :: Grammar RegEx
 regexGrammar = ruleRec "regex" altG
 
@@ -672,7 +672,7 @@ terminalG = rule "terminal" $ _Terminal >?< someP charG
 
 It's not as beautiful as it could be but it works and its rough edges can be smoothed. Now, the `RegExp` type morally has the same "shape" as the `Grammatical` interface. So, to create new generators we define a couple invariant profunctors inspired by the blog post, and I leave their instances as exercises.
 
-```
+```Haskell
 newtype DiRegEx a b = DiRegEx RegEx
 
 data DiGrammar a b = DiGrammar
