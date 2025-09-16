@@ -17,6 +17,8 @@ module Data.Profunctor.Monadic
   ) where
 
 import Control.Applicative
+import Control.Arrow
+import Control.Category
 import Control.Lens.Cons
 import Control.Monad hiding ((>>), (>>=))
 import Data.Profunctor
@@ -24,7 +26,7 @@ import Data.Profunctor.Distributor
 import Data.String
 import Data.Void
 import qualified Prelude as P ((>>), (>>=))
-import Prelude hiding ((>>), (>>=))
+import Prelude hiding ((>>), (>>=), id, (.))
 import Witherable
 
 type Monadic p = (Profunctor p, forall x. Monad (p x))
@@ -83,6 +85,20 @@ instance (Applicative f, Cons s t a b, s ~ t, a ~ b)
 instance (Applicative f, Filterable f, Cons s s Char Char, a ~ (), b ~ ())
   => IsString (Lintor s f a b) where
     fromString = tokens
+instance Functor f => Strong (Lintor s f) where
+  first' (Lintor p) = Lintor (\(a,c) -> fmap (\(b,q) -> ((b,c),q)) (p a))
+  second' (Lintor p) = Lintor (\(c,a) -> fmap (\(b,q) -> ((c,b),q)) (p a))
+instance Monad f => Category (Lintor s f) where
+  id = Lintor $ \a -> return (a, id)
+  Lintor q . Lintor p = Lintor $ \a -> do
+    (b, p') <- p a
+    (c, q') <- q b
+    return (c, q' . p')
+instance Monad f => Arrow (Lintor s f) where
+  arr f = Lintor (return . (, id) . f)
+  (***) = (>*<)
+  first = first'
+  second = second'
 
 toPrintor :: Functor f => Lintor s f a b -> Printor s f a b
 toPrintor (Lintor p) = Printor (fmap snd . p)
