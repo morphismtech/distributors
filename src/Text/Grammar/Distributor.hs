@@ -41,6 +41,7 @@ import Data.Foldable
 import Data.Function
 import Data.Profunctor
 import Data.Profunctor.Distributor
+import Data.Profunctor.Monadic
 import Data.Set (Set, insert)
 import Data.String
 import GHC.Generics
@@ -123,6 +124,8 @@ instance (Alternative f, Cons s s Char Char)
   => Grammatical (Printor s f)
 instance (Monad f, Alternative f, Filterable f, Cons s s Char Char)
   => Grammatical (Parsor s f)
+instance (Alternative f, Filterable f, Cons s s Char Char)
+  => Grammatical (Lintor s f)
 
 -- RegEx --
 

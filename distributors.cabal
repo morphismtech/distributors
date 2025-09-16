@@ -1,6 +1,6 @@
 cabal-version: 2.2
 
--- This file has been generated from package.yaml by hpack version 0.37.0.
+-- This file has been generated from package.yaml by hpack version 0.38.1.
 --
 -- see: https://github.com/sol/hpack
 
@@ -36,7 +36,9 @@ library
       Control.Lens.PartialIso
       Control.Lens.Wither
       Data.Profunctor.Distributor
+      Data.Profunctor.Monadic
       Text.Grammar.Distributor
+      Text.Grammar.Monadic
   other-modules:
       Paths_distributors
   autogen-modules:
