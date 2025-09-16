@@ -30,6 +30,11 @@ module Text.Grammar.Distributor
   , regexParse
   , regexString
   , regexGrammar
+    -- * Monadic
+  , GrammarM
+  , GrammarrM
+  , mgenReadS
+  , mgenLint
   ) where
 
 import Control.Applicative
@@ -522,3 +527,13 @@ seqG rex = rule "sequence" $
 terminalG :: Grammar RegEx
 terminalG = rule "terminal" $
   _Terminal >?< someP charG
+
+type GrammarM a = forall p. (Grammatical p, Monadic p) => p a a
+
+type GrammarrM a b = forall p. (Grammatical p, Monadic p) => p a a -> p b b
+
+mgenReadS :: Grammar a -> ReadS a
+mgenReadS = runParsor
+
+mgenLint :: (Alternative f, Filterable f, Cons s s Char Char) => Grammar a -> a -> f (a, s -> s)
+mgenLint = runLintor

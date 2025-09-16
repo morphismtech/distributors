@@ -38,7 +38,6 @@ library
       Data.Profunctor.Distributor
       Data.Profunctor.Monadic
       Text.Grammar.Distributor
-      Text.Grammar.Monadic
   other-modules:
       Paths_distributors
   autogen-modules:
