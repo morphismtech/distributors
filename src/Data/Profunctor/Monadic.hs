@@ -18,7 +18,7 @@ module Data.Profunctor.Monadic
 import Control.Monad hiding ((>>), (>>=))
 import Data.Profunctor
 import qualified Prelude as P ((>>), (>>=))
-import Prelude hiding ((>>), (>>=), id, (.))
+import Prelude hiding ((>>), (>>=))
 
 type Monadic p = (Profunctor p, forall x. Monad (p x))
 
