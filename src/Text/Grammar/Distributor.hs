@@ -31,10 +31,10 @@ module Text.Grammar.Distributor
   , regexString
   , regexGrammar
     -- * Monadic
-  -- , GrammarM
-  -- , GrammarrM
-  -- , mgenReadS
-  -- , mgenLint
+  , GrammarM
+  , GrammarrM
+  , mgenReadS
+  , mgenLint
   ) where
 
 import Control.Applicative
@@ -46,7 +46,7 @@ import Data.Foldable
 import Data.Function
 import Data.Profunctor
 import Data.Profunctor.Distributor
--- import Data.Profunctor.Monadic
+import Data.Profunctor.Monadic
 import Data.Set (Set, insert)
 import Data.String
 import GHC.Generics
@@ -528,12 +528,16 @@ terminalG :: Grammar RegEx
 terminalG = rule "terminal" $
   _Terminal >?< someP charG
 
--- type GrammarM a = forall p. (Grammatical p, Monadic p) => p a a
+type GrammarM a =
+  forall p m. (Monadic p, Monad m, Grammatical (p m)) => p m a a
 
--- type GrammarrM a b = forall p. (Grammatical p, Monadic p) => p a a -> p b b
+type GrammarrM a b =
+  forall p m. (Monadic p, Monad m, Grammatical (p m)) => p m a a -> p m b b
 
--- mgenReadS :: Grammar a -> ReadS a
--- mgenReadS = runParsor
+mgenReadS :: GrammarM a -> ReadS a
+mgenReadS = runParsor
 
--- mgenLint :: (Alternative f, Filterable f, Cons s s Char Char) => Grammar a -> a -> f (a, s -> s)
--- mgenLint = runLintor
+mgenLint
+  :: (Monad m, Alternative m, Filterable m, Cons s s Char Char)
+  => GrammarM a -> a -> m (a, s -> s)
+mgenLint = runLintor
