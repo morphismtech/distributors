@@ -12,6 +12,7 @@ module Control.Lens.Monochrome
   ( Monochrome
   , AMonochrome
   , mapMonochrome
+  , cloneMonochrome
   , withMonochrome
   , printM
   , parseM
@@ -40,6 +41,9 @@ mapMonochrome
   => AMonochrome m s t a b
   -> p m a b -> p m s t
 mapMonochrome mon p = withMonochrome mon $ \f -> lmap f p
+
+cloneMonochrome :: Monad m => AMonochrome m s t a b -> Monochrome m s t a b
+cloneMonochrome mon = unwrapMonadic . mapMonochrome mon . WrapMonadic
 
 withMonochrome
   :: (Monadic p, Monad m)

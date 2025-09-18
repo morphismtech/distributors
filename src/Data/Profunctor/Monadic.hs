@@ -12,6 +12,7 @@ Portability : non-portable
 
 module Data.Profunctor.Monadic
   ( Monadic (..)
+  , WrappedMonadic (..)
   ) where
 
 import Data.Profunctor
@@ -33,3 +34,19 @@ instance Monadic (Lintor s) where
     (mb, q) <- p a
     b <- mb
     return (b, q)
+
+newtype WrappedMonadic p m a b = WrapMonadic {unwrapMonadic :: p m a (m b)}
+instance (Monadic p, Monad m) => Functor (WrappedMonadic p m a) where
+  fmap = rmap
+instance (Monadic p, Monad m) => Applicative (WrappedMonadic p m a) where
+  pure x = WrapMonadic $ pure (pure x)
+  WrapMonadic p1 <*> WrapMonadic p2 = WrapMonadic $ liftA2 (<*>) p1 p2
+instance (Monadic p, Monad m) => Monad (WrappedMonadic p m a) where
+  return = pure
+  WrapMonadic p >>= f = WrapMonadic $ do
+    b <- joinP p
+    unwrapMonadic (f b)
+instance (Monadic p, Monad m) => Profunctor (WrappedMonadic p m) where
+  dimap f g (WrapMonadic p) = WrapMonadic $ dimap f (fmap g) p
+instance Monadic p => Monadic (WrappedMonadic p) where
+  joinP (WrapMonadic p) = WrapMonadic (joinP p)
