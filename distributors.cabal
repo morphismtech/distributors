@@ -32,12 +32,11 @@ library
       Control.Lens.Diopter
       Control.Lens.Grate
       Control.Lens.Internal.NestedPrismTH
-      Control.Lens.MLens
+      Control.Lens.Monochrome
       Control.Lens.Monocle
       Control.Lens.PartialIso
       Control.Lens.Wither
       Data.Profunctor.Distributor
-      Data.Profunctor.Monadic
       Text.Grammar.Distributor
   other-modules:
       Paths_distributors
@@ -83,7 +82,7 @@ library
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints
   build-depends:
       adjunctions >=4.4 && <5
-    , base >=4.7 && <5
+    , base >=4.19 && <5
     , bifunctors >=5.6 && <6
     , bytestring >=0.11 && <1
     , containers >=0.6 && <1
@@ -147,7 +146,7 @@ test-suite spec
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints
   build-depends:
       adjunctions >=4.4 && <5
-    , base >=4.7 && <5
+    , base >=4.19 && <5
     , bifunctors >=5.6 && <6
     , bytestring >=0.11 && <1
     , containers >=0.6 && <1
