@@ -27,7 +27,6 @@ module Data.Profunctor.Distributor
   , Parsor (..)
     -- * Lintor
   , Lintor (..), fromPrintor, toPrintor
-  , Monadic (..)
   ) where
 
 import Control.Applicative hiding (WrappedArrow)
@@ -940,22 +939,3 @@ instance (Profunctor p, Alternative (p a))
     empty = proreturn empty
     ab <|> cd = proreturn (proextract ab <|> proextract cd)
     many = proreturn . many . proextract
-
--- Monadic --
-
-class
-  ( forall m. Monad m => Profunctor (p m)
-  , forall m x. Monad m => Monad (p m x)
-  ) => Monadic p where
-  joinP :: Monad m => p m a (m b) -> p m a b
-
-instance Monadic (Parsor s) where
-  joinP (Parsor p) = Parsor $ \s -> do
-    (mb, s') <- p s
-    b <- mb
-    return (b, s')
-instance Monadic (Lintor s) where
-  joinP (Lintor p) = Lintor $ \a -> do
-    (mb, q) <- p a
-    b <- mb
-    return (b, q)

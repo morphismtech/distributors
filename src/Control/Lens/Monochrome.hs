@@ -13,12 +13,15 @@ module Control.Lens.Monochrome
   , AMonochrome
   , mapMonochrome
   , withMonochrome
+  , printM
+  , parseM
   , Monochromatic (..)
+  , runMonochromatic
   ) where
 
 import Control.Lens
-import Control.Monad
 import Data.Profunctor.Distributor
+import Data.Profunctor.Monadic
 
 type Monochrome m s t a b =
   forall p. Monadic p => p m a (m b) -> p m s (m t)
@@ -26,21 +29,33 @@ type Monochrome m s t a b =
 type AMonochrome m s t a b =
   Monochromatic a b m a (m b) -> Monochromatic a b m s (m t)
 
-mapMonochrome :: (Monadic p, Monad m) => Monochrome m s t a b -> p m a b -> p m s t
-mapMonochrome mon = joinP . mon . fmap return
+printM :: Monad m => AMonochrome m s t a b -> (a -> m (b, x -> x)) -> s -> m (t, x -> x)
+printM mon = runLintor . mapMonochrome mon . Lintor
 
-withMonochrome :: Monad m => AMonochrome m s t a b -> ((s -> a) -> m b) -> m t
+parseM :: Monad m => AMonochrome m s t a b -> (x -> m (b, x)) -> x -> m (t, x)
+parseM mon = runParsor . mapMonochrome mon . Parsor
+
+mapMonochrome
+  :: (Monadic p, Monad m)
+  => AMonochrome m s t a b
+  -> p m a b -> p m s t
+mapMonochrome mon p = withMonochrome mon $ \f -> lmap f p
+
+withMonochrome
+  :: (Monadic p, Monad m)
+  => AMonochrome m s t a b
+  -> ((s -> a) -> p m x b) -> p m x t
 withMonochrome mon = unMonochromatic (joinP (mon (return <$> anyToken)))
 
 newtype Monochromatic a b m s t = Monochromatic
-  {unMonochromatic :: ((s -> a) -> m b) -> m t}
+  {unMonochromatic :: forall p x. Monadic p => ((s -> a) -> p m x b) -> p m x t}
 instance Tokenized a b (Monochromatic a b m) where
   anyToken = Monochromatic ($ id)
-instance Functor m => Profunctor (Monochromatic a b m) where
+instance Monad m => Profunctor (Monochromatic a b m) where
   dimap f g (Monochromatic k) =
     Monochromatic (fmap g . k . (. (. f)))
-instance Functor m => Functor (Monochromatic a b m s) where fmap = rmap
-instance Applicative m => Applicative (Monochromatic a b m s) where
+instance Monad m => Functor (Monochromatic a b m s) where fmap = rmap
+instance Monad m => Applicative (Monochromatic a b m s) where
   pure t = Monochromatic (pure (pure t))
   Monochromatic x <*> Monochromatic y = Monochromatic (liftA2 (<*>) x y)
 instance Monad m => Monad (Monochromatic a b m s) where
@@ -49,4 +64,7 @@ instance Monad m => Monad (Monochromatic a b m s) where
     c <- act1 ctx
     unMonochromatic (act2 c) ctx
 instance Monadic (Monochromatic a b) where
-  joinP (Monochromatic act) = Monochromatic (join . act)
+  joinP (Monochromatic act) = Monochromatic (joinP . act)
+
+runMonochromatic :: (Monadic p, Monad m) => Monochromatic a b m s t -> p m a b -> p m s t
+runMonochromatic (Monochromatic k) p = k $ \f -> lmap f p
