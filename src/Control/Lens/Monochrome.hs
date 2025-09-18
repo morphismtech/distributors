@@ -66,5 +66,7 @@ instance Monad m => Monad (Monochromatic a b m s) where
 instance Monadic (Monochromatic a b) where
   joinP (Monochromatic act) = Monochromatic (joinP . act)
 
-runMonochromatic :: (Monadic p, Monad m) => Monochromatic a b m s t -> p m a b -> p m s t
+runMonochromatic
+  :: (Monadic p, Monad m)
+  => Monochromatic a b m s t -> p m a b -> p m s t
 runMonochromatic (Monochromatic k) p = k $ \f -> lmap f p
