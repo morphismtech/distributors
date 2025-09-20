@@ -12,6 +12,7 @@ Portability : non-portable
 
 module Data.Profunctor.Monadic
   ( Monadic (..)
+  , Polyadic (..)
   , WrappedMonadic (..)
   ) where
 
@@ -24,12 +25,28 @@ class
   ) => Monadic p where
   joinP :: Monad m => p m a (m b) -> p m a b
 
-instance Monadic (Parsor s) where
+class
+  ( forall i j. i ~ j => Monadic (p i j)
+  ) => Polyadic p where
+  composeP :: Monad m => p i j m a (p j k m a b) -> p i k m a b
+
+instance Polyadic Parsor where
+  composeP (Parsor p) = Parsor $ \s -> do
+    (mb, s') <- p s
+    runParsor mb s'
+
+instance Polyadic Lintor where
+  composeP (Lintor p) = Lintor $ \ctx -> do
+    (Lintor p', ij) <- p ctx
+    (b, jk) <- p' ctx
+    return (b, jk. ij)
+
+instance Monadic (Parsor s s) where
   joinP (Parsor p) = Parsor $ \s -> do
     (mb, s') <- p s
     b <- mb
     return (b, s')
-instance Monadic (Lintor s) where
+instance Monadic (Lintor s s) where
   joinP (Lintor p) = Lintor $ \a -> do
     (mb, q) <- p a
     b <- mb

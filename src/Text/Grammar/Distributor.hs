@@ -126,11 +126,11 @@ class
     ruleRec name = rule name . fix
 
 instance (Alternative f, Cons s s Char Char)
-  => Grammatical (Printor s f)
+  => Grammatical (Printor s s f)
 instance (Monad f, Alternative f, Filterable f, Cons s s Char Char)
-  => Grammatical (Parsor s f)
+  => Grammatical (Parsor s s f)
 instance (Alternative f, Filterable f, Cons s s Char Char)
-  => Grammatical (Lintor s f)
+  => Grammatical (Lintor s s f)
 
 -- RegEx --
 
