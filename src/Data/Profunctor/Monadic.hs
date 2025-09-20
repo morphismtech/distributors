@@ -24,23 +24,6 @@ class
   , forall m x. Monad m => Monad (p m x)
   ) => Monadic p where
   joinP :: Monad m => p m a (m b) -> p m a b
-
-class
-  ( forall i j. i ~ j => Monadic (p i j)
-  ) => Polyadic p where
-  composeP :: Monad m => p i j m a (p j k m a b) -> p i k m a b
-
-instance Polyadic Parsor where
-  composeP (Parsor p) = Parsor $ \s -> do
-    (mb, s') <- p s
-    runParsor mb s'
-
-instance Polyadic Lintor where
-  composeP (Lintor p) = Lintor $ \ctx -> do
-    (Lintor p', ij) <- p ctx
-    (b, jk) <- p' ctx
-    return (b, jk. ij)
-
 instance Monadic (Parsor s s) where
   joinP (Parsor p) = Parsor $ \s -> do
     (mb, s') <- p s
@@ -51,6 +34,20 @@ instance Monadic (Lintor s s) where
     (mb, q) <- p a
     b <- mb
     return (b, q)
+
+class
+  ( forall i j. i ~ j => Monadic (p i j)
+  ) => Polyadic p where
+  composeP :: Monad m => p i j m a (p j k m a b) -> p i k m a b
+instance Polyadic Parsor where
+  composeP (Parsor p) = Parsor $ \s -> do
+    (mb, s') <- p s
+    runParsor mb s'
+instance Polyadic Lintor where
+  composeP (Lintor p) = Lintor $ \ctx -> do
+    (Lintor p', ij) <- p ctx
+    (b, jk) <- p' ctx
+    return (b, jk. ij)
 
 newtype WrappedMonadic p m a b = WrapMonadic {unwrapMonadic :: p m a (m b)}
 instance (Monadic p, Monad m) => Functor (WrappedMonadic p m a) where
