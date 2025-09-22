@@ -8,11 +8,14 @@ Stability   : provisional
 Portability : non-portable
 -}
 
+{-# LANGUAGE PolyKinds #-}
+
 {-# OPTIONS_GHC -Wno-orphans #-}
 
 module Data.Profunctor.Monadic
   ( Monadic (..)
   , Polyadic (..)
+  , IxProfunctor (..)
   , WrappedMonadic (..)
   ) where
 
@@ -47,7 +50,20 @@ instance Polyadic Lintor where
   composeP (Lintor p) = Lintor $ \ctx -> do
     (Lintor p', ij) <- p ctx
     (b, jk) <- p' ctx
-    return (b, jk. ij)
+    return (b, jk . ij)
+
+class (forall f i j. Functor f => Profunctor (p i j f))
+  => IxProfunctor p where
+    dimapIx
+      :: Functor f
+      => (u -> s) -> (t -> v)
+      -> p s t f a b -> p u v f a b
+instance IxProfunctor Printor where
+  dimapIx f g (Printor p) = Printor (fmap (dimap f g) . p)
+instance IxProfunctor Parsor where
+  dimapIx f g (Parsor p) = Parsor (fmap (fmap g) . p . f)
+instance IxProfunctor Lintor where
+  dimapIx f g (Lintor p) = Lintor (fmap (second' (dimap f g)) . p)
 
 newtype WrappedMonadic p m a b = WrapMonadic {unwrapMonadic :: p m a (m b)}
 instance (Monadic p, Monad m) => Functor (WrappedMonadic p m a) where
