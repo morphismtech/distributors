@@ -56,8 +56,14 @@ class (forall f i j. Functor f => Profunctor (p i j f))
   => IxProfunctor p where
     dimapIx
       :: Functor f
-      => (u -> s) -> (t -> v)
-      -> p s t f a b -> p u v f a b
+      => (h -> i) -> (j -> k)
+      -> p i j f a b -> p h k f a b
+    tetramap
+      :: Functor f
+      => (h -> i) -> (j -> k)
+      -> (s -> a) -> (b -> t)
+      -> p i j f a b -> p h k f s t
+    tetramap f1 f2 f3 f4 = dimapIx f1 f2 . dimap f3 f4
 instance IxProfunctor Printor where
   dimapIx f g (Printor p) = Printor (fmap (dimap f g) . p)
 instance IxProfunctor Parsor where
