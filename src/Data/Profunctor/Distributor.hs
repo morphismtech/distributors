@@ -730,9 +730,9 @@ instance Monad f => Applicative (Parsor s s f a) where
     (a, str'') <- y str'
     return (f a, str'')
 instance Monad f => Monad (Parsor s s f a) where
-  Parsor p >>= f = Parsor $ \s -> do
-    (a, s') <- p s
-    runParsor (f a) s'
+  mx >>= f = Parsor $ \s -> do
+    (x, s') <- runParsor mx s
+    runParsor (f x) s'
 instance (Alternative f, Monad f) => Alternative (Parsor s s f a) where
   empty = Parsor (\_ -> empty)
   Parsor p <|> Parsor q = Parsor (\str -> p str <|> q str)
