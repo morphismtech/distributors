@@ -782,10 +782,10 @@ instance Filterable f => Filterable (Lintor s s f a) where
     mapMaybe (\(a,q) -> fmap (, q) (f a)) . p
 instance Monad f => Monad (Lintor s s f a) where
   return = pure
-  Lintor x >>= f = Lintor $ \a -> do
-    (c, p) <- x a
-    (b, q) <- runLintor (f c) a
-    return (b, p . q)
+  mx >>= f = Lintor $ \ctx -> do
+    (x, p) <- runLintor mx ctx
+    (y, q) <- runLintor (f x) ctx
+    return (y, p . q)
 instance (Alternative f, Monad f) => MonadPlus (Lintor s s f a)
 instance Functor f => Profunctor (Lintor s t f) where
   dimap f g (Lintor h) = Lintor (fmap (first' g) . h . f)
