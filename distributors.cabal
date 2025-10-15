@@ -32,7 +32,6 @@ library
       Control.Lens.Diopter
       Control.Lens.Grate
       Control.Lens.Internal.NestedPrismTH
-      Control.Lens.Monochrome
       Control.Lens.Monocle
       Control.Lens.PartialIso
       Control.Lens.Wither
