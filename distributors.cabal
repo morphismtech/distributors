@@ -37,6 +37,7 @@ library
       Control.Lens.Wither
       Data.Profunctor.Distributor
       Data.Profunctor.Monadic
+      Data.Profunctor.Polyadic.Do
       Text.Grammar.Distributor
   other-modules:
       Paths_distributors

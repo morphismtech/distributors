@@ -1,6 +1,6 @@
 {-|
-Module      : Data.Profunctor.Distributor
-Description : distributors
+Module      : Data.Profunctor.Monadic
+Description : monadic profunctors
 Copyright   : (C) 2025 - Eitan Chatav
 License     : BSD-style (see the file LICENSE)
 Maintainer  : Eitan Chatav <eitan.chatav@gmail.com>
@@ -10,12 +10,10 @@ Portability : non-portable
 
 {-# LANGUAGE PolyKinds #-}
 
-{-# OPTIONS_GHC -Wno-orphans #-}
-
 module Data.Profunctor.Monadic
   ( Monadic (..)
   , Polyadic (..)
-  , IxProfunctor (..)
+  , Tetrafunctor (..)
   , WrappedMonadic (..)
   ) where
 
@@ -40,6 +38,7 @@ instance Monadic (Lintor s s) where
 
 class
   ( forall i j. i ~ j => Monadic (p i j)
+  , forall i j m a. Monad m => Functor (p i j m a)
   ) => Polyadic p where
   composeP :: Monad m => p i j m a (p j k m a b) -> p i k m a b
 instance Polyadic Parsor where
@@ -53,7 +52,7 @@ instance Polyadic Lintor where
     return (b, jk . ij)
 
 class (forall f i j. Functor f => Profunctor (p i j f))
-  => IxProfunctor p where
+  => Tetrafunctor p where
     dimapIx
       :: Functor f
       => (h -> i) -> (j -> k)
@@ -64,11 +63,11 @@ class (forall f i j. Functor f => Profunctor (p i j f))
       -> (s -> a) -> (b -> t)
       -> p i j f a b -> p h k f s t
     tetramap f1 f2 f3 f4 = dimapIx f1 f2 . dimap f3 f4
-instance IxProfunctor Printor where
+instance Tetrafunctor Printor where
   dimapIx f g (Printor p) = Printor (fmap (dimap f g) . p)
-instance IxProfunctor Parsor where
+instance Tetrafunctor Parsor where
   dimapIx f g (Parsor p) = Parsor (fmap (fmap g) . p . f)
-instance IxProfunctor Lintor where
+instance Tetrafunctor Lintor where
   dimapIx f g (Lintor p) = Lintor (fmap (second' (dimap f g)) . p)
 
 newtype WrappedMonadic p m a b = WrapMonadic {unwrapMonadic :: p m a (m b)}

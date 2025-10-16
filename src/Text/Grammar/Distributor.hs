@@ -15,7 +15,11 @@ for idea to unify grammars.
 
 module Text.Grammar.Distributor
   ( -- * Grammar
-    Grammar, Grammarr, Grammatical (..)
+    Grammar
+  , Grammarr
+  , Grammatical (..)
+  , GrammarM
+  , GrammarrM
     -- * Generators
   , genReadS
   , readGrammar
@@ -24,17 +28,13 @@ module Text.Grammar.Distributor
   , genRegEx
   , genGrammar
   , printGrammar
+  , genLint
     -- * RegEx
   , RegEx (..)
   , regexNorm
   , regexParse
   , regexString
   , regexGrammar
-    -- * Monadic
-  , GrammarM
-  , GrammarrM
-  , mgenReadS
-  , mgenLint
   ) where
 
 import Control.Applicative
@@ -335,10 +335,6 @@ instance Grammatical DiGrammar where
 
 -- Generators --
 
-{- | Generate a `ReadS` parser from a `Grammar`. -}
-genReadS :: Grammar a -> ReadS a
-genReadS = runParsor
-
 {- | Use a `Grammar` to parse a `String`. -}
 readGrammar :: Grammar a -> String -> [a]
 readGrammar grammar str =
@@ -534,10 +530,11 @@ type GrammarM a =
 type GrammarrM a b =
   forall p m. (Monadic p, Monad m, Grammatical (p m)) => p m a a -> p m b b
 
-mgenReadS :: GrammarM a -> ReadS a
-mgenReadS = runParsor
+{- | Generate a `ReadS` parser from a `Grammar`. -}
+genReadS :: GrammarM a -> ReadS a
+genReadS = runParsor
 
-mgenLint
+genLint
   :: (Monad m, Alternative m, Filterable m, Cons s s Char Char)
   => GrammarM a -> a -> m (a, s -> s)
-mgenLint = runLintor
+genLint = runLintor
