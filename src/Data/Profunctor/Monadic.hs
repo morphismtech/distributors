@@ -15,10 +15,18 @@ module Data.Profunctor.Monadic
   , Polyadic (..)
   , Tetrafunctor (..)
   , WrappedMonadic (..)
+  , TaggedP (..)
+  , TetraT (..)
+  , TetraC (..)
   ) where
 
+import Control.Category
+import Control.Monad
+import Control.Monad.Trans
+import Control.Monad.Trans.Indexed
 import Data.Profunctor
 import Data.Profunctor.Distributor
+import Prelude hiding (id, (.))
 
 class
   ( forall m. Monad m => Profunctor (p m)
@@ -85,3 +93,28 @@ instance (Monadic p, Monad m) => Profunctor (WrappedMonadic p m) where
   dimap f g (WrapMonadic p) = WrapMonadic $ dimap f (fmap g) p
 instance Monadic p => Monadic (WrappedMonadic p) where
   joinP (WrapMonadic p) = WrapMonadic (joinP p)
+
+newtype TaggedP t i j f a b = TaggedP {runTaggedP :: t i j f b}
+  deriving newtype (Functor, Applicative, Monad)
+instance Functor (t i j f) => Profunctor (TaggedP t i j f) where
+  dimap _ f = TaggedP . fmap f . runTaggedP
+instance MonadTrans (t i j) => Monadic (TaggedP t i j) where
+  joinP = TaggedP . join . fmap lift . runTaggedP
+instance IxMonadTrans t => Polyadic (TaggedP t) where
+  composeP = TaggedP . joinIx . fmap runTaggedP . runTaggedP
+
+newtype TetraT p a i j f b = TetraT {runTetraT :: p i j f a b}
+  deriving newtype (Functor, Applicative, Monad)
+instance Monadic (p i j) => MonadTrans (TetraT p a i j) where
+  lift = TetraT . joinP . return
+instance Polyadic p => IxMonadTrans (TetraT p a) where
+  joinIx = TetraT . composeP . fmap runTetraT . runTetraT
+
+newtype TetraC p f a b i j = TetraC {runTetraC :: p i j f a b}
+instance (Tetrafunctor p, Functor f) => Profunctor (TetraC p f a b) where
+  dimap f g = TetraC . dimapIx f g . runTetraC
+instance (Tetrafunctor p, Functor f) => Functor (TetraC p f a b i) where
+  fmap = rmap
+instance (Polyadic p, Monad m, Monoid b) => Category (TetraC p m a b) where
+  id = TetraC (pure mempty)
+  TetraC g . TetraC f = TetraC (composeP (fmap (\b -> fmap (<> b) g) f))
