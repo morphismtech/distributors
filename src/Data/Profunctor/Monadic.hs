@@ -13,7 +13,7 @@ Portability : non-portable
 module Data.Profunctor.Monadic
   ( Monadic (..)
   , Polyadic (..)
-  , Tetrafunctor (..)
+  , Tetradic (..)
   , WrappedMonadic (..)
   , TaggedP (..)
   , UntaggedT (..)
@@ -60,27 +60,27 @@ instance Polyadic Lintor where
     return (b, jk . ij)
 
 class (forall f i j. Functor f => Profunctor (p i j f))
-  => Tetrafunctor p where
+  => Tetradic p where
 
-    dimapIx
+    dimapT
       :: Functor f
       => (h -> i) -> (j -> k)
       -> p i j f a b -> p h k f a b
-    dimapIx f1 f2 = tetramap f1 f2 id id
+    dimapT f1 f2 = tetramap f1 f2 id id
 
     tetramap
       :: Functor f
       => (h -> i) -> (j -> k)
       -> (s -> a) -> (b -> t)
       -> p i j f a b -> p h k f s t
-    tetramap f1 f2 f3 f4 = dimapIx f1 f2 . dimap f3 f4
+    tetramap f1 f2 f3 f4 = dimapT f1 f2 . dimap f3 f4
 
-instance Tetrafunctor Printor where
-  dimapIx f g (Printor p) = Printor (fmap (dimap f g) . p)
-instance Tetrafunctor Parsor where
-  dimapIx f g (Parsor p) = Parsor (fmap (fmap g) . p . f)
-instance Tetrafunctor Lintor where
-  dimapIx f g (Lintor p) = Lintor (fmap (second' (dimap f g)) . p)
+instance Tetradic Printor where
+  dimapT f g (Printor p) = Printor (fmap (dimap f g) . p)
+instance Tetradic Parsor where
+  dimapT f g (Parsor p) = Parsor (fmap (fmap g) . p . f)
+instance Tetradic Lintor where
+  dimapT f g (Lintor p) = Lintor (fmap (second' (dimap f g)) . p)
 
 newtype WrappedMonadic p m a b = WrapMonadic {unwrapMonadic :: p m a (m b)}
 instance (Monadic p, Monad m) => Functor (WrappedMonadic p m a) where
@@ -115,11 +115,11 @@ instance Polyadic p => IxMonadTrans (UntaggedT p a) where
   joinIx = UntagT . composeP . fmap tagT . tagT
 
 newtype UntaggedC p a b f i j = UntagC {tagC :: p i j f a b}
-instance Tetrafunctor p => Tetrafunctor (UntaggedC p) where
+instance Tetradic p => Tetradic (UntaggedC p) where
   tetramap f1 f2 f3 f4 = UntagC . tetramap f3 f4 f1 f2 . tagC
-instance (Tetrafunctor p, Functor f) => Profunctor (UntaggedC p a b f) where
-  dimap f g = UntagC . dimapIx f g . tagC
-instance (Tetrafunctor p, Functor f) => Functor (UntaggedC p a b f i) where
+instance (Tetradic p, Functor f) => Profunctor (UntaggedC p a b f) where
+  dimap f g = UntagC . dimapT f g . tagC
+instance (Tetradic p, Functor f) => Functor (UntaggedC p a b f i) where
   fmap = rmap
 instance (Polyadic p, Monad m, Monoid b) => Category (UntaggedC p a b m) where
   id = UntagC (pure mempty)
