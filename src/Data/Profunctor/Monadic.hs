@@ -46,6 +46,7 @@ instance Monadic (Lintor s s) where
 
 class
   ( forall i j. i ~ j => Monadic (p i j)
+  , forall i j m. Monad m => Profunctor (p i j m)
   , forall i j m a. Monad m => Functor (p i j m a)
   ) => Polyadic p where
   composeP :: Monad m => p i j m a (p j k m a b) -> p i k m a b
@@ -62,18 +63,18 @@ instance Polyadic Lintor where
 class (forall f i j. Functor f => Profunctor (p i j f))
   => Tetradic p where
 
-    dimapT
-      :: Functor f
-      => (h -> i) -> (j -> k)
-      -> p i j f a b -> p h k f a b
-    dimapT f1 f2 = tetramap f1 f2 id id
-
     tetramap
       :: Functor f
       => (h -> i) -> (j -> k)
       -> (s -> a) -> (b -> t)
       -> p i j f a b -> p h k f s t
     tetramap f1 f2 f3 f4 = dimapT f1 f2 . dimap f3 f4
+
+    dimapT
+      :: Functor f
+      => (h -> i) -> (j -> k)
+      -> p i j f a b -> p h k f a b
+    dimapT f1 f2 = tetramap f1 f2 id id
 
 instance Tetradic Printor where
   dimapT f g (Printor p) = Printor (fmap (dimap f g) . p)
