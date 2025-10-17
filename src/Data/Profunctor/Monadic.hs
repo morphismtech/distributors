@@ -15,6 +15,7 @@ module Data.Profunctor.Monadic
   , Polyadic (..)
   , Tetradic (..)
   , WrappedMonadic (..)
+  , WrappedPolyadic (..)
   , TaggedP (..)
   , UntaggedT (..)
   , UntaggedC (..)
