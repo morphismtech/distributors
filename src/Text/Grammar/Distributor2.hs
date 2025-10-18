@@ -23,6 +23,7 @@ module Text.Grammar.Distributor2
 --   , gramGram
     -- * Regular Grammar
   , RegGrammar
+  , RegGramarr
   , Regular (..)
   , RegEx (..)
   , regexNorm
@@ -141,6 +142,8 @@ data Gram r = Gram
 -- RegEx --
 
 type RegGrammar a = forall p. Regular p => p a a
+
+type RegGrammarr a b = forall p. Regular p => p a a -> p b b
 
 class
   ( Alternator p
