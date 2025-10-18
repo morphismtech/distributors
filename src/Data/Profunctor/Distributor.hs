@@ -25,8 +25,8 @@ module Data.Profunctor.Distributor
   , Printor (..)
     -- * Parsor
   , Parsor (..)
-    -- * Lintor
-  , Lintor (..), fromPrintor, toPrintor
+    -- * CtxPrintor
+  , CtxPrintor (..), fromPrintor, toPrintor
   ) where
 
 import Control.Applicative hiding (WrappedArrow)
@@ -768,74 +768,74 @@ instance (Alternative f, Filterable f, Monad f, Cons s s Char Char, a ~ (), b ~ 
   => IsString (Parsor s s f a b) where
     fromString = tokens
 
-newtype Lintor s t f a b = Lintor {runLintor :: a -> f (b, s -> t)}
-instance Functor f => Functor (Lintor s t f a) where fmap = rmap
-instance Applicative f => Applicative (Lintor s s f a) where
-  pure b = Lintor (\_ -> pure (b, id))
-  Lintor f <*> Lintor x = Lintor $ \c ->
+newtype CtxPrintor s t f a b = CtxPrintor {runCtxPrintor :: a -> f (b, s -> t)}
+instance Functor f => Functor (CtxPrintor s t f a) where fmap = rmap
+instance Applicative f => Applicative (CtxPrintor s s f a) where
+  pure b = CtxPrintor (\_ -> pure (b, id))
+  CtxPrintor f <*> CtxPrintor x = CtxPrintor $ \c ->
     liftA2 (\(g, p) (a, q) -> (g a, p . q)) (f c) (x c)
-instance Alternative f => Alternative (Lintor s s f a) where
-  empty = Lintor (\_ -> empty)
-  Lintor p <|> Lintor q = Lintor (\a -> p a <|> q a)
-instance Filterable f => Filterable (Lintor s s f a) where
-  mapMaybe f (Lintor p) = Lintor $
+instance Alternative f => Alternative (CtxPrintor s s f a) where
+  empty = CtxPrintor (\_ -> empty)
+  CtxPrintor p <|> CtxPrintor q = CtxPrintor (\a -> p a <|> q a)
+instance Filterable f => Filterable (CtxPrintor s s f a) where
+  mapMaybe f (CtxPrintor p) = CtxPrintor $
     mapMaybe (\(a,q) -> fmap (, q) (f a)) . p
-instance Monad f => Monad (Lintor s s f a) where
+instance Monad f => Monad (CtxPrintor s s f a) where
   return = pure
-  mx >>= f = Lintor $ \ctx -> do
-    (x, p) <- runLintor mx ctx
-    (y, q) <- runLintor (f x) ctx
+  mx >>= f = CtxPrintor $ \ctx -> do
+    (x, p) <- runCtxPrintor mx ctx
+    (y, q) <- runCtxPrintor (f x) ctx
     return (y, p . q)
-instance (Alternative f, Monad f) => MonadPlus (Lintor s s f a)
-instance Functor f => Profunctor (Lintor s t f) where
-  dimap f g (Lintor h) = Lintor (fmap (first' g) . h . f)
-instance Applicative f => Distributor (Lintor s s f) where
-  zeroP = Lintor absurd
-  Lintor p >+< Lintor q = Lintor $
+instance (Alternative f, Monad f) => MonadPlus (CtxPrintor s s f a)
+instance Functor f => Profunctor (CtxPrintor s t f) where
+  dimap f g (CtxPrintor h) = CtxPrintor (fmap (first' g) . h . f)
+instance Applicative f => Distributor (CtxPrintor s s f) where
+  zeroP = CtxPrintor absurd
+  CtxPrintor p >+< CtxPrintor q = CtxPrintor $
     either (fmap (first' Left) . p) (fmap (first' Right) . q)
-instance Alternative f => Alternator (Lintor s s f) where
+instance Alternative f => Alternator (CtxPrintor s s f) where
   alternate = \case
-    Left (Lintor p) -> Lintor $
+    Left (CtxPrintor p) -> CtxPrintor $
       either (fmap (first' Left) . p) (\_ -> empty)
-    Right (Lintor p) -> Lintor $
+    Right (CtxPrintor p) -> CtxPrintor $
       either (\_ -> empty) (fmap (first' Right) . p)
-instance Filterable f => Filtrator (Lintor s s f) where
-  filtrate (Lintor p) =
-    ( Lintor (mapMaybe (\case{(Left b, q) -> Just (b, q); _ -> Nothing}) . p . Left)
-    , Lintor (mapMaybe (\case{(Right b, q) -> Just (b, q); _ -> Nothing}) . p . Right)
+instance Filterable f => Filtrator (CtxPrintor s s f) where
+  filtrate (CtxPrintor p) =
+    ( CtxPrintor (mapMaybe (\case{(Left b, q) -> Just (b, q); _ -> Nothing}) . p . Left)
+    , CtxPrintor (mapMaybe (\case{(Right b, q) -> Just (b, q); _ -> Nothing}) . p . Right)
     )
-instance Alternative f => Choice (Lintor s s f) where
+instance Alternative f => Choice (CtxPrintor s s f) where
   left' = alternate . Left
   right' = alternate . Right
-instance Filterable f => Cochoice (Lintor s s f) where
+instance Filterable f => Cochoice (CtxPrintor s s f) where
   unleft = fst . filtrate
   unright = snd . filtrate
 instance (Applicative f, Cons s t a b, s ~ t, a ~ b)
-  => Tokenized a b (Lintor s t f) where
-    anyToken = Lintor (\b -> pure (b, cons b))
+  => Tokenized a b (CtxPrintor s t f) where
+    anyToken = CtxPrintor (\b -> pure (b, cons b))
 instance (Applicative f, Filterable f, Cons s s Char Char, a ~ (), b ~ ())
-  => IsString (Lintor s s f a b) where
+  => IsString (CtxPrintor s s f a b) where
     fromString = tokens
-instance Functor f => Strong (Lintor s s f) where
-  first' (Lintor p) = Lintor (\(a,c) -> fmap (\(b,q) -> ((b,c),q)) (p a))
-  second' (Lintor p) = Lintor (\(c,a) -> fmap (\(b,q) -> ((c,b),q)) (p a))
-instance Monad f => Category (Lintor s s f) where
-  id = Lintor $ \a -> return (a, id)
-  Lintor q . Lintor p = Lintor $ \a -> do
+instance Functor f => Strong (CtxPrintor s s f) where
+  first' (CtxPrintor p) = CtxPrintor (\(a,c) -> fmap (\(b,q) -> ((b,c),q)) (p a))
+  second' (CtxPrintor p) = CtxPrintor (\(c,a) -> fmap (\(b,q) -> ((c,b),q)) (p a))
+instance Monad f => Category (CtxPrintor s s f) where
+  id = CtxPrintor $ \a -> return (a, id)
+  CtxPrintor q . CtxPrintor p = CtxPrintor $ \a -> do
     (b, p') <- p a
     (c, q') <- q b
     return (c, q' . p')
-instance Monad f => Arrow (Lintor s s f) where
-  arr f = Lintor (return . (, id) . f)
+instance Monad f => Arrow (CtxPrintor s s f) where
+  arr f = CtxPrintor (return . (, id) . f)
   (***) = (>*<)
   first = first'
   second = second'
 
-toPrintor :: Functor f => Lintor s t f a b -> Printor s t f a b
-toPrintor (Lintor p) = Printor (fmap snd . p)
+toPrintor :: Functor f => CtxPrintor s t f a b -> Printor s t f a b
+toPrintor (CtxPrintor p) = Printor (fmap snd . p)
 
-fromPrintor :: Functor f => Printor s t f a a -> Lintor s t f a a
-fromPrintor (Printor p) = Lintor (\a -> fmap (a,) (p a))
+fromPrintor :: Functor f => Printor s t f a a -> CtxPrintor s t f a a
+fromPrintor (Printor p) = CtxPrintor (\a -> fmap (a,) (p a))
 
 -- FunList --
 

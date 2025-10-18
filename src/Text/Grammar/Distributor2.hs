@@ -123,7 +123,7 @@ instance (Alternative f, Cons s s Char Char)
 instance (Monad f, Alternative f, Filterable f, Cons s s Char Char)
   => Grammatical (Parsor s s f)
 instance (Alternative f, Filterable f, Cons s s Char Char)
-  => Grammatical (Lintor s s f)
+  => Grammatical (CtxPrintor s s f)
 
 newtype InvariantP r a b = InvariantP {runInvariantP :: r}
 instance Functor (InvariantP r a) where fmap _ = coerce
@@ -170,7 +170,7 @@ instance (Alternative f, Cons s s Char Char)
 instance (Monad f, Alternative f, Filterable f, Cons s s Char Char)
   => Regular (Parsor s s f)
 instance (Alternative f, Filterable f, Cons s s Char Char)
-  => Regular (Lintor s s f)
+  => Regular (CtxPrintor s s f)
 
 {- | A version of regular expressions extended by nonterminals. -}
 data RegEx
@@ -417,10 +417,10 @@ genRead grammar = mapMaybe nonempty . runParsor grammar
       _ -> Nothing
 
 genShow :: Subtextual m => CtxGrammar a -> a -> m String
-genShow grammar = fmap (($ "") . snd) . runLintor grammar
+genShow grammar = fmap (($ "") . snd) . runCtxPrintor grammar
 
 genCtx :: Subtextual m => CtxGrammar a -> a -> m a
-genCtx grammar = fmap fst . runLintor grammar
+genCtx grammar = fmap fst . runCtxPrintor grammar
 
 genRegEx :: RegGrammar a -> RegEx
 genRegEx = runInvariantP

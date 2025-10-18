@@ -130,7 +130,7 @@ instance (Alternative f, Cons s s Char Char)
 instance (Monad f, Alternative f, Filterable f, Cons s s Char Char)
   => Grammatical (Parsor s s f)
 instance (Alternative f, Filterable f, Cons s s Char Char)
-  => Grammatical (Lintor s s f)
+  => Grammatical (CtxPrintor s s f)
 
 -- RegEx --
 
@@ -537,4 +537,4 @@ genReadS = runParsor
 genLint
   :: (Monad m, Alternative m, Filterable m, Cons s s Char Char)
   => GrammarM a -> a -> m (a, s -> s)
-genLint = runLintor
+genLint = runCtxPrintor

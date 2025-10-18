@@ -45,8 +45,8 @@ instance Monadic (Parsor s s) where
     (mb, s') <- p s
     b <- mb
     return (b, s')
-instance Monadic (Lintor s s) where
-  joinP (Lintor p) = Lintor $ \a -> do
+instance Monadic (CtxPrintor s s) where
+  joinP (CtxPrintor p) = CtxPrintor $ \a -> do
     (mb, q) <- p a
     b <- mb
     return (b, q)
@@ -61,9 +61,9 @@ instance Polyadic Parsor where
   composeP (Parsor p) = Parsor $ \s -> do
     (mb, s') <- p s
     runParsor mb s'
-instance Polyadic Lintor where
-  composeP (Lintor p) = Lintor $ \ctx -> do
-    (Lintor p', ij) <- p ctx
+instance Polyadic CtxPrintor where
+  composeP (CtxPrintor p) = CtxPrintor $ \ctx -> do
+    (CtxPrintor p', ij) <- p ctx
     (b, jk) <- p' ctx
     return (b, jk . ij)
 
@@ -87,8 +87,8 @@ instance Tetradic Printor where
   dimapT f g (Printor p) = Printor (fmap (dimap f g) . p)
 instance Tetradic Parsor where
   dimapT f g (Parsor p) = Parsor (fmap (fmap g) . p . f)
-instance Tetradic Lintor where
-  dimapT f g (Lintor p) = Lintor (fmap (second' (dimap f g)) . p)
+instance Tetradic CtxPrintor where
+  dimapT f g (CtxPrintor p) = CtxPrintor (fmap (second' (dimap f g)) . p)
 
 newtype WrappedMonadic p m a b = WrapMonadic {unwrapMonadic :: p m a (m b)}
 instance (Monadic p, Monad m) => Functor (WrappedMonadic p m a) where
