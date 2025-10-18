@@ -39,6 +39,7 @@ library
       Data.Profunctor.Monadic
       Data.Profunctor.Polyadic.Do
       Text.Grammar.Distributor
+      Text.Grammar.Distributor2
   other-modules:
       Paths_distributors
   autogen-modules:
@@ -73,6 +74,7 @@ library
       RecursiveDo
       ScopedTypeVariables
       StandaloneDeriving
+      StandaloneKindSignatures
       TemplateHaskell
       TupleSections
       TypeApplications
@@ -138,6 +140,7 @@ test-suite spec
       RecursiveDo
       ScopedTypeVariables
       StandaloneDeriving
+      StandaloneKindSignatures
       TemplateHaskell
       TupleSections
       TypeApplications

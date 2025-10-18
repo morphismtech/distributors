@@ -79,6 +79,7 @@ default-extensions:
 - RecursiveDo
 - ScopedTypeVariables
 - StandaloneDeriving
+- StandaloneKindSignatures
 - TemplateHaskell
 - TupleSections
 - TypeApplications
