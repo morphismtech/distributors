@@ -39,11 +39,6 @@ class
   liftP :: Monad m => m b -> p m a b
   liftP = joinP . return
 
--- instance Monadic (Parsor s s) where
---   joinP (Parsor p) = Parsor $ \s -> do
---     (mb, s') <- p s
---     b <- mb
---     return (b, s')
 -- instance Monadic (CtxPrintor s s) where
 --   joinP (CtxPrintor p) = CtxPrintor $ \a -> do
 --     (mb, q) <- p a
@@ -57,10 +52,6 @@ class
   ) => Polyadic p where
   composeP :: Monad m => p i j m a (p j k m a b) -> p i k m a b
 
--- instance Polyadic Parsor where
---   composeP (Parsor p) = Parsor $ \s -> do
---     (mb, s') <- p s
---     runParsor mb s'
 -- instance Polyadic CtxPrintor where
 --   composeP (CtxPrintor p) = CtxPrintor $ \ctx -> do
 --     (CtxPrintor p', ij) <- p ctx
@@ -85,8 +76,6 @@ class (forall f i j. Functor f => Profunctor (p i j f))
 
 -- instance Tetradic Printor where
 --   dimapT f g (Printor p) = Printor (fmap (dimap f g) . p)
--- instance Tetradic Parsor where
---   dimapT f g (Parsor p) = Parsor (fmap (fmap g) . p . f)
 -- instance Tetradic CtxPrintor where
 --   dimapT f g (CtxPrintor p) = CtxPrintor (fmap (second' (dimap f g)) . p)
 
