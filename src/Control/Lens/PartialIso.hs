@@ -38,6 +38,7 @@ module Control.Lens.PartialIso
   , nulled
   , notNulled
   , streamed
+  , listed
   , maybeEot
   , listEot
     -- * Iterations
@@ -254,13 +255,22 @@ two stream types with the same token type. -}
 streamed
   :: (AsEmpty s, AsEmpty t, Cons s s c c, Cons t t c c)
   => Iso' s t
-streamed = iso convertStream convertStream
+streamed = iso thither thither
+
+{- | `listed` is an isomorphism between
+a stream type and a list. -}
+listed :: (AsEmpty s, Cons s s c c) => Iso' [c] s
+listed = iso hither thither
   where
-    convertStream s =
-      maybe
-        Empty
-        (\(h,t) -> cons h (convertStream t))
-        (uncons s)
+    hither [] = Empty
+    hither (h:t) = cons h (hither t)
+
+thither :: (Cons s s c c, AsEmpty t, Cons t t c c) => s -> t
+thither s =
+  maybe
+    Empty
+    (\(h,t) -> cons h (thither t))
+    (uncons s)
 
 {- | The either-of-tuples representation of `Maybe`. -}
 maybeEot :: Iso (Maybe a) (Maybe b) (Either () a) (Either () b)
