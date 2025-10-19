@@ -23,7 +23,7 @@ module Text.Grammar.Distributor2
 --   , gramGram
     -- * Regular Grammar
   , RegGrammar
-  , RegGramarr
+  , RegGrammarr
   , Regular (..)
   , RegEx (..)
   , regexNorm
@@ -49,7 +49,6 @@ import Control.Lens.PartialIso
 import Control.Monad
 import Data.Char
 import Data.Coerce
-import Data.Foldable
 import Data.Function
 import Data.Kind
 import Data.Maybe hiding (mapMaybe)
@@ -61,6 +60,25 @@ import Data.Set (Set, insert)
 import Data.String
 import GHC.Generics
 import Witherable
+
+{- | A version of regular expressions extended by nonterminals. -}
+data RegEx
+  = Terminal String -- ^ @abc123etc\\.@
+  | Sequence RegEx RegEx -- ^ @xy@
+  | Fail -- ^ @\\q@
+  | Alternate RegEx RegEx -- ^ @x|y@
+  | KleeneOpt RegEx -- ^ @x?@
+  | KleeneStar RegEx -- ^ @x*@
+  | KleenePlus RegEx -- ^ @x+@
+  | AnyChar -- ^ @.@
+  | InClass String -- ^ @[abc]@
+  | NotInClass String -- ^ @[^abc]@
+  | InCategory GeneralCategory -- ^ @\\p{Lu}@
+  | NotInCategory GeneralCategory -- ^ @\\P{Ll}@
+  | NonTerminal String -- ^ @\\q{rule-name}@
+  deriving stock (Eq, Ord, Show, Generic)
+makeNestedPrisms ''RegEx
+makeNestedPrisms ''GeneralCategory
 
 -- Context Free Grammar --
 
@@ -128,16 +146,85 @@ instance (Monad f, Alternative f, Filterable f, Cons s s Char Char)
 instance (Alternative f, Filterable f, Cons s s Char Char)
   => Grammatical (CtxPrintor s s f)
 
-newtype InvariantP i j f a b = InvariantP {runInvariantP :: i -> f j}
-instance Functor (InvariantP i j f a) where fmap _ = coerce
-instance Contravariant (InvariantP i j f a) where contramap _ = coerce
-instance Profunctor (InvariantP i j f) where dimap _ _ = coerce
-instance Bifunctor (InvariantP i j f) where bimap _ _ = coerce
+newtype InvariantP r a b = InvariantP {runInvariantP :: r}
+instance Functor (InvariantP r a) where fmap _ = coerce
+instance Contravariant (InvariantP r a) where contramap _ = coerce
+instance Profunctor (InvariantP r) where dimap _ _ = coerce
+instance Bifunctor (InvariantP r) where bimap _ _ = coerce
+instance Choice (InvariantP r) where left' = coerce; right' = coerce
 
-data Gram r = Gram
-  { startGram :: r
-  , rulesGram :: Set (String, r)
-  } deriving Show
+data Gram = Gram
+  { startGram :: (All, RegEx)
+  , rulesGram :: Set (String, (All, RegEx))
+  } deriving (Eq, Show)
+
+liftGram0 :: InvariantP RegEx a b -> InvariantP Gram a b
+liftGram0 (InvariantP rex) = InvariantP (Gram (mempty, rex) mempty)
+
+liftGram1
+  :: (InvariantP RegEx a0 b0 -> InvariantP RegEx a1 b1)
+  -> InvariantP Gram a0 b0 -> InvariantP Gram a1 b1
+liftGram1 = undefined
+
+liftGram2
+  :: (InvariantP RegEx a0 b0 -> InvariantP RegEx a1 b1 -> InvariantP RegEx a2 b2)
+  -> InvariantP Gram a0 b0 -> InvariantP Gram a1 b1 -> InvariantP Gram a2 b2
+liftGram2 f
+  (InvariantP (Gram (all0, start0) rules0))
+  (InvariantP (Gram (all1, start1) rules1)) =
+    InvariantP (Gram (all2, start2) rules2)
+      where
+        all2 = all0 <> all1
+        rules2 = rules0 <> rules1
+        start2 = runInvariantP (f (InvariantP start0) (InvariantP start1))
+
+instance Applicative (InvariantP Gram a) where
+  pure = liftGram0 . pure
+  (<*>) = liftGram2 (<*>)
+instance Alternative (InvariantP Gram a) where
+  empty = liftGram0 empty
+  (<|>) = liftGram2 (<|>)
+  many = liftGram1 many
+  some = liftGram1 some
+instance Filterable (InvariantP Gram a) where
+  mapMaybe _ (InvariantP (Gram (_, start) rules)) =
+    InvariantP (Gram (All False, start) rules)
+instance Distributor (InvariantP Gram) where
+  zeroP = liftGram0 zeroP
+  (>+<) = liftGram2 (>+<)
+  optionalP = liftGram1 optionalP
+  manyP = liftGram1 manyP
+instance Alternator (InvariantP Gram) where
+  alternate = either coerce coerce
+  someP = liftGram1 someP
+instance Filtrator (InvariantP Gram) where
+  filtrate (InvariantP (Gram (_, start) rules)) =
+    ( InvariantP (Gram (All False, start) rules)
+    , InvariantP (Gram (All False, start) rules)
+    )
+instance Cochoice (InvariantP Gram) where
+  unleft (InvariantP (Gram (_, start) rules)) =
+    InvariantP (Gram (All False, start) rules)
+  unright (InvariantP (Gram (_, start) rules)) =
+    InvariantP (Gram (All False, start) rules)
+instance IsString (InvariantP Gram () ()) where
+  fromString = liftGram0 . fromString
+instance Tokenized Char Char (InvariantP Gram) where
+  anyToken = liftGram0 anyToken
+instance Regular (InvariantP Gram) where
+  inClass = liftGram0 . inClass
+  notInClass = liftGram0 . notInClass
+  inCategory = liftGram0 . inCategory
+  notInCategory = liftGram0 . notInCategory
+instance Grammatical (InvariantP Gram) where
+  rule name p = ruleRec name (\_ -> p)
+  ruleRec name f =
+    let
+      start = (mempty, NonTerminal name)
+      Gram newRule rules = runInvariantP (f (InvariantP (Gram start mempty)))
+      newRules = insert (name, newRule) rules
+    in
+      InvariantP (Gram start newRules)
 
 -- RegEx --
 
@@ -177,55 +264,31 @@ instance (Monad f, Alternative f, Filterable f, Cons s s Char Char)
 instance (Alternative f, Filterable f, Cons s s Char Char)
   => Regular (CtxPrintor s s f)
 
-{- | A version of regular expressions extended by nonterminals. -}
-data RegEx
-  = Terminal String -- ^ @abc123etc\\.@
-  | Sequence RegEx RegEx -- ^ @xy@
-  | Fail -- ^ @\\q@
-  | Alternate RegEx RegEx -- ^ @x|y@
-  | KleeneOpt RegEx -- ^ @x?@
-  | KleeneStar RegEx -- ^ @x*@
-  | KleenePlus RegEx -- ^ @x+@
-  | AnyChar -- ^ @.@
-  | InClass String -- ^ @[abc]@
-  | NotInClass String -- ^ @[^abc]@
-  | InCategory GeneralCategory -- ^ @\\p{Lu}@
-  | NotInCategory GeneralCategory -- ^ @\\P{Ll}@
-  | NonTerminal String -- ^ @\\q{rule-name}@
-  deriving stock (Eq, Ord, Show, Generic)
-makeNestedPrisms ''RegEx
-makeNestedPrisms ''GeneralCategory
-
-instance Applicative f => Applicative (InvariantP i RegEx f a) where
-  pure _ = InvariantP (pure (pure (Terminal [])))
-  InvariantP rex1 <*> InvariantP rex2 = InvariantP (liftA2 Sequence <$> rex1 <*> rex2)
-instance Applicative f => Alternative (InvariantP i RegEx f a) where
-  empty = InvariantP (pure (pure Fail))
-  InvariantP rex1 <|> InvariantP rex2 = InvariantP (fmap regexNorm <$> (liftA2 Alternate <$> rex1 <*> rex2))
-  many (InvariantP rex) = InvariantP (fmap (regexNorm . KleeneStar) <$> rex)
-  some (InvariantP rex) = InvariantP (fmap (regexNorm . KleenePlus) <$> rex)
-instance Applicative f => Distributor (InvariantP i RegEx f) where
-  zeroP = InvariantP (pure (pure Fail))
-  InvariantP rex1 >+< InvariantP rex2 = InvariantP (fmap regexNorm <$> (liftA2 Alternate <$> rex1 <*> rex2))
-  manyP (InvariantP rex) = InvariantP (fmap (regexNorm . KleeneStar) <$> rex)
-instance Choice (InvariantP i RegEx f) where
-  left' = coerce
-  right' = coerce
-instance Cochoice (InvariantP i RegEx ((,) All)) where
-  unleft = InvariantP . ((\(_,rex) -> (All False,rex)) .) . runInvariantP
-  unright = InvariantP . ((\(_,rex) -> (All False,rex)) .) . runInvariantP
-instance Applicative f => Alternator (InvariantP i RegEx f) where
+instance Applicative (InvariantP RegEx a) where
+  pure _ = InvariantP (Terminal [])
+  InvariantP rex1 <*> InvariantP rex2 = InvariantP (regexNorm (Sequence rex1 rex2))
+instance Alternative (InvariantP RegEx a) where
+  empty = InvariantP Fail
+  InvariantP rex1 <|> InvariantP rex2 = InvariantP (regexNorm (Alternate rex1 rex2))
+  many (InvariantP rex) = InvariantP (regexNorm (KleeneStar rex))
+  some (InvariantP rex) = InvariantP (regexNorm (KleenePlus rex))
+instance Distributor (InvariantP RegEx) where
+  zeroP = InvariantP Fail
+  InvariantP rex1 >+< InvariantP rex2 = InvariantP (regexNorm (Alternate rex1 rex2))
+  optionalP (InvariantP rex) = InvariantP (regexNorm (KleeneOpt rex))
+  manyP (InvariantP rex) = InvariantP (regexNorm (KleeneStar rex))
+instance Alternator (InvariantP RegEx) where
   alternate = either coerce coerce
-  someP (InvariantP rex) = InvariantP (fmap (regexNorm . KleenePlus) <$> rex)
-instance Applicative f => IsString (InvariantP i RegEx f () ()) where
-  fromString str = InvariantP (pure (pure (Terminal str)))
-instance Applicative f => Tokenized Char Char (InvariantP i RegEx f) where
-  anyToken = InvariantP (pure (pure AnyChar))
-instance Applicative f => Regular (InvariantP i RegEx f) where
-  inClass str = InvariantP (pure (pure (InClass str)))
-  notInClass str = InvariantP (pure (pure (NotInClass str)))
-  inCategory cat = InvariantP (pure (pure (InCategory cat)))
-  notInCategory cat = InvariantP (pure (pure (NotInCategory cat)))
+  someP (InvariantP rex) = InvariantP (regexNorm (KleenePlus rex))
+instance IsString (InvariantP RegEx () ()) where
+  fromString str = InvariantP (Terminal str)
+instance Tokenized Char Char (InvariantP RegEx) where
+  anyToken = InvariantP AnyChar
+instance Regular (InvariantP RegEx) where
+  inClass str = InvariantP (InClass str)
+  notInClass str = InvariantP (NotInClass str)
+  inCategory cat = InvariantP (InCategory cat)
+  notInCategory cat = InvariantP (NotInCategory cat)
 
 regexNorm :: RegEx -> RegEx
 regexNorm rex = rex
@@ -363,16 +426,16 @@ nonterminalG = rule "nonterminal" $
   _NonTerminal >?< tokens "\\q" >* parenCurlyG (manyP charG)
 
 parenG :: Grammarr a a
-parenG rex = rule "parenthesized" $
-  token '(' >* rex *< token ')'
+parenG ex = rule "parenthesized" $
+  token '(' >* ex *< token ')'
 
 parenCurlyG :: Grammarr a a
-parenCurlyG rex = rule "parenthesized-curly" $
-  token '{' >* rex *< token ')'
+parenCurlyG ex = rule "parenthesized-curly" $
+  token '{' >* ex *< token ')'
 
 parenSquareG :: Grammarr a a
-parenSquareG rex = rule "parenthesized-square" $
-  token '[' >* rex *< token ']'
+parenSquareG ex = rule "parenthesized-square" $
+  token '[' >* ex *< token ']'
 
 kleeneOptG :: Grammarr RegEx RegEx
 kleeneOptG rex = rule "kleene-optional" $
@@ -431,4 +494,4 @@ genCtx :: Subtextual m => CtxGrammar a -> a -> m a
 genCtx grammar = fmap fst . runCtxPrintor grammar
 
 genRegEx :: RegGrammar a -> RegEx
-genRegEx = runIdentity . ($ ()) . runInvariantP
+genRegEx = runInvariantP
