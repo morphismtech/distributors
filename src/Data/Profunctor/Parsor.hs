@@ -3,9 +3,9 @@ module Data.Profunctor.Parsor
     Parsor (..)
   , Printor (..)
   , PP (..)
---   , toParsor
---   , toPrintor
---   , pp
+  , pp
+  , pParsor
+  , pPrintor
 --   , Separator (..)
 --   , SepBy (..)
 --   , Stream1 (..)
@@ -19,7 +19,7 @@ import Control.Applicative
 import Control.Category
 import Control.Lens
 import Control.Lens.Internal.Equator
--- import Control.Lens.PartialIso
+import Control.Lens.PartialIso
 import Control.Monad
 import Data.Bifunctor
 import Data.Coerce
@@ -32,6 +32,22 @@ import Prelude hiding ((.), id)
 import Witherable
 
 newtype Parsor s t f a b = Parsor {runParsor :: s -> f (b,t)}
+newtype Printor s t f a b = Printor {runPrintor :: a -> f (s -> t)}
+newtype PP s t f a b = PP {runPP :: s -> f (t, a -> b)}
+
+pp
+  :: Applicative f
+  => Printor a b f s t
+  -> Parsor s t f a b
+  -> PP s t f a b
+pp (Printor g) (Parsor f) =
+  PP (liftA2 (liftA2 (,)) (fmap snd . f) g)
+
+pParsor :: Functor f => PP s t f a b -> a -> Parsor s t f a b
+pParsor (PP f) a = Parsor (fmap (\(t, g) -> (g a, t)) . f)
+
+pPrintor :: Functor f => PP s t f a b -> Printor a b f s t
+pPrintor (PP f) = Printor (fmap snd . f)
 
 instance Functor f => Functor (Parsor s t f a) where
   fmap f = Parsor . (fmap (first' f) .) . runParsor
@@ -83,9 +99,25 @@ instance Filterable f => Filtrator (Parsor s t f) where
 instance (Alternative f, Cons s s a a)
   => Equator a a (Parsor s s f) where
     equate = Parsor (\str -> maybe empty pure (uncons str))
-instance Alternative m => IsString (Parsor String String m () ()) where
-  fromString str = id $
+
+instance
+  ( Alternative m
+  , AsEmpty s, Cons s s Char Char
+  , AsEmpty t, Cons t t Char Char
+  ) => IsString (Parsor s t m () ()) where
+  fromString str = dimapT (review listed) (view listed) $
     Parsor (maybe empty (pure . pure) . stripPrefix str)
+
+instance
+  ( Alternative m
+  , AsEmpty s, AsEmpty t
+  , Cons s s Char Char, Cons t t Char Char
+  ) => IsString (Parsor s t m s t) where
+  fromString s
+    = Parsor
+    $ maybe empty (\t -> pure (view listed s, view listed t)) 
+    . stripPrefix s
+    . review listed
 
 instance Monadic (Parsor s s) where
   joinP (Parsor p) = Parsor $ \s -> do
@@ -99,10 +131,14 @@ instance Polyadic Parsor where
 instance Tetradic Parsor where
   dimapT f g (Parsor p) = Parsor (fmap (fmap g) . p . f)
 
-newtype Printor s t f a b = Printor {runPrintor :: a -> f (s -> t)}
-
-newtype PP s t f a b = PP {runPP :: a -> s -> f (b, s -> t)}
-
--- toParsor :: Functor f => PP a b f s t -> Parsor s t f a b -- s -> a -> f (t, s -> b)
--- toPrintor :: Functor f => PP s t f a b -> Printor s t f a b
--- pp :: Applicative f => Parsor s t f a b -> Printor s t f a b -> PP s t f a b
+instance Functor f => Functor (Printor s t f a) where
+  fmap _ = coerce
+instance Functor f => Contravariant (Printor s t f a) where
+  contramap _ = coerce
+instance Functor f => Profunctor (Printor s t f) where
+  dimap f _ = Printor . (. f) . runPrintor
+  lmap f = Printor . (. f) . runPrintor
+  rmap _ = coerce
+instance Tetradic Printor where
+  dimapT h i = Printor . (fmap (dimap h i) .) . runPrintor
+  tetramap h i f _ = Printor . (fmap (dimap h i) .) . (. f) . runPrintor
