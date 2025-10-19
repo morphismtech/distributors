@@ -39,6 +39,7 @@ library
       Control.Lens.PartialIso
       Control.Lens.Wither
       Data.Profunctor.Distributor
+      Data.Profunctor.Monadic
       Data.Profunctor.Monadic.Do
       Data.Profunctor.Parsor
       Data.Profunctor.Polyadic.Do
@@ -93,6 +94,7 @@ library
     , containers >=0.6 && <1
     , contravariant >=1.5 && <2
     , distributive >=0.6 && <1
+    , indexed-transformers >=0.1.0.4 && <1
     , lens >=5.2 && <6
     , mtl >=2.3 && <3
     , profunctors >=5.6 && <6
@@ -159,6 +161,7 @@ test-suite spec
     , distributive >=0.6 && <1
     , distributors
     , hspec
+    , indexed-transformers >=0.1.0.4 && <1
     , lens >=5.2 && <6
     , mtl >=2.3 && <3
     , profunctors >=5.6 && <6
