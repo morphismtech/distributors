@@ -40,7 +40,7 @@ module Text.Grammar.Distributor2
   , genShow
   , genCtx
   , genRegEx
---   , genGram
+  , genGram
   ) where
 
 import Control.Applicative
@@ -495,3 +495,6 @@ genCtx grammar = fmap fst . runCtxPrintor grammar
 
 genRegEx :: RegGrammar a -> RegEx
 genRegEx = runInvariantP
+
+genGram :: Grammar a -> Gram
+genGram = runInvariantP
