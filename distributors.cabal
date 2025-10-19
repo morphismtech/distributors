@@ -42,7 +42,6 @@ library
       Data.Profunctor.Monadic
       Data.Profunctor.Monadic.Do
       Data.Profunctor.Parsor
-      Data.Profunctor.Polyadic.Do
       Text.Grammar.Distributor
   other-modules:
       Paths_distributors
