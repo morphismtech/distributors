@@ -12,6 +12,7 @@ import Control.Lens.PartialIso
 import Control.Lens.Token
 import Data.Profunctor
 import Data.Profunctor.Distributor
+import Data.Kind
 
 data RegEx c
   = Terminal [c]
@@ -55,8 +56,9 @@ normRegEx = \case
   KleenePlus rex -> plusK (normRegEx rex)
   rex -> rex
 
+type Terminator :: Type -> (Type -> Type -> Type) -> Constraint
 type Terminator c p =
-  ( TerminalSymbol (p () ())
+  ( forall a b. (a ~ (), b ~ ()) => TerminalSymbol (p a b)
   , Alphabet (p () ()) ~ c
   )
 

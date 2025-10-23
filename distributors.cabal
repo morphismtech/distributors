@@ -80,6 +80,7 @@ library
       RecursiveDo
       ScopedTypeVariables
       StandaloneDeriving
+      StandaloneKindSignatures
       TemplateHaskell
       TupleSections
       TypeApplications
@@ -147,6 +148,7 @@ test-suite spec
       RecursiveDo
       ScopedTypeVariables
       StandaloneDeriving
+      StandaloneKindSignatures
       TemplateHaskell
       TupleSections
       TypeApplications

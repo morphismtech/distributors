@@ -17,7 +17,6 @@ module Data.Profunctor.Monadic
   , WrappedMonadic (..)
   , WrappedPolyadic (..)
   , TaggedP (..)
-  -- , TaggedCtx (..)
   , UntaggedT (..)
   , UntaggedC (..)
   ) where
