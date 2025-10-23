@@ -5,7 +5,7 @@ module Data.Profunctor.Syntax
   , Lintor (..)
   , toPrintor
   , fromPrintor
-  , Stream
+  , Subtextual
   ) where
 
 import Control.Applicative
@@ -32,14 +32,13 @@ newtype InvariantP r a b = InvariantP {runInvariantP :: r}
 newtype Parsor s t f a b = Parsor {runParsor :: s -> f (b,t)}
 newtype Printor s t f a b = Printor {runPrintor :: a -> f (s -> t)}
 newtype Lintor s t f a b = Lintor {runLintor :: a -> f (b, s -> t)}
+-- newtype Larsor s t f a b = Parsor {runParsor :: s -> f (a -> b, t)}
 
 toPrintor :: Functor f => Lintor s t f a b -> Printor s t f a b
 toPrintor (Lintor f) = Printor (fmap snd . f)
 
 fromPrintor :: Functor f => Printor s t f a a -> Lintor s t f a a
 fromPrintor (Printor f) = Lintor (\a -> fmap (a,) (f a))
-
-type Stream s a = (IsStream s, Item s ~ a, Categorized a)
 
 instance Functor (InvariantP r a) where fmap _ = coerce
 instance Contravariant (InvariantP r a) where contramap _ = coerce
@@ -59,7 +58,7 @@ instance Cochoice (InvariantP (rules, (All, start))) where
   unleft = subsetOf
 instance Filtrator (InvariantP (rules, (All, start))) where
   filtrate p = (subsetOf p, subsetOf p)
-instance KleeneStarAlgebra r => Applicative (InvariantP r a) where
+instance Monoid r => Applicative (InvariantP r a) where
   pure _ = InvariantP mempty
   InvariantP rex1 <*> InvariantP rex2 =
     InvariantP (rex1 <> rex2)
@@ -156,31 +155,16 @@ instance Filterable f => Filtrator (Parsor s t f) where
       leftMay (e, str) = either (\b -> Just (b, str)) (\_ -> Nothing) e
       rightMay (e, str) = either (\_ -> Nothing) (\b -> Just (b, str)) e
 
-instance
-  ( Stream s a
-  , Alternative m, Filterable m, Monad m
-  ) => Tokenized (Parsor s s m a a) where
+instance (Subtextual s m, a ~ Item s) => Tokenized (Parsor s s m a a) where
   type Token (Parsor s s m a a) = a
   anyToken = Parsor (\str -> maybe empty pure (uncons str))
-instance
-  ( Stream s a
-  , Alternative m, Filterable m, Monad m
-  ) => Equator a a (Parsor s s m) where
+instance (Subtextual s m, a ~ Item s) => Equator a a (Parsor s s m) where
   equate = anyToken
-instance
-  ( Stream s a
-  , Alternative m, Filterable m, Monad m
-  ) => TerminalSymbol (Parsor s s m () ()) where
+instance Subtextual s m => TerminalSymbol (Parsor s s m () ()) where
   type Alphabet (Parsor s s m () ()) = Item s
-instance
-  ( Stream s Char
-  , Alternative m, Filterable m, Monad m
-  ) => IsString (Parsor s s m () ()) where
+instance (Subtextual s m, Item s ~ Char) => IsString (Parsor s s m () ()) where
   fromString = terminal
-instance
-  ( Stream s Char
-  , Alternative m, Filterable m, Monad m
-  ) => IsString (Parsor s s m s s) where
+instance (Subtextual s m, Item s ~ Char) => IsString (Parsor s s m s s) where
   fromString = tokens
 
 instance Functor (Printor s t f a) where
@@ -220,31 +204,18 @@ instance Alternative f => Alternator (Printor s s f) where
     Left (Printor p) -> Printor (either p (\_ -> empty))
     Right (Printor p) -> Printor (either (\_ -> empty) p)
 
-instance
-  ( Stream s a
-  , Alternative m, Filterable m, Monad m
-  ) => Tokenized (Printor s s m a a) where
+instance (Subtextual s m, Item s ~ a) => Tokenized (Printor s s m a a) where
   type Token (Printor s s m a a) = a
   anyToken = Printor (pure . cons)
-instance
-  ( Stream s a
-  , Alternative m, Filterable m, Monad m
-  ) => Equator a a (Printor s s m) where
+instance (Subtextual s m, Item s ~ a) => Equator a a (Printor s s m) where
   equate = anyToken
-instance
-  ( Stream s a
-  , Alternative m, Filterable m, Monad m
-  ) => TerminalSymbol (Printor s s m () ()) where
+instance Subtextual s m => TerminalSymbol (Printor s s m () ()) where
   type Alphabet (Printor s s m () ()) = Item s
-instance
-  ( Stream s Char
-  , Alternative m, Filterable m, Monad m
-  ) => IsString (Printor s s m () ()) where
+instance (Subtextual s m, Item s ~ Char)
+  => IsString (Printor s s m () ()) where
   fromString = terminal
-instance
-  ( Stream s Char
-  , Alternative m, Filterable m, Monad m
-  ) => IsString (Printor s s m s s) where
+instance (Subtextual s m, Item s ~ Char)
+  => IsString (Printor s s m s s) where
   fromString = tokens
 
 instance Functor f => Functor (Lintor s t f a) where
@@ -317,29 +288,19 @@ instance Monad f => Arrow (Lintor s s f) where
   first = first'
   second = second'
 
-instance
-  ( Stream s a
-  , Alternative m, Filterable m, Monad m
-  ) => Tokenized (Lintor s s m a a) where
+instance (Subtextual s m, Item s ~ a) => Tokenized (Lintor s s m a a) where
   type Token (Lintor s s m a a) = a
   anyToken = Lintor (\b -> pure (b, cons b))
-instance
-  ( Stream s a
-  , Alternative m, Filterable m, Monad m
-  ) => Equator a a (Lintor s s m) where
+instance (Subtextual s m, Item s ~ a) => Equator a a (Lintor s s m) where
   equate = anyToken
-instance
-  ( Stream s a
-  , Alternative m, Filterable m, Monad m
-  ) => TerminalSymbol (Lintor s s m () ()) where
+instance Subtextual s m => TerminalSymbol (Lintor s s m () ()) where
   type Alphabet (Lintor s s m () ()) = Item s
-instance
-  ( Stream s Char
-  , Alternative m, Filterable m, Monad m
-  ) => IsString (Lintor s s m () ()) where
+instance (Subtextual s m, Item s ~ Char) => IsString (Lintor s s m () ()) where
   fromString = terminal
-instance
-  ( Stream s Char
-  , Alternative m, Filterable m, Monad m
-  ) => IsString (Lintor s s m s s) where
+instance (Subtextual s m, Item s ~ Char) => IsString (Lintor s s m s s) where
   fromString = tokens
+
+type Subtextual s m =
+  ( IsStream s, Categorized (Item s)
+  , Alternative m, Filterable m, Monad m
+  )
