@@ -1,20 +1,58 @@
 module Control.Lens.Stream
   ( -- *
-    SepBy (..)
+    IsStream
+  , listed
+  , streamed
+  , stream
+  , stream1
+  , SepBy (..)
   , sepBy
   , noSep
   , chain
   , chain1
-  , IsStream
-  , stream
-  , stream1
   ) where
 
 import Control.Applicative
 import Control.Lens
 import Control.Lens.PartialIso
+import Data.Profunctor
 import Data.Profunctor.Distributor
 import GHC.Exts
+
+type IsStream s = (IsList s, AsEmpty s, Cons s s (Item s) (Item s))
+
+listed :: (IsList s, IsList t, Item s ~ Item t) => Iso' s t
+listed = iso (fromList . toList) (fromList . toList)
+
+streamed :: (IsStream s, IsStream t, Item s ~ Item t) => Iso' s t
+streamed = iso convertStream convertStream
+  where
+    convertStream s =
+      maybe
+        Empty
+        (\(h,t) -> cons h (convertStream t))
+        (uncons s)
+
+{- |
+prop> stream noSep = manyP
+-}
+stream
+  :: (Distributor p, IsStream s, IsStream t)
+  => SepBy (p () ())
+  -> p (Item s) (Item t) -> p s t
+stream (SepBy beg end sep) p = mapIso listEot $
+  beg >* oneP >+< stream1 (sepBy sep) p *< end
+
+{- |
+prop> stream1 noSep p = p >*< manyP p
+prop> _Cons >? stream1 noSep p = someP p
+-}
+stream1
+  :: (Distributor p, IsStream s, IsStream t)
+  => SepBy (p () ())
+  -> p (Item s) (Item t) -> p (Item s, s) (Item t, t)
+stream1 (SepBy beg end sep) p =
+  beg >* p >*< stream (sepBy sep) p *< end
 
 {- | Used to sequence multiple times,
 separated by a `separateBy`,
@@ -53,7 +91,7 @@ chain assoc c2 c0 sep p =
   *< endBy sep
 
 chain1
-  :: (Alternator p, Filtrator p)
+  :: (Distributor p, Choice p, Cochoice p)
   => (forall x. x -> Either x x) -- `Left` or `Right` associate
   -> APartialIso a b (a,a) (b,b) -- ^ binary constructor pattern
   -> SepBy (p () ()) -> p a b -> p a b
@@ -66,26 +104,3 @@ chain1 = leftOrRight chainl1 chainr1
     chainr1 pat sep p =
       coPartialIso (difoldr (coPartialIso pat)) >?<
         beginBy sep >* manyP (p *< separateBy sep) >*< p *< endBy sep
-
-type IsStream s = (IsList s, AsEmpty s, Cons s s (Item s) (Item s))
-
-{- |
-prop> stream noSep = manyP
--}
-stream
-  :: (Distributor p, IsStream s, IsStream t)
-  => SepBy (p () ())
-  -> p (Item s) (Item t) -> p s t
-stream (SepBy beg end sep) p = mapIso listEot $
-  beg >* oneP >+< stream1 (sepBy sep) p *< end
-
-{- |
-prop> stream1 noSep p = p >*< manyP p
-prop> _Cons >? stream1 noSep p = someP p
--}
-stream1
-  :: (Distributor p, IsStream s, IsStream t)
-  => SepBy (p () ())
-  -> p (Item s) (Item t) -> p (Item s, s) (Item t, t)
-stream1 (SepBy beg end sep) p =
-  beg >* p >*< stream (sepBy sep) p *< end

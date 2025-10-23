@@ -31,7 +31,11 @@ data RegEx c
 class TerminalSymbol s where
   type Alphabet s
   terminal :: [Alphabet s] -> s
-  default terminal :: (s ~ p () (), Monoidal p, Cochoice p, Tokenizor c p, c ~ Alphabet s) => [Alphabet s] -> s
+  default terminal
+    :: ( Monoidal p, Cochoice p, Tokenizor c p
+       , Alphabet s ~ c, p () () ~ s
+       )
+    => [Alphabet s] -> s
   terminal [] = oneP
   terminal (a:as) = only a ?< anyToken *> terminal as
 

@@ -1,10 +1,17 @@
 module Control.Lens.Token
-  ( -- *
+  ( -- * Token
     Categorized (..)
   , Tokenized (..)
   , satisfy
   , tokens
   , Tokenizor
+    -- * Like
+  , oneLike
+  , anyLike
+  , optLike
+  , reqLike
+    -- * Unicode
+  , GeneralCategory (..)
   ) where
 
 import Control.Lens
@@ -132,3 +139,38 @@ tokens
   -> p s s
 tokens [] = asEmpty
 tokens (a:as) = token a >:< tokens as
+
+{- |
+`oneLike` consumes one token
+of a given token's category while parsing,
+and produces the given token while printing.
+-}
+oneLike :: forall c p. (Profunctor p, Tokenizor c p) => c -> p () ()
+oneLike c = dimap (\_ -> c) (\(_::c) -> ()) (inCategory (categorize c))
+
+{- |
+`anyLike` consumes tokens
+of a given token's category while parsing,
+and produces no tokens printing.
+-}
+anyLike :: forall c p. (Distributor p, Tokenizor c p) => c -> p () ()
+anyLike c = dimap (\_ -> []::[c]) (\(_::[c]) -> ())
+  (manyP (inCategory (categorize c)))
+
+{- |
+`optLike` consumes tokens
+of a given token's category while parsing,
+and produces the given token while printing.
+-}
+optLike :: forall c p. (Distributor p, Tokenizor c p) => c -> p () ()
+optLike c = dimap (\_ -> [c]::[c]) (\(_::[c]) -> ())
+  (manyP (inCategory (categorize c)))
+
+{- |
+`reqLike` accepts one or more tokens,
+of a given token's category while parsing,
+and produces the given token while printing.
+-}
+reqLike :: forall c p. (Distributor p, Tokenizor c p) => c -> p () ()
+reqLike c = dimap (\_ -> (c,[]::[c])) (\(_::c, _::[c]) -> ())
+  (inCategory (categorize c) >*< manyP (inCategory (categorize c)))
