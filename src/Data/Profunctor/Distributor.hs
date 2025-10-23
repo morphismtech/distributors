@@ -12,17 +12,12 @@ Portability : non-portable
 
 module Data.Profunctor.Distributor
   ( -- * Monoidal
-    Monoidal, oneP, (>*<), (>*), (*<), dimap2, foreverP, replicateP, meander, (>:<)
+    Monoidal, oneP, (>*<), (>*), (*<), dimap2, foreverP, replicateP
+  , meander, (>:<), asEmpty
     -- * Distributor
-  , Distributor (zeroP, (>+<), optionalP, manyP), dialt, Homogeneous (homogeneously)
+  , Distributor (..), dialt, Homogeneous (homogeneously)
     -- * Alternator/Filtrator
-  , Alternator (alternate, someP), Filtrator (filtrate)
-    -- * SepBy
-  , SepBy (..), sepBy, noSep, zeroOrMore, oneOrMore, chainl1, chainr1, chainl, chainr
-    -- * Tokenized
-  , Tokenized (anyToken), satisfy, token, tokens
-    -- * Printor/Parsor
-  , Printor (..), Parsor (..)
+  , Alternator (..), Filtrator (filtrate)
   ) where
 
 import Control.Applicative hiding (WrappedArrow)
@@ -30,8 +25,6 @@ import Control.Applicative qualified as Ap (WrappedArrow)
 import Control.Arrow
 import Control.Lens hiding (chosen)
 import Control.Lens.Internal.Context
-import Control.Lens.Internal.Iso
-import Control.Lens.Internal.Prism
 import Control.Lens.Internal.Profunctor
 import Control.Lens.PartialIso
 import Control.Monad
@@ -54,7 +47,6 @@ import Data.Profunctor.Monad
 import Data.Profunctor.Yoneda
 import Data.Proxy
 import Data.Sequence (Seq)
-import Data.String
 import Data.Tagged
 import Data.Tree (Tree (..))
 import Data.Vector (Vector)
@@ -159,8 +151,12 @@ meander f = dimap (f sell) iextract . trav
       => q u v -> q (Bazaar (->) u w x) (Bazaar (->) v w x)
     trav q = mapIso funListEot $ right' (q >*< trav q)
 
-{- | A `Monoidal` `Cons` operator. -}
-(>:<) :: (Monoidal p, Choice p, Cons s t a b) => p a b -> p s t -> p s t
+{- | A `Monoidal` nil operator. -}
+asEmpty :: (AsEmpty s, Monoidal p, Choice p) => p s s
+asEmpty = _Empty >? oneP
+
+{- | A `Monoidal` cons operator. -}
+(>:<) :: (Cons s t a b, Monoidal p, Choice p) => p a b -> p s t -> p s t
 x >:< xs = _Cons >? x >*< xs
 infixr 5 >:<
 
@@ -533,235 +529,6 @@ instance Filtrator (PartialExchange a b) where
     , PartialExchange (f . Right) (either (pure Nothing) Just <=< g)
     )
 
--- SepBy --
-
-{- | Used to sequence multiple times,
-separated by a `separateBy`,
-begun by a `beginBy`,
-and ended by an `endBy`. -}
-data SepBy p = SepBy
-  { beginBy :: p () ()
-  , endBy :: p () ()
-  , separateBy :: p () ()
-  }
-
-{- | A `SepBy` smart constructor,
-setting the `separateBy` field,
-with no beginning or ending delimitors,
-except by updating `beginBy` or `endBy` fields. -}
-sepBy :: Monoidal p => p () () -> SepBy p
-sepBy = SepBy oneP oneP
-
-{- | A `SepBy` smart constructor for no separator,
-beginning or ending delimiters. -}
-noSep :: Monoidal p => SepBy p
-noSep = sepBy oneP
-
-{- |
-prop> zeroOrMore noSep = manyP
--}
-zeroOrMore
-  :: Distributor p
-  => SepBy p -> p a b -> p [a] [b]
-zeroOrMore sep p = mapIso listEot $
-  beginBy sep >* oneP >+< p >*< manyP (separateBy sep >* p) *< endBy sep
-
-{- |
-prop> oneOrMore noSep = someP
--}
-oneOrMore
-  :: Alternator p
-  => SepBy p -> p a b -> p [a] [b]
-oneOrMore sep p = _Cons >?
-  beginBy sep >* p >*< manyP (separateBy sep >* p) *< endBy sep
-
-{- |
-Left associate a binary constructor pattern to sequence one or more times.
--}
-chainl1
-  :: (Choice p, Cochoice p, Distributor p)
-  => APartialIso a b (a,a) (b,b) -- ^ binary constructor pattern
-  -> SepBy p -> p a b -> p a b
-chainl1 pat sep p =
-  coPartialIso (difoldl (coPartialIso pat)) >?<
-    beginBy sep >* p >*< manyP (separateBy sep >* p) *< endBy sep
-
-{- |
-Right associate a binary constructor pattern to sequence one or more times.
--}
-chainr1
-  :: (Choice p, Cochoice p, Distributor p)
-  => APartialIso a b (a,a) (b,b) -- ^ binary constructor pattern
-  -> SepBy p -> p a b -> p a b
-chainr1 c2 sep p =
-  coPartialIso (difoldr (coPartialIso c2)) >?<
-    beginBy sep >* manyP (p *< separateBy sep) >*< p *< endBy sep
-
-{- |
-Left associate a binary constructor pattern to sequence one or more times,
-or use a nilary constructor pattern to sequence zero times.
--}
-chainl
-  :: (Alternator p, Filtrator p)
-  => APartialIso a b (a,a) (b,b) -- ^ binary constructor pattern
-  -> APartialIso a b () () -- ^ nilary constructor pattern
-  -> SepBy p -> p a b -> p a b
-chainl c2 c0 sep p =
-  beginBy sep >*
-  (c0 >?< oneP <|> chainl1 c2 (sepBy (separateBy sep)) p)
-  *< endBy sep
-
-{- |
-Right associate a binary constructor pattern to sequence one or more times,
-or use a nilary constructor pattern to sequence zero times.
--}
-chainr
-  :: (Alternator p, Filtrator p)
-  => APartialIso a b (a,a) (b,b) -- ^ binary constructor pattern
-  -> APartialIso a b () () -- ^ nilary constructor pattern
-  -> SepBy p -> p a b -> p a b
-chainr c2 c0 sep p =
-  beginBy sep >*
-  (c0 >?< oneP <|> chainr1 c2 (sepBy (separateBy sep)) p)
-  *< endBy sep
-
--- Tokenized --
-
-{- | `Tokenized` serves two different purposes.
-The `anyToken` method is used
-
-* by token-stream printer/parsers, to sequence a single token;
-* and for concrete optics, as an identity morphism.
-
-In the former case the associated input and output token types
-are same. In the latter case, observe that `Identical` is
-a free `Tokenized`.
--}
-class Tokenized a b p | p -> a, p -> b where
-  anyToken :: p a b
-instance Tokenized a b (Identical a b) where
-  anyToken = Identical
-instance Tokenized a b (Exchange a b) where
-  anyToken = Exchange id id
-instance Tokenized a b (Market a b) where
-  anyToken = Market id Right
-instance Tokenized a b (PartialExchange a b) where
-  anyToken = PartialExchange Just Just
-instance (Tokenized a b p, Profunctor p, Applicative f)
-  => Tokenized a b (WrappedPafb f p) where
-    anyToken = WrapPafb (rmap pure anyToken)
-
-{- | Sequences a single token that satisfies a predicate. -}
-satisfy :: (Choice p, Cochoice p, Tokenized c c p) => (c -> Bool) -> p c c
-satisfy f = satisfied f >?< anyToken
-
-{- | Sequences a single specified `token`. -}
-token :: (Cochoice p, Eq c, Tokenized c c p) => c -> p () ()
-token c = only c ?< anyToken
-
-{- | Sequences a specified stream of `tokens`.
-It can be used as a default definition for the `fromString`
-method of `IsString` when `Tokenized` `Char` `Char`.
--}
-tokens :: (Cochoice p, Monoidal p, Eq c, Tokenized c c p) => [c] -> p () ()
-tokens [] = oneP
-tokens (c:cs) = token c *> tokens cs
-
--- Printor/Parsor --
-
-{- | A function from things to containers of
-functions of strings to strings.
-`Printor` is a degenerate `Profunctor` which
-is constant in its covariant argument.
--}
-newtype Printor s f a b = Printor {runPrintor :: a -> f (s -> s)}
-  deriving Functor
-instance Contravariant (Printor s f a) where
-  contramap _ (Printor p) = Printor p
-instance Applicative f => Applicative (Printor s f a) where
-  pure _ = Printor (\_ -> pure id)
-  Printor p <*> Printor q = Printor (\a -> (.) <$> p a <*> q a)
-instance Alternative f => Alternative (Printor s f a) where
-  empty = Printor (\_ -> empty)
-  Printor p <|> Printor q = Printor (\a -> p a <|> q a)
-instance Filterable (Printor s f a) where
-  mapMaybe _ (Printor p) = Printor p
-instance Profunctor (Printor s f) where
-  dimap f _ (Printor p) = Printor (p . f)
-instance Alternative f => Choice (Printor s f) where
-  left' = alternate . Left
-  right' = alternate . Right
-instance Cochoice (Printor s f) where
-  unleft = fst . filtrate
-  unright = snd . filtrate
-instance Applicative f => Distributor (Printor s f) where
-  zeroP = Printor absurd
-  Printor p >+< Printor q = Printor (either p q)
-instance Alternative f => Alternator (Printor s f) where
-  alternate = \case
-    Left (Printor p) -> Printor (either p (\_ -> empty))
-    Right (Printor p) -> Printor (either (\_ -> empty) p)
-instance Filtrator (Printor s f) where
-  filtrate (Printor p) = (Printor (p . Left), Printor (p . Right))
-instance (Applicative f, Cons s t a b, s ~ t, a ~ b)
-  => Tokenized a b (Printor s f) where
-    anyToken = Printor (pure . cons)
-instance (Applicative f, Cons s s Char Char, a ~ (), b ~ ())
-  => IsString (Printor s f a b) where
-    fromString = tokens
-
-{- | A function from strings to containers of
-pairs of things and strings.
-`Parsor` is a degenerate `Profunctor` which
-is constant in its contravariant argument.
--}
-newtype Parsor s f a b = Parsor {runParsor :: s -> f (b,s)}
-  deriving Functor
-instance Monad f => Applicative (Parsor s f a) where
-  pure b = Parsor (\str -> return (b,str))
-  Parsor x <*> Parsor y = Parsor $ \str -> do
-    (f, str') <- x str
-    (a, str'') <- y str'
-    return (f a, str'')
-instance Monad f => Monad (Parsor s f a) where
-  Parsor p >>= f = Parsor $ \s -> do
-    (a, s') <- p s
-    runParsor (f a) s'
-instance (Alternative f, Monad f) => Alternative (Parsor s f a) where
-  empty = Parsor (\_ -> empty)
-  Parsor p <|> Parsor q = Parsor (\str -> p str <|> q str)
-instance (Alternative f, Monad f) => MonadPlus (Parsor s f a)
-instance Filterable f => Filterable (Parsor s f a) where
-  mapMaybe f (Parsor p) = Parsor (mapMaybe (\(a,str) -> (,str) <$> f a) . p)
-instance Functor f => Bifunctor (Parsor s f) where
-  bimap _ g (Parsor p) = Parsor (fmap (\(c,str) -> (g c, str)) . p)
-instance Functor f => Profunctor (Parsor s f) where
-  dimap _ g (Parsor p) = Parsor (fmap (\(c,str) -> (g c, str)) . p)
-instance (Monad f, Alternative f) => Choice (Parsor s f) where
-  left' = alternate . Left
-  right' = alternate . Right
-instance Filterable f => Cochoice (Parsor s f) where
-  unleft = fst . filtrate
-  unright = snd . filtrate
-instance (Monad f, Alternative f) => Distributor (Parsor s f)
-instance (Monad f, Alternative f) => Alternator (Parsor s f) where
-  alternate = \case
-    Left (Parsor p) -> Parsor (fmap (\(b, str) -> (Left b, str)) . p)
-    Right (Parsor p) -> Parsor (fmap (\(b, str) -> (Right b, str)) . p)
-instance Filterable f => Filtrator (Parsor s f) where
-  filtrate (Parsor p) =
-    ( Parsor (mapMaybe leftMay . p)
-    , Parsor (mapMaybe rightMay . p)
-    ) where
-      leftMay (e, str) = either (\b -> Just (b, str)) (\_ -> Nothing) e
-      rightMay (e, str) = either (\_ -> Nothing) (\b -> Just (b, str)) e
-instance (Alternative f, Cons s t a b, s ~ t, a ~ b)
-  => Tokenized a b (Parsor s f) where
-    anyToken = Parsor (\str -> maybe empty pure (uncons str))
-instance (Alternative f, Filterable f, Monad f, Cons s s Char Char, a ~ (), b ~ ())
-  => IsString (Parsor s f a b) where
-    fromString = tokens
-
 -- FunList --
 
 {- |
@@ -853,7 +620,6 @@ instance (Profunctor p, Applicative (p a))
   => Applicative (Coyoneda p a) where
     pure = proreturn . pure
     ab <*> cd = proreturn (proextract ab <*> proextract cd)
-
 instance (Profunctor p, Alternative (p a))
   => Alternative (Yoneda p a) where
     empty = proreturn empty

@@ -57,7 +57,9 @@ default-extensions:
 - ConstraintKinds
 - DataKinds
 - DefaultSignatures
+- DeriveFoldable
 - DeriveFunctor
+- DeriveTraversable
 - DeriveGeneric
 - DerivingStrategies
 - DerivingVia

@@ -30,6 +30,7 @@ module Control.Lens.Grate
   , Grating (..)
   ) where
 
+import Control.Lens.Internal.Equator
 import Data.Distributive
 import Data.Function
 import Data.Functor.Identity
@@ -77,7 +78,7 @@ cloneGrate = grate . withGrate
 
 {- | Run `AGrate`. -}
 withGrate :: AGrate s t a b -> ((s -> a) -> b) -> t
-withGrate grt = runGrating $ runIdentity <$> grt (Identity <$> anyToken)
+withGrate grt = runGrating $ runIdentity <$> grt (Identity <$> equate)
 
 {- | Distribute over a `Closed` `Profunctor`. -}
 distributing
@@ -108,8 +109,8 @@ instance Functor (Grating a b s) where fmap = fmapRep
 instance Applicative (Grating a b s) where
   pure = pureRep
   (<*>) = apRep
-instance Tokenized a b (Grating a b) where
-  anyToken = Grating ($ id)
+instance Equator a b (Grating a b) where
+  equate = Grating ($ id)
 instance Distributive (Grating a b s) where
   distribute = distributeRep
   collect = collectRep

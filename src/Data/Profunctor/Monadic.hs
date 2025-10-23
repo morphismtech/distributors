@@ -17,6 +17,7 @@ module Data.Profunctor.Monadic
   , WrappedMonadic (..)
   , WrappedPolyadic (..)
   , TaggedP (..)
+  -- , TaggedCtx (..)
   , UntaggedT (..)
   , UntaggedC (..)
   ) where
@@ -39,12 +40,6 @@ class
   liftP :: Monad m => m b -> p m a b
   liftP = joinP . return
 
--- instance Monadic (CtxPrintor s s) where
---   joinP (CtxPrintor p) = CtxPrintor $ \a -> do
---     (mb, q) <- p a
---     b <- mb
---     return (b, q)
-
 class
   ( forall i j. i ~ j => Monadic (p i j)
   , forall i j m. Monad m => Profunctor (p i j m)
@@ -52,32 +47,18 @@ class
   ) => Polyadic p where
   composeP :: Monad m => p i j m a (p j k m a b) -> p i k m a b
 
--- instance Polyadic CtxPrintor where
---   composeP (CtxPrintor p) = CtxPrintor $ \ctx -> do
---     (CtxPrintor p', ij) <- p ctx
---     (b, jk) <- p' ctx
---     return (b, jk . ij)
-
-class (forall f i j. Functor f => Profunctor (p i j f))
-  => Tetradic p where
+class (forall i j. Profunctor (p i j f)) => Tetradic f p where
 
     tetramap
-      :: Functor f
-      => (h -> i) -> (j -> k)
+      :: (h -> i) -> (j -> k)
       -> (s -> a) -> (b -> t)
       -> p i j f a b -> p h k f s t
     tetramap f1 f2 f3 f4 = dimapT f1 f2 . dimap f3 f4
 
     dimapT
-      :: Functor f
-      => (h -> i) -> (j -> k)
+      :: (h -> i) -> (j -> k)
       -> p i j f a b -> p h k f a b
     dimapT f1 f2 = tetramap f1 f2 id id
-
--- instance Tetradic Printor where
---   dimapT f g (Printor p) = Printor (fmap (dimap f g) . p)
--- instance Tetradic CtxPrintor where
---   dimapT f g (CtxPrintor p) = CtxPrintor (fmap (second' (dimap f g)) . p)
 
 newtype WrappedMonadic p m a b = WrapMonadic {unwrapMonadic :: p m a (m b)}
 instance (Monadic p, Monad m) => Functor (WrappedMonadic p m a) where
@@ -133,11 +114,11 @@ instance Polyadic p => IxMonadTrans (UntaggedT p a) where
   joinIx = UntagT . composeP . fmap tagT . tagT
 
 newtype UntaggedC p a b f i j = UntagC {tagC :: p i j f a b}
-instance Tetradic p => Tetradic (UntaggedC p) where
+instance (Tetradic f p, Functor f) => Tetradic f (UntaggedC p) where
   tetramap f1 f2 f3 f4 = UntagC . tetramap f3 f4 f1 f2 . tagC
-instance (Tetradic p, Functor f) => Profunctor (UntaggedC p a b f) where
+instance (Tetradic f p, Functor f) => Profunctor (UntaggedC p a b f) where
   dimap f g = UntagC . dimapT f g . tagC
-instance (Tetradic p, Functor f) => Functor (UntaggedC p a b f i) where
+instance (Tetradic f p, Functor f) => Functor (UntaggedC p a b f i) where
   fmap = rmap
 instance (Polyadic p, Monad m, Monoid b) => Category (UntaggedC p a b m) where
   id = UntagC (pure mempty)

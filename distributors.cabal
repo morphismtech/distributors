@@ -31,18 +31,19 @@ library
       Control.Lens.Bifocal
       Control.Lens.Diopter
       Control.Lens.Grammar
-      Control.Lens.Grammar.Char
       Control.Lens.Grate
       Control.Lens.Internal.Equator
       Control.Lens.Internal.NestedPrismTH
       Control.Lens.Monocle
       Control.Lens.PartialIso
+      Control.Lens.RegEx
+      Control.Lens.Stream
+      Control.Lens.Token
       Control.Lens.Wither
       Data.Profunctor.Distributor
       Data.Profunctor.Monadic
       Data.Profunctor.Monadic.Do
-      Data.Profunctor.Parsor
-      Text.Grammar.Distributor
+      Data.Profunctor.Syntax
   other-modules:
       Paths_distributors
   autogen-modules:
@@ -55,7 +56,9 @@ library
       ConstraintKinds
       DataKinds
       DefaultSignatures
+      DeriveFoldable
       DeriveFunctor
+      DeriveTraversable
       DeriveGeneric
       DerivingStrategies
       DerivingVia
@@ -120,7 +123,9 @@ test-suite spec
       ConstraintKinds
       DataKinds
       DefaultSignatures
+      DeriveFoldable
       DeriveFunctor
+      DeriveTraversable
       DeriveGeneric
       DerivingStrategies
       DerivingVia
