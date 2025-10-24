@@ -33,7 +33,7 @@ newtype InvariantP r a b = InvariantP {runInvariantP :: r}
 newtype Parsor s t f a b = Parsor {runParsor :: s -> f (b,t)}
 newtype Printor s t f a b = Printor {runPrintor :: a -> f (s -> t)}
 newtype Lintor s t f a b = Lintor {runLintor :: a -> f (b, s -> t)}
-newtype SyntaxP s t f a b = SyntaxP {runSyntaxP :: f t}
+newtype SyntaxP s t f a b = SyntaxP {runSyntaxP :: s -> f t}
 
 toPrintor :: Functor f => Lintor s t f a b -> Printor s t f a b
 toPrintor (Lintor f) = Printor (fmap snd . f)
@@ -311,40 +311,40 @@ instance Contravariant (SyntaxP s t f a) where contramap _ = coerce
 instance Profunctor (SyntaxP s t f) where dimap _ _ = coerce
 instance Bifunctor (SyntaxP s t f) where bimap _ _ = coerce
 instance Functor f => Tetradic f SyntaxP where
-  dimapT _ g = SyntaxP . fmap g . runSyntaxP
-  tetramap _ g _ _ = SyntaxP . fmap g . runSyntaxP
+  dimapT f g = SyntaxP . dimap f (fmap g) . runSyntaxP
+  tetramap f g _ _ = SyntaxP . dimap f (fmap g) . runSyntaxP
 instance Choice (SyntaxP s t f) where
   left' = coerce
   right' = coerce
 instance (Monoid t, Applicative f)
   => Applicative (SyntaxP s t f a) where
-  pure _ = SyntaxP (pure mempty)
+  pure _ = SyntaxP (pure (pure mempty))
   SyntaxP rex1 <*> SyntaxP rex2 =
-    SyntaxP (liftA2 (<>) rex1 rex2)
+    SyntaxP (liftA2 (liftA2 (<>)) rex1 rex2)
 instance (KleeneStarAlgebra t, Applicative f) => Alternative (SyntaxP s t f a) where
-  empty = SyntaxP (pure failK)
+  empty = SyntaxP (pure (pure failK))
   SyntaxP rex1 <|> SyntaxP rex2 =
-    SyntaxP (liftA2 altK rex1 rex2)
-  many (SyntaxP rex) = SyntaxP (fmap starK rex)
-  some (SyntaxP rex) = SyntaxP (fmap plusK rex)
+    SyntaxP (liftA2 (liftA2 altK) rex1 rex2)
+  many (SyntaxP rex) = SyntaxP (fmap (fmap starK) rex)
+  some (SyntaxP rex) = SyntaxP (fmap (fmap plusK) rex)
 instance (KleeneStarAlgebra t, Applicative f) => Distributor (SyntaxP s t f) where
-  zeroP = SyntaxP (pure failK)
+  zeroP = SyntaxP (pure (pure failK))
   SyntaxP rex1 >+< SyntaxP rex2 =
-    SyntaxP (liftA2 altK rex1 rex2)
-  manyP (SyntaxP rex) = SyntaxP (fmap starK rex)
-  optionalP (SyntaxP rex) = SyntaxP (fmap optK rex)
+    SyntaxP (liftA2 (liftA2 altK) rex1 rex2)
+  manyP (SyntaxP rex) = SyntaxP (fmap (fmap starK) rex)
+  optionalP (SyntaxP rex) = SyntaxP (fmap (fmap optK) rex)
 instance (KleeneStarAlgebra t, Applicative f) => Alternator (SyntaxP s t f) where
   alternate = either coerce coerce
-  someP (SyntaxP rex) = SyntaxP (fmap plusK rex)
+  someP (SyntaxP rex) = SyntaxP (fmap (fmap plusK) rex)
 instance (Tokenized t, Categorized c, Token t ~ c, Applicative f)
   => Tokenized (SyntaxP s t f c c) where
   type Token (SyntaxP s t f c c) = Token t
-  anyToken = SyntaxP (pure anyToken)
-  token = SyntaxP . pure . token
-  inClass = SyntaxP . pure . inClass
-  notInClass = SyntaxP . pure . notInClass
-  inCategory = SyntaxP . pure . inCategory
-  notInCategory = SyntaxP . pure . notInCategory
+  anyToken = SyntaxP (pure (pure anyToken))
+  token = SyntaxP . pure . pure . token
+  inClass = SyntaxP . pure . pure . inClass
+  notInClass = SyntaxP . pure . pure . notInClass
+  inCategory = SyntaxP . pure . pure . inCategory
+  notInCategory = SyntaxP . pure . pure . notInCategory
 instance Applicative f => TerminalSymbol (SyntaxP s (RegEx c) f () ()) where
   type Alphabet (SyntaxP s (RegEx c) f () ()) = c
-  terminal = SyntaxP . pure . terminal
+  terminal = SyntaxP . pure . pure . terminal
