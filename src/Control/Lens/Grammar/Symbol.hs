@@ -4,9 +4,7 @@ module Control.Lens.Grammar.Symbol
   , NonTerminalSymbol (..)
   ) where
 
-import Control.Lens
 import Control.Lens.Internal.Equator
-import Control.Lens.PartialIso
 import Data.Kind
 import Data.Profunctor
 import Data.Profunctor.Distributor
@@ -26,8 +24,7 @@ class TerminalSymbol p where
        , q () () ~ p, Alphabet p ~ c, Eq c
        )
     => [Alphabet p] -> p
-  terminal [] = oneP
-  terminal (a:as) = only a ?< equate *> terminal as
+  terminal = equator
 
 instance TerminalSymbol [a] where
   type Alphabet [a] = a

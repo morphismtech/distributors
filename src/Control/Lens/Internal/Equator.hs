@@ -5,6 +5,7 @@ module Control.Lens.Internal.Equator
   ) where
 
 import Control.Lens
+import Control.Lens.Grammar.Token
 import Control.Lens.Internal.Iso
 import Control.Lens.Internal.Prism
 import Control.Lens.Internal.Profunctor
@@ -12,7 +13,10 @@ import Control.Lens.PartialIso
 import Data.Profunctor
 import Data.Profunctor.Distributor
 
-class Equator a b p | p -> a, p -> b where equate :: p a b
+class Equator a b p | p -> a, p -> b where
+  equate :: p a b
+  default equate :: (Tokenizor c p, a ~ c, b ~ c) => p a b
+  equate = anyToken
 instance Equator a b (Identical a b) where equate = Identical
 instance Equator a b (Exchange a b) where
   equate = Exchange id id

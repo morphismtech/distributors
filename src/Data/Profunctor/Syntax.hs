@@ -162,16 +162,15 @@ instance Filterable f => Filtrator (Parsor s t f) where
 
 instance (Subtextual s m, a ~ Item s) => Tokenized (Parsor s s m a a) where
   type Token (Parsor s s m a a) = a
-  anyToken = Parsor (\str -> maybe empty pure (uncons str))
+  anyToken = Parsor (maybe empty pure . uncons)
 instance (Subtextual s m, a ~ Item s) => Equator a a (Parsor s s m) where
-  equate = anyToken
 instance Subtextual s m => TerminalSymbol (Parsor s s m () ()) where
   type Alphabet (Parsor s s m () ()) = Item s
+instance BackusNaurForm (Parsor s t m a b)
 instance (Subtextual s m, Item s ~ Char) => IsString (Parsor s s m () ()) where
   fromString = terminal
 instance (Subtextual s m, Item s ~ Char) => IsString (Parsor s s m s s) where
   fromString = tokens
-instance BackusNaurForm (Parsor s t m a b)
 
 instance Functor (Printor s t f a) where
   fmap _ = coerce
@@ -214,16 +213,15 @@ instance (Subtextual s m, Item s ~ a) => Tokenized (Printor s s m a a) where
   type Token (Printor s s m a a) = a
   anyToken = Printor (pure . cons)
 instance (Subtextual s m, Item s ~ a) => Equator a a (Printor s s m) where
-  equate = anyToken
 instance Subtextual s m => TerminalSymbol (Printor s s m () ()) where
   type Alphabet (Printor s s m () ()) = Item s
+instance BackusNaurForm (Printor s t m a b)
 instance (Subtextual s m, Item s ~ Char)
   => IsString (Printor s s m () ()) where
   fromString = terminal
 instance (Subtextual s m, Item s ~ Char)
   => IsString (Printor s s m s s) where
   fromString = tokens
-instance BackusNaurForm (Printor s t m a b)
 
 instance Functor f => Functor (Lintor s t f a) where
   fmap f = Lintor . fmap (fmap (first' f)) . runLintor
@@ -299,14 +297,13 @@ instance (Subtextual s m, Item s ~ a) => Tokenized (Lintor s s m a a) where
   type Token (Lintor s s m a a) = a
   anyToken = Lintor (\b -> pure (b, cons b))
 instance (Subtextual s m, Item s ~ a) => Equator a a (Lintor s s m) where
-  equate = anyToken
 instance Subtextual s m => TerminalSymbol (Lintor s s m () ()) where
   type Alphabet (Lintor s s m () ()) = Item s
+instance BackusNaurForm (Lintor s t m a b)
 instance (Subtextual s m, Item s ~ Char) => IsString (Lintor s s m () ()) where
   fromString = terminal
 instance (Subtextual s m, Item s ~ Char) => IsString (Lintor s s m s s) where
   fromString = tokens
-instance BackusNaurForm (Lintor s t m a b)
 
 instance Functor (SyntaxP s t f a) where fmap _ = coerce
 instance Contravariant (SyntaxP s t f a) where contramap _ = coerce
