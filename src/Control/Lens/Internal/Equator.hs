@@ -1,7 +1,8 @@
 module Control.Lens.Internal.Equator
   ( -- *
     Equator (..)
-  , equator
+  , is
+  , Identical
   ) where
 
 import Control.Lens
@@ -28,8 +29,8 @@ instance (Equator a b p, Profunctor p, Applicative f)
   => Equator a b (WrappedPafb f p) where
     equate = WrapPafb (rmap pure equate)
 
-equator
-    :: (Monoidal p, Cochoice p, Equator a a p, Eq a)
-    => [a] -> p () ()
-equator [] = oneP
-equator (a:as) = only a ?< equate *> equator as
+is
+  :: (Monoidal p, Cochoice p, Equator a a p, Eq a)
+  => [a] -> p () ()
+is [] = oneP
+is (a:as) = only a ?< equate *> is as

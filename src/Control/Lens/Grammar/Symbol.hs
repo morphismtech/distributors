@@ -8,7 +8,6 @@ import Control.Lens.Internal.Equator
 import Data.Kind
 import Data.Profunctor
 import Data.Profunctor.Distributor
-import Type.Reflection
 
 type Terminator :: Type -> (Type -> Type -> Type) -> Constraint
 type Terminator a p =
@@ -16,15 +15,16 @@ type Terminator a p =
   , forall x y. (x ~ (), y ~ ()) => TerminalSymbol (p x y)
   )
 
-class TerminalSymbol p where
-  type Alphabet p
-  terminal :: [Alphabet p] -> p
+class TerminalSymbol s where
+  type Alphabet s
+  terminal :: [Alphabet s] -> s
   default terminal
-    :: ( Monoidal q, Cochoice q, Equator c c q
-       , q () () ~ p, Alphabet p ~ c, Eq c
+    :: ( Monoidal p, Cochoice p, p () () ~ s
+       , Equator (Alphabet s) (Alphabet s) p
+       , Eq (Alphabet s)
        )
-    => [Alphabet p] -> p
-  terminal = equator
+    => [Alphabet s] -> s
+  terminal = is
 
 instance TerminalSymbol [a] where
   type Alphabet [a] = a
@@ -32,10 +32,3 @@ instance TerminalSymbol [a] where
 
 class NonTerminalSymbol a where
   nonTerminal :: String -> a
-  default nonTerminal :: Typeable a => String -> a
-  nonTerminal q = error (thetype ??? rexrule ??? function)
-    where
-      x ??? y = x <> " ??? " <> y
-      thetype = show (typeRep @a)
-      rexrule = "\\q{" <> q <> "}"
-      function = "Control.Lens.Grammar.nonTerminal"

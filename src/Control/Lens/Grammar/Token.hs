@@ -78,10 +78,8 @@ instance Categorized c => Tokenized (c -> Bool) where
   notInCategory = lmap categorize . (/=)
 
 satisfy
-  :: ( Choice q, Cochoice q
-     , Tokenized p, p ~ q (Token p) (Token p)
-     )
-  => (Token p -> Bool) -> p
+  :: (Choice p, Cochoice p, Tokenizor a p)
+  => (a -> Bool) -> p a a
 satisfy f = satisfied f >?< anyToken
 
 type Tokenizor a p = (Tokenized (p a a), Token (p a a) ~ a)
@@ -103,32 +101,32 @@ tokens (a:as) = token a >:< tokens as
 of a given token's category while parsing,
 and produces the given token while printing.
 -}
-oneLike :: forall c p. (Profunctor p, Tokenizor c p) => c -> p () ()
-oneLike c = dimap (\_ -> c) (\(_::c) -> ()) (inCategory (categorize c))
+oneLike :: forall a p. (Profunctor p, Tokenizor a p) => a -> p () ()
+oneLike a = dimap (\_ -> a) (\(_::a) -> ()) (inCategory (categorize a))
 
 {- |
 `manyLike` consumes zero or more tokens
 of a given token's category while parsing,
 and produces no tokens printing.
 -}
-manyLike :: forall c p. (Distributor p, Tokenizor c p) => c -> p () ()
-manyLike c = dimap (\_ -> []::[c]) (\(_::[c]) -> ())
-  (manyP (inCategory (categorize c)))
+manyLike :: forall a p. (Distributor p, Tokenizor a p) => a -> p () ()
+manyLike a = dimap (\_ -> []::[a]) (\(_::[a]) -> ())
+  (manyP (inCategory (categorize a)))
 
 {- |
 `optLike` consumes zero or more tokens
 of a given token's category while parsing,
 and produces the given token while printing.
 -}
-optLike :: forall c p. (Distributor p, Tokenizor c p) => c -> p () ()
-optLike c = dimap (\_ -> [c]::[c]) (\(_::[c]) -> ())
-  (manyP (inCategory (categorize c)))
+optLike :: forall a p. (Distributor p, Tokenizor a p) => a -> p () ()
+optLike a = dimap (\_ -> [a]::[a]) (\(_::[a]) -> ())
+  (manyP (inCategory (categorize a)))
 
 {- |
 `someLike` accepts one or more tokens
 of a given token's category while parsing,
 and produces the given token while printing.
 -}
-someLike :: forall c p. (Distributor p, Tokenizor c p) => c -> p () ()
-someLike c = dimap (\_ -> (c,[]::[c])) (\(_::c, _::[c]) -> ())
-  (inCategory (categorize c) >*< manyP (inCategory (categorize c)))
+someLike :: forall a p. (Distributor p, Tokenizor a p) => a -> p () ()
+someLike a = dimap (\_ -> (a,[]::[a])) (\(_::a, _::[a]) -> ())
+  (inCategory (categorize a) >*< manyP (inCategory (categorize a)))
