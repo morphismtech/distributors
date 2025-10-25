@@ -62,19 +62,18 @@ sum laws for `Distributor`.
 
 Laws:
 
+>>> let lunit = dimap (either absurd id) Right
+>>> let runit = dimap (either id absurd) Left
 >>> :{
-let f |+| g = either (Left . f) (Right . g)
-    lunit = dimap (either absurd id) Right
-    runit = dimap (either id absurd) Left
-    assoc = dimap
+let assoc = dimap
       (either (Left . Left) (either (Left . Right) Right))
       (either (either Left (Right . Left)) (Right . Right))
 :}
 
-prop> dimap (f |+| g) (h |+| i) (p >+< q) = dimap f h p >+< dimap g i q
 prop> zeroP >+< p = lunit p
 prop> p >+< zeroP = runit p
 prop> p >+< q >+< r = assoc ((p >+< q) >+< r)
+prop> dimap (f >+< g) (h >+< i) (p >+< q) = dimap f h p >+< dimap g i q
 
 -}
 class Monoidal p => Distributor p where
