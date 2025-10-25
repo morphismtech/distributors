@@ -35,7 +35,9 @@ import Data.Profunctor.Filtrator
 import Data.Profunctor.Monadic
 import Data.Profunctor.Monoidal
 import Data.Profunctor.Grammar
+import Data.String
 import GHC.Exts
+import Prelude hiding (filter)
 import Witherable
 
 type RegGrammar c a = forall p. Regular c p => p a a
@@ -166,47 +168,49 @@ regexGrammar = ruleRec "regex" $ \rex -> altG rex
     altG rex = rule "alternate" $
       chain1 Left _Alternate (sepBy (terminal "|")) (seqG rex)
     anyG = rule "any" $ _AnyToken >?< terminal "."
-    atomG rex = rule "atom" $
-      nonterminalG
-      <|> failG
-      <|> classInG
-      <|> classNotInG
-      <|> categoryInG
-      <|> categoryNotInG
-      <|> _Terminal >?< charG >:< pure ""
-      <|> anyG
-      <|> parenG rex
-    categoryG = rule "category" $
-      _LowercaseLetter >?< terminal "Ll"
-      <|> _UppercaseLetter >?< terminal "Lu"
-      <|> _TitlecaseLetter >?< terminal "Lt"
-      <|> _ModifierLetter >?< terminal "Lm"
-      <|> _OtherLetter >?< terminal "Lo"
-      <|> _NonSpacingMark >?< terminal "Mn"
-      <|> _SpacingCombiningMark >?< terminal "Mc"
-      <|> _EnclosingMark >?< terminal "Me"
-      <|> _DecimalNumber >?< terminal "Nd"
-      <|> _LetterNumber >?< terminal "Nl"
-      <|> _OtherNumber >?< terminal "No"
-      <|> _ConnectorPunctuation >?< terminal "Pc"
-      <|> _DashPunctuation >?< terminal "Pd"
-      <|> _OpenPunctuation >?< terminal "Ps"
-      <|> _ClosePunctuation >?< terminal "Pe"
-      <|> _InitialQuote >?< terminal "Pi"
-      <|> _FinalQuote >?< terminal "Pf"
-      <|> _OtherPunctuation >?< terminal "Po"
-      <|> _MathSymbol >?< terminal "Sm"
-      <|> _CurrencySymbol >?< terminal "Sc"
-      <|> _ModifierSymbol >?< terminal "Sk"
-      <|> _OtherSymbol >?< terminal "So"
-      <|> _Space >?< terminal "Zs"
-      <|> _LineSeparator >?< terminal "Zl"
-      <|> _ParagraphSeparator >?< terminal "Zp"
-      <|> _Control >?< terminal "Cc"
-      <|> _Format >?< terminal "Cf"
-      <|> _Surrogate >?< terminal "Cs"
-      <|> _PrivateUse >?< terminal "Co"
-      <|> _NotAssigned >?< terminal "Cn"
+    atomG rex = rule "atom" $ choiceP
+      [ nonterminalG
+      , failG
+      , classInG
+      , classNotInG
+      , categoryInG
+      , categoryNotInG
+      , _Terminal >?< charG >:< pure ""
+      , anyG
+      , parenG rex
+      ]
+    categoryG = rule "category" $ choiceP
+      [ _LowercaseLetter >?< terminal "Ll"
+      , _UppercaseLetter >?< terminal "Lu"
+      , _TitlecaseLetter >?< terminal "Lt"
+      , _ModifierLetter >?< terminal "Lm"
+      , _OtherLetter >?< terminal "Lo"
+      , _NonSpacingMark >?< terminal "Mn"
+      , _SpacingCombiningMark >?< terminal "Mc"
+      , _EnclosingMark >?< terminal "Me"
+      , _DecimalNumber >?< terminal "Nd"
+      , _LetterNumber >?< terminal "Nl"
+      , _OtherNumber >?< terminal "No"
+      , _ConnectorPunctuation >?< terminal "Pc"
+      , _DashPunctuation >?< terminal "Pd"
+      , _OpenPunctuation >?< terminal "Ps"
+      , _ClosePunctuation >?< terminal "Pe"
+      , _InitialQuote >?< terminal "Pi"
+      , _FinalQuote >?< terminal "Pf"
+      , _OtherPunctuation >?< terminal "Po"
+      , _MathSymbol >?< terminal "Sm"
+      , _CurrencySymbol >?< terminal "Sc"
+      , _ModifierSymbol >?< terminal "Sk"
+      , _OtherSymbol >?< terminal "So"
+      , _Space >?< terminal "Zs"
+      , _LineSeparator >?< terminal "Zl"
+      , _ParagraphSeparator >?< terminal "Zp"
+      , _Control >?< terminal "Cc"
+      , _Format >?< terminal "Cf"
+      , _Surrogate >?< terminal "Cs"
+      , _PrivateUse >?< terminal "Co"
+      , _NotAssigned >?< terminal "Cn"
+      ]
     categoryInG = rule "category-in" $
       _AsIn >?< terminal "\\p{" >* categoryG *< terminal "}"
     categoryNotInG = rule "category-not-in" $
@@ -221,12 +225,13 @@ regexGrammar = ruleRec "regex" $ \rex -> altG rex
       _OneOf >?< terminal "[" >* manyP charG *< terminal "]"
     classNotInG = rule "class-not-in" $
       _NotOneOf >?< terminal "[^" >* manyP charG *< terminal "]"
-    exprG rex = rule "expression" $
-      terminalG
-      <|> kleeneOptG rex
-      <|> kleeneStarG rex
-      <|> kleenePlusG rex
-      <|> atomG rex
+    exprG rex = rule "expression" $ choiceP
+      [ terminalG
+      , kleeneOptG rex
+      , kleeneStarG rex
+      , kleenePlusG rex
+      , atomG rex
+      ]
     failG = rule "fail" $ _Fail >?< terminal "\\q"
     nonterminalG = rule "nonterminal" $
       _NonTerminal >?< terminal "\\q{" >* manyP charG *< terminal "}"
@@ -243,7 +248,16 @@ regexGrammar = ruleRec "regex" $ \rex -> altG rex
       chain Left _Sequence (_Terminal . _Empty) noSep (exprG rex)
     terminalG = rule "terminal" $ _Terminal >?< someP charG
 
+instance IsList (RegEx Char) where
+  type Item (RegEx Char) = Char
+  fromList str = maybe Fail fst (listToMaybe (filter (\(_,remaining) -> remaining == "") (genReadS regexGrammar str)))
+  toList = maybe "\\q" ($ "") . genShowS regexGrammar
+
+instance IsString (RegEx Char) where
+  fromString = fromList
+
 instance Show (RegEx Char) where
-  showsPrec _ = fromMaybe ("\\q" <>) . genShowS regexGrammar
+  showsPrec precision = showsPrec precision . toList
+
 instance Read (RegEx Char) where
-  readsPrec _ = genReadS regexGrammar
+  readsPrec _ str = [(fromList str, "")]
