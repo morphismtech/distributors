@@ -17,7 +17,6 @@ module Control.Lens.Grammar
   , Contextual
   , RegEx (..)
   , regexGrammar
-  , normRegEx
   ) where
 
 import Control.Applicative
@@ -29,6 +28,7 @@ import Control.Lens.Grammar.Token
 import Control.Lens.Grammar.Stream
 import Control.Lens.Grammar.Symbol
 import Control.Monad
+import Data.Maybe
 import qualified Data.Foldable as F
 import Data.Profunctor.Distributor
 import Data.Profunctor.Filtrator
@@ -99,23 +99,9 @@ data RegEx a
   | NotAsIn (Categorize a)
   | NonTerminal String
 
-normRegEx :: Categorized a => RegEx a -> RegEx a
-normRegEx = \case
-  Sequence rex1 rex2 -> normRegEx rex1 <> normRegEx rex2
-  Alternate rex1 rex2 -> normRegEx rex1 `altK` normRegEx rex2
-  KleeneOpt rex -> optK (normRegEx rex)
-  KleeneStar rex -> starK (normRegEx rex)
-  KleenePlus rex -> plusK (normRegEx rex)
-  OneOf [a] -> token a
-  rex -> rex
-
 deriving stock instance Categorized a => Eq (RegEx a)
 deriving stock instance
   (Categorized a, Ord a, Ord (Categorize a)) => Ord (RegEx a)
-deriving stock instance
-  (Categorized a, Read a, Read (Categorize a)) => Read (RegEx a)
-deriving stock instance
-  (Categorized a, Show a, Show (Categorize a)) => Show (RegEx a)
 instance TerminalSymbol (RegEx a) where
   type Alphabet (RegEx a) = a
   terminal = Terminal . F.toList
@@ -226,7 +212,8 @@ regexGrammar = ruleRec "regex" $ \rex -> altG rex
     categoryNotInG = rule "category-not-in" $
       _NotAsIn >?< terminal "\\P{" >* categoryG *< terminal "}"
     charG = rule "char" $ charLiteralG <|> charEscapedG
-    charEscapedG = rule "char-escaped" $ terminal "\\" >* oneOf charsReserved
+    charEscapedG = rule "char-escaped" $
+      terminal "\\" >* oneOf charsReserved
     charLiteralG = rule "char-literal" $ notOneOf charsReserved
     charsReserved :: String
     charsReserved = "$()*+.?[\\]^{|}"
@@ -254,5 +241,9 @@ regexGrammar = ruleRec "regex" $ \rex -> altG rex
       _KleenePlus >?< atomG rex *< terminal "+"
     seqG rex = rule "sequence" $
       chain Left _Sequence (_Terminal . _Empty) noSep (exprG rex)
-    terminalG = rule "terminal" $
-      _Terminal >?< someP charG
+    terminalG = rule "terminal" $ _Terminal >?< someP charG
+
+instance Show (RegEx Char) where
+  showsPrec _ = fromMaybe ("\\q" <>) . genShowS regexGrammar
+instance Read (RegEx Char) where
+  readsPrec _ = genReadS regexGrammar
