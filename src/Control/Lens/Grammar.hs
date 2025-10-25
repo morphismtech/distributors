@@ -141,14 +141,14 @@ instance Categorized a => KleeneStarAlgebra (RegEx a) where
   plusK Fail = empK
   plusK (Terminal []) = mempty
   plusK rex = KleenePlus rex
-  KleenePlus rex `altK` Terminal [] = starK rex
-  Terminal [] `altK` KleenePlus rex = starK rex
-  rex `altK` Terminal [] = optK rex
-  Terminal [] `altK` rex = optK rex
-  rex `altK` Fail = rex
-  Fail `altK` rex = rex
-  rex0 `altK` rex1 | rex0 == rex1 = rex0
-  rex0 `altK` rex1 = Alternate rex0 rex1
+  KleenePlus rex >|< Terminal [] = starK rex
+  Terminal [] >|< KleenePlus rex = starK rex
+  rex >|< Terminal [] = optK rex
+  Terminal [] >|< rex = optK rex
+  rex >|< Fail = rex
+  Fail >|< rex = rex
+  rex0 >|< rex1 | rex0 == rex1 = rex0
+  rex0 >|< rex1 = Alternate rex0 rex1
 instance NonTerminalSymbol (RegEx a) where
   nonTerminal = NonTerminal
 

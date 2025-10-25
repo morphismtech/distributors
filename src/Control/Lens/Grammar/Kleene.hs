@@ -6,5 +6,5 @@ class Monoid a => KleeneStarAlgebra a where
   starK :: a -> a
   plusK :: a -> a
   optK :: a -> a
-  altK :: a -> a -> a
+  (>|<) :: a -> a -> a
   empK :: a

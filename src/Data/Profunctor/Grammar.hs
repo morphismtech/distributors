@@ -280,13 +280,13 @@ instance (Monoid t, Applicative f)
 instance (KleeneStarAlgebra t, Applicative f) => Alternative (Grammor s t f a) where
   empty = Grammor (pure (pure empK))
   Grammor rex1 <|> Grammor rex2 =
-    Grammor (liftA2 (liftA2 altK) rex1 rex2)
+    Grammor (liftA2 (liftA2 (>|<)) rex1 rex2)
   many (Grammor rex) = Grammor (fmap (fmap starK) rex)
   some (Grammor rex) = Grammor (fmap (fmap plusK) rex)
 instance (KleeneStarAlgebra t, Applicative f) => Distributor (Grammor s t f) where
   zeroP = Grammor (pure (pure empK))
   Grammor rex1 >+< Grammor rex2 =
-    Grammor (liftA2 (liftA2 altK) rex1 rex2)
+    Grammor (liftA2 (liftA2 (>|<)) rex1 rex2)
   manyP (Grammor rex) = Grammor (fmap (fmap starK) rex)
   optionalP (Grammor rex) = Grammor (fmap (fmap optK) rex)
 instance (KleeneStarAlgebra t, Applicative f) => Alternator (Grammor s t f) where
