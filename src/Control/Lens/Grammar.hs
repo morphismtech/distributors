@@ -10,7 +10,6 @@ module Control.Lens.Grammar
   , Regular
   , Grammatical
   , Contextual
-  , NonTerminalSymbol (..)
   , RegEx (..)
   , regexGrammar
   , normRegEx
