@@ -7,7 +7,6 @@ module Control.Lens.Grammar
   -- , genGram
   , genShowS
   , genReadS
-  , BackusNaurForm (..)
   , Regular
   , Grammatical
   , Contextual
