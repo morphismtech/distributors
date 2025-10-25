@@ -37,8 +37,8 @@ module Control.Lens.PartialIso
   , satisfied
   , nulled
   , notNulled
-  , maybeEot
-  , listEot
+  , eotMaybe
+  , eotList
     -- * Iterations
   , iterating
   , difoldl1
@@ -249,16 +249,16 @@ notNulled = partialIso nonEmp nonEmp where
   nonEmp s = if isn't _Empty s then Just s else Nothing
 
 {- | The either-of-tuples representation of `Maybe`. -}
-maybeEot :: Iso (Maybe a) (Maybe b) (Either () a) (Either () b)
-maybeEot = iso
+eotMaybe :: Iso (Maybe a) (Maybe b) (Either () a) (Either () b)
+eotMaybe = iso
   (maybe (Left ()) Right)
   (either (pure Nothing) Just)
 
 {- | The either-of-tuples representation of list-like streams. -}
-listEot
+eotList
   :: (Cons s s a a, AsEmpty t, Cons t t b b)
   => Iso s t (Either () (a,s)) (Either () (b,t))
-listEot = iso
+eotList = iso
   (maybe (Left ()) Right . uncons)
   (either (const Empty) (review _Cons))
 

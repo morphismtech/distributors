@@ -17,6 +17,8 @@ import Control.Lens
 import Control.Lens.PartialIso
 import Data.Profunctor
 import Data.Profunctor.Distributor
+import Data.Profunctor.Filtrator
+import Data.Profunctor.Monoidal
 import GHC.Exts
 
 type IsStream s = (IsList s, AsEmpty s, Cons s s (Item s) (Item s))
@@ -40,7 +42,7 @@ stream
   :: (Distributor p, IsStream s, IsStream t)
   => SepBy (p () ())
   -> p (Item s) (Item t) -> p s t
-stream (SepBy beg end sep) p = mapIso listEot $
+stream (SepBy beg end sep) p = mapIso eotList $
   beg >* oneP >+< stream1 (sepBy sep) p *< end
 
 {- |

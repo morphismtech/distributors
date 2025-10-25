@@ -12,7 +12,7 @@ import Control.Lens.Internal.Prism
 import Control.Lens.Internal.Profunctor
 import Control.Lens.PartialIso
 import Data.Profunctor
-import Data.Profunctor.Distributor
+import Data.Profunctor.Monoidal
 
 class Equator i j p | p -> i, p -> i where
   equate :: p i j

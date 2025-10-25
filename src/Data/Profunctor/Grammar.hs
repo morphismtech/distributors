@@ -1,9 +1,8 @@
-module Data.Profunctor.Syntax
-  ( InvariantP (..)
-  , Parsor (..)
+module Data.Profunctor.Grammar
+  ( Parsor (..)
   , Printor (..)
   , Lintor (..)
-  , SyntaxP (..)
+  , Grammor (..)
   , toPrintor
   , fromPrintor
   , Subtextual
@@ -25,17 +24,18 @@ import Data.Coerce
 import Data.Monoid
 import Data.Profunctor
 import Data.Profunctor.Distributor
+import Data.Profunctor.Filtrator
 import Data.Profunctor.Monadic
+import Data.Profunctor.Monoidal
 import Data.Void
 import Prelude hiding (id, (.))
 import GHC.Exts
 import Witherable
 
-newtype InvariantP r a b = InvariantP {runInvariantP :: r}
 newtype Parsor s t f a b = Parsor {runParsor :: s -> f (b,t)}
 newtype Printor s t f a b = Printor {runPrintor :: a -> f (s -> t)}
 newtype Lintor s t f a b = Lintor {runLintor :: a -> f (b, s -> t)}
-newtype SyntaxP s t f a b = SyntaxP {runSyntaxP :: s -> f t}
+newtype Grammor s t f a b = Grammor {runGrammor :: s -> f t}
 
 toPrintor :: Functor f => Lintor s t f a b -> Printor s t f a b
 toPrintor (Lintor f) = Printor (fmap snd . f)
@@ -47,59 +47,6 @@ type Subtextual s m =
   ( IsStream s, Categorized (Item s)
   , Alternative m, Filterable m, Monad m
   )
-
-instance Functor (InvariantP r a) where fmap _ = coerce
-instance Contravariant (InvariantP r a) where contramap _ = coerce
-instance Profunctor (InvariantP r) where dimap _ _ = coerce
-instance Bifunctor (InvariantP r) where bimap _ _ = coerce
-instance Choice (InvariantP r) where
-  left' = coerce
-  right' = coerce
-subsetOf
-  :: InvariantP (rules, (All, start)) a b
-  -> InvariantP (rules, (All, start)) s t
-subsetOf (InvariantP (rules, (_, start))) =
-  InvariantP (rules, ((All False), start))
-instance Filterable (InvariantP (rules, (All, start)) x) where
-  mapMaybe _ = subsetOf
-instance Cochoice (InvariantP (rules, (All, start))) where
-  unleft = subsetOf
-instance Filtrator (InvariantP (rules, (All, start))) where
-  filtrate p = (subsetOf p, subsetOf p)
-instance Monoid r => Applicative (InvariantP r a) where
-  pure _ = InvariantP mempty
-  InvariantP rex1 <*> InvariantP rex2 =
-    InvariantP (rex1 <> rex2)
-instance KleeneStarAlgebra r => Alternative (InvariantP r a) where
-  empty = InvariantP empK
-  InvariantP rex1 <|> InvariantP rex2 =
-    InvariantP (rex1 `altK` rex2)
-  many (InvariantP rex) = InvariantP (starK rex)
-  some (InvariantP rex) = InvariantP (plusK rex)
-instance KleeneStarAlgebra r => Distributor (InvariantP r) where
-  zeroP = InvariantP empK
-  InvariantP rex1 >+< InvariantP rex2 =
-    InvariantP (rex1 `altK` rex2)
-  manyP (InvariantP rex) = InvariantP (starK rex)
-  optionalP (InvariantP rex) = InvariantP (optK rex)
-instance KleeneStarAlgebra r => Alternator (InvariantP r) where
-  alternate = either coerce coerce
-  someP (InvariantP rex) = InvariantP (plusK rex)
-instance (Tokenized r, Categorized c, Token r ~ c)
-  => Tokenized (InvariantP r c c) where
-  type Token (InvariantP r c c) = Token r
-  anyToken = InvariantP anyToken
-  token = InvariantP . token
-  oneOf = InvariantP . oneOf
-  notOneOf = InvariantP . notOneOf
-  asIn = InvariantP . asIn
-  notAsIn = InvariantP . notAsIn
-instance BackusNaurForm p => BackusNaurForm (InvariantP p a b) where
-  rule name = InvariantP . rule name . runInvariantP
-  ruleRec name
-    = InvariantP
-    . ruleRec name
-    . dimap InvariantP runInvariantP
 
 instance Functor f => Functor (Parsor s t f a) where
   fmap f = Parsor . fmap (fmap (first' f)) . runParsor
@@ -305,52 +252,52 @@ instance (Subtextual s m, Item s ~ Char) => IsString (Lintor s s m () ()) where
 instance (Subtextual s m, Item s ~ Char) => IsString (Lintor s s m s s) where
   fromString = tokens
 
-instance Functor (SyntaxP s t f a) where fmap _ = coerce
-instance Contravariant (SyntaxP s t f a) where contramap _ = coerce
-instance Profunctor (SyntaxP s t f) where dimap _ _ = coerce
-instance Bifunctor (SyntaxP s t f) where bimap _ _ = coerce
-instance Functor f => Tetradic f SyntaxP where
-  dimapT f g = SyntaxP . dimap f (fmap g) . runSyntaxP
-  tetramap f g _ _ = SyntaxP . dimap f (fmap g) . runSyntaxP
-instance Choice (SyntaxP s t f) where
+instance Functor (Grammor s t f a) where fmap _ = coerce
+instance Contravariant (Grammor s t f a) where contramap _ = coerce
+instance Profunctor (Grammor s t f) where dimap _ _ = coerce
+instance Bifunctor (Grammor s t f) where bimap _ _ = coerce
+instance Functor f => Tetradic f Grammor where
+  dimapT f g = Grammor . dimap f (fmap g) . runGrammor
+  tetramap f g _ _ = Grammor . dimap f (fmap g) . runGrammor
+instance Choice (Grammor s t f) where
   left' = coerce
   right' = coerce
-instance Functor f => Filterable (SyntaxP s All f a) where
-  mapMaybe _ = SyntaxP . fmap (fmap (pure (All False))) . runSyntaxP
-instance Functor f => Cochoice (SyntaxP s All f) where
-  unleft = SyntaxP . fmap (fmap (pure (All False))) . runSyntaxP
-  unright = SyntaxP . fmap (fmap (pure (All False))) . runSyntaxP
-instance Functor f => Filtrator (SyntaxP s All f) where
-  filtrate (SyntaxP p) =
-    ( SyntaxP (fmap (fmap (pure (All False))) p)
-    , SyntaxP (fmap (fmap (pure (All False))) p)
+instance Functor f => Filterable (Grammor s All f a) where
+  mapMaybe _ = Grammor . fmap (fmap (pure (All False))) . runGrammor
+instance Functor f => Cochoice (Grammor s All f) where
+  unleft = Grammor . fmap (fmap (pure (All False))) . runGrammor
+  unright = Grammor . fmap (fmap (pure (All False))) . runGrammor
+instance Functor f => Filtrator (Grammor s All f) where
+  filtrate (Grammor p) =
+    ( Grammor (fmap (fmap (pure (All False))) p)
+    , Grammor (fmap (fmap (pure (All False))) p)
     )
 instance (Monoid t, Applicative f)
-  => Applicative (SyntaxP s t f a) where
-  pure _ = SyntaxP (pure (pure mempty))
-  SyntaxP rex1 <*> SyntaxP rex2 =
-    SyntaxP (liftA2 (liftA2 (<>)) rex1 rex2)
-instance (KleeneStarAlgebra t, Applicative f) => Alternative (SyntaxP s t f a) where
-  empty = SyntaxP (pure (pure empK))
-  SyntaxP rex1 <|> SyntaxP rex2 =
-    SyntaxP (liftA2 (liftA2 altK) rex1 rex2)
-  many (SyntaxP rex) = SyntaxP (fmap (fmap starK) rex)
-  some (SyntaxP rex) = SyntaxP (fmap (fmap plusK) rex)
-instance (KleeneStarAlgebra t, Applicative f) => Distributor (SyntaxP s t f) where
-  zeroP = SyntaxP (pure (pure empK))
-  SyntaxP rex1 >+< SyntaxP rex2 =
-    SyntaxP (liftA2 (liftA2 altK) rex1 rex2)
-  manyP (SyntaxP rex) = SyntaxP (fmap (fmap starK) rex)
-  optionalP (SyntaxP rex) = SyntaxP (fmap (fmap optK) rex)
-instance (KleeneStarAlgebra t, Applicative f) => Alternator (SyntaxP s t f) where
+  => Applicative (Grammor s t f a) where
+  pure _ = Grammor (pure (pure mempty))
+  Grammor rex1 <*> Grammor rex2 =
+    Grammor (liftA2 (liftA2 (<>)) rex1 rex2)
+instance (KleeneStarAlgebra t, Applicative f) => Alternative (Grammor s t f a) where
+  empty = Grammor (pure (pure empK))
+  Grammor rex1 <|> Grammor rex2 =
+    Grammor (liftA2 (liftA2 altK) rex1 rex2)
+  many (Grammor rex) = Grammor (fmap (fmap starK) rex)
+  some (Grammor rex) = Grammor (fmap (fmap plusK) rex)
+instance (KleeneStarAlgebra t, Applicative f) => Distributor (Grammor s t f) where
+  zeroP = Grammor (pure (pure empK))
+  Grammor rex1 >+< Grammor rex2 =
+    Grammor (liftA2 (liftA2 altK) rex1 rex2)
+  manyP (Grammor rex) = Grammor (fmap (fmap starK) rex)
+  optionalP (Grammor rex) = Grammor (fmap (fmap optK) rex)
+instance (KleeneStarAlgebra t, Applicative f) => Alternator (Grammor s t f) where
   alternate = either coerce coerce
-  someP (SyntaxP rex) = SyntaxP (fmap (fmap plusK) rex)
+  someP (Grammor rex) = Grammor (fmap (fmap plusK) rex)
 instance (Tokenized t, Categorized c, Token t ~ c, Applicative f)
-  => Tokenized (SyntaxP s t f c c) where
-  type Token (SyntaxP s t f c c) = Token t
-  anyToken = SyntaxP (pure (pure anyToken))
-  token = SyntaxP . pure . pure . token
-  oneOf = SyntaxP . pure . pure . oneOf
-  notOneOf = SyntaxP . pure . pure . notOneOf
-  asIn = SyntaxP . pure . pure . asIn
-  notAsIn = SyntaxP . pure . pure . notAsIn
+  => Tokenized (Grammor s t f c c) where
+  type Token (Grammor s t f c c) = Token t
+  anyToken = Grammor (pure (pure anyToken))
+  token = Grammor . pure . pure . token
+  oneOf = Grammor . pure . pure . oneOf
+  notOneOf = Grammor . pure . pure . notOneOf
+  asIn = Grammor . pure . pure . asIn
+  notAsIn = Grammor . pure . pure . notAsIn

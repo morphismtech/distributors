@@ -3,8 +3,13 @@ module Control.Lens.Grammar
     RegGrammar
   , Grammar
   , CtxGrammar
-  -- , genRegEx
-  -- , genGram
+  , opticGrammar
+  , grammarOptic
+  , RegGrammarr
+  , Grammarr
+  , CtxGrammarr
+  , opticGrammarr
+  , grammarrOptic
   , genShowS
   , genReadS
   , Regular
@@ -24,9 +29,12 @@ import Control.Lens.Grammar.Token
 import Control.Lens.Grammar.Stream
 import Control.Lens.Grammar.Symbol
 import Control.Monad
+import qualified Data.Foldable as F
 import Data.Profunctor.Distributor
+import Data.Profunctor.Filtrator
 import Data.Profunctor.Monadic
-import Data.Profunctor.Syntax
+import Data.Profunctor.Monoidal
+import Data.Profunctor.Grammar
 import GHC.Exts
 import Witherable
 
@@ -34,16 +42,21 @@ type RegGrammar c a = forall p. Regular c p => p a a
 type Grammar c a = forall p. Grammatical c p => p a a
 type CtxGrammar s a = forall p m. Contextual s m p => p s s m a a
 
+opticGrammar :: Monoidal p => Optic' p Identity a () -> p a a
+opticGrammar = ($ oneP) . opticGrammarr
+
+grammarOptic :: Monoidal p => p a a -> Optic' p Identity a ()
+grammarOptic = grammarrOptic . (*<)
+
+type RegGrammarr c a b = forall p. Regular c p => p a a -> p b b
 type Grammarr c a b = forall p. Grammatical c p => p a a -> p b b
+type CtxGrammarr s a b = forall p m. Contextual s m p => p s s m a a -> p s s m b b
 
--- genGram
---   :: (Categorized c, Ord c, Ord (Categorize c))
---   => Grammar c a
---   -> Gram (RegEx c)
--- genGram = runInvariantP
+opticGrammarr :: Profunctor p => Optic' p Identity b a -> p a a -> p b b
+opticGrammarr = dimap (rmap Identity) (rmap runIdentity)
 
--- genRegEx :: Categorized c => RegGrammar c a -> RegEx c
--- genRegEx = runInvariantP
+grammarrOptic :: Profunctor p => (p a a -> p b b) -> Optic' p Identity b a
+grammarrOptic = dimap (rmap runIdentity) (rmap Identity)
 
 genShowS
   :: (Filterable m, MonadPlus m)
@@ -71,52 +84,53 @@ type Contextual s m p =
   , Subtextual s m
   )
 
-data RegEx c
-  = Terminal [c]
-  | Sequence (RegEx c) (RegEx c)
+data RegEx a
+  = Terminal [a]
+  | Sequence (RegEx a) (RegEx a)
   | Fail
-  | Alternate (RegEx c) (RegEx c)
-  | KleeneOpt (RegEx c)
-  | KleeneStar (RegEx c)
-  | KleenePlus (RegEx c)
+  | Alternate (RegEx a) (RegEx a)
+  | KleeneOpt (RegEx a)
+  | KleeneStar (RegEx a)
+  | KleenePlus (RegEx a)
   | AnyToken
-  | InClass [c]
-  | NotInClass [c]
-  | InCategory (Categorize c)
-  | NotInCategory (Categorize c)
+  | OneOf [a]
+  | NotOneOf [a]
+  | AsIn (Categorize a)
+  | NotAsIn (Categorize a)
   | NonTerminal String
 
-normRegEx :: Categorized c => RegEx c -> RegEx c
+normRegEx :: Categorized a => RegEx a -> RegEx a
 normRegEx = \case
   Sequence rex1 rex2 -> normRegEx rex1 <> normRegEx rex2
   Alternate rex1 rex2 -> normRegEx rex1 `altK` normRegEx rex2
   KleeneOpt rex -> optK (normRegEx rex)
   KleeneStar rex -> starK (normRegEx rex)
   KleenePlus rex -> plusK (normRegEx rex)
+  OneOf [a] -> token a
   rex -> rex
 
-deriving stock instance Categorized c => Eq (RegEx c)
+deriving stock instance Categorized a => Eq (RegEx a)
 deriving stock instance
-  (Categorized c, Ord c, Ord (Categorize c)) => Ord (RegEx c)
+  (Categorized a, Ord a, Ord (Categorize a)) => Ord (RegEx a)
 deriving stock instance
-  (Categorized c, Read c, Read (Categorize c)) => Read (RegEx c)
+  (Categorized a, Read a, Read (Categorize a)) => Read (RegEx a)
 deriving stock instance
-  (Categorized c, Show c, Show (Categorize c)) => Show (RegEx c)
-instance TerminalSymbol (RegEx c) where
-  type Alphabet (RegEx c) = c
-  terminal = Terminal
-instance Monoid a => TerminalSymbol (a, RegEx c) where
-  type Alphabet (a, RegEx c) = c
+  (Categorized a, Show a, Show (Categorize a)) => Show (RegEx a)
+instance TerminalSymbol (RegEx a) where
+  type Alphabet (RegEx a) = a
+  terminal = Terminal . F.toList
+instance Monoid a => TerminalSymbol (a, RegEx a) where
+  type Alphabet (a, RegEx a) = a
   terminal = pure . terminal
-instance Categorized c => Tokenized (RegEx c) where
-  type Token (RegEx c) = c
+instance Categorized a => Tokenized (RegEx a) where
+  type Token (RegEx a) = a
   anyToken = AnyToken
-  token c = Terminal [c]
-  inClass = InClass
-  notInClass = NotInClass
-  inCategory = InCategory
-  notInCategory = NotInCategory
-instance Categorized c => Semigroup (RegEx c) where
+  token a = Terminal [a]
+  oneOf = OneOf . F.toList
+  notOneOf = NotOneOf . F.toList
+  asIn = AsIn
+  notAsIn = NotAsIn
+instance Categorized a => Semigroup (RegEx a) where
   Terminal [] <> rex = rex
   rex <> Terminal [] = rex
   Fail <> _ = empK
@@ -127,9 +141,9 @@ instance Categorized c => Semigroup (RegEx c) where
   rex0 <> KleeneStar rex1
     | rex0 == rex1 = plusK rex1
   rex0 <> rex1 = Sequence rex0 rex1
-instance Categorized c => Monoid (RegEx c) where
+instance Categorized a => Monoid (RegEx a) where
   mempty = Terminal []
-instance Categorized c => KleeneStarAlgebra (RegEx c) where
+instance Categorized a => KleeneStarAlgebra (RegEx a) where
   empK = Fail
   optK Fail = mempty
   optK (Terminal []) = mempty
@@ -149,16 +163,13 @@ instance Categorized c => KleeneStarAlgebra (RegEx c) where
   Fail `altK` rex = rex
   rex0 `altK` rex1 | rex0 == rex1 = rex0
   rex0 `altK` rex1 = Alternate rex0 rex1
-instance NonTerminalSymbol (RegEx c) where
+instance NonTerminalSymbol (RegEx a) where
   nonTerminal = NonTerminal
 
 instance Applicative f
-  => TerminalSymbol (SyntaxP s (RegEx c) f () ()) where
-  type Alphabet (SyntaxP s (RegEx c) f () ()) = c
-  terminal = SyntaxP . pure . pure . terminal
-instance TerminalSymbol (InvariantP (RegEx c) () ()) where
-  type Alphabet (InvariantP (RegEx c) () ()) = c
-  terminal = InvariantP . terminal
+  => TerminalSymbol (Grammor s (RegEx a) f () ()) where
+  type Alphabet (Grammor s (RegEx a) f () ()) = a
+  terminal = Grammor . pure . pure . terminal
 
 makeNestedPrisms ''RegEx
 makeNestedPrisms ''GeneralCategory
@@ -216,24 +227,25 @@ regexGrammar = ruleRec "regex" $ \rex -> altG rex
       <|> _NotAssigned >?< terminal "Cn"
 
     categoryInG = rule "category-in" $
-      _InCategory >?< terminal "\\p{" >* categoryG *< terminal "}"
+      _AsIn >?< terminal "\\p{" >* categoryG *< terminal "}"
 
     categoryNotInG = rule "category-not-in" $
-      _NotInCategory >?< terminal "\\P{" >* categoryG *< terminal "}"
+      _NotAsIn >?< terminal "\\P{" >* categoryG *< terminal "}"
 
     charG = rule "char" $ charLiteralG <|> charEscapedG
 
-    charEscapedG = rule "char-escaped" $ terminal "\\" >* inClass charsReserved
+    charEscapedG = rule "char-escaped" $ terminal "\\" >* oneOf charsReserved
 
-    charLiteralG = rule "char-literal" $ notInClass charsReserved
+    charLiteralG = rule "char-literal" $ notOneOf charsReserved
 
+    charsReserved :: String
     charsReserved = "$()*+.?[\\]^{|}"
 
     classInG = rule "class-in" $
-      _InClass >?< terminal "[" >* manyP charG *< terminal "]"
+      _OneOf >?< terminal "[" >* manyP charG *< terminal "]"
 
     classNotInG = rule "class-not-in" $
-      _NotInClass >?< terminal "[^" >* manyP charG *< terminal "]"
+      _NotOneOf >?< terminal "[^" >* manyP charG *< terminal "]"
 
     exprG rex = rule "expression" $
       terminalG

@@ -40,6 +40,7 @@ import Control.Lens.PartialIso
 import Control.Lens.Grammar.Stream
 import Data.Profunctor
 import Data.Profunctor.Distributor
+import Data.Profunctor.Filtrator
 import Witherable
 
 {- | `Bifocal`s are bidirectional parser optics.

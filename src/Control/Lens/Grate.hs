@@ -36,7 +36,7 @@ import Data.Function
 import Data.Functor.Identity
 import Data.Functor.Rep
 import Data.Profunctor
-import Data.Profunctor.Distributor
+import Data.Profunctor.Monoidal
 
 {- | `Grate`s are an optic that are dual to
 `Control.Lens.Traversal.Traversal`s, as `Distributive` is `Traversable`.

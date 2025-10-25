@@ -7,7 +7,7 @@ module Control.Lens.Grammar.Symbol
 import Control.Lens.Grammar.Equator
 import Data.Kind
 import Data.Profunctor
-import Data.Profunctor.Distributor
+import Data.Profunctor.Monoidal
 
 type Terminator :: Type -> (Type -> Type -> Type) -> Constraint
 type Terminator a p =

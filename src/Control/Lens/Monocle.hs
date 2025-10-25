@@ -30,7 +30,7 @@ import Control.Lens hiding (Traversing)
 import Control.Lens.Grammar.Equator
 import Control.Lens.Internal.Profunctor
 import Data.Distributive
-import Data.Profunctor.Distributor
+import Data.Profunctor.Monoidal
 
 {- | `Monocle`s are an optic that generalizes
 `Control.Lens.Traversal.Traversal`s & `Control.Lens.Grate.Grate`s.

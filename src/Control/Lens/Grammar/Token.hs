@@ -19,6 +19,7 @@ import Control.Lens.PartialIso
 import Data.Char
 import Data.Profunctor
 import Data.Profunctor.Distributor
+import Data.Profunctor.Monoidal
 import Data.Word
 
 class (Eq a, Eq (Categorize a)) => Categorized a where
