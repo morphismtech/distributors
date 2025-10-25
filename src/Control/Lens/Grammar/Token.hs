@@ -45,16 +45,16 @@ class Categorized (Token p) => Tokenized p where
     => Token p -> p
   token = satisfy . token
 
-  oneOf :: Foldable f => f (Token p) -> p
+  oneOf :: [Token p] -> p
   default oneOf
     :: (p ~ q (Token p) (Token p), Choice q, Cochoice q)
-    => Foldable f => f (Token p) -> p
+    => [Token p] -> p
   oneOf = satisfy . oneOf
 
-  notOneOf :: Foldable f => f (Token p) -> p
+  notOneOf :: [Token p] -> p
   default notOneOf
     :: (p ~ q (Token p) (Token p), Choice q, Cochoice q)
-    => Foldable f => f (Token p) -> p
+    => [Token p] -> p
   notOneOf = satisfy . notOneOf
 
   asIn :: Categorize (Token p) -> p
