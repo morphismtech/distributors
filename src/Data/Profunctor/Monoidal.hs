@@ -36,15 +36,14 @@ This is equivalent to the `Profunctor` also being `Applicative`.
 
 Laws:
 
->>> let (f >< g) (a,c) = (f a, g c)
 >>> let lunit = dimap (\((),a) -> a) (\a -> ((),a))
 >>> let runit = dimap (\(a,()) -> a) (\a -> (a,()))
 >>> let assoc = dimap (\(a,(b,c)) -> ((a,b),c)) (\((a,b),c) -> (a,(b,c)))
 
-prop> dimap (f >< g) (h >< i) (p >*< q) = dimap f h p >*< dimap g i q
 prop> oneP >*< p = lunit p
 prop> p >*< oneP = runit p
 prop> p >*< q >*< r = assoc ((p >*< q) >*< r)
+prop> dimap (f >*< g) (h >*< i) (p >*< q) = dimap f h p >*< dimap g i q
 
 -}
 type Monoidal p = (Profunctor p, forall x. Applicative (p x))
