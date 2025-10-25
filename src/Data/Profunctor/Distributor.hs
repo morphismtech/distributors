@@ -13,6 +13,7 @@ module Data.Profunctor.Distributor
     Distributor (..), dialt
     -- * Alternator
   , Alternator (..)
+  , choiceP
     -- * Homogeneous
   , Homogeneous (..)
   ) where
@@ -27,6 +28,7 @@ import Data.Bifunctor.Clown
 import Data.Bifunctor.Joker
 import Data.Bifunctor.Product
 import Data.Complex
+import Data.Foldable
 import Data.Functor.Adjunction
 import Data.Functor.Compose
 import Data.Functor.Contravariant.Divisible
@@ -334,6 +336,9 @@ class (Choice p, Distributor p, forall x. Alternative (p x))
     {- | One or more. -}
     someP :: p a b -> p [a] [b]
     someP p = _Cons >? p >*< manyP p
+
+choiceP :: (Foldable f, Alternator p) => f (p a b) -> p a b
+choiceP = foldl' (<|>) empty
 
 instance (Alternator p, Applicative f)
   => Alternator (WrappedPafb f p) where
