@@ -4,7 +4,7 @@ module Control.Lens.Grammar.Symbol
   , NonTerminalSymbol (..)
   ) where
 
-import Control.Lens.Internal.Equator
+import Control.Lens.Grammar.Equator
 import Data.Kind
 import Data.Profunctor
 import Data.Profunctor.Distributor

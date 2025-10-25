@@ -13,7 +13,7 @@ import Control.Applicative
 import Control.Arrow
 import Control.Category
 import Control.Lens
-import Control.Lens.Internal.Equator
+import Control.Lens.Grammar.Equator
 import Control.Lens.Grammar.BackusNaur
 import Control.Lens.Grammar.Kleene
 import Control.Lens.Grammar.Stream
@@ -90,10 +90,10 @@ instance (Tokenized r, Categorized c, Token r ~ c)
   type Token (InvariantP r c c) = Token r
   anyToken = InvariantP anyToken
   token = InvariantP . token
-  inClass = InvariantP . inClass
-  notInClass = InvariantP . notInClass
-  inCategory = InvariantP . inCategory
-  notInCategory = InvariantP . notInCategory
+  oneOf = InvariantP . oneOf
+  notOneOf = InvariantP . notOneOf
+  asIn = InvariantP . asIn
+  notAsIn = InvariantP . notAsIn
 instance BackusNaurForm p => BackusNaurForm (InvariantP p a b) where
   rule name = InvariantP . rule name . runInvariantP
   ruleRec name
@@ -350,7 +350,7 @@ instance (Tokenized t, Categorized c, Token t ~ c, Applicative f)
   type Token (SyntaxP s t f c c) = Token t
   anyToken = SyntaxP (pure (pure anyToken))
   token = SyntaxP . pure . pure . token
-  inClass = SyntaxP . pure . pure . inClass
-  notInClass = SyntaxP . pure . pure . notInClass
-  inCategory = SyntaxP . pure . pure . inCategory
-  notInCategory = SyntaxP . pure . pure . notInCategory
+  oneOf = SyntaxP . pure . pure . oneOf
+  notOneOf = SyntaxP . pure . pure . notOneOf
+  asIn = SyntaxP . pure . pure . asIn
+  notAsIn = SyntaxP . pure . pure . notAsIn

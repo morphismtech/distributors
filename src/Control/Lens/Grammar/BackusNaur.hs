@@ -49,10 +49,10 @@ instance (Ord a, Tokenized a) => Tokenized (Gram a) where
   type Token (Gram a) = Token a
   anyToken = liftGram0 anyToken
   token = liftGram0 . token
-  inClass = liftGram0 . inClass
-  notInClass = liftGram0 . notInClass
-  inCategory = liftGram0 . inCategory
-  notInCategory = liftGram0 . notInCategory
+  oneOf = liftGram0 . oneOf
+  notOneOf = liftGram0 . notOneOf
+  asIn = liftGram0 . asIn
+  notAsIn = liftGram0 . notAsIn
 
 instance (Ord a, KleeneStarAlgebra a) => KleeneStarAlgebra (Gram a) where
   starK = liftGram1 starK

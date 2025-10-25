@@ -32,12 +32,12 @@ library
       Control.Lens.Diopter
       Control.Lens.Grammar
       Control.Lens.Grammar.BackusNaur
+      Control.Lens.Grammar.Equator
       Control.Lens.Grammar.Kleene
       Control.Lens.Grammar.Stream
       Control.Lens.Grammar.Symbol
       Control.Lens.Grammar.Token
       Control.Lens.Grate
-      Control.Lens.Internal.Equator
       Control.Lens.Internal.NestedPrismTH
       Control.Lens.Monocle
       Control.Lens.PartialIso

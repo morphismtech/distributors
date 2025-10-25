@@ -1,8 +1,8 @@
-module Control.Lens.Internal.Equator
+module Control.Lens.Grammar.Equator
   ( -- *
     Equator (..)
   , is
-  , Identical
+  , Identical (..)
   ) where
 
 import Control.Lens
@@ -14,9 +14,9 @@ import Control.Lens.PartialIso
 import Data.Profunctor
 import Data.Profunctor.Distributor
 
-class Equator a b p | p -> a, p -> b where
-  equate :: p a b
-  default equate :: (Tokenizor c p, a ~ c, b ~ c) => p a b
+class Equator i j p | p -> i, p -> i where
+  equate :: p i j
+  default equate :: (Tokenizor a p, i ~ a, j ~ a) => p i j
   equate = anyToken
 instance Equator a b (Identical a b) where equate = Identical
 instance Equator a b (Exchange a b) where

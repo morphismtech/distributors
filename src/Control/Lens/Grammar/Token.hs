@@ -44,38 +44,38 @@ class Categorized (Token p) => Tokenized p where
     => Token p -> p
   token = satisfy . token
 
-  inClass :: [Token p] -> p
-  default inClass
+  oneOf :: Foldable f => f (Token p) -> p
+  default oneOf
     :: (p ~ q (Token p) (Token p), Choice q, Cochoice q)
-    => [Token p] -> p
-  inClass = satisfy . inClass
+    => Foldable f => f (Token p) -> p
+  oneOf = satisfy . oneOf
 
-  notInClass :: [Token p] -> p
-  default notInClass
+  notOneOf :: Foldable f => f (Token p) -> p
+  default notOneOf
     :: (p ~ q (Token p) (Token p), Choice q, Cochoice q)
-    => [Token p] -> p
-  notInClass = satisfy . notInClass
+    => Foldable f => f (Token p) -> p
+  notOneOf = satisfy . notOneOf
 
-  inCategory :: Categorize (Token p) -> p
-  default inCategory
+  asIn :: Categorize (Token p) -> p
+  default asIn
     :: (p ~ q (Token p) (Token p), Choice q, Cochoice q)
     => Categorize (Token p) -> p
-  inCategory = satisfy . inCategory
+  asIn = satisfy . asIn
 
-  notInCategory :: Categorize (Token p) -> p
-  default notInCategory
+  notAsIn :: Categorize (Token p) -> p
+  default notAsIn
     :: (p ~ q (Token p) (Token p), Choice q, Cochoice q)
     => Categorize (Token p) -> p
-  notInCategory = satisfy . notInCategory
+  notAsIn = satisfy . notAsIn
 
 instance Categorized c => Tokenized (c -> Bool) where
   type Token (c -> Bool) = c
   anyToken _ = True
   token = (==)
-  inClass = flip elem
-  notInClass = flip notElem
-  inCategory = lmap categorize . (==)
-  notInCategory = lmap categorize . (/=)
+  oneOf = flip elem
+  notOneOf = flip notElem
+  asIn = lmap categorize . (==)
+  notAsIn = lmap categorize . (/=)
 
 satisfy
   :: (Choice p, Cochoice p, Tokenizor a p)
@@ -102,7 +102,7 @@ of a given token's category while parsing,
 and produces the given token while printing.
 -}
 oneLike :: forall a p. (Profunctor p, Tokenizor a p) => a -> p () ()
-oneLike a = dimap (\_ -> a) (\(_::a) -> ()) (inCategory (categorize a))
+oneLike a = dimap (\_ -> a) (\(_::a) -> ()) (asIn (categorize a))
 
 {- |
 `manyLike` consumes zero or more tokens
@@ -111,7 +111,7 @@ and produces no tokens printing.
 -}
 manyLike :: forall a p. (Distributor p, Tokenizor a p) => a -> p () ()
 manyLike a = dimap (\_ -> []::[a]) (\(_::[a]) -> ())
-  (manyP (inCategory (categorize a)))
+  (manyP (asIn (categorize a)))
 
 {- |
 `optLike` consumes zero or more tokens
@@ -120,7 +120,7 @@ and produces the given token while printing.
 -}
 optLike :: forall a p. (Distributor p, Tokenizor a p) => a -> p () ()
 optLike a = dimap (\_ -> [a]::[a]) (\(_::[a]) -> ())
-  (manyP (inCategory (categorize a)))
+  (manyP (asIn (categorize a)))
 
 {- |
 `someLike` accepts one or more tokens
@@ -129,4 +129,4 @@ and produces the given token while printing.
 -}
 someLike :: forall a p. (Distributor p, Tokenizor a p) => a -> p () ()
 someLike a = dimap (\_ -> (a,[]::[a])) (\(_::a, _::[a]) -> ())
-  (inCategory (categorize a) >*< manyP (inCategory (categorize a)))
+  (asIn (categorize a) >*< manyP (asIn (categorize a)))

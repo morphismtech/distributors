@@ -27,7 +27,7 @@ module Control.Lens.Monocle
   ) where
 
 import Control.Lens hiding (Traversing)
-import Control.Lens.Internal.Equator
+import Control.Lens.Grammar.Equator
 import Control.Lens.Internal.Profunctor
 import Data.Distributive
 import Data.Profunctor.Distributor
