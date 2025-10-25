@@ -177,12 +177,9 @@ makeNestedPrisms ''GeneralCategory
 regexGrammar :: Grammar Char (RegEx Char)
 regexGrammar = ruleRec "regex" $ \rex -> altG rex
   where
-
     altG rex = rule "alternate" $
       chain1 Left _Alternate (sepBy (terminal "|")) (seqG rex)
-
     anyG = rule "any" $ _AnyToken >?< terminal "."
-
     atomG rex = rule "atom" $
       nonterminalG
       <|> failG
@@ -193,7 +190,6 @@ regexGrammar = ruleRec "regex" $ \rex -> altG rex
       <|> _Terminal >?< charG >:< pure ""
       <|> anyG
       <|> parenG rex
-
     categoryG = rule "category" $
       _LowercaseLetter >?< terminal "Ll"
       <|> _UppercaseLetter >?< terminal "Lu"
@@ -225,55 +221,38 @@ regexGrammar = ruleRec "regex" $ \rex -> altG rex
       <|> _Surrogate >?< terminal "Cs"
       <|> _PrivateUse >?< terminal "Co"
       <|> _NotAssigned >?< terminal "Cn"
-
     categoryInG = rule "category-in" $
       _AsIn >?< terminal "\\p{" >* categoryG *< terminal "}"
-
     categoryNotInG = rule "category-not-in" $
       _NotAsIn >?< terminal "\\P{" >* categoryG *< terminal "}"
-
     charG = rule "char" $ charLiteralG <|> charEscapedG
-
     charEscapedG = rule "char-escaped" $ terminal "\\" >* oneOf charsReserved
-
     charLiteralG = rule "char-literal" $ notOneOf charsReserved
-
     charsReserved :: String
     charsReserved = "$()*+.?[\\]^{|}"
-
     classInG = rule "class-in" $
       _OneOf >?< terminal "[" >* manyP charG *< terminal "]"
-
     classNotInG = rule "class-not-in" $
       _NotOneOf >?< terminal "[^" >* manyP charG *< terminal "]"
-
     exprG rex = rule "expression" $
       terminalG
       <|> kleeneOptG rex
       <|> kleeneStarG rex
       <|> kleenePlusG rex
       <|> atomG rex
-
     failG = rule "fail" $ _Fail >?< terminal "\\q"
-
     nonterminalG = rule "nonterminal" $
       _NonTerminal >?< terminal "\\q{" >* manyP charG *< terminal "}"
-
     parenG :: Grammarr Char x x
     parenG ex = rule "parenthesized" $
       terminal "(" >* ex *< terminal ")"
-
     kleeneOptG rex = rule "kleene-optional" $
       _KleeneOpt >?< atomG rex *< terminal "?"
-
     kleeneStarG rex = rule "kleene-star" $
       _KleeneStar >?< atomG rex *< terminal "*"
-
     kleenePlusG rex = rule "kleene-plus" $
       _KleenePlus >?< atomG rex *< terminal "+"
-
     seqG rex = rule "sequence" $
       chain Left _Sequence (_Terminal . _Empty) noSep (exprG rex)
-
     terminalG = rule "terminal" $
       _Terminal >?< someP charG

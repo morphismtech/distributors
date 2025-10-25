@@ -9,11 +9,10 @@ import Data.Kind
 import Data.Profunctor
 import Data.Profunctor.Monoidal
 
-type Terminator :: Type -> (Type -> Type -> Type) -> Constraint
 type Terminator a p =
   ( a ~ Alphabet (p () ())
   , forall x y. (x ~ (), y ~ ()) => TerminalSymbol (p x y)
-  )
+  ) :: Constraint
 
 class TerminalSymbol s where
   type Alphabet s
