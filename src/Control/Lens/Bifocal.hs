@@ -37,7 +37,7 @@ import Control.Lens
 import Control.Lens.Internal.Equator
 import Control.Lens.Internal.Profunctor
 import Control.Lens.PartialIso
-import Control.Lens.Stream
+import Control.Lens.Grammar.Stream
 import Data.Profunctor
 import Data.Profunctor.Distributor
 import Witherable

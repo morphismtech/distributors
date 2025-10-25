@@ -3,35 +3,33 @@ module Control.Lens.Grammar
     RegGrammar
   , Grammar
   , CtxGrammar
-  , Grammarr
-  , Gram (..)
-  , genRegEx
-  , genGram
+  -- , genRegEx
+  -- , genGram
   , genShowS
   , genReadS
-  , Rules (..)
+  , BackusNaurForm (..)
   , Regular
   , Grammatical
   , Contextual
   , NonTerminalSymbol (..)
+  , RegEx (..)
   , regexGrammar
+  , normRegEx
   ) where
 
 import Control.Applicative
 import Control.Lens
 import Control.Lens.PartialIso
-import Control.Lens.RegEx
-import Control.Lens.Token
-import Control.Lens.Stream
+import Control.Lens.Grammar.BackusNaur
+import Control.Lens.Grammar.Kleene
+import Control.Lens.Grammar.Token
+import Control.Lens.Grammar.Stream
+import Control.Lens.Grammar.Symbol
 import Control.Monad
-import Data.Function
-import Data.Monoid
 import Data.Profunctor.Distributor
 import Data.Profunctor.Monadic
 import Data.Profunctor.Syntax
-import Data.Set (insert, Set)
 import GHC.Exts
-import Type.Reflection
 import Witherable
 
 type RegGrammar c a = forall p. Regular c p => p a a
@@ -40,21 +38,14 @@ type CtxGrammar s a = forall p m. Contextual s m p => p s s m a a
 
 type Grammarr c a b = forall p. Grammatical c p => p a a -> p b b
 
-data Gram c = Gram
-  { startGram :: (All, RegEx c)
-  , rulesGram :: Set (String, (All, RegEx c))
-  }
-deriving stock instance
-  (Show c, Categorized c, Show (Categorize c)) => Show (Gram c)
+-- genGram
+--   :: (Categorized c, Ord c, Ord (Categorize c))
+--   => Grammar c a
+--   -> Gram (RegEx c)
+-- genGram = runInvariantP
 
-genGram
-  :: (Categorized c, Ord c, Ord (Categorize c))
-  => Grammar c a
-  -> Gram c
-genGram = (\(rules, start) -> Gram start rules) . runInvariantP
-
-genRegEx :: Categorized c => RegGrammar c a -> RegEx c
-genRegEx = runInvariantP
+-- genRegEx :: Categorized c => RegGrammar c a -> RegEx c
+-- genRegEx = runInvariantP
 
 genShowS
   :: (Filterable m, MonadPlus m)
@@ -73,55 +64,103 @@ type Regular c p =
 type Grammatical c p =
   ( Regular c p
   , Filtrator p
-  , forall x. Rules (p x x)
+  , forall x. BackusNaurForm (p x x)
   )
 
 type Contextual s m p =
-  ( Subtextual s m
-  , Grammatical (Item s) (p s s m)
-  , Polyadic p
-  , Tetradic m p
+  ( Grammatical (Item s) (p s s m)
+  , Monadic (p s s)
+  , Subtextual s m
   )
 
-class Rules a where
-  rule :: String -> a -> a
-  rule _ = id
-  ruleRec :: String -> (a -> a) -> a
-  ruleRec _ = fix
-instance Rules (Parsor s t m a b)
-instance Rules (Printor s t m a b)
-instance Rules (Lintor s t m a b)
-instance (NonTerminalSymbol a, Ord a)
-  => Rules (Set (String, a), a) where
-    rule name = ruleRec name . const
-    ruleRec name f =
-      let
-        start = nonTerminal name
-        (oldRules, newRule)  = f (mempty, start)
-        rules = insert (name, newRule) oldRules
-      in
-        (rules, start)
-instance Rules p => Rules (InvariantP p a b) where
-  rule name = InvariantP . rule name . runInvariantP
-  ruleRec name
-    = InvariantP
-    . ruleRec name
-    . dimap InvariantP runInvariantP
+data RegEx c
+  = Terminal [c]
+  | Sequence (RegEx c) (RegEx c)
+  | Fail
+  | Alternate (RegEx c) (RegEx c)
+  | KleeneOpt (RegEx c)
+  | KleeneStar (RegEx c)
+  | KleenePlus (RegEx c)
+  | AnyToken
+  | InClass [c]
+  | NotInClass [c]
+  | InCategory (Categorize c)
+  | NotInCategory (Categorize c)
+  | NonTerminal String
 
-class NonTerminalSymbol a where
-  nonTerminal :: String -> a
-  default nonTerminal :: Typeable a => String -> a
-  nonTerminal q = error (thetype ??? rexrule ??? function)
-    where
-      x ??? y = x <> " ??? " <> y
-      thetype = show (typeRep @a)
-      rexrule = "\\q{" <> q <> "}"
-      function = "Control.Lens.Grammar.nonTerminal"
+normRegEx :: Categorized c => RegEx c -> RegEx c
+normRegEx = \case
+  Sequence rex1 rex2 -> normRegEx rex1 <> normRegEx rex2
+  Alternate rex1 rex2 -> normRegEx rex1 `altK` normRegEx rex2
+  KleeneOpt rex -> optK (normRegEx rex)
+  KleeneStar rex -> starK (normRegEx rex)
+  KleenePlus rex -> plusK (normRegEx rex)
+  rex -> rex
+
+deriving stock instance Categorized c => Eq (RegEx c)
+deriving stock instance
+  (Categorized c, Ord c, Ord (Categorize c)) => Ord (RegEx c)
+deriving stock instance
+  (Categorized c, Read c, Read (Categorize c)) => Read (RegEx c)
+deriving stock instance
+  (Categorized c, Show c, Show (Categorize c)) => Show (RegEx c)
+instance TerminalSymbol (RegEx c) where
+  type Alphabet (RegEx c) = c
+  terminal = Terminal
+instance Monoid a => TerminalSymbol (a, RegEx c) where
+  type Alphabet (a, RegEx c) = c
+  terminal = pure . terminal
+instance Categorized c => Tokenized (RegEx c) where
+  type Token (RegEx c) = c
+  anyToken = AnyToken
+  token c = Terminal [c]
+  inClass = InClass
+  notInClass = NotInClass
+  inCategory = InCategory
+  notInCategory = NotInCategory
+instance Categorized c => Semigroup (RegEx c) where
+  Terminal [] <> rex = rex
+  rex <> Terminal [] = rex
+  Fail <> _ = empK
+  _ <> Fail = empK
+  Terminal str0 <> Terminal str1 = Terminal (str0 <> str1)
+  KleeneStar rex0 <> rex1
+    | rex0 == rex1 = plusK rex0
+  rex0 <> KleeneStar rex1
+    | rex0 == rex1 = plusK rex1
+  rex0 <> rex1 = Sequence rex0 rex1
+instance Categorized c => Monoid (RegEx c) where
+  mempty = Terminal []
+instance Categorized c => KleeneStarAlgebra (RegEx c) where
+  empK = Fail
+  optK Fail = mempty
+  optK (Terminal []) = mempty
+  optK (KleenePlus rex) = starK rex
+  optK rex = KleeneOpt rex
+  starK Fail = mempty
+  starK (Terminal []) = mempty
+  starK rex = KleeneStar rex
+  plusK Fail = empK
+  plusK (Terminal []) = mempty
+  plusK rex = KleenePlus rex
+  KleenePlus rex `altK` Terminal [] = starK rex
+  Terminal [] `altK` KleenePlus rex = starK rex
+  rex `altK` Terminal [] = optK rex
+  Terminal [] `altK` rex = optK rex
+  rex `altK` Fail = rex
+  Fail `altK` rex = rex
+  rex0 `altK` rex1 | rex0 == rex1 = rex0
+  rex0 `altK` rex1 = Alternate rex0 rex1
 instance NonTerminalSymbol (RegEx c) where
   nonTerminal = NonTerminal
-instance (Monoid a, NonTerminalSymbol b)
-  => NonTerminalSymbol (a,b) where
-    nonTerminal = pure . nonTerminal
+
+instance Applicative f
+  => TerminalSymbol (SyntaxP s (RegEx c) f () ()) where
+  type Alphabet (SyntaxP s (RegEx c) f () ()) = c
+  terminal = SyntaxP . pure . pure . terminal
+instance TerminalSymbol (InvariantP (RegEx c) () ()) where
+  type Alphabet (InvariantP (RegEx c) () ()) = c
+  terminal = InvariantP . terminal
 
 makeNestedPrisms ''RegEx
 makeNestedPrisms ''GeneralCategory

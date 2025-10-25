@@ -1,4 +1,4 @@
-module Control.Lens.Stream
+module Control.Lens.Grammar.Stream
   ( -- *
     IsStream
   , listed

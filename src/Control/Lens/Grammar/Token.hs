@@ -1,4 +1,4 @@
-module Control.Lens.Token
+module Control.Lens.Grammar.Token
   ( -- * Token
     Categorized (..)
   , Tokenized (..)
@@ -7,9 +7,9 @@ module Control.Lens.Token
   , Tokenizor
     -- * Like
   , oneLike
-  , anyLike
+  , manyLike
   , optLike
-  , reqLike
+  , someLike
     -- * Unicode
   , GeneralCategory (..)
   ) where
@@ -27,42 +27,9 @@ class (Eq a, Eq (Categorize a)) => Categorized a where
   categorize :: a -> Categorize a
   default categorize :: Categorize a ~ () => a -> Categorize a
   categorize _ = ()
-  decategorize :: Categorize a -> [a]
-  decategorize _ = []
 instance Categorized Char where
   type Categorize Char = GeneralCategory
   categorize = generalCategory
-  decategorize = \case
-    LowercaseLetter -> "Ll"
-    UppercaseLetter -> "Lu"
-    TitlecaseLetter -> "Lt"
-    ModifierLetter -> "Lm"
-    OtherLetter -> "Lo"
-    NonSpacingMark -> "Mn"
-    SpacingCombiningMark -> "Mc"
-    EnclosingMark -> "Me"
-    DecimalNumber -> "Nd"
-    LetterNumber -> "Nl"
-    OtherNumber -> "No"
-    ConnectorPunctuation -> "Pc"
-    DashPunctuation -> "Pd"
-    OpenPunctuation -> "Ps"
-    ClosePunctuation -> "Pe"
-    InitialQuote -> "Pi"
-    FinalQuote -> "Pf"
-    OtherPunctuation -> "Po"
-    MathSymbol -> "Sm"
-    CurrencySymbol -> "Sc"
-    ModifierSymbol -> "Sk"
-    OtherSymbol -> "So"
-    Space -> "Zs"
-    LineSeparator -> "Zl"
-    ParagraphSeparator -> "Zp"
-    Control -> "Cc"
-    Format -> "Cf"
-    Surrogate -> "Cs"
-    PrivateUse -> "Co"
-    NotAssigned -> "Cn"
 instance Categorized Word8
 instance Categorized ()
 
@@ -110,15 +77,6 @@ instance Categorized c => Tokenized (c -> Bool) where
   inCategory = lmap categorize . (==)
   notInCategory = lmap categorize . (/=)
 
-instance (Monoid a, Tokenized b) => Tokenized (a,b) where
-  type Token (a,b) = Token b
-  anyToken = pure anyToken
-  token = pure . token
-  inClass = pure . inClass
-  notInClass = pure . notInClass
-  inCategory = pure . inCategory
-  notInCategory = pure . notInCategory
-
 satisfy
   :: ( Choice q, Cochoice q
      , Tokenized p, p ~ q (Token p) (Token p)
@@ -149,16 +107,16 @@ oneLike :: forall c p. (Profunctor p, Tokenizor c p) => c -> p () ()
 oneLike c = dimap (\_ -> c) (\(_::c) -> ()) (inCategory (categorize c))
 
 {- |
-`anyLike` consumes tokens
+`manyLike` consumes zero or more tokens
 of a given token's category while parsing,
 and produces no tokens printing.
 -}
-anyLike :: forall c p. (Distributor p, Tokenizor c p) => c -> p () ()
-anyLike c = dimap (\_ -> []::[c]) (\(_::[c]) -> ())
+manyLike :: forall c p. (Distributor p, Tokenizor c p) => c -> p () ()
+manyLike c = dimap (\_ -> []::[c]) (\(_::[c]) -> ())
   (manyP (inCategory (categorize c)))
 
 {- |
-`optLike` consumes tokens
+`optLike` consumes zero or more tokens
 of a given token's category while parsing,
 and produces the given token while printing.
 -}
@@ -167,10 +125,10 @@ optLike c = dimap (\_ -> [c]::[c]) (\(_::[c]) -> ())
   (manyP (inCategory (categorize c)))
 
 {- |
-`reqLike` accepts one or more tokens,
+`someLike` accepts one or more tokens
 of a given token's category while parsing,
 and produces the given token while printing.
 -}
-reqLike :: forall c p. (Distributor p, Tokenizor c p) => c -> p () ()
-reqLike c = dimap (\_ -> (c,[]::[c])) (\(_::c, _::[c]) -> ())
+someLike :: forall c p. (Distributor p, Tokenizor c p) => c -> p () ()
+someLike c = dimap (\_ -> (c,[]::[c])) (\(_::c, _::[c]) -> ())
   (inCategory (categorize c) >*< manyP (inCategory (categorize c)))

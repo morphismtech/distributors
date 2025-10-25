@@ -14,9 +14,11 @@ import Control.Arrow
 import Control.Category
 import Control.Lens
 import Control.Lens.Internal.Equator
-import Control.Lens.RegEx
-import Control.Lens.Stream
-import Control.Lens.Token
+import Control.Lens.Grammar.BackusNaur
+import Control.Lens.Grammar.Kleene
+import Control.Lens.Grammar.Stream
+import Control.Lens.Grammar.Symbol
+import Control.Lens.Grammar.Token
 import Control.Monad
 import Data.Bifunctor
 import Data.Coerce
@@ -69,13 +71,13 @@ instance Monoid r => Applicative (InvariantP r a) where
   InvariantP rex1 <*> InvariantP rex2 =
     InvariantP (rex1 <> rex2)
 instance KleeneStarAlgebra r => Alternative (InvariantP r a) where
-  empty = InvariantP failK
+  empty = InvariantP empK
   InvariantP rex1 <|> InvariantP rex2 =
     InvariantP (rex1 `altK` rex2)
   many (InvariantP rex) = InvariantP (starK rex)
   some (InvariantP rex) = InvariantP (plusK rex)
 instance KleeneStarAlgebra r => Distributor (InvariantP r) where
-  zeroP = InvariantP failK
+  zeroP = InvariantP empK
   InvariantP rex1 >+< InvariantP rex2 =
     InvariantP (rex1 `altK` rex2)
   manyP (InvariantP rex) = InvariantP (starK rex)
@@ -92,15 +94,12 @@ instance (Tokenized r, Categorized c, Token r ~ c)
   notInClass = InvariantP . notInClass
   inCategory = InvariantP . inCategory
   notInCategory = InvariantP . notInCategory
-instance TerminalSymbol (InvariantP (RegEx c) () ()) where
-  type Alphabet (InvariantP (RegEx c) () ()) = c
-  terminal = InvariantP . terminal
-instance
-  ( Monoid a
-  , TerminalSymbol b
-  ) => TerminalSymbol (InvariantP (a,b) () ()) where
-  type Alphabet (InvariantP (a,b) () ()) = Alphabet b
-  terminal = InvariantP . pure . terminal
+instance BackusNaurForm p => BackusNaurForm (InvariantP p a b) where
+  rule name = InvariantP . rule name . runInvariantP
+  ruleRec name
+    = InvariantP
+    . ruleRec name
+    . dimap InvariantP runInvariantP
 
 instance Functor f => Functor (Parsor s t f a) where
   fmap f = Parsor . fmap (fmap (first' f)) . runParsor
@@ -172,6 +171,7 @@ instance (Subtextual s m, Item s ~ Char) => IsString (Parsor s s m () ()) where
   fromString = terminal
 instance (Subtextual s m, Item s ~ Char) => IsString (Parsor s s m s s) where
   fromString = tokens
+instance BackusNaurForm (Parsor s t m a b)
 
 instance Functor (Printor s t f a) where
   fmap _ = coerce
@@ -223,6 +223,7 @@ instance (Subtextual s m, Item s ~ Char)
 instance (Subtextual s m, Item s ~ Char)
   => IsString (Printor s s m s s) where
   fromString = tokens
+instance BackusNaurForm (Printor s t m a b)
 
 instance Functor f => Functor (Lintor s t f a) where
   fmap f = Lintor . fmap (fmap (first' f)) . runLintor
@@ -305,6 +306,7 @@ instance (Subtextual s m, Item s ~ Char) => IsString (Lintor s s m () ()) where
   fromString = terminal
 instance (Subtextual s m, Item s ~ Char) => IsString (Lintor s s m s s) where
   fromString = tokens
+instance BackusNaurForm (Lintor s t m a b)
 
 instance Functor (SyntaxP s t f a) where fmap _ = coerce
 instance Contravariant (SyntaxP s t f a) where contramap _ = coerce
@@ -316,19 +318,29 @@ instance Functor f => Tetradic f SyntaxP where
 instance Choice (SyntaxP s t f) where
   left' = coerce
   right' = coerce
+instance Functor f => Filterable (SyntaxP s All f a) where
+  mapMaybe _ = SyntaxP . fmap (fmap (pure (All False))) . runSyntaxP
+instance Functor f => Cochoice (SyntaxP s All f) where
+  unleft = SyntaxP . fmap (fmap (pure (All False))) . runSyntaxP
+  unright = SyntaxP . fmap (fmap (pure (All False))) . runSyntaxP
+instance Functor f => Filtrator (SyntaxP s All f) where
+  filtrate (SyntaxP p) =
+    ( SyntaxP (fmap (fmap (pure (All False))) p)
+    , SyntaxP (fmap (fmap (pure (All False))) p)
+    )
 instance (Monoid t, Applicative f)
   => Applicative (SyntaxP s t f a) where
   pure _ = SyntaxP (pure (pure mempty))
   SyntaxP rex1 <*> SyntaxP rex2 =
     SyntaxP (liftA2 (liftA2 (<>)) rex1 rex2)
 instance (KleeneStarAlgebra t, Applicative f) => Alternative (SyntaxP s t f a) where
-  empty = SyntaxP (pure (pure failK))
+  empty = SyntaxP (pure (pure empK))
   SyntaxP rex1 <|> SyntaxP rex2 =
     SyntaxP (liftA2 (liftA2 altK) rex1 rex2)
   many (SyntaxP rex) = SyntaxP (fmap (fmap starK) rex)
   some (SyntaxP rex) = SyntaxP (fmap (fmap plusK) rex)
 instance (KleeneStarAlgebra t, Applicative f) => Distributor (SyntaxP s t f) where
-  zeroP = SyntaxP (pure (pure failK))
+  zeroP = SyntaxP (pure (pure empK))
   SyntaxP rex1 >+< SyntaxP rex2 =
     SyntaxP (liftA2 (liftA2 altK) rex1 rex2)
   manyP (SyntaxP rex) = SyntaxP (fmap (fmap starK) rex)
@@ -345,6 +357,3 @@ instance (Tokenized t, Categorized c, Token t ~ c, Applicative f)
   notInClass = SyntaxP . pure . pure . notInClass
   inCategory = SyntaxP . pure . pure . inCategory
   notInCategory = SyntaxP . pure . pure . notInCategory
-instance Applicative f => TerminalSymbol (SyntaxP s (RegEx c) f () ()) where
-  type Alphabet (SyntaxP s (RegEx c) f () ()) = c
-  terminal = SyntaxP . pure . pure . terminal
