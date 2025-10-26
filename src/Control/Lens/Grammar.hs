@@ -7,6 +7,7 @@ module Control.Lens.Grammar
   , genRegEx
     -- * Grammar
   , Grammar
+  , genGram
   , regexString
     -- * CtxGrammar
   , CtxGrammar
@@ -36,6 +37,7 @@ import Control.Lens.Grammar.Stream
 import Control.Lens.Grammar.Symbol
 import Control.Monad
 import Data.Maybe
+import Data.Monoid
 import qualified Data.Foldable as F
 import Data.Profunctor.Distributor
 import Data.Profunctor.Filtrator
@@ -75,8 +77,13 @@ genShowS = evalPrintor
 genReadS :: CtxGrammar String a -> ReadS a
 genReadS = runParsor
 
-genRegEx :: forall token a. Categorized token => RegGrammar token a -> RegEx token
-genRegEx = evalGrammor @[token] @Identity
+genRegEx :: Categorized token => RegGrammar token a -> RegEx token
+genRegEx = evalGrammor @() @Identity
+
+genGram
+  :: (Categorized token, Ord token, Ord (Categorize token))
+  => Grammar token a -> Gram (RegEx token)
+genGram = evalGrammor @() @((,) All)
 
 type Regular c p =
   ( Terminator c p
