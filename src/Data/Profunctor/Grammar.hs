@@ -292,12 +292,22 @@ instance (KleeneStarAlgebra t, Applicative f) => Distributor (Grammor s t f) whe
 instance (KleeneStarAlgebra t, Applicative f) => Alternator (Grammor s t f) where
   alternate = either coerce coerce
   someP (Grammor rex) = Grammor (fmap (fmap plusK) rex)
-instance (Tokenized t, Categorized c, Token t ~ c, Applicative f)
-  => Tokenized (Grammor s t f c c) where
-  type Token (Grammor s t f c c) = Token t
+instance (Tokenized t, Applicative f)
+  => Tokenized (Grammor s t f a b) where
+  type Token (Grammor s t f a b) = Token t
   anyToken = Grammor (pure (pure anyToken))
   token = Grammor . pure . pure . token
   oneOf = Grammor . pure . pure . oneOf
   notOneOf = Grammor . pure . pure . notOneOf
   asIn = Grammor . pure . pure . asIn
   notAsIn = Grammor . pure . pure . notAsIn
+instance (TerminalSymbol t, Applicative f)
+  => TerminalSymbol (Grammor s t f a b) where
+  type Alphabet (Grammor s t f a b) = Alphabet t
+  terminal = Grammor . pure . pure . terminal
+instance (Tokenized t, Applicative f, Token t ~ a)
+  => Equator a a (Grammor s t f)
+-- instance (Applicative f, Ord a, NonTerminalSymbol a)
+--   => BackusNaurForm (Grammor s (Gram a) f x y) where
+--     rule name = Grammor . fmap (fmap (rule name)) . runGrammor
+--     ruleRec name = Grammor . _ . dimap Grammor runGrammor

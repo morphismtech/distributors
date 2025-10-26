@@ -207,11 +207,6 @@ instance Categorized a => KleeneStarAlgebra (RegEx a) where
 instance NonTerminalSymbol (RegEx a) where
   nonTerminal = NonTerminal
 
-instance Applicative f
-  => TerminalSymbol (Grammor s (RegEx a) f () ()) where
-  type Alphabet (Grammor s (RegEx a) f () ()) = a
-  terminal = Grammor . pure . pure . terminal
-
 makeNestedPrisms ''RegEx
 makeNestedPrisms ''GeneralCategory
 
