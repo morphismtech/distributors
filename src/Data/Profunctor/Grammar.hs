@@ -211,13 +211,13 @@ instance (Categorized a, a ~ Item s, IsStream s, Filterable m, MonadPlus m)
 instance (Categorized a, a ~ Item s, IsStream s, Filterable m, MonadPlus m)
   => TerminalSymbol (Printor s s m () ()) where
   type Alphabet (Printor s s m () ()) = Item s
-instance BackusNaurForm (Printor s t m a b)
 instance (Char ~ Item s, IsStream s, Filterable m, MonadPlus m)
   => IsString (Printor s s m () ()) where
   fromString = terminal
 instance (Char ~ Item s, IsStream s, Filterable m, MonadPlus m)
   => IsString (Printor s s m s s) where
   fromString = tokens
+instance BackusNaurForm (Printor s t m a b)
 
 -- Grammor instances
 instance Functor (Grammor s t f a) where fmap _ = coerce
