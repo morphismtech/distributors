@@ -21,7 +21,7 @@ module Control.Lens.Grammar
   , RegGrammar
   , runParsor
   , evalPrintor
-  , evalGrammor
+  , genRegEx
   , oneP
   , (>*<)
   , (>*)
@@ -119,6 +119,9 @@ genShowS = evalPrintor
 
 genReadS :: CtxGrammar String a -> ReadS a
 genReadS = runParsor
+
+genRegEx :: forall token a. Categorized token => RegGrammar token a -> RegEx token
+genRegEx = evalGrammor @[token] @Identity
 
 type Regular c p =
   ( Terminator c p
