@@ -1,18 +1,16 @@
 module Control.Lens.Grammar
   ( -- * RegEx
-    RegExString
-  , RegEx (..)
-    -- * RegGrammar
+    RegExStr
   , RegGrammar
   , genRegEx
+  , genShowS
+  , genReadS
     -- * Grammar
   , Grammar
   , genGram
   , regexString
     -- * CtxGrammar
   , CtxGrammar
-  , genShowS
-  , genReadS
     -- * Optics
   , RegGrammarr
   , Grammarr
@@ -25,6 +23,12 @@ module Control.Lens.Grammar
   , Regular
   , Grammatical
   , Contextual
+    -- * Re-exports
+  , module Control.Lens.Grammar.BackusNaur
+  , module Control.Lens.Grammar.Kleene
+  , module Control.Lens.Grammar.Token
+  , module Control.Lens.Grammar.Stream
+  , module Control.Lens.Grammar.Symbol
   ) where
 
 import Control.Applicative
@@ -38,7 +42,6 @@ import Control.Lens.Grammar.Symbol
 import Control.Monad
 import Data.Maybe
 import Data.Monoid
-import qualified Data.Foldable as F
 import Data.Profunctor.Distributor
 import Data.Profunctor.Filtrator
 import Data.Profunctor.Monadic
@@ -106,81 +109,11 @@ type Contextual s m p =
   , MonadPlus m
   )
 
-data RegEx a
-  = Terminal [a]
-  | Sequence (RegEx a) (RegEx a)
-  | Fail
-  | Alternate (RegEx a) (RegEx a)
-  | KleeneOpt (RegEx a)
-  | KleeneStar (RegEx a)
-  | KleenePlus (RegEx a)
-  | AnyToken
-  | OneOf [a]
-  | NotOneOf [a]
-  | AsIn (Categorize a)
-  | NotAsIn (Categorize a)
-  | NonTerminal String
-
-deriving stock instance Categorized a => Eq (RegEx a)
-deriving stock instance
-  (Categorized a, Ord a, Ord (Categorize a)) => Ord (RegEx a)
-instance TerminalSymbol (RegEx a) where
-  type Alphabet (RegEx a) = a
-  terminal = Terminal . F.toList
-instance Monoid a => TerminalSymbol (a, RegEx a) where
-  type Alphabet (a, RegEx a) = a
-  terminal = pure . terminal
-instance Categorized a => Tokenized (RegEx a) where
-  type Token (RegEx a) = a
-  anyToken = AnyToken
-  noToken = empK
-  token a = terminal [a]
-  notToken a = notOneOf [a]
-  oneOf = OneOf . F.toList
-  notOneOf = NotOneOf . F.toList
-  asIn = AsIn
-  notAsIn = NotAsIn
-instance Categorized a => Semigroup (RegEx a) where
-  Terminal [] <> rex = rex
-  rex <> Terminal [] = rex
-  Fail <> _ = empK
-  _ <> Fail = empK
-  Terminal str0 <> Terminal str1 = Terminal (str0 <> str1)
-  KleeneStar rex0 <> rex1
-    | rex0 == rex1 = plusK rex0
-  rex0 <> KleeneStar rex1
-    | rex0 == rex1 = plusK rex1
-  rex0 <> rex1 = Sequence rex0 rex1
-instance Categorized a => Monoid (RegEx a) where
-  mempty = Terminal []
-instance Categorized a => KleeneStarAlgebra (RegEx a) where
-  empK = Fail
-  optK Fail = mempty
-  optK (Terminal []) = mempty
-  optK (KleenePlus rex) = starK rex
-  optK rex = KleeneOpt rex
-  starK Fail = mempty
-  starK (Terminal []) = mempty
-  starK rex = KleeneStar rex
-  plusK Fail = empK
-  plusK (Terminal []) = mempty
-  plusK rex = KleenePlus rex
-  KleenePlus rex >|< Terminal [] = starK rex
-  Terminal [] >|< KleenePlus rex = starK rex
-  rex >|< Terminal [] = optK rex
-  Terminal [] >|< rex = optK rex
-  rex >|< Fail = rex
-  Fail >|< rex = rex
-  rex0 >|< rex1 | rex0 == rex1 = rex0
-  rex0 >|< rex1 = Alternate rex0 rex1
-instance NonTerminalSymbol (RegEx a) where
-  nonTerminal = NonTerminal
-
 makeNestedPrisms ''RegEx
 makeNestedPrisms ''GeneralCategory
 
-regexString :: Grammar Char RegExString
-regexString = ruleRec "regex" $ \rex -> altG rex
+regexString :: Grammar Char RegExStr
+regexString = dimap runRegExStr RegExStr . ruleRec "regex" $ \rex -> altG rex
   where
     altG rex = rule "alternate" $
       chain1 Left _Alternate (sepBy (terminal "|")) (seqG rex)
@@ -265,12 +198,12 @@ regexString = ruleRec "regex" $ \rex -> altG rex
       chain Left _Sequence (_Terminal . _Empty) noSep (exprG rex)
     terminalG = rule "terminal" $ _Terminal >?< someP charG
 
-type RegExString = RegEx Char
+newtype RegExStr = RegExStr {runRegExStr :: RegEx Char}
 
-instance IsList RegExString where
-  type Item RegExString = Char
+instance IsList RegExStr where
+  type Item RegExStr = Char
   fromList
-    = maybe Fail fst
+    = maybe (RegExStr Fail) fst
     . listToMaybe
     . filter (\(_, remaining) -> remaining == "")
     . genReadS regexString
@@ -278,11 +211,11 @@ instance IsList RegExString where
     = maybe "\\q" ($ "")
     . genShowS regexString
 
-instance IsString RegExString where
+instance IsString RegExStr where
   fromString = fromList
 
-instance Show RegExString where
+instance Show RegExStr where
   showsPrec precision = showsPrec precision . toList
 
-instance Read RegExString where
+instance Read RegExStr where
   readsPrec _ str = [(fromList str, "")]
