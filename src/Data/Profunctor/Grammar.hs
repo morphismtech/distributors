@@ -1,11 +1,14 @@
 module Data.Profunctor.Grammar
-  ( Parsor (..)
+  ( -- * Parsor
+    Parsor (..)
+    -- * Printor
   , Printor (..)
-  , Lintor (..)
+  , printor
+  , evalPrintor
+    -- * Grammor
   , Grammor (..)
-  , toPrintor
-  , fromPrintor
-  , Subtextual
+  , grammor
+  , evalGrammor
   ) where
 
 import Control.Applicative
@@ -34,21 +37,20 @@ import GHC.Exts
 import Witherable
 
 newtype Parsor s t f a b = Parsor {runParsor :: s -> f (b,t)}
-newtype Printor s t f a b = Printor {runPrintor :: a -> f (s -> t)}
-newtype Lintor s t f a b = Lintor {runLintor :: a -> f (b, s -> t)}
+
+newtype Printor s t f a b = Printor {runPrintor :: a -> f (b, s -> t)}
+printor :: Functor f => (a -> f (s -> t)) -> Printor s t f a a
+printor f = Printor (\a -> fmap (a,) (f a))
+evalPrintor :: Functor f => Printor s t f a b -> a -> f (s -> t)
+evalPrintor (Printor f) = fmap snd . f
+
 newtype Grammor s t f a b = Grammor {runGrammor :: s -> f t}
+grammor :: Applicative f => t -> Grammor s t f a b
+grammor = Grammor . pure . pure
+evalGrammor :: (Monoid s, Comonad f) => Grammor s t f a b -> t
+evalGrammor = extract . extract . runGrammor
 
-toPrintor :: Functor f => Lintor s t f a b -> Printor s t f a b
-toPrintor (Lintor f) = Printor (fmap snd . f)
-
-fromPrintor :: Functor f => Printor s t f a a -> Lintor s t f a a
-fromPrintor (Printor f) = Lintor (\a -> fmap (a,) (f a))
-
-type Subtextual s m =
-  ( IsStream s, Categorized (Item s)
-  , Alternative m, Filterable m, Monad m
-  )
-
+-- Parsor instances
 instance Functor f => Functor (Parsor s t f a) where
   fmap f = Parsor . fmap (fmap (first' f)) . runParsor
 instance Functor f => Bifunctor (Parsor s t f) where
@@ -62,7 +64,6 @@ instance Functor f => Profunctor (Parsor s t f) where
 instance Functor f => Tetradic f Parsor where
   dimapT f g (Parsor p) = Parsor (fmap (fmap g) . p . f)
   tetramap f g _ i (Parsor p) = Parsor (fmap (i >*< g) . p . f)
-
 instance Monad m => Applicative (Parsor s s m a) where
   pure b = Parsor (\s -> return (b,s))
   Parsor x <*> Parsor y = Parsor $ \s -> do
@@ -94,7 +95,6 @@ instance Polyadic Parsor where
   composeP (Parsor p) = Parsor $ \s -> do
     (mb, s') <- p s
     runParsor mb s'
-
 instance Filterable f => Filterable (Parsor s t f a) where
   mapMaybe f (Parsor p) = Parsor (mapMaybe (\(a,str) -> (,str) <$> f a) . p)
 instance Filterable f => Cochoice (Parsor s t f) where
@@ -107,152 +107,119 @@ instance Filterable f => Filtrator (Parsor s t f) where
     ) where
       leftMay (e, str) = either (\b -> Just (b, str)) (\_ -> Nothing) e
       rightMay (e, str) = either (\_ -> Nothing) (\b -> Just (b, str)) e
-
-instance (Subtextual s m, a ~ Item s) => Tokenized (Parsor s s m a a) where
+instance (Categorized a, a ~ Item s, IsStream s, Filterable m, MonadPlus m)
+  => Tokenized (Parsor s s m a a) where
   type Token (Parsor s s m a a) = a
   anyToken = Parsor (maybe empty pure . uncons)
-instance (Subtextual s m, a ~ Item s) => Equator a a (Parsor s s m) where
-instance Subtextual s m => TerminalSymbol (Parsor s s m () ()) where
+instance (Categorized a, a ~ Item s, IsStream s, Filterable m, MonadPlus m)
+  => Equator a a (Parsor s s m) where
+instance (Categorized a, a ~ Item s, IsStream s, Filterable m, MonadPlus m)
+  => TerminalSymbol (Parsor s s m () ()) where
   type Alphabet (Parsor s s m () ()) = Item s
-instance BackusNaurForm (Parsor s t m a b)
-instance (Subtextual s m, Item s ~ Char) => IsString (Parsor s s m () ()) where
+instance (Char ~ Item s, IsStream s, Filterable m, MonadPlus m)
+  => IsString (Parsor s s m () ()) where
   fromString = terminal
-instance (Subtextual s m, Item s ~ Char) => IsString (Parsor s s m s s) where
+instance (Char ~ Item s, IsStream s, Filterable m, MonadPlus m)
+  => IsString (Parsor s s m s s) where
   fromString = tokens
+instance BackusNaurForm (Parsor s t m a b)
 
-instance Functor (Printor s t f a) where
-  fmap _ = coerce
-instance Contravariant (Printor s t f a) where
-  contramap _ = coerce
-instance Profunctor (Printor s t f) where
-  dimap f _ = Printor . lmap f . runPrintor
-  lmap f = Printor . lmap f . runPrintor
-  rmap _ = coerce
+-- Printor instances
+instance Functor f => Functor (Printor s t f a) where
+  fmap f = Printor . fmap (fmap (first' f)) . runPrintor
+instance Functor f => Profunctor (Printor s t f) where
+  dimap f g = Printor . dimap f (fmap (first' g)) . runPrintor
 instance Functor f => Tetradic f Printor where
-  dimapT h i = Printor . (fmap (fmap (dimap h i))) . runPrintor
-  tetramap h i f _ = Printor . dimap f (fmap (dimap h i)) . runPrintor
-
-instance Filterable (Printor s t f a) where
-  mapMaybe _ (Printor p) = Printor p
-instance Cochoice (Printor s t f) where
-  unleft = fst . filtrate
-  unright = snd . filtrate
-instance Filtrator (Printor s t f) where
-  filtrate (Printor p) = (Printor (p . Left), Printor (p . Right))
-
+  dimapT f g = Printor . rmap (fmap (second' (dimap f g))) . runPrintor
+  tetramap f g h i = Printor . dimap h (fmap (i >*< dimap f g)) . runPrintor
 instance Applicative f => Applicative (Printor s s f a) where
-  pure _ = Printor (\_ -> pure id)
-  Printor p <*> Printor q = Printor (\a -> (.) <$> p a <*> q a)
+  pure b = Printor (\_ -> pure (b, id))
+  Printor f <*> Printor x = Printor $ \c ->
+    liftA2 (\(g, p) (a, q) -> (g a, p . q)) (f c) (x c)
 instance Alternative f => Alternative (Printor s s f a) where
   empty = Printor (\_ -> empty)
   Printor p <|> Printor q = Printor (\a -> p a <|> q a)
-instance Alternative f => Choice (Printor s s f) where
-  left' = alternate . Left
-  right' = alternate . Right
-instance Applicative f => Distributor (Printor s s f) where
-  zeroP = Printor absurd
-  Printor p >+< Printor q = Printor (either p q)
-instance Alternative f => Alternator (Printor s s f) where
-  alternate = \case
-    Left (Printor p) -> Printor (either p (\_ -> empty))
-    Right (Printor p) -> Printor (either (\_ -> empty) p)
-
-instance (Subtextual s m, Item s ~ a) => Tokenized (Printor s s m a a) where
-  type Token (Printor s s m a a) = a
-  anyToken = Printor (pure . cons)
-instance (Subtextual s m, Item s ~ a) => Equator a a (Printor s s m) where
-instance Subtextual s m => TerminalSymbol (Printor s s m () ()) where
-  type Alphabet (Printor s s m () ()) = Item s
-instance BackusNaurForm (Printor s t m a b)
-instance (Subtextual s m, Item s ~ Char)
-  => IsString (Printor s s m () ()) where
-  fromString = terminal
-instance (Subtextual s m, Item s ~ Char)
-  => IsString (Printor s s m s s) where
-  fromString = tokens
-
-instance Functor f => Functor (Lintor s t f a) where
-  fmap f = Lintor . fmap (fmap (first' f)) . runLintor
-instance Functor f => Profunctor (Lintor s t f) where
-  dimap f g = Lintor . dimap f (fmap (first' g)) . runLintor
-instance Functor f => Tetradic f Lintor where
-  dimapT f g = Lintor . rmap (fmap (second' (dimap f g))) . runLintor
-  tetramap f g h i = Lintor . dimap h (fmap (i >*< dimap f g)) . runLintor
-instance Applicative f => Applicative (Lintor s s f a) where
-  pure b = Lintor (\_ -> pure (b, id))
-  Lintor f <*> Lintor x = Lintor $ \c ->
-    liftA2 (\(g, p) (a, q) -> (g a, p . q)) (f c) (x c)
-instance Alternative f => Alternative (Lintor s s f a) where
-  empty = Lintor (\_ -> empty)
-  Lintor p <|> Lintor q = Lintor (\a -> p a <|> q a)
-instance Filterable f => Filterable (Lintor s s f a) where
-  mapMaybe f (Lintor p) = Lintor $
+instance Filterable f => Filterable (Printor s s f a) where
+  mapMaybe f (Printor p) = Printor $
     mapMaybe (\(a,q) -> fmap (, q) (f a)) . p
-instance Monad f => Monad (Lintor s s f a) where
+instance Monad f => Monad (Printor s s f a) where
   return = pure
-  mx >>= f = Lintor $ \ctx -> do
-    (x, p) <- runLintor mx ctx
-    (y, q) <- runLintor (f x) ctx
+  mx >>= f = Printor $ \ctx -> do
+    (x, p) <- runPrintor mx ctx
+    (y, q) <- runPrintor (f x) ctx
     return (y, p . q)
-instance (Alternative f, Monad f) => MonadPlus (Lintor s s f a)
-instance Monadic (Lintor s s) where
-  joinP (Lintor mf) = Lintor $ \a -> do
+instance (Alternative f, Monad f) => MonadPlus (Printor s s f a)
+instance Monadic (Printor s s) where
+  joinP (Printor mf) = Printor $ \a -> do
     (mb, f) <- mf a
     b <- mb
     return (b, f)
-instance Polyadic Lintor where
-  composeP (Lintor mf) = Lintor $ \a -> do
-    (Lintor mg, f) <- mf a
+instance Polyadic Printor where
+  composeP (Printor mf) = Printor $ \a -> do
+    (Printor mg, f) <- mf a
     (b, g) <- mg a
     return (b, g . f)
-instance Applicative f => Distributor (Lintor s s f) where
-  zeroP = Lintor absurd
-  Lintor p >+< Lintor q = Lintor $
+instance Applicative f => Distributor (Printor s s f) where
+  zeroP = Printor absurd
+  Printor p >+< Printor q = Printor $
     either (fmap (first' Left) . p) (fmap (first' Right) . q)
-instance Alternative f => Alternator (Lintor s s f) where
+instance Alternative f => Alternator (Printor s s f) where
   alternate = \case
-    Left (Lintor p) -> Lintor $
+    Left (Printor p) -> Printor $
       either (fmap (first' Left) . p) (\_ -> empty)
-    Right (Lintor p) -> Lintor $
+    Right (Printor p) -> Printor $
       either (\_ -> empty) (fmap (first' Right) . p)
-instance Filterable f => Filtrator (Lintor s s f) where
-  filtrate (Lintor p) =
-    ( Lintor (mapMaybe (\case{(Left b, q) -> Just (b, q); _ -> Nothing}) . p . Left)
-    , Lintor (mapMaybe (\case{(Right b, q) -> Just (b, q); _ -> Nothing}) . p . Right)
+instance Filterable f => Filtrator (Printor s s f) where
+  filtrate (Printor p) =
+    ( Printor (mapMaybe (\case{(Left b, q) -> Just (b, q); _ -> Nothing}) . p . Left)
+    , Printor (mapMaybe (\case{(Right b, q) -> Just (b, q); _ -> Nothing}) . p . Right)
     )
-instance Alternative f => Choice (Lintor s s f) where
+instance Alternative f => Choice (Printor s s f) where
   left' = alternate . Left
   right' = alternate . Right
-instance Filterable f => Cochoice (Lintor s s f) where
+instance Filterable f => Cochoice (Printor s s f) where
   unleft = fst . filtrate
   unright = snd . filtrate
-instance Functor f => Strong (Lintor s s f) where
-  first' (Lintor p) = Lintor (\(a,c) -> fmap (\(b,q) -> ((b,c),q)) (p a))
-  second' (Lintor p) = Lintor (\(c,a) -> fmap (\(b,q) -> ((c,b),q)) (p a))
-instance Monad f => Category (Lintor s s f) where
-  id = Lintor $ \a -> return (a, id)
-  Lintor q . Lintor p = Lintor $ \a -> do
+instance Functor f => Strong (Printor s s f) where
+  first' (Printor p) = Printor (\(a,c) -> fmap (\(b,q) -> ((b,c),q)) (p a))
+  second' (Printor p) = Printor (\(c,a) -> fmap (\(b,q) -> ((c,b),q)) (p a))
+instance Monad f => Category (Printor s s f) where
+  id = Printor $ \a -> return (a, id)
+  Printor q . Printor p = Printor $ \a -> do
     (b, p') <- p a
     (c, q') <- q b
     return (c, q' . p')
-instance Monad f => Arrow (Lintor s s f) where
-  arr f = Lintor (return . (, id) . f)
+instance Monad f => Arrow (Printor s s f) where
+  arr f = Printor (return . (, id) . f)
   (***) = (>*<)
   first = first'
   second = second'
-
-instance (Subtextual s m, Item s ~ a) => Tokenized (Lintor s s m a a) where
-  type Token (Lintor s s m a a) = a
-  anyToken = Lintor (\b -> pure (b, cons b))
-instance (Subtextual s m, Item s ~ a) => Equator a a (Lintor s s m) where
-instance Subtextual s m => TerminalSymbol (Lintor s s m () ()) where
-  type Alphabet (Lintor s s m () ()) = Item s
-instance BackusNaurForm (Lintor s t m a b)
-instance (Subtextual s m, Item s ~ Char) => IsString (Lintor s s m () ()) where
+instance MonadPlus f => ArrowZero (Printor s s f) where
+  zeroArrow = empty
+instance MonadPlus f => ArrowPlus (Printor s s f) where
+  (<+>) = (<|>)
+instance MonadPlus f => ArrowChoice (Printor s s f) where
+  (+++) = (>+<)
+  left = left'
+  right = right'
+instance (Categorized a, a ~ Item s, IsStream s, Filterable m, MonadPlus m)
+  => Tokenized (Printor s s m a a) where
+  type Token (Printor s s m a a) = a
+  anyToken = Printor (\b -> pure (b, cons b))
+instance (Categorized a, a ~ Item s, IsStream s, Filterable m, MonadPlus m)
+  => Equator a a (Printor s s m) where
+instance (Categorized a, a ~ Item s, IsStream s, Filterable m, MonadPlus m)
+  => TerminalSymbol (Printor s s m () ()) where
+  type Alphabet (Printor s s m () ()) = Item s
+instance BackusNaurForm (Printor s t m a b)
+instance (Char ~ Item s, IsStream s, Filterable m, MonadPlus m)
+  => IsString (Printor s s m () ()) where
   fromString = terminal
-instance (Subtextual s m, Item s ~ Char) => IsString (Lintor s s m s s) where
+instance (Char ~ Item s, IsStream s, Filterable m, MonadPlus m)
+  => IsString (Printor s s m s s) where
   fromString = tokens
 
+-- Grammor instances
 instance Functor (Grammor s t f a) where fmap _ = coerce
 instance Contravariant (Grammor s t f a) where contramap _ = coerce
 instance Profunctor (Grammor s t f) where dimap _ _ = coerce
@@ -278,40 +245,40 @@ instance (Monoid t, Applicative f)
   pure _ = Grammor (pure (pure mempty))
   Grammor rex1 <*> Grammor rex2 =
     Grammor (liftA2 (liftA2 (<>)) rex1 rex2)
-instance (KleeneStarAlgebra t, Applicative f) => Alternative (Grammor s t f a) where
+instance (KleeneStarAlgebra t, Applicative f)
+  => Alternative (Grammor s t f a) where
   empty = Grammor (pure (pure empK))
   Grammor rex1 <|> Grammor rex2 =
     Grammor (liftA2 (liftA2 (>|<)) rex1 rex2)
   many (Grammor rex) = Grammor (fmap (fmap starK) rex)
   some (Grammor rex) = Grammor (fmap (fmap plusK) rex)
-instance (KleeneStarAlgebra t, Applicative f) => Distributor (Grammor s t f) where
+instance (KleeneStarAlgebra t, Applicative f)
+  => Distributor (Grammor s t f) where
   zeroP = Grammor (pure (pure empK))
   Grammor rex1 >+< Grammor rex2 =
     Grammor (liftA2 (liftA2 (>|<)) rex1 rex2)
   manyP (Grammor rex) = Grammor (fmap (fmap starK) rex)
   optionalP (Grammor rex) = Grammor (fmap (fmap optK) rex)
-instance (KleeneStarAlgebra t, Applicative f) => Alternator (Grammor s t f) where
+instance (KleeneStarAlgebra t, Applicative f)
+  => Alternator (Grammor s t f) where
   alternate = either coerce coerce
   someP (Grammor rex) = Grammor (fmap (fmap plusK) rex)
 instance (Tokenized t, Applicative f)
   => Tokenized (Grammor s t f a b) where
   type Token (Grammor s t f a b) = Token t
   anyToken = Grammor (pure (pure anyToken))
-  token = Grammor . pure . pure . token
-  oneOf = Grammor . pure . pure . oneOf
-  notOneOf = Grammor . pure . pure . notOneOf
-  asIn = Grammor . pure . pure . asIn
-  notAsIn = Grammor . pure . pure . notAsIn
+  token = grammor . token
+  oneOf = grammor . oneOf
+  notOneOf = grammor . notOneOf
+  asIn = grammor . asIn
+  notAsIn = grammor . notAsIn
 instance (TerminalSymbol t, Applicative f)
   => TerminalSymbol (Grammor s t f a b) where
   type Alphabet (Grammor s t f a b) = Alphabet t
-  terminal = Grammor . pure . pure . terminal
+  terminal = grammor . terminal
 instance (Tokenized t, Applicative f, Token t ~ a)
   => Equator a a (Grammor s t f)
 instance (Comonad f, Applicative f, Monoid s, BackusNaurForm t)
   => BackusNaurForm (Grammor s t f a b) where
   rule name = Grammor . fmap (fmap (rule name)) . runGrammor
-  ruleRec name = pureG . ruleRec name . dimap pureG extractG
-    where
-      pureG = Grammor . pure . pure
-      extractG = extract . extract . runGrammor
+  ruleRec name = grammor . ruleRec name . dimap grammor evalGrammor

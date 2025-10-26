@@ -19,9 +19,9 @@ module Control.Lens.Grammar
   , nonTerminal
     -- * RegGrammar
   , RegGrammar
-  , runPrintor
   , runParsor
-  , runGrammor
+  , evalPrintor
+  , evalGrammor
   , oneP
   , (>*<)
   , (>*)
@@ -49,7 +49,6 @@ module Control.Lens.Grammar
     -- * Grammar
   , Grammar
   , regexString
-  , runLintor
   , (>?<)
   , only
   , satisfied
@@ -116,7 +115,7 @@ grammarrOptic = dimap (rmap runIdentity) (rmap Identity)
 genShowS
   :: (Filterable m, MonadPlus m)
   => CtxGrammar String a -> a -> m ShowS
-genShowS = runPrintor . toPrintor
+genShowS = evalPrintor
 
 genReadS :: CtxGrammar String a -> ReadS a
 genReadS = runParsor
@@ -136,7 +135,10 @@ type Grammatical c p =
 type Contextual s m p =
   ( Grammatical (Item s) (p s s m)
   , Monadic (p s s)
-  , Subtextual s m
+  , Categorized (Item s)
+  , IsStream s
+  , Filterable m
+  , MonadPlus m
   )
 
 data RegEx a
