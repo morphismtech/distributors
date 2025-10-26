@@ -2,70 +2,24 @@ module Control.Lens.Grammar
   ( -- * RegEx
     RegExString
   , RegEx (..)
-  , mempty
-  , token
-  , terminal
-  , (<>)
-  , anyToken
-  , oneOf
-  , notOneOf
-  , asIn
-  , notAsIn
-  , starK
-  , plusK
-  , optK
-  , (>|<)
-  , empK
-  , nonTerminal
     -- * RegGrammar
   , RegGrammar
-  , runParsor
-  , evalPrintor
   , genRegEx
-  , oneP
-  , (>*<)
-  , (>*)
-  , (*<)
-  , (>?)
-  , (<|>)
-  , (>+<)
-  , empty
-  , zeroP
-  , manyP
-  , someP
-  , optionalP
-  , stream
-  , stream1
-  , chain
-  , chain1
-  , SepBy (..)
-  , sepBy
-  , noSep
-  , tokens
-  , oneLike
-  , manyLike
-  , optLike
-  , someLike
     -- * Grammar
   , Grammar
   , regexString
-  , (>?<)
-  , only
-  , satisfied
-  , satisfy
-  , rule
-  , ruleRec
     -- * CtxGrammar
   , CtxGrammar
   , genShowS
   , genReadS
-  , opticGrammar
-  , grammarOptic
+    -- * Optics
   , RegGrammarr
   , Grammarr
   , CtxGrammarr
   , opticGrammarr
   , grammarrOptic
+  , opticGrammar
+  , grammarOptic
     -- * Constraints
   , Regular
   , Grammatical
