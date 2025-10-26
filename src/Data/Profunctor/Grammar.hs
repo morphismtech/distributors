@@ -11,6 +11,7 @@ module Data.Profunctor.Grammar
 import Control.Applicative
 import Control.Arrow
 import Control.Category
+import Control.Comonad
 import Control.Lens
 import Control.Lens.Grammar.Equator
 import Control.Lens.Grammar.BackusNaur
@@ -262,15 +263,15 @@ instance Functor f => Tetradic f Grammor where
 instance Choice (Grammor s t f) where
   left' = coerce
   right' = coerce
-instance Functor f => Filterable (Grammor s All f a) where
-  mapMaybe _ = Grammor . fmap (fmap (pure (All False))) . runGrammor
-instance Functor f => Cochoice (Grammor s All f) where
-  unleft = Grammor . fmap (fmap (pure (All False))) . runGrammor
-  unright = Grammor . fmap (fmap (pure (All False))) . runGrammor
-instance Functor f => Filtrator (Grammor s All f) where
+instance Filterable (Grammor s t ((,) All) a) where
+  mapMaybe _ = Grammor . fmap (\(_, t) -> (All False, t)) . runGrammor
+instance Cochoice (Grammor s t ((,) All)) where
+  unleft = Grammor . fmap (\(_, t) -> (All False, t)) . runGrammor
+  unright = Grammor . fmap (\(_, t) -> (All False, t)) . runGrammor
+instance Filtrator (Grammor s t ((,) All)) where
   filtrate (Grammor p) =
-    ( Grammor (fmap (fmap (pure (All False))) p)
-    , Grammor (fmap (fmap (pure (All False))) p)
+    ( Grammor (fmap (\(_, t) -> (All False, t)) p)
+    , Grammor (fmap (\(_, t) -> (All False, t)) p)
     )
 instance (Monoid t, Applicative f)
   => Applicative (Grammor s t f a) where
@@ -307,7 +308,10 @@ instance (TerminalSymbol t, Applicative f)
   terminal = Grammor . pure . pure . terminal
 instance (Tokenized t, Applicative f, Token t ~ a)
   => Equator a a (Grammor s t f)
--- instance (Applicative f, Ord a, NonTerminalSymbol a)
---   => BackusNaurForm (Grammor s (Gram a) f x y) where
---     rule name = Grammor . fmap (fmap (rule name)) . runGrammor
---     ruleRec name = Grammor . _ . dimap Grammor runGrammor
+instance (Comonad f, Applicative f, Monoid s, BackusNaurForm t)
+  => BackusNaurForm (Grammor s t f a b) where
+  rule name = Grammor . fmap (fmap (rule name)) . runGrammor
+  ruleRec name = pureG . ruleRec name . dimap pureG extractG
+    where
+      pureG = Grammor . pure . pure
+      extractG = extract . extract . runGrammor

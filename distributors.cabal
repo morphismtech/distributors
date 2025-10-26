@@ -98,6 +98,7 @@ library
     , base >=4.7 && <5
     , bifunctors >=5.6 && <6
     , bytestring >=0.11 && <1
+    , comonad
     , containers >=0.6 && <1
     , contravariant >=1.5 && <2
     , distributive >=0.6 && <1
@@ -166,6 +167,7 @@ test-suite spec
     , base >=4.7 && <5
     , bifunctors >=5.6 && <6
     , bytestring >=0.11 && <1
+    , comonad
     , containers >=0.6 && <1
     , contravariant >=1.5 && <2
     , distributive >=0.6 && <1
