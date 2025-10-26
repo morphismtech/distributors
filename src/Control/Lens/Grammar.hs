@@ -1,7 +1,58 @@
 module Control.Lens.Grammar
-  ( -- *
-    RegGrammar
+  ( -- * RegEx
+    RegExString
+  , RegEx (..)
+  , mempty
+  , token
+  , terminal
+  , (<>)
+  , anyToken
+  , oneOf
+  , notOneOf
+  , asIn
+  , notAsIn
+  , starK
+  , plusK
+  , optK
+  , (>|<)
+  , empK
+  , nonTerminal
+    -- * RegGrammar
+  , RegGrammar
+  , runPrintor
+  , runParsor
+  , runGrammor
+  , oneP
+  , (>*<)
+  , (>*)
+  , (*<)
+  , (>+<)
+  , (<|>)
+  , zeroP
+  , empty
+  , manyP
+  , someP
+  , optionalP
+  , stream
+  , stream1
+  , chain
+  , chain1
+  , SepBy (..)
+  , sepBy
+  , noSep
+  , tokens
+  , oneLike
+  , manyLike
+  , optLike
+  , someLike
+    -- * Grammar
   , Grammar
+  , regexString
+  , runLintor
+  , satisfy
+  , rule
+  , ruleRec
+    -- * CtxGrammar
   , CtxGrammar
   , opticGrammar
   , grammarOptic
@@ -15,8 +66,6 @@ module Control.Lens.Grammar
   , Regular
   , Grammatical
   , Contextual
-  , RegEx (..)
-  , regexGrammar
   ) where
 
 import Control.Applicative
@@ -162,8 +211,8 @@ instance Applicative f
 makeNestedPrisms ''RegEx
 makeNestedPrisms ''GeneralCategory
 
-regexGrammar :: Grammar Char (RegEx Char)
-regexGrammar = ruleRec "regex" $ \rex -> altG rex
+regexString :: Grammar Char RegExString
+regexString = ruleRec "regex" $ \rex -> altG rex
   where
     altG rex = rule "alternate" $
       chain1 Left _Alternate (sepBy (terminal "|")) (seqG rex)
@@ -248,16 +297,24 @@ regexGrammar = ruleRec "regex" $ \rex -> altG rex
       chain Left _Sequence (_Terminal . _Empty) noSep (exprG rex)
     terminalG = rule "terminal" $ _Terminal >?< someP charG
 
-instance IsList (RegEx Char) where
-  type Item (RegEx Char) = Char
-  fromList str = maybe Fail fst (listToMaybe (filter (\(_,remaining) -> remaining == "") (genReadS regexGrammar str)))
-  toList = maybe "\\q" ($ "") . genShowS regexGrammar
+type RegExString = RegEx Char
 
-instance IsString (RegEx Char) where
+instance IsList RegExString where
+  type Item RegExString = Char
+  fromList
+    = maybe Fail fst
+    . listToMaybe
+    . filter (\(_, remaining) -> remaining == "")
+    . genReadS regexString
+  toList
+    = maybe "\\q" ($ "")
+    . genShowS regexString
+
+instance IsString RegExString where
   fromString = fromList
 
-instance Show (RegEx Char) where
+instance Show RegExString where
   showsPrec precision = showsPrec precision . toList
 
-instance Read (RegEx Char) where
+instance Read RegExString where
   readsPrec _ str = [(fromList str, "")]
