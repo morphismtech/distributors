@@ -57,6 +57,8 @@ module Control.Lens.Grammar
   , ruleRec
     -- * CtxGrammar
   , CtxGrammar
+  , genShowS
+  , genReadS
   , opticGrammar
   , grammarOptic
   , RegGrammarr
@@ -64,8 +66,7 @@ module Control.Lens.Grammar
   , CtxGrammarr
   , opticGrammarr
   , grammarrOptic
-  , genShowS
-  , genReadS
+    -- * Constraints
   , Regular
   , Grammatical
   , Contextual
