@@ -26,10 +26,11 @@ module Control.Lens.Grammar
   , (>*<)
   , (>*)
   , (*<)
-  , (>+<)
+  , (>?)
   , (<|>)
-  , zeroP
+  , (>+<)
   , empty
+  , zeroP
   , manyP
   , someP
   , optionalP
@@ -49,6 +50,9 @@ module Control.Lens.Grammar
   , Grammar
   , regexString
   , runLintor
+  , (>?<)
+  , only
+  , satisfied
   , satisfy
   , rule
   , ruleRec
