@@ -266,8 +266,10 @@ instance (KleeneStarAlgebra t, Applicative f)
 instance (Tokenized t, Applicative f)
   => Tokenized (Grammor s t f a b) where
   type Token (Grammor s t f a b) = Token t
-  anyToken = Grammor (pure (pure anyToken))
+  anyToken = grammor anyToken
+  noToken = grammor noToken
   token = grammor . token
+  notToken = grammor . notToken
   oneOf = grammor . oneOf
   notOneOf = grammor . notOneOf
   asIn = grammor . asIn

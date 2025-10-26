@@ -14,6 +14,7 @@ module Control.Lens.Grammar.Token
   , GeneralCategory (..)
   ) where
 
+import Control.Applicative
 import Control.Lens
 import Control.Lens.PartialIso
 import Data.Char
@@ -39,11 +40,21 @@ class Categorized (Token p) => Tokenized p where
 
   anyToken :: p
 
+  noToken :: p
+  default noToken :: (p ~ f (Token p), Alternative f) => p
+  noToken = empty
+
   token :: Token p -> p
   default token
     :: (p ~ q (Token p) (Token p), Choice q, Cochoice q)
     => Token p -> p
   token = satisfy . token
+
+  notToken :: Token p -> p
+  default notToken
+    :: (p ~ q (Token p) (Token p), Choice q, Cochoice q)
+    => Token p -> p
+  notToken = satisfy . notToken
 
   oneOf :: [Token p] -> p
   default oneOf
@@ -72,7 +83,9 @@ class Categorized (Token p) => Tokenized p where
 instance Categorized c => Tokenized (c -> Bool) where
   type Token (c -> Bool) = c
   anyToken _ = True
+  noToken _ = False
   token = (==)
+  notToken = (/=)
   oneOf = flip elem
   notOneOf = flip notElem
   asIn = lmap categorize . (==)
