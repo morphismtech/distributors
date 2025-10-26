@@ -8,7 +8,7 @@ module Control.Lens.Grammar
     -- * Grammar
   , Grammar
   , genGram
-  , regexString
+  , regexGrammar
     -- * CtxGrammar
   , CtxGrammar
     -- * Optics
@@ -111,23 +111,21 @@ type Contextual s m p =
 
 makeNestedPrisms ''RegEx
 makeNestedPrisms ''GeneralCategory
-
-regexString :: Grammar Char RegExStr
-regexString = dimap runRegExStr RegExStr . ruleRec "regex" $ \rex -> altG rex
+regexGrammar :: Grammar Char (RegEx Char)
+regexGrammar = ruleRec "regex" altG
   where
     altG rex = rule "alternate" $
       chain1 Left _Alternate (sepBy (terminal "|")) (seqG rex)
     anyG = rule "any" $ _AnyToken >?< terminal "."
     atomG rex = rule "atom" $ choiceP
       [ nonterminalG
-      , failG
       , classInG
       , classNotInG
       , categoryInG
       , categoryNotInG
       , _Terminal >?< charG >:< pure ""
       , anyG
-      , parenG rex
+      , terminal "(" >* rex *< terminal ")"
       ]
     categoryG = rule "category" $ choiceP
       [ _LowercaseLetter >?< terminal "Ll"
@@ -165,57 +163,53 @@ regexString = dimap runRegExStr RegExStr . ruleRec "regex" $ \rex -> altG rex
       _AsIn >?< terminal "\\p{" >* categoryG *< terminal "}"
     categoryNotInG = rule "category-not-in" $
       _NotAsIn >?< terminal "\\P{" >* categoryG *< terminal "}"
-    charG = rule "char" $ charLiteralG <|> charEscapedG
-    charEscapedG = rule "char-escaped" $
-      terminal "\\" >* oneOf charsReserved
-    charLiteralG = rule "char-literal" $ notOneOf charsReserved
-    charsReserved :: String
-    charsReserved = "$()*+.?[\\]^{|}"
+    charG = rule "char" $ escapeG "\t\n$()*+.?[\\]^{|}"
     classInG = rule "class-in" $
       _OneOf >?< terminal "[" >* manyP charG *< terminal "]"
     classNotInG = rule "class-not-in" $
       _NotOneOf >?< terminal "[^" >* manyP charG *< terminal "]"
     exprG rex = rule "expression" $ choiceP
-      [ terminalG
+      [ _Terminal >?< someP charG
       , kleeneOptG rex
       , kleeneStarG rex
       , kleenePlusG rex
       , atomG rex
       ]
-    failG = rule "fail" $ _Fail >?< terminal "\\q"
-    nonterminalG = rule "nonterminal" $
-      _NonTerminal >?< terminal "\\q{" >* manyP charG *< terminal "}"
-    parenG :: Grammarr Char x x
-    parenG ex = rule "parenthesized" $
-      terminal "(" >* ex *< terminal ")"
     kleeneOptG rex = rule "kleene-optional" $
       _KleeneOpt >?< atomG rex *< terminal "?"
     kleeneStarG rex = rule "kleene-star" $
       _KleeneStar >?< atomG rex *< terminal "*"
     kleenePlusG rex = rule "kleene-plus" $
       _KleenePlus >?< atomG rex *< terminal "+"
+    nonterminalG = rule "nonterminal" $ terminal "\\q" >*
+      (_NonTerminal >?< ruleG charG <|> _Fail >?< oneP)
     seqG rex = rule "sequence" $
       chain Left _Sequence (_Terminal . _Empty) noSep (exprG rex)
-    terminalG = rule "terminal" $ _Terminal >?< someP charG
+
+escapeG :: String -> RegGrammar Char Char
+escapeG charsReserved =
+  notOneOf charsReserved <|> terminal "\\" >* oneOf charsReserved
+
+ruleG :: RegGrammarr Char c [c]
+ruleG p = terminal "{" >* manyP p *< terminal "}"
+
+-- bnfGrammarr :: RegGrammarr Char rule (rule, [(String,rule)])
+-- bnfGrammarr p = terminal "{start} = " >* p >*< manyP (terminal "\n{"  >* manyP (notOneOf))
 
 newtype RegExStr = RegExStr {runRegExStr :: RegEx Char}
-
 instance IsList RegExStr where
   type Item RegExStr = Char
   fromList
     = maybe (RegExStr Fail) fst
     . listToMaybe
     . filter (\(_, remaining) -> remaining == "")
-    . genReadS regexString
+    . genReadS (dimap runRegExStr RegExStr regexGrammar)
   toList
     = maybe "\\q" ($ "")
-    . genShowS regexString
-
+    . genShowS (dimap runRegExStr RegExStr regexGrammar)
 instance IsString RegExStr where
   fromString = fromList
-
 instance Show RegExStr where
   showsPrec precision = showsPrec precision . toList
-
 instance Read RegExStr where
   readsPrec _ str = [(fromList str, "")]
