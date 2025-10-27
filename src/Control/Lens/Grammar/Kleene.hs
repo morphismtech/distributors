@@ -11,7 +11,7 @@ import Data.Monoid
 
 class Monoid t => KleeneStarAlgebra t where
   starK, plusK, optK :: t -> t
-  starK t = optK (starK t)
+  starK t = optK (plusK t)
   plusK t = t <> starK t
   optK t = mempty >|< t
   infixl 3 >|<
