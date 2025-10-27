@@ -23,11 +23,11 @@ import Data.Profunctor.Distributor
 import Data.Profunctor.Monoidal
 import Data.Word
 
-class (Eq a, Eq (Categorize a)) => Categorized a where
-  type Categorize a
-  type Categorize a = ()
-  categorize :: a -> Categorize a
-  default categorize :: Categorize a ~ () => a -> Categorize a
+class (Eq token, Eq (Categorize token)) => Categorized token where
+  type Categorize token
+  type Categorize token = ()
+  categorize :: token -> Categorize token
+  default categorize :: Categorize token ~ () => token -> Categorize token
   categorize _ = ()
 instance Categorized Char where
   type Categorize Char = GeneralCategory
@@ -80,8 +80,8 @@ class Categorized (Token p) => Tokenized p where
     => Categorize (Token p) -> p
   notAsIn = satisfy . notAsIn
 
-instance Categorized c => Tokenized (c -> Bool) where
-  type Token (c -> Bool) = c
+instance Categorized token => Tokenized (token -> Bool) where
+  type Token (token -> Bool) = token
   anyToken _ = True
   noToken _ = False
   token = (==)
@@ -92,21 +92,18 @@ instance Categorized c => Tokenized (c -> Bool) where
   notAsIn = lmap categorize . (/=)
 
 satisfy
-  :: (Choice p, Cochoice p, Tokenizor a p)
-  => (a -> Bool) -> p a a
+  :: (Choice p, Cochoice p, Tokenizor token p)
+  => (token -> Bool) -> p token token
 satisfy f = satisfied f >?< anyToken
 
-type Tokenizor a p = (Tokenized (p a a), Token (p a a) ~ a)
+type Tokenizor token p =
+  (Tokenized (p token token), Token (p token token) ~ token)
 
 tokens
-  :: ( AsEmpty s
-     , Cons s s a a
-     , Monoidal p
-     , Choice p
-     , Tokenizor a p
+  :: ( AsEmpty s, Cons s s token token
+     , Monoidal p, Choice p, Tokenizor token p
      )
-  => [a]
-  -> p s s
+  => [token] -> p s s
 tokens [] = asEmpty
 tokens (a:as) = token a >:< tokens as
 
@@ -115,16 +112,20 @@ tokens (a:as) = token a >:< tokens as
 of a given token's category while parsing,
 and produces the given token while printing.
 -}
-oneLike :: forall a p. (Profunctor p, Tokenizor a p) => a -> p () ()
-oneLike a = dimap (\_ -> a) (\(_::a) -> ()) (asIn (categorize a))
+oneLike
+  :: forall token p. (Profunctor p, Tokenizor token p)
+  => token -> p () ()
+oneLike a = dimap (\_ -> a) (\(_::token) -> ()) (asIn (categorize a))
 
 {- |
 `manyLike` consumes zero or more tokens
 of a given token's category while parsing,
 and produces no tokens printing.
 -}
-manyLike :: forall a p. (Distributor p, Tokenizor a p) => a -> p () ()
-manyLike a = dimap (\_ -> []::[a]) (\(_::[a]) -> ())
+manyLike
+  :: forall token p. (Distributor p, Tokenizor token p)
+  => token -> p () ()
+manyLike a = dimap (\_ -> []::[token]) (\(_::[token]) -> ())
   (manyP (asIn (categorize a)))
 
 {- |
@@ -132,8 +133,10 @@ manyLike a = dimap (\_ -> []::[a]) (\(_::[a]) -> ())
 of a given token's category while parsing,
 and produces the given token while printing.
 -}
-optLike :: forall a p. (Distributor p, Tokenizor a p) => a -> p () ()
-optLike a = dimap (\_ -> [a]::[a]) (\(_::[a]) -> ())
+optLike
+  :: forall token p. (Distributor p, Tokenizor token p)
+  => token -> p () ()
+optLike a = dimap (\_ -> [a]::[token]) (\(_::[token]) -> ())
   (manyP (asIn (categorize a)))
 
 {- |
@@ -141,6 +144,8 @@ optLike a = dimap (\_ -> [a]::[a]) (\(_::[a]) -> ())
 of a given token's category while parsing,
 and produces the given token while printing.
 -}
-someLike :: forall a p. (Distributor p, Tokenizor a p) => a -> p () ()
-someLike a = dimap (\_ -> (a,[]::[a])) (\(_::a, _::[a]) -> ())
+someLike
+  :: forall token p. (Distributor p, Tokenizor token p)
+  => token -> p () ()
+someLike a = dimap (\_ -> (a,[]::[token])) (\(_::token, _::[token]) -> ())
   (asIn (categorize a) >*< manyP (asIn (categorize a)))
