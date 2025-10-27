@@ -8,7 +8,6 @@ import Control.Lens.Grammar.Symbol
 import Control.Lens.Grammar.Token
 import Data.Foldable
 import Data.Monoid
-import Prelude hiding ((*), (+))
 
 class Monoid t => KleeneStarAlgebra t where
   starK, plusK, optK :: t -> t
