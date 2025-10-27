@@ -1,15 +1,19 @@
 module Control.Lens.Grammar.Stream
-  ( -- *
+  ( -- * Stream
     IsStream
-  , listed
-  , streamed
   , stream
   , stream1
+    -- * SepBy
   , SepBy (..)
   , sepBy
   , noSep
+    -- * Chain
   , chain
   , chain1
+    -- Utilities
+  , listed
+  , streamed
+  , streamLine
   ) where
 
 import Control.Applicative
@@ -22,6 +26,9 @@ import Data.Profunctor.Monoidal
 import GHC.Exts
 
 type IsStream s = (IsList s, AsEmpty s, Cons s s (Item s) (Item s))
+
+streamLine :: (IsList s, Item s ~ Char) => s -> IO ()
+streamLine = putStrLn . toList 
 
 listed :: (IsList s, IsList t, Item s ~ Item t) => Iso' s t
 listed = iso (fromList . toList) (fromList . toList)

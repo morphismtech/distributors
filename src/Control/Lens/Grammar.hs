@@ -215,10 +215,10 @@ newtype EBNF = EBNF {runEBNF :: Gram RegExStr}
     )
 
 printRegEx :: RegGrammar Char a -> IO ()
-printRegEx = putStrLn . toList . RegExStr . genRegEx @Char
+printRegEx = streamLine . RegExStr . genRegEx @Char
 
 printEBNF :: Grammar Char a -> IO ()
-printEBNF = putStrLn . toList . EBNF . liftGram1 RegExStr . genGram @Char
+printEBNF = streamLine . EBNF . liftGram1 RegExStr . genGram @Char
 
 instance IsList RegExStr where
   type Item RegExStr = Char
