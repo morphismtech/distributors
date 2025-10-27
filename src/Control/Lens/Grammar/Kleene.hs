@@ -15,6 +15,7 @@ class Monoid t => KleeneStarAlgebra t where
   starK t = optK (starK t)
   plusK t = t <> starK t
   optK t = mempty >|< t
+  infixl 3 >|<
   (>|<) :: t -> t -> t
   default (>|<) :: (t ~ f a, Alternative f) => t -> t -> t
   (>|<) = (<|>)
