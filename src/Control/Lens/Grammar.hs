@@ -1,15 +1,18 @@
 module Control.Lens.Grammar
   ( -- * RegEx
     RegExStr
+  , EBNF
   , RegGrammar
   , RegGrammarr
   , bnfGrammarr
   , genRegEx
+  , printRegEx
   , genShowS
   , genReadS
     -- * Grammar
   , Grammar
   , genGram
+  , printEBNF
   , regexGrammar
   , ebnfGrammar
   , Grammarr
@@ -44,6 +47,7 @@ import Control.Lens.Grammar.Symbol
 import Control.Monad
 import Data.Maybe hiding (mapMaybe)
 import Data.Monoid
+import Data.Profunctor
 import Data.Profunctor.Distributor
 import Data.Profunctor.Filtrator
 import Data.Profunctor.Monadic
@@ -126,7 +130,15 @@ regexGrammar = ruleRec "regex" altG
   where
     altG rex = rule "alternate" $
       chain1 Left _Alternate (sepBy (terminal "|")) (seqG rex)
-    anyG = rule "any" $ _AnyToken >?< terminal "."
+    seqG rex = rule "sequence" $
+      chain Left _Sequence (_Terminal . _Empty) noSep (exprG rex)
+    exprG rex = rule "expression" $ choiceP
+      [ _Terminal >?< someP charG
+      , kleeneOptG rex
+      , kleeneStarG rex
+      , kleenePlusG rex
+      , atomG rex
+      ]
     atomG rex = rule "atom" $ choiceP
       [ nonterminalG
       , classInG
@@ -137,6 +149,7 @@ regexGrammar = ruleRec "regex" altG
       , anyG
       , terminal "(" >* rex *< terminal ")"
       ]
+    anyG = rule "any" $ _AnyToken >?< terminal "."
     categoryG = rule "category" $ choiceP
       [ _LowercaseLetter >?< terminal "Ll"
       , _UppercaseLetter >?< terminal "Lu"
@@ -173,18 +186,11 @@ regexGrammar = ruleRec "regex" altG
       _AsIn >?< terminal "\\p{" >* categoryG *< terminal "}"
     categoryNotInG = rule "category-not-in" $
       _NotAsIn >?< terminal "\\P{" >* categoryG *< terminal "}"
-    charG = rule "char" $ escapedG
+    charG = rule "char" $ escaped (terminal "\\" >*) "$()*+.?[\\]^{|}"
     classInG = rule "class-in" $
       _OneOf >?< terminal "[" >* manyP charG *< terminal "]"
     classNotInG = rule "class-not-in" $
       _NotOneOf >?< terminal "[^" >* manyP charG *< terminal "]"
-    exprG rex = rule "expression" $ choiceP
-      [ _Terminal >?< someP charG
-      , kleeneOptG rex
-      , kleeneStarG rex
-      , kleenePlusG rex
-      , atomG rex
-      ]
     kleeneOptG rex = rule "kleene-optional" $
       _KleeneOpt >?< atomG rex *< terminal "?"
     kleeneStarG rex = rule "kleene-star" $
@@ -192,19 +198,7 @@ regexGrammar = ruleRec "regex" altG
     kleenePlusG rex = rule "kleene-plus" $
       _KleenePlus >?< atomG rex *< terminal "+"
     nonterminalG = rule "nonterminal" $ terminal "\\q" >*
-      (_NonTerminal >?< nameG charG <|> _Fail >?< oneP)
-    seqG rex = rule "sequence" $
-      chain Left _Sequence (_Terminal . _Empty) noSep (exprG rex)
-
-escapedG :: RegGrammar Char Char
-escapedG = notOneOf reservedChars
-  <|> terminal "\\" >* oneOf reservedChars
-
-nameG :: RegGrammarr Char c [c]
-nameG p = terminal "{" >* manyP p *< terminal "}"
-
-reservedChars :: String
-reservedChars = "\t\n$()*+.?[\\]^{|}"
+      (_NonTerminal >?< terminal "{" >* manyP charG *< terminal "}" <|> _Fail >?< oneP)
 
 bnfGrammarr :: Ord rule => RegGrammarr Char rule (Gram rule)
 bnfGrammarr p = dimap hither thither $ startG  >*< rulesG
@@ -212,20 +206,22 @@ bnfGrammarr p = dimap hither thither $ startG  >*< rulesG
     hither (Gram start rules) = (start, toList rules)
     thither (start, rules) = Gram start (fromList rules)
     ruleG = terminal " = " >* p
-    startG = terminal "{start}" >* ruleG
-    rulesG = manyP (terminal "\n" >* nameG escapedG >*< ruleG)
+    startG = terminal "start" >* ruleG
+    rulesG = manyP (terminal "\n" >* manyP (escaped (terminal "\\" >*) "\\=") >*< ruleG)
 
 ebnfGrammar :: Grammar Char (Gram (RegEx Char))
 ebnfGrammar = bnfGrammarr regexGrammar
 
 newtype RegExStr = RegExStr {runRegExStr :: RegEx Char}
-newtype EBNF = EBNF {runEBNF :: Gram (RegEx Char)}
+  deriving newtype (Eq, Ord)
+newtype EBNF = EBNF {runEBNF :: Gram RegExStr}
+  deriving newtype (Eq, Ord)
 
 printRegEx :: RegGrammar Char a -> IO ()
 printRegEx = putStrLn . toList . RegExStr . genRegEx @Char
 
 printEBNF :: Grammar Char a -> IO ()
-printEBNF = putStrLn . toList . EBNF . genGram @Char
+printEBNF = putStrLn . toList . EBNF . liftGram1 RegExStr . genGram @Char
 
 instance IsList RegExStr where
   type Item RegExStr = Char
@@ -246,13 +242,16 @@ instance Read RegExStr where
 instance IsList EBNF where
   type Item EBNF = Char
   fromList
-    = fromMaybe (EBNF (Gram Fail mempty))
+    = fromMaybe (EBNF (Gram (RegExStr Fail) mempty))
     . listToMaybe
     . mapMaybe (\(ebnf, remaining) -> if remaining == "" then Just ebnf else Nothing)
-    . genReadS (dimap runEBNF EBNF ebnfGrammar)
+    . fmap (first' (EBNF . liftGram1 RegExStr))
+    . genReadS ebnfGrammar
   toList
     = maybe "{start} = \\q" ($ "")
-    . genShowS (dimap runEBNF EBNF ebnfGrammar)
+    . genShowS ebnfGrammar
+    . liftGram1 runRegExStr
+    . runEBNF
 instance IsString EBNF where
   fromString = fromList
 instance Show EBNF where
