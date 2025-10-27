@@ -134,22 +134,22 @@ regexGrammar = ruleRec "regex" altG
       chain Left _Sequence (_Terminal . _Empty) noSep (exprG rex)
     exprG rex = rule "expression" $ choiceP
       [ _Terminal >?< someP charG
-      , _KleeneOpt >?< atomG rex *< terminal "?"
-      , _KleeneStar >?< atomG rex *< terminal "*"
-      , _KleenePlus >?< atomG rex *< terminal "+"
+      , _KleeneOpt >? atomG rex *< terminal "?"
+      , _KleeneStar >? atomG rex *< terminal "*"
+      , _KleenePlus >? atomG rex *< terminal "+"
       , atomG rex
       ]
     atomG rex = rule "atom" $ choiceP
       [ nonterminalG
-      , classInG
-      , classNotInG
-      , categoryInG
-      , categoryNotInG
+      , _OneOf >?< terminal "[" >* manyP charG *< terminal "]"
+      , _NotOneOf >?< terminal "[^" >* manyP charG *< terminal "]"
+      , _AsIn >?< terminal "\\p{" >* categoryG *< terminal "}"
+      , _NotAsIn >?< terminal "\\P{" >* categoryG *< terminal "}"
       , _Terminal >?< charG >:< pure ""
-      , anyG
+      , _AnyToken >?< terminal "."
       , terminal "(" >* rex *< terminal ")"
       ]
-    anyG = rule "any" $ _AnyToken >?< terminal "."
+    charG = rule "char" $ escaped (terminal "\\" >*) "$()*+.?[\\]^{|}"
     categoryG = rule "category" $ choiceP
       [ _LowercaseLetter >?< terminal "Ll"
       , _UppercaseLetter >?< terminal "Lu"
@@ -182,17 +182,10 @@ regexGrammar = ruleRec "regex" altG
       , _PrivateUse >?< terminal "Co"
       , _NotAssigned >?< terminal "Cn"
       ]
-    categoryInG = rule "category-in" $
-      _AsIn >?< terminal "\\p{" >* categoryG *< terminal "}"
-    categoryNotInG = rule "category-not-in" $
-      _NotAsIn >?< terminal "\\P{" >* categoryG *< terminal "}"
-    charG = rule "char" $ escaped (terminal "\\" >*) "$()*+.?[\\]^{|}"
-    classInG = rule "class-in" $
-      _OneOf >?< terminal "[" >* manyP charG *< terminal "]"
-    classNotInG = rule "class-not-in" $
-      _NotOneOf >?< terminal "[^" >* manyP charG *< terminal "]"
-    nonterminalG = rule "nonterminal" $ terminal "\\q" >*
-      (_NonTerminal >?< terminal "{" >* manyP charG *< terminal "}" <|> _Fail >?< oneP)
+    nonterminalG = rule "nonterminal" $ terminal "\\q" >* choiceP
+      [ _NonTerminal >?< terminal "{" >* manyP charG *< terminal "}"
+      , _Fail >?< oneP
+      ]
 
 bnfGrammarr :: Ord rule => RegGrammarr Char rule (Gram rule)
 bnfGrammarr p = dimap hither thither $ startG  >*< rulesG
