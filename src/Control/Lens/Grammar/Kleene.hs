@@ -25,18 +25,18 @@ instance (Alternative f, Monoid t) => KleeneStarAlgebra (Ap f t)
 
 data RegEx token
   = Terminal [token]
+  | NonTerminal String
   | Sequence (RegEx token) (RegEx token)
-  | Fail
-  | Alternate (RegEx token) (RegEx token)
-  | KleeneOpt (RegEx token)
   | KleeneStar (RegEx token)
+  | KleeneOpt (RegEx token)
   | KleenePlus (RegEx token)
+  | Alternate (RegEx token) (RegEx token)
+  | Fail
   | AnyToken
   | OneOf [token]
   | NotOneOf [token]
   | AsIn (Categorize token)
   | NotAsIn (Categorize token)
-  | NonTerminal String
 deriving stock instance Categorized token => Eq (RegEx token)
 deriving stock instance
   (Categorized token, Ord token, Ord (Categorize token))
@@ -53,13 +53,13 @@ instance TerminalSymbol (RegEx token) where
 instance Categorized token => Tokenized (RegEx token) where
   type Token (RegEx token) = token
   anyToken = AnyToken
-  noToken = empK
-  token a = terminal [a]
-  notToken a = notOneOf [a]
-  oneOf [] = noToken
-  oneOf [a] = token a
+  noToken = Fail
+  token a = Terminal [a]
+  notToken a = NotOneOf [a]
+  oneOf [] = Fail
+  oneOf [a] = Terminal [a]
   oneOf as = OneOf (toList as)
-  notOneOf [] = anyToken
+  notOneOf [] = AnyToken
   notOneOf as = NotOneOf (toList as)
   asIn = AsIn
   notAsIn = NotAsIn
