@@ -25,7 +25,7 @@ module Control.Lens.Diopter
   ) where
 
 import Control.Lens
-import Control.Lens.Grammar.Equator
+import Control.Lens.Internal.Equator
 import Control.Lens.Internal.Profunctor
 import Data.Profunctor.Distributor
 import Data.Void

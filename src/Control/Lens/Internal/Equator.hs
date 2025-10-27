@@ -1,4 +1,4 @@
-module Control.Lens.Grammar.Equator
+module Control.Lens.Internal.Equator
   ( -- *
     Equator (..)
   , is

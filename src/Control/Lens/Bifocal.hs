@@ -34,7 +34,7 @@ module Control.Lens.Bifocal
 
 import Control.Applicative
 import Control.Lens
-import Control.Lens.Grammar.Equator
+import Control.Lens.Internal.Equator
 import Control.Lens.Internal.Profunctor
 import Control.Lens.PartialIso
 import Control.Lens.Grammar.Stream

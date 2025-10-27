@@ -16,7 +16,7 @@ import Control.Arrow
 import Control.Category
 import Control.Comonad
 import Control.Lens
-import Control.Lens.Grammar.Equator
+import Control.Lens.Internal.Equator
 import Control.Lens.Grammar.BackusNaur
 import Control.Lens.Grammar.Kleene
 import Control.Lens.Grammar.Stream
@@ -112,7 +112,7 @@ instance (Categorized a, a ~ Item s, IsStream s, Filterable m, MonadPlus m)
   type Token (Parsor s s m a a) = a
   anyToken = Parsor (maybe empty pure . uncons)
 instance (Categorized a, a ~ Item s, IsStream s, Filterable m, MonadPlus m)
-  => Equator a a (Parsor s s m) where
+  => Equator a a (Parsor s s m)
 instance (Categorized a, a ~ Item s, IsStream s, Filterable m, MonadPlus m)
   => TerminalSymbol (Parsor s s m () ()) where
   type Alphabet (Parsor s s m () ()) = Item s
@@ -207,7 +207,7 @@ instance (Categorized a, a ~ Item s, IsStream s, Filterable m, MonadPlus m)
   type Token (Printor s s m a a) = a
   anyToken = Printor (\b -> pure (b, cons b))
 instance (Categorized a, a ~ Item s, IsStream s, Filterable m, MonadPlus m)
-  => Equator a a (Printor s s m) where
+  => Equator a a (Printor s s m)
 instance (Categorized a, a ~ Item s, IsStream s, Filterable m, MonadPlus m)
   => TerminalSymbol (Printor s s m () ()) where
   type Alphabet (Printor s s m () ()) = Item s
@@ -278,8 +278,6 @@ instance (TerminalSymbol t, Applicative f)
   => TerminalSymbol (Grammor s t f a b) where
   type Alphabet (Grammor s t f a b) = Alphabet t
   terminal = grammor . terminal
-instance (Tokenized t, Applicative f, Token t ~ a)
-  => Equator a a (Grammor s t f)
 instance (Comonad f, Applicative f, Monoid s, BackusNaurForm t)
   => BackusNaurForm (Grammor s t f a b) where
   rule name = Grammor . fmap (fmap (rule name)) . runGrammor

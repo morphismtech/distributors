@@ -30,7 +30,7 @@ module Control.Lens.Grate
   , Grating (..)
   ) where
 
-import Control.Lens.Grammar.Equator
+import Control.Lens.Internal.Equator
 import Data.Distributive
 import Data.Function
 import Data.Functor.Identity
