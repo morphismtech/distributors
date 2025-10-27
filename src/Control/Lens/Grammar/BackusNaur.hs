@@ -9,19 +9,19 @@ import Control.Lens.Grammar.Symbol
 import Data.Function
 import Data.Set as Set
 
-class BackusNaurForm a where
-  rule :: String -> a -> a
+class BackusNaurForm gram where
+  rule :: String -> gram -> gram
   rule _ = id
-  ruleRec :: String -> (a -> a) -> a
+  ruleRec :: String -> (gram -> gram) -> gram
   ruleRec _ = fix
 
-data Gram a = Gram
-  { startGram :: a
-  , rulesGram :: Set (String, a)
+data Gram rule = Gram
+  { startGram :: rule
+  , rulesGram :: Set (String, rule)
   } deriving stock (Eq, Ord)
 
-instance (Ord a, NonTerminalSymbol a)
-  => BackusNaurForm (Gram a) where
+instance (Ord rule, NonTerminalSymbol rule)
+  => BackusNaurForm (Gram rule) where
     rule name = ruleRec name . const
     ruleRec name f =
       let
@@ -31,8 +31,9 @@ instance (Ord a, NonTerminalSymbol a)
       in
         Gram start rules
 
-instance (Ord a, TerminalSymbol a) => TerminalSymbol (Gram a) where
-  type Alphabet (Gram a) = Alphabet a
+instance (Ord t, TerminalSymbol t)
+  => TerminalSymbol (Gram t) where
+  type Alphabet (Gram t) = Alphabet t
   terminal = liftGram0 . terminal
 
 liftGram0 :: Ord a => a -> Gram a
@@ -45,8 +46,8 @@ liftGram2 :: Ord a => (a -> a -> a) -> Gram a -> Gram a -> Gram a
 liftGram2 f (Gram start0 rules0) (Gram start1 rules1) =
   Gram (f start0 start1) (rules0 <> rules1)
 
-instance (Ord a, Tokenized a) => Tokenized (Gram a) where
-  type Token (Gram a) = Token a
+instance (Ord p, Tokenized p) => Tokenized (Gram p) where
+  type Token (Gram p) = Token p
   anyToken = liftGram0 anyToken
   noToken = liftGram0 noToken
   token = liftGram0 . token
@@ -56,13 +57,13 @@ instance (Ord a, Tokenized a) => Tokenized (Gram a) where
   asIn = liftGram0 . asIn
   notAsIn = liftGram0 . notAsIn
 
-instance (Ord a, KleeneStarAlgebra a) => KleeneStarAlgebra (Gram a) where
+instance (Ord t, KleeneStarAlgebra t) => KleeneStarAlgebra (Gram t) where
   starK = liftGram1 starK
   plusK = liftGram1 plusK
   optK = liftGram1 optK
   empK = liftGram0 empK
   (>|<) = liftGram2 (>|<)
-instance (Ord a, Monoid a) => Monoid (Gram a) where
+instance (Ord t, Monoid t) => Monoid (Gram t) where
   mempty = liftGram0 mempty
-instance (Ord a, Semigroup a) => Semigroup (Gram a) where
+instance (Ord t, Semigroup t) => Semigroup (Gram t) where
   (<>) = liftGram2 (<>)
