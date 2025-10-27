@@ -9,6 +9,7 @@ module Control.Lens.Grammar.BackusNaur
 import Control.Lens.Grammar.Kleene
 import Control.Lens.Grammar.Token
 import Control.Lens.Grammar.Symbol
+import Data.Coerce
 import Data.Function
 import Data.Set as Set
 
@@ -42,12 +43,14 @@ instance (Ord t, TerminalSymbol t)
 liftGram0 :: Ord a => a -> Gram a
 liftGram0 a = Gram a mempty
 
-liftGram1 :: (a -> a) -> Gram a -> Gram a
-liftGram1 f (Gram start rules) = Gram (f start) rules
+liftGram1 :: (Coercible a b, Ord b) => (a -> b) -> Gram a -> Gram b
+liftGram1 f (Gram start rules) = Gram (f start) (Set.map coerce rules)
 
-liftGram2 :: Ord a => (a -> a -> a) -> Gram a -> Gram a -> Gram a
+liftGram2
+  :: (Coercible a c, Coercible b c, Ord c)
+  => (a -> b -> c) -> Gram a -> Gram b -> Gram c
 liftGram2 f (Gram start0 rules0) (Gram start1 rules1) =
-  Gram (f start0 start1) (rules0 <> rules1)
+  Gram (f start0 start1) (Set.map coerce rules0 <> Set.map coerce rules1)
 
 instance (Ord p, Tokenized p) => Tokenized (Gram p) where
   type Token (Gram p) = Token p
