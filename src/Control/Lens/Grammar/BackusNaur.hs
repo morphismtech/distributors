@@ -1,6 +1,9 @@
 module Control.Lens.Grammar.BackusNaur
   ( BackusNaurForm (..)
   , Gram (..)
+  , liftGram0
+  , liftGram1
+  , liftGram2
   ) where
 
 import Control.Lens.Grammar.Kleene
