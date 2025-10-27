@@ -2,6 +2,8 @@ module Control.Lens.Grammar
   ( -- * RegEx
     RegExStr
   , RegGrammar
+  , RegGrammarr
+  , bnfGrammarr
   , genRegEx
   , genShowS
   , genReadS
@@ -9,12 +11,11 @@ module Control.Lens.Grammar
   , Grammar
   , genGram
   , regexGrammar
-    -- * CtxGrammar
-  , CtxGrammar
-    -- * Optics
-  , RegGrammarr
+  , ebnfGrammar
   , Grammarr
+  , CtxGrammar
   , CtxGrammarr
+    -- * Optics
   , opticGrammarr
   , grammarrOptic
   , opticGrammar
@@ -32,6 +33,7 @@ module Control.Lens.Grammar
   ) where
 
 import Control.Applicative
+import Control.Comonad
 import Control.Lens
 import Control.Lens.PartialIso
 import Control.Lens.Grammar.BackusNaur
@@ -40,7 +42,7 @@ import Control.Lens.Grammar.Token
 import Control.Lens.Grammar.Stream
 import Control.Lens.Grammar.Symbol
 import Control.Monad
-import Data.Maybe
+import Data.Maybe hiding (mapMaybe)
 import Data.Monoid
 import Data.Profunctor.Distributor
 import Data.Profunctor.Filtrator
@@ -52,6 +54,9 @@ import GHC.Exts
 import Prelude hiding (filter)
 import Witherable
 
+makeNestedPrisms ''RegEx
+makeNestedPrisms ''GeneralCategory
+
 type RegGrammar c a = forall p. Regular c p => p a a
 type Grammar c a = forall p. Grammatical c p => p a a
 type CtxGrammar s a = forall p m. Contextual s m p => p s s m a a
@@ -59,18 +64,25 @@ type CtxGrammar s a = forall p m. Contextual s m p => p s s m a a
 opticGrammar :: Monoidal p => Optic' p Identity a () -> p a a
 opticGrammar = ($ oneP) . opticGrammarr
 
-grammarOptic :: Monoidal p => p a a -> Optic' p Identity a ()
+grammarOptic
+  :: (Monoidal p, Comonad f, Applicative f)
+  => p a a -> Optic' p f a ()
 grammarOptic = grammarrOptic . (*<)
 
-type RegGrammarr c a b = forall p. Regular c p => p a a -> p b b
-type Grammarr c a b = forall p. Grammatical c p => p a a -> p b b
-type CtxGrammarr s a b = forall p m. Contextual s m p => p s s m a a -> p s s m b b
+type RegGrammarr c a b = forall p.
+  Regular c p => p a a -> p b b
+type Grammarr c a b = forall p.
+  Grammatical c p => p a a -> p b b
+type CtxGrammarr s a b = forall p m.
+  Contextual s m p => p s s m a a -> p s s m b b
 
 opticGrammarr :: Profunctor p => Optic' p Identity b a -> p a a -> p b b
 opticGrammarr = dimap (rmap Identity) (rmap runIdentity)
 
-grammarrOptic :: Profunctor p => (p a a -> p b b) -> Optic' p Identity b a
-grammarrOptic = dimap (rmap runIdentity) (rmap Identity)
+grammarrOptic
+  :: (Profunctor p, Comonad f, Applicative f)
+  => (p a a -> p b b) -> Optic' p f b a
+grammarrOptic = dimap (rmap extract) (rmap pure)
 
 genShowS
   :: (Filterable m, MonadPlus m)
@@ -109,8 +121,6 @@ type Contextual s m p =
   , MonadPlus m
   )
 
-makeNestedPrisms ''RegEx
-makeNestedPrisms ''GeneralCategory
 regexGrammar :: Grammar Char (RegEx Char)
 regexGrammar = ruleRec "regex" altG
   where
@@ -163,7 +173,7 @@ regexGrammar = ruleRec "regex" altG
       _AsIn >?< terminal "\\p{" >* categoryG *< terminal "}"
     categoryNotInG = rule "category-not-in" $
       _NotAsIn >?< terminal "\\P{" >* categoryG *< terminal "}"
-    charG = rule "char" $ escapeG "\t\n$()*+.?[\\]^{|}"
+    charG = rule "char" $ escapedG
     classInG = rule "class-in" $
       _OneOf >?< terminal "[" >* manyP charG *< terminal "]"
     classNotInG = rule "class-not-in" $
@@ -182,27 +192,47 @@ regexGrammar = ruleRec "regex" altG
     kleenePlusG rex = rule "kleene-plus" $
       _KleenePlus >?< atomG rex *< terminal "+"
     nonterminalG = rule "nonterminal" $ terminal "\\q" >*
-      (_NonTerminal >?< ruleG charG <|> _Fail >?< oneP)
+      (_NonTerminal >?< nameG charG <|> _Fail >?< oneP)
     seqG rex = rule "sequence" $
       chain Left _Sequence (_Terminal . _Empty) noSep (exprG rex)
 
-escapeG :: String -> RegGrammar Char Char
-escapeG charsReserved =
-  notOneOf charsReserved <|> terminal "\\" >* oneOf charsReserved
+escapedG :: RegGrammar Char Char
+escapedG = notOneOf reservedChars
+  <|> terminal "\\" >* oneOf reservedChars
 
-ruleG :: RegGrammarr Char c [c]
-ruleG p = terminal "{" >* manyP p *< terminal "}"
+nameG :: RegGrammarr Char c [c]
+nameG p = terminal "{" >* manyP p *< terminal "}"
 
--- bnfGrammarr :: RegGrammarr Char rule (rule, [(String,rule)])
--- bnfGrammarr p = terminal "{start} = " >* p >*< manyP (terminal "\n{"  >* manyP (notOneOf))
+reservedChars :: String
+reservedChars = "\t\n$()*+.?[\\]^{|}"
+
+bnfGrammarr :: Ord rule => RegGrammarr Char rule (Gram rule)
+bnfGrammarr p = dimap hither thither $ startG  >*< rulesG
+  where
+    hither (Gram start rules) = (start, toList rules)
+    thither (start, rules) = Gram start (fromList rules)
+    ruleG = terminal " = " >* p
+    startG = terminal "{start}" >* ruleG
+    rulesG = manyP (terminal "\n" >* nameG escapedG >*< ruleG)
+
+ebnfGrammar :: Grammar Char (Gram (RegEx Char))
+ebnfGrammar = bnfGrammarr regexGrammar
 
 newtype RegExStr = RegExStr {runRegExStr :: RegEx Char}
+newtype EBNF = EBNF {runEBNF :: Gram (RegEx Char)}
+
+printRegEx :: RegGrammar Char a -> IO ()
+printRegEx = putStrLn . toList . RegExStr . genRegEx @Char
+
+printEBNF :: Grammar Char a -> IO ()
+printEBNF = putStrLn . toList . EBNF . genGram @Char
+
 instance IsList RegExStr where
   type Item RegExStr = Char
   fromList
-    = maybe (RegExStr Fail) fst
+    = fromMaybe (RegExStr Fail)
     . listToMaybe
-    . filter (\(_, remaining) -> remaining == "")
+    . mapMaybe (\(rex, remaining) -> if remaining == "" then Just rex else Nothing)
     . genReadS (dimap runRegExStr RegExStr regexGrammar)
   toList
     = maybe "\\q" ($ "")
@@ -212,4 +242,20 @@ instance IsString RegExStr where
 instance Show RegExStr where
   showsPrec precision = showsPrec precision . toList
 instance Read RegExStr where
+  readsPrec _ str = [(fromList str, "")]
+instance IsList EBNF where
+  type Item EBNF = Char
+  fromList
+    = fromMaybe (EBNF (Gram Fail mempty))
+    . listToMaybe
+    . mapMaybe (\(ebnf, remaining) -> if remaining == "" then Just ebnf else Nothing)
+    . genReadS (dimap runEBNF EBNF ebnfGrammar)
+  toList
+    = maybe "{start} = \\q" ($ "")
+    . genShowS (dimap runEBNF EBNF ebnfGrammar)
+instance IsString EBNF where
+  fromString = fromList
+instance Show EBNF where
+  showsPrec precision = showsPrec precision . toList
+instance Read EBNF where
   readsPrec _ str = [(fromList str, "")]
