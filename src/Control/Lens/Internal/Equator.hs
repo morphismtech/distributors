@@ -32,6 +32,5 @@ instance (Equator a b p, Profunctor p, Applicative f)
 
 type Equator' a p = (Eq a, Equator a a p, Monoidal p, Cochoice p)
 
-equator :: Equator' a p => [a] -> p () ()
-equator [] = oneP
-equator (a:as) = only a ?< equate *> equator as
+equator :: (Foldable f, Equator' a p) => f a -> p () ()
+equator = foldr (\a p -> only a ?< equate *> p) oneP
