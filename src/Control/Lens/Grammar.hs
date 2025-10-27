@@ -134,9 +134,9 @@ regexGrammar = ruleRec "regex" altG
       chain Left _Sequence (_Terminal . _Empty) noSep (exprG rex)
     exprG rex = rule "expression" $ choiceP
       [ _Terminal >?< someP charG
-      , kleeneOptG rex
-      , kleeneStarG rex
-      , kleenePlusG rex
+      , _KleeneOpt >?< atomG rex *< terminal "?"
+      , _KleeneStar >?< atomG rex *< terminal "*"
+      , _KleenePlus >?< atomG rex *< terminal "+"
       , atomG rex
       ]
     atomG rex = rule "atom" $ choiceP
@@ -191,12 +191,6 @@ regexGrammar = ruleRec "regex" altG
       _OneOf >?< terminal "[" >* manyP charG *< terminal "]"
     classNotInG = rule "class-not-in" $
       _NotOneOf >?< terminal "[^" >* manyP charG *< terminal "]"
-    kleeneOptG rex = rule "kleene-optional" $
-      _KleeneOpt >?< atomG rex *< terminal "?"
-    kleeneStarG rex = rule "kleene-star" $
-      _KleeneStar >?< atomG rex *< terminal "*"
-    kleenePlusG rex = rule "kleene-plus" $
-      _KleenePlus >?< atomG rex *< terminal "+"
     nonterminalG = rule "nonterminal" $ terminal "\\q" >*
       (_NonTerminal >?< terminal "{" >* manyP charG *< terminal "}" <|> _Fail >?< oneP)
 
