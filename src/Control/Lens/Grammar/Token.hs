@@ -2,7 +2,7 @@ module Control.Lens.Grammar.Token
   ( -- * Token
     Categorized (..)
   , Tokenized (..)
-  , escaped
+  , escape
   , satisfy
   , tokens
   , Tokenizor
@@ -92,12 +92,12 @@ instance Categorized token => Tokenized (token -> Bool) where
   asIn = lmap categorize . (==)
   notAsIn = lmap categorize . (/=)
 
-escaped
+escape
   :: (Alternator p, Tokenizor token p)
-  => (p token token -> p token token) -- ^ escape function
-  -> [token] -- ^ reserved tokens
+  => [token] -- ^ tokens to escape
+  -> (p token token -> p token token) -- ^ how to escape a token
   -> p token token
-escaped escape reserved = escape (oneOf reserved) <|> notOneOf reserved
+escape as f = f (oneOf as) <|> notOneOf as
 
 satisfy
   :: (Choice p, Cochoice p, Tokenizor token p)

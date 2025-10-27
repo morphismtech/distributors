@@ -149,7 +149,7 @@ regexGrammar = ruleRec "regex" altG
       , _NotAsIn >?< terminal "\\P{" >* categoryG *< terminal "}"
       , terminal "(" >* rex *< terminal ")"
       ]
-    charG = rule "char" $ escaped (terminal "\\" >*) "$()*+.?[\\]^{|}"
+    charG = rule "char" $ escape "$()*+.?[\\]^{|}" (terminal "\\" >*)
     categoryG = rule "category" $ choiceP
       [ _LowercaseLetter >?< terminal "Ll"
       , _UppercaseLetter >?< terminal "Lu"
@@ -184,7 +184,7 @@ regexGrammar = ruleRec "regex" altG
       ]
     nonterminalG = rule "nonterminal" $ terminal "\\q" >* choiceP
       [ _NonTerminal >?< terminal "{" >* manyP charG *< terminal "}"
-      , _Fail >?< oneP
+      , opticGrammar _Fail
       ]
 
 bnfGrammarr :: Ord rule => RegGrammarr Char rule (Gram rule)
@@ -192,9 +192,10 @@ bnfGrammarr p = dimap hither thither $ startG  >*< rulesG
   where
     hither (Gram start rules) = (start, toList rules)
     thither (start, rules) = Gram start (fromList rules)
-    ruleG = terminal " = " >* p
     startG = terminal "start" >* ruleG
-    rulesG = manyP (terminal "\n" >* manyP (escaped (terminal "\\" >*) "\\=") >*< ruleG)
+    rulesG = manyP (terminal "\n" >* nameG >*< ruleG)
+    ruleG = terminal " = " >* p
+    nameG = manyP (escape "\\= " (terminal "\\" >*))
 
 ebnfGrammar :: Grammar Char (Gram (RegEx Char))
 ebnfGrammar = bnfGrammarr regexGrammar
