@@ -201,9 +201,18 @@ ebnfGrammar :: Grammar Char (Gram (RegEx Char))
 ebnfGrammar = bnfGrammarr regexGrammar
 
 newtype RegExStr = RegExStr {runRegExStr :: RegEx Char}
-  deriving newtype (Eq, Ord)
+  deriving newtype
+    ( Eq, Ord
+    , Semigroup, Monoid, KleeneStarAlgebra
+    , Tokenized, TerminalSymbol, NonTerminalSymbol
+    )
 newtype EBNF = EBNF {runEBNF :: Gram RegExStr}
-  deriving newtype (Eq, Ord)
+  deriving newtype
+    ( Eq, Ord
+    , Semigroup, Monoid, KleeneStarAlgebra
+    , Tokenized, TerminalSymbol, NonTerminalSymbol
+    , BackusNaurForm
+    )
 
 printRegEx :: RegGrammar Char a -> IO ()
 printRegEx = putStrLn . toList . RegExStr . genRegEx @Char
