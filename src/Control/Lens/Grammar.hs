@@ -141,12 +141,12 @@ regexGrammar = ruleRec "regex" altG
       ]
     atomG rex = rule "atom" $ choiceP
       [ nonterminalG
-      , _OneOf >?< terminal "[" >* manyP charG *< terminal "]"
-      , _NotOneOf >?< terminal "[^" >* manyP charG *< terminal "]"
-      , _AsIn >?< terminal "\\p{" >* categoryG *< terminal "}"
-      , _NotAsIn >?< terminal "\\P{" >* categoryG *< terminal "}"
       , _Terminal >?< charG >:< pure ""
       , _AnyToken >?< terminal "."
+      , _OneOf >?< terminal "[" >* someP charG *< terminal "]"
+      , _NotOneOf >?< terminal "[^" >* someP charG *< terminal "]"
+      , _AsIn >?< terminal "\\p{" >* categoryG *< terminal "}"
+      , _NotAsIn >?< terminal "\\P{" >* categoryG *< terminal "}"
       , terminal "(" >* rex *< terminal ")"
       ]
     charG = rule "char" $ escaped (terminal "\\" >*) "$()*+.?[\\]^{|}"
