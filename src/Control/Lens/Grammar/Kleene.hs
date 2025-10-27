@@ -7,12 +7,12 @@ import Control.Lens.Grammar.Symbol
 import Control.Lens.Grammar.Token
 import Data.Foldable
 
-class Monoid a => KleeneStarAlgebra a where
-  starK :: a -> a
-  plusK :: a -> a
-  optK :: a -> a
-  (>|<) :: a -> a -> a
-  empK :: a
+class Monoid t => KleeneStarAlgebra t where
+  starK :: t -> t
+  plusK :: t -> t
+  optK :: t -> t
+  (>|<) :: t -> t -> t
+  empK :: t
 
 data RegEx token
   = Terminal [token]
