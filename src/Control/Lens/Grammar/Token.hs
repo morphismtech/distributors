@@ -3,6 +3,7 @@ module Control.Lens.Grammar.Token
     Categorized (..)
   , Tokenized (..)
   , escape
+  , escapes
   , satisfy
   , tokens
   , Tokenizor
@@ -97,7 +98,16 @@ escape
   => [token] -- ^ tokens to escape
   -> (p token token -> p token token) -- ^ how to escape a token
   -> p token token
-escape as f = f (oneOf as) <|> notOneOf as
+escape toEsc f = escapes [(toEsc, f)]
+
+escapes
+  :: (Alternator p, Tokenizor token p)
+  => [([token], p token token -> p token token)]
+  -- ^ how to escape different token classes
+  -> p token token
+escapes escs = choiceP $
+  notOneOf (do (toEsc, _) <- escs; toEsc)
+  : [f (oneOf toEsc) | (toEsc, f) <- escs]
 
 satisfy
   :: (Choice p, Cochoice p, Tokenizor token p)
