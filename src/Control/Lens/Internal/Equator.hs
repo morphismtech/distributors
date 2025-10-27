@@ -1,7 +1,7 @@
 module Control.Lens.Internal.Equator
   ( -- *
     Equator  (..)
-  , Equated
+  , Equator'
   , equator
   , Identical (..)
   ) where
@@ -30,8 +30,8 @@ instance (Equator a b p, Profunctor p, Applicative f)
   => Equator a b (WrappedPafb f p) where
     equate = WrapPafb (rmap pure equate)
 
-type Equated a p = (Eq a, Equator a a p, Monoidal p, Cochoice p)
+type Equator' a p = (Eq a, Equator a a p, Monoidal p, Cochoice p)
 
-equator :: Equated a p => [a] -> p () ()
+equator :: Equator' a p => [a] -> p () ()
 equator [] = oneP
 equator (a:as) = only a ?< equate *> equator as
