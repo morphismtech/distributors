@@ -17,10 +17,10 @@ class Monoid t => KleeneStarAlgebra t where
   optK t = mempty >|< t
   infixl 3 >|<
   (>|<) :: t -> t -> t
-  default (>|<) :: (t ~ f a, Alternative f) => t -> t -> t
-  (>|<) = (<|>)
   empK :: t
+  default (>|<) :: (t ~ f a, Alternative f) => t -> t -> t
   default empK :: (t ~ f a, Alternative f) => t
+  (>|<) = (<|>)
   empK = empty
 instance (Alternative f, Monoid t) => KleeneStarAlgebra (Ap f t)
 
