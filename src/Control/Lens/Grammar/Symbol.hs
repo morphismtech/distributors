@@ -23,7 +23,7 @@ class TerminalSymbol s where
        , Eq (Alphabet s)
        )
     => [Alphabet s] -> s
-  terminal = is
+  terminal = equator
 
 instance TerminalSymbol [a] where
   type Alphabet [a] = a

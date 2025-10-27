@@ -1,7 +1,8 @@
 module Control.Lens.Internal.Equator
   ( -- *
-    Equator (..)
-  , is
+    Equator  (..)
+  , Equated
+  , equator
   , Identical (..)
   ) where
 
@@ -14,9 +15,9 @@ import Control.Lens.PartialIso
 import Data.Profunctor
 import Data.Profunctor.Monoidal
 
-class Equator i j p | p -> i, p -> i where
-  equate :: p i j
-  default equate :: (Tokenizor a p, i ~ a, j ~ a) => p i j
+class Equator a b p | p -> a, p -> b where
+  equate :: p a b
+  default equate :: (Tokenizor token p, a ~ token, b ~ token) => p a b
   equate = anyToken
 instance Equator a b (Identical a b) where equate = Identical
 instance Equator a b (Exchange a b) where
@@ -29,8 +30,8 @@ instance (Equator a b p, Profunctor p, Applicative f)
   => Equator a b (WrappedPafb f p) where
     equate = WrapPafb (rmap pure equate)
 
-is
-  :: (Monoidal p, Cochoice p, Equator a a p, Eq a)
-  => [a] -> p () ()
-is [] = oneP
-is (a:as) = only a ?< equate *> is as
+type Equated a p = (Eq a, Equator a a p, Monoidal p, Cochoice p)
+
+equator :: Equated a p => [a] -> p () ()
+equator [] = oneP
+equator (a:as) = only a ?< equate *> equator as
