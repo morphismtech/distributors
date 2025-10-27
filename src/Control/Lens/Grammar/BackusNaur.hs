@@ -22,7 +22,19 @@ class BackusNaurForm gram where
 data Gram rule = Gram
   { startGram :: rule
   , rulesGram :: Set (String, rule)
-  } deriving stock (Eq, Ord)
+  } deriving stock (Eq, Ord, Show, Read)
+
+liftGram0 :: Ord a => a -> Gram a
+liftGram0 a = Gram a mempty
+
+liftGram1 :: (Coercible a b, Ord b) => (a -> b) -> Gram a -> Gram b
+liftGram1 f (Gram start rules) = Gram (f start) (Set.map coerce rules)
+
+liftGram2
+  :: (Coercible a c, Coercible b c, Ord c)
+  => (a -> b -> c) -> Gram a -> Gram b -> Gram c
+liftGram2 f (Gram start0 rules0) (Gram start1 rules1) =
+  Gram (f start0 start1) (Set.map coerce rules0 <> Set.map coerce rules1)
 
 instance (Ord rule, NonTerminalSymbol rule)
   => BackusNaurForm (Gram rule) where
@@ -40,17 +52,9 @@ instance (Ord t, TerminalSymbol t)
   type Alphabet (Gram t) = Alphabet t
   terminal = liftGram0 . terminal
 
-liftGram0 :: Ord a => a -> Gram a
-liftGram0 a = Gram a mempty
-
-liftGram1 :: (Coercible a b, Ord b) => (a -> b) -> Gram a -> Gram b
-liftGram1 f (Gram start rules) = Gram (f start) (Set.map coerce rules)
-
-liftGram2
-  :: (Coercible a c, Coercible b c, Ord c)
-  => (a -> b -> c) -> Gram a -> Gram b -> Gram c
-liftGram2 f (Gram start0 rules0) (Gram start1 rules1) =
-  Gram (f start0 start1) (Set.map coerce rules0 <> Set.map coerce rules1)
+instance (Ord t, NonTerminalSymbol t)
+  => NonTerminalSymbol (Gram t) where
+  nonTerminal = liftGram0 . nonTerminal
 
 instance (Ord p, Tokenized p) => Tokenized (Gram p) where
   type Token (Gram p) = Token p
