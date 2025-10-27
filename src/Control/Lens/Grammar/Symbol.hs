@@ -9,8 +9,8 @@ import Data.Kind
 
 type Terminator a p =
   ( a ~ Alphabet (p () ())
-  , forall x y. (x ~ (), y ~ ()) => TerminalSymbol (p x y) :: Constraint
-  )
+  , forall x y. (x ~ (), y ~ ()) => TerminalSymbol (p x y)
+  ) :: Constraint
 
 class TerminalSymbol s where
   type Alphabet s
@@ -24,5 +24,5 @@ instance TerminalSymbol [a] where
   type Alphabet [a] = a
   terminal = id
 
-class NonTerminalSymbol a where
-  nonTerminal :: String -> a
+class NonTerminalSymbol s where
+  nonTerminal :: String -> s
