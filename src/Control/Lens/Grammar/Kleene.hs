@@ -3,16 +3,25 @@ module Control.Lens.Grammar.Kleene
   , RegEx (..)
   ) where
 
+import Control.Applicative
 import Control.Lens.Grammar.Symbol
 import Control.Lens.Grammar.Token
 import Data.Foldable
+import Data.Monoid
+import Prelude hiding ((*), (+))
 
 class Monoid t => KleeneStarAlgebra t where
-  starK :: t -> t
-  plusK :: t -> t
-  optK :: t -> t
+  starK, plusK, optK :: t -> t
+  starK t = optK (starK t)
+  plusK t = t <> starK t
+  optK t = mempty >|< t
   (>|<) :: t -> t -> t
+  default (>|<) :: (t ~ f a, Alternative f) => t -> t -> t
+  (>|<) = (<|>)
   empK :: t
+  default empK :: (t ~ f a, Alternative f) => t
+  empK = empty
+instance (Alternative f, Monoid t) => KleeneStarAlgebra (Ap f t)
 
 data RegEx token
   = Terminal [token]
