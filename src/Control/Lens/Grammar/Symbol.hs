@@ -7,8 +7,8 @@ module Control.Lens.Grammar.Symbol
 import Control.Lens.Internal.Equator
 import Data.Kind
 
-type Terminator a p =
-  ( a ~ Alphabet (p () ())
+type Terminator token p =
+  ( token ~ Alphabet (p () ())
   , forall x y. (x ~ (), y ~ ()) => TerminalSymbol (p x y)
   ) :: Constraint
 
