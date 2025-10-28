@@ -1,9 +1,9 @@
 module Control.Lens.Grammar.BackusNaur
   ( BackusNaurForm (..)
-  , Gram (..)
-  , liftGram0
-  , liftGram1
-  , liftGram2
+  , BNF (..)
+  , liftBNF0
+  , liftBNF1
+  , liftBNF2
   ) where
 
 import Control.Lens.Grammar.Kleene
@@ -19,61 +19,61 @@ class BackusNaurForm gram where
   ruleRec :: String -> (gram -> gram) -> gram
   ruleRec _ = fix
 
-data Gram rule = Gram
-  { startGram :: rule
-  , rulesGram :: Set (String, rule)
+data BNF rule = BNF
+  { startBNF :: rule
+  , rulesBNF :: Set (String, rule)
   } deriving stock (Eq, Ord, Show, Read)
 
-liftGram0 :: Ord a => a -> Gram a
-liftGram0 a = Gram a mempty
+liftBNF0 :: Ord a => a -> BNF a
+liftBNF0 a = BNF a mempty
 
-liftGram1 :: (Coercible a b, Ord b) => (a -> b) -> Gram a -> Gram b
-liftGram1 f (Gram start rules) = Gram (f start) (Set.map coerce rules)
+liftBNF1 :: (Coercible a b, Ord b) => (a -> b) -> BNF a -> BNF b
+liftBNF1 f (BNF start rules) = BNF (f start) (Set.map coerce rules)
 
-liftGram2
+liftBNF2
   :: (Coercible a c, Coercible b c, Ord c)
-  => (a -> b -> c) -> Gram a -> Gram b -> Gram c
-liftGram2 f (Gram start0 rules0) (Gram start1 rules1) =
-  Gram (f start0 start1) (Set.map coerce rules0 <> Set.map coerce rules1)
+  => (a -> b -> c) -> BNF a -> BNF b -> BNF c
+liftBNF2 f (BNF start0 rules0) (BNF start1 rules1) =
+  BNF (f start0 start1) (Set.map coerce rules0 <> Set.map coerce rules1)
 
 instance (Ord rule, NonTerminalSymbol rule)
-  => BackusNaurForm (Gram rule) where
+  => BackusNaurForm (BNF rule) where
     rule name = ruleRec name . const
     ruleRec name f =
       let
         start = nonTerminal name
-        Gram newRule oldRules = f (Gram start mempty)
+        BNF newRule oldRules = f (BNF start mempty)
         rules = insert (name, newRule) oldRules
       in
-        Gram start rules
+        BNF start rules
 
 instance (Ord t, TerminalSymbol t)
-  => TerminalSymbol (Gram t) where
-  type Alphabet (Gram t) = Alphabet t
-  terminal = liftGram0 . terminal
+  => TerminalSymbol (BNF t) where
+  type Alphabet (BNF t) = Alphabet t
+  terminal = liftBNF0 . terminal
 
 instance (Ord t, NonTerminalSymbol t)
-  => NonTerminalSymbol (Gram t) where
-  nonTerminal = liftGram0 . nonTerminal
+  => NonTerminalSymbol (BNF t) where
+  nonTerminal = liftBNF0 . nonTerminal
 
-instance (Ord p, Tokenized p) => Tokenized (Gram p) where
-  type Token (Gram p) = Token p
-  anyToken = liftGram0 anyToken
-  noToken = liftGram0 noToken
-  token = liftGram0 . token
-  notToken = liftGram0 . notToken
-  oneOf = liftGram0 . oneOf
-  notOneOf = liftGram0 . notOneOf
-  asIn = liftGram0 . asIn
-  notAsIn = liftGram0 . notAsIn
+instance (Ord p, Tokenized p) => Tokenized (BNF p) where
+  type Token (BNF p) = Token p
+  anyToken = liftBNF0 anyToken
+  noToken = liftBNF0 noToken
+  token = liftBNF0 . token
+  notToken = liftBNF0 . notToken
+  oneOf = liftBNF0 . oneOf
+  notOneOf = liftBNF0 . notOneOf
+  asIn = liftBNF0 . asIn
+  notAsIn = liftBNF0 . notAsIn
 
-instance (Ord t, KleeneStarAlgebra t) => KleeneStarAlgebra (Gram t) where
-  starK = liftGram1 starK
-  plusK = liftGram1 plusK
-  optK = liftGram1 optK
-  empK = liftGram0 empK
-  (>|<) = liftGram2 (>|<)
-instance (Ord t, Monoid t) => Monoid (Gram t) where
-  mempty = liftGram0 mempty
-instance (Ord t, Semigroup t) => Semigroup (Gram t) where
-  (<>) = liftGram2 (<>)
+instance (Ord t, KleeneStarAlgebra t) => KleeneStarAlgebra (BNF t) where
+  starK = liftBNF1 starK
+  plusK = liftBNF1 plusK
+  optK = liftBNF1 optK
+  empK = liftBNF0 empK
+  (>|<) = liftBNF2 (>|<)
+instance (Ord t, Monoid t) => Monoid (BNF t) where
+  mempty = liftBNF0 mempty
+instance (Ord t, Semigroup t) => Semigroup (BNF t) where
+  (<>) = liftBNF2 (<>)

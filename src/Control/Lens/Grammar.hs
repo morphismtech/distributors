@@ -11,7 +11,7 @@ module Control.Lens.Grammar
   , genReadS
     -- * Grammar
   , Grammar
-  , genGram
+  , genBNF
   , printEBNF
   , regexGrammar
   , ebnfGrammar
@@ -25,7 +25,7 @@ module Control.Lens.Grammar
   , grammarOptic
     -- * Constraints
   , Regular
-  , Grammatical
+  , BNFmatical
   , Contextual
     -- * Re-exports
   , oneP, (>*), (*<), (>*<), replicateP
@@ -66,13 +66,13 @@ makeNestedPrisms ''RegEx
 makeNestedPrisms ''GeneralCategory
 
 type RegGrammar token a = forall p. Regular token p => p a a
-type Grammar token a = forall p. Grammatical token p => p a a
+type Grammar token a = forall p. BNFmatical token p => p a a
 type CtxGrammar token a = forall p m. Contextual token m p => p m a a
 
 type RegGrammarr token a b =
   forall p. Regular token p => p a a -> p b b
 type Grammarr token a b =
-  forall p. Grammatical token p => p a a -> p b b
+  forall p. BNFmatical token p => p a a -> p b b
 type CtxGrammarr token a b =
   forall p m. Contextual token m p => p m a a -> p m b b
 
@@ -81,13 +81,13 @@ type Regular token p =
   , Tokenizor token p
   , Alternator p
   )
-type Grammatical token p =
+type BNFmatical token p =
   ( Regular token p
   , Filtrator p
   , forall x. BackusNaurForm (p x x)
   )
 type Contextual token m p =
-  ( Grammatical token (p m)
+  ( BNFmatical token (p m)
   , Monadic p
   , Filterable m
   , MonadPlus m
@@ -120,10 +120,10 @@ genReadS = runParsor
 genRegEx :: Categorized token => RegGrammar token a -> RegEx token
 genRegEx = evalGrammor @() @Identity
 
-genGram
+genBNF
   :: (Categorized token, Ord token, Ord (Categorize token))
-  => Grammar token a -> Gram (RegEx token)
-genGram = evalGrammor @() @((,) All)
+  => Grammar token a -> BNF (RegEx token)
+genBNF = evalGrammor @() @((,) All)
 
 regexGrammar :: Grammar Char (RegEx Char)
 regexGrammar = ruleRec "regex" altG
@@ -187,17 +187,17 @@ regexGrammar = ruleRec "regex" altG
       , opticGrammar _Fail
       ]
 
-bnfGrammarr :: Ord rule => RegGrammarr Char rule (Gram rule)
+bnfGrammarr :: Ord rule => RegGrammarr Char rule (BNF rule)
 bnfGrammarr p = dimap hither thither $ startG  >*< rulesG
   where
-    hither (Gram start rules) = (start, toList rules)
-    thither (start, rules) = Gram start (fromList rules)
+    hither (BNF start rules) = (start, toList rules)
+    thither (start, rules) = BNF start (fromList rules)
     startG = terminal "start" >* ruleG
     rulesG = manyP (terminal "\n" >* nameG >*< ruleG)
     ruleG = terminal " = " >* p
     nameG = manyP (escape "\\= " (terminal "\\" >*))
 
-ebnfGrammar :: Grammar Char (Gram (RegEx Char))
+ebnfGrammar :: Grammar Char (BNF (RegEx Char))
 ebnfGrammar = bnfGrammarr regexGrammar
 
 newtype RegExStr = RegExStr {runRegExStr :: RegEx Char}
@@ -206,7 +206,7 @@ newtype RegExStr = RegExStr {runRegExStr :: RegEx Char}
     , Semigroup, Monoid, KleeneStarAlgebra
     , Tokenized, TerminalSymbol, NonTerminalSymbol
     )
-newtype EBNF = EBNF {runEBNF :: Gram RegExStr}
+newtype EBNF = EBNF {runEBNF :: BNF RegExStr}
   deriving newtype
     ( Eq, Ord
     , Semigroup, Monoid, KleeneStarAlgebra
@@ -218,7 +218,7 @@ printRegEx :: RegGrammar Char a -> IO ()
 printRegEx = streamLine . RegExStr . genRegEx @Char
 
 printEBNF :: Grammar Char a -> IO ()
-printEBNF = streamLine . EBNF . liftGram1 RegExStr . genGram @Char
+printEBNF = streamLine . EBNF . liftBNF1 RegExStr . genBNF @Char
 
 instance IsList RegExStr where
   type Item RegExStr = Char
@@ -239,15 +239,15 @@ instance Read RegExStr where
 instance IsList EBNF where
   type Item EBNF = Char
   fromList
-    = fromMaybe (EBNF (Gram (RegExStr Fail) mempty))
+    = fromMaybe (EBNF (BNF (RegExStr Fail) mempty))
     . listToMaybe
     . mapMaybe (\(ebnf, remaining) -> if remaining == "" then Just ebnf else Nothing)
-    . fmap (first' (EBNF . liftGram1 RegExStr))
+    . fmap (first' (EBNF . liftBNF1 RegExStr))
     . genReadS ebnfGrammar
   toList
     = maybe "{start} = \\q" ($ "")
     . genShowS ebnfGrammar
-    . liftGram1 runRegExStr
+    . liftBNF1 runRegExStr
     . runEBNF
 instance IsString EBNF where
   fromString = fromList
