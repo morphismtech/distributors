@@ -118,10 +118,10 @@ type Tokenizor token p =
   (Tokenized (p token token), Token (p token token) ~ token)
 
 tokens
-  :: ( AsEmpty s, Cons s s token token
-     , Monoidal p, Choice p, Tokenizor token p
+  :: ( AsEmpty s, Cons s s a a
+     , Monoidal p, Choice p, Tokenizor a p
      )
-  => [token] -> p s s
+  => [a] -> p s s
 tokens [] = asEmpty
 tokens (a:as) = token a >:< tokens as
 
@@ -158,7 +158,7 @@ optLike a = dimap (\_ -> [a]::[token]) (\(_::[token]) -> ())
   (manyP (asIn (categorize a)))
 
 {- |
-`someLike` accepts one or more tokens
+`someLike` consumes one or more tokens
 of a given token's category while parsing,
 and produces the given token while printing.
 -}
