@@ -28,19 +28,15 @@ module Control.Lens.Grammar
   , Grammatical
   , Contextual
     -- * Re-exports
+  , oneP, (>*), (*<), (>*<), replicateP
+  , empty, (<|>), manyP, someP, optionalP
   , module Control.Lens.Grammar.BackusNaur
   , module Control.Lens.Grammar.Kleene
   , module Control.Lens.Grammar.Token
   , module Control.Lens.Grammar.Stream
   , module Control.Lens.Grammar.Symbol
   , module Control.Lens.PartialIso
-  , module Control.Lens
-  , module Data.Profunctor
-  , module Data.Profunctor.Distributor
-  , module Data.Profunctor.Filtrator
   , module Data.Profunctor.Grammar
-  , module Data.Profunctor.Monadic
-  , module Data.Profunctor.Monoidal
   ) where
 
 import Control.Applicative
@@ -69,9 +65,33 @@ import Witherable
 makeNestedPrisms ''RegEx
 makeNestedPrisms ''GeneralCategory
 
-type RegGrammar c a = forall p. Regular c p => p a a
-type Grammar c a = forall p. Grammatical c p => p a a
-type CtxGrammar s a = forall p m. Contextual s m p => p s s m a a
+type RegGrammar token a = forall p. Regular token p => p a a
+type Grammar token a = forall p. Grammatical token p => p a a
+type CtxGrammar token a = forall p m. Contextual token m p => p m a a
+
+type RegGrammarr token a b =
+  forall p. Regular token p => p a a -> p b b
+type Grammarr token a b =
+  forall p. Grammatical token p => p a a -> p b b
+type CtxGrammarr token a b =
+  forall p m. Contextual token m p => p m a a -> p m b b
+
+type Regular token p =
+  ( Terminator token p
+  , Tokenizor token p
+  , Alternator p
+  )
+type Grammatical token p =
+  ( Regular token p
+  , Filtrator p
+  , forall x. BackusNaurForm (p x x)
+  )
+type Contextual token m p =
+  ( Grammatical token (p m)
+  , Monadic p
+  , Filterable m
+  , MonadPlus m
+  )
 
 opticGrammar :: Monoidal p => Optic' p Identity a () -> p a a
 opticGrammar = ($ oneP) . opticGrammarr
@@ -80,13 +100,6 @@ grammarOptic
   :: (Monoidal p, Comonad f, Applicative f)
   => p a a -> Optic' p f a ()
 grammarOptic = grammarrOptic . (*<)
-
-type RegGrammarr c a b = forall p.
-  Regular c p => p a a -> p b b
-type Grammarr c a b = forall p.
-  Grammatical c p => p a a -> p b b
-type CtxGrammarr s a b = forall p m.
-  Contextual s m p => p s s m a a -> p s s m b b
 
 opticGrammarr :: Profunctor p => Optic' p Identity b a -> p a a -> p b b
 opticGrammarr = dimap (rmap Identity) (rmap runIdentity)
@@ -98,10 +111,10 @@ grammarrOptic = dimap (rmap extract) (rmap pure)
 
 genShowS
   :: (Filterable m, MonadPlus m)
-  => CtxGrammar String a -> a -> m ShowS
+  => CtxGrammar Char a -> a -> m ShowS
 genShowS = evalPrintor
 
-genReadS :: CtxGrammar String a -> ReadS a
+genReadS :: CtxGrammar Char a -> ReadS a
 genReadS = runParsor
 
 genRegEx :: Categorized token => RegGrammar token a -> RegEx token
@@ -111,27 +124,6 @@ genGram
   :: (Categorized token, Ord token, Ord (Categorize token))
   => Grammar token a -> Gram (RegEx token)
 genGram = evalGrammor @() @((,) All)
-
-type Regular c p =
-  ( Terminator c p
-  , Tokenizor c p
-  , Alternator p
-  )
-
-type Grammatical c p =
-  ( Regular c p
-  , Filtrator p
-  , forall x. BackusNaurForm (p x x)
-  )
-
-type Contextual s m p =
-  ( Grammatical (Item s) (p s s m)
-  , Monadic (p s s)
-  , Categorized (Item s)
-  , IsStream s
-  , Filterable m
-  , MonadPlus m
-  )
 
 regexGrammar :: Grammar Char (RegEx Char)
 regexGrammar = ruleRec "regex" altG
