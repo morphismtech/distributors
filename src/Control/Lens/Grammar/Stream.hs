@@ -10,7 +10,7 @@ module Control.Lens.Grammar.Stream
     -- * Chain
   , chain
   , chain1
-    -- Utilities
+    -- * Utilities
   , listed
   , streamed
   , streamLine
@@ -90,7 +90,7 @@ noSep = sepBy oneP
 
 chain
   :: (Alternator p, Filtrator p)
-  => (forall x. x -> Either x x) -- `Left` or `Right` associate
+  => (forall x. x -> Either x x) -- ^ `Left` or `Right` associate
   -> APartialIso a b (a,a) (b,b) -- ^ binary constructor pattern
   -> APartialIso a b () () -- ^ nilary constructor pattern
   -> SepBy (p () ()) -> p a b -> p a b
@@ -101,7 +101,7 @@ chain assoc c2 c0 sep p =
 
 chain1
   :: (Distributor p, Choice p, Cochoice p)
-  => (forall x. x -> Either x x) -- `Left` or `Right` associate
+  => (forall x. x -> Either x x) -- ^ `Left` or `Right` associate
   -> APartialIso a b (a,a) (b,b) -- ^ binary constructor pattern
   -> SepBy (p () ()) -> p a b -> p a b
 chain1 = leftOrRight chainl1 chainr1
