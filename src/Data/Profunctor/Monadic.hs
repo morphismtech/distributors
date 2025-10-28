@@ -14,6 +14,8 @@ module Data.Profunctor.Monadic
   ( Monadic (..)
   , Polyadic (..)
   , Tetradic (..)
+  , MonadicPlus
+  , MonadicError
   , WrappedMonadic (..)
   , WrappedPolyadic (..)
   , TaggedP (..)
@@ -23,10 +25,14 @@ module Data.Profunctor.Monadic
 
 import Control.Category
 import Control.Monad
-import Control.Monad.Trans
+import Control.Monad.Except
+import Control.Monad.State
 import Control.Monad.Trans.Indexed
 import Data.Profunctor
+import Data.Profunctor.Filtrator
+import Data.Kind
 import Prelude hiding (id, (.))
+import Witherable
 
 class
   ( forall m. Monad m => Profunctor (p m)
@@ -58,6 +64,17 @@ class (forall i j. Profunctor (p i j f)) => Tetradic f p where
       :: (h -> i) -> (j -> k)
       -> p i j f a b -> p h k f a b
     dimapT f1 f2 = tetramap f1 f2 id id
+
+type MonadicPlus p =
+  ( Monadic p
+  , forall m. (Filterable m, MonadPlus m) => Filtrator (p m)
+  , forall m x. (Filterable m, MonadPlus m) => MonadPlus (p m x)
+  ) :: Constraint
+
+type MonadicError e p =
+  ( Monadic p
+  , forall m x. MonadError e m => MonadError e (p m x)
+  ) :: Constraint
 
 newtype WrappedMonadic p m a b = WrapMonadic {unwrapMonadic :: p m a (m b)}
 instance (Monadic p, Monad m) => Functor (WrappedMonadic p m a) where

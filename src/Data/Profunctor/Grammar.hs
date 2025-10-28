@@ -15,6 +15,9 @@ import Control.Applicative
 import Control.Arrow
 import Control.Category
 import Control.Comonad
+import Control.Monad.Except
+import Control.Monad.Reader
+import Control.Monad.State
 import Control.Lens
 import Control.Lens.Internal.Equator
 import Control.Lens.Grammar.BackusNaur
@@ -78,6 +81,13 @@ instance (Alternative m, Monad m) => Alternative (Parsor s s m a) where
   empty = Parsor (\_ -> empty)
   Parsor p <|> Parsor q = Parsor (\str -> p str <|> q str)
 instance (Alternative m, Monad m) => MonadPlus (Parsor s s m a)
+instance MonadError e m => MonadError e (Parsor s s m a) where
+  throwError = liftP . throwError
+  catchError p f = Parsor $ \s ->
+    catchError (runParsor p s) (\e -> runParsor (f e) s)
+instance Monad m => MonadState s (Parsor s s m a) where
+  get = Parsor (\s -> pure (s,s))
+  put = Parsor . (pure (pure . ((),)))
 instance (Alternative m, Monad m) => Choice (Parsor s s m) where
   left' = alternate . Left
   right' = alternate . Right
@@ -149,6 +159,14 @@ instance Monad f => Monad (Printor s s f a) where
     (y, q) <- runPrintor (f x) ctx
     return (y, p . q)
 instance (Alternative f, Monad f) => MonadPlus (Printor s s f a)
+instance MonadError e m => MonadError e (Printor s s m a) where
+  throwError = liftP . throwError
+  catchError p f = Printor $ \s ->
+    catchError (runPrintor p s) (\e -> runPrintor (f e) s)
+instance Monad m => MonadReader a (Printor s s m a) where
+  ask = Printor (\a -> return (a, id))
+  reader f = (Printor (\a -> return (f a, id)))
+  local f = Printor . (\m -> m . f) . runPrintor
 instance Monadic (Printor s s) where
   joinP (Printor mf) = Printor $ \a -> do
     (mb, f) <- mf a

@@ -19,9 +19,9 @@ module Control.Lens.Grammar
   , CtxGrammar
   , CtxGrammarr
     -- * Optics
-  , opticGrammarr
+  , prismGrammar
+  , coPrismGrammar
   , grammarrOptic
-  , opticGrammar
   , grammarOptic
     -- * Constraints
   , Regular
@@ -49,8 +49,10 @@ import Control.Lens.Grammar.Token
 import Control.Lens.Grammar.Stream
 import Control.Lens.Grammar.Symbol
 import Control.Monad
+-- import Control.Monad.Except
 import Data.Maybe hiding (mapMaybe)
 import Data.Monoid
+import Data.Profunctor
 import Data.Profunctor.Distributor
 import Data.Profunctor.Filtrator
 import Data.Profunctor.Monadic
@@ -87,21 +89,23 @@ type Grammatical token p =
   )
 type Contextual token m p =
   ( Grammatical token (p m)
-  , Monadic p
+  , MonadicPlus p
+  -- , MonadicError String p
   , Filterable m
   , MonadPlus m
+  -- , MonadError String m
   )
 
-opticGrammar :: Monoidal p => Optic' p Identity a () -> p a a
-opticGrammar = ($ oneP) . opticGrammarr
+prismGrammar :: (Monoidal p, Choice p) => Prism' a () -> p a a
+prismGrammar = (>? oneP)
+
+coPrismGrammar :: (Monoidal p, Cochoice p) => Prism' () a -> p a a
+coPrismGrammar = (?< oneP)
 
 grammarOptic
   :: (Monoidal p, Comonad f, Applicative f)
   => p a a -> Optic' p f a ()
 grammarOptic = grammarrOptic . (*<)
-
-opticGrammarr :: Profunctor p => Optic' p Identity b a -> p a a -> p b b
-opticGrammarr = dimap (rmap Identity) (rmap runIdentity)
 
 grammarrOptic
   :: (Profunctor p, Comonad f, Applicative f)
@@ -181,7 +185,7 @@ regexGrammar = dimap runRegExStr RegExStr $ ruleRec "regex" altG
       ]
     nonterminalG = rule "nonterminal" $ terminal "\\q" >* choiceP
       [ _NonTerminal >?< terminal "{" >* manyP charG *< terminal "}"
-      , opticGrammar _Fail
+      , prismGrammar _Fail
       ]
 
 bnfGrammarr :: Ord rule => RegGrammarr Char rule (BNF rule)
