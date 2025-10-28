@@ -154,8 +154,8 @@ withPartialIso
   :: APartialIso s t a b
   -> ((s -> Maybe a) -> (b -> Maybe t) -> r)
   -> r
-withPartialIso i k =
-  case i (PartialExchange Just (Just . Just)) of
+withPartialIso pattern k =
+  case pattern (PartialExchange Just (Just . Just)) of
     PartialExchange f g -> k f (join . g)
 
 {- | Clone `APartialIso` so that you can reuse the same
@@ -164,14 +164,14 @@ monomorphically typed partial isomorphism for different purposes.
 clonePartialIso
   :: APartialIso s t a b
   -> PartialIso s t a b
-clonePartialIso i = withPartialIso i $ \f g -> partialIso f g
+clonePartialIso pattern = withPartialIso pattern $ \f g -> partialIso f g
 
 {- | Clone and invert `APartialIso`. -}
 coPartialIso
   :: APartialIso b a t s
   -> PartialIso s t a b
-coPartialIso i =
-  withPartialIso i $ \f g -> partialIso g f
+coPartialIso pattern =
+  withPartialIso pattern $ \f g -> partialIso g f
 
 {- | Construct a `PartialIso` on pairs from components. -}
 crossPartialIso
@@ -228,7 +228,7 @@ infixl 4 >?<
 
 {- | Action of `AnIso` on `Profunctor`s. -}
 mapIso :: Profunctor p => AnIso s t a b -> p a b -> p s t
-mapIso i = withIso i dimap
+mapIso pattern = withIso pattern dimap
 
 {- | Action of a `coPrism`
 on the composition of a `Profunctor` and `Filterable`.
@@ -270,7 +270,7 @@ eotList = iso
 {- | Iterate the application of a partial isomorphism,
 useful for constructing fold/unfold isomorphisms. -}
 iterating :: APartialIso a b a b -> Iso a b a b
-iterating i = withPartialIso i $ \f g ->
+iterating pattern = withPartialIso pattern $ \f g ->
   iso (iter f) (iter g) where
     iter h state = maybe state (iter h) (h state)
 
@@ -279,7 +279,7 @@ difoldl1
   :: Cons s t a b
   => APartialIso (c,a) (d,b) c d
   -> Iso (c,s) (d,t) (c,s) (d,t)
-difoldl1 i =
+difoldl1 pattern =
   let
     associate = iso
       (\(c,(a,s)) -> ((c,a),s))
@@ -287,7 +287,7 @@ difoldl1 i =
     step
       = crossPartialIso id _Cons
       . associate
-      . crossPartialIso i id
+      . crossPartialIso pattern id
   in iterating step
 
 {- | Right fold & unfold `APartialIso` to an `Control.Lens.Iso.Iso`. -}
@@ -295,7 +295,7 @@ difoldr1
   :: Cons s t a b
   => APartialIso (a,c) (b,d) c d
   -> Iso (s,c) (t,d) (s,c) (t,d)
-difoldr1 i =
+difoldr1 pattern =
   let
     reorder = iso
       (\((a,s),c) -> (s,(a,c)))
@@ -303,7 +303,7 @@ difoldr1 i =
     step
       = crossPartialIso _Cons id
       . reorder
-      . crossPartialIso id i
+      . crossPartialIso id pattern
   in iterating step
 
 {- | Left fold & unfold `APartialIso` to a `PartialIso`. -}
@@ -311,13 +311,13 @@ difoldl
   :: (AsEmpty s, AsEmpty t, Cons s t a b)
   => APartialIso (c,a) (d,b) c d
   -> PartialIso (c,s) (d,t) c d
-difoldl i =
+difoldl pattern =
   let
     unit' = iso
       (\(a,()) -> a)
       (\a -> (a,()))
   in
-    difoldl1 i
+    difoldl1 pattern
     . crossPartialIso id nulled
     . unit'
 
@@ -326,13 +326,13 @@ difoldr
   :: (AsEmpty s, AsEmpty t, Cons s t a b)
   => APartialIso (a,c) (b,d) c d
   -> PartialIso (s,c) (t,d) c d
-difoldr i =
+difoldr pattern =
   let
     unit' = iso
       (\((),c) -> c)
       (\d -> ((),d))
   in
-    difoldr1 i
+    difoldr1 pattern
     . crossPartialIso nulled id
     . unit'
 
@@ -342,13 +342,13 @@ difoldl'
   :: (AsEmpty s, Cons s s a a)
   => APrism' (c,a) c
   -> Prism' (c,s) c
-difoldl' i =
+difoldl' pattern =
   let
     unit' = iso
       (\(a,()) -> a)
       (\a -> (a,()))
   in
-    difoldl1 (clonePrism i)
+    difoldl1 (clonePrism pattern)
     . aside _Empty
     . unit'
 
@@ -358,7 +358,7 @@ difoldr'
   :: (AsEmpty s, Cons s s a a)
   => APrism' (a,c) c
   -> Prism' (s,c) c
-difoldr' i =
+difoldr' pattern =
   let
     unit' = iso
       (\((),c) -> c)
@@ -370,7 +370,7 @@ difoldr' i =
             Left t -> Left  (t,e)
             Right a -> Right (a,e)
   in
-    difoldr1 (clonePrism i)
+    difoldr1 (clonePrism pattern)
     . asideFst _Empty
     . unit'
 
