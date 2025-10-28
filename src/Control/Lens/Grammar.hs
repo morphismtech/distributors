@@ -5,13 +5,13 @@ module Control.Lens.Grammar
   , RegGrammar
   , RegGrammarr
   , bnfGrammarr
-  , genRegEx
+  , genRegExStr
   , printRegEx
   , genShowS
   , genReadS
     -- * Grammar
   , Grammar
-  , genBNF
+  , genEBNF
   , printEBNF
   , regexGrammar
   , ebnfGrammar
@@ -25,7 +25,7 @@ module Control.Lens.Grammar
   , grammarOptic
     -- * Constraints
   , Regular
-  , BNFmatical
+  , Grammatical
   , Contextual
     -- * Re-exports
   , oneP, (>*), (*<), (>*<), replicateP
@@ -51,7 +51,6 @@ import Control.Lens.Grammar.Symbol
 import Control.Monad
 import Data.Maybe hiding (mapMaybe)
 import Data.Monoid
-import Data.Profunctor
 import Data.Profunctor.Distributor
 import Data.Profunctor.Filtrator
 import Data.Profunctor.Monadic
@@ -66,13 +65,13 @@ makeNestedPrisms ''RegEx
 makeNestedPrisms ''GeneralCategory
 
 type RegGrammar token a = forall p. Regular token p => p a a
-type Grammar token a = forall p. BNFmatical token p => p a a
+type Grammar token a = forall p. Grammatical token p => p a a
 type CtxGrammar token a = forall p m. Contextual token m p => p m a a
 
 type RegGrammarr token a b =
   forall p. Regular token p => p a a -> p b b
 type Grammarr token a b =
-  forall p. BNFmatical token p => p a a -> p b b
+  forall p. Grammatical token p => p a a -> p b b
 type CtxGrammarr token a b =
   forall p m. Contextual token m p => p m a a -> p m b b
 
@@ -81,13 +80,13 @@ type Regular token p =
   , Tokenizor token p
   , Alternator p
   )
-type BNFmatical token p =
+type Grammatical token p =
   ( Regular token p
   , Filtrator p
   , forall x. BackusNaurForm (p x x)
   )
 type Contextual token m p =
-  ( BNFmatical token (p m)
+  ( Grammatical token (p m)
   , Monadic p
   , Filterable m
   , MonadPlus m
@@ -117,16 +116,14 @@ genShowS = evalPrintor
 genReadS :: CtxGrammar Char a -> ReadS a
 genReadS = runParsor
 
-genRegEx :: Categorized token => RegGrammar token a -> RegEx token
-genRegEx = evalGrammor @() @Identity
+genRegExStr :: RegGrammar Char a -> RegExStr
+genRegExStr = evalGrammor @() @Identity
 
-genBNF
-  :: (Categorized token, Ord token, Ord (Categorize token))
-  => Grammar token a -> BNF (RegEx token)
-genBNF = evalGrammor @() @((,) All)
+genEBNF :: Grammar Char a -> EBNF
+genEBNF = evalGrammor @() @((,) All)
 
-regexGrammar :: Grammar Char (RegEx Char)
-regexGrammar = ruleRec "regex" altG
+regexGrammar :: Grammar Char RegExStr
+regexGrammar = dimap runRegExStr RegExStr $ ruleRec "regex" altG
   where
     altG rex = rule "alternate" $
       chain1 Left _Alternate (sepBy (terminal "|")) (seqG rex)
@@ -197,8 +194,8 @@ bnfGrammarr p = dimap hither thither $ startG  >*< rulesG
     ruleG = terminal " = " >* p
     nameG = manyP (escape "\\= " (terminal "\\" >*))
 
-ebnfGrammar :: Grammar Char (BNF (RegEx Char))
-ebnfGrammar = bnfGrammarr regexGrammar
+ebnfGrammar :: Grammar Char EBNF
+ebnfGrammar = dimap runEBNF EBNF (bnfGrammarr regexGrammar)
 
 newtype RegExStr = RegExStr {runRegExStr :: RegEx Char}
   deriving newtype
@@ -215,10 +212,10 @@ newtype EBNF = EBNF {runEBNF :: BNF RegExStr}
     )
 
 printRegEx :: RegGrammar Char a -> IO ()
-printRegEx = streamLine . RegExStr . genRegEx @Char
+printRegEx = streamLine . genRegExStr
 
 printEBNF :: Grammar Char a -> IO ()
-printEBNF = streamLine . EBNF . liftBNF1 RegExStr . genBNF @Char
+printEBNF = streamLine . genEBNF
 
 instance IsList RegExStr where
   type Item RegExStr = Char
@@ -226,10 +223,10 @@ instance IsList RegExStr where
     = fromMaybe (RegExStr Fail)
     . listToMaybe
     . mapMaybe (\(rex, remaining) -> if remaining == "" then Just rex else Nothing)
-    . genReadS (dimap runRegExStr RegExStr regexGrammar)
+    . genReadS regexGrammar
   toList
     = maybe "\\q" ($ "")
-    . genShowS (dimap runRegExStr RegExStr regexGrammar)
+    . genShowS regexGrammar
 instance IsString RegExStr where
   fromString = fromList
 instance Show RegExStr where
@@ -242,13 +239,10 @@ instance IsList EBNF where
     = fromMaybe (EBNF (BNF (RegExStr Fail) mempty))
     . listToMaybe
     . mapMaybe (\(ebnf, remaining) -> if remaining == "" then Just ebnf else Nothing)
-    . fmap (first' (EBNF . liftBNF1 RegExStr))
     . genReadS ebnfGrammar
   toList
     = maybe "{start} = \\q" ($ "")
     . genShowS ebnfGrammar
-    . liftBNF1 runRegExStr
-    . runEBNF
 instance IsString EBNF where
   fromString = fromList
 instance Show EBNF where
