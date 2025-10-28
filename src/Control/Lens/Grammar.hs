@@ -1,7 +1,7 @@
 module Control.Lens.Grammar
   ( -- * RegEx
-    RegExStr
-  , EBNF
+    RegExStr (..)
+  , EBNF (..)
   , RegGrammar
   , RegGrammarr
   , bnfGrammarr
@@ -33,6 +33,14 @@ module Control.Lens.Grammar
   , module Control.Lens.Grammar.Token
   , module Control.Lens.Grammar.Stream
   , module Control.Lens.Grammar.Symbol
+  , module Control.Lens.PartialIso
+  , module Control.Lens
+  , module Data.Profunctor
+  , module Data.Profunctor.Distributor
+  , module Data.Profunctor.Filtrator
+  , module Data.Profunctor.Grammar
+  , module Data.Profunctor.Monadic
+  , module Data.Profunctor.Monoidal
   ) where
 
 import Control.Applicative
