@@ -49,11 +49,16 @@ module Control.Lens.PartialIso
   , difoldr'
     -- * Template Haskell
   , makeNestedPrisms
+    -- * Re-exports
+  , module Control.Lens.Iso
+  , module Control.Lens.Prism
   ) where
 
 import Control.Lens
 import Control.Lens.Internal.NestedPrismTH
 import Control.Lens.Internal.Profunctor
+import Control.Lens.Iso
+import Control.Lens.Prism
 import Control.Monad
 import Data.Functor.Compose
 import Data.Profunctor
