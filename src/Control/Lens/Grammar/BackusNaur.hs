@@ -13,10 +13,10 @@ import Data.Coerce
 import Data.Function
 import Data.Set as Set
 
-class BackusNaurForm gram where
-  rule :: String -> gram -> gram
+class BackusNaurForm bnf where
+  rule :: String -> bnf -> bnf
   rule _ = id
-  ruleRec :: String -> (gram -> gram) -> gram
+  ruleRec :: String -> (bnf -> bnf) -> bnf
   ruleRec _ = fix
 
 data BNF rule = BNF
