@@ -47,17 +47,17 @@ instance (Ord rule, NonTerminalSymbol rule)
       in
         BNF start rules
 
-instance (Ord t, TerminalSymbol t)
-  => TerminalSymbol (BNF t) where
-  type Alphabet (BNF t) = Alphabet t
+instance (Ord rule, TerminalSymbol rule)
+  => TerminalSymbol (BNF rule) where
+  type Alphabet (BNF rule) = Alphabet rule
   terminal = liftBNF0 . terminal
 
-instance (Ord t, NonTerminalSymbol t)
-  => NonTerminalSymbol (BNF t) where
+instance (Ord rule, NonTerminalSymbol rule)
+  => NonTerminalSymbol (BNF rule) where
   nonTerminal = liftBNF0 . nonTerminal
 
-instance (Ord p, Tokenized p) => Tokenized (BNF p) where
-  type Token (BNF p) = Token p
+instance (Ord rule, Tokenized rule) => Tokenized (BNF rule) where
+  type Token (BNF rule) = Token rule
   anyToken = liftBNF0 anyToken
   noToken = liftBNF0 noToken
   token = liftBNF0 . token
@@ -67,13 +67,13 @@ instance (Ord p, Tokenized p) => Tokenized (BNF p) where
   asIn = liftBNF0 . asIn
   notAsIn = liftBNF0 . notAsIn
 
-instance (Ord t, KleeneStarAlgebra t) => KleeneStarAlgebra (BNF t) where
+instance (Ord rule, KleeneStarAlgebra rule) => KleeneStarAlgebra (BNF rule) where
   starK = liftBNF1 starK
   plusK = liftBNF1 plusK
   optK = liftBNF1 optK
   empK = liftBNF0 empK
   (>|<) = liftBNF2 (>|<)
-instance (Ord t, Monoid t) => Monoid (BNF t) where
+instance (Ord rule, Monoid rule) => Monoid (BNF rule) where
   mempty = liftBNF0 mempty
-instance (Ord t, Semigroup t) => Semigroup (BNF t) where
+instance (Ord rule, Semigroup rule) => Semigroup (BNF rule) where
   (<>) = liftBNF2 (<>)
