@@ -41,11 +41,11 @@ instance (Ord rule, NonTerminalSymbol rule)
     rule name = ruleRec name . const
     ruleRec name f =
       let
-        start = nonTerminal name
-        BNF newRule oldRules = f (BNF start mempty)
-        rules = insert (name, newRule) oldRules
+        newStart = nonTerminal name
+        BNF newRule oldRules = f (BNF newStart mempty)
+        newRules = insert (name, newRule) oldRules
       in
-        BNF start rules
+        BNF newStart newRules
 
 instance (Ord rule, TerminalSymbol rule)
   => TerminalSymbol (BNF rule) where
