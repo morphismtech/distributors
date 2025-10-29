@@ -53,7 +53,7 @@ instance TerminalSymbol (RegEx token) where
 instance Categorized token => Tokenized (RegEx token) where
   type Token (RegEx token) = token
   anyToken = AnyToken
-  noToken = Fail
+  notAnyToken = Fail
   token a = Terminal [a]
   notToken a = NotOneOf [a]
   oneOf [] = Fail

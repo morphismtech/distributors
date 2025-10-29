@@ -42,9 +42,9 @@ class Categorized (Token p) => Tokenized p where
 
   anyToken :: p
 
-  noToken :: p
-  default noToken :: (p ~ f (Token p), Alternative f) => p
-  noToken = empty
+  notAnyToken :: p
+  default notAnyToken :: (p ~ f (Token p), Alternative f) => p
+  notAnyToken = empty
 
   token :: Token p -> p
   default token
@@ -85,7 +85,7 @@ class Categorized (Token p) => Tokenized p where
 instance Categorized token => Tokenized (token -> Bool) where
   type Token (token -> Bool) = token
   anyToken _ = True
-  noToken _ = False
+  notAnyToken _ = False
   token = (==)
   notToken = (/=)
   oneOf = flip elem

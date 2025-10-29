@@ -150,7 +150,11 @@ regexGrammar = dimap runRegExStr RegExStr $ ruleRec "regex" altG
       , _NotAsIn >?< terminal "\\P{" >* categoryG *< terminal "}"
       , terminal "(" >* rex *< terminal ")"
       ]
-    charG = rule "char" $ escape "$()*+.?[\\]^{|}" (terminal "\\" >*)
+    charG = rule "char" $ escapes
+      [ ("$()*+.?[\\]^{|}", (terminal "\\" >*))
+      , ("\n", \_ -> (terminal "\\n" <|> terminal "\n") >* pure '\n')
+      , ("\t", \_ -> (terminal "\\t" <|> terminal "\t") >* pure '\t')
+      ]
     categoryG = rule "category" $ choiceP
       [ _LowercaseLetter >?< terminal "Ll"
       , _UppercaseLetter >?< terminal "Lu"
@@ -194,7 +198,7 @@ bnfGrammarr p = dimap hither thither $ startG  >*< rulesG
     hither (BNF start rules) = (start, toList rules)
     thither (start, rules) = BNF start (fromList rules)
     startG = terminal "start" >* ruleG
-    rulesG = manyP (someLike '\n' >* nameG >*< ruleG)
+    rulesG = manyP (terminal ['\n'] >* nameG >*< ruleG)
     ruleG = terminal " = " >* p
     nameG = manyP (escape "\\= " (terminal "\\" >*))
 

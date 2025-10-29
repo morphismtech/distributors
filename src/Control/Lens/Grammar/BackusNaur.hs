@@ -59,7 +59,7 @@ instance (Ord rule, NonTerminalSymbol rule)
 instance (Ord rule, Tokenized rule) => Tokenized (BNF rule) where
   type Token (BNF rule) = Token rule
   anyToken = liftBNF0 anyToken
-  noToken = liftBNF0 noToken
+  notAnyToken = liftBNF0 notAnyToken
   token = liftBNF0 . token
   notToken = liftBNF0 . notToken
   oneOf = liftBNF0 . oneOf

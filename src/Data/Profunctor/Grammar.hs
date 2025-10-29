@@ -285,7 +285,7 @@ instance (Tokenized t, Applicative f)
   => Tokenized (Grammor s t f a b) where
   type Token (Grammor s t f a b) = Token t
   anyToken = grammor anyToken
-  noToken = grammor noToken
+  notAnyToken = grammor notAnyToken
   token = grammor . token
   notToken = grammor . notToken
   oneOf = grammor . oneOf
