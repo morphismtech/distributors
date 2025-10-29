@@ -87,27 +87,21 @@ noSep :: Monoidal p => SepBy (p () ())
 noSep = sepBy oneP
 
 chain
-  :: Alternator p
+  :: (Distributor p, Choice p, Alternative (p a))
   => (forall x. x -> Either x x) -- ^ `Left` or `Right` associate
   -> APartialIso a b (a,a) (b,b) -- ^ binary constructor pattern
   -> APrism a b () () -- ^ nilary constructor pattern
   -> SepBy (p () ()) -> p a b -> p a b
-chain assoc pat2 pat0 sep p =
-  beginBy sep >*
-  (pat0 >? oneP <|> chain1 assoc pat2 (sepBy (separateBy sep)) p)
-  *< endBy sep
+chain assoc pat2 pat0 (SepBy beg end sep) p =
+  beg >* (pat0 >? oneP <|> chain1 assoc pat2 (sepBy sep) p) *< end
 
 chain1
   :: (Distributor p, Choice p)
   => (forall x. x -> Either x x) -- ^ `Left` or `Right` associate
   -> APartialIso a b (a,a) (b,b) -- ^ binary constructor pattern
   -> SepBy (p () ()) -> p a b -> p a b
-chain1 assoc pat sep = leftOrRight chainl1 chainr1
+chain1 assoc pat (SepBy beg end sep) = leftOrRight chainl1 chainr1
   where
     leftOrRight a b = case assoc () of Left _ -> a; Right _ -> b
-    chainl1 p =
-      difoldl pat >?
-        beginBy sep >* p >*< manyP (separateBy sep >* p) *< endBy sep
-    chainr1 p =
-      difoldr pat >?
-        beginBy sep >* manyP (p *< separateBy sep) >*< p *< endBy sep
+    chainl1 p = difoldl pat >? beg >* p >*< manyP (sep >* p) *< end
+    chainr1 p = difoldr pat >? beg >* manyP (p *< sep) >*< p *< end
