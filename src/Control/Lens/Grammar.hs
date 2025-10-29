@@ -194,7 +194,7 @@ bnfGrammarr p = dimap hither thither $ startG  >*< rulesG
     hither (BNF start rules) = (start, toList rules)
     thither (start, rules) = BNF start (fromList rules)
     startG = terminal "start" >* ruleG
-    rulesG = manyP (terminal "\n" >* nameG >*< ruleG)
+    rulesG = manyP (someLike '\n' >* nameG >*< ruleG)
     ruleG = terminal " = " >* p
     nameG = manyP (escape "\\= " (terminal "\\" >*))
 
