@@ -17,8 +17,6 @@ module Control.Lens.Bifocal
   , mapBifocal
   , cloneBifocal
   , withBifocal
-  , chained1
-  , chained
     -- * Binocular
   , Binocular (..), runBinocular
     -- * Prismoid
@@ -26,6 +24,8 @@ module Control.Lens.Bifocal
   , somed
   , lefted
   , righted
+  , chained1
+  , chained
     -- * Filtroid
   , Filtroid
   , unlefted
@@ -117,14 +117,21 @@ unrighted = unwrapPafb . snd . filtrate . WrapPafb
 {- |
 Associate a binary constructor pattern to sequence one or more times.
 -}
-chained1 :: (forall x. x -> Either x x) -> APartialIso a b (a,a) (b,b) -> Bifocal a b a b
+chained1
+  :: (forall x. x -> Either x x)
+  -> APartialIso a b (a,a) (b,b)
+  -> Prismoid a b a b
 chained1 assoc binPat = unwrapPafb . chain1 assoc binPat noSep . WrapPafb
 
 {- |
 Associate a binary constructor pattern to sequence one or more times,
 or use a nilary constructor pattern to sequence zero times.
 -}
-chained :: (forall x. x -> Either x x) -> APartialIso a b (a,a) (b,b) -> APartialIso a b () () -> Bifocal a b a b
+chained
+  :: (forall x. x -> Either x x)
+  -> APartialIso a b (a,a) (b,b)
+  -> APrism a b () ()
+  -> Prismoid a b a b
 chained assoc binPat nilPat = unwrapPafb . chain assoc binPat nilPat noSep . WrapPafb
 
 {- | Run `ABifocal` over an `Alternative` & `Filterable`. -}

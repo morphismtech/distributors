@@ -45,8 +45,6 @@ module Control.Lens.PartialIso
   , difoldr1
   , difoldl
   , difoldr
-  , difoldl'
-  , difoldr'
     -- * Template Haskell
   , makeNestedPrisms
     -- * Re-exports
@@ -274,11 +272,11 @@ iterating pattern = withPartialIso pattern $ \f g ->
   iso (iter f) (iter g) where
     iter h state = maybe state (iter h) (h state)
 
-{- | Left fold & unfold `APartialIso` to an `Control.Lens.Iso.Iso`. -}
+{- | Left fold & unfold `PartialIso` to an `Control.Lens.Iso.Iso`. -}
 difoldl1
   :: Cons s t a b
-  => APartialIso (c,a) (d,b) c d
-  -> Iso (c,s) (d,t) (c,s) (d,t)
+  => APartialIso d c (d,b) (c,a)
+  -> Iso (d,t) (c,s) (d,t) (c,s)
 difoldl1 pattern =
   let
     associate = iso
@@ -287,14 +285,14 @@ difoldl1 pattern =
     step
       = crossPartialIso id _Cons
       . associate
-      . crossPartialIso pattern id
-  in iterating step
+      . crossPartialIso (coPartialIso pattern) id
+  in from (iterating step)
 
 {- | Right fold & unfold `APartialIso` to an `Control.Lens.Iso.Iso`. -}
 difoldr1
   :: Cons s t a b
-  => APartialIso (a,c) (b,d) c d
-  -> Iso (s,c) (t,d) (s,c) (t,d)
+  => APartialIso d c (b,d) (a,c)
+  -> Iso (t,d) (s,c) (t,d) (s,c)
 difoldr1 pattern =
   let
     reorder = iso
@@ -303,76 +301,26 @@ difoldr1 pattern =
     step
       = crossPartialIso _Cons id
       . reorder
-      . crossPartialIso id pattern
-  in iterating step
+      . crossPartialIso id (coPartialIso pattern)
+  in from (iterating step)
 
-{- | Left fold & unfold `APartialIso` to a `PartialIso`. -}
+{- | Left fold & unfold `PartialIso` to a `PartialIso`. -}
 difoldl
-  :: (AsEmpty s, AsEmpty t, Cons s t a b)
-  => APartialIso (c,a) (d,b) c d
-  -> PartialIso (c,s) (d,t) c d
-difoldl pattern =
-  let
-    unit' = iso
-      (\(a,()) -> a)
-      (\a -> (a,()))
-  in
-    difoldl1 pattern
-    . crossPartialIso id nulled
-    . unit'
+  :: (AsEmpty t, Cons s t a b)
+  => APartialIso d c (d,b) (c,a)
+  -> Prism d c (d,t) (c,s)
+difoldl pattern
+  = dimap (, Empty) (fmap fst)
+  . difoldl1 pattern
 
 {- | Right fold & unfold `APartialIso` to a `PartialIso`. -}
 difoldr
-  :: (AsEmpty s, AsEmpty t, Cons s t a b)
-  => APartialIso (a,c) (b,d) c d
-  -> PartialIso (s,c) (t,d) c d
-difoldr pattern =
-  let
-    unit' = iso
-      (\((),c) -> c)
-      (\d -> ((),d))
-  in
-    difoldr1 pattern
-    . crossPartialIso nulled id
-    . unit'
-
-{- | Left fold & unfold `Control.Lens.Prism.APrism'`
-to a `Control.Lens.Prism.Prism'`. -}
-difoldl'
-  :: (AsEmpty s, Cons s s a a)
-  => APrism' (c,a) c
-  -> Prism' (c,s) c
-difoldl' pattern =
-  let
-    unit' = iso
-      (\(a,()) -> a)
-      (\a -> (a,()))
-  in
-    difoldl1 (clonePrism pattern)
-    . aside _Empty
-    . unit'
-
-{- | Right fold & unfold `Control.Lens.Prism.APrism'`
-to a `Control.Lens.Prism.Prism'`. -}
-difoldr'
-  :: (AsEmpty s, Cons s s a a)
-  => APrism' (a,c) c
-  -> Prism' (s,c) c
-difoldr' pattern =
-  let
-    unit' = iso
-      (\((),c) -> c)
-      (\c -> ((),c))
-    asideFst k =
-      withPrism k $ \bt seta ->
-        prism (first' bt) $ \(s,e) ->
-          case seta s of
-            Left t -> Left  (t,e)
-            Right a -> Right (a,e)
-  in
-    difoldr1 (clonePrism pattern)
-    . asideFst _Empty
-    . unit'
+  :: (AsEmpty t, Cons s t a b)
+  => APartialIso d c (b,d) (a,c)
+  -> Prism d c (t,d) (s,c)
+difoldr pattern
+  = dimap (Empty, ) (fmap snd)
+  . difoldr1 pattern
 
 -- Orphanage --
 

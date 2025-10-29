@@ -19,9 +19,7 @@ module Control.Lens.Grammar.Stream
 import Control.Applicative
 import Control.Lens
 import Control.Lens.PartialIso
-import Data.Profunctor
 import Data.Profunctor.Distributor
-import Data.Profunctor.Filtrator
 import Data.Profunctor.Monoidal
 import GHC.Exts
 
@@ -89,27 +87,27 @@ noSep :: Monoidal p => SepBy (p () ())
 noSep = sepBy oneP
 
 chain
-  :: (Alternator p, Filtrator p)
+  :: Alternator p
   => (forall x. x -> Either x x) -- ^ `Left` or `Right` associate
   -> APartialIso a b (a,a) (b,b) -- ^ binary constructor pattern
-  -> APartialIso a b () () -- ^ nilary constructor pattern
+  -> APrism a b () () -- ^ nilary constructor pattern
   -> SepBy (p () ()) -> p a b -> p a b
-chain assoc c2 c0 sep p = 
+chain assoc pat2 pat0 sep p =
   beginBy sep >*
-  (c0 >?< oneP <|> chain1 assoc c2 (sepBy (separateBy sep)) p)
+  (pat0 >? oneP <|> chain1 assoc pat2 (sepBy (separateBy sep)) p)
   *< endBy sep
 
 chain1
-  :: (Distributor p, Choice p, Cochoice p)
+  :: (Distributor p, Choice p)
   => (forall x. x -> Either x x) -- ^ `Left` or `Right` associate
   -> APartialIso a b (a,a) (b,b) -- ^ binary constructor pattern
   -> SepBy (p () ()) -> p a b -> p a b
-chain1 = leftOrRight chainl1 chainr1
+chain1 assoc pat sep = leftOrRight chainl1 chainr1
   where
-    leftOrRight a b f = case f () of Left _ -> a; Right _ -> b
-    chainl1 pat sep p =
-      coPartialIso (difoldl (coPartialIso pat)) >?<
+    leftOrRight a b = case assoc () of Left _ -> a; Right _ -> b
+    chainl1 p =
+      difoldl pat >?
         beginBy sep >* p >*< manyP (separateBy sep >* p) *< endBy sep
-    chainr1 pat sep p =
-      coPartialIso (difoldr (coPartialIso pat)) >?<
+    chainr1 p =
+      difoldr pat >?
         beginBy sep >* manyP (p *< separateBy sep) >*< p *< endBy sep
