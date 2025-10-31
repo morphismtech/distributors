@@ -32,6 +32,7 @@ library
       Control.Lens.Diopter
       Control.Lens.Grammar
       Control.Lens.Grammar.BackusNaur
+      Control.Lens.Grammar.Context
       Control.Lens.Grammar.Kleene
       Control.Lens.Grammar.Stream
       Control.Lens.Grammar.Symbol
@@ -103,6 +104,7 @@ library
     , contravariant >=1.5 && <2
     , distributive >=0.6 && <1
     , indexed-transformers >=0.1.0.4 && <1
+    , kan-extensions
     , lens >=5.2 && <6
     , mtl >=2.3 && <3
     , profunctors >=5.6 && <6
@@ -174,6 +176,7 @@ test-suite spec
     , distributors
     , hspec
     , indexed-transformers >=0.1.0.4 && <1
+    , kan-extensions
     , lens >=5.2 && <6
     , mtl >=2.3 && <3
     , profunctors >=5.6 && <6

@@ -67,7 +67,8 @@ instance (Ord rule, Tokenized rule) => Tokenized (BNF rule) where
   asIn = liftBNF0 . asIn
   notAsIn = liftBNF0 . notAsIn
 
-instance (Ord rule, KleeneStarAlgebra rule) => KleeneStarAlgebra (BNF rule) where
+instance (Ord rule, KleeneStarAlgebra rule)
+  => KleeneStarAlgebra (BNF rule) where
   starK = liftBNF1 starK
   plusK = liftBNF1 plusK
   optK = liftBNF1 optK
