@@ -85,6 +85,12 @@ instance MonadError e m => MonadError e (Parsor s s m a) where
   throwError = liftP . throwError
   catchError p f = Parsor $ \s ->
     catchError (runParsor p s) (\e -> runParsor (f e) s)
+instance Monad m => MonadReader s (Parsor s s m a) where
+  ask = get
+  local f (Parsor p) = do
+    s <- get
+    (a,_s) <- liftP (p (f s))
+    return a
 instance Monad m => MonadState s (Parsor s s m a) where
   get = Parsor (\s -> pure (s,s))
   put = Parsor . (pure (pure . ((),)))
