@@ -9,12 +9,15 @@ module Data.Profunctor.Grammar
   , Grammor (..)
   , grammor
   , evalGrammor
+    -- * Reador
+  , Reador (..)
   ) where
 
 import Control.Applicative
 import Control.Arrow
 import Control.Category
 import Control.Comonad
+import Control.Monad.Codensity
 import Control.Monad.Except
 import Control.Monad.Reader
 import Control.Monad.State
@@ -53,6 +56,91 @@ grammor = Grammor . pure . pure
 evalGrammor :: (Monoid s, Comonad f) => Grammor s t f a b -> t
 evalGrammor = extract . extract . runGrammor
 
+newtype Reador s f a b = Reador (Codensity (Stx s f) b)
+data Stx s f b
+  = Stx (f b) (Stx s f b)
+  | Get (s -> Stx s f b)
+  | Put (f (b,s))
+runStx :: Alternative f => Stx s f a -> s -> f (a, s)
+runStx (Get f) s = runStx (f s) s
+runStx (Stx x p) s = (,s) <$> x <|> runStx p s
+runStx (Put rs) _ = rs
+liftStx :: MonadPlus m => m b -> Stx s m b
+liftStx b = Stx b empty
+
+-- Reador instances
+deriving newtype instance Functor (Reador s f a)
+deriving newtype instance Applicative (Reador s f a)
+deriving newtype instance Monad (Reador s f a)
+deriving newtype instance MonadPlus m => MonadState s (Reador s m a)
+deriving newtype instance MonadPlus m => Alternative (Reador s m a)
+deriving newtype instance MonadPlus m => MonadPlus (Reador s m a)
+instance (Filterable m, MonadPlus m) => Filterable (Reador s m a) where
+  mapMaybe f (Reador p) = Reador (lift (mapMaybe f (lowerCodensity p)))
+instance Profunctor (Reador s f) where
+  dimap _ f (Reador p) = fmap f (Reador p)
+  rmap = fmap
+  lmap _ (Reador p) = Reador p
+instance Choice (Reador s f) where
+  left' (Reador p) = Reador (fmap Left p)
+  right' (Reador p) = Reador (fmap Right p)
+instance MonadPlus m => Distributor (Reador s m)
+instance MonadPlus m => Alternator (Reador s m) where
+  alternate = \case
+    Left (Reador p) -> Reador (fmap Left p)
+    Right (Reador p) -> Reador (fmap Right p)
+instance (Filterable m, MonadPlus m) => Cochoice (Reador s m) where
+  unleft = fst . filtrate
+  unright = snd . filtrate
+instance (Filterable m, MonadPlus m) => Filtrator (Reador s m) where
+  filtrate (Reador p) =
+    ( Reador
+        . lift . mapMaybe (either Just (const Nothing))
+        . lowerCodensity $ p
+    , Reador
+        . lift . mapMaybe (either (const Nothing) Just)
+        . lowerCodensity $ p
+    )
+instance MonadPlus m => Monadic m (Reador s) where
+  liftP = Reador . lift . liftStx
+-- Stx instances
+instance Filterable f => Filterable (Stx s f) where
+  mapMaybe f = \case
+    Stx b p -> Stx (mapMaybe f b) (mapMaybe f p)
+    Get g -> Get (mapMaybe f . g)
+    Put bt -> Put (mapMaybe (\(b,t) -> (,t) <$> f b) bt)
+deriving stock instance Functor f => Functor (Stx s f)
+instance MonadPlus m => Applicative (Stx s m) where
+  pure b = Stx (pure b) (Put empty)
+  (<*>) = ap
+instance MonadPlus m => MonadPlus (Stx s m)
+instance MonadPlus m => Monad (Stx s m) where
+  (Stx x p) >>= k = (liftStx x >>= k) <|> (p >>= k)
+  (Get f) >>= k = Get (\s -> f s >>= k)
+  (Put r) >>= k = Put (r >>= \(x,s) -> runStx (k x) s)
+instance MonadPlus m => Alternative (Stx s m) where
+  empty = Put empty
+  -- results are delivered as soon as possible
+  Stx x p <|> q = Stx x (p <|> q)
+  p <|> Stx x q = Stx x (p <|> q)
+  -- two puts are combined
+  -- put + get becomes one get and one final (=optimization)
+  Put r <|> Put t = Put (r <|> t)
+  Put r <|> Get f = Get (\s -> Put (r <|> runStx (f s) s))
+  Get f <|> Put r = Get (\s -> Put (runStx (f s) s <|> r))
+  -- two looks are combined (=optimization)
+  -- look + sthg else floats upwards
+  Get f <|> Get g = Get (\s -> f s <|> g s)
+instance MonadPlus m => MonadReader s (Stx s m) where
+  ask = Get pure
+  local f = \case
+    Stx x p -> Stx x (local f p)
+    Get g -> Get (g . f)
+    Put r -> Put r
+instance MonadPlus m => MonadState s (Stx s m) where
+  get = Get pure
+  put s = Put (pure (pure s))
+
 -- Parsor instances
 instance Functor f => Functor (Parsor s t f a) where
   fmap f = Parsor . fmap (fmap (first' f)) . runParsor
@@ -85,12 +173,6 @@ instance MonadError e m => MonadError e (Parsor s s m a) where
   throwError = liftP . throwError
   catchError p f = Parsor $ \s ->
     catchError (runParsor p s) (\e -> runParsor (f e) s)
-instance Monad m => MonadReader s (Parsor s s m a) where
-  ask = get
-  local f (Parsor p) = do
-    s <- get
-    (a,_s) <- liftP (p (f s))
-    return a
 instance Monad m => MonadState s (Parsor s s m a) where
   get = Parsor (\s -> pure (s,s))
   put = Parsor . (pure (pure . ((),)))
@@ -102,12 +184,12 @@ instance (Alternative m, Monad m) => Alternator (Parsor s s m) where
   alternate = \case
     Left (Parsor p) -> Parsor (fmap (\(b, str) -> (Left b, str)) . p)
     Right (Parsor p) -> Parsor (fmap (\(b, str) -> (Right b, str)) . p)
-instance Monadic (Parsor s s) where
+instance Monad m => Monadic m (Parsor s s) where
   joinP (Parsor p) = Parsor $ \s -> do
     (mb, s') <- p s
     b <- mb
     return (b, s')
-instance Polyadic Parsor where
+instance Monad m => Polyadic m Parsor where
   composeP (Parsor p) = Parsor $ \s -> do
     (mb, s') <- p s
     runParsor mb s'
@@ -173,12 +255,12 @@ instance Monad m => MonadReader a (Printor s s m a) where
   ask = Printor (\a -> return (a, id))
   reader f = (Printor (\a -> return (f a, id)))
   local f = Printor . (\m -> m . f) . runPrintor
-instance Monadic (Printor s s) where
+instance Monad m => Monadic m (Printor s s) where
   joinP (Printor mf) = Printor $ \a -> do
     (mb, f) <- mf a
     b <- mb
     return (b, f)
-instance Polyadic Printor where
+instance Monad m => Polyadic m Printor where
   composeP (Printor mf) = Printor $ \a -> do
     (Printor mg, f) <- mf a
     (b, g) <- mg a

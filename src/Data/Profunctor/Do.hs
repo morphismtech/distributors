@@ -20,11 +20,11 @@ import Data.Profunctor.Monadic
 import Prelude hiding ((>>), (>>=))
 
 (>>=)
-  :: (Polyadic p, Monad m)
+  :: Polyadic m p
   => p i j m a b -> (b -> p j k m a c) -> p i k m a c
 x >>= f = composeP (fmap f x)
 
 (>>)
-  :: (Polyadic p, Monad m)
+  :: Polyadic m p
   => p i j m a b -> p j k m a c -> p i k m a c
 x >> y = x >>= (\_ -> y)

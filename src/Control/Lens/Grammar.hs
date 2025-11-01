@@ -89,11 +89,10 @@ type Grammatical token p =
   )
 type Contextual token m p =
   ( Grammatical token (p m)
-  , MonadicPlus p
-  -- , MonadicError String p
+  , Monadic m p
+  , forall a. MonadPlus (p m a)
   , Filterable m
   , MonadPlus m
-  -- , MonadError String m
   )
 
 prismGrammar :: (Monoidal p, Choice p) => Prism' a () -> p a a
