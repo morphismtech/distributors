@@ -11,6 +11,7 @@ module Data.Profunctor.Grammar
   , evalGrammor
     -- * Reador
   , Reador (..)
+  , runReador
   ) where
 
 import Control.Applicative
@@ -61,6 +62,8 @@ data Stx s f x
   = LookStx (s -> Stx s f x)
   | ResultStx x (Stx s f x)
   | FinalStx (f (x,s))
+runReador :: (Alternative m, Monad m) => Reador s m a b -> s -> m (b,s)
+runReador (Reador p) = runStx (lowerCodensity p)
 
 -- Parsor instances
 instance Functor f => Functor (Parsor s t f a) where
