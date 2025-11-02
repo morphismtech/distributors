@@ -90,9 +90,9 @@ type Grammatical token p =
 type Contextual token m p =
   ( Grammatical token (p m)
   , Monadic m p
-  , forall a. MonadPlus (p m a)
   , Filterable m
-  , MonadPlus m
+  , Alternative m
+  , Monad m
   )
 
 prismGrammar :: (Monoidal p, Choice p) => Prism' a () -> p a a
@@ -112,7 +112,7 @@ grammarrOptic
 grammarrOptic = dimap (rmap extract) (rmap pure)
 
 genShowS
-  :: (Filterable m, MonadPlus m)
+  :: (Filterable m, Alternative m, Monad m)
   => CtxGrammar Char a -> a -> m ShowS
 genShowS = evalPrintor
 

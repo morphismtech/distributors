@@ -134,20 +134,30 @@ instance Filterable f => Filtrator (Parsor s t f) where
     ) where
       leftMay (e, str) = either (\b -> Just (b, str)) (\_ -> Nothing) e
       rightMay (e, str) = either (\_ -> Nothing) (\b -> Just (b, str)) e
-instance (Categorized a, a ~ Item s, IsStream s, Filterable m, MonadPlus m)
-  => Tokenized (Parsor s s m a a) where
+instance
+  ( Categorized a, a ~ Item s, IsStream s
+  , Filterable m, Alternative m, Monad m
+  ) => Tokenized (Parsor s s m a a) where
   type Token (Parsor s s m a a) = a
   anyToken = Parsor (maybe empty pure . uncons)
-instance (Categorized a, a ~ Item s, IsStream s, Filterable m, MonadPlus m)
-  => Equator a a (Parsor s s m)
-instance (Categorized a, a ~ Item s, IsStream s, Filterable m, MonadPlus m)
-  => TerminalSymbol (Parsor s s m () ()) where
+instance
+  ( Categorized a, a ~ Item s, IsStream s
+  , Filterable m, Alternative m, Monad m
+  ) => Equator a a (Parsor s s m)
+instance
+  ( Categorized a, a ~ Item s, IsStream s
+  , Filterable m, Alternative m, Monad m
+  ) => TerminalSymbol (Parsor s s m () ()) where
   type Alphabet (Parsor s s m () ()) = Item s
-instance (Char ~ Item s, IsStream s, Filterable m, MonadPlus m)
-  => IsString (Parsor s s m () ()) where
+instance
+  ( Char ~ Item s, IsStream s
+  , Filterable m, Alternative m, Monad m
+  ) => IsString (Parsor s s m () ()) where
   fromString = terminal
-instance (Char ~ Item s, IsStream s, Filterable m, MonadPlus m)
-  => IsString (Parsor s s m s s) where
+instance
+  ( Char ~ Item s, IsStream s
+  , Filterable m, Alternative m, Monad m
+  ) => IsString (Parsor s s m s s) where
   fromString = tokens
 instance BackusNaurForm (Parsor s t m a b)
 
@@ -229,28 +239,38 @@ instance Monad f => Arrow (Printor s s f) where
   (***) = (>*<)
   first = first'
   second = second'
-instance MonadPlus f => ArrowZero (Printor s s f) where
+instance (Alternative f, Monad f) => ArrowZero (Printor s s f) where
   zeroArrow = empty
-instance MonadPlus f => ArrowPlus (Printor s s f) where
+instance (Alternative f, Monad f) => ArrowPlus (Printor s s f) where
   (<+>) = (<|>)
-instance MonadPlus f => ArrowChoice (Printor s s f) where
+instance (Alternative f, Monad f) => ArrowChoice (Printor s s f) where
   (+++) = (>+<)
   left = left'
   right = right'
-instance (Categorized a, a ~ Item s, IsStream s, Filterable m, MonadPlus m)
-  => Tokenized (Printor s s m a a) where
+instance
+  ( Categorized a, a ~ Item s, IsStream s
+  , Filterable m, Alternative m, Monad m
+  ) => Tokenized (Printor s s m a a) where
   type Token (Printor s s m a a) = a
   anyToken = Printor (\b -> pure (b, cons b))
-instance (Categorized a, a ~ Item s, IsStream s, Filterable m, MonadPlus m)
-  => Equator a a (Printor s s m)
-instance (Categorized a, a ~ Item s, IsStream s, Filterable m, MonadPlus m)
-  => TerminalSymbol (Printor s s m () ()) where
+instance
+  ( Categorized a, a ~ Item s, IsStream s
+  , Filterable m, Alternative m, Monad m
+  ) => Equator a a (Printor s s m)
+instance 
+  ( Categorized a, a ~ Item s, IsStream s
+  , Filterable m, Alternative m, Monad m
+  ) => TerminalSymbol (Printor s s m () ()) where
   type Alphabet (Printor s s m () ()) = Item s
-instance (Char ~ Item s, IsStream s, Filterable m, MonadPlus m)
-  => IsString (Printor s s m () ()) where
+instance
+  ( Char ~ Item s, IsStream s
+  , Filterable m, Alternative m, Monad m
+  ) => IsString (Printor s s m () ()) where
   fromString = terminal
-instance (Char ~ Item s, IsStream s, Filterable m, MonadPlus m)
-  => IsString (Printor s s m s s) where
+instance
+  ( Char ~ Item s, IsStream s
+  , Filterable m, Alternative m, Monad m
+  ) => IsString (Printor s s m s s) where
   fromString = tokens
 instance BackusNaurForm (Printor s t m a b)
 
@@ -368,24 +388,34 @@ instance (Alternative f, Monad f, Filterable f)
       )
 instance (Alternative m, Monad m) => Monadic m (Reador s) where
   liftP m = Reador (lift (LookStx (\s -> FinalStx ((,s) <$> m))))
-instance (Categorized a, a ~ Item s, IsStream s, Filterable m, MonadPlus m)
-  => Tokenized (Reador s m a a) where
+instance
+  ( Categorized a, a ~ Item s, IsStream s
+  , Filterable m, Alternative m, Monad m
+  ) => Tokenized (Reador s m a a) where
   type Token (Reador s m a a) = a
   anyToken = do
     s <- get
     case uncons s of
       Nothing -> empty
       Just (c,cs) -> put cs >> return c
-instance (Categorized a, a ~ Item s, IsStream s, Filterable m, MonadPlus m)
-  => Equator a a (Reador s m)
-instance (Categorized a, a ~ Item s, IsStream s, Filterable m, MonadPlus m)
-  => TerminalSymbol (Reador s m () ()) where
+instance
+  ( Categorized a, a ~ Item s, IsStream s
+  , Filterable m, Alternative m, Monad m
+  ) => Equator a a (Reador s m)
+instance
+  ( Categorized a, a ~ Item s, IsStream s
+  , Filterable m, Alternative m, Monad m
+  ) => TerminalSymbol (Reador s m () ()) where
   type Alphabet (Reador s m () ()) = Item s
-instance (Char ~ Item s, IsStream s, Filterable m, MonadPlus m)
-  => IsString (Reador s m () ()) where
+instance
+  ( Char ~ Item s, IsStream s
+  , Filterable m, Alternative m, Monad m
+  ) => IsString (Reador s m () ()) where
   fromString = terminal
-instance (Char ~ Item s, IsStream s, Filterable m, MonadPlus m)
-  => IsString (Reador s m s s) where
+instance
+  ( Char ~ Item s, IsStream s
+  , Filterable m, Alternative m, Monad m
+  ) => IsString (Reador s m s s) where
   fromString = tokens
 instance BackusNaurForm (Reador s f a b)
 
