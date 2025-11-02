@@ -74,6 +74,40 @@ instance (Alternative m, Monad m, Filterable m)
   => Filterable (Reador s m a) where
     mapMaybe f (Reador p) =
       Reador (lift (mapMaybe f (lowerCodensity p)))
+instance Profunctor (Reador s f) where
+  dimap _ f (Reador p) = Reador (fmap f p)
+instance Choice (Reador s f) where
+  left' (Reador p) = Reador (fmap Left p)
+  right' (Reador p) = Reador (fmap Right p)
+instance (Alternative f, Monad f) => Distributor (Reador s f)
+instance (Alternative f, Monad f)
+  => Alternator (Reador s f) where
+  alternate = \case
+    Left (Reador p) -> Reador (fmap Left p)
+    Right (Reador p) -> Reador (fmap Right p)
+instance (Alternative f, Monad f, Filterable f)
+  => Cochoice (Reador s f) where
+    unleft (Reador p)
+      = Reador . lift
+      . mapMaybe (either Just (const Nothing))
+      . lowerCodensity $ p
+    unright (Reador p)
+      = Reador . lift
+      . mapMaybe (either (const Nothing) Just)
+      . lowerCodensity $ p
+instance (Alternative f, Monad f, Filterable f)
+  => Filtrator (Reador s f) where
+    filtrate (Reador p) =
+      ( Reador . lift
+      . mapMaybe (either Just (const Nothing))
+      . lowerCodensity $ p
+
+      , Reador . lift
+      . mapMaybe (either (const Nothing) Just)
+      . lowerCodensity $ p
+      )
+instance (Alternative m, Monad m) => Monadic m (Reador s) where
+  liftP m = Reador (lift (LookStx (\s -> FinalStx ((,s) <$> m))))
 
 -- The Stx type
 data Stx s f a
