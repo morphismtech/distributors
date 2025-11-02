@@ -58,12 +58,17 @@ evalGrammor :: (Monoid s, Comonad f) => Grammor s t f a b -> t
 evalGrammor = extract . extract . runGrammor
 
 newtype Reador s f a b = Reador (Codensity (Stx s f) b)
+runReador :: (Alternative m, Monad m) => Reador s m a b -> s -> m (b,s)
+runReador (Reador p) = runStx (lowerCodensity p)
+
 data Stx s f x
   = LookStx (s -> Stx s f x)
   | ResultStx x (Stx s f x)
   | FinalStx (f (x,s))
-runReador :: (Alternative m, Monad m) => Reador s m a b -> s -> m (b,s)
-runReador (Reador p) = runStx (lowerCodensity p)
+runStx :: Alternative f => Stx s f a -> s -> f (a,s)
+runStx (LookStx f) s = runStx (f s) s
+runStx (ResultStx x p) s = pure (x,s) <|> runStx p s
+runStx (FinalStx rs) _ = rs
 
 -- Parsor instances
 instance Functor f => Functor (Parsor s t f a) where
@@ -385,10 +390,6 @@ instance (Char ~ Item s, IsStream s, Filterable m, MonadPlus m)
 instance BackusNaurForm (Reador s f a b)
 
 -- Stx instances
-runStx :: Alternative f => Stx s f a -> s -> f (a,s)
-runStx (LookStx f) s = runStx (f s) s
-runStx (ResultStx x p) s = pure (x,s) <|> runStx p s
-runStx (FinalStx rs) _ = rs
 deriving stock instance Functor f => Functor (Stx s f)
 instance (Alternative f, Monad f) => Applicative (Stx s f) where
   pure x = ResultStx x empty
