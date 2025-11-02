@@ -57,89 +57,79 @@ evalGrammor :: (Monoid s, Comonad f) => Grammor s t f a b -> t
 evalGrammor = extract . extract . runGrammor
 
 newtype Reador s f a b = Reador (Codensity (Stx s f) b)
-data Stx s f b
-  = Stx (f b) (Stx s f b)
-  | Get (s -> Stx s f b)
-  | Put (f (b,s))
-runStx :: Alternative f => Stx s f a -> s -> f (a, s)
-runStx (Get f) s = runStx (f s) s
-runStx (Stx x p) s = (,s) <$> x <|> runStx p s
-runStx (Put rs) _ = rs
-liftStx :: MonadPlus m => m b -> Stx s m b
-liftStx b = Stx b empty
 
 -- Reador instances
 deriving newtype instance Functor (Reador s f a)
 deriving newtype instance Applicative (Reador s f a)
 deriving newtype instance Monad (Reador s f a)
-deriving newtype instance MonadPlus m => MonadState s (Reador s m a)
-deriving newtype instance MonadPlus m => Alternative (Reador s m a)
-deriving newtype instance MonadPlus m => MonadPlus (Reador s m a)
-instance (Filterable m, MonadPlus m) => Filterable (Reador s m a) where
-  mapMaybe f (Reador p) = Reador (lift (mapMaybe f (lowerCodensity p)))
-instance Profunctor (Reador s f) where
-  dimap _ f (Reador p) = fmap f (Reador p)
-  rmap = fmap
-  lmap _ (Reador p) = Reador p
-instance Choice (Reador s f) where
-  left' (Reador p) = Reador (fmap Left p)
-  right' (Reador p) = Reador (fmap Right p)
-instance MonadPlus m => Distributor (Reador s m)
-instance MonadPlus m => Alternator (Reador s m) where
-  alternate = \case
-    Left (Reador p) -> Reador (fmap Left p)
-    Right (Reador p) -> Reador (fmap Right p)
-instance (Filterable m, MonadPlus m) => Cochoice (Reador s m) where
-  unleft = fst . filtrate
-  unright = snd . filtrate
-instance (Filterable m, MonadPlus m) => Filtrator (Reador s m) where
-  filtrate (Reador p) =
-    ( Reador
-        . lift . mapMaybe (either Just (const Nothing))
-        . lowerCodensity $ p
-    , Reador
-        . lift . mapMaybe (either (const Nothing) Just)
-        . lowerCodensity $ p
-    )
-instance MonadPlus m => Monadic m (Reador s) where
-  liftP = Reador . lift . liftStx
--- Stx instances
+deriving newtype instance (IsStream s, IsStreamM m) => Alternative (Reador s m a)
+deriving newtype instance (IsStream s, IsStreamM m) => MonadPlus (Reador s m a)
+deriving newtype instance (IsStream s, IsStreamM m) => MonadReader s (Reador s m a)
+deriving newtype instance (IsStream s, IsStreamM m) => MonadState s (Reador s m a)
+
+-- The Stx type
+data Stx s f a
+  = LookStx (s -> Stx s f a)
+  | ResultStx a (Stx s f a)
+  | FailStx
+  | FinalStx (a,s) (f (a,s))
+  deriving Functor
 instance Filterable f => Filterable (Stx s f) where
   mapMaybe f = \case
-    Stx b p -> Stx (mapMaybe f b) (mapMaybe f p)
-    Get g -> Get (mapMaybe f . g)
-    Put bt -> Put (mapMaybe (\(b,t) -> (,t) <$> f b) bt)
-deriving stock instance Functor f => Functor (Stx s f)
-instance MonadPlus m => Applicative (Stx s m) where
-  pure b = Stx (pure b) (Put empty)
+    LookStx g -> LookStx (mapMaybe f . g)
+    FailStx -> FailStx
+    ResultStx a stx -> case f a of
+      Nothing -> FailStx
+      Just b -> ResultStx b (mapMaybe f stx)
+    FinalStx (a,s) rs -> case f a of
+      Nothing -> FailStx
+      Just b -> FinalStx (b,s)
+        (mapMaybe (\(a',s') -> (,s') <$> f a') rs)
+runStx :: (IsStream s, Alternative f) => Stx s f a -> s -> f (a,s)
+runStx (LookStx f) s = runStx (f s) s
+runStx (ResultStx x p) s = pure (x,s) <|> runStx p s
+runStx (FinalStx r rs) _ = pure r <|> rs
+runStx _ _  = empty
+instance (IsStream s, IsStreamM f) => Applicative (Stx s f) where
+  pure x = ResultStx x FailStx
   (<*>) = ap
-instance MonadPlus m => MonadPlus (Stx s m)
-instance MonadPlus m => Monad (Stx s m) where
-  (Stx x p) >>= k = (liftStx x >>= k) <|> (p >>= k)
-  (Get f) >>= k = Get (\s -> f s >>= k)
-  (Put r) >>= k = Put (r >>= \(x,s) -> runStx (k x) s)
-instance MonadPlus m => Alternative (Stx s m) where
-  empty = Put empty
+instance (IsStream s, IsStreamM f) => MonadPlus (Stx s f)
+instance (IsStream s, IsStreamM f) => Monad (Stx s f) where
+  LookStx f >>= k = LookStx (\s -> f s >>= k)
+  FailStx >>= _ = FailStx
+  ResultStx x p >>= k = k x <|> (p >>= k)
+  FinalStx r rs >>= k =
+    maybe FailStx (\(r',rs') -> FinalStx r' rs') . uncons $ do
+      (x,s) <- pure r <|> rs
+      runStx (k x) s
+instance (IsStream s, IsStreamM f) => Alternative (Stx s f) where
+  empty = FailStx
   -- results are delivered as soon as possible
-  Stx x p <|> q = Stx x (p <|> q)
-  p <|> Stx x q = Stx x (p <|> q)
-  -- two puts are combined
-  -- put + get becomes one get and one final (=optimization)
-  Put r <|> Put t = Put (r <|> t)
-  Put r <|> Get f = Get (\s -> Put (r <|> runStx (f s) s))
-  Get f <|> Put r = Get (\s -> Put (runStx (f s) s <|> r))
+  ResultStx x p <|> q = ResultStx x (p <|> q)
+  p <|> ResultStx x q = ResultStx x (p <|> q)
+  -- fail disappears
+  FailStx <|> p = p
+  p <|> FailStx = p
+  -- two finals are combined
+  -- final + look becomes one look and one final (=optimization)
+  -- final + sthg else becomes one look and one final
+  FinalStx r rs <|> FinalStx t ts =
+    FinalStx r (rs <|> pure t <|> ts)
+  FinalStx r rs <|> LookStx f =
+    LookStx (\s -> FinalStx r (rs <|> runStx (f s) s))
+  LookStx f <|> FinalStx y ys = LookStx $ \s ->
+    maybe (FinalStx y ys)
+      (\(x,xs) -> FinalStx x (xs <|> pure y <|> ys))
+      (uncons (runStx (f s) s))
   -- two looks are combined (=optimization)
-  -- look + sthg else floats upwards
-  Get f <|> Get g = Get (\s -> f s <|> g s)
-instance MonadPlus m => MonadReader s (Stx s m) where
-  ask = Get pure
+  LookStx f <|> LookStx g = LookStx (\s -> f s <|> g s)
+instance (IsStream s, IsStreamM m) => MonadReader s (Stx s m) where
+  ask = LookStx pure
   local f = \case
-    Stx x p -> Stx x (local f p)
-    Get g -> Get (g . f)
-    Put r -> Put r
-instance MonadPlus m => MonadState s (Stx s m) where
-  get = Get pure
-  put s = Put (pure (pure s))
+    LookStx g -> LookStx (g . f)
+    FailStx -> FailStx
+    ResultStx a stx -> ResultStx a stx
+    FinalStx r rs -> FinalStx r rs
 
 -- Parsor instances
 instance Functor f => Functor (Parsor s t f a) where
