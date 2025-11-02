@@ -406,9 +406,8 @@ instance (Alternative f, Monad f) => Alternative (Stx s f) where
   ResultStx x p <|> q = ResultStx x (p <|> q)
   p <|> ResultStx x q = ResultStx x (p <|> q)
   -- two finals are combined
-  -- final + look becomes one look and one final (=optimization)
-  -- final + sthg else becomes one look and one final
   FinalStx rs <|> FinalStx ts = FinalStx (rs <|> ts)
+  -- final + look becomes one look and one final (=optimization)
   FinalStx rs <|> LookStx f =
     LookStx (\s -> FinalStx (rs <|> runStx (f s) s))
   LookStx f <|> FinalStx rs =
