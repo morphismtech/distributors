@@ -62,74 +62,68 @@ newtype Reador s f a b = Reador (Codensity (Stx s f) b)
 deriving newtype instance Functor (Reador s f a)
 deriving newtype instance Applicative (Reador s f a)
 deriving newtype instance Monad (Reador s f a)
-deriving newtype instance (IsStream s, IsStreamM m) => Alternative (Reador s m a)
-deriving newtype instance (IsStream s, IsStreamM m) => MonadPlus (Reador s m a)
-deriving newtype instance (IsStream s, IsStreamM m) => MonadReader s (Reador s m a)
-deriving newtype instance (IsStream s, IsStreamM m) => MonadState s (Reador s m a)
+deriving newtype instance (Alternative m, Monad m)
+  => Alternative (Reador s m a)
+deriving newtype instance (Alternative m, Monad m)
+  => MonadPlus (Reador s m a)
+deriving newtype instance (Alternative m, Monad m)
+  => MonadReader s (Reador s m a)
+deriving newtype instance (Alternative m, Monad m)
+  => MonadState s (Reador s m a)
+instance (Alternative m, Monad m, Filterable m)
+  => Filterable (Reador s m a) where
+    mapMaybe f (Reador p) =
+      Reador (lift (mapMaybe f (lowerCodensity p)))
 
 -- The Stx type
 data Stx s f a
   = LookStx (s -> Stx s f a)
   | ResultStx a (Stx s f a)
-  | FailStx
-  | FinalStx (a,s) (f (a,s))
+  | FinalStx (f (a,s))
   deriving Functor
-instance Filterable f => Filterable (Stx s f) where
+instance (Alternative f, Monad f, Filterable f)
+  => Filterable (Stx s f) where
   mapMaybe f = \case
     LookStx g -> LookStx (mapMaybe f . g)
-    FailStx -> FailStx
     ResultStx a stx -> case f a of
-      Nothing -> FailStx
+      Nothing -> empty
       Just b -> ResultStx b (mapMaybe f stx)
-    FinalStx (a,s) rs -> case f a of
-      Nothing -> FailStx
-      Just b -> FinalStx (b,s)
-        (mapMaybe (\(a',s') -> (,s') <$> f a') rs)
-runStx :: (IsStream s, Alternative f) => Stx s f a -> s -> f (a,s)
+    FinalStx r -> FinalStx (mapMaybe (\(a,s) -> (,s) <$> f a) r)
+runStx :: Alternative f => Stx s f a -> s -> f (a,s)
 runStx (LookStx f) s = runStx (f s) s
 runStx (ResultStx x p) s = pure (x,s) <|> runStx p s
-runStx (FinalStx r rs) _ = pure r <|> rs
-runStx _ _  = empty
-instance (IsStream s, IsStreamM f) => Applicative (Stx s f) where
-  pure x = ResultStx x FailStx
+runStx (FinalStx rs) _ = rs
+instance (Alternative f, Monad f) => Applicative (Stx s f) where
+  pure x = ResultStx x empty
   (<*>) = ap
-instance (IsStream s, IsStreamM f) => MonadPlus (Stx s f)
-instance (IsStream s, IsStreamM f) => Monad (Stx s f) where
+instance (Alternative f, Monad f) => MonadPlus (Stx s f)
+instance (Alternative f, Monad f) => Monad (Stx s f) where
   LookStx f >>= k = LookStx (\s -> f s >>= k)
-  FailStx >>= _ = FailStx
   ResultStx x p >>= k = k x <|> (p >>= k)
-  FinalStx r rs >>= k =
-    maybe FailStx (\(r',rs') -> FinalStx r' rs') . uncons $ do
-      (x,s) <- pure r <|> rs
-      runStx (k x) s
-instance (IsStream s, IsStreamM f) => Alternative (Stx s f) where
-  empty = FailStx
+  FinalStx rs >>= k = FinalStx $ do
+    (x,s) <- rs
+    runStx (k x) s
+instance (Alternative f, Monad f) => Alternative (Stx s f) where
+  empty = FinalStx empty
   -- results are delivered as soon as possible
   ResultStx x p <|> q = ResultStx x (p <|> q)
   p <|> ResultStx x q = ResultStx x (p <|> q)
-  -- fail disappears
-  FailStx <|> p = p
-  p <|> FailStx = p
   -- two finals are combined
   -- final + look becomes one look and one final (=optimization)
   -- final + sthg else becomes one look and one final
-  FinalStx r rs <|> FinalStx t ts =
-    FinalStx r (rs <|> pure t <|> ts)
-  FinalStx r rs <|> LookStx f =
-    LookStx (\s -> FinalStx r (rs <|> runStx (f s) s))
-  LookStx f <|> FinalStx y ys = LookStx $ \s ->
-    maybe (FinalStx y ys)
-      (\(x,xs) -> FinalStx x (xs <|> pure y <|> ys))
-      (uncons (runStx (f s) s))
+  FinalStx rs <|> FinalStx ts = FinalStx (rs <|> ts)
+  FinalStx rs <|> LookStx f =
+    LookStx (\s -> FinalStx (rs <|> runStx (f s) s))
+  LookStx f <|> FinalStx rs =
+    LookStx (\s -> FinalStx (runStx (f s) s <|> rs))
   -- two looks are combined (=optimization)
   LookStx f <|> LookStx g = LookStx (\s -> f s <|> g s)
-instance (IsStream s, IsStreamM m) => MonadReader s (Stx s m) where
+instance (Alternative m, Monad m) => MonadReader s (Stx s m) where
   ask = LookStx pure
   local f = \case
     LookStx g -> LookStx (g . f)
-    FailStx -> FailStx
     ResultStx a stx -> ResultStx a stx
-    FinalStx r rs -> FinalStx r rs
+    FinalStx rs -> FinalStx rs
 
 -- Parsor instances
 instance Functor f => Functor (Parsor s t f a) where

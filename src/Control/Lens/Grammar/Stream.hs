@@ -1,7 +1,6 @@
 module Control.Lens.Grammar.Stream
   ( -- * Stream
     IsStream
-  , IsStreamM
   , stream
   , stream1
     -- * SepBy
@@ -25,14 +24,6 @@ import Data.Profunctor.Monoidal
 import GHC.Exts
 
 type IsStream s = (IsList s, AsEmpty s, Cons s s (Item s) (Item s))
-
-type IsStreamM f =
-  ( forall x. IsList (f x)
-  , forall x. AsEmpty (f x)
-  , forall x. Cons (f x) (f x) x x
-  , Alternative f
-  , Monad f
-  )
 
 streamLine :: (IsList s, Item s ~ Char) => s -> IO ()
 streamLine = putStrLn . toList 
