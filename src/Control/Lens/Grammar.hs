@@ -133,7 +133,7 @@ regexGrammar = dimap runRegExStr RegExStr $ ruleRec "regex" altG
     seqG rex = rule "sequence" $
       chain Left _Sequence (_Terminal . _Empty) noSep (exprG rex)
     exprG rex = rule "expression" $ choiceP
-      [ _Terminal >?< someP charG
+      [ _Terminal >? someP charG
       , _KleeneOpt >? atomG rex *< terminal "?"
       , _KleeneStar >? atomG rex *< terminal "*"
       , _KleenePlus >? atomG rex *< terminal "+"
@@ -141,12 +141,12 @@ regexGrammar = dimap runRegExStr RegExStr $ ruleRec "regex" altG
       ]
     atomG rex = rule "atom" $ choiceP
       [ nonterminalG
-      , _Terminal >?< charG >:< pure ""
-      , _AnyToken >?< terminal "."
-      , _OneOf >?< terminal "[" >* someP charG *< terminal "]"
-      , _NotOneOf >?< terminal "[^" >* someP charG *< terminal "]"
-      , _AsIn >?< terminal "\\p{" >* categoryG *< terminal "}"
-      , _NotAsIn >?< terminal "\\P{" >* categoryG *< terminal "}"
+      , _Terminal >? charG >:< pure ""
+      , _AnyToken >? terminal "."
+      , _OneOf >? terminal "[" >* someP charG *< terminal "]"
+      , _NotOneOf >? terminal "[^" >* someP charG *< terminal "]"
+      , _AsIn >? terminal "\\p{" >* categoryG *< terminal "}"
+      , _NotAsIn >? terminal "\\P{" >* categoryG *< terminal "}"
       , terminal "(" >* rex *< terminal ")"
       ]
     charG = rule "char" $ escapes
@@ -155,39 +155,39 @@ regexGrammar = dimap runRegExStr RegExStr $ ruleRec "regex" altG
       , ("\t", \_ -> (terminal "\\t" <|> terminal "\t") >* pure '\t')
       ]
     categoryG = rule "category" $ choiceP
-      [ _LowercaseLetter >?< terminal "Ll"
-      , _UppercaseLetter >?< terminal "Lu"
-      , _TitlecaseLetter >?< terminal "Lt"
-      , _ModifierLetter >?< terminal "Lm"
-      , _OtherLetter >?< terminal "Lo"
-      , _NonSpacingMark >?< terminal "Mn"
-      , _SpacingCombiningMark >?< terminal "Mc"
-      , _EnclosingMark >?< terminal "Me"
-      , _DecimalNumber >?< terminal "Nd"
-      , _LetterNumber >?< terminal "Nl"
-      , _OtherNumber >?< terminal "No"
-      , _ConnectorPunctuation >?< terminal "Pc"
-      , _DashPunctuation >?< terminal "Pd"
-      , _OpenPunctuation >?< terminal "Ps"
-      , _ClosePunctuation >?< terminal "Pe"
-      , _InitialQuote >?< terminal "Pi"
-      , _FinalQuote >?< terminal "Pf"
-      , _OtherPunctuation >?< terminal "Po"
-      , _MathSymbol >?< terminal "Sm"
-      , _CurrencySymbol >?< terminal "Sc"
-      , _ModifierSymbol >?< terminal "Sk"
-      , _OtherSymbol >?< terminal "So"
-      , _Space >?< terminal "Zs"
-      , _LineSeparator >?< terminal "Zl"
-      , _ParagraphSeparator >?< terminal "Zp"
-      , _Control >?< terminal "Cc"
-      , _Format >?< terminal "Cf"
-      , _Surrogate >?< terminal "Cs"
-      , _PrivateUse >?< terminal "Co"
-      , _NotAssigned >?< terminal "Cn"
+      [ _LowercaseLetter >? terminal "Ll"
+      , _UppercaseLetter >? terminal "Lu"
+      , _TitlecaseLetter >? terminal "Lt"
+      , _ModifierLetter >? terminal "Lm"
+      , _OtherLetter >? terminal "Lo"
+      , _NonSpacingMark >? terminal "Mn"
+      , _SpacingCombiningMark >? terminal "Mc"
+      , _EnclosingMark >? terminal "Me"
+      , _DecimalNumber >? terminal "Nd"
+      , _LetterNumber >? terminal "Nl"
+      , _OtherNumber >? terminal "No"
+      , _ConnectorPunctuation >? terminal "Pc"
+      , _DashPunctuation >? terminal "Pd"
+      , _OpenPunctuation >? terminal "Ps"
+      , _ClosePunctuation >? terminal "Pe"
+      , _InitialQuote >? terminal "Pi"
+      , _FinalQuote >? terminal "Pf"
+      , _OtherPunctuation >? terminal "Po"
+      , _MathSymbol >? terminal "Sm"
+      , _CurrencySymbol >? terminal "Sc"
+      , _ModifierSymbol >? terminal "Sk"
+      , _OtherSymbol >? terminal "So"
+      , _Space >? terminal "Zs"
+      , _LineSeparator >? terminal "Zl"
+      , _ParagraphSeparator >? terminal "Zp"
+      , _Control >? terminal "Cc"
+      , _Format >? terminal "Cf"
+      , _Surrogate >? terminal "Cs"
+      , _PrivateUse >? terminal "Co"
+      , _NotAssigned >? terminal "Cn"
       ]
     nonterminalG = rule "nonterminal" $ terminal "\\q" >* choiceP
-      [ _NonTerminal >?< terminal "{" >* manyP charG *< terminal "}"
+      [ _NonTerminal >? terminal "{" >* manyP charG *< terminal "}"
       , prismGrammar _Fail
       ]
 
