@@ -65,15 +65,12 @@ instance BooleanAlgebra Bool where
 instance BooleanAlgebra (x -> Bool)
 instance (Applicative f, BooleanAlgebra bool)
   => BooleanAlgebra (Ap f bool)
-deriving newtype instance
-  (Categorized token, Ord token, Ord (Categorize token))
+deriving newtype instance Categorized token
   => BooleanAlgebra (TokenTest token)
-instance (Categorized token, Ord token, Ord (Categorize token))
+instance Categorized token
   => BooleanAlgebra (RegExam token (TokenTest token)) where
-
   falseB = Fail
   trueB = Pass
-
   notB Fail = Pass
   notB Pass = Fail
   notB (Alternate (TokenTest x) (TokenTest y)) = x >&&< y
@@ -87,7 +84,6 @@ instance (Categorized token, Ord token, Ord (Categorize token))
     (Alternate `on` TokenTest)
       (OneOf xs)
       (Set.map (NotOneOf Set.empty . AsIn) ys)
-
   _ >&&< Fail = Fail
   Fail >&&< _ = Fail
   x >&&< Pass = x
@@ -104,20 +100,25 @@ instance (Categorized token, Ord token, Ord (Categorize token))
   NotOneOf xs (NotAsIn ys) >&&< OneOf zs = OneOf
     (Set.filter (\z -> notElem (categorize z) ys) (Set.difference zs xs))
   NotOneOf xs (AsIn y) >&&< NotOneOf ws (AsIn z) =
-    if y /= z then Fail else
-      NotOneOf (Set.filter (\x -> categorize x == y) (Set.union xs ws)) (AsIn y)
+    if y /= z then Fail else NotOneOf
+      (Set.filter (\x -> categorize x == y)
+      (Set.union xs ws)) (AsIn y)
   NotOneOf xs (AsIn y) >&&< NotOneOf ws (NotAsIn zs) =
-    if elem y zs then Fail else
-      NotOneOf (Set.filter (\x -> categorize x == y) (Set.union xs ws)) (AsIn y)
+    if elem y zs then Fail else NotOneOf
+      (Set.filter (\x -> categorize x == y)
+      (Set.union xs ws)) (AsIn y)
   NotOneOf xs (NotAsIn ys) >&&< NotOneOf ws (AsIn z) =
-    if elem z ys then Fail else
-      NotOneOf (Set.filter (\x -> categorize x == z) (Set.union xs ws)) (AsIn z)
+    if elem z ys then Fail else NotOneOf
+      (Set.filter (\x -> categorize x == z) (Set.union xs ws))
+      (AsIn z)
   NotOneOf xs (NotAsIn ys) >&&< NotOneOf ws (NotAsIn zs) =
-    NotOneOf (Set.filter (\x -> notElem (categorize x) yzs) xws) (NotAsIn yzs)
-    where
+    let
       xws = Set.union xs ws
       yzs = Set.union ys zs
-
+    in
+      NotOneOf
+        (Set.filter (\x -> notElem (categorize x) yzs) xws)
+        (NotAsIn yzs)
   x >||< Fail = x
   Fail >||< y = y
   _ >||< Pass = Pass
@@ -142,21 +143,14 @@ instance (Categorized token, Ord token, Ord (Categorize token))
   NotOneOf xs (AsIn y) >||< NotOneOf ws (NotAsIn zs) = Alternate
     (TokenTest (NotOneOf xs (AsIn y)))
     (TokenTest (NotOneOf ws (NotAsIn zs)))
-
 deriving stock instance Functor (RegExam token)
 deriving stock instance Foldable (RegExam token)
 deriving stock instance Traversable (RegExam token)
-deriving stock instance (Categorized token, Eq alg) => Eq (RegExam token alg)
-deriving stock instance
-  (Categorized token, Ord token, Ord (Categorize token), Ord alg)
+deriving stock instance (Categorized token, Eq alg)
+  => Eq (RegExam token alg)
+deriving stock instance (Categorized token, Ord alg)
   => Ord (RegExam token alg)
-
 deriving stock instance Categorized token => Eq (CategoryExam token)
-deriving stock instance
-  (Categorized token, Ord token, Ord (Categorize token))
-  => Ord (CategoryExam token)
-
+deriving stock instance Categorized token => Ord (CategoryExam token)
 deriving newtype instance Categorized token => Eq (TokenTest token)
-deriving newtype instance
-  (Categorized token, Ord token, Ord (Categorize token))
-  => Ord (TokenTest token)
+deriving newtype instance Categorized token => Ord (TokenTest token)

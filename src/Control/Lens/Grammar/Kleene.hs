@@ -38,9 +38,7 @@ data RegEx token
   | AsIn (Categorize token)
   | NotAsIn (Categorize token)
 deriving stock instance Categorized token => Eq (RegEx token)
-deriving stock instance
-  (Categorized token, Ord token, Ord (Categorize token))
-    => Ord (RegEx token)
+deriving stock instance Categorized token => Ord (RegEx token)
 deriving stock instance
   (Categorized token, Read token, Read (Categorize token))
     => Read (RegEx token)

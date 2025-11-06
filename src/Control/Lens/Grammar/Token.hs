@@ -25,7 +25,7 @@ import Data.Profunctor.Distributor
 import Data.Profunctor.Monoidal
 import Data.Word
 
-class (Eq token, Eq (Categorize token)) => Categorized token where
+class (Ord token, Ord (Categorize token)) => Categorized token where
   type Categorize token
   type Categorize token = ()
   categorize :: token -> Categorize token
