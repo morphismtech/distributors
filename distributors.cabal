@@ -36,6 +36,7 @@ library
       Control.Lens.Grammar.Kleene
       Control.Lens.Grammar.Stream
       Control.Lens.Grammar.Symbol
+      Control.Lens.Grammar.Test
       Control.Lens.Grammar.Token
       Control.Lens.Grate
       Control.Lens.Internal.Equator
