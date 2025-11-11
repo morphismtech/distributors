@@ -22,6 +22,7 @@ module Data.Profunctor.Monadic
   ) where
 
 import Control.Category
+import Control.Arrow
 import Control.Monad
 import Control.Monad.State
 import Control.Monad.Trans.Indexed
@@ -32,12 +33,14 @@ class
   ( Profunctor (p m)
   , forall x. Monad (p m x)
   ) => Monadic m p where
-
   joinP :: p m a (m b) -> p m a b
   joinP = join . fmap liftP
-
   liftP :: m b -> p m a b
   liftP = joinP . return
+instance Monad m => Monadic m Kleisli where
+  liftP = Kleisli . return
+instance Monad m => Monadic m Star where
+  liftP = Star . return
 
 class
   ( forall i j. Profunctor (p i j m)
