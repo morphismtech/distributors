@@ -54,16 +54,16 @@ class
 
 class (forall i j. Profunctor (p i j f)) => Tetradic f p where
 
-    tetramap
-      :: (h -> i) -> (j -> k)
-      -> (s -> a) -> (b -> t)
-      -> p i j f a b -> p h k f s t
-    tetramap f1 f2 f3 f4 = dimapT f1 f2 . dimap f3 f4
+  tetramap
+    :: (h -> i) -> (j -> k)
+    -> (s -> a) -> (b -> t)
+    -> p i j f a b -> p h k f s t
+  tetramap f1 f2 f3 f4 = dimapT f1 f2 . dimap f3 f4
 
-    dimapT
-      :: (h -> i) -> (j -> k)
-      -> p i j f a b -> p h k f a b
-    dimapT f1 f2 = tetramap f1 f2 id id
+  dimapT
+    :: (h -> i) -> (j -> k)
+    -> p i j f a b -> p h k f a b
+  dimapT f1 f2 = tetramap f1 f2 id id
 
 newtype WrappedMonadic p m a b = WrapMonadic {unwrapMonadic :: p m a (m b)}
 instance (Monadic m p, Monad m) => Functor (WrappedMonadic p m a) where
