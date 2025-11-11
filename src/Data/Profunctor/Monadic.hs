@@ -47,7 +47,7 @@ instance Comonad w => Monadic w Costar where
 
 class
   ( forall i j. Profunctor (p i j m)
-  , forall i j a. Functor (p i j m a)
+  , forall i j x. Functor (p i j m x)
   , forall i. Monadic m (p i i)
   ) => Polyadic m p where
   composeP :: p i j m a (p j k m a b) -> p i k m a b
