@@ -22,6 +22,7 @@ module Data.Profunctor.Monadic
   ) where
 
 import Control.Category
+import Control.Comonad
 import Control.Arrow
 import Control.Monad
 import Control.Monad.State
@@ -41,6 +42,8 @@ instance Monad m => Monadic m Kleisli where
   liftP = Kleisli . return
 instance Monad m => Monadic m Star where
   liftP = Star . return
+instance Comonad w => Monadic w Costar where
+  liftP = Costar . return . extract
 
 class
   ( forall i j. Profunctor (p i j m)
