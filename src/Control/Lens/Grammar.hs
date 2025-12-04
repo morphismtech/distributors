@@ -118,13 +118,14 @@ altG rex = rule "alternate" $
   chain1 Left (_RegExam . _Alternate) (sepBy (terminal "|")) (seqG rex)
 
 seqG :: Grammarr Char (RegEx Char) (RegEx Char)
-seqG rex = rule "sequence" $
-  chain Left _Sequence (_Terminal . _Empty) noSep (exprG rex)
+seqG rex = rule "sequence" $ choiceP
+  [ _Terminal >? manyP charG
+  , chain Left _Sequence (_Terminal . _Empty) noSep (exprG rex)
+  ]
 
 exprG :: Grammarr Char (RegEx Char) (RegEx Char)
 exprG rex = rule "expression" $ choiceP
-  [ _Terminal >? someP charG
-  , _KleeneOpt >? atomG rex *< terminal "?"
+  [ _KleeneOpt >? atomG rex *< terminal "?"
   , _KleeneStar >? atomG rex *< terminal "*"
   , _KleenePlus >? atomG rex *< terminal "+"
   , atomG rex
@@ -136,10 +137,10 @@ atomG rex = rule "atom" $ choiceP
   , _Terminal >? charG >:< pure ""
   , _RegExam . _Pass >? terminal "."
   , _RegExam . _OneOf >?
-      terminal "[" >* several noSep charG *< terminal "]"
+      terminal "[" >* several1 noSep charG *< terminal "]"
   , _RegExam . _NotOneOf >?
-      terminal "[^" >* several noSep charG
-        >*< (catTestG <|> pure (NotAsIn Set.empty))
+      terminal "[^" >* several1 noSep charG
+        >*< (pure (NotAsIn Set.empty) <|> catTestG)
         *< terminal "]"
   , _RegExam . _NotOneOf >? pure Set.empty >*< catTestG
   , terminal "(" >* rex *< terminal ")"
@@ -149,7 +150,7 @@ catTestG :: Grammar Char (CategoryTest Char)
 catTestG = rule "category-test" $ choiceP
   [ _AsIn >? terminal "\\p{" >* categoryG *< terminal "}"
   , _NotAsIn >? terminal "\\P{" >*
-      several (sepBy (terminal "|")) categoryG
+      several1 (sepBy (terminal "|")) categoryG
         *< terminal "}"
   ]
 
