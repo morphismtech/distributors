@@ -81,11 +81,11 @@ satisfy
 satisfy f = satisfied f >?< anyToken
 
 tokens
-  :: ( AsEmpty s, Cons s s a a
+  :: ( Foldable f, AsEmpty s, Cons s s a a
      , Monoidal p, Choice p
      , Tokenized a (p a a)
      )
-  => [a] -> p s s
+  => f a -> p s s
 tokens = foldr ((>:<) . token) asEmpty
 
 terminator
