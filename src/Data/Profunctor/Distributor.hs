@@ -16,6 +16,14 @@ module Data.Profunctor.Distributor
   , choiceP
     -- * Homogeneous
   , Homogeneous (..)
+    -- * SepBy
+  , SepBy (..)
+  , sepBy
+  , noSep
+  , several
+  , several1
+  , chain
+  , chain1
   ) where
 
 import Control.Applicative hiding (WrappedArrow)
@@ -28,7 +36,7 @@ import Data.Bifunctor.Clown
 import Data.Bifunctor.Joker
 import Data.Bifunctor.Product
 import Data.Complex
-import Data.Foldable
+import Data.Foldable hiding (toList)
 import Data.Functor.Adjunction
 import Data.Functor.Compose
 import Data.Functor.Contravariant.Divisible
@@ -48,6 +56,7 @@ import Data.Tagged
 import Data.Tree (Tree (..))
 import Data.Vector (Vector)
 import Data.Void
+import GHC.Exts
 import GHC.Generics
 
 -- Distributor --
@@ -105,11 +114,11 @@ class Monoidal p => Distributor p where
 
   {- | One or none. -}
   optionalP :: p a b -> p (Maybe a) (Maybe b)
-  optionalP p = mapIso eotMaybe (oneP >+< p)
+  optionalP p = eotMaybe >~ oneP >+< p
 
   {- | Zero or more. -}
   manyP :: p a b -> p [a] [b]
-  manyP p = mapIso eotList (oneP >+< p >*< manyP p)
+  manyP p = eotList >~ oneP >+< p >*< manyP p
 
 instance Distributor (->) where
   zeroP = id
@@ -292,9 +301,9 @@ instance Homogeneous Maybe where
 instance Homogeneous [] where
   homogeneously = manyP
 instance Homogeneous Vector where
-  homogeneously p = mapIso eotList (oneP >+< p >*< homogeneously p)
+  homogeneously p = eotList >~ oneP >+< p >*< homogeneously p
 instance Homogeneous Seq where
-  homogeneously p = mapIso eotList (oneP >+< p >*< homogeneously p)
+  homogeneously p = eotList >~ oneP >+< p >*< homogeneously p
 instance Homogeneous Complex where
   homogeneously p = dimap2 realPart imagPart (:+) p p
 instance Homogeneous Tree where
@@ -366,3 +375,66 @@ instance Alternator p => Alternator (Yoneda p) where
   alternate (Left p) = proreturn (alternate (Left (proextract p)))
   alternate (Right p) = proreturn (alternate (Right (proextract p)))
   someP = proreturn . someP . proextract
+
+{- | Used to sequence multiple times,
+separated by a `separateBy`,
+begun by a `beginBy`,
+and ended by an `endBy`. -}
+data SepBy p = SepBy
+  { beginBy :: p
+  , endBy :: p
+  , separateBy :: p
+  } deriving stock
+    ( Functor, Foldable, Traversable
+    , Eq, Ord, Show, Read
+    )
+
+{- | A `SepBy` smart constructor,
+setting the `separateBy` field,
+with no beginning or ending delimitors,
+except by updating `beginBy` or `endBy` fields. -}
+sepBy :: Monoidal p => p () () -> SepBy (p () ())
+sepBy = SepBy oneP oneP
+
+{- | A `SepBy` smart constructor for no separator,
+beginning or ending delimiters. -}
+noSep :: Monoidal p => SepBy (p () ())
+noSep = sepBy oneP
+
+{- |
+prop> several noSep = manyP
+-}
+several
+  :: (IsList s, IsList t, Distributor p)
+  => SepBy (p () ()) -> p (Item s) (Item t) -> p s t
+several (SepBy beg end sep) p = iso toList fromList . eotList >~
+  beg >* (oneP >+< p >*< manyP (sep >* p)) *< end
+
+{- |
+prop> several1 noSep p = someP p
+-}
+several1
+  :: (IsList s, IsList t, Distributor p, Choice p)
+  => SepBy (p () ()) -> p (Item s) (Item t) -> p s t
+several1 (SepBy beg end sep) p = iso toList fromList . _Cons >?
+  beg >* (p >*< manyP (sep >* p)) *< end
+
+chain
+  :: Alternator p
+  => (forall x. x -> Either x x) -- ^ `Left` or `Right` associate
+  -> APartialIso a b (a,a) (b,b) -- ^ binary constructor pattern
+  -> APrism a b () () -- ^ nilary constructor pattern
+  -> SepBy (p () ()) -> p a b -> p a b
+chain association pat2 pat0 (SepBy beg end sep) p =
+  beg >* (pat0 >? oneP <|> chain1 association pat2 (sepBy sep) p) *< end
+
+chain1
+  :: (Distributor p, Choice p)
+  => (forall x. x -> Either x x) -- ^ `Left` or `Right` associate
+  -> APartialIso a b (a,a) (b,b) -- ^ binary constructor pattern
+  -> SepBy (p () ()) -> p a b -> p a b
+chain1 association pat (SepBy beg end sep) = leftOrRight chainl1 chainr1
+  where
+    leftOrRight a b = case association () of Left _ -> a; Right _ -> b
+    chainl1 p = difoldl pat >? beg >* p >*< manyP (sep >* p) *< end
+    chainr1 p = difoldr pat >? beg >* manyP (p *< sep) >*< p *< end

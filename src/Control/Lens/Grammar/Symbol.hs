@@ -1,27 +1,20 @@
 module Control.Lens.Grammar.Symbol
-  ( Terminator
-  , TerminalSymbol (..)
+  ( TerminalSymbol (..)
   , NonTerminalSymbol (..)
   ) where
 
 import Control.Lens.Internal.Equator
-import Data.Kind
+import Data.Profunctor
+import Data.Profunctor.Monoidal
 
-type Terminator token p =
-  ( token ~ Alphabet (p () ())
-  , forall x y. (x ~ (), y ~ ()) => TerminalSymbol (p x y)
-  ) :: Constraint
-
-class TerminalSymbol s where
-  type Alphabet s
-  terminal :: [Alphabet s] -> s
+class TerminalSymbol token s where
+  terminal :: [token] -> s
   default terminal
-    :: (p () () ~ s, Equator' (Alphabet s) p)
-    => [Alphabet s] -> s
+    :: (p () () ~ s, Eq token, Equator token token p, Monoidal p, Cochoice p)
+    => [token] -> s
   terminal = equator
 
-instance TerminalSymbol [a] where
-  type Alphabet [a] = a
+instance TerminalSymbol a [a] where
   terminal = id
 
 class NonTerminalSymbol s where

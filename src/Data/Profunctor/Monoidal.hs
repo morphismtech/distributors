@@ -5,7 +5,8 @@ module Data.Profunctor.Monoidal
     Monoidal
   , oneP, (>*<), (>*), (*<)
   , dimap2, foreverP, replicateP
-  , meander, (>:<), asEmpty
+  , (>:<), asEmpty
+  , meander, eotFunList
   ) where
 
 import Control.Applicative hiding (WrappedArrow)
@@ -105,6 +106,15 @@ replicateP
   => p a b -> p (t a) (t b)
 replicateP p = traverse (\f -> lmap f p) (distribute id)
 
+{- | A `Monoidal` nil operator. -}
+asEmpty :: (AsEmpty s, Monoidal p, Choice p) => p s s
+asEmpty = _Empty >? oneP
+
+{- | A `Monoidal` cons operator. -}
+(>:<) :: (Cons s t a b, Monoidal p, Choice p) => p a b -> p s t -> p s t
+x >:< xs = _Cons >? x >*< xs
+infixr 5 >:<
+
 {- | For any `Monoidal`, `Choice` & `Strong` `Profunctor`,
 `meander` is invertible and gives a default implementation for the
 `Data.Profunctor.Traversing.wander`
@@ -117,34 +127,39 @@ See Pickering, Gibbons & Wu,
 meander
   :: (Monoidal p, Choice p)
   => ATraversal s t a b -> p a b -> p s t
-meander f = dimap (f sell) iextract . trav
+meander f = dimap (f sell) iextract . meandering
   where
-    trav
+    meandering
       :: (Monoidal q, Choice q)
       => q u v -> q (Bazaar (->) u w x) (Bazaar (->) v w x)
-    trav q = mapIso funListEot $ right' (q >*< trav q)
-
-{- | A `Monoidal` nil operator. -}
-asEmpty :: (AsEmpty s, Monoidal p, Choice p) => p s s
-asEmpty = _Empty >? oneP
-
-{- | A `Monoidal` cons operator. -}
-(>:<) :: (Cons s t a b, Monoidal p, Choice p) => p a b -> p s t -> p s t
-x >:< xs = _Cons >? x >*< xs
-infixr 5 >:<
-
--- FunList --
+    meandering q = eotFunList >~ right' (q >*< meandering q)
 
 {- |
-`FunList` is isomorphic to `Bazaar` @(->)@.
-It's needed to define `meander`.
-
-See van Laarhoven, A non-regular data type challenge
-[https://twanvl.nl/blog/haskell/non-regular1]
+`eotFunList` is used to define `meander`.
+See van Laarhoven, [A non-regular data type challenge]
+(https://twanvl.nl/blog/haskell/non-regular1),
+both post and comments, for details.
 -}
+eotFunList :: Iso
+  (Bazaar (->) a1 b1 t1) (Bazaar (->) a2 b2 t2)
+  (Either t1 (a1, Bazaar (->) a1 b1 (b1 -> t1)))
+  (Either t2 (a2, Bazaar (->) a2 b2 (b2 -> t2)))
+eotFunList = iso (f . toFun) (fromFun . g) where
+  f = \case
+    DoneFun t -> Left t
+    MoreFun a baz -> Right (a, baz)
+  g = \case
+    Left t -> DoneFun t
+    Right (a, baz) -> MoreFun a baz
 data FunList a b t
   = DoneFun t
   | MoreFun a (Bazaar (->) a b (b -> t))
+toFun :: Bazaar (->) a b t -> FunList a b t
+toFun (Bazaar f) = f sell
+fromFun :: FunList a b t -> Bazaar (->) a b t
+fromFun = \case
+  DoneFun t -> pure t
+  MoreFun a f -> ($) <$> f <*> sell a
 instance Functor (FunList a b) where
   fmap f = \case
     DoneFun t -> DoneFun (f t)
@@ -156,26 +171,6 @@ instance Applicative (FunList a b) where
     MoreFun a h -> \l ->
       MoreFun a (flip <$> h <*> fromFun l)
 instance Sellable (->) FunList where sell b = MoreFun b (pure id)
-
-toFun :: Bazaar (->) a b t -> FunList a b t
-toFun (Bazaar f) = f sell
-
-fromFun :: FunList a b t -> Bazaar (->) a b t
-fromFun = \case
-  DoneFun t -> pure t
-  MoreFun a f -> ($) <$> f <*> sell a
-
-funListEot :: Iso
-  (Bazaar (->) a1 b1 t1) (Bazaar (->) a2 b2 t2)
-  (Either t1 (a1, Bazaar (->) a1 b1 (b1 -> t1)))
-  (Either t2 (a2, Bazaar (->) a2 b2 (b2 -> t2)))
-funListEot = iso toFun fromFun . iso f g where
-  f = \case
-    DoneFun t -> Left t
-    MoreFun a baz -> Right (a, baz)
-  g = \case
-    Left t -> DoneFun t
-    Right (a, baz) -> MoreFun a baz
 
 -- Orphanage --
 

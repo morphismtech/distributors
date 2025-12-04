@@ -19,10 +19,10 @@ import Control.Monad.Except
 import Control.Monad.Reader
 import Control.Monad.State
 import Control.Lens
+import Control.Lens.Extras
 import Control.Lens.Internal.Equator
 import Control.Lens.Grammar.BackusNaur
 import Control.Lens.Grammar.Kleene
-import Control.Lens.Grammar.Stream
 import Control.Lens.Grammar.Symbol
 import Control.Lens.Grammar.Token
 import Control.Monad
@@ -118,31 +118,37 @@ instance Filterable f => Filtrator (Parsor s t f) where
       leftMay (e, str) = either (\b -> Just (b, str)) (\_ -> Nothing) e
       rightMay (e, str) = either (\_ -> Nothing) (\b -> Just (b, str)) e
 instance
-  ( Categorized a, a ~ Item s, IsStream s
+  ( Categorized a, a ~ Item s, IsList s, Cons s s a a
   , Filterable m, Alternative m, Monad m
-  ) => Tokenized (Parsor s s m a a) where
-  type Token (Parsor s s m a a) = a
+  ) => Tokenized a (Parsor s s m a a) where
   anyToken = Parsor (maybe empty pure . uncons)
 instance
-  ( Categorized a, a ~ Item s, IsStream s
+  ( Categorized a, a ~ Item s, IsList s, Cons s s a a
+  , Filterable m, Alternative m, Monad m
+  ) => TestAlgebra (TokenTest a) (Parsor s s m a a)
+instance
+  ( Categorized a, a ~ Item s, IsList s, Cons s s a a
   , Filterable m, Alternative m, Monad m
   ) => Equator a a (Parsor s s m)
 instance
-  ( Categorized a, a ~ Item s, IsStream s
+  ( Categorized a, a ~ Item s, IsList s, Cons s s a a
   , Filterable m, Alternative m, Monad m
-  ) => TerminalSymbol (Parsor s s m () ()) where
-  type Alphabet (Parsor s s m () ()) = Item s
+  ) => TerminalSymbol a (Parsor s s m () ())
 instance
-  ( Char ~ Item s, IsStream s
+  ( Char ~ Item s, IsList s, Cons s s Char Char
   , Filterable m, Alternative m, Monad m
   ) => IsString (Parsor s s m () ()) where
   fromString = terminal
 instance
-  ( Char ~ Item s, IsStream s
+  ( Char ~ Item s, IsList s, Cons s s Char Char, AsEmpty s
   , Filterable m, Alternative m, Monad m
   ) => IsString (Parsor s s m s s) where
   fromString = tokens
 instance BackusNaurForm (Parsor s t m a b)
+instance AsEmpty t => Matching s (Parsor s t Maybe a b) where
+  word =~ parsor = case runParsor parsor word of
+    Nothing -> False
+    Just (_,t) -> is _Empty t
 
 -- Printor instances
 instance Functor f => Functor (Printor s t f a) where
@@ -231,27 +237,29 @@ instance (Alternative f, Monad f) => ArrowChoice (Printor s s f) where
   left = left'
   right = right'
 instance
-  ( Categorized a, a ~ Item s, IsStream s
+  ( Categorized a, a ~ Item s, IsList s, Cons s s a a
   , Filterable m, Alternative m, Monad m
-  ) => Tokenized (Printor s s m a a) where
-  type Token (Printor s s m a a) = a
+  ) => Tokenized a (Printor s s m a a) where
   anyToken = Printor (\b -> pure (b, cons b))
 instance
-  ( Categorized a, a ~ Item s, IsStream s
+  ( Categorized a, a ~ Item s, IsList s, Cons s s a a
+  , Filterable m, Alternative m, Monad m
+  ) => TestAlgebra (TokenTest a) (Printor s s m a a)
+instance
+  ( Categorized a, a ~ Item s, IsList s, Cons s s a a
   , Filterable m, Alternative m, Monad m
   ) => Equator a a (Printor s s m)
 instance 
-  ( Categorized a, a ~ Item s, IsStream s
+  ( Categorized a, a ~ Item s, IsList s, Cons s s a a
   , Filterable m, Alternative m, Monad m
-  ) => TerminalSymbol (Printor s s m () ()) where
-  type Alphabet (Printor s s m () ()) = Item s
+  ) => TerminalSymbol a (Printor s s m () ()) where
 instance
-  ( Char ~ Item s, IsStream s
+  ( Char ~ Item s, IsList s, Cons s s Char Char
   , Filterable m, Alternative m, Monad m
   ) => IsString (Printor s s m () ()) where
   fromString = terminal
 instance
-  ( Char ~ Item s, IsStream s
+  ( Char ~ Item s, IsList s, Cons s s Char Char, AsEmpty s
   , Filterable m, Alternative m, Monad m
   ) => IsString (Printor s s m s s) where
   fromString = tokens
@@ -285,14 +293,14 @@ instance (Monoid t, Applicative f)
     Grammor (liftA2 (liftA2 (<>)) rex1 rex2)
 instance (KleeneStarAlgebra t, Applicative f)
   => Alternative (Grammor s t f a) where
-  empty = Grammor (pure (pure empK))
+  empty = Grammor (pure (pure zeroK))
   Grammor rex1 <|> Grammor rex2 =
     Grammor (liftA2 (liftA2 (>|<)) rex1 rex2)
   many (Grammor rex) = Grammor (fmap (fmap starK) rex)
   some (Grammor rex) = Grammor (fmap (fmap plusK) rex)
 instance (KleeneStarAlgebra t, Applicative f)
   => Distributor (Grammor s t f) where
-  zeroP = Grammor (pure (pure empK))
+  zeroP = Grammor (pure (pure zeroK))
   Grammor rex1 >+< Grammor rex2 =
     Grammor (liftA2 (liftA2 (>|<)) rex1 rex2)
   manyP (Grammor rex) = Grammor (fmap (fmap starK) rex)
@@ -301,20 +309,19 @@ instance (KleeneStarAlgebra t, Applicative f)
   => Alternator (Grammor s t f) where
   alternate = either coerce coerce
   someP (Grammor rex) = Grammor (fmap (fmap plusK) rex)
-instance (Tokenized t, Applicative f)
-  => Tokenized (Grammor s t f a b) where
-  type Token (Grammor s t f a b) = Token t
+instance (Tokenized token t, Applicative f)
+  => Tokenized token (Grammor s t f a b) where
   anyToken = grammor anyToken
-  notAnyToken = grammor notAnyToken
   token = grammor . token
-  notToken = grammor . notToken
   oneOf = grammor . oneOf
   notOneOf = grammor . notOneOf
   asIn = grammor . asIn
   notAsIn = grammor . notAsIn
-instance (TerminalSymbol t, Applicative f)
-  => TerminalSymbol (Grammor s t f a b) where
-  type Alphabet (Grammor s t f a b) = Alphabet t
+instance (TestAlgebra bool t, Applicative f)
+  => TestAlgebra bool (Grammor s t f a b) where
+  testB = grammor . testB
+instance (TerminalSymbol token t, Applicative f)
+  => TerminalSymbol token (Grammor s t f a b) where
   terminal = grammor . terminal
 instance (Comonad f, Applicative f, Monoid s, BackusNaurForm t)
   => BackusNaurForm (Grammor s t f a b) where

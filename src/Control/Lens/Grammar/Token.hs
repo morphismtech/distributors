@@ -1,22 +1,18 @@
 module Control.Lens.Grammar.Token
-  ( -- * Token
-    Categorized (..)
-  , Tokenized (..)
-  , escape
-  , escapes
+  ( -- * Tokenized
+    Tokenized (..)
   , satisfy
   , tokens
-  , Tokenizor
     -- * Like
   , oneLike
   , manyLike
   , optLike
   , someLike
-    -- * Unicode
+    -- * Categorized
+  , Categorized (..)
   , GeneralCategory (..)
   ) where
 
-import Control.Applicative
 import Control.Lens
 import Control.Lens.PartialIso
 import Data.Char
@@ -37,93 +33,59 @@ instance Categorized Char where
 instance Categorized Word8
 instance Categorized ()
 
-class Categorized (Token p) => Tokenized p where
-  type Token p
-
+class Categorized token => Tokenized token p | p -> token where
   anyToken :: p
 
-  notAnyToken :: p
-  default notAnyToken :: (p ~ f (Token p), Alternative f) => p
-  notAnyToken = empty
-
-  token :: Token p -> p
+  token :: token -> p
   default token
-    :: (p ~ q (Token p) (Token p), Choice q, Cochoice q)
-    => Token p -> p
+    :: (p ~ q token token, Choice q, Cochoice q)
+    => token -> p
   token = satisfy . token
 
-  notToken :: Token p -> p
-  default notToken
-    :: (p ~ q (Token p) (Token p), Choice q, Cochoice q)
-    => Token p -> p
-  notToken = satisfy . notToken
-
-  oneOf :: [Token p] -> p
+  oneOf :: Foldable f => f token -> p
   default oneOf
-    :: (p ~ q (Token p) (Token p), Choice q, Cochoice q)
-    => [Token p] -> p
+    :: (p ~ q token token, Choice q, Cochoice q, Foldable f)
+    => f token -> p
   oneOf = satisfy . oneOf
 
-  notOneOf :: [Token p] -> p
+  notOneOf :: Foldable f => f token -> p
   default notOneOf
-    :: (p ~ q (Token p) (Token p), Choice q, Cochoice q)
-    => [Token p] -> p
+    :: (p ~ q token token, Choice q, Cochoice q, Foldable f)
+    => f token -> p
   notOneOf = satisfy . notOneOf
 
-  asIn :: Categorize (Token p) -> p
+  asIn :: Categorize token -> p
   default asIn
-    :: (p ~ q (Token p) (Token p), Choice q, Cochoice q)
-    => Categorize (Token p) -> p
+    :: (p ~ q token token, Choice q, Cochoice q)
+    => Categorize token -> p
   asIn = satisfy . asIn
 
-  notAsIn :: Categorize (Token p) -> p
+  notAsIn :: Categorize token -> p
   default notAsIn
-    :: (p ~ q (Token p) (Token p), Choice q, Cochoice q)
-    => Categorize (Token p) -> p
+    :: (p ~ q token token, Choice q, Cochoice q)
+    => Categorize token -> p
   notAsIn = satisfy . notAsIn
 
-instance Categorized token => Tokenized (token -> Bool) where
-  type Token (token -> Bool) = token
+instance Categorized token => Tokenized token (token -> Bool) where
   anyToken _ = True
-  notAnyToken _ = False
   token = (==)
-  notToken = (/=)
   oneOf = flip elem
   notOneOf = flip notElem
   asIn = lmap categorize . (==)
   notAsIn = lmap categorize . (/=)
 
-escape
-  :: (Alternator p, Tokenizor token p)
-  => [token] -- ^ tokens to escape
-  -> (p token token -> p token token) -- ^ how to escape a token
-  -> p token token
-escape toEsc f = escapes [(toEsc, f)]
-
-escapes
-  :: (Alternator p, Tokenizor token p)
-  => [([token], p token token -> p token token)]
-  -- ^ how to escape different token classes
-  -> p token token
-escapes escs = choiceP $
-  notOneOf (do (toEsc, _) <- escs; toEsc)
-  : [f (oneOf toEsc) | (toEsc, f) <- escs]
-
 satisfy
-  :: (Choice p, Cochoice p, Tokenizor token p)
+  :: (Choice p, Cochoice p, Tokenized token (p token token))
   => (token -> Bool) -> p token token
 satisfy f = satisfied f >?< anyToken
 
-type Tokenizor token p =
-  (Tokenized (p token token), Token (p token token) ~ token)
-
 tokens
   :: ( AsEmpty s, Cons s s a a
-     , Monoidal p, Choice p, Tokenizor a p
+     , Monoidal p, Choice p
+     , Tokenized a (p a a)
      )
   => [a] -> p s s
-tokens [] = asEmpty
-tokens (a:as) = token a >:< tokens as
+tokens = foldr ((>:<) . token) asEmpty
 
 {- |
 `oneLike` consumes one token
@@ -131,9 +93,9 @@ of a given token's category while parsing,
 and produces the given token while printing.
 -}
 oneLike
-  :: forall token p. (Profunctor p, Tokenizor token p)
+  :: forall token p. (Profunctor p, Tokenized token (p token token))
   => token -> p () ()
-oneLike a = dimap (\_ -> a) (\(_::token) -> ()) (asIn (categorize a))
+oneLike a = dimap (const a) (\(_::token) -> ()) (asIn (categorize a))
 
 {- |
 `manyLike` consumes zero or more tokens
@@ -141,7 +103,7 @@ of a given token's category while parsing,
 and produces no tokens printing.
 -}
 manyLike
-  :: forall token p. (Distributor p, Tokenizor token p)
+  :: forall token p. (Distributor p, Tokenized token (p token token))
   => token -> p () ()
 manyLike a = dimap (\_ -> []::[token]) (\(_::[token]) -> ())
   (manyP (asIn (categorize a)))
@@ -152,7 +114,7 @@ of a given token's category while parsing,
 and produces the given token while printing.
 -}
 optLike
-  :: forall token p. (Distributor p, Tokenizor token p)
+  :: forall token p. (Distributor p, Tokenized token (p token token))
   => token -> p () ()
 optLike a = dimap (\_ -> [a]::[token]) (\(_::[token]) -> ())
   (manyP (asIn (categorize a)))
@@ -163,7 +125,7 @@ of a given token's category while parsing,
 and produces the given token while printing.
 -}
 someLike
-  :: forall token p. (Distributor p, Tokenizor token p)
+  :: forall token p. (Distributor p, Tokenized token (p token token))
   => token -> p () ()
-someLike a = dimap (\_ -> (a,[]::[token])) (\(_::token, _::[token]) -> ())
+someLike a = dimap (const (a, [] :: [token])) (\(_::token, _::[token]) -> ())
   (asIn (categorize a) >*< manyP (asIn (categorize a)))

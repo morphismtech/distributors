@@ -1,42 +1,20 @@
 module Control.Lens.Grammar
   ( -- * RegEx
-    RegExStr (..)
-  , EBNF (..)
+    RegString (..)
+  , RegBnfString (..)
   , RegGrammar
   , RegGrammarr
   , bnfGrammarr
-  , genRegExStr
-  , printRegEx
-  , genShowS
-  , genReadS
-    -- * Grammar
   , Grammar
-  , genEBNF
-  , printEBNF
-  , regexGrammar
-  , ebnfGrammar
   , Grammarr
+  , regexGrammar
   , CtxGrammar
   , CtxGrammarr
-    -- * Optics
   , prismGrammar
   , coPrismGrammar
   , grammarrOptic
   , grammarOptic
-    -- * Constraints
-  , Regular
-  , Grammatical
-  , Contextual
-    -- * Re-exports
-  , oneP, (>*), (*<), (>*<), replicateP
-  , empty, (<|>), manyP, someP, optionalP
-  , module Control.Lens.Grammar.BackusNaur
-  , module Control.Lens.Grammar.Kleene
-  , module Control.Lens.Grammar.Token
-  , module Control.Lens.Grammar.Stream
-  , module Control.Lens.Grammar.Symbol
-  , module Control.Lens.PartialIso
-  , module Data.Profunctor.Grammar
+  , Tokenizor
   ) where
 
 import Control.Applicative
@@ -46,10 +24,8 @@ import Control.Lens.PartialIso
 import Control.Lens.Grammar.BackusNaur
 import Control.Lens.Grammar.Kleene
 import Control.Lens.Grammar.Token
-import Control.Lens.Grammar.Stream
 import Control.Lens.Grammar.Symbol
 import Control.Monad
--- import Control.Monad.Except
 import Data.Maybe hiding (mapMaybe)
 import Data.Monoid
 import Data.Profunctor
@@ -58,42 +34,65 @@ import Data.Profunctor.Filtrator
 import Data.Profunctor.Monadic
 import Data.Profunctor.Monoidal
 import Data.Profunctor.Grammar
+import qualified Data.Set as Set
 import Data.String
 import GHC.Exts
 import Prelude hiding (filter)
 import Witherable
 
 makeNestedPrisms ''RegEx
+makeNestedPrisms ''RegExam
+makeNestedPrisms ''CategoryTest
 makeNestedPrisms ''GeneralCategory
 
-type RegGrammar token a = forall p. Regular token p => p a a
-type Grammar token a = forall p. Grammatical token p => p a a
-type CtxGrammar token a = forall p m. Contextual token m p => p m a a
-
-type RegGrammarr token a b =
-  forall p. Regular token p => p a a -> p b b
-type Grammarr token a b =
-  forall p. Grammatical token p => p a a -> p b b
-type CtxGrammarr token a b =
-  forall p m. Contextual token m p => p m a a -> p m b b
-
-type Regular token p =
-  ( Terminator token p
-  , Tokenizor token p
+type RegGrammar token a = forall p.
+  ( Tokenizor token p
   , Alternator p
-  )
-type Grammatical token p =
-  ( Regular token p
-  , Filtrator p
+  ) => p a a
+type Grammar token a = forall p.
+  ( Tokenizor token p
   , forall x. BackusNaurForm (p x x)
-  )
-type Contextual token m p =
-  ( Grammatical token (p m)
+  , Alternator p
+  ) => p a a
+type CtxGrammar token a = forall p m.
+  ( Tokenizor token (p m)
+  , forall x. BackusNaurForm (p m x x)
+  , Alternator (p m)
+  , Filtrator (p m)
   , Monadic m p
-  , Filterable m
   , Alternative m
+  , Filterable m
   , Monad m
-  )
+  ) => p m a a
+
+type RegGrammarr token a b = forall p.
+  ( Tokenizor token p
+  , Alternator p
+  ) => p a a -> p b b
+type Grammarr token a b = forall p.
+  ( Tokenizor token p
+  , forall x. BackusNaurForm (p x x)
+  , Alternator p
+  ) => p a a -> p b b
+type CtxGrammarr token a b = forall p m.
+  ( Tokenizor token (p m)
+  , forall x. BackusNaurForm (p m x x)
+  , Alternator (p m)
+  , Filtrator (p m)
+  , Monadic m p
+  , Alternative m
+  , Filterable m
+  , Monad m
+  ) => p m a a -> p m b b
+
+type Tokenizor token p =
+  ( forall x y. (x ~ (), y ~ ())
+      => TerminalSymbol token (p x y)
+  , forall x y. (x ~ token, y ~ token)
+      => Tokenized token (p x y)
+  , forall x y test. (x ~ token, y ~ token, test ~ TokenTest token)
+      => TestAlgebra test (p x y)
+  ) :: Constraint
 
 prismGrammar :: (Monoidal p, Choice p) => Prism' a () -> p a a
 prismGrammar = (>? oneP)
@@ -111,148 +110,192 @@ grammarrOptic
   => (p a a -> p b b) -> Optic' p f b a
 grammarrOptic = dimap (rmap extract) (rmap pure)
 
-genShowS
-  :: (Filterable m, Alternative m, Monad m)
-  => CtxGrammar Char a -> a -> m ShowS
-genShowS = evalPrintor
+regexGrammar :: Grammar Char (RegEx Char)
+regexGrammar = ruleRec "regex" altG
 
-genReadS :: CtxGrammar Char a -> ReadS a
-genReadS = runParsor
+altG :: Grammarr Char (RegEx Char) (RegEx Char)
+altG rex = rule "alternate" $
+  chain1 Left (_RegExam . _Alternate) (sepBy (terminal "|")) (seqG rex)
 
-genRegExStr :: RegGrammar Char a -> RegExStr
-genRegExStr = evalGrammor @() @Identity
+seqG :: Grammarr Char (RegEx Char) (RegEx Char)
+seqG rex = rule "sequence" $
+  chain Left _Sequence (_Terminal . _Empty) noSep (exprG rex)
 
-genEBNF :: Grammar Char a -> EBNF
-genEBNF = evalGrammor @() @((,) All)
+exprG :: Grammarr Char (RegEx Char) (RegEx Char)
+exprG rex = rule "expression" $ choiceP
+  [ _Terminal >? someP charG
+  , _KleeneOpt >? atomG rex *< terminal "?"
+  , _KleeneStar >? atomG rex *< terminal "*"
+  , _KleenePlus >? atomG rex *< terminal "+"
+  , atomG rex
+  ]
 
-regexGrammar :: Grammar Char RegExStr
-regexGrammar = dimap runRegExStr RegExStr $ ruleRec "regex" altG
-  where
-    altG rex = rule "alternate" $
-      chain1 Left _Alternate (sepBy (terminal "|")) (seqG rex)
-    seqG rex = rule "sequence" $
-      chain Left _Sequence (_Terminal . _Empty) noSep (exprG rex)
-    exprG rex = rule "expression" $ choiceP
-      [ _Terminal >? someP charG
-      , _KleeneOpt >? atomG rex *< terminal "?"
-      , _KleeneStar >? atomG rex *< terminal "*"
-      , _KleenePlus >? atomG rex *< terminal "+"
-      , atomG rex
-      ]
-    atomG rex = rule "atom" $ choiceP
-      [ nonterminalG
-      , _Terminal >? charG >:< pure ""
-      , _AnyToken >? terminal "."
-      , _OneOf >? terminal "[" >* someP charG *< terminal "]"
-      , _NotOneOf >? terminal "[^" >* someP charG *< terminal "]"
-      , _AsIn >? terminal "\\p{" >* categoryG *< terminal "}"
-      , _NotAsIn >? terminal "\\P{" >* categoryG *< terminal "}"
-      , terminal "(" >* rex *< terminal ")"
-      ]
-    charG = rule "char" $ escapes
-      [ ("$()*+.?[\\]^{|}", (terminal "\\" >*))
-      , ("\n", \_ -> (terminal "\\n" <|> terminal "\n") >* pure '\n')
-      , ("\t", \_ -> (terminal "\\t" <|> terminal "\t") >* pure '\t')
-      ]
-    categoryG = rule "category" $ choiceP
-      [ _LowercaseLetter >? terminal "Ll"
-      , _UppercaseLetter >? terminal "Lu"
-      , _TitlecaseLetter >? terminal "Lt"
-      , _ModifierLetter >? terminal "Lm"
-      , _OtherLetter >? terminal "Lo"
-      , _NonSpacingMark >? terminal "Mn"
-      , _SpacingCombiningMark >? terminal "Mc"
-      , _EnclosingMark >? terminal "Me"
-      , _DecimalNumber >? terminal "Nd"
-      , _LetterNumber >? terminal "Nl"
-      , _OtherNumber >? terminal "No"
-      , _ConnectorPunctuation >? terminal "Pc"
-      , _DashPunctuation >? terminal "Pd"
-      , _OpenPunctuation >? terminal "Ps"
-      , _ClosePunctuation >? terminal "Pe"
-      , _InitialQuote >? terminal "Pi"
-      , _FinalQuote >? terminal "Pf"
-      , _OtherPunctuation >? terminal "Po"
-      , _MathSymbol >? terminal "Sm"
-      , _CurrencySymbol >? terminal "Sc"
-      , _ModifierSymbol >? terminal "Sk"
-      , _OtherSymbol >? terminal "So"
-      , _Space >? terminal "Zs"
-      , _LineSeparator >? terminal "Zl"
-      , _ParagraphSeparator >? terminal "Zp"
-      , _Control >? terminal "Cc"
-      , _Format >? terminal "Cf"
-      , _Surrogate >? terminal "Cs"
-      , _PrivateUse >? terminal "Co"
-      , _NotAssigned >? terminal "Cn"
-      ]
-    nonterminalG = rule "nonterminal" $ terminal "\\q" >* choiceP
-      [ _NonTerminal >? terminal "{" >* manyP charG *< terminal "}"
-      , prismGrammar _Fail
-      ]
+atomG :: Grammarr Char (RegEx Char) (RegEx Char)
+atomG rex = rule "atom" $ choiceP
+  [ nonterminalG
+  , _Terminal >? charG >:< pure ""
+  , _RegExam . _Pass >? terminal "."
+  , _RegExam . _OneOf >?
+      terminal "[" >* several noSep charG *< terminal "]"
+  , _RegExam . _NotOneOf >?
+      terminal "[^" >* several noSep charG
+        >*< (catTestG <|> pure (NotAsIn Set.empty))
+        *< terminal "]"
+  , _RegExam . _NotOneOf >? pure Set.empty >*< catTestG
+  , terminal "(" >* rex *< terminal ")"
+  ]
 
-bnfGrammarr :: Ord rule => RegGrammarr Char rule (BNF rule)
+catTestG :: Grammar Char (CategoryTest Char)
+catTestG = rule "category-test" $ choiceP
+  [ _AsIn >? terminal "\\p{" >* categoryG *< terminal "}"
+  , _NotAsIn >? terminal "\\P{" >*
+      several (sepBy (terminal "|")) categoryG
+        *< terminal "}"
+  ]
+
+categoryG :: Grammar Char GeneralCategory
+categoryG = rule "category" $ choiceP
+  [ _LowercaseLetter >? terminal "Ll"
+  , _UppercaseLetter >? terminal "Lu"
+  , _TitlecaseLetter >? terminal "Lt"
+  , _ModifierLetter >? terminal "Lm"
+  , _OtherLetter >? terminal "Lo"
+  , _NonSpacingMark >? terminal "Mn"
+  , _SpacingCombiningMark >? terminal "Mc"
+  , _EnclosingMark >? terminal "Me"
+  , _DecimalNumber >? terminal "Nd"
+  , _LetterNumber >? terminal "Nl"
+  , _OtherNumber >? terminal "No"
+  , _ConnectorPunctuation >? terminal "Pc"
+  , _DashPunctuation >? terminal "Pd"
+  , _OpenPunctuation >? terminal "Ps"
+  , _ClosePunctuation >? terminal "Pe"
+  , _InitialQuote >? terminal "Pi"
+  , _FinalQuote >? terminal "Pf"
+  , _OtherPunctuation >? terminal "Po"
+  , _MathSymbol >? terminal "Sm"
+  , _CurrencySymbol >? terminal "Sc"
+  , _ModifierSymbol >? terminal "Sk"
+  , _OtherSymbol >? terminal "So"
+  , _Space >? terminal "Zs"
+  , _LineSeparator >? terminal "Zl"
+  , _ParagraphSeparator >? terminal "Zp"
+  , _Control >? terminal "Cc"
+  , _Format >? terminal "Cf"
+  , _Surrogate >? terminal "Cs"
+  , _PrivateUse >? terminal "Co"
+  , _NotAssigned >? terminal "Cn"
+  ]
+
+charG :: Grammar Char Char
+charG = rule "char" $ testB (notOneOf charsReserved >&&< notAsIn Control)
+  <|> terminal "\\" >* charEscapedG
+
+charEscapedG :: Grammar Char Char
+charEscapedG = rule "char-escaped" $
+  oneOf charsReserved <|> charControlG
+
+charControlG :: Grammar Char Char
+charControlG = rule "char-control-abbrev" $ choiceP
+  [ terminal abbreviation >* pure charControl
+  | (abbreviation, charControl) <- charsControl
+  ]
+
+charsReserved :: [Char]
+charsReserved = "$()*+.?[\\]^{|}"
+
+charsControl :: [(String, Char)]
+charsControl =
+  [ ("NUL", '\NUL'), ("SOH", '\SOH'), ("STX", '\STX'), ("ETX", '\ETX')
+  , ("EOT", '\EOT'), ("ENQ", '\ENQ'), ("ACK", '\ACK'), ("BEL", '\BEL')
+  , ("BS", '\BS'), ("HT", '\HT'), ("LF", '\LF'), ("VT", '\VT')
+  , ("FF", '\FF'), ("CR", '\CR'), ("SO", '\SO'), ("SI", '\SI')
+  , ("DLE", '\DLE'), ("DC1", '\DC1'), ("DC2", '\DC2'), ("DC3", '\DC3')
+  , ("DC4", '\DC4'), ("NAK", '\NAK'), ("SYN", '\SYN'), ("ETB", '\ETB')
+  , ("CAN", '\CAN'), ("EM", '\EM'), ("SUB", '\SUB'), ("ESC", '\ESC')
+  , ("FS", '\FS'), ("GS", '\GS'), ("RS", '\RS'), ("US", '\US')
+  , ("DEL", '\DEL')
+  , ("PAD", '\x80'), ("HOP", '\x81'), ("BPH", '\x82'), ("NBH", '\x83')
+  , ("IND", '\x84'), ("NEL", '\x85'), ("SSA", '\x86'), ("ESA", '\x87')
+  , ("HTS", '\x88'), ("HTJ", '\x89'), ("VTS", '\x8A'), ("PLD", '\x8B')
+  , ("PLU", '\x8C'), ("RI", '\x8D'), ("SS2", '\x8E'), ("SS3", '\x8F')
+  , ("DCS", '\x90'), ("PU1", '\x91'), ("PU2", '\x92'), ("STS", '\x93')
+  , ("CCH", '\x94'), ("MW", '\x95'), ("SPA", '\x96'), ("EPA", '\x97')
+  , ("SOS", '\x98'), ("SGCI",'\x99'), ("SCI", '\x9A'), ("CSI", '\x9B')
+  , ("ST", '\x9C'), ("OSC", '\x9D'), ("PM", '\x9E'), ("APC", '\x9F')
+  ]
+
+nonterminalG :: Grammar Char (RegEx Char)
+nonterminalG = rule "nonterminal" $ terminal "\\q" >* choiceP
+  [ _NonTerminal >? terminal "{" >* manyP charG *< terminal "}"
+  , prismGrammar (_RegExam . _Fail)
+  ]
+
+bnfGrammarr :: Ord rule => RegGrammarr Char rule (Bnf rule)
 bnfGrammarr p = dimap hither thither $ startG  >*< rulesG
   where
-    hither (BNF start rules) = (start, toList rules)
-    thither (start, rules) = BNF start (fromList rules)
+    hither (Bnf start rules) = (start, toList rules)
+    thither (start, rules) = Bnf start (fromList rules)
     startG = terminal "start" >* ruleG
-    rulesG = manyP (terminal ['\n'] >* nameG >*< ruleG)
+    rulesG = manyP (terminal "\n" >* nameG >*< ruleG)
     ruleG = terminal " = " >* p
-    nameG = manyP (escape "\\= " (terminal "\\" >*))
+    nameG = manyP (notOneOf ['='] <|> (terminal "\\=" >* pure '='))
 
-ebnfGrammar :: Grammar Char EBNF
-ebnfGrammar = dimap runEBNF EBNF (bnfGrammarr regexGrammar)
-
-newtype RegExStr = RegExStr {runRegExStr :: RegEx Char}
+newtype RegString = RegString {runRegString :: RegEx Char}
   deriving newtype
     ( Eq, Ord
     , Semigroup, Monoid, KleeneStarAlgebra
-    , Tokenized, TerminalSymbol, NonTerminalSymbol
+    , Tokenized Char, TestAlgebra (TokenTest Char)
+    , TerminalSymbol Char, NonTerminalSymbol
+    , Matching String
     )
-newtype EBNF = EBNF {runEBNF :: BNF RegExStr}
+
+newtype RegBnfString = RegBnfString {runRegBnfString :: Bnf (RegEx Char)}
   deriving newtype
     ( Eq, Ord
     , Semigroup, Monoid, KleeneStarAlgebra
-    , Tokenized, TerminalSymbol, NonTerminalSymbol
-    , BackusNaurForm
+    , Tokenized Char, TestAlgebra (TokenTest Char)
+    , TerminalSymbol Char, NonTerminalSymbol
+    , BackusNaurForm, Matching String
     )
 
-printRegEx :: RegGrammar Char a -> IO ()
-printRegEx = streamLine . genRegExStr
-
-printEBNF :: Grammar Char a -> IO ()
-printEBNF = streamLine . genEBNF
-
-instance IsList RegExStr where
-  type Item RegExStr = Char
+instance IsList RegString where
+  type Item RegString = Char
   fromList
-    = fromMaybe (RegExStr Fail)
+    = fromMaybe zeroK
     . listToMaybe
-    . mapMaybe (\(rex, remaining) -> if remaining == "" then Just rex else Nothing)
-    . genReadS regexGrammar
+    . mapMaybe prsF
+    . runParsor regexGrammar
+    where
+      prsF (rex,"") = Just (RegString rex)
+      prsF _ = Nothing
   toList
     = maybe "\\q" ($ "")
-    . genShowS regexGrammar
-instance IsString RegExStr where
+    . evalPrintor regexGrammar
+    . runRegString
+instance IsString RegString where
   fromString = fromList
-instance Show RegExStr where
+instance Show RegString where
   showsPrec precision = showsPrec precision . toList
-instance Read RegExStr where
+instance Read RegString where
   readsPrec _ str = [(fromList str, "")]
-instance IsList EBNF where
-  type Item EBNF = Char
+instance IsList RegBnfString where
+  type Item RegBnfString = Char
   fromList
-    = fromMaybe (EBNF (BNF (RegExStr Fail) mempty))
+    = fromMaybe zeroK
     . listToMaybe
-    . mapMaybe (\(ebnf, remaining) -> if remaining == "" then Just ebnf else Nothing)
-    . genReadS ebnfGrammar
+    . mapMaybe prsF
+    . runParsor (bnfGrammarr regexGrammar)
+    where
+      prsF (ebnf,"") = Just (RegBnfString ebnf)
+      prsF _ = Nothing
   toList
     = maybe "{start} = \\q" ($ "")
-    . genShowS ebnfGrammar
-instance IsString EBNF where
+    . evalPrintor (bnfGrammarr regexGrammar)
+    . runRegBnfString
+instance IsString RegBnfString where
   fromString = fromList
-instance Show EBNF where
+instance Show RegBnfString where
   showsPrec precision = showsPrec precision . toList
-instance Read EBNF where
+instance Read RegBnfString where
   readsPrec _ str = [(fromList str, "")]

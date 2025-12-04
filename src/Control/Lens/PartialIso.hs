@@ -22,6 +22,7 @@ module Control.Lens.PartialIso
   , PartialExchange (PartialExchange)
     -- Combinators
   , partialIso
+  , involutedMaybe
   , withPartialIso
   , clonePartialIso
   , coPartialIso
@@ -31,7 +32,8 @@ module Control.Lens.PartialIso
   , (>?)
   , (?<)
   , (>?<)
-  , mapIso
+  , (>~)
+  , (~<)
   , coPrism
     -- * Patterns
   , satisfied
@@ -147,6 +149,9 @@ partialIso :: (s -> Maybe a) -> (b -> Maybe t) -> PartialIso s t a b
 partialIso f g =
   unright . iso (maybe (Left ()) Right . f =<<) (mapMaybe g) . right'
 
+involutedMaybe :: (a -> Maybe a) -> PartialIso' a a
+involutedMaybe f = partialIso f f
+
 {- | Convert `APartialIso` to the pair of functions that characterize it. -}
 withPartialIso
   :: APartialIso s t a b
@@ -225,8 +230,14 @@ infixl 4 ?<
 infixl 4 >?<
 
 {- | Action of `AnIso` on `Profunctor`s. -}
-mapIso :: Profunctor p => AnIso s t a b -> p a b -> p s t
-mapIso pattern = withIso pattern dimap
+(>~) :: Profunctor p => AnIso s t a b -> p a b -> p s t
+(>~) pattern = withIso pattern dimap
+infixl 2 >~
+
+{- | Inverse action of `AnIso` on `Profunctor`s. -}
+(~<) :: Profunctor p => AnIso b a t s -> p a b -> p s t
+(~<) pattern = withIso pattern (flip dimap)
+infixl 2 ~<
 
 {- | Action of a `coPrism`
 on the composition of a `Profunctor` and `Filterable`.
@@ -237,7 +248,7 @@ coPrism p = unwrapPafb . (?<) p . WrapPafb
 {- | `satisfied` is the prototypical proper partial isomorphism,
 identifying a subset which satisfies a predicate. -}
 satisfied :: (a -> Bool) -> PartialIso' a a
-satisfied f = partialIso satiate satiate where
+satisfied f = involutedMaybe satiate where
   satiate a = if f a then Just a else Nothing
 
 {- | `nulled` matches an `Empty` pattern, like `_Empty`. -}

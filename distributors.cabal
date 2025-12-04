@@ -32,11 +32,8 @@ library
       Control.Lens.Diopter
       Control.Lens.Grammar
       Control.Lens.Grammar.BackusNaur
-      Control.Lens.Grammar.Context
       Control.Lens.Grammar.Kleene
-      Control.Lens.Grammar.Stream
       Control.Lens.Grammar.Symbol
-      Control.Lens.Grammar.Test
       Control.Lens.Grammar.Token
       Control.Lens.Grate
       Control.Lens.Internal.Equator
@@ -80,7 +77,6 @@ library
       LambdaCase
       MagicHash
       MonoLocalBinds
-      OverloadedStrings
       QuantifiedConstraints
       RankNTypes
       RecursiveDo
@@ -96,16 +92,16 @@ library
       UndecidableSuperClasses
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints
   build-depends:
-      adjunctions >=4.4 && <5
+      MemoTrie >=0.6.11 && <1
+    , adjunctions >=4.4 && <5
     , base >=4.7 && <5
     , bifunctors >=5.6 && <6
     , bytestring >=0.11 && <1
-    , comonad
+    , comonad >=5.0.8 && <6
     , containers >=0.6 && <1
     , contravariant >=1.5 && <2
     , distributive >=0.6 && <1
     , indexed-transformers >=0.1.0.4 && <1
-    , kan-extensions
     , lens >=5.2 && <6
     , mtl >=2.3 && <3
     , profunctors >=5.6 && <6
@@ -150,7 +146,6 @@ test-suite spec
       LambdaCase
       MagicHash
       MonoLocalBinds
-      OverloadedStrings
       QuantifiedConstraints
       RankNTypes
       RecursiveDo
@@ -166,18 +161,18 @@ test-suite spec
       UndecidableSuperClasses
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints
   build-depends:
-      adjunctions >=4.4 && <5
+      MemoTrie >=0.6.11 && <1
+    , adjunctions >=4.4 && <5
     , base >=4.7 && <5
     , bifunctors >=5.6 && <6
     , bytestring >=0.11 && <1
-    , comonad
+    , comonad >=5.0.8 && <6
     , containers >=0.6 && <1
     , contravariant >=1.5 && <2
     , distributive >=0.6 && <1
     , distributors
     , hspec
     , indexed-transformers >=0.1.0.4 && <1
-    , kan-extensions
     , lens >=5.2 && <6
     , mtl >=2.3 && <3
     , profunctors >=5.6 && <6
