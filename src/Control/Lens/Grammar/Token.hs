@@ -2,7 +2,7 @@ module Control.Lens.Grammar.Token
   ( -- * Tokenized
     Tokenized (..)
   , satisfy
-  , tokens
+  , tokenizer
   , terminator
     -- * Like
   , oneLike
@@ -80,13 +80,13 @@ satisfy
   => (token -> Bool) -> p token token
 satisfy f = satisfied f >?< anyToken
 
-tokens
+tokenizer
   :: ( Foldable f, AsEmpty s, Cons s s a a
      , Monoidal p, Choice p
      , Tokenized a (p a a)
      )
   => f a -> p s s
-tokens = foldr ((>:<) . token) asEmpty
+tokenizer = foldr ((>:<) . token) asEmpty
 
 terminator
   :: (Foldable f, Eq a, Monoidal p, Cochoice p, Tokenized token (p a a))
