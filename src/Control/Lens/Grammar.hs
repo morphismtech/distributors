@@ -134,7 +134,7 @@ exprG rex = rule "expression" $ choiceP
 atomG :: Grammarr Char (RegEx Char) (RegEx Char)
 atomG rex = rule "atom" $ choiceP
   [ nonterminalG
-  , _Terminal . _Cons >? charG >*< prismGrammar _Empty
+  , _Terminal . _Cons >? charG >*< (_Empty >? oneP)
   , _RegExam . _Pass >? terminal "."
   , _RegExam . _OneOf >?
       terminal "[" >* several1 noSep charG *< terminal "]"
@@ -229,7 +229,7 @@ charsControl =
 nonterminalG :: Grammar Char (RegEx Char)
 nonterminalG = rule "nonterminal" $ terminal "\\q" >* choiceP
   [ _NonTerminal >? terminal "{" >* manyP charG *< terminal "}"
-  , prismGrammar (_RegExam . _Fail)
+  , _RegExam . _Fail >? oneP
   ]
 
 bnfGrammarr :: Ord rule => RegGrammarr Char rule (Bnf rule)
