@@ -3,6 +3,7 @@ module Control.Lens.Grammar.Token
     Tokenized (..)
   , satisfy
   , tokens
+  , terminator
     -- * Like
   , oneLike
   , manyLike
@@ -86,6 +87,11 @@ tokens
      )
   => [a] -> p s s
 tokens = foldr ((>:<) . token) asEmpty
+
+terminator
+  :: (Foldable f, Eq a, Monoidal p, Cochoice p, Tokenized token (p a a))
+  => f a -> p () ()
+terminator = foldr (\a -> (only a ?< anyToken *>)) oneP
 
 {- |
 `oneLike` consumes one token

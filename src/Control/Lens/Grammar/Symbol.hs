@@ -3,16 +3,16 @@ module Control.Lens.Grammar.Symbol
   , NonTerminalSymbol (..)
   ) where
 
-import Control.Lens.Internal.Equator
+import Control.Lens.Grammar.Token
 import Data.Profunctor
 import Data.Profunctor.Monoidal
 
 class TerminalSymbol token s where
   terminal :: [token] -> s
   default terminal
-    :: (p () () ~ s, Eq token, Equator token token p, Monoidal p, Cochoice p)
+    :: (p () () ~ s, Tokenized token (p token token), Monoidal p, Cochoice p)
     => [token] -> s
-  terminal = equator
+  terminal = terminator
 
 instance TerminalSymbol a [a] where
   terminal = id

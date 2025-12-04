@@ -1,64 +1,66 @@
 module Main (main) where
 
 import Data.Char
-import Data.Foldable
-import Data.List (nub)
+import Data.Foldable hiding (toList)
+import Data.String
+import GHC.Exts
 import Control.Lens.Grammar
+import Control.Lens.Grammar.Kleene
+import Control.Lens.Grammar.Symbol
+import Control.Lens.Grammar.Token
 import Test.Hspec
 
 -- expectedRegexGrammar :: [(String, RegExStr)]
 -- expectedRegexGrammar = []
-  -- [("start",NonTerminal "regex")
-  -- ,("alternate",Sequence (NonTerminal "sequence") (KleeneStar (Sequence (Terminal "|") (NonTerminal "sequence"))))
-  -- ,("any",Terminal ".")
-  -- ,("atom",Alternate (Alternate (Alternate (Alternate (Alternate (Alternate (Alternate (Alternate (NonTerminal "nonterminal") (NonTerminal "fail")) (NonTerminal "class-in")) (NonTerminal "class-not-in")) (NonTerminal "category-in")) (NonTerminal "category-not-in")) (NonTerminal "char")) (NonTerminal "any")) (NonTerminal "parenthesized"))
-  -- ,("category",Alternate (Alternate (Alternate (Alternate (Alternate (Alternate (Alternate (Alternate (Alternate (Alternate (Alternate (Alternate (Alternate (Alternate (Alternate (Alternate (Alternate (Alternate (Alternate (Alternate (Alternate (Alternate (Alternate (Alternate (Alternate (Alternate (Alternate (Alternate (Alternate (Terminal "Ll") (Terminal "Lu")) (Terminal "Lt")) (Terminal "Lm")) (Terminal "Lo")) (Terminal "Mn")) (Terminal "Mc")) (Terminal "Me")) (Terminal "Nd")) (Terminal "Nl")) (Terminal "No")) (Terminal "Pc")) (Terminal "Pd")) (Terminal "Ps")) (Terminal "Pe")) (Terminal "Pi")) (Terminal "Pf")) (Terminal "Po")) (Terminal "Sm")) (Terminal "Sc")) (Terminal "Sk")) (Terminal "So")) (Terminal "Zs")) (Terminal "Zl")) (Terminal "Zp")) (Terminal "Cc")) (Terminal "Cf")) (Terminal "Cs")) (Terminal "Co")) (Terminal "Cn"))
-  -- ,("category-in",Sequence (Sequence (Terminal "\\p{") (NonTerminal "category")) (Terminal "}"))
-  -- ,("category-not-in",Sequence (Sequence (Terminal "\\P{") (NonTerminal "category")) (Terminal "}"))
-  -- ,("char",Alternate (NonTerminal "char-literal") (NonTerminal "char-escaped"))
-  -- ,("char-escaped",Sequence (Terminal "\\") (OneOf "$()*+.?[\\]^{|}"))
-  -- ,("char-literal",NotOneOf "$()*+.?[\\]^{|}")
-  -- ,("class-in",Sequence (Sequence (Terminal "[") (KleeneStar (NonTerminal "char"))) (Terminal "]"))
-  -- ,("class-not-in",Sequence (Sequence (Terminal "[^") (KleeneStar (NonTerminal "char"))) (Terminal "]"))
-  -- ,("expression",Alternate (Alternate (Alternate (Alternate (NonTerminal "terminal") (NonTerminal "kleene-optional")) (NonTerminal "kleene-star")) (NonTerminal "kleene-plus")) (NonTerminal "atom"))
-  -- ,("fail",Terminal "\\q")
-  -- ,("kleene-optional",Sequence (NonTerminal "atom") (Terminal "?"))
-  -- ,("kleene-plus",Sequence (NonTerminal "atom") (Terminal "+"))
-  -- ,("kleene-star",Sequence (NonTerminal "atom") (Terminal "*"))
-  -- ,("nonterminal",Sequence (Sequence (Terminal "\\q{") (KleeneStar (NonTerminal "char"))) (Terminal "}"))
-  -- ,("parenthesized",Sequence (Sequence (Terminal "(") (NonTerminal "regex")) (Terminal ")"))
-  -- ,("regex",NonTerminal "alternate")
-  -- ,("sequence",KleeneStar (NonTerminal "expression"))
-  -- ,("terminal",KleenePlus (NonTerminal "char"))
+  -- [("start",nonTerminal "regex")
+  -- ,("alternate",Sequence (nonTerminal "sequence") (KleeneStar (Sequence (terminal "|") (nonTerminal "sequence"))))
+  -- ,("any",terminal ".")
+  -- ,("atom",Alternate (Alternate (Alternate (Alternate (Alternate (Alternate (Alternate (Alternate (nonTerminal "nonterminal") (nonTerminal "fail")) (nonTerminal "class-in")) (nonTerminal "class-not-in")) (nonTerminal "category-in")) (nonTerminal "category-not-in")) (nonTerminal "char")) (nonTerminal "any")) (nonTerminal "parenthesized"))
+  -- ,("category",Alternate (Alternate (Alternate (Alternate (Alternate (Alternate (Alternate (Alternate (Alternate (Alternate (Alternate (Alternate (Alternate (Alternate (Alternate (Alternate (Alternate (Alternate (Alternate (Alternate (Alternate (Alternate (Alternate (Alternate (Alternate (Alternate (Alternate (Alternate (Alternate (terminal "Ll") (terminal "Lu")) (terminal "Lt")) (terminal "Lm")) (terminal "Lo")) (terminal "Mn")) (terminal "Mc")) (terminal "Me")) (terminal "Nd")) (terminal "Nl")) (terminal "No")) (terminal "Pc")) (terminal "Pd")) (terminal "Ps")) (terminal "Pe")) (terminal "Pi")) (terminal "Pf")) (terminal "Po")) (terminal "Sm")) (terminal "Sc")) (terminal "Sk")) (terminal "So")) (terminal "Zs")) (terminal "Zl")) (terminal "Zp")) (terminal "Cc")) (terminal "Cf")) (terminal "Cs")) (terminal "Co")) (terminal "Cn"))
+  -- ,("category-in",Sequence (Sequence (terminal "\\p{") (nonTerminal "category")) (terminal "}"))
+  -- ,("category-not-in",Sequence (Sequence (terminal "\\P{") (nonTerminal "category")) (terminal "}"))
+  -- ,("char",Alternate (nonTerminal "char-literal") (nonTerminal "char-escaped"))
+  -- ,("char-escaped",Sequence (terminal "\\") (oneOf "$()*+.?[\\]^{|}"))
+  -- ,("char-literal",notOneOf "$()*+.?[\\]^{|}")
+  -- ,("class-in",Sequence (Sequence (terminal "[") (KleeneStar (nonTerminal "char"))) (terminal "]"))
+  -- ,("class-not-in",Sequence (Sequence (terminal "[^") (KleeneStar (nonTerminal "char"))) (terminal "]"))
+  -- ,("expression",Alternate (Alternate (Alternate (Alternate (nonTerminal "terminal") (nonTerminal "kleene-optional")) (nonTerminal "kleene-star")) (nonTerminal "kleene-plus")) (nonTerminal "atom"))
+  -- ,("fail",terminal "\\q")
+  -- ,("kleene-optional",Sequence (nonTerminal "atom") (terminal "?"))
+  -- ,("kleene-plus",Sequence (nonTerminal "atom") (terminal "+"))
+  -- ,("kleene-star",Sequence (nonTerminal "atom") (terminal "*"))
+  -- ,("nonterminal",Sequence (Sequence (terminal "\\q{") (KleeneStar (nonTerminal "char"))) (terminal "}"))
+  -- ,("parenthesized",Sequence (Sequence (terminal "(") (nonTerminal "regex")) (terminal ")"))
+  -- ,("regex",nonTerminal "alternate")
+  -- ,("sequence",KleeneStar (nonTerminal "expression"))
+  -- ,("terminal",plusK (nonTerminal "char"))
   -- ]
 
-regexExamples :: [(RegEx, String)]
+regexExamples :: [(RegString, String)]
 regexExamples =
-  [ (Terminal "abc123etc.", "abc123etc\\.")
-  , (Sequence (Terminal "x") (Terminal "y"), "xy")
-  , (Fail, "\\q")
-  , (Alternate (Terminal "x") (Terminal "y"), "x|y")
-  , (KleeneOpt (Terminal "x"), "x?")
-  , (KleeneStar (Terminal "x"), "x*")
-  , (KleenePlus (Terminal "x"), "x+")
-  , (AnyChar, ".")
-  , (OneOf "abc", "[abc]")
-  , (NotOneOf "abc", "[^abc]")
-  , (AsIn UppercaseLetter, "\\p{Lu}")
-  , (NotAsIn LowercaseLetter, "\\P{Ll}")
-  , (NonTerminal "rule-name", "\\q{rule-name}")
-  , (Terminal "", "")
+  [ (terminal "abc123etc.", "abc123etc\\.")
+  , (terminal "x" <> terminal "y", "xy")
+  , (zeroK, "\\q")
+  , (terminal "x" >|< terminal "y", "x|y")
+  , (optK (terminal "x"), "x?")
+  , (starK (terminal "x"), "x*")
+  , (plusK (terminal "x"), "x+")
+  , (anyToken, ".")
+  , (oneOf "abc", "[abc]")
+  , (notOneOf "abc", "[^abc]")
+  , (asIn UppercaseLetter, "\\p{Lu}")
+  , (notAsIn LowercaseLetter, "\\P{Ll}")
+  , (nonTerminal "rule-name", "\\q{rule-name}")
+  , (terminal "", "")
   ]
 
 main :: IO ()
 main = hspec $ do
   describe "regexGrammar" $ do
-    it "should generate a correct grammar" $
-      genGrammar regexGrammar `shouldBe` expectedRegexGrammar
+    -- it "should generate a correct grammar" $
+    --   genGrammar regexGrammar `shouldBe` expectedRegexGrammar
     for_ regexExamples $ \(rex, str) -> do
-      it ("should print " <> show rex <> " correctly") $
-        showGrammar regexGrammar rex `shouldBe` Just str
+      it ("should print " <> show (runRegString rex) <> " correctly") $
+        toList rex `shouldBe` str
       it ("should parse " <> str <> " correctly") $ do
-        let parses = readGrammar regexGrammar str
-        parses `shouldSatisfy` elem rex
-        length (nub (map regexNorm parses)) `shouldBe` 1
+        fromString str `shouldBe` rex
