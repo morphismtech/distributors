@@ -2,7 +2,6 @@ module Main (main) where
 
 import Data.Char
 import Data.Foldable hiding (toList)
-import Data.Functor.Identity
 import Control.Lens.Grammar
 import Control.Lens.Grammar.Kleene
 import Control.Lens.Grammar.Symbol
@@ -47,7 +46,7 @@ main :: IO ()
 main = hspec $ do
   describe "regexGrammar" $ do
     it "should generate a correct grammar" $ do
-      let gramString :: RegBnfString = evalGrammor @() @Identity regexGrammar
+      let gramString = evalGrammor_ regexGrammar :: RegBnfString
       lines (toList gramString) `shouldBe` expectedRegexGrammar
     for_ regexExamples $ \(rex, str) -> do
       it ("should print " <> show (runRegString rex) <> " correctly") $

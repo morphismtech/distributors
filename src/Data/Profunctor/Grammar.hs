@@ -9,6 +9,7 @@ module Data.Profunctor.Grammar
   , Grammor (..)
   , grammor
   , evalGrammor
+  , evalGrammor_
   ) where
 
 import Control.Applicative
@@ -52,6 +53,8 @@ grammor :: Applicative f => t -> Grammor s t f a b
 grammor = Grammor . pure . pure
 evalGrammor :: (Monoid s, Comonad f) => Grammor s t f a b -> t
 evalGrammor = extract . extract . runGrammor
+evalGrammor_ :: Grammor () t Identity a b -> t
+evalGrammor_ = evalGrammor
 
 -- Parsor instances
 instance Functor f => Functor (Parsor s t f a) where
