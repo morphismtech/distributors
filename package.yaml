@@ -27,6 +27,7 @@ dependencies:
 - containers >= 0.6 && < 1
 - contravariant >= 1.5 && < 2
 - distributive >= 0.6 && < 1
+- kan-extensions >= 5.2.5 && < 6
 - lens >= 5.2 && < 6
 - MemoTrie >= 0.6.11 && < 1
 - mtl >= 2.3 && < 3

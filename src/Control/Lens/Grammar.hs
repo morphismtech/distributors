@@ -268,7 +268,7 @@ instance IsList RegString where
     = fromMaybe zeroK
     . listToMaybe
     . mapMaybe prsF
-    . runParsor regexGrammar
+    . runReador regexGrammar
     where
       prsF (rex,"") = Just (RegString rex)
       prsF _ = Nothing
@@ -288,7 +288,7 @@ instance IsList RegBnfString where
     = fromMaybe zeroK
     . listToMaybe
     . mapMaybe prsF
-    . runParsor (bnfGrammarr regexGrammar)
+    . runReador (bnfGrammarr regexGrammar)
     where
       prsF (ebnf,"") = Just (RegBnfString ebnf)
       prsF _ = Nothing
