@@ -76,19 +76,22 @@ instance Categorized token => Tokenized token (token -> Bool) where
   notAsIn = lmap categorize . (/=)
 
 satisfy
-  :: (Choice p, Cochoice p, Tokenized token (p token token))
-  => (token -> Bool) -> p token token
+  :: (Tokenized a (p a a), Choice p, Cochoice p)
+  => (a -> Bool) -> p a a
 satisfy f = satisfied f >?< anyToken
 
 fromTokens
-  :: ( Foldable f, AsEmpty s, Cons s s a a
-     , Monoidal p, Choice p, Tokenized a (p a a)
+  :: ( Foldable f, Tokenized a (p a a)
+     , Monoidal p, Choice p
+     , AsEmpty s, Cons s s a a
      )
   => f a -> p s s
 fromTokens = foldr ((>:<) . token) asEmpty
 
 terminator
-  :: (Foldable f,  Monoidal p, Cochoice p, Tokenized a (p a a))
+  :: ( Foldable f, Tokenized a (p a a)
+     , Monoidal p, Cochoice p
+     )
   => f a -> p () ()
 terminator = foldr (\a p -> only a ?< anyToken *> p) oneP
 
