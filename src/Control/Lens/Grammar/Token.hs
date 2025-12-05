@@ -82,14 +82,13 @@ satisfy f = satisfied f >?< anyToken
 
 fromTokens
   :: ( Foldable f, AsEmpty s, Cons s s a a
-     , Monoidal p, Choice p
-     , Tokenized a (p a a)
+     , Monoidal p, Choice p, Tokenized a (p a a)
      )
   => f a -> p s s
 fromTokens = foldr ((>:<) . token) asEmpty
 
 terminator
-  :: (Foldable f, Eq a, Monoidal p, Cochoice p, Tokenized token (p a a))
+  :: (Foldable f,  Monoidal p, Cochoice p, Tokenized a (p a a))
   => f a -> p () ()
 terminator = foldr (\a p -> only a ?< anyToken *> p) oneP
 
