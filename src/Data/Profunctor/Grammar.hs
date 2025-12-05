@@ -369,6 +369,10 @@ instance (Alternative m, Filterable m, Monad m)
     . lowerCodensity . unReador
 instance Profunctor (Reador f) where
   dimap _ f (Reador p) = Reador (fmap f p)
+instance (Alternative m, Monad m) => Monadic m Reador where
+  liftP m = Reador $ do
+    s <- ask
+    lift $ FinalP ((,s) <$> m)
 instance (Alternative m, Monad m) => Choice (Reador m) where
   left' = alternate . Left
   right' = alternate . Right
@@ -425,10 +429,6 @@ instance (Alternative m, Monad m) => Monad (LookP m) where
   FinalP r >>= k = FinalP $ do
     (x,s) <- r
     runLookP (k x) s
-instance (Alternative m, Monad m) => Monadic m Reador where
-  liftP m = Reador $ do
-    s <- ask
-    lift $ FinalP ((,s) <$> m)
 instance (Alternative m, Monad m) => MonadReader String (LookP m) where
   ask = LookP return
   local f p = do
