@@ -131,11 +131,16 @@ exprG rex = rule "expression" $ choiceP
   , atomG rex
   ]
 
+anyG :: Grammar Char ()
+anyG = rule "any-token" $
+  terminal "." <|> terminal "[^]" <|> terminal "\\P{}" <|> terminal "[^\\P{}]"
+
 atomG :: Grammarr Char (RegEx Char) (RegEx Char)
 atomG rex = rule "atom" $ choiceP
-  [ nonterminalG
+  [ _NonTerminal >? terminal "\\q{" >* manyP charG *< terminal "}"
   , _Terminal >? charG >:< asEmpty
-  , _RegExam . _Pass >? terminal "."
+  , _RegExam . _Fail >? failG
+  , _RegExam . _Pass >? anyG
   , _RegExam . _OneOf >?
       terminal "[" >* several1 noSep charG *< terminal "]"
   , _RegExam . _NotOneOf >?
@@ -226,11 +231,8 @@ charsControl =
   , ("ST", '\x9C'), ("OSC", '\x9D'), ("PM", '\x9E'), ("APC", '\x9F')
   ]
 
-nonterminalG :: Grammar Char (RegEx Char)
-nonterminalG = rule "nonterminal" $ terminal "\\q" >* choiceP
-  [ _NonTerminal >? terminal "{" >* manyP charG *< terminal "}"
-  , _RegExam . _Fail >? oneP
-  ]
+failG :: Grammar Char ()
+failG = rule "fail" $ terminal "\\q" <|> terminal "[]"
 
 bnfGrammarr :: Ord rule => RegGrammarr Char rule (Bnf rule)
 bnfGrammarr p = dimap hither thither $ startG  >*< rulesG
