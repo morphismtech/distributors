@@ -146,7 +146,7 @@ instance
   ( Char ~ Item s, IsList s, Cons s s Char Char, AsEmpty s
   , Filterable m, Alternative m, Monad m
   ) => IsString (Parsor s s m s s) where
-  fromString = tokenizer
+  fromString = fromTokens
 instance BackusNaurForm (Parsor s t m a b)
 instance AsEmpty t => Matching s (Parsor s t Maybe a b) where
   word =~ parsor = case runParsor parsor word of
@@ -272,7 +272,7 @@ instance
   ( Char ~ Item s, IsList s, Cons s s Char Char, AsEmpty s
   , Filterable m, Alternative m, Monad m
   ) => IsString (Printor s s m s s) where
-  fromString = tokenizer
+  fromString = fromTokens
 instance BackusNaurForm (Printor s t m a b)
 
 -- Grammor instances
