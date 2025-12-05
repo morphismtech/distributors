@@ -173,10 +173,7 @@ instance Filterable f => Filterable (Printor s s f a) where
     mapMaybe (\(a,q) -> fmap (, q) (f a)) . p
 instance Monad f => Monad (Printor s s f a) where
   return = pure
-  mx >>= f = Printor $ \ctx -> do
-    (x, p) <- runPrintor mx ctx
-    (y, q) <- runPrintor (f x) ctx
-    return (y, p . q)
+  mx >>= f = composeP (fmap f mx)
 instance (Alternative f, Monad f) => MonadPlus (Printor s s f a)
 instance MonadError e m => MonadError e (Printor s s m a) where
   throwError = liftP . throwError
@@ -208,9 +205,17 @@ instance Alternative f => Alternator (Printor s s f) where
       either (\_ -> empty) (fmap (first' Right) . p)
 instance Filterable f => Filtrator (Printor s s f) where
   filtrate (Printor p) =
-    ( Printor (mapMaybe (\case{(Left b, q) -> Just (b, q); _ -> Nothing}) . p . Left)
-    , Printor (mapMaybe (\case{(Right b, q) -> Just (b, q); _ -> Nothing}) . p . Right)
-    )
+    let
+      leftMaybe = \case
+        (Left b, q) -> Just (b, q)
+        _ -> Nothing
+      rightMaybe = \case
+        (Right b, q) -> Just (b, q)
+        _ -> Nothing
+    in
+      ( Printor (mapMaybe leftMaybe . p . Left)
+      , Printor (mapMaybe rightMaybe . p . Right)
+      )
 instance Alternative f => Choice (Printor s s f) where
   left' = alternate . Left
   right' = alternate . Right
@@ -218,8 +223,10 @@ instance Filterable f => Cochoice (Printor s s f) where
   unleft = fst . filtrate
   unright = snd . filtrate
 instance Functor f => Strong (Printor s s f) where
-  first' (Printor p) = Printor (\(a,c) -> fmap (\(b,q) -> ((b,c),q)) (p a))
-  second' (Printor p) = Printor (\(c,a) -> fmap (\(b,q) -> ((c,b),q)) (p a))
+  first' (Printor p) =
+    Printor (\(a,c) -> fmap (\(b,q) -> ((b,c),q)) (p a))
+  second' (Printor p) =
+    Printor (\(c,a) -> fmap (\(b,q) -> ((c,b),q)) (p a))
 instance Monad f => Category (Printor s s f) where
   id = Printor $ \a -> return (a, id)
   Printor q . Printor p = Printor $ \a -> do
