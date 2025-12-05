@@ -13,8 +13,8 @@ module Data.Profunctor.Grammar
     -- * Reador
   , Reador (..)
   , runReador
-  , LookP (..)
-  , runLookP
+  , LookT (..)
+  , runLookT
   ) where
 
 import Control.Applicative
@@ -61,23 +61,23 @@ evalGrammor = extract . extract . runGrammor
 evalGrammor_ :: Grammor () t Identity a b -> t
 evalGrammor_ = evalGrammor
 
-newtype Reador f a b = Reador {unReador :: Codensity (LookP f) b}
+newtype Reador f a b = Reador {unReador :: Codensity (LookT f) b}
 runReador
   :: (Alternative m, Monad m)
   => Reador m a b -> String -> m (b, String)
-runReador (Reador (Codensity f)) = runLookP (f return)
+runReador (Reador (Codensity f)) = runLookT (f return)
 
-data LookP f a
-  = GetP (Char -> LookP f a)
-  | LookP (String -> LookP f a)
-  | ResultP a (LookP f a)
-  | FinalP (f (a, String))
-runLookP :: Alternative f => LookP f a -> String -> f (a, String)
-runLookP (GetP f) s =
-  maybe empty (\(h,t) -> runLookP (f h) t) (uncons s)
-runLookP (LookP f) s = runLookP (f s) s
-runLookP (ResultP x p) s = pure (x,s) <|> runLookP p s
-runLookP (FinalP r) _ = r
+data LookT f a
+  = LookT (String -> LookT f a)
+  | GetT (Char -> LookT f a)
+  | ResultT a (LookT f a)
+  | FinalT (f (a, String))
+runLookT :: Alternative f => LookT f a -> String -> f (a, String)
+runLookT (GetT f) s =
+  maybe empty (\(h,t) -> runLookT (f h) t) (uncons s)
+runLookT (LookT f) s = runLookT (f s) s
+runLookT (ResultT x p) s = pure (x,s) <|> runLookT p s
+runLookT (FinalT r) _ = r
 
 -- Parsor instances
 instance Functor f => Functor (Parsor s t f a) where
@@ -372,7 +372,7 @@ instance Profunctor (Reador f) where
 instance (Alternative m, Monad m) => Monadic m Reador where
   liftP m = Reador $ do
     s <- ask
-    lift $ FinalP ((,s) <$> m)
+    lift $ FinalT ((,s) <$> m)
 instance (Alternative m, Monad m) => Choice (Reador m) where
   left' = alternate . Left
   right' = alternate . Right
@@ -395,7 +395,7 @@ instance (Alternative m, Filterable m, Monad m)
     . lowerCodensity . unReador
 instance (Alternative m, Filterable m, Monad m)
   => Tokenized Char (Reador m Char Char) where
-  anyToken = Reador (lift (GetP return))
+  anyToken = Reador (lift (GetT return))
 instance
   ( Filterable m, Alternative m, Monad m
   ) => TestAlgebra (TokenTest Char) (Reador m Char Char)
@@ -417,48 +417,48 @@ instance Matching String (Reador Maybe a b) where
     Nothing -> False
     Just (_,t) -> is _Empty t
 
--- LookP instances
-deriving stock instance Functor f => Functor (LookP f)
-instance (Alternative m, Monad m) => Applicative (LookP m) where
-  pure x = ResultP x (FinalP empty)
+-- LookT instances
+deriving stock instance Functor f => Functor (LookT f)
+instance (Alternative m, Monad m) => Applicative (LookT m) where
+  pure x = ResultT x (FinalT empty)
   (<*>) = ap
-instance (Alternative m, Monad m) => Monad (LookP m) where
-  GetP f >>= k = GetP $ \c -> f c >>= k
-  LookP f >>= k = LookP $ \s -> f s >>= k
-  ResultP x p >>= k = k x <|> (p >>= k)
-  FinalP r >>= k = FinalP $ do
+instance (Alternative m, Monad m) => Monad (LookT m) where
+  GetT f >>= k = GetT $ \c -> f c >>= k
+  LookT f >>= k = LookT $ \s -> f s >>= k
+  ResultT x p >>= k = k x <|> (p >>= k)
+  FinalT r >>= k = FinalT $ do
     (x,s) <- r
-    runLookP (k x) s
-instance (Alternative m, Monad m) => MonadReader String (LookP m) where
-  ask = LookP return
+    runLookT (k x) s
+instance (Alternative m, Monad m) => MonadReader String (LookT m) where
+  ask = LookT return
   local f p = do
-    str <- LookP return
-    FinalP (runLookP p (f str))
-instance Filterable f => Filterable (LookP f) where
+    str <- LookT return
+    FinalT (runLookT p (f str))
+instance Filterable f => Filterable (LookT f) where
   mapMaybe f = \case
-    GetP k -> GetP (mapMaybe f . k)
-    LookP k -> LookP (mapMaybe f . k)
-    ResultP x p -> mapMaybe f p & case f x of
+    GetT k -> GetT (mapMaybe f . k)
+    LookT k -> LookT (mapMaybe f . k)
+    ResultT x p -> mapMaybe f p & case f x of
       Nothing -> id
-      Just y -> ResultP y
-    FinalP r -> FinalP (mapMaybe (\(a,s) -> (,s) <$> f a) r)
-instance (Alternative m, Monad m) => Alternative (LookP m) where
-  empty = FinalP empty
+      Just y -> ResultT y
+    FinalT r -> FinalT (mapMaybe (\(a,s) -> (,s) <$> f a) r)
+instance (Alternative m, Monad m) => Alternative (LookT m) where
+  empty = FinalT empty
   -- most common case: two gets are combined
-  GetP f1 <|> GetP f2 = GetP (\c -> f1 c <|> f2 c)
+  GetT f1 <|> GetT f2 = GetT (\c -> f1 c <|> f2 c)
   -- results are delivered as soon as possible
-  ResultP x p <|> q = ResultP x (p <|> q)
-  p <|> ResultP x q = ResultP x (p <|> q)
+  ResultT x p <|> q = ResultT x (p <|> q)
+  p <|> ResultT x q = ResultT x (p <|> q)
   -- two finals are combined
   -- final + look becomes one look and one final (=optimization)
   -- final + sthg else becomes one look and one final
-  FinalP r <|> FinalP t = FinalP (r <|> t)
-  FinalP r <|> LookP f = LookP $ \s -> FinalP (r <|> runLookP (f s) s)
-  FinalP r <|> p = LookP $ \s -> FinalP (r <|> runLookP p s)
-  LookP f <|> FinalP r = LookP $ \s -> FinalP (runLookP (f s) s <|> r)
-  p <|> FinalP r = LookP $ \s -> FinalP (runLookP p s <|> r)
+  FinalT r <|> FinalT t = FinalT (r <|> t)
+  FinalT r <|> LookT f = LookT $ \s -> FinalT (r <|> runLookT (f s) s)
+  FinalT r <|> p = LookT $ \s -> FinalT (r <|> runLookT p s)
+  LookT f <|> FinalT r = LookT $ \s -> FinalT (runLookT (f s) s <|> r)
+  p <|> FinalT r = LookT $ \s -> FinalT (runLookT p s <|> r)
   -- two looks are combined (=optimization)
   -- look + sthg else floats upwards
-  LookP f <|> LookP g = LookP (\s -> f s <|> g s)
-  LookP f <|> p = LookP (\s -> f s <|> p)
-  p <|> LookP f = LookP (\s -> p <|> f s)
+  LookT f <|> LookT g = LookT (\s -> f s <|> g s)
+  LookT f <|> p = LookT (\s -> f s <|> p)
+  p <|> LookT f = LookT (\s -> p <|> f s)
