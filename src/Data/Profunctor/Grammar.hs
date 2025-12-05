@@ -61,6 +61,24 @@ evalGrammor = extract . extract . runGrammor
 evalGrammor_ :: Grammor () t Identity a b -> t
 evalGrammor_ = evalGrammor
 
+newtype Reador f a b = Reador {unReador :: Codensity (LookP f) b}
+runReador
+  :: (Alternative m, Monad m)
+  => Reador m a b -> String -> m (b, String)
+runReador (Reador (Codensity f)) = runLookP (f return)
+
+data LookP f a
+  = GetP (Char -> LookP f a)
+  | LookP (String -> LookP f a)
+  | ResultP a (LookP f a)
+  | FinalP (f (a, String))
+runLookP :: Alternative f => LookP f a -> String -> f (a, String)
+runLookP (GetP f) s =
+  maybe empty (\(h,t) -> runLookP (f h) t) (uncons s)
+runLookP (LookP f) s = runLookP (f s) s
+runLookP (ResultP x p) s = pure (x,s) <|> runLookP p s
+runLookP (FinalP r) _ = r
+
 -- Parsor instances
 instance Functor f => Functor (Parsor s t f a) where
   fmap f = Parsor . fmap (fmap (first' f)) . runParsor
@@ -335,9 +353,7 @@ instance (Comonad f, Applicative f, Monoid s, BackusNaurForm t)
   rule name = Grammor . fmap (fmap (rule name)) . runGrammor
   ruleRec name = grammor . ruleRec name . dimap grammor evalGrammor
 
-newtype Reador f a b = Reador {unReador :: Codensity (LookP f) b}
-runReador :: (Alternative m, Monad m) => Reador m a b -> String -> m (b, String)
-runReador (Reador (Codensity f)) = runLookP (f return)
+-- Reador instances
 deriving newtype instance Functor (Reador f a)
 deriving newtype instance Applicative (Reador f a)
 deriving newtype instance Monad (Reador f a)
@@ -397,17 +413,7 @@ instance Matching String (Reador Maybe a b) where
     Nothing -> False
     Just (_,t) -> is _Empty t
 
-data LookP f a
-  = GetP (Char -> LookP f a)
-  | LookP (String -> LookP f a)
-  | ResultP a (LookP f a)
-  | FinalP (f (a, String))
-runLookP :: Alternative f => LookP f a -> String -> f (a, String)
-runLookP (GetP f) s =
-  maybe empty (\(h,t) -> runLookP (f h) t) (uncons s)
-runLookP (LookP f) s = runLookP (f s) s
-runLookP (ResultP x p) s = pure (x,s) <|> runLookP p s
-runLookP (FinalP r) _ = r
+-- LookP instances
 deriving stock instance Functor f => Functor (LookP f)
 instance (Alternative m, Monad m) => Applicative (LookP m) where
   pure x = ResultP x (FinalP empty)
@@ -419,6 +425,10 @@ instance (Alternative m, Monad m) => Monad (LookP m) where
   FinalP r >>= k = FinalP $ do
     (x,s) <- r
     runLookP (k x) s
+instance (Alternative m, Monad m) => Monadic m Reador where
+  liftP m = Reador $ do
+    s <- ask
+    lift $ FinalP ((,s) <$> m)
 instance (Alternative m, Monad m) => MonadReader String (LookP m) where
   ask = LookP return
   local f p = do
