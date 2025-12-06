@@ -52,17 +52,6 @@ data RegEx token
   | KleenePlus (RegEx token)
   | RegExam (RegExam token (RegEx token))
 
--- newtype RegEx token = RegEx (RegExtend token (RegEx token))
-
--- data RegExtend token alg
---   = Terminal [token]
---   | NonTerminal String
---   | Sequence (RegExtend token alg) (RegExtend token alg)
---   | KleeneStar (RegExtend token alg)
---   | KleeneOpt (RegExtend token alg)
---   | KleenePlus (RegExtend token alg)
---   | RegExam (RegExam token (RegExtend token alg))
-
 data RegExam token alg
   = Fail
   | Pass
