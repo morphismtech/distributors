@@ -52,10 +52,10 @@ mfiltrate
   :: (Monadic m p, Alternator (p m))
   => p m (Either a c) (Either b d)
   -> (p m a b, p m c d)
-mfiltrate p =
-  ( lmap Left p >>= either pure (const empty)
-  , lmap Right p >>= either (const empty) pure
-  )
+mfiltrate =
+  (either pure (const empty) <=< lmap Left)
+  &&&
+  (either (const empty) pure <=< lmap Right)
 
 class
   ( forall i j. Profunctor (p i j m)
