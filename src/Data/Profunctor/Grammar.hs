@@ -389,13 +389,7 @@ instance (Alternative m, Monad m) => Alternator (Reador m) where
   alternate (Right (Reador p)) = Reador (fmap Right p)
 instance (Alternative m, Filterable m, Monad m)
   => Filtrator (Reador m) where
-  filtrate
-    = Reador . lift
-    . mapMaybe (either Just (const Nothing))
-    . lowerCodensity . unReador
-    &&& Reador . lift
-    . mapMaybe (either (const Nothing) Just)
-    . lowerCodensity . unReador
+  filtrate = mfiltrate
 instance (Alternative m, Filterable m, Monad m)
   => Tokenized Char (Reador m Char Char) where
   anyToken = Reador (lift (GetT return))
