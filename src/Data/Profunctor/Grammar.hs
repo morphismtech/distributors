@@ -369,6 +369,8 @@ instance (Alternative m, Filterable m, Monad m)
     . lowerCodensity . unReador
 instance Profunctor (Reador f) where
   dimap _ f (Reador p) = Reador (fmap f p)
+instance Bifunctor (Reador f) where
+  bimap _ f (Reador p) = Reador (fmap f p)
 instance (Alternative m, Monad m) => Monadic m Reador where
   liftP m = Reador $ do
     s <- ask
@@ -432,8 +434,8 @@ instance (Alternative m, Monad m) => Monad (LookT m) where
 instance (Alternative m, Monad m) => MonadReader String (LookT m) where
   ask = LookT return
   local f p = do
-    str <- LookT return
-    FinalT (runLookT p (f str))
+    s <- ask
+    FinalT (runLookT p (f s))
 instance Filterable f => Filterable (LookT f) where
   mapMaybe f = \case
     GetT k -> GetT (mapMaybe f . k)
