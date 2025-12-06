@@ -12,8 +12,8 @@ module Data.Profunctor.Polyadic.Do
   ( -- *
     (>>=)
   , (>>)
-  , return
   , fail
+  , return
   ) where
 
 import Data.Profunctor.Monadic
