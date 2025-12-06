@@ -15,8 +15,8 @@ module Data.Profunctor.Monadic
   , mfiltrate
   , monochrome
   , monochrome_
-  , runMonochrome
-  , runMonochrome_
+  , withMonochrome
+  , withMonochrome_
   , Polyadic (..)
   , Tetradic (..)
   , WrappedMonadic (..)
@@ -73,15 +73,15 @@ monochrome
   => (p m a b -> p m s t) -> Optic (p m) m s t a b
 monochrome f = fmap return . f . joinP
 
-runMonochrome_
+withMonochrome_
   :: (Monadic m p, Monad m)
   => Optic (p m) m a b () () -> p m a b
-runMonochrome_ f = runMonochrome f oneP
+withMonochrome_ f = withMonochrome f oneP
 
-runMonochrome
+withMonochrome
   :: (Monadic m p, Monad m)
   => Optic (p m) m s t a b -> p m a b -> p m s t
-runMonochrome f = joinP . f . fmap return
+withMonochrome f = joinP . f . fmap return
 
 class
   ( forall i j. Profunctor (p i j m)
