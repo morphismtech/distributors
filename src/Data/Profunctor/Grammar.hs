@@ -151,7 +151,7 @@ instance
 instance
   ( Categorized a, a ~ Item s, IsList s, Cons s s a a
   , Filterable m, Alternative m, Monad m
-  ) => TestAlgebra (TokenTest a) (Parsor s s m a a)
+  ) => TokenAlgebra a (Parsor s s m a a)
 instance
   ( Categorized a, a ~ Item s, IsList s, Cons s s a a
   , Filterable m, Alternative m, Monad m
@@ -273,7 +273,7 @@ instance
 instance
   ( Categorized a, a ~ Item s, IsList s, Cons s s a a
   , Filterable m, Alternative m, Monad m
-  ) => TestAlgebra (TokenTest a) (Printor s s m a a)
+  ) => TokenAlgebra a (Printor s s m a a)
 instance 
   ( Categorized a, a ~ Item s, IsList s, Cons s s a a
   , Filterable m, Alternative m, Monad m
@@ -342,9 +342,9 @@ instance (Tokenized token t, Applicative f)
   notOneOf = grammor . notOneOf
   asIn = grammor . asIn
   notAsIn = grammor . notAsIn
-instance (TestAlgebra bool t, Applicative f)
-  => TestAlgebra bool (Grammor s t f a b) where
-  testB = grammor . testB
+instance (TokenAlgebra a t, Applicative f)
+  => TokenAlgebra a (Grammor s t f a b) where
+  tokenClass = grammor . tokenClass
 instance (TerminalSymbol token t, Applicative f)
   => TerminalSymbol token (Grammor s t f a b) where
   terminal = grammor . terminal
@@ -400,7 +400,7 @@ instance (Alternative m, Filterable m, Monad m)
   anyToken = Reador (lift (GetT return))
 instance
   ( Filterable m, Alternative m, Monad m
-  ) => TestAlgebra (TokenTest Char) (Reador m Char Char)
+  ) => TokenAlgebra Char (Reador m Char Char)
 instance
   ( Filterable m, Alternative m, Monad m
   ) => TerminalSymbol Char (Reador m () ())

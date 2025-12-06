@@ -3,29 +3,34 @@ module Main (main) where
 import Data.Char
 import Data.Foldable hiding (toList)
 import Control.Lens.Grammar
+import Control.Lens.Grammar.BackusNaur
 import Control.Lens.Grammar.Kleene
 import Control.Lens.Grammar.Symbol
 import Control.Lens.Grammar.Token
+import Data.Profunctor
 import Data.Profunctor.Grammar
 import GHC.Exts
 import Test.Hspec
 
-expectedRegexGrammar :: [String]
-expectedRegexGrammar =
-  [ "start = \\q{regex}"
-  , "alternate = \\q{sequence}(\\|\\q{sequence})*"
-  , "any-token = \\.|\\[\\^\\]|\\\\P\\{\\}|\\[\\^\\\\P\\{\\}\\]"
-  , "atom = (\\\\q\\{)\\q{char}*\\}|\\q{char}|\\q{fail}|\\q{any-token}|\\[\\q{char}+\\]|(\\[\\^)(\\q{char}+\\q{category-test}?)\\]|\\q{category-test}|\\(\\q{regex}\\)"
-  , "category = Ll|Lu|Lt|Lm|Lo|Mn|Mc|Me|Nd|Nl|No|Pc|Pd|Ps|Pe|Pi|Pf|Po|Sm|Sc|Sk|So|Zs|Zl|Zp|Cc|Cf|Cs|Co|Cn"
-  , "category-test = (\\\\p\\{)\\q{category}\\}|(\\\\P\\{)(\\q{category}(\\|\\q{category})*)\\}"
-  , "char = [^\\$\\(\\)\\*\\+\\.\\?\\[\\\\\\]\\^\\{\\|\\}]|\\\\\\q{char-escaped}"
-  , "char-control-abbrev = NUL|SOH|STX|ETX|EOT|ENQ|ACK|BEL|BS|HT|LF|VT|FF|CR|SO|SI|DLE|DC1|DC2|DC3|DC4|NAK|SYN|ETB|CAN|EM|SUB|ESC|FS|GS|RS|US|DEL|PAD|HOP|BPH|NBH|IND|NEL|SSA|ESA|HTS|HTJ|VTS|PLD|PLU|RI|SS2|SS3|DCS|PU1|PU2|STS|CCH|MW|SPA|EPA|SOS|SGCI|SCI|CSI|ST|OSC|PM|APC"
-  , "char-escaped = [\\$\\(\\)\\*\\+\\.\\?\\[\\\\\\]\\^\\{\\|\\}]|\\q{char-control-abbrev}"
-  , "expression = \\q{atom}\\?|\\q{atom}\\*|\\q{atom}\\+|\\q{atom}"
-  , "fail = \\\\q|\\[\\]"
-  , "regex = \\q{alternate}"
-  , "sequence = \\q{char}*|\\q{expression}*"
-  ]
+expectedRegexGrammar :: Bnf RegString
+expectedRegexGrammar = Bnf
+  { startBnf = fromString "\\q{regex}"
+  , rulesBnf = fromList $ map (second' fromString)
+    [("alternate","\\q{sequence}(\\|\\q{sequence})*")
+    ,("any-token","\\.|\\[\\^\\]|\\\\P\\{\\}|\\[\\^\\\\P\\{\\}\\]")
+    ,("atom","(\\\\q\\{)\\q{char}*\\}|\\q{char}|\\q{fail}|\\q{any-token}|\\[\\q{char}+\\]|(\\[\\^)(\\q{char}+\\q{category-test}?)\\]|\\q{category-test}|\\(\\q{regex}\\)")
+    ,("category","Ll|Lu|Lt|Lm|Lo|Mn|Mc|Me|Nd|Nl|No|Pc|Pd|Ps|Pe|Pi|Pf|Po|Sm|Sc|Sk|So|Zs|Zl|Zp|Cc|Cf|Cs|Co|Cn")
+    ,("category-test","(\\\\p\\{)\\q{category}\\}|(\\\\P\\{)(\\q{category}(\\|\\q{category})*)\\}")
+    ,("char","[^\\$\\(\\)\\*\\+\\.\\?\\[\\\\\\]\\^\\{\\|\\}\\P{Cc}]|\\\\\\q{char-escaped}")
+    ,("char-control-abbrev","NUL|SOH|STX|ETX|EOT|ENQ|ACK|BEL|BS|HT|LF|VT|FF|CR|SO|SI|DLE|DC1|DC2|DC3|DC4|NAK|SYN|ETB|CAN|EM|SUB|ESC|FS|GS|RS|US|DEL|PAD|HOP|BPH|NBH|IND|NEL|SSA|ESA|HTS|HTJ|VTS|PLD|PLU|RI|SS2|SS3|DCS|PU1|PU2|STS|CCH|MW|SPA|EPA|SOS|SGCI|SCI|CSI|ST|OSC|PM|APC")
+    ,("char-escaped","[\\$\\(\\)\\*\\+\\.\\?\\[\\\\\\]\\^\\{\\|\\}]|\\q{char-control-abbrev}")
+    ,("expression","\\q{atom}\\?|\\q{atom}\\*|\\q{atom}\\+|\\q{atom}")
+    ,("fail","\\\\q|\\[\\]")
+    ,("regex","\\q{alternate}")
+    ,("sequence","\\q{char}*|\\q{expression}*")
+    ]
+  }
+
 
 regexExamples :: [(RegString, String)]
 regexExamples =
@@ -45,14 +50,16 @@ regexExamples =
   , (terminal "", "")
   , (optK (terminal "abc"), "(abc)?")
   , (optK (terminal "abc") <> nonTerminal "xyz", "(abc)?\\q{xyz}")
+  , (tokenClass (oneOf "abc" >||< oneOf "xyz"), "[abcxyz]")
+  , (tokenClass (notOneOf "abc" >&&< asIn LowercaseLetter), "[^abc\\p{Ll}]")
+  , (tokenClass (notOneOf "abc" >&&< notAsIn Control), "[^abc\\P{Cc}]")
   ]
 
 main :: IO ()
 main = hspec $ do
   describe "regexGrammar" $ do
     it "should generate a correct grammar" $ do
-      let gramString = evalGrammor_ regexGrammar :: RegBnfString
-      lines (toList gramString) `shouldBe` expectedRegexGrammar
+      evalGrammor_ regexGrammar `shouldBe` expectedRegexGrammar
     for_ regexExamples $ \(rex, str) -> do
       it ("should print " <> show (runRegString rex) <> " correctly") $
         toList rex `shouldBe` str

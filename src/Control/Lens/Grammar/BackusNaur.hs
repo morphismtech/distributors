@@ -131,9 +131,9 @@ instance (Ord rule, Tokenized token rule)
   notOneOf = liftBnf0 . notOneOf
   asIn = liftBnf0 . asIn
   notAsIn = liftBnf0 . notAsIn
-instance (Ord rule, TestAlgebra bool rule)
-  => TestAlgebra bool (Bnf rule) where
-  testB = liftBnf0 . testB
+instance (Ord rule, TokenAlgebra token rule)
+  => TokenAlgebra token (Bnf rule) where
+  tokenClass = liftBnf0 . tokenClass
 instance (Ord rule, KleeneStarAlgebra rule)
   => KleeneStarAlgebra (Bnf rule) where
   starK = liftBnf1 starK

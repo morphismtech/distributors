@@ -89,9 +89,7 @@ type Tokenizor token p =
   ( forall x y. (x ~ (), y ~ ())
       => TerminalSymbol token (p x y)
   , forall x y. (x ~ token, y ~ token)
-      => Tokenized token (p x y)
-  , forall x y test. (x ~ token, y ~ token, test ~ TokenTest token)
-      => TestAlgebra test (p x y)
+      => TokenAlgebra token (p x y)
   ) :: Constraint
 
 prismGrammar :: (Monoidal p, Choice p) => Prism' a () -> p a a
@@ -145,7 +143,7 @@ atomG rex = rule "atom" $ choiceP
       terminal "[" >* several1 noSep charG *< terminal "]"
   , _RegExam . _NotOneOf >?
       terminal "[^" >* several1 noSep charG
-        >*< (pure (NotAsIn Set.empty) <|> catTestG)
+        >*< (catTestG <|> pure (NotAsIn Set.empty))
         *< terminal "]"
   , _RegExam . _NotOneOf >? pure Set.empty >*< catTestG
   , terminal "(" >* rex *< terminal ")"
@@ -194,7 +192,7 @@ categoryG = rule "category" $ choiceP
   ]
 
 charG :: Grammar Char Char
-charG = rule "char" $ testB (notOneOf charsReserved >&&< notAsIn Control)
+charG = rule "char" $ tokenClass (notOneOf charsReserved >&&< notAsIn Control)
   <|> terminal "\\" >* charEscapedG
 
 charEscapedG :: Grammar Char Char
@@ -248,7 +246,7 @@ newtype RegString = RegString {runRegString :: RegEx Char}
   deriving newtype
     ( Eq, Ord
     , Semigroup, Monoid, KleeneStarAlgebra
-    , Tokenized Char, TestAlgebra (TokenTest Char)
+    , Tokenized Char, TokenAlgebra Char
     , TerminalSymbol Char, NonTerminalSymbol
     , Matching String
     )
@@ -257,7 +255,7 @@ newtype RegBnfString = RegBnfString {runRegBnfString :: Bnf (RegEx Char)}
   deriving newtype
     ( Eq, Ord
     , Semigroup, Monoid, KleeneStarAlgebra
-    , Tokenized Char, TestAlgebra (TokenTest Char)
+    , Tokenized Char, TokenAlgebra Char
     , TerminalSymbol Char, NonTerminalSymbol
     , BackusNaurForm, Matching String
     )

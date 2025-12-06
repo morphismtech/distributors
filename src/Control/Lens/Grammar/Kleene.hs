@@ -8,7 +8,7 @@ module Control.Lens.Grammar.Kleene
   , fromBool
   , andB, orB, allB, anyB
   , TokenTest (..)
-  , TestAlgebra (..)
+  , TokenAlgebra (..)
   ) where
 
 import Control.Applicative
@@ -120,16 +120,12 @@ anyB f = foldl' (\b a -> b >||< f a) falseB
 
 newtype TokenTest token = TokenTest (RegExam token (TokenTest token))
 
-class BooleanAlgebra bool => TestAlgebra bool alg | alg -> bool where
-  testB :: bool -> alg
-  default testB
-    :: ( alg ~ p token token
-       , bool ~ TokenTest token
-       , Tokenized token (p token token)
-       , Alternator p, Cochoice p
-       )
-    => bool -> alg
-  testB (TokenTest exam) = case exam of
+class Tokenized token p => TokenAlgebra token p where
+  tokenClass :: TokenTest token -> p
+  default tokenClass
+    :: (p ~ q token token, Alternator q, Cochoice q)
+    => TokenTest token -> p
+  tokenClass (TokenTest exam) = case exam of
     Fail -> empty
     Pass -> anyToken
     OneOf chars -> oneOf chars
@@ -137,7 +133,7 @@ class BooleanAlgebra bool => TestAlgebra bool alg | alg -> bool where
       satisfy (notOneOf chars >&&< asIn cat)
     NotOneOf chars (NotAsIn cats) ->
       satisfy (notOneOf chars >&&< allB notAsIn cats)
-    Alternate exam1 exam2 -> testB exam1 <|> testB exam2
+    Alternate exam1 exam2 -> tokenClass exam1 <|> tokenClass exam2
 
 --instances
 instance (Alternative f, Monoid k) => KleeneStarAlgebra (Ap f k)
@@ -203,14 +199,14 @@ instance Categorized token => KleeneStarAlgebra (RegEx token) where
   rex0 >|< rex1 | rex0 == rex1 = rex0
   rex0 >|< rex1 = RegExam (Alternate rex0 rex1)
 instance Categorized token
-  => TestAlgebra (TokenTest token) (RegEx token) where
-  testB (TokenTest tokenExam) = case tokenExam of
+  => TokenAlgebra token (RegEx token) where
+  tokenClass (TokenTest tokenExam) = case tokenExam of
     Fail -> RegExam Fail
     Pass -> RegExam Pass
     OneOf as -> RegExam (OneOf as)
     NotOneOf as catTest -> RegExam (NotOneOf as catTest)
     Alternate exam1 exam2 ->
-      RegExam (Alternate (testB exam1) (testB exam2))
+      RegExam (Alternate (tokenClass exam1) (tokenClass exam2))
 instance BooleanAlgebra Bool where
   falseB = False
   trueB = True
@@ -400,6 +396,6 @@ instance (Categorized token, Enum (Categorize token), HasTrie token)
 testNotOneOf
   :: (Categorized token, Enum (Categorize token))
   => ([token], Either Int [Int]) -> RegEx token
-testNotOneOf (chars, catTest) = testB $
+testNotOneOf (chars, catTest) = tokenClass $
   notOneOf chars >&&<
     either (asIn . toEnum) (allB (notAsIn . toEnum)) catTest
