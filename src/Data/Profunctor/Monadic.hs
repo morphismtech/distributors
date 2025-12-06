@@ -12,6 +12,7 @@ Portability : non-portable
 
 module Data.Profunctor.Monadic
   ( Monadic (..)
+  , mfiltrate
   , Polyadic (..)
   , Tetradic (..)
   , WrappedMonadic (..)
@@ -21,6 +22,7 @@ module Data.Profunctor.Monadic
   , UntaggedC (..)
   ) where
 
+import Control.Applicative
 import Control.Category
 import Control.Comonad
 import Control.Arrow
@@ -28,6 +30,7 @@ import Control.Monad
 import Control.Monad.State
 import Control.Monad.Trans.Indexed
 import Data.Profunctor
+import Data.Profunctor.Distributor
 import Prelude hiding (id, (.))
 
 class
@@ -44,6 +47,15 @@ instance Monad m => Monadic m Star where
   liftP = Star . return
 instance Comonad w => Monadic w Costar where
   liftP = Costar . return . extract
+
+mfiltrate
+  :: (Monadic m p, Alternator (p m))
+  => p m (Either a c) (Either b d)
+  -> (p m a b, p m c d)
+mfiltrate p =
+  ( lmap Left p >>= either pure (const empty)
+  , lmap Right p >>= either (const empty) pure
+  )
 
 class
   ( forall i j. Profunctor (p i j m)
