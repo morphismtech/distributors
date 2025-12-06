@@ -434,9 +434,13 @@ instance (Alternative m, Monad m) => Monad (LookT m) where
     runLookT (k x) s
 instance (Alternative m, Monad m) => MonadReader String (LookT m) where
   ask = LookT return
-  local f p = do
-    s <- ask
-    FinalT (runLookT p (f s))
+  local f = \case
+    GetT k -> do
+      s <- ask
+      FinalT (runLookT (GetT k) (f s))
+    LookT k -> LookT (k . f)
+    ResultT x p -> ResultT x (local f p)
+    FinalT r -> FinalT r
 instance Filterable f => Filterable (LookT f) where
   mapMaybe f = \case
     GetT k -> GetT (mapMaybe f . k)
