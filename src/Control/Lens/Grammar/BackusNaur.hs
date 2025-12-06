@@ -10,6 +10,7 @@ module Control.Lens.Grammar.BackusNaur
 
 import Control.Lens
 import Control.Lens.Extras
+import Control.Lens.Grammar.Boole
 import Control.Lens.Grammar.Kleene
 import Control.Lens.Grammar.Token
 import Control.Lens.Grammar.Symbol

@@ -32,6 +32,7 @@ library
       Control.Lens.Diopter
       Control.Lens.Grammar
       Control.Lens.Grammar.BackusNaur
+      Control.Lens.Grammar.Boole
       Control.Lens.Grammar.Kleene
       Control.Lens.Grammar.Symbol
       Control.Lens.Grammar.Token

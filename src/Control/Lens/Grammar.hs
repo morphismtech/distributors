@@ -22,6 +22,7 @@ import Control.Comonad
 import Control.Lens
 import Control.Lens.PartialIso
 import Control.Lens.Grammar.BackusNaur
+import Control.Lens.Grammar.Boole
 import Control.Lens.Grammar.Kleene
 import Control.Lens.Grammar.Token
 import Control.Lens.Grammar.Symbol
