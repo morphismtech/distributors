@@ -10,15 +10,10 @@ module Control.Lens.Grammar
   , regexGrammar
   , CtxGrammar
   , CtxGrammarr
-  , prismGrammar
-  , coPrismGrammar
-  , grammarrOptic
-  , grammarOptic
   , Tokenizor
   ) where
 
 import Control.Applicative
-import Control.Comonad
 import Control.Lens
 import Control.Lens.PartialIso
 import Control.Lens.Grammar.BackusNaur
@@ -29,7 +24,6 @@ import Control.Lens.Grammar.Symbol
 import Control.Monad
 import Data.Maybe hiding (mapMaybe)
 import Data.Monoid
-import Data.Profunctor
 import Data.Profunctor.Distributor
 import Data.Profunctor.Filtrator
 import Data.Profunctor.Monadic
@@ -92,22 +86,6 @@ type Tokenizor token p =
   , forall x y. (x ~ token, y ~ token)
       => TokenAlgebra token (p x y)
   ) :: Constraint
-
-prismGrammar :: (Monoidal p, Choice p) => Prism' a () -> p a a
-prismGrammar = (>? oneP)
-
-coPrismGrammar :: (Monoidal p, Cochoice p) => Prism' () a -> p a a
-coPrismGrammar = (?< oneP)
-
-grammarOptic
-  :: (Monoidal p, Comonad f, Applicative f)
-  => p a a -> Optic' p f a ()
-grammarOptic = grammarrOptic . (*<)
-
-grammarrOptic
-  :: (Profunctor p, Comonad f, Applicative f)
-  => (p a a -> p b b) -> Optic' p f b a
-grammarrOptic = dimap (rmap extract) (rmap pure)
 
 regexGrammar :: Grammar Char (RegEx Char)
 regexGrammar = ruleRec "regex" altG

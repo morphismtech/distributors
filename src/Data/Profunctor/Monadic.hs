@@ -13,6 +13,10 @@ Portability : non-portable
 module Data.Profunctor.Monadic
   ( Monadic (..)
   , mfiltrate
+  , monochrome
+  , monochrome_
+  , runMonochrome
+  , runMonochrome_
   , Polyadic (..)
   , Tetradic (..)
   , WrappedMonadic (..)
@@ -26,10 +30,12 @@ import Control.Applicative
 import Control.Category
 import Control.Comonad
 import Control.Arrow
+import Control.Lens
 import Control.Monad
 import Control.Monad.State
 import Control.Monad.Trans.Indexed
 import Data.Profunctor
+import Data.Profunctor.Monoidal
 import Data.Profunctor.Distributor
 import Prelude hiding (id, (.))
 
@@ -56,6 +62,26 @@ mfiltrate =
   (either pure (const empty) <=< lmap Left)
   &&&
   (either (const empty) pure <=< lmap Right)
+
+monochrome_
+  :: (Monadic m p, Monad m)
+  => p m a b -> Optic (p m) m a b () ()
+monochrome_ = monochrome . (*<)
+
+monochrome
+  :: (Monadic m p, Monad m)
+  => (p m a b -> p m s t) -> Optic (p m) m s t a b
+monochrome f = fmap return . f . joinP
+
+runMonochrome_
+  :: (Monadic m p, Monad m)
+  => Optic (p m) m a b () () -> p m a b
+runMonochrome_ f = runMonochrome f oneP
+
+runMonochrome
+  :: (Monadic m p, Monad m)
+  => Optic (p m) m s t a b -> p m a b -> p m s t
+runMonochrome f = joinP . f . fmap return
 
 class
   ( forall i j. Profunctor (p i j m)
