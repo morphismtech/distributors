@@ -91,6 +91,11 @@ type Tokenizor token p =
 regexGrammar :: Grammar Char (RegEx Char)
 regexGrammar = ruleRec "regex" altG
 
+ebnfGrammar :: Grammar Char (Bnf (RegEx Char))
+ebnfGrammar = rule "ebnf" $ _Bnf >~
+  terminal "start = " >* regexGrammar
+    >*< several noSep (terminal "\n" >* ruleG)
+
 altG :: Grammarr Char (RegEx Char) (RegEx Char)
 altG rex = rule "alternate" $
   chain1 Left (_RegExam . _Alternate) (sepBy (terminal "|")) (seqG rex)
@@ -215,11 +220,6 @@ failG = rule "fail" $ terminal "\\q" <|> terminal "[]"
 
 ruleG :: Grammar Char (String, RegEx Char)
 ruleG = rule "rule" $ manyP charG >*< terminal " = " >* regexGrammar
-
-ebnfGrammar :: Grammar Char (Bnf (RegEx Char))
-ebnfGrammar = rule "ebnf" $ _Bnf >~
-  terminal "start = " >* regexGrammar
-    >*< several noSep (terminal "\n" >* ruleG)
 
 newtype RegString = RegString {runRegString :: RegEx Char}
   deriving newtype
