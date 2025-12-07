@@ -18,6 +18,9 @@ import Witherable
 {- | The `Filtrator` class extends `Cochoice`,
 as well as `Filterable`, adding the `filtrate` method,
 which is an oplax monoidal structure morphism dual to `>+<`.
+
+prop> filtrate . uncurry (>+<) = id
+prop> uncurry (>+<) . filtrate = id
 -}
 class (Cochoice p, forall x. Filterable (p x))
   => Filtrator p where
@@ -43,6 +46,7 @@ class (Cochoice p, forall x. Filterable (p x))
       dimapMaybe (Just . Right) (either (const Nothing) Just)
 
 -- | `mfiltrate` can be used as `filtrate`, for `Monadic` `Alternator`s.
+--
 -- prop> mfiltrate = filtrate
 mfiltrate
   :: (Monadic m p, Alternator (p m))
