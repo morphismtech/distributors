@@ -113,8 +113,8 @@ exprG rex = rule "expression" $ choiceP
   ]
 
 anyG :: Grammar Char ()
-anyG = rule "any-token" $
-  terminal "." <|> terminal "[^]" <|> terminal "\\P{}" <|> terminal "[^\\P{}]"
+anyG = rule "any-token" $ choiceP $ map terminal
+  [".", "[^]", "\\P{}", "[^\\P{}]"]
 
 atomG :: Grammarr Char (RegEx Char) (RegEx Char)
 atomG rex = rule "atom" $ choiceP
