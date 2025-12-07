@@ -1,13 +1,17 @@
 module Data.Profunctor.Filtrator
   ( Filtrator (filtrate)
+  , mfiltrate
   ) where
 
+import Control.Applicative
 import Control.Arrow
 import Control.Lens.PartialIso
 import Control.Lens.Internal.Profunctor
 import Control.Monad
 import Data.Profunctor
+import Data.Profunctor.Distributor
 import Data.Profunctor.Monad
+import Data.Profunctor.Monadic
 import Data.Profunctor.Yoneda
 import Witherable
 
@@ -34,9 +38,20 @@ class (Cochoice p, forall x. Filterable (p x))
       => p (Either a c) (Either b d)
       -> (p a b, p c d)
     filtrate =
-      dimapMaybe (Just . Left) (either Just (pure Nothing))
+      dimapMaybe (Just . Left) (either Just (const Nothing))
       &&&
-      dimapMaybe (Just . Right) (either (pure Nothing) Just)
+      dimapMaybe (Just . Right) (either (const Nothing) Just)
+
+-- | `mfiltrate` can be used as `filtrate`, for `Monadic` `Alternator`s.
+-- prop> mfiltrate = filtrate
+mfiltrate
+  :: (Monadic m p, Alternator (p m))
+  => p m (Either a c) (Either b d)
+  -> (p m a b, p m c d)
+mfiltrate =
+  (lmap Left >=> either pure (const empty))
+  &&&
+  (lmap Right >=> either (const empty) pure)
 
 instance (Profunctor p, forall x. Functor (p x), Filterable f)
   => Filtrator (WrappedPafb f p) where

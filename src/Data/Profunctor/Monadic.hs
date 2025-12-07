@@ -12,7 +12,6 @@ Portability : non-portable
 
 module Data.Profunctor.Monadic
   ( Monadic (..)
-  , mfiltrate
   , monochrome
   , monochrome_
   , withMonochrome
@@ -36,7 +35,6 @@ import Control.Monad.State
 import Control.Monad.Trans.Indexed
 import Data.Profunctor
 import Data.Profunctor.Monoidal
-import Data.Profunctor.Distributor
 import Prelude hiding (id, (.))
 
 class
@@ -53,15 +51,6 @@ instance Monad m => Monadic m Star where
   liftP = Star . return
 instance Comonad w => Monadic w Costar where
   liftP = Costar . return . extract
-
-mfiltrate
-  :: (Monadic m p, Alternator (p m))
-  => p m (Either a c) (Either b d)
-  -> (p m a b, p m c d)
-mfiltrate =
-  (either pure (const empty) <=< lmap Left)
-  &&&
-  (either (const empty) pure <=< lmap Right)
 
 monochrome_
   :: (Monadic m p, Applicative m)
