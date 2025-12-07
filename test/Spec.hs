@@ -17,18 +17,18 @@ expectedRegexGrammar :: Bnf RegString
 expectedRegexGrammar = Bnf
   { startBnf = fromString "\\q{regex}"
   , rulesBnf = fromList $ map (second' fromString)
-    [("alternate","\\q{sequence}(\\|\\q{sequence})*")
-    ,("any-token","\\.|\\[\\^\\]|\\\\P\\{\\}|\\[\\^\\\\P\\{\\}\\]")
-    ,("atom","(\\\\q\\{)\\q{char}*\\}|\\q{char}|\\q{fail}|\\q{any-token}|\\[\\q{char}+\\]|(\\[\\^)(\\q{char}+\\q{category-test}?)\\]|\\q{category-test}|\\(\\q{regex}\\)")
-    ,("category","Ll|Lu|Lt|Lm|Lo|Mn|Mc|Me|Nd|Nl|No|Pc|Pd|Ps|Pe|Pi|Pf|Po|Sm|Sc|Sk|So|Zs|Zl|Zp|Cc|Cf|Cs|Co|Cn")
-    ,("category-test","(\\\\p\\{)\\q{category}\\}|(\\\\P\\{)(\\q{category}(\\|\\q{category})*)\\}")
-    ,("char","[^\\$\\(\\)\\*\\+\\.\\?\\[\\\\\\]\\^\\{\\|\\}\\P{Cc}]|\\\\\\q{char-escaped}")
-    ,("char-control-abbrev","NUL|SOH|STX|ETX|EOT|ENQ|ACK|BEL|BS|HT|LF|VT|FF|CR|SO|SI|DLE|DC1|DC2|DC3|DC4|NAK|SYN|ETB|CAN|EM|SUB|ESC|FS|GS|RS|US|DEL|PAD|HOP|BPH|NBH|IND|NEL|SSA|ESA|HTS|HTJ|VTS|PLD|PLU|RI|SS2|SS3|DCS|PU1|PU2|STS|CCH|MW|SPA|EPA|SOS|SGCI|SCI|CSI|ST|OSC|PM|APC")
-    ,("char-escaped","[\\$\\(\\)\\*\\+\\.\\?\\[\\\\\\]\\^\\{\\|\\}]|\\q{char-control-abbrev}")
-    ,("expression","\\q{atom}\\?|\\q{atom}\\*|\\q{atom}\\+|\\q{atom}")
-    ,("fail","\\\\q|\\[\\]")
-    ,("regex","\\q{alternate}")
-    ,("sequence","\\q{char}*|\\q{expression}*")
+    [ ("alternate","\\q{sequence}(\\|\\q{sequence})*")
+    , ("any-token","\\.|\\[\\^\\]|\\\\P\\{\\}|\\[\\^\\\\P\\{\\}\\]")
+    , ("atom","(\\\\q\\{)\\q{char}*\\}|\\q{char}|\\q{fail}|\\q{any-token}|\\[\\q{char}+\\]|(\\[\\^)\\q{char}+(\\q{category-test}?\\])|\\q{category-test}|\\(\\q{regex}\\)")
+    , ("category","Ll|Lu|Lt|Lm|Lo|Mn|Mc|Me|Nd|Nl|No|Pc|Pd|Ps|Pe|Pi|Pf|Po|Sm|Sc|Sk|So|Zs|Zl|Zp|Cc|Cf|Cs|Co|Cn")
+    , ("category-test","(\\\\p\\{)\\q{category}\\}|(\\\\P\\{)(\\q{category}(\\|\\q{category})*)\\}")
+    , ("char","[^\\$\\(\\)\\*\\+\\.\\?\\[\\\\\\]\\^\\{\\|\\}\\P{Cc}]|\\\\\\q{char-escaped}")
+    , ("char-control-abbrev","NUL|SOH|STX|ETX|EOT|ENQ|ACK|BEL|BS|HT|LF|VT|FF|CR|SO|SI|DLE|DC1|DC2|DC3|DC4|NAK|SYN|ETB|CAN|EM|SUB|ESC|FS|GS|RS|US|DEL|PAD|HOP|BPH|NBH|IND|NEL|SSA|ESA|HTS|HTJ|VTS|PLD|PLU|RI|SS2|SS3|DCS|PU1|PU2|STS|CCH|MW|SPA|EPA|SOS|SGCI|SCI|CSI|ST|OSC|PM|APC")
+    , ("char-escaped","[\\$\\(\\)\\*\\+\\.\\?\\[\\\\\\]\\^\\{\\|\\}]|\\q{char-control-abbrev}")
+    , ("expression","\\q{atom}\\?|\\q{atom}\\*|\\q{atom}\\+|\\q{atom}")
+    , ("fail","\\\\q|\\[\\]")
+    , ("regex","\\q{alternate}")
+    , ("sequence","\\q{char}*|\\q{expression}*")
     ]
   }
 
