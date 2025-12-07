@@ -64,24 +64,24 @@ mfiltrate =
   (either (const empty) pure <=< lmap Right)
 
 monochrome_
-  :: (Monadic m p, Monad m)
+  :: (Monadic m p, Applicative m)
   => p m a b -> Optic (p m) m a b () ()
 monochrome_ = monochrome . (*<)
 
 monochrome
-  :: (Monadic m p, Monad m)
+  :: (Monadic m p, Applicative m)
   => (p m a b -> p m s t) -> Optic (p m) m s t a b
-monochrome f = fmap return . f . joinP
+monochrome f = fmap pure . f . joinP
 
 withMonochrome_
-  :: (Monadic m p, Monad m)
+  :: (Monadic m p, Applicative m)
   => Optic (p m) m a b () () -> p m a b
 withMonochrome_ f = withMonochrome f oneP
 
 withMonochrome
-  :: (Monadic m p, Monad m)
+  :: (Monadic m p, Applicative m)
   => Optic (p m) m s t a b -> p m a b -> p m s t
-withMonochrome f = joinP . f . fmap return
+withMonochrome f = joinP . f . fmap pure
 
 class
   ( forall i j. Profunctor (p i j m)
