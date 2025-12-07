@@ -82,10 +82,8 @@ type CtxGrammarr token a b = forall p m.
   ) => p m a a -> p m b b
 
 type Tokenizor token p =
-  ( forall x y. (x ~ (), y ~ ())
-      => TerminalSymbol token (p x y)
-  , forall x y. (x ~ token, y ~ token)
-      => TokenAlgebra token (p x y)
+  ( forall x y. (x ~ (), y ~ ()) => TerminalSymbol token (p x y)
+  , forall x y. (x ~ token, y ~ token) => TokenAlgebra token (p x y)
   ) :: Constraint
 
 regexGrammar :: Grammar Char (RegEx Char)
