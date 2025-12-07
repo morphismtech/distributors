@@ -56,7 +56,7 @@ oneP = pure ()
 {- | `>*<` is the product of a `Monoidal` `Profunctor`. -}
 (>*<) :: Monoidal p => p a b -> p c d -> p (a,c) (b,d)
 (>*<) = dimap2 fst snd (,)
-infixr 6 >*<
+infixr 5 >*<
 
 {- | `>*` sequences actions, discarding the value of the first argument;
 analagous to `*>`, extending it to `Monoidal`.
@@ -66,7 +66,7 @@ prop> oneP >* p = p
 -}
 (>*) :: Monoidal p => p () c -> p a b -> p a b
 x >* y = lmap (const ()) x *> y
-infixl 5 >*
+infixl 6 >*
 
 {- | `*<` sequences actions, discarding the value of the second argument;
 analagous to `<*`, extending it to `Monoidal`.
@@ -76,7 +76,7 @@ prop> p *< oneP = p
 -}
 (*<) :: Monoidal p => p a b -> p () c -> p a b
 x *< y = x <* lmap (const ()) y
-infixl 5 *<
+infixl 6 *<
 
 {- | `dimap2` is a curried, functionalized form of `>*<`,
 analagous to `liftA2`. -}

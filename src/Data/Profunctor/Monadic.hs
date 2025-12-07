@@ -1,6 +1,6 @@
 {-|
 Module      : Data.Profunctor.Monadic
-Description : monadic profunctors
+Description : monadic, polyadic & tetradic profunctors
 Copyright   : (C) 2025 - Eitan Chatav
 License     : BSD-style (see the file LICENSE)
 Maintainer  : Eitan Chatav <eitan.chatav@gmail.com>

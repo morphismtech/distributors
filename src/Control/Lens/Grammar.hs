@@ -4,7 +4,7 @@ module Control.Lens.Grammar
   , RegBnfString (..)
   , RegGrammar
   , RegGrammarr
-  , bnfGrammarr
+  , ebnfGrammar
   , Grammar
   , Grammarr
   , regexGrammar
@@ -35,6 +35,7 @@ import GHC.Exts
 import Prelude hiding (filter)
 import Witherable
 
+makeNestedPrisms ''Bnf
 makeNestedPrisms ''RegEx
 makeNestedPrisms ''RegExam
 makeNestedPrisms ''CategoryTest
@@ -171,7 +172,8 @@ categoryG = rule "category" $ choiceP
   ]
 
 charG :: Grammar Char Char
-charG = rule "char" $ tokenClass (notOneOf charsReserved >&&< notAsIn Control)
+charG = rule "char" $
+  tokenClass (notOneOf charsReserved >&&< notAsIn Control)
   <|> terminal "\\" >* charEscapedG
 
 charEscapedG :: Grammar Char Char
@@ -211,15 +213,13 @@ charsControl =
 failG :: Grammar Char ()
 failG = rule "fail" $ terminal "\\q" <|> terminal "[]"
 
-bnfGrammarr :: Ord rule => RegGrammarr Char rule (Bnf rule)
-bnfGrammarr p = dimap hither thither $ startG  >*< rulesG
-  where
-    hither (Bnf start rules) = (start, toList rules)
-    thither (start, rules) = Bnf start (fromList rules)
-    startG = terminal "start" >* ruleG
-    rulesG = manyP (terminal "\n" >* nameG >*< ruleG)
-    ruleG = terminal " = " >* p
-    nameG = manyP (notOneOf ['='] <|> (terminal "\\=" >* pure '='))
+ruleG :: Grammar Char (String, RegEx Char)
+ruleG = rule "rule" $ manyP charG >*< terminal " = " >* regexGrammar
+
+ebnfGrammar :: Grammar Char (Bnf (RegEx Char))
+ebnfGrammar = rule "ebnf" $ _Bnf >~
+  terminal "start = " >* regexGrammar
+    >*< several noSep (terminal "\n" >* ruleG)
 
 newtype RegString = RegString {runRegString :: RegEx Char}
   deriving newtype
@@ -265,13 +265,13 @@ instance IsList RegBnfString where
     = fromMaybe zeroK
     . listToMaybe
     . mapMaybe prsF
-    . runReador (bnfGrammarr regexGrammar)
+    . runReador ebnfGrammar
     where
       prsF (ebnf,"") = Just (RegBnfString ebnf)
       prsF _ = Nothing
   toList
     = maybe "{start} = \\q" ($ "")
-    . evalPrintor (bnfGrammarr regexGrammar)
+    . evalPrintor ebnfGrammar
     . runRegBnfString
 instance IsString RegBnfString where
   fromString = fromList
