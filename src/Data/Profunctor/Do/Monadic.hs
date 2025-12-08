@@ -15,7 +15,7 @@ import qualified Prelude
 
 (>>=)
   :: (Monadic m p, forall x. MonadFix (p m x))
-  => p m a a -> (a -> p m b b) -> p m b b
+  => p m a a -> (a -> p m b c) -> p m b c
 infixl 1 >>=
 x >>= f = mdo
   a <- lmap (const a) x
@@ -23,7 +23,7 @@ x >>= f = mdo
 
 (>>)
   :: (Monadic m p, forall x. MonadFix (p m x))
-  => p m a a -> p m b b -> p m b b
+  => p m a a -> p m b c -> p m b c
 infixl 1 >>
 x >> y = x >>= const y
 
