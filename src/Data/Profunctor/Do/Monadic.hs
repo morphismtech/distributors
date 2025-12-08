@@ -35,4 +35,4 @@ fail = liftP . Prelude.fail
 boundRec
   :: (Monadic m p, Applicative m, forall x. MonadFix (p m x))
   => (a -> Optic' (p m) m b ()) -> Optic' (p m) m b a
-boundRec f = monochrome (\a -> a >>= rmap withMonochrome_ f)
+boundRec f = monochrome (>>= rmap withMonochrome_ f)
