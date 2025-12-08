@@ -18,9 +18,9 @@ module Data.Profunctor.Do.Polyadic
 
 import Control.Monad.Fix
 import Data.Profunctor
+import Data.Profunctor.Do.Monadic (fail)
 import Data.Profunctor.Monadic
 import Prelude hiding ((>>), (>>=), fail)
-import qualified Prelude
 
 (>>=)
   :: (Polyadic m p, forall x. MonadFix (p i i m x))
@@ -33,9 +33,3 @@ x >>= f = composeP (fmap f (mfix (\a -> lmap (const a) x)))
   => p i i m a a -> p i j m b c -> p i j m b c
 infixl 1 >>
 x >> y = x >>= (\_ -> y)
-
-fail
-  :: (Polyadic m p, MonadFail m)
-  => String
-  -> p i i m a b
-fail = liftP . Prelude.fail
