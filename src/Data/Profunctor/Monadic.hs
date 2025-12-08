@@ -12,10 +12,6 @@ Portability : non-portable
 
 module Data.Profunctor.Monadic
   ( Monadic (..)
-  , monochrome
-  , monochrome_
-  , withMonochrome
-  , withMonochrome_
   , Polyadic (..)
   , Tetradic (..)
   , WrappedMonadic (..)
@@ -23,6 +19,14 @@ module Data.Profunctor.Monadic
   , TaggedP (..)
   , UntaggedT (..)
   , UntaggedC (..)
+  , monochrome
+  , monochrome_
+  , withMonochrome
+  , withMonochrome_
+  , liftedP
+  , joined
+  , joinedP
+  , bound
   ) where
 
 import Control.Applicative
@@ -71,6 +75,22 @@ withMonochrome
   :: (Monadic m p, Applicative m)
   => Optic (p m) m s t a b -> p m a b -> p m s t
 withMonochrome f = joinP . f . fmap pure
+
+liftedP :: (Monadic m p, Applicative m) => m b -> Optic (p m) m a b () ()
+liftedP m = monochrome_ (liftP m)
+
+joinedP :: (Monadic m p, Applicative m) => Optic (p m) m a b a (m b)
+joinedP = monochrome joinP
+
+joined :: (Monadic m p, Applicative m) => Optic (p m) m a b a (p m a b)
+joined = monochrome join
+
+bound
+  :: (Monadic m p, Applicative m)
+  => (b -> Optic (p m) m a c a ()) -> Optic (p m) m a c a b
+bound f = monochrome $ \p -> do
+  b <- p
+  withMonochrome (f b) (return ())
 
 class
   ( forall i j. Profunctor (p i j m)
