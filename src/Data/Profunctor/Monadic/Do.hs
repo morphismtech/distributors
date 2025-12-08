@@ -1,5 +1,5 @@
 {-|
-Module      : Data.Profunctor.Do.Monadic
+Module      : Data.Profunctor.Monadic.Do
 Description : monadic do-notation
 Copyright   : (C) 2025 - Eitan Chatav
 License     : BSD-style (see the file LICENSE)
@@ -8,7 +8,7 @@ Stability   : provisional
 Portability : non-portable
 -}
 
-module Data.Profunctor.Do.Monadic
+module Data.Profunctor.Monadic.Do
   ( -- *
     (>>=)
   , (>>)

@@ -1,5 +1,5 @@
 {-|
-Module      : Data.Profunctor.Do.Polyadic
+Module      : Data.Profunctor.Polyadic.Do
 Description : polyadic do-notation
 Copyright   : (C) 2025 - Eitan Chatav
 License     : BSD-style (see the file LICENSE)
@@ -8,7 +8,7 @@ Stability   : provisional
 Portability : non-portable
 -}
 
-module Data.Profunctor.Do.Polyadic
+module Data.Profunctor.Polyadic.Do
   ( -- *
     (>>=)
   , (>>)
@@ -18,8 +18,8 @@ module Data.Profunctor.Do.Polyadic
 
 import Control.Monad.Fix
 import Data.Profunctor
-import Data.Profunctor.Do.Monadic (fail)
-import Data.Profunctor.Monadic
+import Data.Profunctor.Monadic.Do (fail)
+import Data.Profunctor.Polyadic
 import Prelude hiding ((>>), (>>=), fail)
 
 (>>=)

@@ -41,6 +41,7 @@ import Data.Profunctor.Distributor
 import Data.Profunctor.Filtrator
 import Data.Profunctor.Monadic
 import Data.Profunctor.Monoidal
+import Data.Profunctor.Polyadic
 import Data.Void
 import Prelude hiding (id, (.))
 import GHC.Exts
