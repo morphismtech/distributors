@@ -1,3 +1,13 @@
+{-|
+Module      : Data.Profunctor.Do.Monadic
+Description : monadic do-notation
+Copyright   : (C) 2025 - Eitan Chatav
+License     : BSD-style (see the file LICENSE)
+Maintainer  : Eitan Chatav <eitan.chatav@gmail.com>
+Stability   : provisional
+Portability : non-portable
+-}
+
 module Data.Profunctor.Do.Monadic
   ( -- *
     (>>=)

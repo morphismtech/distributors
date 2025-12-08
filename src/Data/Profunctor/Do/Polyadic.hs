@@ -1,5 +1,5 @@
 {-|
-Module      : Data.Profunctor.Polyadic.Do
+Module      : Data.Profunctor.Do.Polyadic
 Description : polyadic do-notation
 Copyright   : (C) 2025 - Eitan Chatav
 License     : BSD-style (see the file LICENSE)
