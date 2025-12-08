@@ -25,6 +25,7 @@ import qualified Prelude
 (>>=)
   :: (Polyadic m p, forall x. MonadFix (p i i m x))
   => p i i m a a -> (a -> p i j m b c) -> p i j m b c
+infixl 1 >>=
 x >>= f = composeP (fmap f (mfix (\a -> lmap (const a) x)))
 
 (>>)
