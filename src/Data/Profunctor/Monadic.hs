@@ -1,6 +1,6 @@
 {-|
 Module      : Data.Profunctor.Monadic
-Description : monadic, polyadic & tetradic profunctors
+Description : monadic profunctors
 Copyright   : (C) 2025 - Eitan Chatav
 License     : BSD-style (see the file LICENSE)
 Maintainer  : Eitan Chatav <eitan.chatav@gmail.com>
@@ -26,8 +26,6 @@ import Control.Comonad
 import Control.Arrow
 import Control.Lens
 import Control.Monad
-import Control.Monad.State
-import Control.Monad.Trans.Indexed
 import Data.Profunctor
 import Data.Profunctor.Monoidal
 import Prelude hiding (id, (.))
