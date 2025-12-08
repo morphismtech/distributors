@@ -8,7 +8,7 @@ Stability   : provisional
 Portability : non-portable
 -}
 
-module Data.Profunctor.Polyadic.Do
+module Data.Profunctor.Do.Polyadic
   ( -- *
     (>>=)
   , (>>)
@@ -23,11 +23,13 @@ import qualified Prelude
 (>>=)
   :: Polyadic m p
   => p i j m a b -> (b -> p j k m a c) -> p i k m a c
+infixl 1 >>=
 x >>= f = composeP (fmap f x)
 
 (>>)
   :: Polyadic m p
   => p i j m a b -> p j k m a c -> p i k m a c
+infixl 1 >>
 x >> y = x >>= (\_ -> y)
 
 fail
