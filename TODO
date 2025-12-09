@@ -1,0 +1,10 @@
+TODO
+
+x Monadic interface ala Lysxia
+  Parsec profunctor with TokenTest & NonTerminal errors ala Leijen
+  Categoric interface with diid
+  Arrowic?
+  Tests
+  Documents
+  Announcement
+  Delete TODO
