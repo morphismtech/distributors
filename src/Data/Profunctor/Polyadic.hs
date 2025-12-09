@@ -8,12 +8,11 @@ Stability   : provisional
 Portability : non-portable
 -}
 
-{-# LANGUAGE PolyKinds #-}
+{-# LANGUAGE PolyKinds, QualifiedDo #-}
 
 module Data.Profunctor.Polyadic
-  ( Polyadic (..)
+  ( Polyadic (..), bindP
   , Tetradic (..)
-  , WrappedPolyadic (..)
   , TaggedP (..)
   , UntaggedT (..)
   , UntaggedC (..)
@@ -26,6 +25,7 @@ import Control.Lens
 import Control.Monad
 import Control.Monad.State
 import Control.Monad.Trans.Indexed
+import qualified Control.Monad.Trans.Indexed.Do as Ix
 import Data.Profunctor.Monadic
 import Prelude hiding (id, (.))
 
@@ -34,7 +34,11 @@ class
   , forall i j x. Functor (p i j m x)
   , forall i. Monadic m (p i i)
   ) => Polyadic m p where
-  composeP :: p i j m a (p j k m a b) -> p i k m a b
+  joinP :: p i j m a (p j k m a b) -> p i k m a b
+  bondP :: (a -> p i j m b c) -> p i i m a a -> p i j m (a,b) (a,c)
+
+bindP :: Polyadic m p => (b -> p j k m a c) -> p i j m a b -> p i k m a c
+bindP f p = joinP (fmap f p)
 
 class (forall i j. Profunctor (p i j f)) => Tetradic f p where
 
@@ -49,44 +53,21 @@ class (forall i j. Profunctor (p i j f)) => Tetradic f p where
     -> p i j f a b -> p h k f a b
   dimapT f1 f2 = tetramap f1 f2 id id
 
-newtype WrappedPolyadic p i j m a b =
-  WrapPolyadic {unwrapPolyadic :: p i j m a (m b)}
-instance (Polyadic m p, Monad m)
-  => Functor (WrappedPolyadic p i j m a) where
-  fmap = rmap
-instance (Polyadic m p, Monad m)
-  => Applicative (WrappedPolyadic p i i m a) where
-  pure x = WrapPolyadic $ pure (pure x)
-  WrapPolyadic p1 <*> WrapPolyadic p2 =
-      WrapPolyadic $ liftA2 (<*>) p1 p2
-instance (Polyadic m p, Monad m)
-  => Monad (WrappedPolyadic p i i m a) where
-  return = pure
-  WrapPolyadic p >>= f = WrapPolyadic $ do
-    b <- joinP p
-    unwrapPolyadic (f b)
-instance (Polyadic m p, Monad m)
-  => Profunctor (WrappedPolyadic p i j m) where
-  dimap f g = WrapPolyadic . dimap f (fmap g) . unwrapPolyadic
-instance (Monad m, Polyadic m p)
-  => Monadic m (WrappedPolyadic p i i) where
-  joinP = WrapPolyadic . joinP . unwrapPolyadic
-instance (Monad m, Polyadic m p) => Polyadic m (WrappedPolyadic p) where
-  composeP
-    = WrapPolyadic . composeP
-    . fmap unwrapPolyadic . composeP
-    . fmap liftP . unwrapPolyadic
-
 newtype TaggedP t i j f a b = TagP {untagP :: t i j f b}
   deriving newtype (Functor, Applicative, Monad)
 instance Functor (t i j f) => Profunctor (TaggedP t i j f) where
   dimap _ f = TagP . fmap f . untagP
-instance (Monad m, MonadTrans (t i j))
-  => Monadic m (TaggedP t i j) where
+instance (Monad m, IxMonadTrans t)
+  => Monadic m (TaggedP t i i) where
   liftP = TagP . lift
+  bondM = bondP
 instance (Monad m, IxMonadTrans t)
   => Polyadic m (TaggedP t) where
-  composeP = TagP . joinIx . fmap untagP . untagP
+  joinP = TagP . joinIx . fmap untagP . untagP
+  bondP f (TagP m) = TagP $ Ix.do
+    a <- m
+    c <- untagP (f a)
+    return (a,c)
 
 newtype UntaggedT p a i j f b = UntagT {tagT :: p i j f a b}
   deriving newtype (Functor, Applicative, Monad)
@@ -95,7 +76,7 @@ instance (forall m. Monad m => Monadic m (p i j))
   lift = UntagT . liftP
 instance (forall m. Monad m => Polyadic m p)
   => IxMonadTrans (UntaggedT p a) where
-  joinIx = UntagT . composeP . fmap tagT . tagT
+  joinIx = UntagT . joinP . fmap tagT . tagT
 
 newtype UntaggedC p a b f i j = UntagC {tagC :: p i j f a b}
 instance (Tetradic f p, Functor f) => Tetradic f (UntaggedC p) where
@@ -106,7 +87,7 @@ instance (Tetradic f p, Functor f) => Functor (UntaggedC p a b f i) where
   fmap = rmap
 instance (Polyadic m p, Monoid b) => Category (UntaggedC p a b m) where
   id = UntagC (pure mempty)
-  UntagC g . UntagC f = UntagC (composeP (fmap (\b -> fmap (<> b) g) f))
+  UntagC g . UntagC f = UntagC (joinP (fmap (\b -> fmap (<> b) g) f))
 instance (Polyadic m p, Monad m, Monoid b)
   => Semigroup (UntaggedC p a b m i i) where (<>) = (>>>)
 instance (Polyadic m p, Monad m, Monoid b)

@@ -43,13 +43,14 @@ library
       Control.Lens.PartialIso
       Control.Lens.Wither
       Data.Profunctor.Distributor
+      Data.Profunctor.Do.Bond
+      Data.Profunctor.Do.Polyadic.Bind
+      Data.Profunctor.Do.Polyadic.Bond
       Data.Profunctor.Filtrator
       Data.Profunctor.Grammar
       Data.Profunctor.Monadic
-      Data.Profunctor.Monadic.Do
       Data.Profunctor.Monoidal
       Data.Profunctor.Polyadic
-      Data.Profunctor.Polyadic.Do
   other-modules:
       Paths_distributors
   autogen-modules:

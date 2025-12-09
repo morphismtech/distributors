@@ -125,14 +125,16 @@ instance (Alternative m, Monad m) => Alternator (Parsor s s m) where
     Left (Parsor p) -> Parsor (fmap (\(b, str) -> (Left b, str)) . p)
     Right (Parsor p) -> Parsor (fmap (\(b, str) -> (Right b, str)) . p)
 instance Monad m => Monadic m (Parsor s s) where
+  liftP m = Parsor $ \s -> (,s) <$> m
+  bondM = bondP
+instance Monad m => Polyadic m Parsor where
   joinP (Parsor p) = Parsor $ \s -> do
     (mb, s') <- p s
-    b <- mb
-    return (b, s')
-instance Monad m => Polyadic m Parsor where
-  composeP (Parsor p) = Parsor $ \s -> do
-    (mb, s') <- p s
     runParsor mb s'
+  bondP f (Parsor p) = Parsor $ \s0 -> do
+    (a,s1) <- p s0
+    (c,s2) <- runParsor (f a) s1
+    return ((a,c),s2)
 instance Filterable f => Filterable (Parsor s t f a) where
   mapMaybe f (Parsor p) = Parsor (mapMaybe (\(a,str) -> (,str) <$> f a) . p)
 instance Filterable f => Cochoice (Parsor s t f) where
@@ -194,7 +196,7 @@ instance Filterable f => Filterable (Printor s s f a) where
     mapMaybe (\(a,q) -> fmap (, q) (f a)) . p
 instance Monad f => Monad (Printor s s f a) where
   return = pure
-  mx >>= f = composeP (fmap f mx)
+  mx >>= f = joinP (fmap f mx)
 instance (Alternative f, Monad f) => MonadPlus (Printor s s f a)
 instance MonadError e m => MonadError e (Printor s s m a) where
   throwError = liftP . throwError
@@ -205,15 +207,17 @@ instance Monad m => MonadReader a (Printor s s m a) where
   reader f = (Printor (\a -> return (f a, id)))
   local f = Printor . (\m -> m . f) . runPrintor
 instance Monad m => Monadic m (Printor s s) where
-  joinP (Printor mf) = Printor $ \a -> do
-    (mb, f) <- mf a
-    b <- mb
-    return (b, f)
+  liftP m = Printor $ \_ -> (, id) <$> m
+  bondM = bondP
 instance Monad m => Polyadic m Printor where
-  composeP (Printor mf) = Printor $ \a -> do
+  joinP (Printor mf) = Printor $ \a -> do
     (Printor mg, f) <- mf a
     (b, g) <- mg a
     return (b, g . f)
+  bondP f (Printor m) = Printor $ \(a0,b) -> do
+    (a1,g) <- m a0
+    (c,h) <- runPrintor (f a1) b
+    return ((a1,c), h . g)
 instance Applicative f => Distributor (Printor s s f) where
   zeroP = Printor absurd
   Printor p >+< Printor q = Printor $
@@ -377,6 +381,10 @@ instance (Alternative m, Monad m) => Monadic m Reador where
   liftP m = Reador $ do
     s <- ask
     lift $ FinalT ((,s) <$> m)
+  bondM f (Reador m) = Reador $ do
+    a <- m
+    c <- unReador (f a)
+    return (a,c)
 instance (Alternative m, Monad m) => Choice (Reador m) where
   left' = alternate . Left
   right' = alternate . Right
