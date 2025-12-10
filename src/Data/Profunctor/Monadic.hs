@@ -34,16 +34,16 @@ class
   bondM :: (a -> p m b c) -> p m a a -> p m (a,b) (a,c)
 instance Monad m => Monadic m Kleisli where
   liftP = Kleisli . return
-  bondM g (Kleisli f) = Kleisli $ \(a0,b) -> do
-    a1 <- f a0
-    c <- runKleisli (g a1) b
-    return (a1,c)
+  bondM g (Kleisli f) = Kleisli $ \(x,b) -> do
+    y <- f x
+    c <- runKleisli (g y) b
+    return (y,c)
 instance Monad m => Monadic m Star where
   liftP = Star . return
-  bondM g (Star f) = Star $ \(a0,b) -> do
-    a1 <- f a0
-    c <- runStar (g a1) b
-    return (a1,c)
+  bondM g (Star f) = Star $ \(x,b) -> do
+    y <- f x
+    c <- runStar (g y) b
+    return (y,c)
 
 monochrome_
   :: (Monadic m p, Applicative m)

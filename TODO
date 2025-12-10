@@ -1,10 +1,12 @@
 TODO
 
 x Monadic interface ala Lysxia
-  Parsec profunctor with TokenTest & NonTerminal errors ala Leijen
+  Monadic example grammar
+  More Tests
+  Parsec profunctor with either TokenTest or NonTerminal errors ala Leijen
   Categoric interface with diid
   Arrowic?
-  Tests
+  Read Chomsky
   Documents
   Announcement
   Delete TODO

@@ -5,7 +5,7 @@ module Data.Profunctor.Monoidal
     Monoidal
   , oneP, (>*<), (>*), (*<)
   , dimap2, foreverP, replicateP
-  , (>:<), asEmpty
+  , (>:<), asEmpty, replicateN
   , meander, eotFunList
   ) where
 
@@ -114,6 +114,12 @@ asEmpty = _Empty >? oneP
 (>:<) :: (Cons s t a b, Monoidal p, Choice p) => p a b -> p s t -> p s t
 x >:< xs = _Cons >? x >*< xs
 infixr 5 >:<
+
+replicateN
+  :: (Monoidal p, Choice p, AsEmpty s, AsEmpty t, Cons s t a b)
+  => Int -> p a b -> p s t
+replicateN n _ | n <= 0 = lmap (const Empty) asEmpty
+replicateN n a = a >:< replicateN (n-1) a
 
 {- | For any `Monoidal`, `Choice` & `Strong` `Profunctor`,
 `meander` is invertible and gives a default implementation for the

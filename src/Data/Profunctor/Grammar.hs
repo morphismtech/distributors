@@ -214,10 +214,10 @@ instance Monad m => Polyadic m Printor where
     (Printor mg, f) <- mf a
     (b, g) <- mg a
     return (b, g . f)
-  bondP f (Printor m) = Printor $ \(a0,b) -> do
-    (a1,g) <- m a0
-    (c,h) <- runPrintor (f a1) b
-    return ((a1,c), h . g)
+  bondP f (Printor m) = Printor $ \(x,b) -> do
+    (y,g) <- m x
+    (c,h) <- runPrintor (f y) b
+    return ((y,c), h . g)
 instance Applicative f => Distributor (Printor s s f) where
   zeroP = Printor absurd
   Printor p >+< Printor q = Printor $
