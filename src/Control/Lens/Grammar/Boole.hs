@@ -1,6 +1,6 @@
 module Control.Lens.Grammar.Boole
   ( BooleanAlgebra (..)
-  , fromBool, andB, orB, allB, anyB
+  , andB, orB, allB, anyB
   , TokenTest (..)
   , TokenAlgebra (..)
   ) where
@@ -18,15 +18,10 @@ import GHC.Generics
 
 class BooleanAlgebra b where
 
-  failB :: b
-  default failB
-    :: (b ~ f bool, BooleanAlgebra bool, Applicative f) => b
-  failB = pure failB
-
-  passB :: b
-  default passB
-    :: (b ~ f bool, BooleanAlgebra bool, Applicative f) => b
-  passB = pure passB
+  fromBool :: Bool -> b
+  default fromBool
+    :: (b ~ f bool, BooleanAlgebra bool, Applicative f) => Bool -> b
+  fromBool = pure . fromBool
 
   notB :: b -> b
   default notB
@@ -43,22 +38,17 @@ class BooleanAlgebra b where
     :: (b ~ f bool, BooleanAlgebra bool, Applicative f) => b -> b -> b
   (>&&<) = liftA2 (>&&<)
 
-fromBool :: BooleanAlgebra b => Bool -> b
-fromBool = \case
-  True -> passB
-  False -> failB
-
 andB :: (Foldable f, BooleanAlgebra b) => f b -> b
-andB = foldl' (>&&<) passB
+andB = foldl' (>&&<) (fromBool True)
 
 orB :: (Foldable f, BooleanAlgebra b) => f b -> b
-orB = foldl' (>||<) failB
+orB = foldl' (>||<) (fromBool False)
 
 allB :: (Foldable f, BooleanAlgebra b) => (a -> b) -> f a -> b
-allB f = foldl' (\b a -> b >&&< f a) passB
+allB f = foldl' (\b a -> b >&&< f a) (fromBool True)
 
 anyB :: (Foldable f, BooleanAlgebra b) => (a -> b) -> f a -> b
-anyB f = foldl' (\b a -> b >||< f a) failB
+anyB f = foldl' (\b a -> b >||< f a) (fromBool False)
 
 newtype TokenTest token = TokenTest (RegExam token (TokenTest token))
 
@@ -89,8 +79,7 @@ deriving stock instance
   (Categorized token, Show token, Show (Categorize token))
     => Show (TokenTest token)
 instance BooleanAlgebra Bool where
-  failB = False
-  passB = True
+  fromBool = id
   notB = not
   (>&&<) = (&&)
   (>||<) = (||)
@@ -113,8 +102,9 @@ instance Categorized token
       RegExam (Alternate (tokenClass exam1) (tokenClass exam2))
 instance Categorized token
   => BooleanAlgebra (RegExam token (TokenTest token)) where
-  failB = Fail
-  passB = Pass
+  fromBool = \case
+    False -> Fail
+    True -> Pass
   notB Fail = Pass
   notB Pass = Fail
   notB (Alternate (TokenTest x) (TokenTest y)) = x >&&< y
