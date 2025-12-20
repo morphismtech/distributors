@@ -35,7 +35,7 @@ class
   , forall i. Monadic m (p i i)
   ) => Polyadic m p where
   joinP :: p i j m a (p j k m a b) -> p i k m a b
-  bondP :: (a -> p i j m b c) -> p i i m a a -> p i j m (a,b) (a,c)
+  bondP :: p i i m a a -> (a -> p i j m b c) -> p i j m (a,b) (a,c)
 
 bindP :: Polyadic m p => (b -> p j k m a c) -> p i j m a b -> p i k m a c
 bindP f p = joinP (fmap f p)
@@ -64,7 +64,7 @@ instance (Monad m, IxMonadTrans t)
 instance (Monad m, IxMonadTrans t)
   => Polyadic m (TaggedP t) where
   joinP = TagP . joinIx . fmap untagP . untagP
-  bondP f (TagP m) = TagP $ Ix.do
+  bondP (TagP m) f = TagP $ Ix.do
     a <- m
     c <- untagP (f a)
     return (a,c)
