@@ -1,6 +1,9 @@
 module Data.Profunctor.Grammar
   ( -- * Parsor
     Parsor (..)
+  , PP (..)
+  , printP
+  , parseP
     -- * Printor
   , Printor (..)
   , printor
@@ -55,6 +58,12 @@ printor f = Printor (\a -> fmap (a,) (f a))
 evalPrintor :: Functor f => Printor s t f a b -> a -> f (s -> t)
 evalPrintor (Printor f) = fmap snd . f
 
+newtype PP s t f a b = PP {runPP :: Maybe a -> s -> f (b,t)}
+printP :: Functor f => PP s t f a b -> a -> s -> f t
+printP (PP f) a = fmap snd . f (Just a)
+parseP :: PP s t f a b -> s -> f (b,t)
+parseP (PP f) = f Nothing
+
 newtype Grammor s t f a b = Grammor {runGrammor :: s -> f t}
 grammor :: Applicative f => t -> Grammor s t f a b
 grammor = Grammor . pure . pure
@@ -80,6 +89,120 @@ runLookT (GetT f) s =
 runLookT (LookT f) s = runLookT (f s) s
 runLookT (ResultT x p) s = pure (x,s) <|> runLookT p s
 runLookT (FinalT r) _ = r
+
+-- PP instances
+deriving stock instance Functor f => Functor (PP s t f a)
+instance Functor f => Profunctor (PP s t f) where
+  dimap f g = PP . dimap (fmap f) (fmap (fmap (first' g))) . runPP
+instance Functor f => Tetradic f PP where
+  dimapT f g = PP . fmap (dimap f (fmap (second' g))) . runPP
+  tetramap f g h i = PP . dimap (fmap h) (dimap f (fmap (i >*< g))) . runPP
+instance Monad m => Applicative (PP s s m a) where
+  pure b = PP (\_ s -> pure (b,s))
+  PP x <*> PP y = PP $ \ma s -> do
+    (f, t) <- x ma s
+    (a, u) <- y ma t
+    return (f a, u)
+instance Monad m => Monad (PP s s m a) where
+  return = pure
+  PP p >>= f = PP $ \ma s -> do
+    (a, t) <- p ma s
+    runPP (f a) ma t
+instance (Alternative m, Monad m) => Alternative (PP s s m a) where
+  empty = PP (\_ _ -> empty)
+  PP p <|> PP q = PP $ \ma s -> p ma s <|> q ma s
+instance (Alternative m, Monad m) => MonadPlus (PP s s m a)
+instance Filterable f => Filterable (PP s t f a) where
+  mapMaybe f (PP p) = PP $ \fa s ->
+    mapMaybe (\(a,t) -> fmap (,t) (f a)) (p fa s)
+instance Filterable f => Cochoice (PP s t f) where
+  unleft = fst . filtrate
+  unright = snd . filtrate
+instance Filterable f => Filtrator (PP s t f) where
+  filtrate (PP p) =
+    ( PP $ \ma s -> mapMaybe
+        (\case{(Left b,t) -> Just (b,t); _ -> Nothing})
+        (p (fmap Left ma) s)
+    , PP $ \ma s -> mapMaybe
+        (\case{(Right b,t) -> Just (b,t); _ -> Nothing})
+        (p (fmap Right ma) s)
+    )
+instance Monad m => Monadic m (PP s s) where
+  liftP m = PP $ \_ s -> (,s) <$> m
+  bondM = bondP
+instance Monad m => Polyadic m PP where
+  joinP (PP mf) = PP $ \ma s -> do
+    (PP mg, j) <- mf ma s
+    mg ma j
+  bondP (PP p) f = PP $ \case
+    Nothing -> \s0 -> do
+      (x,s1) <- p Nothing s0
+      (y,s2) <- runPP (f x) Nothing s1
+      return ((x,y),s2)
+    Just (a,b) -> \s0 -> do
+      (x,s1) <- p (Just a) s0
+      (y,s2) <- runPP (f x) (Just b) s1
+      return ((a,y),s2)
+instance (Alternative m, Monad m) => Distributor (PP s s m)
+instance (Alternative m, Monad m) => Choice (PP s s m) where
+  left' = alternate . Left
+  right' = alternate . Right
+instance (Alternative m, Monad m) => Alternator (PP s s m) where
+  alternate = \case
+    Left (PP p) -> PP $ \ma s -> case ma of
+      Nothing -> fmap (first' Left) (p Nothing s)
+      Just (Left a) -> fmap (first' Left) (p (Just a) s)
+      Just (Right _) -> empty
+    Right (PP p) -> PP $ \ma s -> case ma of
+      Nothing -> fmap (first' Right) (p Nothing s)
+      Just (Right a) -> fmap (first' Right) (p (Just a) s)
+      Just (Left _) -> empty
+instance (Alternative m, Monad m) => Category (PP s s m) where
+  id = PP $ \ma s -> case ma of
+    Nothing -> empty
+    Just a  -> pure (a,s)
+  PP q . PP p = PP $ \ma s -> case ma of
+    Nothing -> empty
+    Just a -> do
+      (b, t) <- p (Just a) s
+      q (Just b) t
+instance (Alternative m, Monad m) => Arrow (PP s s m) where
+  arr f = PP $ \ma s -> case ma of
+    Nothing -> empty
+    Just a  -> pure (f a, s)
+  (***) = (>*<)
+instance (Alternative m, Monad m) => ArrowZero (PP s s m) where
+  zeroArrow = empty
+instance (Alternative m, Monad m) => ArrowPlus (PP s s m) where
+  (<+>) = (<|>)
+instance (Alternative m, Monad m) => ArrowChoice (PP s s m) where
+  (+++) = (>+<)
+  left = left'
+  right = right'
+-- instance
+--   ( Categorized a, a ~ Item s, IsList s, Cons s s a a
+--   , Filterable m, Alternative m, Monad m
+--   ) => Tokenized a (Printor s s m a a) where
+--   anyToken = Printor (\b -> pure (b, cons b))
+-- instance
+--   ( Categorized a, a ~ Item s, IsList s, Cons s s a a
+--   , Filterable m, Alternative m, Monad m
+--   ) => TokenAlgebra a (Printor s s m a a)
+-- instance 
+--   ( Categorized a, a ~ Item s, IsList s, Cons s s a a
+--   , Filterable m, Alternative m, Monad m
+--   ) => TerminalSymbol a (Printor s s m () ()) where
+-- instance
+--   ( Char ~ Item s, IsList s, Cons s s Char Char
+--   , Filterable m, Alternative m, Monad m
+--   ) => IsString (Printor s s m () ()) where
+--   fromString = terminal
+-- instance
+--   ( Char ~ Item s, IsList s, Cons s s Char Char, AsEmpty s
+--   , Filterable m, Alternative m, Monad m
+--   ) => IsString (Printor s s m s s) where
+--   fromString = fromTokens
+-- instance BackusNaurForm (Printor s t m a b)
 
 -- Parsor instances
 instance Functor f => Functor (Parsor s t f a) where
@@ -131,7 +254,7 @@ instance Monad m => Polyadic m Parsor where
   joinP (Parsor p) = Parsor $ \s -> do
     (mb, s') <- p s
     runParsor mb s'
-  bondP f (Parsor p) = Parsor $ \s0 -> do
+  bondP (Parsor p) f = Parsor $ \s0 -> do
     (a,s1) <- p s0
     (c,s2) <- runParsor (f a) s1
     return ((a,c),s2)
@@ -214,7 +337,7 @@ instance Monad m => Polyadic m Printor where
     (Printor mg, f) <- mf a
     (b, g) <- mg a
     return (b, g . f)
-  bondP f (Printor m) = Printor $ \(x,b) -> do
+  bondP (Printor m) f = Printor $ \(x,b) -> do
     (y,g) <- m x
     (c,h) <- runPrintor (f y) b
     return ((y,c), h . g)
@@ -381,7 +504,7 @@ instance (Alternative m, Monad m) => Monadic m Reador where
   liftP m = Reador $ do
     s <- ask
     lift $ FinalT ((,s) <$> m)
-  bondM f (Reador m) = Reador $ do
+  bondM (Reador m) f = Reador $ do
     a <- m
     c <- unReador (f a)
     return (a,c)

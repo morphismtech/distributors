@@ -33,19 +33,16 @@ library
       Control.Lens.Grammar
       Control.Lens.Grammar.BackusNaur
       Control.Lens.Grammar.Boole
+      Control.Lens.Grammar.Do
       Control.Lens.Grammar.Kleene
       Control.Lens.Grammar.Symbol
       Control.Lens.Grammar.Token
       Control.Lens.Grate
-      Control.Lens.Internal.Equator
       Control.Lens.Internal.NestedPrismTH
       Control.Lens.Monocle
       Control.Lens.PartialIso
       Control.Lens.Wither
       Data.Profunctor.Distributor
-      Data.Profunctor.Do.Bond
-      Data.Profunctor.Do.Polyadic.Bind
-      Data.Profunctor.Do.Polyadic.Bond
       Data.Profunctor.Filtrator
       Data.Profunctor.Grammar
       Data.Profunctor.Monadic

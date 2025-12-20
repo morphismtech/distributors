@@ -27,7 +27,6 @@ module Control.Lens.Monocle
   ) where
 
 import Control.Lens hiding (Traversing)
-import Control.Lens.Internal.Equator
 import Control.Lens.Internal.Profunctor
 import Data.Distributive
 import Data.Profunctor.Monoidal
@@ -77,14 +76,12 @@ forevered = unwrapPafb . foreverP . WrapPafb
 
 {- | Run `AMonocle` over an `Applicative`. -}
 withMonocle :: Applicative f => AMonocle s t a b -> ((s -> a) -> f b) -> f t
-withMonocle mon = unMonocular (runIdentity <$> mon (Identity <$> equate))
+withMonocle mon = unMonocular (runIdentity <$> mon (Identity <$> Monocular ($ id)))
 
 {- | `Monocular` provides an efficient
 concrete representation of `Monocle`s. -}
 newtype Monocular a b s t = Monocular
   {unMonocular :: forall f. Applicative f => ((s -> a) -> f b) -> f t}
-instance Equator a b (Monocular a b) where
-  equate = Monocular ($ id)
 instance Profunctor (Monocular a b) where
   dimap f g (Monocular k) =
     Monocular (fmap g . k . (. (. f)))

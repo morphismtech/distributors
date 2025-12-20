@@ -5,7 +5,6 @@ x Monadic interface ala Lysxia
   More Tests
   Parsec profunctor with either TokenTest or NonTerminal errors ala Leijen
   Categoric interface with diid
-  Arrowic?
   Read Chomsky
   Documents
   Announcement

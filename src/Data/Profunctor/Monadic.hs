@@ -31,16 +31,16 @@ class
   , forall x. Monad (p m x)
   ) => Monadic m p where
   liftP :: m b -> p m a b
-  bondM :: (a -> p m b c) -> p m a a -> p m (a,b) (a,c)
+  bondM :: p m a a -> (a -> p m b c) -> p m (a,b) (a,c)
 instance Monad m => Monadic m Kleisli where
   liftP = Kleisli . return
-  bondM g (Kleisli f) = Kleisli $ \(x,b) -> do
+  bondM (Kleisli f) g = Kleisli $ \(x,b) -> do
     y <- f x
     c <- runKleisli (g y) b
     return (y,c)
 instance Monad m => Monadic m Star where
   liftP = Star . return
-  bondM g (Star f) = Star $ \(x,b) -> do
+  bondM (Star f) g = Star $ \(x,b) -> do
     y <- f x
     c <- runStar (g y) b
     return (y,c)

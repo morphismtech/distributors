@@ -25,7 +25,6 @@ module Control.Lens.Diopter
   ) where
 
 import Control.Lens
-import Control.Lens.Internal.Equator
 import Control.Lens.Internal.Profunctor
 import Data.Profunctor.Distributor
 import Data.Void
@@ -56,7 +55,7 @@ withDiopter
   :: ADiopter s t a b
   -> (forall h. Homogeneous h => (s -> h a) -> (h b -> t) -> r)
   -> r
-withDiopter dio k = case runIdentity <$> dio (Identity <$> equate) of
+withDiopter dio k = case runIdentity <$> dio (Identity <$> Dioptrice Par1 unPar1) of
   Dioptrice f g -> k f g
 
 {- | Action of `ADiopter` on `Distributor`s. -}
@@ -95,8 +94,6 @@ data Dioptrice a b s t where
     => (s -> h a)
     -> (h b -> t)
     -> Dioptrice a b s t
-instance Equator a b (Dioptrice a b) where
-  equate = Dioptrice Par1 unPar1
 instance Profunctor (Dioptrice a b) where
   dimap f g (Dioptrice sa bt) = Dioptrice (sa . f) (g . bt)
 instance Functor (Dioptrice a b s) where fmap = rmap
