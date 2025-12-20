@@ -33,6 +33,7 @@ library
       Control.Lens.Grammar
       Control.Lens.Grammar.BackusNaur
       Control.Lens.Grammar.Boole
+      Control.Lens.Grammar.Do
       Control.Lens.Grammar.Kleene
       Control.Lens.Grammar.Symbol
       Control.Lens.Grammar.Token
@@ -43,9 +44,6 @@ library
       Control.Lens.PartialIso
       Control.Lens.Wither
       Data.Profunctor.Distributor
-      Data.Profunctor.Do.Bond
-      Data.Profunctor.Do.Polyadic.Bind
-      Data.Profunctor.Do.Polyadic.Bond
       Data.Profunctor.Filtrator
       Data.Profunctor.Grammar
       Data.Profunctor.Monadic
