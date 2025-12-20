@@ -17,13 +17,12 @@ module Control.Lens.Grammar.Do
   , return
   ) where
 
-import Control.Applicative (Alternative(empty))
-import Control.Lens (Optic)
-import Control.Lens.Grammar.BackusNaur (BackusNaurForm (rule))
+import Control.Applicative hiding ((<$>))
+import Control.Lens
+import Control.Lens.Grammar.BackusNaur
 import Control.Monad (join)
-import Data.Profunctor (Profunctor (dimap))
-import Data.Profunctor.Monadic (Monadic (liftP, bondM))
-import Prelude (Applicative (pure), const, fmap, fst, snd, return, (.), String)
+import Data.Profunctor.Monadic
+import Prelude hiding ((>>=), (>>), (<$>), fail)
 
 (>>=) :: Monadic m p => p m a a -> (a -> p m b c) -> p m (a,b) (a,c)
 infixl 1 >>=
