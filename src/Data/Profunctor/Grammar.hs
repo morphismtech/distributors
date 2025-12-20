@@ -72,18 +72,20 @@ evalGrammor = extract . extract . runGrammor
 evalGrammor_ :: Grammor () t Identity a b -> t
 evalGrammor_ = evalGrammor
 
-newtype Reador f a b = Reador {unReador :: Codensity (LookT f) b}
+newtype Reador s f a b = Reador {unReador :: Codensity (LookT s f) b}
 runReador
-  :: (Alternative m, Monad m)
-  => Reador m a b -> String -> m (b, String)
+  :: (Alternative m, Monad m, IsList s, Cons s s (Item s) (Item s))
+  => Reador s m a b -> s -> m (b, s)
 runReador (Reador (Codensity f)) = runLookT (f return)
 
-data LookT f a
-  = LookT (String -> LookT f a)
-  | GetT (Char -> LookT f a)
-  | ResultT a (LookT f a)
-  | FinalT (f (a, String))
-runLookT :: Alternative f => LookT f a -> String -> f (a, String)
+data LookT s f a
+  = LookT (s -> LookT s f a)
+  | GetT (Item s -> LookT s f a)
+  | ResultT a (LookT s f a)
+  | FinalT (f (a, s))
+runLookT
+  :: (Alternative f, IsList s, Cons s s (Item s) (Item s))
+  => LookT s f a -> s -> f (a, s)
 runLookT (GetT f) s =
   maybe empty (\(h,t) -> runLookT (f h) t) (uncons s)
 runLookT (LookT f) s = runLookT (f s) s
@@ -112,6 +114,9 @@ instance (Alternative m, Monad m) => Alternative (PP s s m a) where
   empty = PP (\_ _ -> empty)
   PP p <|> PP q = PP $ \ma s -> p ma s <|> q ma s
 instance (Alternative m, Monad m) => MonadPlus (PP s s m a)
+instance Monad m => MonadReader s (PP s s m a) where
+  ask = PP $ \_ s -> return (s,s)
+  local f = PP . fmap (lmap f) . runPP
 instance Filterable f => Filterable (PP s t f a) where
   mapMaybe f (PP p) = PP $ \fa s ->
     mapMaybe (\(a,t) -> fmap (,t) (f a)) (p fa s)
@@ -142,7 +147,7 @@ instance Monad m => Polyadic m PP where
     Just (a,b) -> \s0 -> do
       (x,s1) <- p (Just a) s0
       (y,s2) <- runPP (f x) (Just b) s1
-      return ((a,y),s2)
+      return ((x,y),s2)
 instance (Alternative m, Monad m) => Distributor (PP s s m)
 instance (Alternative m, Monad m) => Choice (PP s s m) where
   left' = alternate . Left
@@ -179,30 +184,32 @@ instance (Alternative m, Monad m) => ArrowChoice (PP s s m) where
   (+++) = (>+<)
   left = left'
   right = right'
--- instance
---   ( Categorized a, a ~ Item s, IsList s, Cons s s a a
---   , Filterable m, Alternative m, Monad m
---   ) => Tokenized a (Printor s s m a a) where
---   anyToken = Printor (\b -> pure (b, cons b))
--- instance
---   ( Categorized a, a ~ Item s, IsList s, Cons s s a a
---   , Filterable m, Alternative m, Monad m
---   ) => TokenAlgebra a (Printor s s m a a)
--- instance 
---   ( Categorized a, a ~ Item s, IsList s, Cons s s a a
---   , Filterable m, Alternative m, Monad m
---   ) => TerminalSymbol a (Printor s s m () ()) where
--- instance
---   ( Char ~ Item s, IsList s, Cons s s Char Char
---   , Filterable m, Alternative m, Monad m
---   ) => IsString (Printor s s m () ()) where
---   fromString = terminal
--- instance
---   ( Char ~ Item s, IsList s, Cons s s Char Char, AsEmpty s
---   , Filterable m, Alternative m, Monad m
---   ) => IsString (Printor s s m s s) where
---   fromString = fromTokens
--- instance BackusNaurForm (Printor s t m a b)
+instance
+  ( Categorized a, a ~ Item s, IsList s, Cons s s a a
+  , Filterable m, Alternative m, Monad m
+  ) => Tokenized a (PP s s m a a) where
+    anyToken = PP $ maybe
+      (maybe empty pure . uncons)
+      (\a -> pure . (a,) . cons a)
+instance
+  ( Categorized a, a ~ Item s, IsList s, Cons s s a a
+  , Filterable m, Alternative m, Monad m
+  ) => TokenAlgebra a (PP s s m a a)
+instance 
+  ( Categorized a, a ~ Item s, IsList s, Cons s s a a
+  , Filterable m, Alternative m, Monad m
+  ) => TerminalSymbol a (PP s s m () ()) where
+instance
+  ( Char ~ Item s, IsList s, Cons s s Char Char
+  , Filterable m, Alternative m, Monad m
+  ) => IsString (PP s s m () ()) where
+  fromString = terminal
+instance
+  ( Char ~ Item s, IsList s, Cons s s Char Char, AsEmpty s
+  , Filterable m, Alternative m, Monad m
+  ) => IsString (PP s s m s s) where
+  fromString = fromTokens
+instance BackusNaurForm (PP s t m a b)
 
 -- Parsor instances
 instance Functor f => Functor (Parsor s t f a) where
@@ -483,24 +490,25 @@ instance (Comonad f, Applicative f, Monoid s, BackusNaurForm t)
   ruleRec name = grammor . ruleRec name . dimap grammor evalGrammor
 
 -- Reador instances
-deriving newtype instance Functor (Reador f a)
-deriving newtype instance Applicative (Reador f a)
-deriving newtype instance Monad (Reador f a)
-deriving newtype instance (Alternative m, Monad m)
-  => Alternative (Reador m a)
-deriving newtype instance (Alternative m, Monad m)
-  => MonadPlus (Reador m a)
-instance (Alternative m, Filterable m, Monad m)
-  => Filterable (Reador m a) where
+deriving newtype instance Functor (Reador s f a)
+deriving newtype instance Applicative (Reador s f a)
+deriving newtype instance Monad (Reador s f a)
+deriving newtype instance (Alternative m, Monad m, IsList s, Cons s s (Item s) (Item s))
+  => Alternative (Reador s m a)
+deriving newtype instance (Alternative m, Monad m, IsList s, Cons s s (Item s) (Item s))
+  => MonadPlus (Reador s m a)
+instance (Alternative m, Filterable m, Monad m, IsList s, Cons s s (Item s) (Item s))
+  => Filterable (Reador s m a) where
   mapMaybe f
     = Reador . lift
     . mapMaybe f
     . lowerCodensity . unReador
-instance Profunctor (Reador f) where
+instance Profunctor (Reador s f) where
   dimap _ f (Reador p) = Reador (fmap f p)
-instance Bifunctor (Reador f) where
+instance Bifunctor (Reador s f) where
   bimap _ f (Reador p) = Reador (fmap f p)
-instance (Alternative m, Monad m) => Monadic m Reador where
+instance (Alternative m, Monad m, IsList s, Cons s s (Item s) (Item s))
+  => Monadic m (Reador s) where
   liftP m = Reador $ do
     s <- ask
     lift $ FinalT ((,s) <$> m)
@@ -508,57 +516,69 @@ instance (Alternative m, Monad m) => Monadic m Reador where
     a <- m
     c <- unReador (f a)
     return (a,c)
-instance (Alternative m, Monad m) => Choice (Reador m) where
+instance (Alternative m, Monad m, IsList s, Cons s s (Item s) (Item s))
+  => Choice (Reador s m) where
   left' = alternate . Left
   right' = alternate . Right
-instance (Alternative m, Monad m, Filterable m)
-  => Cochoice (Reador m) where
+instance (Alternative m, Monad m, Filterable m, IsList s, Cons s s (Item s) (Item s))
+  => Cochoice (Reador s m) where
   unleft = fst . filtrate
   unright = snd . filtrate
-instance (Alternative m, Monad m) => Distributor (Reador m)
-instance (Alternative m, Monad m) => Alternator (Reador m) where
+instance (Alternative m, Monad m, IsList s, Cons s s (Item s) (Item s))
+  => Distributor (Reador s m)
+instance (Alternative m, Monad m, IsList s, Cons s s (Item s) (Item s))
+  => Alternator (Reador s m) where
   alternate (Left (Reador p)) = Reador (fmap Left p)
   alternate (Right (Reador p)) = Reador (fmap Right p)
-instance (Alternative m, Filterable m, Monad m)
-  => Filtrator (Reador m) where
+instance (Alternative m, Filterable m, Monad m, IsList s, Cons s s (Item s) (Item s))
+  => Filtrator (Reador s m) where
   filtrate = mfiltrate
-instance (Alternative m, Filterable m, Monad m)
-  => Tokenized Char (Reador m Char Char) where
+instance
+  ( Alternative m, Filterable m, Monad m
+  , IsList s, Categorized c, c ~ Item s, Cons s s c c
+  ) => Tokenized c (Reador s m c c) where
   anyToken = Reador (lift (GetT return))
 instance
   ( Filterable m, Alternative m, Monad m
-  ) => TokenAlgebra Char (Reador m Char Char)
+  , IsList s, Categorized c, c ~ Item s, Cons s s c c
+  ) => TokenAlgebra c (Reador s m c c)
 instance
   ( Filterable m, Alternative m, Monad m
-  ) => TerminalSymbol Char (Reador m () ())
+  , IsList s, Categorized c, c ~ Item s, Cons s s c c
+  ) => TerminalSymbol c (Reador s m () ())
 instance
   ( Filterable m, Alternative m, Monad m
-  ) => IsString (Reador m () ()) where
+  , IsList s, Item s ~ Char, Cons s s Char Char
+  ) => IsString (Reador s m () ()) where
   fromString = terminal
 instance
   ( Filterable m, Alternative m, Monad m
-  , AsEmpty s, Cons s s Char Char
-  ) => IsString (Reador m s s) where
+  , IsList s, Item s ~ Char, AsEmpty s, Cons s s Char Char
+  ) => IsString (Reador s m s s) where
   fromString = fromTokens
-instance BackusNaurForm (Reador m a b)
-instance Matching String (Reador Maybe a b) where
+instance BackusNaurForm (Reador s m a b)
+instance (IsList s, Cons s s (Item s) (Item s), AsEmpty s)
+  => Matching s (Reador s Maybe a b) where
   word =~ reador = case runReador reador word of
     Nothing -> False
     Just (_,t) -> is _Empty t
 
 -- LookT instances
-deriving stock instance Functor f => Functor (LookT f)
-instance (Alternative m, Monad m) => Applicative (LookT m) where
+deriving stock instance Functor f => Functor (LookT s f)
+instance (Alternative m, Monad m, IsList s, Cons s s (Item s) (Item s))
+  => Applicative (LookT s m) where
   pure x = ResultT x (FinalT empty)
   (<*>) = ap
-instance (Alternative m, Monad m) => Monad (LookT m) where
+instance (Alternative m, Monad m, IsList s, Cons s s (Item s) (Item s))
+  => Monad (LookT s m) where
   GetT f >>= k = GetT $ \c -> f c >>= k
   LookT f >>= k = LookT $ \s -> f s >>= k
   ResultT x p >>= k = k x <|> (p >>= k)
   FinalT r >>= k = FinalT $ do
     (x,s) <- r
     runLookT (k x) s
-instance (Alternative m, Monad m) => MonadReader String (LookT m) where
+instance (Alternative m, Monad m, IsList s, Cons s s (Item s) (Item s))
+  => MonadReader s (LookT s m) where
   ask = LookT return
   local f = \case
     GetT k -> do
@@ -567,7 +587,7 @@ instance (Alternative m, Monad m) => MonadReader String (LookT m) where
     LookT k -> LookT (k . f)
     ResultT x p -> ResultT x (local f p)
     FinalT r -> FinalT r
-instance Filterable f => Filterable (LookT f) where
+instance Filterable f => Filterable (LookT s f) where
   mapMaybe f = \case
     GetT k -> GetT (mapMaybe f . k)
     LookT k -> LookT (mapMaybe f . k)
@@ -575,7 +595,8 @@ instance Filterable f => Filterable (LookT f) where
       Nothing -> id
       Just y -> ResultT y
     FinalT r -> FinalT (mapMaybe (\(a,s) -> (,s) <$> f a) r)
-instance (Alternative m, Monad m) => Alternative (LookT m) where
+instance (Alternative m, Monad m, IsList s, Cons s s (Item s) (Item s))
+  => Alternative (LookT s m) where
   empty = FinalT empty
   -- most common case: two gets are combined
   GetT f1 <|> GetT f2 = GetT (\c -> f1 c <|> f2 c)
