@@ -34,7 +34,6 @@ module Control.Lens.Bifocal
 
 import Control.Applicative
 import Control.Lens
-import Control.Lens.Internal.Equator
 import Control.Lens.Internal.Profunctor
 import Control.Lens.PartialIso
 import Data.Profunctor
@@ -137,7 +136,7 @@ chained assoc binPat nilPat = unwrapPafb . chain assoc binPat nilPat noSep . Wra
 withBifocal
   :: (Alternative f, Filterable f)
   => ABifocal s t a b -> ((s -> Maybe a) -> f b) -> f t
-withBifocal bif = unBinocular (catMaybes (bif (Just <$> equate)))
+withBifocal bif = unBinocular (catMaybes (bif (Just <$> Binocular ($ Just))))
 
 {- | `Binocular` provides an efficient
 concrete representation of `Bifocal`s. -}
@@ -146,8 +145,6 @@ newtype Binocular a b s t = Binocular
       :: forall f. (Alternative f, Filterable f)
       => ((s -> Maybe a) -> f b) -> f t
   }
-instance Equator a b (Binocular a b) where
-  equate = Binocular ($ Just)
 instance Profunctor (Binocular a b) where
   dimap f g (Binocular k) = Binocular $ fmap g . k . (. (. f))
 instance Functor (Binocular a b s) where fmap = rmap

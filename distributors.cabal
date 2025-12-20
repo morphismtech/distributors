@@ -38,7 +38,6 @@ library
       Control.Lens.Grammar.Symbol
       Control.Lens.Grammar.Token
       Control.Lens.Grate
-      Control.Lens.Internal.Equator
       Control.Lens.Internal.NestedPrismTH
       Control.Lens.Monocle
       Control.Lens.PartialIso
