@@ -69,6 +69,14 @@ class Tokenized token p => TokenAlgebra token p where
 
 --instances
 instance BooleanAlgebra (x -> Bool)
+instance Categorized token => TokenAlgebra token (token -> Bool) where
+  tokenClass (TokenTest exam) = case exam of
+    Fail -> const False
+    Pass -> const True
+    OneOf chars -> oneOf chars
+    NotOneOf chars (AsIn cat) -> notOneOf chars >&&< asIn cat
+    NotOneOf chars (NotAsIn cats) -> notOneOf chars >&&< allB notAsIn cats
+    Alternate exam1 exam2 -> tokenClass exam1 >||< tokenClass exam2
 instance (Applicative f, BooleanAlgebra bool)
   => BooleanAlgebra (Ap f bool)
 deriving stock instance Generic (TokenTest token)
