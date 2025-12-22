@@ -10,9 +10,6 @@ module Data.Profunctor.Grammar
   , evalPrintor
     -- * Grammor
   , Grammor (..)
-  , grammor
-  , evalGrammor
-  , evalGrammor_
     -- * Reador
   , Reador (..)
   , runReador
@@ -23,7 +20,6 @@ module Data.Profunctor.Grammar
 import Control.Applicative
 import Control.Arrow
 import Control.Category
-import Control.Comonad
 import Control.Monad.Codensity
 import Control.Monad.Reader
 import Control.Monad.State
@@ -62,13 +58,7 @@ printP (PP f) a = fmap snd . f (Just a)
 parseP :: PP s f a b -> s -> f (b,s)
 parseP (PP f) = f Nothing
 
-newtype Grammor s t f a b = Grammor {runGrammor :: s -> f t}
-grammor :: Applicative f => t -> Grammor s t f a b
-grammor = Grammor . pure . pure
-evalGrammor :: (Monoid s, Comonad f) => Grammor s t f a b -> t
-evalGrammor = extract . extract . runGrammor
-evalGrammor_ :: Grammor () t Identity a b -> t
-evalGrammor_ = evalGrammor
+newtype Grammor t a b = Grammor {runGrammor :: t}
 
 newtype Reador s f a b = Reador {unReador :: Codensity (LookT s f) b}
 runReador
@@ -404,64 +394,44 @@ instance (Alternative m, Monad m) => MonadFail (Printor s m a) where
   fail _ = empty
 
 -- Grammor instances
-instance Functor (Grammor s t f a) where fmap _ = coerce
-instance Contravariant (Grammor s t f a) where contramap _ = coerce
-instance Profunctor (Grammor s t f) where dimap _ _ = coerce
-instance Bifunctor (Grammor s t f) where bimap _ _ = coerce
-instance Choice (Grammor s t f) where
+instance Functor (Grammor t a) where fmap _ = coerce
+instance Contravariant (Grammor t a) where contramap _ = coerce
+instance Profunctor (Grammor t) where dimap _ _ = coerce
+instance Bifunctor (Grammor t) where bimap _ _ = coerce
+instance Choice (Grammor t) where
   left' = coerce
   right' = coerce
-instance Filterable (Grammor s t ((,) All) a) where
-  mapMaybe _ = Grammor . fmap (\(_, t) -> (All False, t)) . runGrammor
-instance Cochoice (Grammor s t ((,) All)) where
-  unleft = Grammor . fmap (\(_, t) -> (All False, t)) . runGrammor
-  unright = Grammor . fmap (\(_, t) -> (All False, t)) . runGrammor
-instance Filtrator (Grammor s t ((,) All)) where
-  filtrate (Grammor p) =
-    ( Grammor (fmap (\(_, t) -> (All False, t)) p)
-    , Grammor (fmap (\(_, t) -> (All False, t)) p)
-    )
-instance (Monoid t, Applicative f)
-  => Applicative (Grammor s t f a) where
-  pure _ = Grammor (pure (pure mempty))
-  Grammor rex1 <*> Grammor rex2 =
-    Grammor (liftA2 (liftA2 (<>)) rex1 rex2)
-instance (KleeneStarAlgebra t, Applicative f)
-  => Alternative (Grammor s t f a) where
-  empty = Grammor (pure (pure zeroK))
-  Grammor rex1 <|> Grammor rex2 =
-    Grammor (liftA2 (liftA2 (>|<)) rex1 rex2)
-  many (Grammor rex) = Grammor (fmap (fmap starK) rex)
-  some (Grammor rex) = Grammor (fmap (fmap plusK) rex)
-instance (KleeneStarAlgebra t, Applicative f)
-  => Distributor (Grammor s t f) where
-  zeroP = Grammor (pure (pure zeroK))
-  Grammor rex1 >+< Grammor rex2 =
-    Grammor (liftA2 (liftA2 (>|<)) rex1 rex2)
-  manyP (Grammor rex) = Grammor (fmap (fmap starK) rex)
-  optionalP (Grammor rex) = Grammor (fmap (fmap optK) rex)
-instance (KleeneStarAlgebra t, Applicative f)
-  => Alternator (Grammor s t f) where
+instance Monoid t => Applicative (Grammor t a) where
+  pure _ = Grammor mempty
+  Grammor rex1 <*> Grammor rex2 = Grammor (rex1 <> rex2)
+instance KleeneStarAlgebra t => Alternative (Grammor t a) where
+  empty = Grammor zeroK
+  Grammor rex1 <|> Grammor rex2 = Grammor (rex1 >|< rex2)
+  many (Grammor rex) = Grammor (starK rex)
+  some (Grammor rex) = Grammor (plusK rex)
+instance KleeneStarAlgebra t => Distributor (Grammor t) where
+  zeroP = Grammor zeroK
+  Grammor rex1 >+< Grammor rex2 = Grammor (rex1 >|< rex2)
+  manyP (Grammor rex) = Grammor (starK rex)
+  optionalP (Grammor rex) = Grammor (optK rex)
+instance KleeneStarAlgebra t => Alternator (Grammor t) where
   alternate = either coerce coerce
-  someP (Grammor rex) = Grammor (fmap (fmap plusK) rex)
-instance (Tokenized token t, Applicative f)
-  => Tokenized token (Grammor s t f a b) where
-  anyToken = grammor anyToken
-  token = grammor . token
-  oneOf = grammor . oneOf
-  notOneOf = grammor . notOneOf
-  asIn = grammor . asIn
-  notAsIn = grammor . notAsIn
-instance (TokenAlgebra a t, Applicative f)
-  => TokenAlgebra a (Grammor s t f a b) where
-  tokenClass = grammor . tokenClass
-instance (TerminalSymbol token t, Applicative f)
-  => TerminalSymbol token (Grammor s t f a b) where
-  terminal = grammor . terminal
-instance (Comonad f, Applicative f, Monoid s, BackusNaurForm t)
-  => BackusNaurForm (Grammor s t f a b) where
-  rule name = Grammor . fmap (fmap (rule name)) . runGrammor
-  ruleRec name = grammor . ruleRec name . dimap grammor evalGrammor
+  someP (Grammor rex) = Grammor (plusK rex)
+instance Tokenized token t => Tokenized token (Grammor t a b) where
+  anyToken = Grammor anyToken
+  token = Grammor . token
+  oneOf = Grammor . oneOf
+  notOneOf = Grammor . notOneOf
+  asIn = Grammor . asIn
+  notAsIn = Grammor . notAsIn
+instance TokenAlgebra a t => TokenAlgebra a (Grammor t a b) where
+  tokenClass = Grammor . tokenClass
+instance TerminalSymbol token t
+  => TerminalSymbol token (Grammor t a b) where
+  terminal = Grammor . terminal
+instance BackusNaurForm t => BackusNaurForm (Grammor t a b) where
+  rule name = Grammor . rule name . runGrammor
+  ruleRec name = Grammor . ruleRec name . dimap Grammor runGrammor
 
 -- Reador instances
 deriving newtype instance Functor (Reador s f a)

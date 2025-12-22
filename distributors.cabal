@@ -97,11 +97,9 @@ library
     , base >=4.7 && <5
     , bifunctors >=5.6 && <6
     , bytestring >=0.11 && <1
-    , comonad >=5.0.8 && <6
     , containers >=0.6 && <1
     , contravariant >=1.5 && <2
     , distributive >=0.6 && <1
-    , indexed-transformers >=0.1.0.4 && <1
     , kan-extensions >=5.2.5 && <6
     , lens >=5.2 && <6
     , mtl >=2.3 && <3
@@ -167,13 +165,11 @@ test-suite spec
     , base >=4.7 && <5
     , bifunctors >=5.6 && <6
     , bytestring >=0.11 && <1
-    , comonad >=5.0.8 && <6
     , containers >=0.6 && <1
     , contravariant >=1.5 && <2
     , distributive >=0.6 && <1
     , distributors
     , hspec
-    , indexed-transformers >=0.1.0.4 && <1
     , kan-extensions >=5.2.5 && <6
     , lens >=5.2 && <6
     , mtl >=2.3 && <3

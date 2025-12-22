@@ -60,7 +60,7 @@ main :: IO ()
 main = hspec $ do
   describe "regexGrammar" $ do
     it "should generate a correct grammar" $ do
-      evalGrammor_ regexGrammar `shouldBe` expectedRegexGrammar
+      runGrammor regexGrammar `shouldBe` expectedRegexGrammar
     for_ regexExamples $ \(rex, str) -> do
       it ("should print " <> show (runRegString rex) <> " correctly") $
         toList rex `shouldBe` str
