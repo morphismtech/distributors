@@ -582,11 +582,11 @@ instance (Alternative m, Monad m, IsList s, Cons s s (Item s) (Item s))
   FinalP r >>= k = FinalP $ do
     (x,s) <- r
     runLookP (k x) Nothing s
--- instance (Alternative m, Monad m, IsList s, Cons s s (Item s) (Item s))
---   => Monadic m (LookP s) where
---   liftP m = do
---     s <- LookP (\_ -> return)
---     FinalP $ (,s) <$> m
+instance (Alternative m, Monad m, IsList s, Cons s s (Item s) (Item s))
+  => Monadic m (LookP s) where
+  liftP m = do
+    s <- LookP (\_ -> return)
+    FinalP $ (,s) <$> m
 instance Filterable f => Filterable (LookP s f a) where
   mapMaybe f = \case
     ItemP l k -> ItemP l (mapMaybe f . k)
