@@ -26,7 +26,7 @@ import Prelude hiding ((>>=), (>>), (<$>), fail)
 
 (>>=) :: Monadic m p => p m a a -> (a -> p m b c) -> p m (a,b) (a,c)
 infixl 1 >>=
-(>>=) = bondM
+(>>=) = bondP
 
 (>>) :: Monadic m p => p m () () -> p m b c -> p m b c
 infixl 1 >>
