@@ -16,7 +16,6 @@ module Data.Profunctor.Monadic
 import Control.Category
 import Control.Arrow
 import Control.Lens
-import Control.Monad
 import Data.Profunctor
 import Prelude hiding (id, (.))
 
