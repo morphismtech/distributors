@@ -1,5 +1,3 @@
 resolver: lts-22.6
 packages:
 - .
-extra-deps:
-- indexed-transformers-0.1.0.4
