@@ -103,7 +103,11 @@ and produces the given token while printing.
 oneLike
   :: forall token p. (Profunctor p, Tokenized token (p token token))
   => token -> p () ()
-oneLike a = dimap (const a) (\(_::token) -> ()) (asIn (categorize a))
+oneLike a = dimap preF postF catA
+  where
+    preF _ = a
+    postF (_:: token) = ()
+    catA = asIn (categorize a)
 
 {- |
 `manyLike` consumes zero or more tokens
@@ -113,8 +117,11 @@ and produces no tokens printing.
 manyLike
   :: forall token p. (Distributor p, Tokenized token (p token token))
   => token -> p () ()
-manyLike a = dimap (\_ -> []::[token]) (\(_::[token]) -> ())
-  (manyP (asIn (categorize a)))
+manyLike a = dimap preF postF (manyP catA)
+  where
+    preF _ = []::[token]
+    postF (_::[token]) = ()
+    catA = asIn (categorize a)
 
 {- |
 `optLike` consumes zero or more tokens
@@ -124,8 +131,11 @@ and produces the given token while printing.
 optLike
   :: forall token p. (Distributor p, Tokenized token (p token token))
   => token -> p () ()
-optLike a = dimap (\_ -> [a]::[token]) (\(_::[token]) -> ())
-  (manyP (asIn (categorize a)))
+optLike a = dimap preF postF (manyP catA)
+  where
+    preF _ = [a]::[token]
+    postF (_::[token]) = ()
+    catA = asIn (categorize a)
 
 {- |
 `someLike` consumes one or more tokens
@@ -135,5 +145,8 @@ and produces the given token while printing.
 someLike
   :: forall token p. (Distributor p, Tokenized token (p token token))
   => token -> p () ()
-someLike a = dimap (const (a, [] :: [token])) (\(_::token, _::[token]) -> ())
-  (asIn (categorize a) >*< manyP (asIn (categorize a)))
+someLike a = dimap preF postF (catA >*< manyP catA)
+  where
+    preF _ = (a, []::[token])
+    postF (_::token, _::[token]) = ()
+    catA = asIn (categorize a)
