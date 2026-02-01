@@ -1,6 +1,6 @@
 {-|
-Module      : Control.Lens.Grammar.Do
-Description : monadic pair-bonding do-notation
+Module      : Data.Profunctor.Monadic
+Description : monadic profunctors
 Copyright   : (C) 2025 - Eitan Chatav
 License     : BSD-style (see the file LICENSE)
 Maintainer  : Eitan Chatav <eitan.chatav@gmail.com>
@@ -22,6 +22,9 @@ import Prelude hiding ((>>=), (>>))
 
 type Monadic p = (Profunctor p, forall x. Monad (p x))
 
+{- | See Li-yao Xia [Monadic profunctors for bidirectional programming]
+(https://blog.poisson.chat/posts/2017-01-01-monadic-profunctors.html)
+-}
 (>>=) :: Monadic p => p a b -> (b -> p c d) -> p (a,c) (b,d)
 infixl 1 >>=
 p >>= f = do
