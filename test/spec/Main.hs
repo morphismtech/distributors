@@ -33,7 +33,6 @@ expectedRegexGrammar = Bnf
     ]
   }
 
-
 regexExamples :: [(RegString, String)]
 regexExamples =
   [ (terminal "abc123etc.", "abc123etc.")
