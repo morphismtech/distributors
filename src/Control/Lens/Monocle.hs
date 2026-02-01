@@ -68,7 +68,7 @@ prop> traverse = ditraversed
 prop> cotraversed = ditraversed
 -}
 ditraversed :: (Traversable g, Distributive g) => Monocle (g a) (g b) a b
-ditraversed = unwrapPafb . replicateP . WrapPafb
+ditraversed = unwrapPafb . ditraverse . WrapPafb
 
 {- | Repeat action indefinitely. -}
 forevered :: Monocle s t () b

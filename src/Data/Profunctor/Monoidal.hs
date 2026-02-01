@@ -4,8 +4,8 @@ module Data.Profunctor.Monoidal
   ( -- * Monoidal
     Monoidal
   , oneP, (>*<), (>*), (*<)
-  , dimap2, foreverP, replicateP
-  , (>:<), asEmpty, replicateN
+  , dimap2, foreverP, ditraverse
+  , (>:<), asEmpty, replicateP
   , meander, eotFunList
   ) where
 
@@ -95,16 +95,16 @@ foreverP a = let a' = a >* a' in a'
 
 {- | Thanks to Fy on Monoidal Café Discord.
 
-`replicateP` is roughly analagous to `replicateM`,
+`ditraverse` is roughly analagous to `replicateM`,
 repeating an action a number of times.
 However, instead of an `Int` term, it expects
 a `Traversable` & `Distributive` type. Such a
 type is a homogeneous countable product.
 -}
-replicateP
+ditraverse
   :: (Traversable t, Distributive t, Monoidal p)
   => p a b -> p (t a) (t b)
-replicateP p = traverse (\f -> lmap f p) (distribute id)
+ditraverse p = traverse (\f -> lmap f p) (distribute id)
 
 {- | A `Monoidal` nil operator. -}
 asEmpty :: (AsEmpty s, Monoidal p, Choice p) => p s s
@@ -115,11 +115,11 @@ asEmpty = _Empty >? oneP
 x >:< xs = _Cons >? x >*< xs
 infixr 5 >:<
 
-replicateN
+replicateP
   :: (Monoidal p, Choice p, AsEmpty s, AsEmpty t, Cons s t a b)
   => Int -> p a b -> p s t
-replicateN n _ | n <= 0 = lmap (const Empty) asEmpty
-replicateN n a = a >:< replicateN (n-1) a
+replicateP n _ | n <= 0 = lmap (const Empty) asEmpty
+replicateP n a = a >:< replicateP (n-1) a
 
 {- | For any `Monoidal`, `Choice` & `Strong` `Profunctor`,
 `meander` is invertible and gives a default implementation for the

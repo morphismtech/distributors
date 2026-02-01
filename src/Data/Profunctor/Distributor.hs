@@ -213,7 +213,7 @@ class Traversable t => Homogeneous t where
   Any `Traversable` & `Distributive` countable product
   can be given a default implementation for the `homogeneously` method.
 
-  prop> homogeneously = replicateP
+  prop> homogeneously = ditraverse
 
   And any user-defined homogeneous algebraic datatype has
   a default instance for `Homogeneous`, by deriving `Generic1`.
