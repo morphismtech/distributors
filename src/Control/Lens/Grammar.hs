@@ -6,7 +6,7 @@ module Control.Lens.Grammar
   , RegString (..)
   , RegBnf (..)
   , regexGrammar
-  , regBnfGrammar
+  , regbnfGrammar
   ) where
 
 import Control.Applicative
@@ -191,8 +191,8 @@ charG = rule "char" $
       , ("ST", '\x9C'), ("OSC", '\x9D'), ("PM", '\x9E'), ("APC", '\x9F')
       ]
 
-regBnfGrammar :: Grammar Char RegBnf
-regBnfGrammar = rule "reg-bnf" $ _RegBnf . _Bnf >~
+regbnfGrammar :: Grammar Char RegBnf
+regbnfGrammar = rule "reg-bnf" $ _RegBnf . _Bnf >~
   terminal "{start} = " >* regexGrammar
     >*< several noSep (terminal "\n" >* ruleG)
   where
@@ -224,13 +224,13 @@ instance IsList RegBnf where
     = fromMaybe zeroK
     . listToMaybe
     . mapMaybe prsF
-    . parseP regBnfGrammar
+    . parseP regbnfGrammar
     where
-      prsF (regBnf,"") = Just regBnf
+      prsF (regbnf,"") = Just regbnf
       prsF _ = Nothing
   toList
     = maybe "{start} = []" ($ "")
-    . printP regBnfGrammar
+    . printP regbnfGrammar
 instance IsString RegBnf where
   fromString = fromList
 instance Show RegBnf where
