@@ -107,7 +107,7 @@ exprG rex = rule "expression" $ choiceP
 
 anyG :: Grammar Char ()
 anyG = rule "any-token" $ choiceP $ map terminal
-  [".", "[^]", "\\P{}", "[^\\P{}]"]
+  ["[^]", "\\P{}", "[^\\P{}]"]
 
 atomG :: Grammarr Char (RegEx Char) (RegEx Char)
 atomG rex = rule "atom" $ choiceP
@@ -207,7 +207,7 @@ charsControl =
   ]
 
 failG :: Grammar Char ()
-failG = rule "fail" $ terminal "\\q" <|> terminal "[]"
+failG = rule "fail" $ terminal "[]"
 
 ruleG :: Grammar Char (String, RegEx Char)
 ruleG = rule "rule" $ manyP charG >*< terminal " = " >* regexGrammar
@@ -241,7 +241,7 @@ instance IsList RegString where
       prsF (rex,"") = Just (RegString rex)
       prsF _ = Nothing
   toList
-    = maybe "\\q" ($ "")
+    = maybe "[]" ($ "")
     . printP regexGrammar
     . runRegString
 instance IsString RegString where
@@ -261,7 +261,7 @@ instance IsList RegBnfString where
       prsF (ebnf,"") = Just (RegBnfString ebnf)
       prsF _ = Nothing
   toList
-    = maybe "{start} = \\q" ($ "")
+    = maybe "{start} = []" ($ "")
     . printP ebnfGrammar
     . runRegBnfString
 instance IsString RegBnfString where

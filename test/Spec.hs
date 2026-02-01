@@ -18,7 +18,7 @@ expectedRegexGrammar = Bnf
   { startBnf = fromString "\\q{regex}"
   , rulesBnf = fromList $ map (second' fromString)
     [ ("alternate","\\q{sequence}(\\|\\q{sequence})*")
-    , ("any-token","\\.|\\[\\^\\]|\\\\P\\{\\}|\\[\\^\\\\P\\{\\}\\]")
+    , ("any-token","\\[\\^\\]|\\\\P\\{\\}|\\[\\^\\\\P\\{\\}\\]")
     , ("atom","(\\\\q\\{)\\q{char}*\\}|\\q{char}|\\q{fail}|\\q{any-token}|\\[\\q{char}+\\]|(\\[\\^)\\q{char}+(\\q{category-test}?\\])|\\q{category-test}|\\(\\q{regex}\\)")
     , ("category","Ll|Lu|Lt|Lm|Lo|Mn|Mc|Me|Nd|Nl|No|Pc|Pd|Ps|Pe|Pi|Pf|Po|Sm|Sc|Sk|So|Zs|Zl|Zp|Cc|Cf|Cs|Co|Cn")
     , ("category-test","(\\\\p\\{)\\q{category}\\}|(\\\\P\\{)(\\q{category}(\\|\\q{category})*)\\}")
@@ -26,7 +26,7 @@ expectedRegexGrammar = Bnf
     , ("char-control-abbrev","NUL|SOH|STX|ETX|EOT|ENQ|ACK|BEL|BS|HT|LF|VT|FF|CR|SO|SI|DLE|DC1|DC2|DC3|DC4|NAK|SYN|ETB|CAN|EM|SUB|ESC|FS|GS|RS|US|DEL|PAD|HOP|BPH|NBH|IND|NEL|SSA|ESA|HTS|HTJ|VTS|PLD|PLU|RI|SS2|SS3|DCS|PU1|PU2|STS|CCH|MW|SPA|EPA|SOS|SGCI|SCI|CSI|ST|OSC|PM|APC")
     , ("char-escaped","[\\$\\(\\)\\*\\+\\.\\?\\[\\\\\\]\\^\\{\\|\\}]|\\q{char-control-abbrev}")
     , ("expression","\\q{atom}\\?|\\q{atom}\\*|\\q{atom}\\+|\\q{atom}")
-    , ("fail","\\\\q|\\[\\]")
+    , ("fail","\\[\\]")
     , ("regex","\\q{alternate}")
     , ("sequence","\\q{char}*|\\q{expression}*")
     ]
@@ -37,12 +37,12 @@ regexExamples :: [(RegString, String)]
 regexExamples =
   [ (terminal "abc123etc.", "abc123etc\\.")
   , (terminal "x" <> terminal "y", "xy")
-  , (zeroK, "\\q")
+  , (zeroK, "[]")
   , (terminal "x" >|< terminal "y", "x|y")
   , (optK (terminal "x"), "x?")
   , (starK (terminal "x"), "x*")
   , (plusK (terminal "x"), "x+")
-  , (anyToken, ".")
+  , (anyToken, "[^]")
   , (oneOf "abc", "[abc]")
   , (notOneOf "abc", "[^abc]")
   , (asIn UppercaseLetter, "\\p{Lu}")
