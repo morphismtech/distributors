@@ -11,6 +11,7 @@ import Control.Monad
 import Data.Profunctor
 import Data.Profunctor.Distributor
 import Data.Profunctor.Monad
+import Data.Profunctor.Monadic (Monadic)
 import Data.Profunctor.Yoneda
 import Witherable
 
@@ -48,7 +49,7 @@ class (Cochoice p, forall x. Filterable (p x))
 --
 -- prop> mfiltrate = filtrate
 mfiltrate
-  :: (Alternator p, forall x. Monad (p x))
+  :: (Monadic p, Alternator p)
   => p (Either a c) (Either b d)
   -> (p a b, p c d)
 mfiltrate =
