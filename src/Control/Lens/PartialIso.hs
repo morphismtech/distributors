@@ -283,7 +283,7 @@ iterating pattern = withPartialIso pattern $ \f g ->
   iso (iter f) (iter g) where
     iter h state = maybe state (iter h) (h state)
 
-{- | Left fold & unfold `PartialIso` to an `Control.Lens.Iso.Iso`. -}
+{- | Left fold & unfold `APartialIso` to an `Control.Lens.Iso.Iso`. -}
 difoldl1
   :: Cons s t a b
   => APartialIso d c (d,b) (c,a)
@@ -315,22 +315,22 @@ difoldr1 pattern =
       . crossPartialIso id (coPartialIso pattern)
   in from (iterating step)
 
-{- | Left fold & unfold `PartialIso` to a `PartialIso`. -}
+{- | Left fold & unfold `APartialIso` to a `Prism`. -}
 difoldl
   :: (AsEmpty t, Cons s t a b)
   => APartialIso d c (d,b) (c,a)
   -> Prism d c (d,t) (c,s)
 difoldl pattern
-  = dimap (, Empty) (fmap fst)
+  = dimap (,Empty) (fmap fst)
   . difoldl1 pattern
 
-{- | Right fold & unfold `APartialIso` to a `PartialIso`. -}
+{- | Right fold & unfold `APartialIso` to a `Prism`. -}
 difoldr
   :: (AsEmpty t, Cons s t a b)
   => APartialIso d c (b,d) (a,c)
   -> Prism d c (t,d) (s,c)
 difoldr pattern
-  = dimap (Empty, ) (fmap snd)
+  = dimap (Empty,) (fmap snd)
   . difoldr1 pattern
 
 -- Orphanage --
