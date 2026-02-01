@@ -2,11 +2,11 @@ module Control.Lens.Grammar
   ( RegGrammar
   , Grammar
   , CtxGrammar
-  , Regular
   , RegString (..)
-  , RegBnf (..)
+  , RegBnfString (..)
   , regexGrammar
-  , regBnfGrammar
+  , ebnfGrammar
+  , Tokenizor
   ) where
 
 import Control.Applicative
@@ -30,53 +30,36 @@ import GHC.Exts
 import Prelude hiding (filter)
 import Witherable
 
-type RegGrammar token a = forall p. Regular token p => p a a
-type Grammar token a = forall p.
-  ( Regular token p
-  , forall x. BackusNaurForm (p x x)
-  ) => p a a
-type CtxGrammar token a = forall p.
-  ( Regular token p
-  , forall x. BackusNaurForm (p x x)
-  , Monadic p
-  , Filtrator p
-  ) => p a a
-type Regular token p =
-  ( forall x y. (x ~ (), y ~ ()) => TerminalSymbol token (p x y)
-  , forall x y. (x ~ token, y ~ token) => TokenAlgebra token (p x y)
-  , Alternator p
-  ) :: Constraint
-
-newtype RegString = RegString {runRegString :: RegEx Char}
-  deriving newtype
-    ( Eq, Ord
-    , Semigroup, Monoid, KleeneStarAlgebra
-    , Tokenized Char, TokenAlgebra Char
-    , TerminalSymbol Char, NonTerminalSymbol
-    , Matching String
-    )
-
-newtype RegBnf = RegBnf {runRegBnf :: Bnf RegString}
-  deriving newtype
-    ( Eq, Ord
-    , Semigroup, Monoid, KleeneStarAlgebra
-    , Tokenized Char, TokenAlgebra Char
-    , TerminalSymbol Char, NonTerminalSymbol
-    , BackusNaurForm
-    )
-instance Matching String RegBnf where
-  word =~ pattern = word =~ liftBnf1 runRegString (runRegBnf pattern)
-
 makeNestedPrisms ''Bnf
 makeNestedPrisms ''RegEx
 makeNestedPrisms ''RegExam
 makeNestedPrisms ''CategoryTest
 makeNestedPrisms ''GeneralCategory
-makeNestedPrisms ''RegString
-makeNestedPrisms ''RegBnf
 
-regexGrammar :: Grammar Char RegString
-regexGrammar = _RegString >~ ruleRec "regex" altG
+type RegGrammar token a = forall p.
+  ( Tokenizor token p
+  , Alternator p
+  ) => p a a
+type Grammar token a = forall p.
+  ( Tokenizor token p
+  , forall x. BackusNaurForm (p x x)
+  , Alternator p
+  ) => p a a
+type CtxGrammar token a = forall p.
+  ( Tokenizor token p
+  , forall x. BackusNaurForm (p x x)
+  , Monadic p
+  , Alternator p
+  , Filtrator p
+  ) => p a a
+
+type Tokenizor token p =
+  ( forall x y. (x ~ (), y ~ ()) => TerminalSymbol token (p x y)
+  , forall x y. (x ~ token, y ~ token) => TokenAlgebra token (p x y)
+  ) :: Constraint
+
+regexGrammar :: Grammar Char (RegEx Char)
+regexGrammar = ruleRec "regex" altG
   where
     altG rex = rule "alternate" $
       chain1 Left (_RegExam . _Alternate) (sepBy (terminal "|")) (seqG rex)
@@ -164,7 +147,7 @@ charG = rule "char" $
     charEscapedG = rule "char-escaped" $
       oneOf charsReserved <|> charControlG
 
-    charsReserved = "()*+?[\\]^{|}"
+    charsReserved = "$()*+?[\\]^{|}"
 
     charControlG = rule "char-control" $ choiceP
       [ terminal abbreviation >* pure charControl
@@ -191,13 +174,31 @@ charG = rule "char" $
       , ("ST", '\x9C'), ("OSC", '\x9D'), ("PM", '\x9E'), ("APC", '\x9F')
       ]
 
-regBnfGrammar :: Grammar Char RegBnf
-regBnfGrammar = rule "reg-bnf" $ _RegBnf . _Bnf >~
+ebnfGrammar :: Grammar Char (Bnf (RegEx Char))
+ebnfGrammar = rule "ebnf" $ _Bnf >~
   terminal "{start} = " >* regexGrammar
     >*< several noSep (terminal "\n" >* ruleG)
   where
     ruleG = rule "rule" $ terminal "{" >* manyP charG *< terminal "} = "
       >*< regexGrammar
+
+newtype RegString = RegString {runRegString :: RegEx Char}
+  deriving newtype
+    ( Eq, Ord
+    , Semigroup, Monoid, KleeneStarAlgebra
+    , Tokenized Char, TokenAlgebra Char
+    , TerminalSymbol Char, NonTerminalSymbol
+    , Matching String
+    )
+
+newtype RegBnfString = RegBnfString {runRegBnfString :: Bnf (RegEx Char)}
+  deriving newtype
+    ( Eq, Ord
+    , Semigroup, Monoid, KleeneStarAlgebra
+    , Tokenized Char, TokenAlgebra Char
+    , TerminalSymbol Char, NonTerminalSymbol
+    , BackusNaurForm, Matching String
+    )
 
 instance IsList RegString where
   type Item RegString = Char
@@ -207,33 +208,35 @@ instance IsList RegString where
     . mapMaybe prsF
     . parseP regexGrammar
     where
-      prsF (rex,"") = Just rex
+      prsF (rex,"") = Just (RegString rex)
       prsF _ = Nothing
   toList
     = maybe "[]" ($ "")
     . printP regexGrammar
+    . runRegString
 instance IsString RegString where
   fromString = fromList
 instance Show RegString where
   showsPrec precision = showsPrec precision . toList
 instance Read RegString where
   readsPrec _ str = [(fromList str, "")]
-instance IsList RegBnf where
-  type Item RegBnf = Char
+instance IsList RegBnfString where
+  type Item RegBnfString = Char
   fromList
     = fromMaybe zeroK
     . listToMaybe
     . mapMaybe prsF
-    . parseP regBnfGrammar
+    . parseP ebnfGrammar
     where
-      prsF (regBnf,"") = Just regBnf
+      prsF (ebnf,"") = Just (RegBnfString ebnf)
       prsF _ = Nothing
   toList
     = maybe "{start} = []" ($ "")
-    . printP regBnfGrammar
-instance IsString RegBnf where
+    . printP ebnfGrammar
+    . runRegBnfString
+instance IsString RegBnfString where
   fromString = fromList
-instance Show RegBnf where
+instance Show RegBnfString where
   showsPrec precision = showsPrec precision . toList
-instance Read RegBnf where
+instance Read RegBnfString where
   readsPrec _ str = [(fromList str, "")]
