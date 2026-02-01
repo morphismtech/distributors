@@ -76,7 +76,7 @@ regexGrammar = ruleRec "regex" altG
       , atomG rex
       ]
 
-    anyG = rule "any-token" $ choiceP $ map terminal
+    anyG = rule "char-any" $ choiceP $ map terminal
       ["[^]", "\\P{}", "[^\\P{}]"]
 
     atomG rex = rule "atom" $ choiceP
