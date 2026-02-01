@@ -119,27 +119,32 @@ instance (Alternative m, Monad m) => ArrowChoice (Parsor s m) where
   left = left'
   right = right'
 instance
-  ( Categorized a, a ~ Item s, IsList s, Cons s s a a
+  ( Categorized a, a ~ Item s, IsList s
+  , Cons s s a a, Snoc s s a a
   , Filterable m, Alternative m, Monad m
   ) => Tokenized a (Parsor s m a a) where
     anyToken = Parsor $ maybe
       (maybe empty pure . uncons)
-      (\a -> pure . (a,) . cons a)
+      (\a -> pure . (a,) . flip snoc a)
 instance
-  ( Categorized a, a ~ Item s, IsList s, Cons s s a a
+  ( Categorized a, a ~ Item s, IsList s
+  , Cons s s a a, Snoc s s a a
   , Filterable m, Alternative m, Monad m
   ) => TokenAlgebra a (Parsor s m a a)
 instance
-  ( Categorized a, a ~ Item s, IsList s, Cons s s a a
+  ( Categorized a, a ~ Item s, IsList s
+  , Cons s s a a, Snoc s s a a
   , Filterable m, Alternative m, Monad m
   ) => TerminalSymbol a (Parsor s m () ()) where
 instance
-  ( Char ~ Item s, IsList s, Cons s s Char Char
+  ( Char ~ Item s, IsList s
+  , Cons s s Char Char, Snoc s s Char Char
   , Filterable m, Alternative m, Monad m
   ) => IsString (Parsor s m () ()) where
   fromString = terminal
 instance
-  ( Char ~ Item s, IsList s, Cons s s Char Char, AsEmpty s
+  ( Char ~ Item s, IsList s
+  , Cons s s Char Char, Snoc s s Char Char, AsEmpty s
   , Filterable m, Alternative m, Monad m
   ) => IsString (Parsor s m s s) where
   fromString = fromTokens
@@ -227,7 +232,6 @@ instance
   , Filterable m, Alternative m, Monad m
   ) => Tokenized a (Printor s m a a) where
   anyToken = Printor (\b -> pure (b, cons b))
-  -- anyToken = Printor (\a -> pure (\s -> (uncons s, cons a s)))
 instance
   ( Categorized a, a ~ Item s, IsList s, Cons s s a a
   , Filterable m, Alternative m, Monad m
