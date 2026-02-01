@@ -21,7 +21,6 @@ import Control.Lens.Grammar.Boole
 import Control.Lens.Grammar.Kleene
 import Control.Lens.Grammar.Token
 import Control.Lens.Grammar.Symbol
-import Control.Monad
 import Data.Maybe hiding (mapMaybe)
 import Data.Monoid
 import Data.Profunctor.Distributor
@@ -50,16 +49,13 @@ type Grammar token a = forall p.
   , forall x. BackusNaurForm (p x x)
   , Alternator p
   ) => p a a
-type CtxGrammar token a = forall p m.
-  ( Tokenizor token (p m)
-  , forall x. BackusNaurForm (p m x x)
-  , Alternator (p m)
-  , Filtrator (p m)
-  , Monadic m p
-  , Alternative m
-  , Filterable m
-  , Monad m
-  ) => p m a a
+type CtxGrammar token a = forall p.
+  ( Tokenizor token p
+  , forall x. BackusNaurForm (p x x)
+  , Monadic p
+  , Alternator p
+  , Filtrator p
+  ) => p a a
 
 type RegGrammarr token a b = forall p.
   ( Tokenizor token p
@@ -70,16 +66,13 @@ type Grammarr token a b = forall p.
   , forall x. BackusNaurForm (p x x)
   , Alternator p
   ) => p a a -> p b b
-type CtxGrammarr token a b = forall p m.
-  ( Tokenizor token (p m)
-  , forall x. BackusNaurForm (p m x x)
-  , Alternator (p m)
-  , Filtrator (p m)
-  , Monadic m p
-  , Alternative m
-  , Filterable m
-  , Monad m
-  ) => p m a a -> p m b b
+type CtxGrammarr token a b = forall p.
+  ( Tokenizor token p
+  , forall x. BackusNaurForm (p x x)
+  , Monadic p
+  , Alternator p
+  , Filtrator p
+  ) => p a a -> p b b
 
 type Tokenizor token p =
   ( forall x y. (x ~ (), y ~ ()) => TerminalSymbol token (p x y)
@@ -243,13 +236,13 @@ instance IsList RegString where
     = fromMaybe zeroK
     . listToMaybe
     . mapMaybe prsF
-    . runReador regexGrammar
+    . parseP regexGrammar
     where
       prsF (rex,"") = Just (RegString rex)
       prsF _ = Nothing
   toList
     = maybe "\\q" ($ "")
-    . evalPrintor regexGrammar
+    . printP regexGrammar
     . runRegString
 instance IsString RegString where
   fromString = fromList
@@ -263,13 +256,13 @@ instance IsList RegBnfString where
     = fromMaybe zeroK
     . listToMaybe
     . mapMaybe prsF
-    . runReador ebnfGrammar
+    . parseP ebnfGrammar
     where
       prsF (ebnf,"") = Just (RegBnfString ebnf)
       prsF _ = Nothing
   toList
     = maybe "{start} = \\q" ($ "")
-    . evalPrintor ebnfGrammar
+    . printP ebnfGrammar
     . runRegBnfString
 instance IsString RegBnfString where
   fromString = fromList
