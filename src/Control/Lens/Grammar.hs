@@ -1,15 +1,11 @@
 module Control.Lens.Grammar
-  ( -- * RegEx
-    RegString (..)
-  , RegBnfString (..)
-  , RegGrammar
-  , RegGrammarr
-  , ebnfGrammar
+  ( RegGrammar
   , Grammar
-  , Grammarr
-  , regexGrammar
   , CtxGrammar
-  , CtxGrammarr
+  , RegString (..)
+  , RegBnfString (..)
+  , regexGrammar
+  , ebnfGrammar
   , Tokenizor
   ) where
 
@@ -57,23 +53,6 @@ type CtxGrammar token a = forall p.
   , Filtrator p
   ) => p a a
 
-type RegGrammarr token a b = forall p.
-  ( Tokenizor token p
-  , Alternator p
-  ) => p a a -> p b b
-type Grammarr token a b = forall p.
-  ( Tokenizor token p
-  , forall x. BackusNaurForm (p x x)
-  , Alternator p
-  ) => p a a -> p b b
-type CtxGrammarr token a b = forall p.
-  ( Tokenizor token p
-  , forall x. BackusNaurForm (p x x)
-  , Monadic p
-  , Alternator p
-  , Filtrator p
-  ) => p a a -> p b b
-
 type Tokenizor token p =
   ( forall x y. (x ~ (), y ~ ()) => TerminalSymbol token (p x y)
   , forall x y. (x ~ token, y ~ token) => TokenAlgebra token (p x y)
@@ -81,136 +60,127 @@ type Tokenizor token p =
 
 regexGrammar :: Grammar Char (RegEx Char)
 regexGrammar = ruleRec "regex" altG
+  where
+    altG rex = rule "alternate" $
+      chain1 Left (_RegExam . _Alternate) (sepBy (terminal "|")) (seqG rex)
 
-ebnfGrammar :: Grammar Char (Bnf (RegEx Char))
-ebnfGrammar = rule "ebnf" $ _Bnf >~
-  terminal "start = " >* regexGrammar
-    >*< several noSep (terminal "\n" >* ruleG)
+    seqG rex = rule "sequence" $ choiceP
+      [ _Terminal >? manyP charG
+      , chain Left _Sequence (_Terminal . _Empty) noSep (exprG rex)
+      ]
 
-altG :: Grammarr Char (RegEx Char) (RegEx Char)
-altG rex = rule "alternate" $
-  chain1 Left (_RegExam . _Alternate) (sepBy (terminal "|")) (seqG rex)
+    exprG rex = rule "expression" $ choiceP
+      [ _KleeneOpt >? atomG rex *< terminal "?"
+      , _KleeneStar >? atomG rex *< terminal "*"
+      , _KleenePlus >? atomG rex *< terminal "+"
+      , atomG rex
+      ]
 
-seqG :: Grammarr Char (RegEx Char) (RegEx Char)
-seqG rex = rule "sequence" $ choiceP
-  [ _Terminal >? manyP charG
-  , chain Left _Sequence (_Terminal . _Empty) noSep (exprG rex)
-  ]
+    anyG = rule "any-token" $ choiceP $ map terminal
+      ["[^]", "\\P{}", "[^\\P{}]"]
 
-exprG :: Grammarr Char (RegEx Char) (RegEx Char)
-exprG rex = rule "expression" $ choiceP
-  [ _KleeneOpt >? atomG rex *< terminal "?"
-  , _KleeneStar >? atomG rex *< terminal "*"
-  , _KleenePlus >? atomG rex *< terminal "+"
-  , atomG rex
-  ]
+    atomG rex = rule "atom" $ choiceP
+      [ _NonTerminal >? terminal "\\q{" >* manyP charG *< terminal "}"
+      , _Terminal >? charG >:< asEmpty
+      , _RegExam >? classG
+      , terminal "(" >* rex *< terminal ")"
+      ]
 
-anyG :: Grammar Char ()
-anyG = rule "any-token" $ choiceP $ map terminal
-  ["[^]", "\\P{}", "[^\\P{}]"]
+    catTestG = rule "category-test" $ choiceP
+      [ _AsIn >? terminal "\\p{" >* categoryG *< terminal "}"
+      , _NotAsIn >? terminal "\\P{" >*
+          several1 (sepBy (terminal "|")) categoryG
+            *< terminal "}"
+      ]
 
-atomG :: Grammarr Char (RegEx Char) (RegEx Char)
-atomG rex = rule "atom" $ choiceP
-  [ _NonTerminal >? terminal "\\q{" >* manyP charG *< terminal "}"
-  , _Terminal >? charG >:< asEmpty
-  , _RegExam . _Fail >? failG
-  , _RegExam . _Pass >? anyG
-  , _RegExam . _OneOf >?
-      terminal "[" >* several1 noSep charG *< terminal "]"
-  , _RegExam . _NotOneOf >?
-      terminal "[^" >* several1 noSep charG
-        >*< (catTestG <|> pure (NotAsIn Set.empty))
-        *< terminal "]"
-  , _RegExam . _NotOneOf >? pure Set.empty >*< catTestG
-  , terminal "(" >* rex *< terminal ")"
-  ]
+    categoryG = rule "category" $ choiceP
+      [ _LowercaseLetter >? terminal "Ll"
+      , _UppercaseLetter >? terminal "Lu"
+      , _TitlecaseLetter >? terminal "Lt"
+      , _ModifierLetter >? terminal "Lm"
+      , _OtherLetter >? terminal "Lo"
+      , _NonSpacingMark >? terminal "Mn"
+      , _SpacingCombiningMark >? terminal "Mc"
+      , _EnclosingMark >? terminal "Me"
+      , _DecimalNumber >? terminal "Nd"
+      , _LetterNumber >? terminal "Nl"
+      , _OtherNumber >? terminal "No"
+      , _ConnectorPunctuation >? terminal "Pc"
+      , _DashPunctuation >? terminal "Pd"
+      , _OpenPunctuation >? terminal "Ps"
+      , _ClosePunctuation >? terminal "Pe"
+      , _InitialQuote >? terminal "Pi"
+      , _FinalQuote >? terminal "Pf"
+      , _OtherPunctuation >? terminal "Po"
+      , _MathSymbol >? terminal "Sm"
+      , _CurrencySymbol >? terminal "Sc"
+      , _ModifierSymbol >? terminal "Sk"
+      , _OtherSymbol >? terminal "So"
+      , _Space >? terminal "Zs"
+      , _LineSeparator >? terminal "Zl"
+      , _ParagraphSeparator >? terminal "Zp"
+      , _Control >? terminal "Cc"
+      , _Format >? terminal "Cf"
+      , _Surrogate >? terminal "Cs"
+      , _PrivateUse >? terminal "Co"
+      , _NotAssigned >? terminal "Cn"
+      ]
 
-catTestG :: Grammar Char (CategoryTest Char)
-catTestG = rule "category-test" $ choiceP
-  [ _AsIn >? terminal "\\p{" >* categoryG *< terminal "}"
-  , _NotAsIn >? terminal "\\P{" >*
-      several1 (sepBy (terminal "|")) categoryG
-        *< terminal "}"
-  ]
+    classG = rule "char-class" $ choiceP
+      [ _Fail >? failG
+      , _Pass >? anyG
+      , _OneOf >? terminal "[" >* several1 noSep charG *< terminal "]"
+      , _NotOneOf >?
+          terminal "[^" >* several1 noSep charG
+            >*< (catTestG <|> pure (NotAsIn Set.empty))
+            *< terminal "]"
+      , _NotOneOf >? pure Set.empty >*< catTestG
+      ]
 
-categoryG :: Grammar Char GeneralCategory
-categoryG = rule "category" $ choiceP
-  [ _LowercaseLetter >? terminal "Ll"
-  , _UppercaseLetter >? terminal "Lu"
-  , _TitlecaseLetter >? terminal "Lt"
-  , _ModifierLetter >? terminal "Lm"
-  , _OtherLetter >? terminal "Lo"
-  , _NonSpacingMark >? terminal "Mn"
-  , _SpacingCombiningMark >? terminal "Mc"
-  , _EnclosingMark >? terminal "Me"
-  , _DecimalNumber >? terminal "Nd"
-  , _LetterNumber >? terminal "Nl"
-  , _OtherNumber >? terminal "No"
-  , _ConnectorPunctuation >? terminal "Pc"
-  , _DashPunctuation >? terminal "Pd"
-  , _OpenPunctuation >? terminal "Ps"
-  , _ClosePunctuation >? terminal "Pe"
-  , _InitialQuote >? terminal "Pi"
-  , _FinalQuote >? terminal "Pf"
-  , _OtherPunctuation >? terminal "Po"
-  , _MathSymbol >? terminal "Sm"
-  , _CurrencySymbol >? terminal "Sc"
-  , _ModifierSymbol >? terminal "Sk"
-  , _OtherSymbol >? terminal "So"
-  , _Space >? terminal "Zs"
-  , _LineSeparator >? terminal "Zl"
-  , _ParagraphSeparator >? terminal "Zp"
-  , _Control >? terminal "Cc"
-  , _Format >? terminal "Cf"
-  , _Surrogate >? terminal "Cs"
-  , _PrivateUse >? terminal "Co"
-  , _NotAssigned >? terminal "Cn"
-  ]
+    failG = rule "fail" $ terminal "[]"
 
 charG :: Grammar Char Char
 charG = rule "char" $
   tokenClass (notOneOf charsReserved >&&< notAsIn Control)
   <|> terminal "\\" >* charEscapedG
+  where
+    charEscapedG = rule "char-escaped" $
+      oneOf charsReserved <|> charControlG
 
-charEscapedG :: Grammar Char Char
-charEscapedG = rule "char-escaped" $
-  oneOf charsReserved <|> charControlG
+    charsReserved = "$()*+?[\\]^{|}"
 
-charControlG :: Grammar Char Char
-charControlG = rule "char-control-abbrev" $ choiceP
-  [ terminal abbreviation >* pure charControl
-  | (abbreviation, charControl) <- charsControl
-  ]
+    charControlG = rule "char-control" $ choiceP
+      [ terminal abbreviation >* pure charControl
+      | (abbreviation, charControl) <- charsControl
+      ]
 
-charsReserved :: [Char]
-charsReserved = "$()*+.?[\\]^{|}"
+    charsControl =
+      [ ("NUL", '\NUL'), ("SOH", '\SOH'), ("STX", '\STX'), ("ETX", '\ETX')
+      , ("EOT", '\EOT'), ("ENQ", '\ENQ'), ("ACK", '\ACK'), ("BEL", '\BEL')
+      , ("BS", '\BS'), ("HT", '\HT'), ("LF", '\LF'), ("VT", '\VT')
+      , ("FF", '\FF'), ("CR", '\CR'), ("SO", '\SO'), ("SI", '\SI')
+      , ("DLE", '\DLE'), ("DC1", '\DC1'), ("DC2", '\DC2'), ("DC3", '\DC3')
+      , ("DC4", '\DC4'), ("NAK", '\NAK'), ("SYN", '\SYN'), ("ETB", '\ETB')
+      , ("CAN", '\CAN'), ("EM", '\EM'), ("SUB", '\SUB'), ("ESC", '\ESC')
+      , ("FS", '\FS'), ("GS", '\GS'), ("RS", '\RS'), ("US", '\US')
+      , ("DEL", '\DEL')
+      , ("PAD", '\x80'), ("HOP", '\x81'), ("BPH", '\x82'), ("NBH", '\x83')
+      , ("IND", '\x84'), ("NEL", '\x85'), ("SSA", '\x86'), ("ESA", '\x87')
+      , ("HTS", '\x88'), ("HTJ", '\x89'), ("VTS", '\x8A'), ("PLD", '\x8B')
+      , ("PLU", '\x8C'), ("RI", '\x8D'), ("SS2", '\x8E'), ("SS3", '\x8F')
+      , ("DCS", '\x90'), ("PU1", '\x91'), ("PU2", '\x92'), ("STS", '\x93')
+      , ("CCH", '\x94'), ("MW", '\x95'), ("SPA", '\x96'), ("EPA", '\x97')
+      , ("SOS", '\x98'), ("SGCI",'\x99'), ("SCI", '\x9A'), ("CSI", '\x9B')
+      , ("ST", '\x9C'), ("OSC", '\x9D'), ("PM", '\x9E'), ("APC", '\x9F')
+      ]
 
-charsControl :: [(String, Char)]
-charsControl =
-  [ ("NUL", '\NUL'), ("SOH", '\SOH'), ("STX", '\STX'), ("ETX", '\ETX')
-  , ("EOT", '\EOT'), ("ENQ", '\ENQ'), ("ACK", '\ACK'), ("BEL", '\BEL')
-  , ("BS", '\BS'), ("HT", '\HT'), ("LF", '\LF'), ("VT", '\VT')
-  , ("FF", '\FF'), ("CR", '\CR'), ("SO", '\SO'), ("SI", '\SI')
-  , ("DLE", '\DLE'), ("DC1", '\DC1'), ("DC2", '\DC2'), ("DC3", '\DC3')
-  , ("DC4", '\DC4'), ("NAK", '\NAK'), ("SYN", '\SYN'), ("ETB", '\ETB')
-  , ("CAN", '\CAN'), ("EM", '\EM'), ("SUB", '\SUB'), ("ESC", '\ESC')
-  , ("FS", '\FS'), ("GS", '\GS'), ("RS", '\RS'), ("US", '\US')
-  , ("DEL", '\DEL')
-  , ("PAD", '\x80'), ("HOP", '\x81'), ("BPH", '\x82'), ("NBH", '\x83')
-  , ("IND", '\x84'), ("NEL", '\x85'), ("SSA", '\x86'), ("ESA", '\x87')
-  , ("HTS", '\x88'), ("HTJ", '\x89'), ("VTS", '\x8A'), ("PLD", '\x8B')
-  , ("PLU", '\x8C'), ("RI", '\x8D'), ("SS2", '\x8E'), ("SS3", '\x8F')
-  , ("DCS", '\x90'), ("PU1", '\x91'), ("PU2", '\x92'), ("STS", '\x93')
-  , ("CCH", '\x94'), ("MW", '\x95'), ("SPA", '\x96'), ("EPA", '\x97')
-  , ("SOS", '\x98'), ("SGCI",'\x99'), ("SCI", '\x9A'), ("CSI", '\x9B')
-  , ("ST", '\x9C'), ("OSC", '\x9D'), ("PM", '\x9E'), ("APC", '\x9F')
-  ]
-
-failG :: Grammar Char ()
-failG = rule "fail" $ terminal "[]"
-
-ruleG :: Grammar Char (String, RegEx Char)
-ruleG = rule "rule" $ manyP charG >*< terminal " = " >* regexGrammar
+ebnfGrammar :: Grammar Char (Bnf (RegEx Char))
+ebnfGrammar = rule "ebnf" $ _Bnf >~
+  terminal "{start} = " >* regexGrammar
+    >*< several noSep (terminal "\n" >* ruleG)
+  where
+    ruleG = rule "rule" $ terminal "{" >* manyP charG *< terminal "} = "
+      >*< regexGrammar
 
 newtype RegString = RegString {runRegString :: RegEx Char}
   deriving newtype
