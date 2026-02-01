@@ -11,7 +11,6 @@ extra-source-files:
 extra-doc-files:
 - CHANGELOG.md
 
-
 category: Profunctors, Optics, Parsing
 synopsis: Unifying Parsers, Printers & Grammars
 description:
@@ -90,9 +89,15 @@ default-extensions:
 - UndecidableSuperClasses
 
 tests:
+  doc:
+    main: Main.hs
+    source-dirs: test/doc
+    dependencies:
+      - distributors
+      - doctest
   spec:
-    main: Spec.hs
-    source-dirs: test
+    main: Main.hs
+    source-dirs: test/spec
     dependencies:
       - distributors
       - hspec
