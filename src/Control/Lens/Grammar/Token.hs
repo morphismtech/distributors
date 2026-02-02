@@ -109,8 +109,8 @@ satisfy
 satisfy f = satisfied f >?< anyToken
 
 {- | Sequences a specified stream of `tokens`.
-It can be used as a default definition for the `fromString`
-method of `IsString` when `Tokenized` `Char` `Char`.
+It can be used as a default definition for the `Data.String.fromString`
+method of `Data.String.IsString` when `Tokenized` `Char` `Char`.
 -}
 tokens
   :: ( Foldable f, Tokenized a (p a a)
