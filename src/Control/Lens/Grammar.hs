@@ -112,8 +112,6 @@ regexGrammar = _RegString >~ ruleRec "regex" altG
       , atomG rex
       ]
 
-    anyG = rule "char-any" $ terminal "[^]"
-
     atomG rex = rule "atom" $ choiceP
       [ _NonTerminal >? terminal "\\q{" >* manyP charG *< terminal "}"
       , _Terminal >? charG >:< asEmpty
@@ -174,6 +172,8 @@ regexGrammar = _RegString >~ ruleRec "regex" altG
       ]
 
     failG = rule "fail" $ terminal "[]"
+
+    anyG = rule "char-any" $ terminal "[^]"
 
     oneOfG = rule "one-of" $ terminal "[" >* several1 noSep charG *< terminal "]"
 
