@@ -206,7 +206,7 @@ charG = rule "char" $
       ]
 
 regbnfGrammar :: Grammar Char RegBnf
-regbnfGrammar = rule "reg-bnf" $ _RegBnf . _Bnf >~
+regbnfGrammar = rule "regbnf" $ _RegBnf . _Bnf >~
   terminal "{start} = " >* regexGrammar
     >*< several noSep (terminal "\n" >* ruleG)
   where
