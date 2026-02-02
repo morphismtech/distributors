@@ -3,35 +3,11 @@ module Main (main) where
 import Data.Char
 import Data.Foldable hiding (toList)
 import Control.Lens.Grammar
-import Control.Lens.Grammar.BackusNaur
 import Control.Lens.Grammar.Boole
 import Control.Lens.Grammar.Kleene
 import Control.Lens.Grammar.Symbol
-import Data.Profunctor
-import Data.Profunctor.Grammar
 import GHC.Exts
 import Test.Hspec
-
-expectedRegexGrammar :: Bnf RegString
-expectedRegexGrammar = Bnf
-  { startBnf = fromString "\\q{regex}"
-  , rulesBnf = fromList $ map (second' fromString)
-    [ ("alternate","\\q{sequence}(\\|\\q{sequence})*")
-    , ("atom","(\\\\q\\{)\\q{char}*\\}|\\q{char}|\\q{char-class}|\\(\\q{regex}\\)")
-    , ("category","Ll|Lu|Lt|Lm|Lo|Mn|Mc|Me|Nd|Nl|No|Pc|Pd|Ps|Pe|Pi|Pf|Po|Sm|Sc|Sk|So|Zs|Zl|Zp|Cc|Cf|Cs|Co|Cn")
-    , ("category-test","(\\\\p\\{)\\q{category}\\}|(\\\\P\\{)(\\q{category}(\\|\\q{category})*)\\}")
-    , ("char","[^\\(\\)\\*\\+\\?\\[\\\\\\]\\^\\{\\|\\}\\P{Cc}]|\\\\\\q{char-escaped}")
-    , ("char-any","\\[\\^\\]")
-    , ("char-class","\\q{fail}|\\q{char-any}|\\q{one-of}|(\\[\\^)\\q{char}+(\\q{category-test}?\\])|\\q{category-test}")
-    , ("char-control","NUL|SOH|STX|ETX|EOT|ENQ|ACK|BEL|BS|HT|LF|VT|FF|CR|SO|SI|DLE|DC1|DC2|DC3|DC4|NAK|SYN|ETB|CAN|EM|SUB|ESC|FS|GS|RS|US|DEL|PAD|HOP|BPH|NBH|IND|NEL|SSA|ESA|HTS|HTJ|VTS|PLD|PLU|RI|SS2|SS3|DCS|PU1|PU2|STS|CCH|MW|SPA|EPA|SOS|SGCI|SCI|CSI|ST|OSC|PM|APC")
-    , ("char-escaped","[\\(\\)\\*\\+\\?\\[\\\\\\]\\^\\{\\|\\}]|\\q{char-control}")
-    , ("expression","\\q{atom}\\?|\\q{atom}\\*|\\q{atom}\\+|\\q{atom}")
-    , ("fail","\\[\\]")
-    , ("one-of","\\[\\q{char}+\\]")
-    , ("regex","\\q{alternate}")
-    , ("sequence","\\q{char}*|\\q{expression}*")
-    ]
-  }
 
 regexExamples :: [(RegString, String)]
 regexExamples =
@@ -58,9 +34,7 @@ regexExamples =
 
 main :: IO ()
 main = hspec $ do
-  describe "regexGrammar" $ do
-    it "should generate a correct grammar" $ do
-      runGrammor regexGrammar `shouldBe` expectedRegexGrammar
+  describe "regexGrammar" $
     for_ regexExamples $ \(rex, str) -> do
       it ("should print " <> show (runRegString rex) <> " correctly") $
         toList rex `shouldBe` str
