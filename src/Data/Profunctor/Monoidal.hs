@@ -124,7 +124,7 @@ ditraverse
   => p a b -> p (t a) (t b)
 ditraverse p = traverse (\f -> lmap f p) (distribute id)
 
-{- | `replicateP` is analagous to `replicateM`,
+{- | `replicateP` is analagous to `Control.Monad.replicateM`,
 for `Monoidal` & `Choice` `Profunctor`s. -}
 replicateP
   :: (Monoidal p, Choice p, AsEmpty s, AsEmpty t, Cons s t a b)
