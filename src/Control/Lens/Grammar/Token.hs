@@ -1,3 +1,13 @@
+{- |
+Module      : Control.Lens.Grammar.Token
+Description : lexical tokens
+Copyright   : (C) 2026 - Eitan Chatav
+License     : BSD-style (see the file LICENSE)
+Maintainer  : Eitan Chatav <eitan.chatav@gmail.com>
+Stability   : provisional
+Portability : non-portable
+-}
+
 module Control.Lens.Grammar.Token
   ( -- * Tokenized
     Tokenized (..)

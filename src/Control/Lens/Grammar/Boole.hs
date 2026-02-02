@@ -1,3 +1,15 @@
+{- |
+Module      : Control.Lens.Grammar.Boole
+Description : Boolean algebras & token classes
+Copyright   : (C) 2026 - Eitan Chatav
+License     : BSD-style (see the file LICENSE)
+Maintainer  : Eitan Chatav <eitan.chatav@gmail.com>
+Stability   : provisional
+Portability : non-portable
+
+Token classes form a Boolean algebra
+-}
+
 module Control.Lens.Grammar.Boole
   ( BooleanAlgebra (..)
   , andB, orB, allB, anyB

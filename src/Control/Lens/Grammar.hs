@@ -1,5 +1,19 @@
+{- |
+Module      : Control.Lens.Grammar
+Description : grammar hierarchy
+Copyright   : (C) 2026 - Eitan Chatav
+License     : BSD-style (see the file LICENSE)
+Maintainer  : Eitan Chatav <eitan.chatav@gmail.com>
+Stability   : provisional
+Portability : non-portable
+
+See Chomsky, [Three Models for the Description of Language]
+(https://chomsky.info/wp-content/uploads/195609-.pdf)
+-}
+
 module Control.Lens.Grammar
-  ( RegGrammar
+  ( -- * Grammar
+    RegGrammar
   , Grammar
   , CtxGrammar
   , Regular

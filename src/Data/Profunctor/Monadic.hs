@@ -1,7 +1,7 @@
 {-|
 Module      : Data.Profunctor.Monadic
 Description : monadic profunctors
-Copyright   : (C) 2025 - Eitan Chatav
+Copyright   : (C) 2026 - Eitan Chatav
 License     : BSD-style (see the file LICENSE)
 Maintainer  : Eitan Chatav <eitan.chatav@gmail.com>
 Stability   : provisional

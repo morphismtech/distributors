@@ -1,3 +1,15 @@
+{- |
+Module      : Control.Lens.Grammar.Kleene
+Description : Kleene (star) algebras & regular expressions
+Copyright   : (C) 2026 - Eitan Chatav
+License     : BSD-style (see the file LICENSE)
+Maintainer  : Eitan Chatav <eitan.chatav@gmail.com>
+Stability   : provisional
+Portability : non-portable
+
+Kleene (star) algebras form the basis of regular expressions
+-}
+
 module Control.Lens.Grammar.Kleene
   ( KleeneStarAlgebra (..)
   , orK, anyK

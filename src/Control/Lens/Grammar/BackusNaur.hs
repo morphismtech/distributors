@@ -1,11 +1,26 @@
+{- |
+Module      : Control.Lens.Grammar.BackusNaur
+Description : Backus-Naur forms & pattern matching
+Copyright   : (C) 2026 - Eitan Chatav
+License     : BSD-style (see the file LICENSE)
+Maintainer  : Eitan Chatav <eitan.chatav@gmail.com>
+Stability   : provisional
+Portability : non-portable
+
+See Breitner, [Showcasing Applicative]
+(https://www.joachim-breitner.de/blog/710-Showcasing_Applicative)
+-}
+
 module Control.Lens.Grammar.BackusNaur
-  ( BackusNaurForm (..)
+  ( -- * Backus-Naur form
+    BackusNaurForm (..)
   , Bnf (..)
-  , Matching (..)
-  , diffB
   , liftBnf0
   , liftBnf1
   , liftBnf2
+    -- * Pattern matching
+  , Matching (..)
+  , diffB
   ) where
 
 import Control.Lens
