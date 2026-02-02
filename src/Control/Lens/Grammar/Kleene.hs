@@ -168,7 +168,7 @@ deriving stock instance
 deriving stock instance
   (Categorized token, Show token, Show (Categorize token))
     => Show (CategoryTest token)
-instance (Categorized token, Enum (Categorize token), HasTrie token)
+instance (Categorized token, HasTrie token)
   => HasTrie (RegEx token) where
     data (RegEx token :->: b) = RegExTrie
       { terminalTrie :: [token] :->: b
@@ -226,7 +226,7 @@ instance (Categorized token, Enum (Categorize token), HasTrie token)
       , first' testNotOneOf <$> enumerate (notOneOfTrie rex)
       ]
 testNotOneOf
-  :: (Categorized token, Enum (Categorize token))
+  :: Categorized token
   => ([token], Either Int [Int]) -> RegEx token
 testNotOneOf (chars, catTest) = RegExam $
   NotOneOf (Set.fromList chars) (either (AsIn . toEnum) (NotAsIn . Set.map toEnum . Set.fromList) catTest)

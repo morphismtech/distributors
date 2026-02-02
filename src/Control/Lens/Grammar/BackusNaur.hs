@@ -73,7 +73,7 @@ The [Brzozowski derivative]
 prop> word =~ diffB prefix pattern = prefix <> word =~ pattern
 -}
 diffB
-  :: (Categorized token, Enum (Categorize token), HasTrie token)
+  :: (Categorized token, HasTrie token)
   => [token] -> Bnf (RegEx token) -> Bnf (RegEx token)
 diffB prefix (Bnf start rules) =
   Bnf (foldl' (flip diff1B) start prefix) rules
@@ -105,7 +105,7 @@ diffB prefix (Bnf start rules) =
       RegExam (Alternate y1 y2) -> diff1B x y1 >|< diff1B x y2
 
 -- | Does a pattern match the empty word?
-δ :: (Categorized token, Enum (Categorize token), HasTrie token)
+δ :: (Categorized token, HasTrie token)
   => Bnf (RegEx token) -> Bool
 δ (Bnf start rules) = ν start where
   ν = memo $ \case
@@ -162,10 +162,10 @@ instance (Ord rule, Monoid rule) => Monoid (Bnf rule) where
   mempty = liftBnf0 mempty
 instance (Ord rule, Semigroup rule) => Semigroup (Bnf rule) where
   (<>) = liftBnf2 (<>)
-instance (Categorized token, Enum (Categorize token), HasTrie token)
+instance (Categorized token, HasTrie token)
   => Matching [token] (Bnf (RegEx token)) where
     (=~) word = δ . diffB word
-instance (Categorized token, Enum (Categorize token), HasTrie token)
+instance (Categorized token, HasTrie token)
   => Matching [token] (RegEx token) where
     word =~ pattern = word =~ liftBnf0 pattern
 instance Matching s (APrism s t a b) where
