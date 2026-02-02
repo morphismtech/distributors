@@ -54,33 +54,40 @@ instance Categorized Char where
 instance Categorized Word8
 instance Categorized ()
 
+{- | `Tokenized` combinators for constructing lexical tokens. -}
 class Categorized token => Tokenized token p | p -> token where
+  {- | Sequences any single token. -}
   anyToken :: p
 
+  {- | Sequences a single specified `token`. -}
   token :: token -> p
   default token
     :: (p ~ q token token, Choice q, Cochoice q)
     => token -> p
   token = satisfy . token
 
+  {- | Sequences a single token which is `oneOf` a set. -}
   oneOf :: Foldable f => f token -> p
   default oneOf
     :: (p ~ q token token, Choice q, Cochoice q, Foldable f)
     => f token -> p
   oneOf = satisfy . oneOf
 
+  {- | Sequences a single token which is `notOneOf` a set. -}
   notOneOf :: Foldable f => f token -> p
   default notOneOf
     :: (p ~ q token token, Choice q, Cochoice q, Foldable f)
     => f token -> p
   notOneOf = satisfy . notOneOf
 
+  {- | Sequences a single token which is `asIn` a category. -}
   asIn :: Categorize token -> p
   default asIn
     :: (p ~ q token token, Choice q, Cochoice q)
     => Categorize token -> p
   asIn = satisfy . asIn
 
+  {- | Sequences a single token which is `notAsIn` a category. -}
   notAsIn :: Categorize token -> p
   default notAsIn
     :: (p ~ q token token, Choice q, Cochoice q)
@@ -95,11 +102,16 @@ instance Categorized token => Tokenized token (token -> Bool) where
   asIn = lmap categorize . (==)
   notAsIn = lmap categorize . (/=)
 
+{- | Sequences a single token that satisfies a predicate. -}
 satisfy
   :: (Tokenized a (p a a), Choice p, Cochoice p)
   => (a -> Bool) -> p a a
 satisfy f = satisfied f >?< anyToken
 
+{- | Sequences a specified stream of `tokens`.
+It can be used as a default definition for the `fromString`
+method of `IsString` when `Tokenized` `Char` `Char`.
+-}
 tokens
   :: ( Foldable f, Tokenized a (p a a)
      , Monoidal p, Choice p
