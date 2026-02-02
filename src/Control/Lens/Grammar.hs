@@ -32,6 +32,8 @@ module Control.Lens.Grammar
   , printG
   , parseG
   , unparseG
+    -- * Utilities
+  , putStringLn
   ) where
 
 import Control.Applicative
@@ -100,6 +102,24 @@ makeNestedPrisms ''GeneralCategory
 makeNestedPrisms ''RegString
 makeNestedPrisms ''RegBnf
 
+{- |
+>>> putStringLn (regbnfG regexGrammar)
+{start} = \q{regex}
+{alternate} = \q{sequence}(\|\q{sequence})*
+{atom} = (\\q\{)\q{char}*\}|\q{char}|\q{char-class}|\(\q{regex}\)
+{category} = Ll|Lu|Lt|Lm|Lo|Mn|Mc|Me|Nd|Nl|No|Pc|Pd|Ps|Pe|Pi|Pf|Po|Sm|Sc|Sk|So|Zs|Zl|Zp|Cc|Cf|Cs|Co|Cn
+{category-test} = (\\p\{)\q{category}\}|(\\P\{)(\q{category}(\|\q{category})*)\}
+{char} = [^\(\)\*\+\?\[\\\]\^\{\|\}\P{Cc}]|\\\q{char-escaped}
+{char-any} = \[\^\]
+{char-class} = \q{fail}|\q{char-any}|\q{one-of}|(\[\^)\q{char}+(\q{category-test}?\])|\q{category-test}
+{char-control} = NUL|SOH|STX|ETX|EOT|ENQ|ACK|BEL|BS|HT|LF|VT|FF|CR|SO|SI|DLE|DC1|DC2|DC3|DC4|NAK|SYN|ETB|CAN|EM|SUB|ESC|FS|GS|RS|US|DEL|PAD|HOP|BPH|NBH|IND|NEL|SSA|ESA|HTS|HTJ|VTS|PLD|PLU|RI|SS2|SS3|DCS|PU1|PU2|STS|CCH|MW|SPA|EPA|SOS|SGCI|SCI|CSI|ST|OSC|PM|APC
+{char-escaped} = [\(\)\*\+\?\[\\\]\^\{\|\}]|\q{char-control}
+{expression} = \q{atom}\?|\q{atom}\*|\q{atom}\+|\q{atom}
+{fail} = \[\]
+{one-of} = \[\q{char}+\]
+{regex} = \q{alternate}
+{sequence} = \q{char}*|\q{expression}*
+-}
 regexGrammar :: Grammar Char RegString
 regexGrammar = _RegString >~ ruleRec "regex" altG
   where
@@ -226,6 +246,53 @@ regbnfGrammar = rule "regbnf" $ _RegBnf . _Bnf >~
     ruleG = rule "rule" $ terminal "{" >* manyP charG *< terminal "} = "
       >*< regexGrammar
 
+regstringG :: RegGrammar Char a -> RegString
+regstringG x = runGrammor x
+
+regbnfG :: Grammar Char a -> RegBnf
+regbnfG x = runGrammor x
+
+printG
+  :: ( Cons string string token token
+     , IsList string
+     , Item string ~ token
+     , Categorized token
+     , Alternative m
+     , Monad m
+     , Filterable m
+     )
+  => CtxGrammar token a -> a -> m (string -> string)
+printG x = printP x
+
+parseG
+  :: ( Cons string string token token
+     , Snoc string string token token
+     , IsList string
+     , Item string ~ token
+     , Categorized token
+     , Alternative m
+     , Monad m
+     , Filterable m
+     )
+  => CtxGrammar token a -> string -> m (a, string)
+parseG x = parseP x
+
+unparseG
+  :: ( Cons string string token token
+     , Snoc string string token token
+     , IsList string
+     , Item string ~ token
+     , Categorized token
+     , Alternative m
+     , Monad m
+     , Filterable m
+     )
+  => CtxGrammar token a -> a -> string -> m string
+unparseG x = unparseP x
+
+putStringLn :: (IsList string, Item string ~ Char) => string -> IO ()
+putStringLn = putStrLn . toList
+
 instance IsList RegString where
   type Item RegString = Char
   fromList
@@ -264,47 +331,3 @@ instance Show RegBnf where
   showsPrec precision = showsPrec precision . toList
 instance Read RegBnf where
   readsPrec _ str = [(fromList str, "")]
-
-regstringG :: RegGrammar Char a -> RegString
-regstringG = runGrammor
-
-regbnfG :: Grammar Char a -> RegBnf
-regbnfG = runGrammor
-
-printG
-  :: ( Cons string string token token
-     , IsList string
-     , Item string ~ token
-     , Categorized token
-     , Alternative m
-     , Monad m
-     , Filterable m
-     )
-  => CtxGrammar token a -> a -> m (string -> string)
-printG = printP
-
-parseG
-  :: ( Cons string string token token
-     , Snoc string string token token
-     , IsList string
-     , Item string ~ token
-     , Categorized token
-     , Alternative m
-     , Monad m
-     , Filterable m
-     )
-  => CtxGrammar token a -> string -> m (a, string)
-parseG = parseP
-
-unparseG
-  :: ( Cons string string token token
-     , Snoc string string token token
-     , IsList string
-     , Item string ~ token
-     , Categorized token
-     , Alternative m
-     , Monad m
-     , Filterable m
-     )
-  => CtxGrammar token a -> a -> string -> m string
-unparseG = unparseP
