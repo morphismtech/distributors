@@ -7,7 +7,9 @@ Maintainer  : Eitan Chatav <eitan.chatav@gmail.com>
 Stability   : provisional
 Portability : non-portable
 
-Regular expressions form a Kleene star algebra
+Regular expressions form a Kleene star algebra. See Kleene,
+[Representation of Events in Nerve Nets and Finite Automata]
+(https://www.rand.org/pubs/research_memoranda/RM704.html)
 -}
 
 module Control.Lens.Grammar.Kleene
