@@ -51,7 +51,7 @@ newtype Printor s f a b = Printor {runPrintor :: a -> f (b, s -> s)}
 printP :: Functor f => Printor s f a b -> a -> f (s -> s)
 printP (Printor f) = fmap snd . f
 
-newtype Grammor g a b = Grammor {runGrammor :: g}
+newtype Grammor k a b = Grammor {runGrammor :: k}
 
 -- Parsor instances
 deriving stock instance Functor f => Functor (Parsor s f a)
@@ -265,41 +265,41 @@ instance (Alternative m, Monad m) => MonadFail (Printor s m a) where
   fail _ = empty
 
 -- Grammor instances
-instance Functor (Grammor g a) where fmap _ = coerce
-instance Contravariant (Grammor g a) where contramap _ = coerce
-instance Profunctor (Grammor g) where dimap _ _ = coerce
-instance Bifunctor (Grammor g) where bimap _ _ = coerce
-instance Choice (Grammor g) where
+instance Functor (Grammor k a) where fmap _ = coerce
+instance Contravariant (Grammor k a) where contramap _ = coerce
+instance Profunctor (Grammor k) where dimap _ _ = coerce
+instance Bifunctor (Grammor k) where bimap _ _ = coerce
+instance Choice (Grammor k) where
   left' = coerce
   right' = coerce
-instance Monoid g => Applicative (Grammor g a) where
+instance Monoid k => Applicative (Grammor k a) where
   pure _ = Grammor mempty
   Grammor rex1 <*> Grammor rex2 = Grammor (rex1 <> rex2)
-instance KleeneStarAlgebra g => Alternative (Grammor g a) where
+instance KleeneStarAlgebra k => Alternative (Grammor k a) where
   empty = Grammor zeroK
   Grammor rex1 <|> Grammor rex2 = Grammor (rex1 >|< rex2)
   many (Grammor rex) = Grammor (starK rex)
   some (Grammor rex) = Grammor (plusK rex)
-instance KleeneStarAlgebra g => Distributor (Grammor g) where
+instance KleeneStarAlgebra k => Distributor (Grammor k) where
   zeroP = Grammor zeroK
   Grammor rex1 >+< Grammor rex2 = Grammor (rex1 >|< rex2)
   manyP (Grammor rex) = Grammor (starK rex)
   optionalP (Grammor rex) = Grammor (optK rex)
-instance KleeneStarAlgebra g => Alternator (Grammor g) where
+instance KleeneStarAlgebra k => Alternator (Grammor k) where
   alternate = either coerce coerce
   someP (Grammor rex) = Grammor (plusK rex)
-instance Tokenized token g => Tokenized token (Grammor g a b) where
+instance Tokenized token k => Tokenized token (Grammor k a b) where
   anyToken = Grammor anyToken
   token = Grammor . token
   oneOf = Grammor . oneOf
   notOneOf = Grammor . notOneOf
   asIn = Grammor . asIn
   notAsIn = Grammor . notAsIn
-instance TokenAlgebra a g => TokenAlgebra a (Grammor g a b) where
+instance TokenAlgebra a k => TokenAlgebra a (Grammor k a b) where
   tokenClass = Grammor . tokenClass
-instance TerminalSymbol token g
-  => TerminalSymbol token (Grammor g a b) where
+instance TerminalSymbol token k
+  => TerminalSymbol token (Grammor k a b) where
   terminal = Grammor . terminal
-instance BackusNaurForm g => BackusNaurForm (Grammor g a b) where
+instance BackusNaurForm k => BackusNaurForm (Grammor k a b) where
   rule name = Grammor . rule name . runGrammor
   ruleRec name = Grammor . ruleRec name . dimap Grammor runGrammor
