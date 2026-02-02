@@ -165,7 +165,7 @@ regexGrammar = _RegString >~ ruleRec "regex" altG
     classG = rule "char-class" $ choiceP
       [ _Fail >? failG
       , _Pass >? anyG
-      , _OneOf >? terminal "[" >* several1 noSep charG *< terminal "]"
+      , _OneOf >? oneOfG
       , _NotOneOf >?
           terminal "[^" >* several1 noSep charG
             >*< (catTestG <|> pure (NotAsIn Set.empty))
@@ -174,6 +174,8 @@ regexGrammar = _RegString >~ ruleRec "regex" altG
       ]
 
     failG = rule "fail" $ terminal "[]"
+
+    oneOfG = rule "one-of" $ terminal "[" >* several1 noSep charG *< terminal "]"
 
 charG :: Grammar Char Char
 charG = rule "char" $

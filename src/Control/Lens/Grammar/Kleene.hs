@@ -11,10 +11,10 @@ Regular expressions form a Kleene star algebra
 -}
 
 module Control.Lens.Grammar.Kleene
-  ( -- * Kleene star algebras
+  ( -- * KleeneStarAlgebra
     KleeneStarAlgebra (..)
   , orK, anyK
-    -- * regular expressions
+    -- * RegEx
   , RegEx (..)
   , RegExam (..)
   , CategoryTest (..)

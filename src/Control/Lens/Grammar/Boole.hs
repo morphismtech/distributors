@@ -11,10 +11,10 @@ Token classes form a Boolean algebra
 -}
 
 module Control.Lens.Grammar.Boole
-  ( -- * token class
+  ( -- * TokenAlgebra
     TokenAlgebra (..)
   , TokenTest (..)
-    -- * Boolean algebra
+    -- * BooleanAlgebra
   , BooleanAlgebra (..)
   , andB, orB, allB, anyB
   ) where

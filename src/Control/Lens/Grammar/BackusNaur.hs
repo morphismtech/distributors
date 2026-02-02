@@ -12,13 +12,13 @@ See Breitner, [Showcasing Applicative]
 -}
 
 module Control.Lens.Grammar.BackusNaur
-  ( -- * Backus-Naur form
+  ( -- * BackusNaurForm
     BackusNaurForm (..)
   , Bnf (..)
   , liftBnf0
   , liftBnf1
   , liftBnf2
-    -- * Pattern matching
+    -- * Matching
   , Matching (..)
   , diffB
   ) where

@@ -9,7 +9,8 @@ Portability : non-portable
 -}
 
 module Control.Lens.Grammar.Symbol
-  ( TerminalSymbol (..)
+  ( -- * Symbol
+    TerminalSymbol (..)
   , NonTerminalSymbol (..)
   ) where
 

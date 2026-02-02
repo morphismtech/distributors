@@ -12,7 +12,7 @@ with small tweaks to support nested pairs.
 -}
 
 module Control.Lens.Internal.NestedPrismTH
-  ( -- * Nested Prisms
+  ( -- * Nested prisms
     makeNestedPrisms
   ) where
 
