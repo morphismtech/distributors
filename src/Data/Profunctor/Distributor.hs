@@ -14,6 +14,7 @@ module Data.Profunctor.Distributor
     -- * Alternator
   , Alternator (..)
   , choiceP
+  , optionP
     -- * Homogeneous
   , Homogeneous (..)
     -- * SepBy
@@ -348,6 +349,9 @@ class (Choice p, Distributor p, forall x. Alternative (p x))
 
 choiceP :: (Foldable f, Alternator p) => f (p a b) -> p a b
 choiceP = foldl' (<|>) empty
+
+optionP :: Alternator p => a -> p a a -> p a a
+optionP x p = p <|> pure x
 
 instance (Alternator p, Applicative f)
   => Alternator (WrappedPafb f p) where
