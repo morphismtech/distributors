@@ -11,10 +11,12 @@ Token classes form a Boolean algebra
 -}
 
 module Control.Lens.Grammar.Boole
-  ( BooleanAlgebra (..)
-  , andB, orB, allB, anyB
+  ( -- * token class
+    TokenAlgebra (..)
   , TokenTest (..)
-  , TokenAlgebra (..)
+    -- * Boolean algebra
+  , BooleanAlgebra (..)
+  , andB, orB, allB, anyB
   ) where
 
 import Control.Applicative
@@ -30,25 +32,25 @@ import GHC.Generics
 
 class BooleanAlgebra b where
 
-  fromBool :: Bool -> b
-  default fromBool
-    :: (b ~ f bool, BooleanAlgebra bool, Applicative f) => Bool -> b
-  fromBool = pure . fromBool
-
-  notB :: b -> b
-  default notB
-    :: (b ~ f bool, BooleanAlgebra bool, Functor f) => b -> b
-  notB = fmap notB
+  (>&&<) :: b -> b -> b
+  default (>&&<)
+    :: (b ~ f bool, BooleanAlgebra bool, Applicative f) => b -> b -> b
+  (>&&<) = liftA2 (>&&<)
 
   (>||<) :: b -> b -> b
   default (>||<)
     :: (b ~ f bool, BooleanAlgebra bool, Applicative f) => b -> b -> b
   (>||<) = liftA2 (>||<)
 
-  (>&&<) :: b -> b -> b
-  default (>&&<)
-    :: (b ~ f bool, BooleanAlgebra bool, Applicative f) => b -> b -> b
-  (>&&<) = liftA2 (>&&<)
+  notB :: b -> b
+  default notB
+    :: (b ~ f bool, BooleanAlgebra bool, Functor f) => b -> b
+  notB = fmap notB
+
+  fromBool :: Bool -> b
+  default fromBool
+    :: (b ~ f bool, BooleanAlgebra bool, Applicative f) => Bool -> b
+  fromBool = pure . fromBool
 
 andB :: (Foldable f, BooleanAlgebra b) => f b -> b
 andB = foldl' (>&&<) (fromBool True)

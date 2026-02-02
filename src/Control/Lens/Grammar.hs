@@ -12,15 +12,20 @@ See Chomsky, [Three Models for the Description of Language]
 -}
 
 module Control.Lens.Grammar
-  ( -- * Grammar
+  ( -- * Regular grammar
     RegGrammar
-  , Grammar
-  , CtxGrammar
-  , Regular
   , RegString (..)
-  , RegBnf (..)
+  , TerminalSymbol (..)
+  , Tokenized (..)
+  , Regular
   , regexGrammar
+    -- * Context-free grammar
+  , Grammar
+  , RegBnf (..)
+  , BackusNaurForm (..)
   , regbnfGrammar
+    -- * Context-sensitive grammar
+  , CtxGrammar
   ) where
 
 import Control.Applicative
@@ -56,9 +61,9 @@ type CtxGrammar token a = forall p.
   , Filtrator p
   ) => p a a
 type Regular token p =
-  ( forall x y. (x ~ (), y ~ ()) => TerminalSymbol token (p x y)
+  ( Alternator p
+  , forall x y. (x ~ (), y ~ ()) => TerminalSymbol token (p x y)
   , forall x y. (x ~ token, y ~ token) => TokenAlgebra token (p x y)
-  , Alternator p
   ) :: Constraint
 
 newtype RegString = RegString {runRegString :: RegEx Char}
