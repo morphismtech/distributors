@@ -7,7 +7,7 @@ Maintainer  : Eitan Chatav <eitan.chatav@gmail.com>
 Stability   : provisional
 Portability : non-portable
 
-See Backus & Naur,
+See Naur & Backus, et al.
 [Report on the Algorithmic Language ALGOL 60]
 (https://softwarepreservation.computerhistory.org/ALGOL/report/Algol60_report_CACM_1960_June.pdf)
 -}
