@@ -9,7 +9,8 @@ Portability : non-portable
 -}
 
 module Data.Profunctor.Filtrator
-  ( Filtrator (filtrate)
+  ( -- * Filtrator
+    Filtrator (filtrate)
   , mfiltrate
   ) where
 
