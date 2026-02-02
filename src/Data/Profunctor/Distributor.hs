@@ -347,10 +347,12 @@ class (Choice p, Distributor p, forall x. Alternative (p x))
     someP :: p a b -> p [a] [b]
     someP p = _Cons >? p >*< manyP p
 
+-- | Combines all `Alternator` choices in the specified list.
 choiceP :: (Foldable f, Alternator p) => f (p a b) -> p a b
 choiceP = foldl' (<|>) empty
 
-optionP :: Alternator p => b -> p a b -> p a b
+-- | Perform an `Alternator` action or return a default value.
+optionP :: Alternator p => b {- ^ default value -} -> p a b -> p a b
 optionP b p = p <|> pure b
 
 instance (Alternator p, Applicative f)
@@ -423,6 +425,8 @@ several1
 several1 (SepBy beg end sep) p = iso toList fromList . _Cons >?
   beg >* (p >*< manyP (sep >* p)) *< end
 
+{- | Use a nilary constructor pattern to sequence zero times, or
+associate a binary constructor pattern to sequence one or more times. -}
 chain
   :: Alternator p
   => (forall x. x -> Either x x) -- ^ `Left` or `Right` associate
@@ -432,6 +436,7 @@ chain
 chain association pat2 pat0 (SepBy beg end sep) p =
   beg >* (pat0 >? oneP <|> chain1 association pat2 (sepBy sep) p) *< end
 
+{- | Associate a binary constructor pattern to sequence one or more times. -}
 chain1
   :: (Distributor p, Choice p)
   => (forall x. x -> Either x x) -- ^ `Left` or `Right` associate
