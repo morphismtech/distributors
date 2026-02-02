@@ -37,23 +37,40 @@ import Data.MemoTrie
 import qualified Data.Set as Set
 import Data.Set (Set)
 
+{- | `BackusNaurForm` grammar combinators formalize
+`rule` abstraction and general recursion. Context-free
+`Control.Lens.Grammar.Grammar`s support the `BackusNaurForm` interface.
+-}
 class BackusNaurForm bnf where
+
+  {- | For a `BackusNaurForm` parser instance,
+  `rule` can be used to detail parse errors.
+
+  prop> rule name bnf = ruleRec name (\_ -> bnf)
+  -}
   rule :: String -> bnf -> bnf
   rule _ = id
+
+  {- | General recursion, using `ruleRec`, rules can refer to themselves. -}
   ruleRec :: String -> (bnf -> bnf) -> bnf
   ruleRec _ = fix
 
+{- | A `Bnf` consists of a distinguished starting rule
+and a set of named rules. -}
 data Bnf rule = Bnf
   { startBnf :: rule
   , rulesBnf :: Set (String, rule)
   } deriving stock (Eq, Ord, Show, Read)
 
+{- | Lift a rule to a `Bnf`. -}
 liftBnf0 :: Ord a => a -> Bnf a
 liftBnf0 a = Bnf a mempty
 
+{- | Lift a function of rules to `Bnf`s. -}
 liftBnf1 :: (Coercible a b, Ord b) => (a -> b) -> Bnf a -> Bnf b
 liftBnf1 f (Bnf start rules) = Bnf (f start) (Set.map coerce rules)
 
+{- | Lift a binary function of rules to `Bnf`s. -}
 liftBnf2
   :: (Coercible a c, Coercible b c, Ord c)
   => (a -> b -> c) -> Bnf a -> Bnf b -> Bnf c
