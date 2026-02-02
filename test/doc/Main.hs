@@ -4,8 +4,10 @@ import Test.DocTest
 
 main :: IO ()
 main = doctest
-  [
---     "-isrc"
---   , "src" 
---   , "-XLambdaCase"
+  [ "src/Control/Lens/Grammar.hs" 
+  , "-XLambdaCase"
+  , "-XDerivingStrategies"
+  , "-XImpredicativeTypes"
+  , "-XQuantifiedConstraints"
+  , "-XTypeFamilies"
   ]
