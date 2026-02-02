@@ -26,6 +26,12 @@ module Control.Lens.Grammar
   , regbnfGrammar
     -- * Context-sensitive grammar
   , CtxGrammar
+    -- * Generators
+  , regstringG
+  , regbnfG
+  , printG
+  , parseG
+  , unparseG
   ) where
 
 import Control.Applicative
@@ -258,3 +264,47 @@ instance Show RegBnf where
   showsPrec precision = showsPrec precision . toList
 instance Read RegBnf where
   readsPrec _ str = [(fromList str, "")]
+
+regstringG :: RegGrammar Char a -> RegString
+regstringG = runGrammor
+
+regbnfG :: Grammar Char a -> RegBnf
+regbnfG = runGrammor
+
+printG
+  :: ( Cons string string token token
+     , IsList string
+     , Item string ~ token
+     , Categorized token
+     , Alternative m
+     , Monad m
+     , Filterable m
+     )
+  => CtxGrammar token a -> a -> m (string -> string)
+printG = printP
+
+parseG
+  :: ( Cons string string token token
+     , Snoc string string token token
+     , IsList string
+     , Item string ~ token
+     , Categorized token
+     , Alternative m
+     , Monad m
+     , Filterable m
+     )
+  => CtxGrammar token a -> string -> m (a, string)
+parseG = parseP
+
+unparseG
+  :: ( Cons string string token token
+     , Snoc string string token token
+     , IsList string
+     , Item string ~ token
+     , Categorized token
+     , Alternative m
+     , Monad m
+     , Filterable m
+     )
+  => CtxGrammar token a -> a -> string -> m string
+unparseG = unparseP
