@@ -7,7 +7,9 @@ Maintainer  : Eitan Chatav <eitan.chatav@gmail.com>
 Stability   : provisional
 Portability : non-portable
 
-Token classes form a Boolean algebra
+See Boole, [The Mathematical Analysis of Logic]
+(https://www.gutenberg.org/files/36884/36884-pdf.pdf).
+Token classes form a Boolean algebra.
 -}
 
 module Control.Lens.Grammar.Boole

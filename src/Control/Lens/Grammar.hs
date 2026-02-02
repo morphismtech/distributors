@@ -14,23 +14,21 @@ See Chomsky, [On Certain Formal Properties of Grammars]
 module Control.Lens.Grammar
   ( -- * Regular grammar
     RegGrammar
-  , RegString (..)
   , Regular
+  , RegString (..)
+  , regstringG
   , regexGrammar
     -- * Context-free grammar
   , Grammar
   , RegBnf (..)
-  , BackusNaurForm (..)
+  , regbnfG
   , regbnfGrammar
     -- * Context-sensitive grammar
   , CtxGrammar
-    -- * Generators
-  , regstringG
-  , regbnfG
   , printG
   , parseG
   , unparseG
-    -- * Utilities
+    -- * Utility
   , putStringLn
   ) where
 
@@ -312,10 +310,10 @@ regbnfGrammar = rule "regbnf" $ _RegBnf . _Bnf >~
       >*< regexGrammar
 
 regstringG :: RegGrammar Char a -> RegString
-regstringG x = runGrammor x
+regstringG rex = runGrammor rex
 
 regbnfG :: Grammar Char a -> RegBnf
-regbnfG x = runGrammor x
+regbnfG bnf = runGrammor bnf
 
 printG
   :: ( Cons string string token token
@@ -327,7 +325,7 @@ printG
      , Filterable m
      )
   => CtxGrammar token a -> a -> m (string -> string)
-printG x = printP x
+printG printor = printP printor
 
 parseG
   :: ( Cons string string token token
@@ -340,7 +338,7 @@ parseG
      , Filterable m
      )
   => CtxGrammar token a -> string -> m (a, string)
-parseG x = parseP x
+parseG parsor = parseP parsor
 
 unparseG
   :: ( Cons string string token token
@@ -353,7 +351,7 @@ unparseG
      , Filterable m
      )
   => CtxGrammar token a -> a -> string -> m string
-unparseG x = unparseP x
+unparseG parsor = unparseP parsor
 
 putStringLn :: (IsList string, Item string ~ Char) => string -> IO ()
 putStringLn = putStrLn . toList

@@ -7,8 +7,9 @@ Maintainer  : Eitan Chatav <eitan.chatav@gmail.com>
 Stability   : provisional
 Portability : non-portable
 
-See Breitner, [Showcasing Applicative]
-(https://www.joachim-breitner.de/blog/710-Showcasing_Applicative)
+See Backus & Naur,
+[Report on the Algorithmic Language ALGOL 60]
+(https://softwarepreservation.computerhistory.org/ALGOL/report/Algol60_report_CACM_1960_June.pdf)
 -}
 
 module Control.Lens.Grammar.BackusNaur
