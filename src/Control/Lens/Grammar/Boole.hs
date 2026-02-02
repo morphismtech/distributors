@@ -9,16 +9,16 @@ Portability : non-portable
 
 See Boole, [The Mathematical Analysis of Logic]
 (https://www.gutenberg.org/files/36884/36884-pdf.pdf).
-Token classes form a Boolean algebra.
+Categorized token classes form a Boolean algebra.
 -}
 
 module Control.Lens.Grammar.Boole
-  ( -- * TokenAlgebra
-    TokenAlgebra (..)
-  , TokenTest (..)
-    -- * BooleanAlgebra
-  , BooleanAlgebra (..)
+  ( -- * BooleanAlgebra
+    BooleanAlgebra (..)
   , andB, orB, allB, anyB
+    -- * TokenAlgebra
+  , TokenAlgebra (..)
+  , TokenTest (..)
   ) where
 
 import Control.Applicative
@@ -32,43 +32,58 @@ import Data.Profunctor.Distributor
 import qualified Data.Set as Set
 import GHC.Generics
 
+-- | A `BooleanAlgebra`, like `Bool`, supporting classical logical operations.
 class BooleanAlgebra b where
 
+  -- | conjunction
   (>&&<) :: b -> b -> b
   default (>&&<)
     :: (b ~ f bool, BooleanAlgebra bool, Applicative f) => b -> b -> b
   (>&&<) = liftA2 (>&&<)
 
+  -- | disjunction
   (>||<) :: b -> b -> b
   default (>||<)
     :: (b ~ f bool, BooleanAlgebra bool, Applicative f) => b -> b -> b
   (>||<) = liftA2 (>||<)
 
+  -- | negation
   notB :: b -> b
   default notB
     :: (b ~ f bool, BooleanAlgebra bool, Functor f) => b -> b
   notB = fmap notB
 
+  -- | inclusion
   fromBool :: Bool -> b
   default fromBool
     :: (b ~ f bool, BooleanAlgebra bool, Applicative f) => Bool -> b
   fromBool = pure . fromBool
 
+-- | cumulative conjunction
 andB :: (Foldable f, BooleanAlgebra b) => f b -> b
 andB = foldl' (>&&<) (fromBool True)
 
+-- | cumulative disjunction
 orB :: (Foldable f, BooleanAlgebra b) => f b -> b
 orB = foldl' (>||<) (fromBool False)
 
+-- | universal qualification
 allB :: (Foldable f, BooleanAlgebra b) => (a -> b) -> f a -> b
 allB f = foldl' (\b a -> b >&&< f a) (fromBool True)
 
+-- | existential qualification
 anyB :: (Foldable f, BooleanAlgebra b) => (a -> b) -> f a -> b
 anyB f = foldl' (\b a -> b >||< f a) (fromBool False)
 
+-- | `TokenTest` forms a `Tokenized` `BooleanAlgebra`
+-- of `Categorized` `tokenClass`es.
 newtype TokenTest token = TokenTest (RegExam token (TokenTest token))
 
+-- | `TokenAlgebra` extends `Tokenized` methods to support
+-- `BooleanAlgebra` operations in a `tokenClass`
 class Tokenized token p => TokenAlgebra token p where
+  -- | Arguments of `tokenClass` can be constructed from
+  -- `Tokenized` and `BooleanAlgebra` methods.
   tokenClass :: TokenTest token -> p
   default tokenClass
     :: (p ~ q token token, Alternator q, Cochoice q)
