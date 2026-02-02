@@ -22,7 +22,7 @@ module Control.Lens.PartialIso
   , PartialExchange (PartialExchange)
     -- Combinators
   , partialIso
-  , involutedMaybe
+  , partialInvoluted
   , withPartialIso
   , clonePartialIso
   , coPartialIso
@@ -149,8 +149,10 @@ partialIso :: (s -> Maybe a) -> (b -> Maybe t) -> PartialIso s t a b
 partialIso f g =
   unright . iso (maybe (Left ()) Right . f =<<) (mapMaybe g) . right'
 
-involutedMaybe :: (a -> Maybe a) -> PartialIso' a a
-involutedMaybe f = partialIso f f
+{- | Given a function that is its own partial inverse,
+this gives you a `PartialIso'` using it in both directions. -}
+partialInvoluted :: (a -> Maybe a) -> PartialIso' a a
+partialInvoluted f = partialIso f f
 
 {- | Convert `APartialIso` to the pair of functions that characterize it. -}
 withPartialIso
@@ -248,7 +250,7 @@ coPrism p = unwrapPafb . (?<) p . WrapPafb
 {- | `satisfied` is the prototypical proper partial isomorphism,
 identifying a subset which satisfies a predicate. -}
 satisfied :: (a -> Bool) -> PartialIso' a a
-satisfied f = involutedMaybe satiate where
+satisfied f = partialInvoluted satiate where
   satiate a = if f a then Just a else Nothing
 
 {- | `nulled` matches an `Empty` pattern, like `_Empty`. -}
@@ -315,7 +317,7 @@ difoldr1 pattern =
       . crossPartialIso id (coPartialIso pattern)
   in from (iterating step)
 
-{- | Left fold & unfold `APartialIso` to a `Prism`. -}
+{- | Left fold & unfold `APartialIso` to a `Control.Lens.Prism.Prism`. -}
 difoldl
   :: (AsEmpty t, Cons s t a b)
   => APartialIso d c (d,b) (c,a)
@@ -324,7 +326,7 @@ difoldl pattern
   = dimap (,Empty) (fmap fst)
   . difoldl1 pattern
 
-{- | Right fold & unfold `APartialIso` to a `Prism`. -}
+{- | Right fold & unfold `APartialIso` to a `Control.Lens.Prism.Prism`. -}
 difoldr
   :: (AsEmpty t, Cons s t a b)
   => APartialIso d c (b,d) (a,c)
