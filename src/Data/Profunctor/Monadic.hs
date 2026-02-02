@@ -21,8 +21,8 @@ module Data.Profunctor.Monadic
     Monadic
   , (>>=)
   , (>>)
-  , fail
   , return
+  , fail
   ) where
 
 import Data.Profunctor
@@ -31,7 +31,7 @@ import Prelude hiding ((>>=), (>>))
 {- | A `Profunctor` which is also a `Monad`. -}
 type Monadic p = (Profunctor p, forall x. Monad (p x))
 
-{- | The pair bonding operator `>>=` is a context-sensitive
+{- | The pair bonding operator @P.@`>>=` is a context-sensitive
 version of `Data.Profunctor.Monoidal.>*<`. -}
 (>>=) :: Monadic p => p a b -> (b -> p c d) -> p (a,c) (b,d)
 infixl 1 >>=
@@ -40,7 +40,7 @@ p >>= f = do
   d <- lmap snd (f b)
   return (b,d)
 
-{- | The unit bonding operator `>>`. -}
+{- | @P.@`>>` sequences actions. -}
 (>>) :: Monadic p => p () c -> p a b -> p a b
 infixl 1 >>
 x >> y = do _ <- lmap (const ()) x; y

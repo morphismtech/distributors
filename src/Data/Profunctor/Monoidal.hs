@@ -15,7 +15,8 @@ module Data.Profunctor.Monoidal
     Monoidal
   , oneP, (>*<), (>*), (*<)
   , dimap2, foreverP, ditraverse
-  , (>:<), asEmpty, replicateP
+    -- * Monoidal & Choice
+  , replicateP, (>:<), asEmpty
   , meander, eotFunList
   ) where
 
@@ -99,32 +100,32 @@ dimap2
 dimap2 f g h p q = liftA2 h (lmap f p) (lmap g q)
 
 {- | `foreverP` repeats an action indefinitely;
-analagous to `forever`, extending it to `Monoidal`. -}
+analagous to `Control.Monad.forever`, extending it to `Monoidal`. -}
 foreverP :: Monoidal p => p () c -> p a b
 foreverP a = let a' = a >* a' in a'
 
+{- | A `Monoidal` & `Choice` nil operator. -}
+asEmpty :: (AsEmpty s, Monoidal p, Choice p) => p s s
+asEmpty = _Empty >? oneP
+
+{- | A `Monoidal` & `Choice` cons operator. -}
+(>:<) :: (Cons s t a b, Monoidal p, Choice p) => p a b -> p s t -> p s t
+x >:< xs = _Cons >? x >*< xs
+infixr 5 >:<
+
 {- | Thanks to Fy on Monoidal Café Discord.
 
-`ditraverse` is roughly analagous to `replicateM`,
-repeating an action a number of times.
-However, instead of an `Int` term, it expects
-a `Traversable` & `Distributive` type. Such a
-type is a homogeneous countable product.
+A `Traversable` & `Distributive` type is a homogeneous countable product.
+That means it is a static length container, so unlike `replicateP`,
+`ditraverse` does not need an `Int` argument.
 -}
 ditraverse
   :: (Traversable t, Distributive t, Monoidal p)
   => p a b -> p (t a) (t b)
 ditraverse p = traverse (\f -> lmap f p) (distribute id)
 
-{- | A `Monoidal` nil operator. -}
-asEmpty :: (AsEmpty s, Monoidal p, Choice p) => p s s
-asEmpty = _Empty >? oneP
-
-{- | A `Monoidal` cons operator. -}
-(>:<) :: (Cons s t a b, Monoidal p, Choice p) => p a b -> p s t -> p s t
-x >:< xs = _Cons >? x >*< xs
-infixr 5 >:<
-
+{- | `replicateP` is analagous to `replicateM`,
+for `Monoidal` & `Choice` `Profunctor`s. -}
 replicateP
   :: (Monoidal p, Choice p, AsEmpty s, AsEmpty t, Cons s t a b)
   => Int -> p a b -> p s t
