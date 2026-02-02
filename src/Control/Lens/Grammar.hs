@@ -188,8 +188,8 @@ charG = rule "char" $
     charsReserved = "()*+?[\\]^{|}"
 
     charControlG = rule "char-control" $ choiceP
-      [ terminal abbreviation >* pure charControl
-      | (abbreviation, charControl) <- charsControl
+      [ terminal abbrev >* pure charControl
+      | (abbrev, charControl) <- charsControl
       ]
 
     charsControl =
