@@ -12,8 +12,7 @@ module Control.Lens.Grammar.Token
   ( -- * Tokenized
     Tokenized (..)
   , satisfy
-  , fromTokens
-  , terminator
+  , tokens
     -- * Like
   , oneLike
   , manyLike
@@ -90,20 +89,13 @@ satisfy
   => (a -> Bool) -> p a a
 satisfy f = satisfied f >?< anyToken
 
-fromTokens
+tokens
   :: ( Foldable f, Tokenized a (p a a)
      , Monoidal p, Choice p
      , AsEmpty s, Cons s s a a
      )
   => f a -> p s s
-fromTokens = foldr ((>:<) . token) asEmpty
-
-terminator
-  :: ( Foldable f, Tokenized a (p a a)
-     , Monoidal p, Cochoice p
-     )
-  => f a -> p () ()
-terminator = foldr (\a p -> only a ?< anyToken *> p) oneP
+tokens = foldr ((>:<) . token) asEmpty
 
 {- |
 `oneLike` consumes one token

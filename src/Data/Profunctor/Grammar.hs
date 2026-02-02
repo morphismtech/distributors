@@ -157,7 +157,7 @@ instance
   , Cons s s Char Char, Snoc s s Char Char, AsEmpty s
   , Filterable m, Alternative m, Monad m
   ) => IsString (Parsor s m s s) where
-  fromString = fromTokens
+  fromString = tokens
 instance BackusNaurForm (Parsor s m a b)
 instance (Alternative m, Monad m) => MonadFail (Parsor s m a) where
   fail _ = empty
@@ -259,7 +259,7 @@ instance
   ( Char ~ Item s, IsList s, Cons s s Char Char, AsEmpty s
   , Filterable m, Alternative m, Monad m
   ) => IsString (Printor s m s s) where
-  fromString = fromTokens
+  fromString = tokens
 instance BackusNaurForm (Printor s m a b)
 instance (Alternative m, Monad m) => MonadFail (Printor s m a) where
   fail _ = empty
