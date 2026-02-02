@@ -211,7 +211,7 @@ class Traversable t => Homogeneous t where
   prop> homogeneously @Maybe = optionalP
   prop> homogeneously @[] = manyP
   
-  Any `Traversable` & `Distributive` countable product
+  Any `Traversable` & `Data.Distributive.Distributive` countable product
   can be given a default implementation for the `homogeneously` method.
 
   prop> homogeneously = ditraverse
