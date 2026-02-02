@@ -111,11 +111,12 @@ makeNestedPrisms ''RegBnf
 {category-test} = (\\p\{)\q{category}\}|(\\P\{)(\q{category}(\|\q{category})*)\}
 {char} = [^\(\)\*\+\?\[\\\]\^\{\|\}\P{Cc}]|\\\q{char-escaped}
 {char-any} = \[\^\]
-{char-class} = \q{fail}|\q{char-any}|\q{one-of}|(\[\^)\q{char}+(\q{category-test}?\])|\q{category-test}
+{char-class} = \q{fail}|\q{char-any}|\q{one-of}|\q{not-one-of}|\q{category-test}
 {char-control} = NUL|SOH|STX|ETX|EOT|ENQ|ACK|BEL|BS|HT|LF|VT|FF|CR|SO|SI|DLE|DC1|DC2|DC3|DC4|NAK|SYN|ETB|CAN|EM|SUB|ESC|FS|GS|RS|US|DEL|PAD|HOP|BPH|NBH|IND|NEL|SSA|ESA|HTS|HTJ|VTS|PLD|PLU|RI|SS2|SS3|DCS|PU1|PU2|STS|CCH|MW|SPA|EPA|SOS|SGCI|SCI|CSI|ST|OSC|PM|APC
 {char-escaped} = [\(\)\*\+\?\[\\\]\^\{\|\}]|\q{char-control}
 {expression} = \q{atom}\?|\q{atom}\*|\q{atom}\+|\q{atom}
 {fail} = \[\]
+{not-one-of} = (\[\^)\q{char}+(\q{category-test}?\])
 {one-of} = \[\q{char}+\]
 {regex} = \q{alternate}
 {sequence} = \q{char}*|\q{expression}*
@@ -190,10 +191,7 @@ regexGrammar = _RegString >~ ruleRec "regex" altG
       [ _Fail >? failG
       , _Pass >? anyG
       , _OneOf >? oneOfG
-      , _NotOneOf >?
-          terminal "[^" >* several1 noSep charG
-            >*< optionP (NotAsIn Set.empty) catTestG
-            *< terminal "]"
+      , _NotOneOf >? notOneOfG
       , _NotOneOf >? pure Set.empty >*< catTestG
       ]
 
@@ -202,6 +200,11 @@ regexGrammar = _RegString >~ ruleRec "regex" altG
     anyG = rule "char-any" $ terminal "[^]"
 
     oneOfG = rule "one-of" $ terminal "[" >* several1 noSep charG *< terminal "]"
+
+    notOneOfG = rule "not-one-of" $
+      terminal "[^" >* several1 noSep charG
+        >*< optionP (NotAsIn Set.empty) catTestG
+        *< terminal "]"
 
 charG :: Grammar Char Char
 charG = rule "char" $
@@ -214,30 +217,94 @@ charG = rule "char" $
     charsReserved = "()*+?[\\]^{|}"
 
     charControlG = rule "char-control" $ choiceP
-      [ terminal abbrev >* pure charControl
-      | (abbrev, charControl) <- charsControl
+      [ only '\NUL' >? terminal "NUL"
+      , only '\SOH' >? terminal "SOH"
+      , only '\STX' >? terminal "STX"
+      , only '\ETX' >? terminal "ETX"
+      , only '\EOT' >? terminal "EOT"
+      , only '\ENQ' >? terminal "ENQ"
+      , only '\ACK' >? terminal "ACK"
+      , only '\BEL' >? terminal "BEL"
+      , only '\BS' >? terminal "BS"
+      , only '\HT' >? terminal "HT"
+      , only '\LF' >? terminal "LF"
+      , only '\VT' >? terminal "VT"
+      , only '\FF' >? terminal "FF"
+      , only '\CR' >? terminal "CR"
+      , only '\SO' >? terminal "SO"
+      , only '\SI' >? terminal "SI"
+      , only '\DLE' >? terminal "DLE"
+      , only '\DC1' >? terminal "DC1"
+      , only '\DC2' >? terminal "DC2"
+      , only '\DC3' >? terminal "DC3"
+      , only '\DC4' >? terminal "DC4"
+      , only '\NAK' >? terminal "NAK"
+      , only '\SYN' >? terminal "SYN"
+      , only '\ETB' >? terminal "ETB"
+      , only '\CAN' >? terminal "CAN"
+      , only '\EM' >? terminal "EM"
+      , only '\SUB' >? terminal "SUB"
+      , only '\ESC' >? terminal "ESC"
+      , only '\FS' >? terminal "FS"
+      , only '\GS' >? terminal "GS"
+      , only '\RS' >? terminal "RS"
+      , only '\US' >? terminal "US"
+      , only '\DEL' >? terminal "DEL"
+      , only '\x80' >? terminal "PAD"
+      , only '\x81' >? terminal "HOP"
+      , only '\x82' >? terminal "BPH"
+      , only '\x83' >? terminal "NBH"
+      , only '\x84' >? terminal "IND"
+      , only '\x85' >? terminal "NEL"
+      , only '\x86' >? terminal "SSA"
+      , only '\x87' >? terminal "ESA"
+      , only '\x88' >? terminal "HTS"
+      , only '\x89' >? terminal "HTJ"
+      , only '\x8A' >? terminal "VTS"
+      , only '\x8B' >? terminal "PLD"
+      , only '\x8C' >? terminal "PLU"
+      , only '\x8D' >? terminal "RI"
+      , only '\x8E' >? terminal "SS2"
+      , only '\x8F' >? terminal "SS3"
+      , only '\x90' >? terminal "DCS"
+      , only '\x91' >? terminal "PU1"
+      , only '\x92' >? terminal "PU2"
+      , only '\x93' >? terminal "STS"
+      , only '\x94' >? terminal "CCH"
+      , only '\x95' >? terminal "MW"
+      , only '\x96' >? terminal "SPA"
+      , only '\x97' >? terminal "EPA"
+      , only '\x98' >? terminal "SOS"
+      , only '\x99' >? terminal "SGCI"
+      , only '\x9A' >? terminal "SCI"
+      , only '\x9B' >? terminal "CSI"
+      , only '\x9C' >? terminal "ST"
+      , only '\x9D' >? terminal "OSC"
+      , only '\x9E' >? terminal "PM"
+      , only '\x9F' >? terminal "APC"
       ]
 
-    charsControl =
-      [ ("NUL", '\NUL'), ("SOH", '\SOH'), ("STX", '\STX'), ("ETX", '\ETX')
-      , ("EOT", '\EOT'), ("ENQ", '\ENQ'), ("ACK", '\ACK'), ("BEL", '\BEL')
-      , ("BS", '\BS'), ("HT", '\HT'), ("LF", '\LF'), ("VT", '\VT')
-      , ("FF", '\FF'), ("CR", '\CR'), ("SO", '\SO'), ("SI", '\SI')
-      , ("DLE", '\DLE'), ("DC1", '\DC1'), ("DC2", '\DC2'), ("DC3", '\DC3')
-      , ("DC4", '\DC4'), ("NAK", '\NAK'), ("SYN", '\SYN'), ("ETB", '\ETB')
-      , ("CAN", '\CAN'), ("EM", '\EM'), ("SUB", '\SUB'), ("ESC", '\ESC')
-      , ("FS", '\FS'), ("GS", '\GS'), ("RS", '\RS'), ("US", '\US')
-      , ("DEL", '\DEL')
-      , ("PAD", '\x80'), ("HOP", '\x81'), ("BPH", '\x82'), ("NBH", '\x83')
-      , ("IND", '\x84'), ("NEL", '\x85'), ("SSA", '\x86'), ("ESA", '\x87')
-      , ("HTS", '\x88'), ("HTJ", '\x89'), ("VTS", '\x8A'), ("PLD", '\x8B')
-      , ("PLU", '\x8C'), ("RI", '\x8D'), ("SS2", '\x8E'), ("SS3", '\x8F')
-      , ("DCS", '\x90'), ("PU1", '\x91'), ("PU2", '\x92'), ("STS", '\x93')
-      , ("CCH", '\x94'), ("MW", '\x95'), ("SPA", '\x96'), ("EPA", '\x97')
-      , ("SOS", '\x98'), ("SGCI",'\x99'), ("SCI", '\x9A'), ("CSI", '\x9B')
-      , ("ST", '\x9C'), ("OSC", '\x9D'), ("PM", '\x9E'), ("APC", '\x9F')
-      ]
-
+{- |
+>>> putStringLn (regbnfG regbnfGrammar)
+{start} = \q{regbnf}
+{alternate} = \q{sequence}(\|\q{sequence})*
+{atom} = (\\q\{)\q{char}*\}|\q{char}|\q{char-class}|\(\q{regex}\)
+{category} = Ll|Lu|Lt|Lm|Lo|Mn|Mc|Me|Nd|Nl|No|Pc|Pd|Ps|Pe|Pi|Pf|Po|Sm|Sc|Sk|So|Zs|Zl|Zp|Cc|Cf|Cs|Co|Cn
+{category-test} = (\\p\{)\q{category}\}|(\\P\{)(\q{category}(\|\q{category})*)\}
+{char} = [^\(\)\*\+\?\[\\\]\^\{\|\}\P{Cc}]|\\\q{char-escaped}
+{char-any} = \[\^\]
+{char-class} = \q{fail}|\q{char-any}|\q{one-of}|\q{not-one-of}|\q{category-test}
+{char-control} = NUL|SOH|STX|ETX|EOT|ENQ|ACK|BEL|BS|HT|LF|VT|FF|CR|SO|SI|DLE|DC1|DC2|DC3|DC4|NAK|SYN|ETB|CAN|EM|SUB|ESC|FS|GS|RS|US|DEL|PAD|HOP|BPH|NBH|IND|NEL|SSA|ESA|HTS|HTJ|VTS|PLD|PLU|RI|SS2|SS3|DCS|PU1|PU2|STS|CCH|MW|SPA|EPA|SOS|SGCI|SCI|CSI|ST|OSC|PM|APC
+{char-escaped} = [\(\)\*\+\?\[\\\]\^\{\|\}]|\q{char-control}
+{expression} = \q{atom}\?|\q{atom}\*|\q{atom}\+|\q{atom}
+{fail} = \[\]
+{not-one-of} = (\[\^)\q{char}+(\q{category-test}?\])
+{one-of} = \[\q{char}+\]
+{regbnf} = (\{start\} = )\q{regex}(\LF\q{rule})*
+{regex} = \q{alternate}
+{rule} = \{\q{char}*(\} = )\q{regex}
+{sequence} = \q{char}*|\q{expression}*
+-}
 regbnfGrammar :: Grammar Char RegBnf
 regbnfGrammar = rule "regbnf" $ _RegBnf . _Bnf >~
   terminal "{start} = " >* regexGrammar
