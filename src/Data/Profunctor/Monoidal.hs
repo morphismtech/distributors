@@ -115,7 +115,8 @@ infixr 5 >:<
 
 {- | Thanks to Fy on Monoidal Café Discord.
 
-A `Traversable` & `Distributive` type is a homogeneous countable product.
+A `Traversable` & `Data.Distributive.Distributive` type
+is a homogeneous countable product.
 That means it is a static length container, so unlike `replicateP`,
 `ditraverse` does not need an `Int` argument.
 -}
