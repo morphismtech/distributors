@@ -7,16 +7,14 @@ Maintainer  : Eitan Chatav <eitan.chatav@gmail.com>
 Stability   : provisional
 Portability : non-portable
 
-See Chomsky, [Three Models for the Description of Language]
-(https://chomsky.info/wp-content/uploads/195609-.pdf)
+See Chomsky, [On Certain Formal Properties of Grammars]
+(https://somr.info/lib/Chomsky_1959.pdf)
 -}
 
 module Control.Lens.Grammar
   ( -- * Regular grammar
     RegGrammar
   , RegString (..)
-  , TerminalSymbol (..)
-  , Tokenized (..)
   , Regular
   , regexGrammar
     -- * Context-free grammar
