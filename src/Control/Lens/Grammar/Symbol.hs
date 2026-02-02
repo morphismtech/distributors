@@ -20,6 +20,7 @@ import Control.Lens.Grammar.Token
 import Data.Profunctor
 import Data.Profunctor.Monoidal
 
+-- | A `terminal` symbol in a grammar.
 class TerminalSymbol token s | s -> token where
   terminal :: [token] -> s
   default terminal
@@ -27,5 +28,6 @@ class TerminalSymbol token s | s -> token where
     => [token] -> s
   terminal = foldr (\a p -> only a ?< anyToken *> p) oneP
 
+-- | A `nonTerminal` symbol in a grammar.
 class NonTerminalSymbol s where
   nonTerminal :: String -> s

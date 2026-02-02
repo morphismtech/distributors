@@ -41,16 +41,29 @@ import Prelude hiding (id, (.))
 import GHC.Exts
 import Witherable
 
+-- | `Parsor` is a simple parser `Profunctor`.
 newtype Parsor s f a b = Parsor {runParsor :: Maybe a -> s -> f (b,s)}
+
+-- | Run the parser on an input string,
+-- popping tokens from the beginning of the string,
+-- returning a value and the remaining string.
 parseP :: Parsor s f a b -> s -> f (b,s)
 parseP (Parsor f) = f Nothing
+
+-- | Run the parser in reverse on a value and an input string,
+-- placing tokens at the end of the string and returning the new string.
 unparseP :: Functor f => Parsor s f a b -> a -> s -> f s
 unparseP (Parsor f) a = fmap snd . f (Just a)
 
+-- | `Printor` is a simple printer `Profunctor`.
 newtype Printor s f a b = Printor {runPrintor :: a -> f (b, s -> s)}
+
+-- | Run the printer on a value, returning a function
+-- that places tokens at the beginning of an input string.
 printP :: Functor f => Printor s f a b -> a -> f (s -> s)
 printP (Printor f) = fmap snd . f
 
+-- | `Grammor` is a constant `Profunctor`.
 newtype Grammor k a b = Grammor {runGrammor :: k}
 
 -- Parsor instances

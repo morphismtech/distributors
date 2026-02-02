@@ -33,6 +33,19 @@ import Data.Set (Set)
 import qualified Data.Set as Set
 import GHC.Generics
 
+{- | A `KleeneStarAlgebra` is a ring
+with a generally non-commutaive multiplication,
+the `Monoid` concatenation operator `<>` with identity `mempty`;
+and an idempotent addition, the alternation operator `>|<`
+with identity `zeroK`.
+
+It has three unary operators `optK`, `plusK` and the eponymous `starK`.
+
+prop> starK x = optK (plusK x)
+prop> plusK x = x <> starK x
+prop> optK x = mempty >|< x
+
+-}
 class Monoid k => KleeneStarAlgebra k where
   starK, plusK, optK :: k -> k
   starK x = optK (plusK x)
@@ -46,12 +59,15 @@ class Monoid k => KleeneStarAlgebra k where
   (>|<) = (<|>)
   zeroK = empty
 
+-- | cumulative alternation, 
 orK :: (Foldable f, KleeneStarAlgebra k) => f k -> k
 orK = foldl' (>|<) zeroK
 
+-- | universal qualification
 anyK :: (Foldable f, KleeneStarAlgebra k) => (a -> k) -> f a -> k
 anyK f = foldl' (\b a -> b >|< f a) zeroK
 
+-- | The `RegEx`pression type is the prototypical `KleeneStarAlgebra`.
 data RegEx token
   = Terminal [token]
   | NonTerminal String
@@ -61,6 +77,10 @@ data RegEx token
   | KleenePlus (RegEx token)
   | RegExam (RegExam token (RegEx token))
 
+{- | A component of both `RegEx`pressions
+and `Control.Lens.Grammar.Boole.TokenTest`s, so that the latter can
+be embedded in the former with `Control.Lens.Grammar.Boole.tokenClass`.
+-}
 data RegExam token alg
   = Fail
   | Pass
@@ -68,6 +88,7 @@ data RegExam token alg
   | NotOneOf (Set token) (CategoryTest token)
   | Alternate alg alg
 
+{- | `CategoryTest`s for `Categorized` tokens.-}
 data CategoryTest token
   = AsIn (Categorize token)
   | NotAsIn (Set (Categorize token))
