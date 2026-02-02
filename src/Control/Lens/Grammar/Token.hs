@@ -32,7 +32,7 @@ import Data.Profunctor.Monoidal
 import Data.Word
 
 {- | `Categorized` provides a type family `Categorize`
-and a function `categorize` to classify tokens into discrete categories.
+and a function `categorize` to classify tokens into disjoint categories.
 
 >>> :kind! Categorize Char
 Categorize Char :: *
