@@ -31,6 +31,16 @@ import Data.Profunctor.Distributor
 import Data.Profunctor.Monoidal
 import Data.Word
 
+{- | `Categorized` provides a type family `Categorize`
+and a function `categorize` to classify tokens into discrete categories.
+
+>>> :kind! Categorize Char
+Categorize Char :: *
+= GeneralCategory
+
+>>> categorize 'a'
+LowercaseLetter
+-}
 class (Ord token, Ord (Categorize token), Enum (Categorize token))
   => Categorized token where
   type Categorize token
