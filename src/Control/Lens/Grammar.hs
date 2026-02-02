@@ -112,8 +112,7 @@ regexGrammar = _RegString >~ ruleRec "regex" altG
       , atomG rex
       ]
 
-    anyG = rule "char-any" $ choiceP $ map terminal
-      ["[^]", "\\P{}", "[^\\P{}]"]
+    anyG = rule "char-any" $ terminal "[^]"
 
     atomG rex = rule "atom" $ choiceP
       [ _NonTerminal >? terminal "\\q{" >* manyP charG *< terminal "}"
@@ -124,9 +123,10 @@ regexGrammar = _RegString >~ ruleRec "regex" altG
 
     catTestG = rule "category-test" $ choiceP
       [ _AsIn >? terminal "\\p{" >* categoryG *< terminal "}"
-      , _NotAsIn >? terminal "\\P{" >*
-          several1 (sepBy (terminal "|")) categoryG
-            *< terminal "}"
+      , _NotAsIn >? several1 (sepBy (terminal "|"))
+          { beginBy = terminal "\\P{"
+          , endBy = terminal "}"
+          } categoryG
       ]
 
     categoryG = rule "category" $ choiceP
@@ -168,7 +168,7 @@ regexGrammar = _RegString >~ ruleRec "regex" altG
       , _OneOf >? oneOfG
       , _NotOneOf >?
           terminal "[^" >* several1 noSep charG
-            >*< (catTestG <|> pure (NotAsIn Set.empty))
+            >*< optionP (NotAsIn Set.empty) catTestG
             *< terminal "]"
       , _NotOneOf >? pure Set.empty >*< catTestG
       ]
