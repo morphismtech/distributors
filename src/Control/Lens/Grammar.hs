@@ -14,7 +14,7 @@ See Chomsky, [On Certain Formal Properties of Grammars]
 module Control.Lens.Grammar
   ( -- * Regular grammar
     RegGrammar
-  , Regular
+  , Lexical
   , RegString (..)
   , regstringG
   , regexGrammar
