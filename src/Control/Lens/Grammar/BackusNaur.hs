@@ -56,7 +56,7 @@ class BackusNaurForm bnf where
   ruleRec _ = fix
 
 {- | A `Bnf` consists of a distinguished starting rule
-and a set of named rules. -}
+and a set of named rules, supporting the `BackusNaurForm` interface. -}
 data Bnf rule = Bnf
   { startBnf :: rule
   , rulesBnf :: Set (String, rule)
