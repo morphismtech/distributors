@@ -24,6 +24,7 @@ import Control.Applicative
 import Control.Arrow
 import Control.Category
 import Control.Lens
+import Control.Lens.Extras
 import Control.Lens.Grammar.BackusNaur
 import Control.Lens.Grammar.Boole
 import Control.Lens.Grammar.Kleene
@@ -174,6 +175,11 @@ instance
 instance BackusNaurForm (Parsor s m a b)
 instance (Alternative m, Monad m) => MonadFail (Parsor s m a) where
   fail _ = empty
+instance AsEmpty s => Matching s (Parsor s [] a b) where
+  word =~ p = case
+    [ () | (_, remaining) <- runParsor p Nothing word
+    , is _Empty remaining
+    ] of [] -> False; _:_ -> True
 
 -- Printor instances
 instance Functor f => Functor (Printor s f a) where
@@ -316,3 +322,5 @@ instance TerminalSymbol token k
 instance BackusNaurForm k => BackusNaurForm (Grammor k a b) where
   rule name = Grammor . rule name . runGrammor
   ruleRec name = Grammor . ruleRec name . dimap Grammor runGrammor
+instance Matching s k => Matching s (Grammor k a b) where
+  word =~ pattern = word =~ runGrammor pattern
