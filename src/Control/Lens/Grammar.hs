@@ -53,20 +53,24 @@ import GHC.Exts
 import Prelude hiding (filter)
 import Witherable
 
-type RegGrammar token a = forall p. Regular token p => p a a
+type RegGrammar token a = forall p.
+  ( Lexical token p
+  , Alternator p
+  ) => p a a
 type Grammar token a = forall p.
-  ( Regular token p
+  ( Lexical token p
   , forall x. BackusNaurForm (p x x)
+  , Alternator p
   ) => p a a
 type CtxGrammar token a = forall p.
-  ( Regular token p
+  ( Lexical token p
   , forall x. BackusNaurForm (p x x)
+  , Alternator p
   , Monadic p
   , Filtrator p
   ) => p a a
-type Regular token p =
-  ( Alternator p
-  , forall x y. (x ~ (), y ~ ()) => TerminalSymbol token (p x y)
+type Lexical token p =
+  ( forall x y. (x ~ (), y ~ ()) => TerminalSymbol token (p x y)
   , forall x y. (x ~ token, y ~ token) => TokenAlgebra token (p x y)
   ) :: Constraint
 
