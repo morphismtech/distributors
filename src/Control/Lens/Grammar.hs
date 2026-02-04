@@ -57,6 +57,57 @@ type RegGrammar token a = forall p.
   ( Lexical token p
   , Alternator p
   ) => p a a
+
+{- |
+>>> import Numeric.Natural (Natural)
+>>> import Control.Lens (Prism', prism')
+>>> :{
+data Arith
+  = Num Natural
+  | Add Arith Arith
+  | Mul Arith Arith
+  deriving stock (Eq, Ord, Show, Read)
+:}
+
+>>> :{
+_Num :: Prism' Arith Natural
+_Num = prism' Num (\case Num n -> Just n; _ -> Nothing)
+_Add, _Mul :: Prism' Arith (Arith, Arith)
+_Add = prism' (uncurry Add) (\case Add x y -> Just (x,y); _ -> Nothing)
+_Mul = prism' (uncurry Mul) (\case Mul x y -> Just (x,y); _ -> Nothing)
+:}
+
+>>> :{
+arithGrammar :: Grammar Char Arith
+arithGrammar = ruleRec "arith" sumG
+  where
+    sumG arith = rule "sum" $
+      chain1 Left _Add (sepBy (terminal "+")) (prodG arith)
+    prodG arith = rule "product" $
+      chain1 Left _Mul (sepBy (terminal "*")) (factorG arith)
+    factorG arith = rule "factor" $
+      numberG <|> terminal "(" >* arith *< terminal ")"
+    numberG = rule "number" $
+      _Num . iso show read >? someP (asIn @Char DecimalNumber)
+:}
+
+>>> [x | (x,"") <- parseG arithGrammar "1+2*3+4"]
+[Add (Add (Num 1) (Mul (Num 2) (Num 3))) (Num 4)]
+
+>>> unparseG arithGrammar (Add (Num 1) (Mul (Num 2) (Num 3))) "" :: Maybe String
+Just "1+2*3"
+
+>>> do pr <- printG arithGrammar (Num 69); return (pr "") :: Maybe String
+Just "69"
+
+>>> putStringLn (regbnfG arithGrammar)
+{start} = \q{arith}
+{arith} = \q{sum}
+{factor} = \q{number}|\(\q{arith}\)
+{number} = \p{Nd}+
+{product} = \q{factor}(\*\q{factor})*
+{sum} = \q{product}(\+\q{product})*
+-}
 type Grammar token a = forall p.
   ( Lexical token p
   , forall x. BackusNaurForm (p x x)
