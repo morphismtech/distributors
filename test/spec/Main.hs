@@ -10,6 +10,7 @@ import Examples.Arithmetic
 import Examples.Json
 import Examples.SExpr
 import Examples.Lambda
+import Examples.SemVer
 
 main :: IO ()
 main = hspec $ do
@@ -21,6 +22,7 @@ main = hspec $ do
         fromString str `shouldBe` rex
 
   -- testGrammar "regexGrammar" regexGrammar regexExamples
+  testGrammar "semverGrammar" semverGrammar semverExamples
   testGrammar "arithGrammar" arithGrammar arithExamples
   testGrammar "jsonGrammar" jsonGrammar jsonExamples
   testGrammar "sexprGrammar" sexprGrammar sexprExamples
