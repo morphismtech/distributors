@@ -53,6 +53,47 @@ import GHC.Exts
 import Prelude hiding (filter)
 import Witherable
 
+{- |
+>>> import Numeric.Natural (Natural)
+>>> import Control.Lens (Iso', iso)
+>>> :{
+data SemVer = SemVer
+  { major         :: Natural  -- e.g., 1
+  , minor         :: Natural  -- e.g., 2
+  , patch         :: Natural  -- e.g., 3
+  , preRelease    :: [String] -- e.g., "alpha.1", "rc.2"
+  , buildMetadata :: [String] -- e.g., "build.123", "20130313144700"
+  }
+  deriving (Eq, Ord, Show, Read)
+:}
+
+>>> :set -XRecordWildCards
+>>> :{
+_SemVer :: Iso' SemVer (Natural, (Natural, (Natural, ([String], [String]))))
+_SemVer = iso
+  (\SemVer {..} -> (major, (minor, (patch, (preRelease, buildMetadata)))))
+  (\(major, (minor, (patch, (preRelease, buildMetadata)))) -> SemVer {..})
+:}
+
+>>> :{
+semverGrammar :: Grammar Char SemVer
+semverGrammar = _SemVer
+  >? numberG *< terminal "."
+  >*< numberG *< terminal "."
+  >*< numberG
+  >*< optionP [] (terminal "-" >* several1 (sepBy (terminal ".")) (someP charG))
+  >*< optionP [] (terminal "+" >* several1 (sepBy (terminal ".")) (someP charG))
+  where
+    numberG = iso show read >~ someP (asIn @Char DecimalNumber)
+    charG = tokenClass $ orB
+      [ asIn LowercaseLetter
+      , asIn UppercaseLetter
+      , asIn DecimalNumber
+      , token '-'
+      ]
+:}
+
+-}
 type RegGrammar token a = forall p.
   ( Lexical token p
   , Alternator p
