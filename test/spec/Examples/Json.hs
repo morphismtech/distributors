@@ -22,7 +22,7 @@ import Numeric.Natural
 data Json
   = JNull
   | JBool Bool
-  | JNumber Natural
+  | JNumber Natural -- simplified to only decimal natural numbers
   | JString String
   | JArray [Json]
   | JObject (Map String Json)
