@@ -28,7 +28,7 @@ lambdaGrammar :: Grammar Char Lambda
 lambdaGrammar = ruleRec "lambda" termG
   where
     -- Top level term: lambda abstraction or application
-    termG term = rule "term" $ choiceP
+    termG term = rule "term" $ choice
       [ lamG term
       , appG term
       ]
@@ -43,7 +43,7 @@ lambdaGrammar = ruleRec "lambda" termG
       chain1 Left _App (sepBy (reqLike ' ')) (atomG term)
 
     -- Atomic term: variable or parenthesized term
-    atomG term = rule "atom" $ choiceP
+    atomG term = rule "atom" $ choice
       [ _Var >? varNameG
       , terminal "(" >* term *< terminal ")"
       ]
@@ -51,7 +51,7 @@ lambdaGrammar = ruleRec "lambda" termG
     -- Variable name: starts with lowercase letter,
     -- followed by alphanumeric or underscore
     varNameG = rule "varname" $ asIn LowercaseLetter >:<
-      manyP (choiceP (token '_' : map asIn [LowercaseLetter, UppercaseLetter, DecimalNumber]))
+      manyP (choice (token '_' : map asIn [LowercaseLetter, UppercaseLetter, DecimalNumber]))
 
 -- | Example lambda calculus terms for testing
 lambdaExamples :: [(Lambda, String)]

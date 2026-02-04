@@ -67,11 +67,11 @@ andB = foldl' (>&&<) (fromBool True)
 orB :: (Foldable f, BooleanAlgebra b) => f b -> b
 orB = foldl' (>||<) (fromBool False)
 
--- | universal qualification
+-- | universal
 allB :: (Foldable f, BooleanAlgebra b) => (a -> b) -> f a -> b
 allB f = foldl' (\b a -> b >&&< f a) (fromBool True)
 
--- | existential qualification
+-- | existential
 anyB :: (Foldable f, BooleanAlgebra b) => (a -> b) -> f a -> b
 anyB f = foldl' (\b a -> b >||< f a) (fromBool False)
 

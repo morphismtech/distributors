@@ -54,10 +54,15 @@ import Prelude hiding (filter)
 import Witherable
 
 {- |
+A regular grammar may be constructed using
+`Lexical` and `Alternator` combinators.
+Let's see an example using
+[semantic versioning](https://semver.org/).
+
 >>> import Numeric.Natural (Natural)
 >>> import Control.Lens (Iso', iso)
 >>> :{
-data SemVer = SemVer
+data SemVer = SemVer          -- e.g., 2.1.5-rc.1+build.123
   { major         :: Natural  -- e.g., 1
   , minor         :: Natural  -- e.g., 2
   , patch         :: Natural  -- e.g., 3
@@ -67,6 +72,15 @@ data SemVer = SemVer
   deriving (Eq, Ord, Show, Read)
 :}
 
+We'd like to define an optic @_SemVer@,
+corresponding to the constructor pattern @SemVer@.
+Unfortunately, we can't use TemplateHaskell to generate it in [GHCi]
+(https://wiki.haskell.org/GHC/GHCi),
+which is used to test this documenation.
+Normally we would write `makeNestedPrisms` @''SemVer@,
+but here is equivalent explicit Haskell code instead.
+Since @SemVer@ is a newtype, @_SemVer@ can be an `Control.Lens.Iso.Iso`.
+
 >>> :set -XRecordWildCards
 >>> :{
 _SemVer :: Iso' SemVer (Natural, (Natural, (Natural, ([String], [String]))))
@@ -75,24 +89,81 @@ _SemVer = iso
   (\(major, (minor, (patch, (preRelease, buildMetadata)))) -> SemVer {..})
 :}
 
+Now we can build a `RegGrammar` for @SemVer@ using the "idiom" style of
+`Applicative` parsing with a couple modifications.
+
 >>> :{
-semverGrammar :: Grammar Char SemVer
+semverGrammar :: RegGrammar Char SemVer
 semverGrammar = _SemVer
-  >? numberG *< terminal "."
-  >*< numberG *< terminal "."
-  >*< numberG
-  >*< optionP [] (terminal "-" >* several1 (sepBy (terminal ".")) (someP charG))
-  >*< optionP [] (terminal "+" >* several1 (sepBy (terminal ".")) (someP charG))
+  >?  numberG
+  >*< terminal "." >* numberG
+  >*< terminal "." >* numberG
+  >*< option [] (terminal "-" >* identifiersG)
+  >*< option [] (terminal "+" >* identifiersG)
   where
     numberG = iso show read >~ someP (asIn @Char DecimalNumber)
-    charG = tokenClass $ orB
-      [ asIn LowercaseLetter
-      , asIn UppercaseLetter
-      , asIn DecimalNumber
-      , token '-'
-      ]
+    identifiersG = several1 (sepBy (terminal ".")) (someP charG)
+    charG = asIn LowercaseLetter
+      <|> asIn UppercaseLetter
+      <|> asIn DecimalNumber
+      <|> token '-'
 :}
 
+Instead of using the constructor @SemVer@ with the `Functor` applicator `<$>`,
+we use the optic @_SemVer@ we defined and the `Choice` applicator `>?`;
+although, we could have used the `Profunctor` applicator `>~` instead,
+because @_SemVer@ is an `Control.Lens.Iso.Iso`. A few `Alternative`
+combinators like `<|>` work both `Functor`ially and `Profunctor`ially.
+
++------------+---------------+
+| Functorial | Profunctorial |
++============+===============+
+| @SemVer@   | @_SemVer@     |
++------------+---------------+
+| `<$>`      | `>?`          |
++------------+---------------+
+| `*>`       | `>*`          |
++------------+---------------+
+| `<*`       | `*<`          |
++------------+---------------+
+| `<*>`      | `>*<`         |
++------------+---------------+
+| `<|>`      | `<|>`         |
++------------+---------------+
+| `option`   | `option`      |
++------------+---------------+
+| `choice`   | `choice`      |
++------------+---------------+
+| `many`     | `manyP`       |
++------------+---------------+
+| `some`     | `someP`       |
++------------+---------------+
+| `optional` | `optionalP`   |
++------------+---------------+
+
+You can generate a `RegString` from a `RegGrammar` with `regstringG`.
+
+>>> putStringLn (regstringG semverGrammar)
+\p{Nd}+(.\p{Nd}+(.\p{Nd}+((-((\p{Ll}|\p{Lu}|\p{Nd}|-)+(.(\p{Ll}|\p{Lu}|\p{Nd}|-)+)*))?(\+((\p{Ll}|\p{Lu}|\p{Nd}|-)+(.(\p{Ll}|\p{Lu}|\p{Nd}|-)+)*))?)))
+
+You can also generate parsers and printers.
+
+>>> [parsed | (parsed, "") <- parseG semverGrammar "2.1.5-rc.1+build.123"]
+[SemVer {major = 2, minor = 1, patch = 5, preRelease = ["rc","1"], buildMetadata = ["build","123"]}]
+
+Parsing `uncons`es tokens left-to-right, from the beginning of a string.
+Unparsing, on the other hand, `snoc`s tokens left-to-right, to the end of a string.
+
+>>> unparseG semverGrammar (SemVer 1 0 0 ["alpha"] []) "SemVer: " :: Maybe String
+Just "SemVer: 1.0.0-alpha"
+
+Printing, on the gripping hand, `cons`es tokens right-to-left, to the beginning of a string.
+
+>>> ($ " is the SemVer.") <$> printG semverGrammar (SemVer 1 2 3 [] []) :: Maybe String
+Just "1.2.3 is the SemVer."
+
+`Profunctor`ial combinators give us correct-by-construction invertible parsers.
+New `RegGrammar` generators can be defined with new instances of `Lexical` `Alternator`s.
 -}
 type RegGrammar token a = forall p.
   ( Lexical token p
@@ -154,6 +225,7 @@ type Grammar token a = forall p.
   , forall x. BackusNaurForm (p x x)
   , Alternator p
   ) => p a a
+
 type CtxGrammar token a = forall p.
   ( Lexical token p
   , forall x. BackusNaurForm (p x x)
@@ -161,6 +233,14 @@ type CtxGrammar token a = forall p.
   , Monadic p
   , Filtrator p
   ) => p a a
+
+{- |
+`Lexical` combinators include
+
+* `terminal` symbols from "Control.Lens.Grammar.Symbol";
+* `Tokenized` combinators from "Control.Lens.Grammar.Token";
+* `tokenClass` `BooleanAlgebra` combinators from "Control.Lens.Grammar.Boole".
+-}
 type Lexical token p =
   ( forall x y. (x ~ (), y ~ ()) => TerminalSymbol token (p x y)
   , forall x y. (x ~ token, y ~ token) => TokenAlgebra token (p x y)
@@ -219,26 +299,26 @@ regexGrammar = _RegString >~ ruleRec "regex" altG
     altG rex = rule "alternate" $
       chain1 Left (_RegExam . _Alternate) (sepBy (terminal "|")) (seqG rex)
 
-    seqG rex = rule "sequence" $ choiceP
+    seqG rex = rule "sequence" $ choice
       [ _Terminal >? manyP charG
       , chain Left _Sequence (_Terminal . _Empty) noSep (exprG rex)
       ]
 
-    exprG rex = rule "expression" $ choiceP
+    exprG rex = rule "expression" $ choice
       [ _KleeneOpt >? atomG rex *< terminal "?"
       , _KleeneStar >? atomG rex *< terminal "*"
       , _KleenePlus >? atomG rex *< terminal "+"
       , atomG rex
       ]
 
-    atomG rex = rule "atom" $ choiceP
+    atomG rex = rule "atom" $ choice
       [ _NonTerminal >? terminal "\\q{" >* manyP charG *< terminal "}"
       , _Terminal >? charG >:< asEmpty
       , _RegExam >? classG
       , terminal "(" >* rex *< terminal ")"
       ]
 
-    catTestG = rule "category-test" $ choiceP
+    catTestG = rule "category-test" $ choice
       [ _AsIn >? terminal "\\p{" >* categoryG *< terminal "}"
       , _NotAsIn >? several1 (sepBy (terminal "|"))
           { beginBy = terminal "\\P{"
@@ -246,7 +326,7 @@ regexGrammar = _RegString >~ ruleRec "regex" altG
           } categoryG
       ]
 
-    categoryG = rule "category" $ choiceP
+    categoryG = rule "category" $ choice
       [ _LowercaseLetter >? terminal "Ll"
       , _UppercaseLetter >? terminal "Lu"
       , _TitlecaseLetter >? terminal "Lt"
@@ -279,7 +359,7 @@ regexGrammar = _RegString >~ ruleRec "regex" altG
       , _NotAssigned >? terminal "Cn"
       ]
 
-    classG = rule "char-class" $ choiceP
+    classG = rule "char-class" $ choice
       [ _Fail >? failG
       , _Pass >? anyG
       , _OneOf >? oneOfG
@@ -295,7 +375,7 @@ regexGrammar = _RegString >~ ruleRec "regex" altG
 
     notOneOfG = rule "not-one-of" $
       terminal "[^" >* several1 noSep charG
-        >*< optionP (NotAsIn Set.empty) catTestG
+        >*< option (NotAsIn Set.empty) catTestG
         *< terminal "]"
 
 charG :: Grammar Char Char
@@ -308,7 +388,7 @@ charG = rule "char" $
 
     charsReserved = "()*+?[\\]^{|}"
 
-    charControlG = rule "char-control" $ choiceP
+    charControlG = rule "char-control" $ choice
       [ only '\NUL' >? terminal "NUL"
       , only '\SOH' >? terminal "SOH"
       , only '\STX' >? terminal "STX"

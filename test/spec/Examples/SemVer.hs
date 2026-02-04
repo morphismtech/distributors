@@ -4,8 +4,8 @@ module Examples.SemVer
   , semverExamples
   ) where
 
+import Control.Applicative
 import Control.Lens.Grammar
-import Control.Lens.Grammar.Boole
 import Control.Lens.Grammar.Symbol
 import Control.Lens.Grammar.Token
 import Control.Lens.PartialIso
@@ -35,25 +35,20 @@ makeNestedPrisms ''SemVer
 --   prerelease = identifier ("." identifier)*
 --   buildmetadata = identifier ("." identifier)*
 --   identifier = [0-9A-Za-z-]+
-semverGrammar :: Grammar Char SemVer
+semverGrammar :: RegGrammar Char SemVer
 semverGrammar = _SemVer
-  >? numberG *< terminal "."
-  >*< numberG *< terminal "."
-  >*< numberG
-  >*< optionP [] (terminal "-" >* several1 (sepBy (terminal ".")) (someP charG))
-  >*< optionP [] (terminal "+" >* several1 (sepBy (terminal ".")) (someP charG))
+  >?  numberG
+  >*< terminal "." >* numberG
+  >*< terminal "." >* numberG
+  >*< option [] (terminal "-" >* identifiersG)
+  >*< option [] (terminal "+" >* identifiersG)
   where
-    -- Decimal natural number grammar
-    numberG :: Grammar Char Natural
     numberG = iso show read >~ someP (asIn @Char DecimalNumber)
-
-    -- Identifier character: alphanumeric or hyphen
-    charG = tokenClass $ orB
-      [ asIn LowercaseLetter
-      , asIn UppercaseLetter
-      , asIn DecimalNumber
-      , token '-'
-      ]
+    identifiersG = several1 (sepBy (terminal ".")) (someP charG)
+    charG = asIn LowercaseLetter
+      <|> asIn UppercaseLetter
+      <|> asIn DecimalNumber
+      <|> token '-'
 
 semverExamples :: [(SemVer, String)]
 semverExamples =

@@ -13,8 +13,8 @@ module Data.Profunctor.Distributor
     Distributor (..), dialt
     -- * Alternator
   , Alternator (..)
-  , choiceP
-  , optionP
+  , choice
+  , option
     -- * Homogeneous
   , Homogeneous (..)
     -- * SepBy
@@ -347,13 +347,13 @@ class (Choice p, Distributor p, forall x. Alternative (p x))
     someP :: p a b -> p [a] [b]
     someP p = _Cons >? p >*< manyP p
 
--- | Combines all `Alternator` choices in the specified list.
-choiceP :: (Foldable f, Alternator p) => f (p a b) -> p a b
-choiceP = foldl' (<|>) empty
+-- | Combines all `Alternative` choices in the specified list.
+choice :: (Foldable f, Alternative p) => f (p a) -> p a
+choice = foldl' (<|>) empty
 
--- | Perform an `Alternator` action or return a default value.
-optionP :: Alternator p => b {- ^ default value -} -> p a b -> p a b
-optionP b p = p <|> pure b
+-- | Perform an `Alternative` action or return a default value.
+option :: Alternative p => a {- ^ default value -} -> p a -> p a
+option a p = p <|> pure a
 
 instance (Alternator p, Applicative f)
   => Alternator (WrappedPafb f p) where

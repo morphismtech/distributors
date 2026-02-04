@@ -20,7 +20,7 @@ module Control.Lens.PartialIso
   , PartialIso'
   , APartialIso
   , PartialExchange (PartialExchange)
-    -- Combinators
+    -- * Combinators
   , partialIso
   , partialInvoluted
   , withPartialIso
@@ -28,7 +28,7 @@ module Control.Lens.PartialIso
   , coPartialIso
   , crossPartialIso
   , altPartialIso
-    -- * Actions
+    -- * Applicators
   , (>?)
   , (?<)
   , (>?<)
@@ -41,7 +41,7 @@ module Control.Lens.PartialIso
   , notNulled
   , eotMaybe
   , eotList
-    -- * Iterations
+    -- * Iterators
   , iterating
   , difoldl1
   , difoldr1

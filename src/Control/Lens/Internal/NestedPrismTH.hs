@@ -44,6 +44,7 @@ import Prelude
 -- is that constructors with @n > 2@ arguments
 -- will use right-nested pairs, rather than a flat @n@-tuple.
 -- This makes them suitable for use on the left-hand-side of
+-- `Control.Lens.PartialIso.>~`,
 -- `Control.Lens.PartialIso.>?` and `Control.Lens.PartialIso.>?<`;
 -- with repeated use of `Data.Profunctor.Distributor.>*<`
 -- on the right-hand-side, resulting in right-nested pairs.

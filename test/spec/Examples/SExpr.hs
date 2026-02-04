@@ -25,7 +25,7 @@ makePrisms ''SExpr
 
 -- | Grammar for S-expressions
 sexprGrammar :: Grammar Char SExpr
-sexprGrammar = ruleRec "sexpr" $ \sexpr -> choiceP
+sexprGrammar = ruleRec "sexpr" $ \sexpr -> choice
   [ _Atom >? atomG
   , _List >? listG sexpr
   ]

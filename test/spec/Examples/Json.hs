@@ -40,7 +40,7 @@ jsonGrammar = ruleRec "json" elementG
       ws >* valueG json *< ws
 
     -- value = object | array | string | number | "true" | "false" | "null"
-    valueG json = rule "value" $ choiceP
+    valueG json = rule "value" $ choice
       [ _JNull >? terminal "null"
       , _JBool . only True >? terminal "true"
       , _JBool . only False >? terminal "false"
@@ -51,7 +51,7 @@ jsonGrammar = ruleRec "json" elementG
       ]
 
     -- object = '{' ws '}' | '{' members '}'
-    objectG json = rule "object" $ choiceP
+    objectG json = rule "object" $ choice
       [ only Map.empty >?
           terminal "{" >* ws >* terminal "}"
       , iso Map.toList Map.fromList >~
@@ -67,7 +67,7 @@ jsonGrammar = ruleRec "json" elementG
       ws >* stringG *< ws *< terminal ":" >*< elementG json
 
     -- array = '[' ws ']' | '[' elements ']'
-    arrayG json = rule "array" $ choiceP
+    arrayG json = rule "array" $ choice
       [ only [] >? terminal "[" >* ws >* terminal "]"
       , terminal "[" >* elementsG json *< terminal "]"
       ]
@@ -86,7 +86,7 @@ jsonGrammar = ruleRec "json" elementG
       <|> terminal "\\" >* escapeG
 
     -- escape = '"' | '\' | '/' | 'b' | 'f' | 'n' | 'r' | 't'
-    escapeG = rule "escape" $ choiceP
+    escapeG = rule "escape" $ choice
       [ only '"' >? terminal "\""
       , only '\\' >? terminal "\\"
       , only '/' >? terminal "/"
