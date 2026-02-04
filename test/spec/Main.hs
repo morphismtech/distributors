@@ -20,50 +20,22 @@ main = hspec $ do
       it ("should parse " <> str <> " correctly") $ do
         fromString str `shouldBe` rex
 
-  describe "arithGrammar" $
-    for_ arithExamples $ \(expectedArith, str) -> do
-      it ("should parse " <> str <> " correctly") $ do
-        let actualArith = [parsedArith | (parsedArith, "") <- parseG arithGrammar str]
-        actualArith `shouldBe` [expectedArith]
-      it ("should unparse " <> show expectedArith <> " correctly") $ do
-        let unparsedArith = unparseG arithGrammar expectedArith ""
-        unparsedArith `shouldBe` Just str
-      it ("should print " <> show expectedArith <> " correctly") $ do
-        let printedArith = ($ "") <$> printG arithGrammar expectedArith
-        printedArith `shouldBe` Just str
+  -- testGrammar "regexGrammar" regexGrammar regexExamples
+  testGrammar "arithGrammar" arithGrammar arithExamples
+  testGrammar "jsonGrammar" jsonGrammar jsonExamples
+  testGrammar "sexprGrammar" sexprGrammar sexprExamples
+  testGrammar "lambdaGrammar" lambdaGrammar lambdaExamples
 
-  describe "jsonGrammar" $
-    for_ jsonExamples $ \(expectedJson, str) -> do
-      it ("should parse " <> str <> " correctly") $ do
-        let actualJson = [parsedJson | (parsedJson, "") <- parseG jsonGrammar str]
-        actualJson `shouldBe` [expectedJson]
-      it ("should unparse " <> show expectedJson <> " correctly") $ do
-        let unparsedJson = unparseG jsonGrammar expectedJson ""
-        unparsedJson `shouldBe` Just str
-      it ("should print " <> show expectedJson <> " correctly") $ do
-        let printedJson = ($ "") <$> printG jsonGrammar expectedJson
-        printedJson `shouldBe` Just str
-
-  describe "sexprGrammar" $
-    for_ sexprExamples $ \(expectedSExpr, str) -> do
-      it ("should parse " <> str <> " correctly") $ do
-        let actualSExpr = [parsedSExpr | (parsedSExpr, "") <- parseG sexprGrammar str]
-        actualSExpr `shouldBe` [expectedSExpr]
-      it ("should unparse " <> show expectedSExpr <> " correctly") $ do
-        let unparsedSExpr = unparseG sexprGrammar expectedSExpr ""
-        unparsedSExpr `shouldBe` Just str
-      it ("should print " <> show expectedSExpr <> " correctly") $ do
-        let printedSExpr = ($ "") <$> printG sexprGrammar expectedSExpr
-        printedSExpr `shouldBe` Just str
-
-  describe "lambdaGrammar" $
-    for_ lambdaExamples $ \(expectedLambda, str) -> do
-      it ("should parse " <> str <> " correctly") $ do
-        let actualLambda = [parsedLambda | (parsedLambda, "") <- parseG lambdaGrammar str]
-        actualLambda `shouldBe` [expectedLambda]
-      it ("should unparse " <> show expectedLambda <> " correctly") $ do
-        let unparsedLambda = unparseG lambdaGrammar expectedLambda ""
-        unparsedLambda `shouldBe` Just str
-      it ("should print " <> show expectedLambda <> " correctly") $ do
-        let printedLambda = ($ "") <$> printG lambdaGrammar expectedLambda
-        printedLambda `shouldBe` Just str
+testGrammar :: (Show a, Eq a) => String -> Grammar Char a -> [(a, String)] -> Spec
+testGrammar name grammar examples =
+  describe name $
+    for_ examples $ \(expectedSyntax, expectedString) -> do
+      it ("should parse from " <> expectedString <> " correctly") $ do
+        let actualSyntax = [parsed | (parsed, "") <- parseG grammar expectedString]
+        actualSyntax `shouldBe` [expectedSyntax]
+      it ("should unparse to " <> expectedString <> " correctly") $ do
+        let actualString = unparseG grammar expectedSyntax ""
+        actualString `shouldBe` Just expectedString
+      it ("should print to " <> expectedString <> " correctly") $ do
+        let actualString = ($ "") <$> printG grammar expectedSyntax
+        actualString `shouldBe` Just expectedString
