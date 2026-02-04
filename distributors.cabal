@@ -183,6 +183,11 @@ test-suite spec
   type: exitcode-stdio-1.0
   main-is: Main.hs
   other-modules:
+      Examples.Arithmetic
+      Examples.Json
+      Examples.Lambda
+      Examples.RegString
+      Examples.SExpr
       Paths_distributors
   autogen-modules:
       Paths_distributors
