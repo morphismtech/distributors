@@ -30,7 +30,6 @@ module Control.Lens.Grammar
   , unparseG
     -- * Utility
   , putStringLn
-  , getStringLn
   ) where
 
 import Control.Applicative
@@ -577,12 +576,30 @@ regbnfGrammar = rule "regbnf" $ _RegBnf . _Bnf >~
     ruleG = rule "rule" $ terminal "{" >* manyP charG *< terminal "} = "
       >*< regexGrammar
 
+{- | `regstringG` is a generates a `RegString` from a regular grammar.
+Since context-free `Grammar`s aren't necessarily regular,
+the type system will prevent `regstringG`
+from being applied to a context-free `Grammar`.
+-}
 regstringG :: RegGrammar Char a -> RegString
 regstringG rex = runGrammor rex
 
+{- | `regbnfG` generates a `RegBnf` from a context-free `Grammar`.
+Since context-sensitive `Grammar`s aren't context-free,
+the type system will prevent `regbnfG` from being applied to a `CtxGrammar`.
+It can apply to a `RegGrammar`.
+-}
 regbnfG :: Grammar Char a -> RegBnf
 regbnfG bnf = runGrammor bnf
 
+{- | `printG` generates a printer from a `CtxGrammar`.
+Since both `RegGrammar`s and context-free `Grammar`s are `CtxGrammar`s,
+the type system will allow `printG` to be applies to them.
+
+Running the printer on a value returns a function
+that `cons`es tokens at the beginning of an input string,
+from right to left.
+-}
 printG
   :: ( Cons string string token token
      , IsList string
@@ -595,6 +612,14 @@ printG
   => CtxGrammar token a -> a -> m (string -> string)
 printG printor = printP printor
 
+{- | `parseG` generates a parser from a `CtxGrammar`.
+Since both `RegGrammar`s and context-free `Grammar`s are `CtxGrammar`s,
+the type system will allow `parseG` to be applies to them.
+
+Running the parser on an input string value `uncons`es
+tokens from the beginning of an input string from left to right,
+returning a value and the remaining output string.
+-}
 parseG
   :: ( Cons string string token token
      , Snoc string string token token
@@ -608,6 +633,14 @@ parseG
   => CtxGrammar token a -> string -> m (a, string)
 parseG parsor = parseP parsor
 
+{- | `unparseG` generates an unparser from a `CtxGrammar`.
+Since both `RegGrammar`s and context-free `Grammar`s are `CtxGrammar`s,
+the type system will allow `unparseG` to be applies to them.
+
+Running the unparser on a value and an input string
+`snoc`s tokens at the end of the string, from left to right,
+returning the output string.
+-}
 unparseG
   :: ( Cons string string token token
      , Snoc string string token token
@@ -623,9 +656,6 @@ unparseG parsor = unparseP parsor
 
 putStringLn :: (IsList string, Item string ~ Char) => string -> IO ()
 putStringLn = putStrLn . toList
-
-getStringLn :: (IsList string, Item string ~ Char) => IO string
-getStringLn = fromList <$> getLine
 
 instance IsList RegString where
   type Item RegString = Char
