@@ -61,7 +61,6 @@ Let's see an example using
 [semantic versioning](https://semver.org/).
 
 >>> import Numeric.Natural (Natural)
->>> import Control.Lens (Iso', iso)
 >>> :{
 data SemVer = SemVer          -- e.g., 2.1.5-rc.1+build.123
   { major         :: Natural  -- e.g., 1
@@ -83,6 +82,7 @@ but here is equivalent explicit Haskell code instead.
 Since @SemVer@ is a newtype, @_SemVer@ can be an `Control.Lens.Iso.Iso`.
 
 >>> :set -XRecordWildCards
+>>> import Control.Lens (Iso', iso)
 >>> :{
 _SemVer :: Iso' SemVer (Natural, (Natural, (Natural, ([String], [String]))))
 _SemVer = iso
@@ -313,7 +313,7 @@ as well as the wildcard, matching any single character.
 >>> anyToken :: RegString
 "[^]"
 
-Additional forms of character classes test for character categories.
+Additional forms of character classes test for character's `GeneralCategory`.
 
 >>> asIn LowercaseLetter :: RegString
 "\\p{Ll}"
@@ -322,17 +322,21 @@ Additional forms of character classes test for character categories.
 
 `KleeneStarAlgebra`s support alternation `>|<`,
 and the `Tokenized` combinators are all negatable.
-However, we'd like to be able to take the conjunctive
+However, we'd like to be able to take the
 intersection of character classes as well.
-Our `RegString`s can combine character classes
+`RegString`s can combine character's `tokenClass`es
 using `BooleanAlgebra` combinators.
 
 >>> tokenClass (notOneOf "abc" >&&< notOneOf "xyz") :: RegString
 "[^abcxyz]"
+>>> tokenClass (oneOf "abcxyz" >&&< notOneOf "xyz") :: RegString
+"[abc]"
 >>> tokenClass (notOneOf "#$%" >&&< notAsIn Control) :: RegString
 "[^#$%\\P{Cc}]"
 >>> tokenClass (notAsIn MathSymbol >&&< notAsIn Control) :: RegString
 "\\P{Sm|Cc}"
+>>> tokenClass (notB (oneOf "xyz")) :: RegString
+"[^xyz]"
 -}
 newtype RegString = RegString {runRegString :: RegEx Char}
   deriving newtype
