@@ -25,6 +25,7 @@ module Data.Profunctor.Distributor
   , several1
   , chain
   , chain1
+  , intercalateP
   ) where
 
 import Control.Applicative hiding (WrappedArrow)
@@ -447,3 +448,12 @@ chain1 association pat (SepBy beg end sep) = leftOrRight chainl1 chainr1
     leftOrRight a b = case association () of Left _ -> a; Right _ -> b
     chainl1 p = difoldl pat >? beg >* p >*< manyP (sep >* p) *< end
     chainr1 p = difoldr pat >? beg >* manyP (p *< sep) >*< p *< end
+
+{- | `intercalateP` adds a `SepBy` to `replicateP`. -}
+intercalateP
+  :: (Monoidal p, Choice p, AsEmpty s, AsEmpty t, Cons s t a b)
+  => Int -> SepBy (p () ()) -> p a b -> p s t
+intercalateP n (SepBy beg end _) _ | n <= 0 =
+  beg >* lmap (const Empty) asEmpty *< end
+intercalateP n (SepBy beg end comma) p =
+  beg >* p >:< replicateP (n-1) (comma >* p) *< end

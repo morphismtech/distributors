@@ -244,12 +244,67 @@ type Grammar token a = forall p.
   , Alternator p
   ) => p a a
 
+{- |
+In addition to context-sensitivity via `Monadic` combinators,
+`CtxGrammar`s adds general filtration via `Filtrator` to `Grammar`s.
+
+>>> :{
+palindromeG :: CtxGrammar Char String
+palindromeG = rule "palindrome" $
+  satisfied (\wrd -> reverse wrd == wrd) >?< manyP (anyToken @Char)
+:}
+
+The `satisfied` pattern is used together with the `Choice` & `Cochoice`
+applicator `>?<` for general filtration. For context-sensitivity,
+the `Monadic` interface is used by importing "Data.Profunctor.Monadic"
+qualified and using a notation which mixes
+"idiom" style with qualified do-notation.
+Let's use length-encoded vectors of numbers as an example.
+
+>>> import Numeric.Natural (Natural)
+>>> import Control.Lens.Iso (Iso', iso)
+>>> :set -XRecordWildCards
+>>> :{
+data LenVec = LenVec {length :: Natural, vector :: [Natural]}
+  deriving (Eq, Ord, Show, Read)
+_LenVec :: Iso' LenVec (Natural, [Natural])
+_LenVec = iso (\LenVec {..} -> (length, vector)) (\(length, vector) -> LenVec {..})
+:}
+
+>>> :set -XQualifiedDo
+>>> import qualified Data.Profunctor.Monadic as P
+>>> :{
+lenvecGrammar :: CtxGrammar Char LenVec
+lenvecGrammar = _LenVec >? P.do
+  let
+    numberG = iso show read >~ someP (asIn @Char DecimalNumber)
+    vectorG n = intercalateP n (sepBy (terminal ",")) numberG
+  len <- numberG             -- bonds to _LenVec
+  terminal ";"               -- doesn't bond
+  vectorG (fromIntegral len) -- bonds to _LenVec
+:}
+
+The qualified do-notation changes the signature of @P.@`Data.Profunctor.Monadic.>>=`,
+so that we must apply the constructor pattern @_LenVec@
+to the do-block with the `>?` applicator.
+Any bound variable, @var <- action@, gets "bonded" to the constructor pattern.
+Also, the ending action gets bonded to the pattern.
+
+>>> [vec | (vec, "") <- parseG lenvecGrammar "3;1,2,3"] :: [LenVec]
+[LenVec {length = 3, vector = [1,2,3]}]
+>>> [vec | (vec, "") <- parseG lenvecGrammar "0;1,2,3"] :: [LenVec]
+[]
+>>> [pr "" | pr <- printG lenvecGrammar (LenVec 2 [6,7])] :: [String]
+["2;6,7"]
+>>> [pr "" | pr <- printG lenvecGrammar (LenVec 200 [100])] :: [String]
+[]
+-}
 type CtxGrammar token a = forall p.
   ( Lexical token p
   , forall x. BackusNaurForm (p x x)
   , Alternator p
-  , Monadic p
   , Filtrator p
+  , Monadic p
   ) => p a a
 
 {- |
@@ -368,7 +423,7 @@ newtype RegString = RegString {runRegString :: RegEx Char}
 of Backus-Naur forms extended by regular expression strings.
 Like `RegString`s they have a string-like interface.
 
->>> let bnf = fromString "{start} = foo|bar" :: RegString
+>>> let bnf = fromString "{start} = foo|bar" :: RegBnf
 >>> putStringLn bnf
 {start} = foo|bar
 >>> bnf
@@ -376,8 +431,8 @@ Like `RegString`s they have a string-like interface.
 
 `RegBnf`s can be generated from context-free `Grammar`s with `regbnfG`.
 
->>> :type regbnf regbnfGrammar
-regbnf regbnfGrammar :: RegBnf
+>>> :type regbnfG regbnfGrammar
+regbnfG regbnfGrammar :: RegBnf
 
 Like `RegString`s, `RegBnf`s can be constructed using
 `Lexical`, `Monoid` and `KleeneStarAlgebra` combinators.

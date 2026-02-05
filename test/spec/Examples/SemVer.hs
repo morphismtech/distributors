@@ -1,6 +1,7 @@
 module Examples.SemVer
   ( SemVer (..)
   , semverGrammar
+  , semverCtxGrammar
   , semverExamples
   ) where
 
@@ -10,6 +11,7 @@ import Control.Lens.Grammar.Symbol
 import Control.Lens.Grammar.Token
 import Control.Lens.PartialIso
 import Data.Profunctor.Distributor
+import qualified Data.Profunctor.Monadic as P
 import Data.Profunctor.Monoidal
 import Numeric.Natural
 
@@ -49,6 +51,22 @@ semverGrammar = _SemVer
       <|> asIn UppercaseLetter
       <|> asIn DecimalNumber
       <|> token '-'
+
+-- Recapitulated as context-sensitive to test qualified-do
+semverCtxGrammar :: CtxGrammar Char SemVer
+semverCtxGrammar = _SemVer >? P.do
+  let
+    numberG = iso show read >~ someP (asIn @Char DecimalNumber)
+    identifiersG = several1 (sepBy (terminal ".")) (someP charG)
+    charG = asIn LowercaseLetter
+      <|> asIn UppercaseLetter
+      <|> asIn DecimalNumber
+      <|> token '-'
+  _ <- numberG
+  _ <- terminal "." >* numberG
+  _ <- terminal "." >* numberG
+  _ <- option [] (terminal "-" >* identifiersG)
+  option [] (terminal "+" >* identifiersG)
 
 semverExamples :: [(SemVer, String)]
 semverExamples =

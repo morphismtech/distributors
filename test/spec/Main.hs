@@ -17,6 +17,7 @@ main :: IO ()
 main = hspec $ do
   testGrammar "regexGrammar" regexGrammar regexExamples
   testGrammar "semverGrammar" semverGrammar semverExamples
+  testGrammar "semverCtxGrammar" semverCtxGrammar semverExamples
   testGrammar "arithGrammar" arithGrammar arithExamples
   testGrammar "jsonGrammar" jsonGrammar jsonExamples
   testGrammar "sexprGrammar" sexprGrammar sexprExamples

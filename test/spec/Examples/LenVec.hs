@@ -9,7 +9,6 @@ import Control.Lens.Grammar.Symbol
 import Control.Lens.Grammar.Token
 import Control.Lens.PartialIso
 import Data.Profunctor.Distributor
-import Data.Profunctor.Monoidal
 import qualified Data.Profunctor.Monadic as P
 import Numeric.Natural
 
@@ -20,17 +19,12 @@ makeNestedPrisms ''LenVec
 
 lenvecGrammar :: CtxGrammar Char LenVec
 lenvecGrammar = _LenVec >? P.do
-  let numberG = iso show read >~ someP (asIn @Char DecimalNumber)
-  len <- numberG *< terminal ";"
-  if len == 0 then return [] else
-    let
-      lenSub1 = fromIntegral len - 1
-      headG = numberG
-      tailG = replicateP lenSub1 $ P.do
-        terminal ","
-        numberG
-    in
-      headG >:< tailG
+  let
+    numberG = iso show read >~ someP (asIn @Char DecimalNumber)
+    vectorG n = intercalateP n (sepBy (terminal ",")) numberG
+  len <- numberG             -- bonds to _LenVec
+  terminal ";"               -- doesn't bond
+  vectorG (fromIntegral len) -- bonds to _LenVec
 
 lenvecExamples :: [(LenVec, String)]
 lenvecExamples =
