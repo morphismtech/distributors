@@ -145,8 +145,8 @@ instance Categorized token
     True -> Pass
   notB Fail = Pass
   notB Pass = Fail
-  notB (Alternate (TokenTest x) (TokenTest y)) = x >&&< y
-  notB (OneOf xs) = NotOneOf xs (NotAsIn Set.empty)
+  notB (Alternate (TokenTest x) (TokenTest y)) = notB x >&&< notB y
+  notB (OneOf xs) = notOneOf xs
   notB (NotOneOf xs (AsIn y)) = oneOf xs >||< notAsIn y
   notB (NotOneOf xs (NotAsIn ys)) = oneOf xs >||< anyB asIn ys
   _ >&&< Fail = Fail
