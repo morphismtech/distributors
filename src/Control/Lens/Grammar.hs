@@ -405,7 +405,7 @@ using `BooleanAlgebra` combinators.
 "[abc]"
 >>> tokenClass (notOneOf "#$%" >&&< notAsIn Control) :: RegString
 "[^#$%\\P{Cc}]"
->>> tokenClass (notAsIn MathSymbol >&&< notAsIn Control) :: RegString
+>>> tokenClass (allB notAsIn [MathSymbol, Control]) :: RegString
 "\\P{Sm|Cc}"
 >>> tokenClass (notB (oneOf "xyz")) :: RegString
 "[^xyz]"
