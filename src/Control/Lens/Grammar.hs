@@ -265,8 +265,8 @@ type Lexical token p =
   ) :: Constraint
 
 {- | `RegString`s are an embedded domain specific language
-for regular expression strings.
-Since they are strings, they have a string-like interface.
+of regular expression strings. Since they are strings,
+they have a string-like interface.
 
 >>> let rex = fromString "ab|c" :: RegString
 >>> putStringLn rex
@@ -274,7 +274,7 @@ ab|c
 >>> rex
 "ab|c"
 
-`RegString`s can be generated from `RegGrammar`s with `regstringG`
+`RegString`s can be generated from `RegGrammar`s with `regstringG`.
 
 >>> regstringG (terminal "a" >* terminal "b" <|> terminal "c")
 "ab|c"
@@ -341,7 +341,7 @@ Additional forms of character classes test for a character's `GeneralCategory`.
 and the `Tokenized` combinators are all negatable.
 However, we'd like to be able to take the
 intersection of character classes as well.
-`RegString`s can combine character's `tokenClass`es
+`RegString`s can combine characters' `tokenClass`es
 using `BooleanAlgebra` combinators.
 
 >>> tokenClass (notOneOf "abc" >&&< notOneOf "xyz") :: RegString
