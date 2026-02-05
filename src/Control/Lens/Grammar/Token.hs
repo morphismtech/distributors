@@ -15,7 +15,7 @@ module Control.Lens.Grammar.Token
   , tokens
     -- * Like
   , oneLike
-  , manyLike
+  , anyLike
   , optLike
   , reqLike
     -- * Categorized
@@ -132,14 +132,14 @@ oneLike a = dimap preF postF catA
     catA = asIn (categorize a)
 
 {- |
-`manyLike` consumes zero or more tokens
+`anyLike` consumes zero or more tokens
 of a given token's category while parsing,
 and produces no tokens printing.
 -}
-manyLike
+anyLike
   :: forall token p. (Distributor p, Tokenized token (p token token))
   => token -> p () ()
-manyLike a = dimap preF postF (manyP catA)
+anyLike a = dimap preF postF (manyP catA)
   where
     preF _ = []::[token]
     postF (_::[token]) = ()

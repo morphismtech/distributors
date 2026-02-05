@@ -102,7 +102,7 @@ jsonGrammar = ruleRec "json" elementG
       iso show read >~ someP (asIn @Char DecimalNumber)
 
     -- Simplified: zero or more whitespace characters
-    ws = rule "ws" $ manyLike ' '
+    ws = rule "ws" $ anyLike ' '
 
 -- | Example JSON values for testing
 jsonExamples :: [(Json, String)]
