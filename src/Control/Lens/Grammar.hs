@@ -170,9 +170,18 @@ type RegGrammar token a = forall p.
   , Alternator p
   ) => p a a
 
-{- |
+{- | Context-free `Grammar`s add two capabilities to `RegGrammar`s,
+coming from the `BackusNaurForm` interface
+
+* `rule` abstraction,
+* and general recursion.
+
+`regexGrammar` and `regbnfGrammar` are examples of context-free
+`Grammar`s. Regular expressions are an form of an expression algebra.
+Let's see a similar but simpler example,
+the algebra of arithmetic expressions of natural numbers.
+
 >>> import Numeric.Natural (Natural)
->>> import Control.Lens (Prism', prism')
 >>> :{
 data Arith
   = Num Natural
@@ -181,6 +190,9 @@ data Arith
   deriving stock (Eq, Ord, Show, Read)
 :}
 
+Here are `Control.Lens.Prism.Prism`s for the constructor patterns.
+
+>>> import Control.Lens (Prism', prism')
 >>> :{
 _Num :: Prism' Arith Natural
 _Num = prism' Num (\case Num n -> Just n; _ -> Nothing)
@@ -188,6 +200,12 @@ _Add, _Mul :: Prism' Arith (Arith, Arith)
 _Add = prism' (uncurry Add) (\case Add x y -> Just (x,y); _ -> Nothing)
 _Mul = prism' (uncurry Mul) (\case Mul x y -> Just (x,y); _ -> Nothing)
 :}
+
+Now we can build a `Grammar` for @Arith@
+by combining "idiom" style with named `rule`s,
+and tying the recursive loop
+(caused by parenthesization)
+with `ruleRec`.
 
 >>> :{
 arithGrammar :: Grammar Char Arith
@@ -365,7 +383,11 @@ makeNestedPrisms ''GeneralCategory
 makeNestedPrisms ''RegString
 makeNestedPrisms ''RegBnf
 
-{- |
+{- | `regexGrammar` is a context-free `Grammar` for `RegString`s.
+It can't be a `RegGrammar`, since `RegString`s include parenthesization.
+But [balanced parentheses](https://en.wikipedia.org/wiki/Dyck_language)
+are a context-free language.
+
 >>> putStringLn (regbnfG regexGrammar)
 {start} = \q{regex}
 {alternate} = \q{sequence}(\|\q{sequence})*
@@ -576,10 +598,9 @@ regbnfGrammar = rule "regbnf" $ _RegBnf . _Bnf >~
     ruleG = rule "rule" $ terminal "{" >* manyP charG *< terminal "} = "
       >*< regexGrammar
 
-{- | `regstringG` is a generates a `RegString` from a regular grammar.
-Since context-free `Grammar`s aren't necessarily regular,
-the type system will prevent `regstringG`
-from being applied to a context-free `Grammar`.
+{- | `regstringG` generates a `RegString` from a regular grammar.
+Since context-free `Grammar`s and `CtxGrammar`s aren't necessarily regular,
+the type system will prevent `regstringG` from being applied to them.
 -}
 regstringG :: RegGrammar Char a -> RegString
 regstringG rex = runGrammor rex
@@ -594,64 +615,51 @@ regbnfG bnf = runGrammor bnf
 
 {- | `printG` generates a printer from a `CtxGrammar`.
 Since both `RegGrammar`s and context-free `Grammar`s are `CtxGrammar`s,
-the type system will allow `printG` to be applies to them.
-
-Running the printer on a value returns a function
+the type system will allow `printG` to be applied to them.
+Running the printer on a syntax value returns a function
 that `cons`es tokens at the beginning of an input string,
 from right to left.
 -}
 printG
-  :: ( Cons string string token token
-     , IsList string
-     , Item string ~ token
-     , Categorized token
-     , Alternative m
-     , Monad m
-     , Filterable m
-     )
-  => CtxGrammar token a -> a -> m (string -> string)
+  :: Cons string string token token
+  => (IsList string, Item string ~ token, Categorized token)
+  => (Alternative m, Monad m, Filterable m)
+  => CtxGrammar token a
+  -> a {- ^ syntax -}
+  -> m (string -> string)
 printG printor = printP printor
 
 {- | `parseG` generates a parser from a `CtxGrammar`.
 Since both `RegGrammar`s and context-free `Grammar`s are `CtxGrammar`s,
-the type system will allow `parseG` to be applies to them.
-
+the type system will allow `parseG` to be applied to them.
 Running the parser on an input string value `uncons`es
 tokens from the beginning of an input string from left to right,
 returning a value and the remaining output string.
 -}
 parseG
-  :: ( Cons string string token token
-     , Snoc string string token token
-     , IsList string
-     , Item string ~ token
-     , Categorized token
-     , Alternative m
-     , Monad m
-     , Filterable m
-     )
-  => CtxGrammar token a -> string -> m (a, string)
+  :: (Cons string string token token, Snoc string string token token)
+  => (IsList string, Item string ~ token, Categorized token)
+  => (Alternative m, Monad m, Filterable m)
+  => CtxGrammar token a
+  -> string {- ^ input -}
+  -> m (a, string)
 parseG parsor = parseP parsor
 
 {- | `unparseG` generates an unparser from a `CtxGrammar`.
 Since both `RegGrammar`s and context-free `Grammar`s are `CtxGrammar`s,
-the type system will allow `unparseG` to be applies to them.
-
-Running the unparser on a value and an input string
+the type system will allow `unparseG` to be applied to them.
+Running the unparser on a syntax value and an input string
 `snoc`s tokens at the end of the string, from left to right,
 returning the output string.
 -}
 unparseG
-  :: ( Cons string string token token
-     , Snoc string string token token
-     , IsList string
-     , Item string ~ token
-     , Categorized token
-     , Alternative m
-     , Monad m
-     , Filterable m
-     )
-  => CtxGrammar token a -> a -> string -> m string
+  :: (Cons string string token token, Snoc string string token token)
+  => (IsList string, Item string ~ token, Categorized token)
+  => (Alternative m, Monad m, Filterable m)
+  => CtxGrammar token a
+  -> a {- ^ syntax -}
+  -> string {- ^ input -}
+  -> m string
 unparseG parsor = unparseP parsor
 
 putStringLn :: (IsList string, Item string ~ Char) => string -> IO ()

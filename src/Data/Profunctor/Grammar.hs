@@ -46,13 +46,14 @@ import Witherable
 newtype Parsor s f a b = Parsor {runParsor :: Maybe a -> s -> f (b,s)}
 
 -- | Run the parser on an input string,
--- popping tokens from the beginning of the string,
--- returning a value and the remaining string.
+-- `uncons`ing tokens from the beginning of the string,
+-- from left to right, returning a value and the remaining string.
 parseP :: Parsor s f a a -> s -> f (a,s)
 parseP (Parsor f) = f Nothing
 
--- | Run the parser in reverse on a value and an input string,
--- placing tokens at the end of the string and returning the new string.
+-- | Run the parser in reverse on a value and an input string;
+-- `snoc`ing tokens at the end of the string, from left to right,
+-- and returning the new string.
 unparseP :: Functor f => Parsor s f a a -> a -> s -> f s
 unparseP (Parsor f) a = fmap snd . f (Just a)
 
@@ -60,7 +61,8 @@ unparseP (Parsor f) a = fmap snd . f (Just a)
 newtype Printor s f a b = Printor {runPrintor :: a -> f (b, s -> s)}
 
 -- | Run the printer on a value, returning a function
--- that places tokens at the beginning of an input string.
+-- that `cons`es tokens at the beginning of an input string,
+-- from right to left.
 printP :: Functor f => Printor s f a a -> a -> f (s -> s)
 printP (Printor f) = fmap snd . f
 
