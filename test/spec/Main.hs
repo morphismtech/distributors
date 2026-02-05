@@ -10,7 +10,7 @@ import Examples.Arithmetic
 import Examples.Json
 import Examples.SExpr
 import Examples.Lambda
--- import Examples.LenVec
+import Examples.LenVec
 import Examples.SemVer
 
 main :: IO ()
@@ -21,8 +21,7 @@ main = hspec $ do
   testGrammar "jsonGrammar" jsonGrammar jsonExamples
   testGrammar "sexprGrammar" sexprGrammar sexprExamples
   testGrammar "lambdaGrammar" lambdaGrammar lambdaExamples
-  -- testGrammar "lenvecGrammar" lenvecGrammar lenvecExamples
-  -- FIXME
+  testGrammar "lenvecGrammar" lenvecGrammar lenvecExamples
 
 testGrammar :: (Show a, Eq a) => String -> CtxGrammar Char a -> [(a, String)] -> Spec
 testGrammar name grammar examples =

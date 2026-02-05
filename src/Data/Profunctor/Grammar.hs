@@ -203,7 +203,7 @@ instance Monad f => Monad (Printor s f a) where
   Printor mx >>= f = Printor $ \a -> do
     (a1,g) <- mx a
     (b,h) <- runPrintor (f a1) a
-    return (b, h . g)
+    return (b, g . h)
 instance (Alternative f, Monad f) => MonadPlus (Printor s f a)
 instance Applicative f => Distributor (Printor s f) where
   zeroP = Printor absurd
