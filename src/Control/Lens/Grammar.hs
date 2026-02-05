@@ -30,6 +30,7 @@ module Control.Lens.Grammar
   , unparseG
     -- * Utility
   , putStringLn
+  , getStringLn
   ) where
 
 import Control.Applicative
@@ -246,6 +247,93 @@ type Lexical token p =
   , forall x y. (x ~ token, y ~ token) => TokenAlgebra token (p x y)
   ) :: Constraint
 
+{- | `RegString`s are an embedded domain specific language
+for regular expression strings.
+Since they are strings, they have a string-like interface.
+
+>>> let rex = fromString "ab|c" :: RegString
+>>> putStringLn rex
+ab|c
+>>> rex
+"ab|c"
+
+`RegString`s can be generated from `RegGrammar`s with `regstringG`
+
+>>> regstringG (terminal "a" >* terminal "b" <|> terminal "c")
+"ab|c"
+
+`RegString`s are actually stored as an algebraic datatype, `RegEx`.
+
+>>> runRegString rex
+RegExam (Alternate (Terminal "ab") (Terminal "c"))
+
+`RegString`s are similar to regular expression strings in many other
+programming languages. We can use them to see if a word and pattern
+are `Matching`.
+
+>>> "ab" =~ rex
+True
+>>> "c" =~ rex
+True
+>>> "xyz" =~ rex
+False
+
+Like `RegGrammar`s, `RegString`s can use all the `Lexical` combinators.
+Unlike `RegGrammar`s, instead of using `Monoidal` and `Alternator` combinators,
+`RegString`s use `Monoid` and `KleeneStarAlgebra` combinators.
+
+>>> terminal "a" <> terminal "b" >|< terminal "c" :: RegString
+"ab|c"
+>>> mempty :: RegString
+""
+
+Since `RegString`s are a `KleeneStarAlgebra`,
+they support Kleene quantifiers.
+
+>>> starK rex
+"(ab|c)*"
+>>> plusK rex
+"(ab|c)+"
+>>> optK rex
+"(ab|c)?"
+
+Like other regular expression languages, `RegString`s support
+character classes.
+
+>>> oneOf "abc" :: RegString
+"[abc]"
+>>> notOneOf "abc" :: RegString
+"[^abc]"
+
+The character classes are used for failure, matching no character or string,
+as well as the wildcard, matching any single character.
+
+>>> zeroK :: RegString
+"[]"
+>>> anyToken :: RegString
+"[^]"
+
+Additional forms of character classes test for character categories.
+
+>>> asIn LowercaseLetter :: RegString
+"\\p{Ll}"
+>>> notAsIn Control :: RegString
+"\\P{Cc}"
+
+`KleeneStarAlgebra`s support alternation `>|<`,
+and the `Tokenized` combinators are all negatable.
+However, we'd like to be able to take the conjunctive
+intersection of character classes as well.
+Our `RegString`s can combine character classes
+using `BooleanAlgebra` combinators.
+
+>>> tokenClass (notOneOf "abc" >&&< notOneOf "xyz") :: RegString
+"[^abcxyz]"
+>>> tokenClass (notOneOf "#$%" >&&< notAsIn Control) :: RegString
+"[^#$%\\P{Cc}]"
+>>> tokenClass (notAsIn MathSymbol >&&< notAsIn Control) :: RegString
+"\\P{Sm|Cc}"
+-}
 newtype RegString = RegString {runRegString :: RegEx Char}
   deriving newtype
     ( Eq, Ord
@@ -531,6 +619,9 @@ unparseG parsor = unparseP parsor
 
 putStringLn :: (IsList string, Item string ~ Char) => string -> IO ()
 putStringLn = putStrLn . toList
+
+getStringLn :: (IsList string, Item string ~ Char) => IO string
+getStringLn = fromList <$> getLine
 
 instance IsList RegString where
   type Item RegString = Char

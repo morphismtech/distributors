@@ -25,7 +25,6 @@ import Control.Applicative
 import Control.Lens.Grammar.Kleene
 import Control.Lens.Grammar.Token
 import Data.Foldable
-import Data.Function (on)
 import Data.Monoid
 import Data.Profunctor
 import Data.Profunctor.Distributor
@@ -148,14 +147,8 @@ instance Categorized token
   notB Pass = Fail
   notB (Alternate (TokenTest x) (TokenTest y)) = x >&&< y
   notB (OneOf xs) = NotOneOf xs (NotAsIn Set.empty)
-  notB (NotOneOf xs (AsIn y)) =
-    (Alternate `on` TokenTest)
-      (OneOf xs)
-      (NotOneOf Set.empty (NotAsIn (Set.singleton y)))
-  notB (NotOneOf xs (NotAsIn ys)) =
-    foldl' (Alternate `on` TokenTest)
-      (OneOf xs)
-      (Set.map (NotOneOf Set.empty . AsIn) ys)
+  notB (NotOneOf xs (AsIn y)) = oneOf xs >||< notAsIn y
+  notB (NotOneOf xs (NotAsIn ys)) = oneOf xs >||< anyB asIn ys
   _ >&&< Fail = Fail
   Fail >&&< _ = Fail
   x >&&< Pass = x
@@ -197,13 +190,13 @@ instance Categorized token
   Pass >||< _ = Pass
   x >||< Alternate y z = Alternate (TokenTest x) (TokenTest (Alternate y z))
   Alternate x y >||< z = Alternate (TokenTest (Alternate x y)) (TokenTest z)
-  OneOf xs >||< OneOf ys = OneOf (Set.union xs ys)
+  OneOf xs >||< OneOf ys = oneOf (Set.union xs ys)
   OneOf xs >||< NotOneOf ys z =
     Alternate (TokenTest (OneOf xs)) (TokenTest (NotOneOf ys z))
   NotOneOf xs y >||< OneOf zs =
     Alternate (TokenTest (NotOneOf xs y)) (TokenTest (OneOf zs))
   NotOneOf xs (NotAsIn ys) >||< NotOneOf ws (NotAsIn zs) =
-    NotOneOf (Set.intersection xs ws) (NotAsIn (Set.intersection ys zs))
+    notOneOf (Set.intersection xs ws) >&&< allB notAsIn (Set.intersection ys zs)
   NotOneOf xs (AsIn y) >||< NotOneOf ws (AsIn z) =
     if y == z then NotOneOf (Set.intersection xs ws) (AsIn y)
     else Alternate

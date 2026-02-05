@@ -108,8 +108,7 @@ satisfy
   => (a -> Bool) -> p a a
 satisfy f = satisfied f >?< anyToken
 
-{- | A specified stream of `tokens`.
--}
+{- | A specified stream of `tokens`. -}
 tokens
   :: ( Foldable f, Tokenized a (p a a)
      , Monoidal p, Choice p
