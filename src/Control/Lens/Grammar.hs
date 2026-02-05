@@ -259,7 +259,7 @@ The `satisfied` pattern is used together with the `Choice` &
 `Data.Profunctor.Cochoice` applicator `>?<` for general filtration.
 For context-sensitivity,
 the `Monadic` interface is used by importing "Data.Profunctor.Monadic"
-qualified and using a notation which mixes
+qualified and using a "bonding" notation which mixes
 "idiom" style with qualified do-notation.
 Let's use length-encoded vectors of numbers as an example.
 
@@ -286,12 +286,15 @@ lenvecGrammar = _LenVec >? P.do
   vectorG (fromIntegral len) -- bonds to _LenVec
 :}
 
-The qualified do-notation changes the signature of @P.@`Data.Profunctor.Monadic.>>=`,
+The qualified do-notation changes the signature of
+@P.@`Data.Profunctor.Monadic.>>=`,
 so that we must apply the constructor pattern @_LenVec@
 to the do-block with the `>?` applicator.
 Any bound named variable, @var <- action@,
 gets "bonded" to the constructor pattern.
-Also, the ending action gets bonded to the pattern.
+Any unbound actions, except for the last action in the do-block,
+does not get bonded to the pattern.
+The last action does get bonded to the pattern.
 Any unnamed bound action, @_ <- action@,
 also gets bonded to the pattern,
 but being unnamed means it isn't added to the context.

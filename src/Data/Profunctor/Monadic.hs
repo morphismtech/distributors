@@ -14,6 +14,9 @@ This module can provide qualified do-notation for `Monadic` profunctors.
 
 >>> :set -XQualifiedDo
 >>> import qualified Data.Profunctor.Monadic as P
+
+See "Control.Lens.Grammar#t:CtxGrammar" for
+an example of how to use "bonding" notation.
 -}
 
 module Data.Profunctor.Monadic
@@ -32,7 +35,10 @@ import Prelude hiding ((>>=), (>>))
 type Monadic p = (Profunctor p, forall x. Monad (p x))
 
 {- | The pair bonding operator @P.@`>>=` is a context-sensitive
-version of `Data.Profunctor.Monoidal.>*<`. -}
+version of `Data.Profunctor.Monoidal.>*<`.
+
+prop> x >*< y = x P.>>= (\_ -> y)
+-}
 (>>=) :: Monadic p => p a b -> (b -> p c d) -> p (a,c) (b,d)
 infixl 1 >>=
 p >>= f = do

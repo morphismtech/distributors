@@ -74,7 +74,7 @@ allB f = foldl' (\b a -> b >&&< f a) (fromBool True)
 anyB :: (Foldable f, BooleanAlgebra b) => (a -> b) -> f a -> b
 anyB f = foldl' (\b a -> b >||< f a) (fromBool False)
 
--- | `TokenTest` forms a `Tokenized` `BooleanAlgebra`
+-- | `TokenTest` forms a closed `Tokenized` `BooleanAlgebra`
 -- of `Categorized` `tokenClass`es.
 newtype TokenTest token = TokenTest (RegExam token (TokenTest token))
 

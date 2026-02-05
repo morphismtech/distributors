@@ -59,7 +59,7 @@ class Monoid k => KleeneStarAlgebra k where
   (>|<) = (<|>)
   zeroK = empty
 
--- | cumulative alternation, 
+-- | cumulative alternation
 orK :: (Foldable f, KleeneStarAlgebra k) => f k -> k
 orK = foldl' (>|<) zeroK
 
