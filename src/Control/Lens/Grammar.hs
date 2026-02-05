@@ -364,6 +364,25 @@ newtype RegString = RegString {runRegString :: RegEx Char}
     , Matching String
     )
 
+{- | `RegBnf`s are an embedded domain specific language
+of Backus-Naur forms extended by regular expression strings.
+Like `RegString`s they have a string-like interface.
+
+>>> let bnf = fromString "{start} = foo|bar" :: RegString
+>>> putStringLn bnf
+{start} = foo|bar
+>>> bnf
+"{start} = foo|bar"
+
+`RegBnf`s can be generated from context-free `Grammar`s with `regbnfG`.
+
+>>> :type regbnf regbnfGrammar
+regbnf regbnfGrammar :: RegBnf
+
+Like `RegString`s, `RegBnf`s can be constructed using
+`Lexical`, `Monoid` and `KleeneStarAlgebra` combinators.
+But they also support `BackusNaurForm` `rule`s and `ruleRec`s.
+-}
 newtype RegBnf = RegBnf {runRegBnf :: Bnf RegString}
   deriving newtype
     ( Eq, Ord
@@ -570,6 +589,9 @@ charG = rule "char" $
       ]
 
 {- |
+`regbnfGrammar` is a context-free `Grammar` for `RegBnf`s.
+That means that it can generate a self-hosting definition.
+
 >>> putStringLn (regbnfG regbnfGrammar)
 {start} = \q{regbnf}
 {alternate} = \q{sequence}(\|\q{sequence})*
@@ -662,6 +684,9 @@ unparseG
   -> m string
 unparseG parsor = unparseP parsor
 
+{- | `putStringLn` is a utility that generalizes `putStrLn`
+to string-like interfaces such as `RegString` and `RegBnf`.
+-}
 putStringLn :: (IsList string, Item string ~ Char) => string -> IO ()
 putStringLn = putStrLn . toList
 
