@@ -52,7 +52,7 @@ semverGrammar = _SemVer
       <|> asIn DecimalNumber
       <|> token '-'
 
--- Recapitulated as context-sensitive to test qualified-do
+-- Context-sensitive SemVer to test qualified-do
 semverCtxGrammar :: CtxGrammar Char SemVer
 semverCtxGrammar = _SemVer >? P.do
   let
