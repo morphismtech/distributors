@@ -74,6 +74,7 @@ default-extensions:
 - LambdaCase
 - MagicHash
 - MonoLocalBinds
+- QualifiedDo
 - QuantifiedConstraints
 - RankNTypes
 - RecursiveDo

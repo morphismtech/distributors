@@ -76,6 +76,7 @@ library
       LambdaCase
       MagicHash
       MonoLocalBinds
+      QualifiedDo
       QuantifiedConstraints
       RankNTypes
       RecursiveDo
@@ -143,6 +144,7 @@ test-suite doc
       LambdaCase
       MagicHash
       MonoLocalBinds
+      QualifiedDo
       QuantifiedConstraints
       RankNTypes
       RecursiveDo
@@ -186,6 +188,7 @@ test-suite spec
       Examples.Arithmetic
       Examples.Json
       Examples.Lambda
+      Examples.LenVec
       Examples.RegString
       Examples.SemVer
       Examples.SExpr
@@ -218,6 +221,7 @@ test-suite spec
       LambdaCase
       MagicHash
       MonoLocalBinds
+      QualifiedDo
       QuantifiedConstraints
       RankNTypes
       RecursiveDo
