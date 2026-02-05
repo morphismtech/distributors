@@ -240,7 +240,7 @@ type CtxGrammar token a = forall p.
 
 * `terminal` symbols from "Control.Lens.Grammar.Symbol";
 * `Tokenized` combinators from "Control.Lens.Grammar.Token";
-* `tokenClass` `BooleanAlgebra` combinators from "Control.Lens.Grammar.Boole".
+* `tokenClass`es from "Control.Lens.Grammar.Boole".
 -}
 type Lexical token p =
   ( forall x y. (x ~ (), y ~ ()) => TerminalSymbol token (p x y)
@@ -313,7 +313,7 @@ as well as the wildcard, matching any single character.
 >>> anyToken :: RegString
 "[^]"
 
-Additional forms of character classes test for character's `GeneralCategory`.
+Additional forms of character classes test for a character's `GeneralCategory`.
 
 >>> asIn LowercaseLetter :: RegString
 "\\p{Ll}"
