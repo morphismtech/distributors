@@ -254,8 +254,9 @@ palindromeG = rule "palindrome" $
   satisfied (\wrd -> reverse wrd == wrd) >?< manyP (anyToken @Char)
 :}
 
-The `satisfied` pattern is used together with the `Choice` & `Cochoice`
-applicator `>?<` for general filtration. For context-sensitivity,
+The `satisfied` pattern is used together with the `Choice` &
+`Data.Profunctor.Cochoice` applicator `>?<` for general filtration.
+For context-sensitivity,
 the `Monadic` interface is used by importing "Data.Profunctor.Monadic"
 qualified and using a notation which mixes
 "idiom" style with qualified do-notation.
@@ -409,6 +410,11 @@ using `BooleanAlgebra` combinators.
 "\\P{Sm|Cc}"
 >>> tokenClass (notB (oneOf "xyz")) :: RegString
 "[^xyz]"
+
+Ill-formed `RegStrings` normalize to failure `"[]"`.
+
+>>> fromString ")(" :: RegString
+"[]"
 -}
 newtype RegString = RegString {runRegString :: RegEx Char}
   deriving newtype
