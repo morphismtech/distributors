@@ -90,15 +90,10 @@ default-extensions:
 - UndecidableSuperClasses
 
 tests:
-  doc:
+  test:
     main: Main.hs
-    source-dirs: test/doc
+    source-dirs: test
     dependencies:
       - distributors
       - doctest
-  spec:
-    main: Main.hs
-    source-dirs: test/spec
-    dependencies:
-      - distributors
       - hspec
