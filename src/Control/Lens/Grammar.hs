@@ -221,7 +221,7 @@ arithGrammar = ruleRec "arith" sumG
       _Num . iso show read >? someP (asIn @Char DecimalNumber)
 :}
 
-We can generate a `RegBnf`, printers and parsers from `arithGrammar`.
+We can generate a `RegBnf`, printers and parsers from @arithGrammar@.
 
 >>> putStringLn (regbnfG arithGrammar)
 {start} = \q{arith}
