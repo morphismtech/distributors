@@ -13,11 +13,6 @@ module Control.Lens.Grammar.Token
     Tokenized (..)
   , satisfy
   , tokens
-    -- * Like
-  , oneLike
-  , anyLike
-  , optLike
-  , reqLike
     -- * Categorized
   , Categorized (..)
   , GeneralCategory (..)
@@ -27,7 +22,6 @@ import Control.Lens
 import Control.Lens.PartialIso
 import Data.Char
 import Data.Profunctor
-import Data.Profunctor.Distributor
 import Data.Profunctor.Monoidal
 import Data.Word
 
@@ -116,59 +110,3 @@ tokens
      )
   => f a -> p s s
 tokens = foldr ((>:<) . token) asEmpty
-
-{- |
-`oneLike` consumes one token
-of a given token's category while parsing,
-and produces the given token while printing.
--}
-oneLike
-  :: forall token p. (Profunctor p, Tokenized token (p token token))
-  => token -> p () ()
-oneLike a = dimap preF postF catA
-  where
-    preF _ = a
-    postF (_:: token) = ()
-    catA = asIn (categorize a)
-
-{- |
-`anyLike` consumes zero or more tokens
-of a given token's category while parsing,
-and produces no tokens printing.
--}
-anyLike
-  :: forall token p. (Distributor p, Tokenized token (p token token))
-  => token -> p () ()
-anyLike a = dimap preF postF (manyP catA)
-  where
-    preF _ = []::[token]
-    postF (_::[token]) = ()
-    catA = asIn (categorize a)
-
-{- |
-`optLike` consumes zero or more tokens
-of a given token's category while parsing,
-and produces the given token while printing.
--}
-optLike
-  :: forall token p. (Distributor p, Tokenized token (p token token))
-  => token -> p () ()
-optLike a = dimap preF postF (manyP catA)
-  where
-    preF _ = [a]::[token]
-    postF (_::[token]) = ()
-    catA = asIn (categorize a)
-
-{- |
-`reqLike` consumes one or more tokens
-of a given token's category while parsing,
-and produces the given token while printing.
--}
-reqLike
-  :: forall token p. (Distributor p, Tokenized token (p token token))
-  => token -> p () ()
-reqLike a = dimap preF postF (catA >*< manyP catA)
-  where
-    preF _ = (a, []::[token])
-    postF (_::token, _::[token]) = ()
-    catA = asIn (categorize a)

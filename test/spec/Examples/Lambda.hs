@@ -40,7 +40,7 @@ lambdaGrammar = ruleRec "lambda" termG
     -- Application: left-associative chain of atoms
     -- e.g., "f x y" parses as "(f x) y"
     appG term = rule "application" $
-      chain1 Left _App (sepBy (reqLike ' ')) (atomG term)
+      chain1 Left _App (sepBy (terminal " ")) (atomG term)
 
     -- Atomic term: variable or parenthesized term
     atomG term = rule "atom" $ choice

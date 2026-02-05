@@ -36,7 +36,7 @@ sexprGrammar = ruleRec "sexpr" $ \sexpr -> choice
     -- List: parenthesized sequence of S-expressions
     -- Elements are separated by whitespace
     listG sexpr = rule "list" $
-      terminal "(" >* several (sepBy (reqLike ' ')) sexpr *< terminal ")"
+      terminal "(" >* several (sepBy (terminal " ")) sexpr *< terminal ")"
 
     -- Characters allowed in atoms: letters, digits, and symbols
     atomChars =
