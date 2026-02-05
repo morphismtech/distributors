@@ -62,4 +62,6 @@ regexExamples =
   -- Complex combinations
   , (tokenClass (notOneOf "abc" >&&< (asIn LowercaseLetter >||< asIn UppercaseLetter)), "[^abc\\p{Ll}]|\\p{Lu}")
   , (tokenClass ((oneOf "123" >||< asIn DecimalNumber) >&&< notOneOf "789"), "[123]|[^789\\p{Nd}]")
+  -- , (tokenClass (notB (oneOf "&%$" >||< asIn MathSymbol)), "")
+  -- FIXME ^^^
   ]
