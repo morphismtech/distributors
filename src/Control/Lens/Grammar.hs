@@ -177,7 +177,7 @@ coming from the `BackusNaurForm` interface
 * and general recursion.
 
 `regexGrammar` and `regbnfGrammar` are examples of context-free
-`Grammar`s. Regular expressions are an form of an expression algebra.
+`Grammar`s. Regular expressions are a form of expression algebra.
 Let's see a similar but simpler example,
 the algebra of arithmetic expressions of natural numbers.
 
@@ -221,14 +221,7 @@ arithGrammar = ruleRec "arith" sumG
       _Num . iso show read >? someP (asIn @Char DecimalNumber)
 :}
 
->>> [x | (x,"") <- parseG arithGrammar "1+2*3+4"]
-[Add (Add (Num 1) (Mul (Num 2) (Num 3))) (Num 4)]
-
->>> unparseG arithGrammar (Add (Num 1) (Mul (Num 2) (Num 3))) "" :: Maybe String
-Just "1+2*3"
-
->>> do pr <- printG arithGrammar (Num 69); return (pr "") :: Maybe String
-Just "69"
+We can generate a `RegBnf`, printers and parsers from `arithGrammar`.
 
 >>> putStringLn (regbnfG arithGrammar)
 {start} = \q{arith}
@@ -237,6 +230,14 @@ Just "69"
 {number} = \p{Nd}+
 {product} = \q{factor}(\*\q{factor})*
 {sum} = \q{product}(\+\q{product})*
+
+>>> [x | (x,"") <- parseG arithGrammar "1+2*3+4"]
+[Add (Add (Num 1) (Mul (Num 2) (Num 3))) (Num 4)]
+>>> unparseG arithGrammar (Add (Num 1) (Mul (Num 2) (Num 3))) "" :: Maybe String
+Just "1+2*3"
+>>> do pr <- printG arithGrammar (Num 69); return (pr "") :: Maybe String
+Just "69"
+
 -}
 type Grammar token a = forall p.
   ( Lexical token p
@@ -288,8 +289,17 @@ lenvecGrammar = _LenVec >? P.do
 The qualified do-notation changes the signature of @P.@`Data.Profunctor.Monadic.>>=`,
 so that we must apply the constructor pattern @_LenVec@
 to the do-block with the `>?` applicator.
-Any bound variable, @var <- action@, gets "bonded" to the constructor pattern.
+Any bound named variable, @var <- action@,
+gets "bonded" to the constructor pattern.
 Also, the ending action gets bonded to the pattern.
+Any unnamed bound action, @_ <- action@,
+also gets bonded to the pattern,
+but being unnamed means it isn't added to the context.
+If all bound actions are unnamed, then a `CtxGrammar` can
+be rewritten as a `Grammar` since it is context-free.
+We can't generate a `RegBnf` since the `rule`s
+of a `CtxGrammar` aren't static, but dynamic and contextual.
+We can generate parsers and printers as expected.
 
 >>> [vec | (vec, "") <- parseG lenvecGrammar "3;1,2,3"] :: [LenVec]
 [LenVec {length = 3, vector = [1,2,3]}]
@@ -299,6 +309,8 @@ Also, the ending action gets bonded to the pattern.
 ["2;6,7"]
 >>> [pr "" | pr <- printG lenvecGrammar (LenVec 200 [100])] :: [String]
 []
+>>> [pal | word <- ["racecar", "word"], (pal, "") <- parseG palindromeG word]
+["racecar"]
 -}
 type CtxGrammar token a = forall p.
   ( Lexical token p
@@ -411,7 +423,7 @@ using `BooleanAlgebra` combinators.
 >>> tokenClass (notB (oneOf "xyz")) :: RegString
 "[^xyz]"
 
-Ill-formed `RegStrings` normalize to failure `"[]"`.
+Ill-formed `RegString`s normalize to failure.
 
 >>> fromString ")(" :: RegString
 "[]"
@@ -651,7 +663,7 @@ charG = rule "char" $
 
 {- |
 `regbnfGrammar` is a context-free `Grammar` for `RegBnf`s.
-That means that it can generate a self-hosting definition.
+That means that it can generate a self-hosted definition.
 
 >>> putStringLn (regbnfG regbnfGrammar)
 {start} = \q{regbnf}
@@ -689,7 +701,7 @@ regstringG :: RegGrammar Char a -> RegString
 regstringG rex = runGrammor rex
 
 {- | `regbnfG` generates a `RegBnf` from a context-free `Grammar`.
-Since context-sensitive `Grammar`s aren't context-free,
+Since `CtxGrammar`s aren't context-free,
 the type system will prevent `regbnfG` from being applied to a `CtxGrammar`.
 It can apply to a `RegGrammar`.
 -}
@@ -717,7 +729,7 @@ Since both `RegGrammar`s and context-free `Grammar`s are `CtxGrammar`s,
 the type system will allow `parseG` to be applied to them.
 Running the parser on an input string value `uncons`es
 tokens from the beginning of an input string from left to right,
-returning a value and the remaining output string.
+returning a syntax value and the remaining output string.
 -}
 parseG
   :: (Cons string string token token, Snoc string string token token)
