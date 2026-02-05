@@ -52,7 +52,7 @@ regexExamples =
   , (tokenClass (notB (notOneOf "abc")), "[abc]")
   , (tokenClass (notB (oneOf "abc" >||< oneOf "xyz")), "[^abcxyz]")
   , (tokenClass (notB (asIn UppercaseLetter)), "\\P{Lu}")
-  -- , (tokenClass (notB (notAsIn Control)), "\\p{Cc}")
+  , (tokenClass (notB (notAsIn Control)), "\\p{Cc}")
   , (tokenClass (notB (notOneOf "abc" >&&< asIn LowercaseLetter)), "[abc]|\\P{Ll}")
 
   -- fromBool operations
