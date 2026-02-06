@@ -31,8 +31,7 @@ The idea for unifying Backus-Naur grammars with parsers comes from Joachim Breit
 
 The idea for using monadic profunctors for reversible context-free grammars
 comes from Li-Yao Xia, in some posts and a paper but particularly
-this post on [Monadic profunctors for bidirectional programming]
-(https://blog.poisson.chat/posts/2017-01-01-monadic-profunctors.html).
+this post on [Monadic profunctors for bidirectional programming](https://blog.poisson.chat/posts/2017-01-01-monadic-profunctors.html).
 
 The person deserving the most credit for bringing the power of optics to programming, with his [lens library](https://github.com/ekmett/lens/), is Ed Kmett, to whom I am very grateful for teaching me a lot.
 
