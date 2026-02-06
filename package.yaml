@@ -1,16 +1,15 @@
 name: distributors
-version: 0.2.0.1
+version: 0.3.0.0
 github: "morphismtech/distributors"
 license: BSD-3-Clause
 author: "Eitan Chatav"
 maintainer: "eitan.chatav@gmail.com"
-copyright: "2025 Eitan Chatav"
+copyright: "2026 Eitan Chatav"
 
 extra-source-files:
 - README.md
 extra-doc-files:
 - CHANGELOG.md
-
 
 category: Profunctors, Optics, Parsing
 synopsis: Unifying Parsers, Printers & Grammars
@@ -19,21 +18,22 @@ description:
   for coders to write parsers that can also be inverted to printers.
 
 dependencies:
-- base >= 4.7 && < 5
+- base >= 4.15 && < 5
 - adjunctions >= 4.4 && < 5
-- bifunctors >= 5.6 && < 6
+- bifunctors >= 5.5 && < 6
 - bytestring >= 0.11 && < 1
 - containers >= 0.6 && < 1
 - contravariant >= 1.5 && < 2
 - distributive >= 0.6 && < 1
-- lens >= 5.2 && < 6
-- mtl >= 2.3 && < 3
+- lens >= 5.0 && < 6
+- MemoTrie >= 0.6 && < 1
+- mtl >= 2.2 && < 3
 - profunctors >= 5.6 && < 6
 - tagged >= 0.8 && < 1
-- template-haskell
+- template-haskell >= 2.17 && < 3
 - text >= 2 && < 3
-- th-abstraction
-- vector >= 0.13 && < 1
+- th-abstraction >= 0.4 && < 1
+- vector >= 0.12 && < 1
 - witherable >= 0.4 && < 1
 
 ghc-options:
@@ -56,7 +56,9 @@ default-extensions:
 - ConstraintKinds
 - DataKinds
 - DefaultSignatures
+- DeriveFoldable
 - DeriveFunctor
+- DeriveTraversable
 - DeriveGeneric
 - DerivingStrategies
 - DerivingVia
@@ -72,12 +74,13 @@ default-extensions:
 - LambdaCase
 - MagicHash
 - MonoLocalBinds
-- OverloadedStrings
+- QualifiedDo
 - QuantifiedConstraints
 - RankNTypes
 - RecursiveDo
 - ScopedTypeVariables
 - StandaloneDeriving
+- StandaloneKindSignatures
 - TemplateHaskell
 - TupleSections
 - TypeApplications
@@ -87,9 +90,10 @@ default-extensions:
 - UndecidableSuperClasses
 
 tests:
-  spec:
-    main: Spec.hs
+  test:
+    main: Main.hs
     source-dirs: test
     dependencies:
       - distributors
-      - hspec
+      - doctest >= 0.18 && < 1
+      - hspec >= 2.7 && < 3

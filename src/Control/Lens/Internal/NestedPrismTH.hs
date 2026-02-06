@@ -1,7 +1,7 @@
 {- |
 Module      : Control.Lens.Internal.NestedPrismTH
 Description : nested pair prisms
-Copyright   : (C) 2025 - Eitan Chatav
+Copyright   : (C) 2026 - Eitan Chatav
 License     : BSD-style (see the file LICENSE)
 Maintainer  : Eitan Chatav <eitan.chatav@gmail.com>
 Stability   : provisional
@@ -12,7 +12,7 @@ with small tweaks to support nested pairs.
 -}
 
 module Control.Lens.Internal.NestedPrismTH
-  ( -- * Nested Prisms
+  ( -- * Nested prisms
     makeNestedPrisms
   ) where
 
@@ -44,6 +44,7 @@ import Prelude
 -- is that constructors with @n > 2@ arguments
 -- will use right-nested pairs, rather than a flat @n@-tuple.
 -- This makes them suitable for use on the left-hand-side of
+-- `Control.Lens.PartialIso.>~`,
 -- `Control.Lens.PartialIso.>?` and `Control.Lens.PartialIso.>?<`;
 -- with repeated use of `Data.Profunctor.Distributor.>*<`
 -- on the right-hand-side, resulting in right-nested pairs.

@@ -1,7 +1,7 @@
 {- |
 Module      : Control.Lens.Diopter
 Description : diopters
-Copyright   : (C) 2025 - Eitan Chatav
+Copyright   : (C) 2026 - Eitan Chatav
 License     : BSD-style (see the file LICENSE)
 Maintainer  : Eitan Chatav <eitan.chatav@gmail.com>
 Stability   : provisional
@@ -55,7 +55,7 @@ withDiopter
   :: ADiopter s t a b
   -> (forall h. Homogeneous h => (s -> h a) -> (h b -> t) -> r)
   -> r
-withDiopter dio k = case (runIdentity <$> dio (Identity <$> anyToken)) of
+withDiopter dio k = case runIdentity <$> dio (Identity <$> Dioptrice Par1 unPar1) of
   Dioptrice f g -> k f g
 
 {- | Action of `ADiopter` on `Distributor`s. -}
@@ -94,8 +94,6 @@ data Dioptrice a b s t where
     => (s -> h a)
     -> (h b -> t)
     -> Dioptrice a b s t
-instance Tokenized a b (Dioptrice a b) where
-  anyToken = Dioptrice Par1 unPar1
 instance Profunctor (Dioptrice a b) where
   dimap f g (Dioptrice sa bt) = Dioptrice (sa . f) (g . bt)
 instance Functor (Dioptrice a b s) where fmap = rmap

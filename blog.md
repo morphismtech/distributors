@@ -368,12 +368,12 @@ Just as `Alternative` has 0-or-more `many` and 0-or-1 `optional` combinators, we
 
 ```Haskell
 optionalP :: Distributor p => p a b -> p (Maybe a) (Maybe b)
-optionalP p = mapIso maybeEot (oneP >+< p)
+optionalP p = mapIso eotMaybe (oneP >+< p)
 
 manyP :: p a b -> p [a] [b]
 manyP p = mapIso listEot (oneP >+< p >*< manyP p)
 
-maybeEot :: Iso (Maybe a) (Maybe b) (Either () a) (Either () b)
+eotMaybe :: Iso (Maybe a) (Maybe b) (Either () a) (Either () b)
 
 listEot
   :: (Cons s s a a, AsEmpty t, Cons t t b b)

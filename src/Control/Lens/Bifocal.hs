@@ -1,7 +1,7 @@
 {- |
 Module      : Control.Lens.Bifocal
 Description : bifocals
-Copyright   : (C) 2025 - Eitan Chatav
+Copyright   : (C) 2026 - Eitan Chatav
 License     : BSD-style (see the file LICENSE)
 Maintainer  : Eitan Chatav <eitan.chatav@gmail.com>
 Stability   : provisional
@@ -17,10 +17,6 @@ module Control.Lens.Bifocal
   , mapBifocal
   , cloneBifocal
   , withBifocal
-  , chainedl1
-  , chainedr1
-  , chainedl
-  , chainedr
     -- * Binocular
   , Binocular (..), runBinocular
     -- * Prismoid
@@ -28,6 +24,8 @@ module Control.Lens.Bifocal
   , somed
   , lefted
   , righted
+  , chained1
+  , chained
     -- * Filtroid
   , Filtroid
   , unlefted
@@ -40,6 +38,7 @@ import Control.Lens.Internal.Profunctor
 import Control.Lens.PartialIso
 import Data.Profunctor
 import Data.Profunctor.Distributor
+import Data.Profunctor.Filtrator
 import Witherable
 
 {- | `Bifocal`s are bidirectional parser optics.
@@ -114,37 +113,30 @@ unrighted :: Filtroid a b (Either c a) (Either d b)
 unrighted = unwrapPafb . snd . filtrate . WrapPafb
 
 {- |
-Left associate a binary constructor pattern to sequence one or more times.
+Associate a binary constructor pattern to sequence one or more times.
 -}
-chainedl1 :: APartialIso a b (a,a) (b,b) -> Bifocal a b a b
-chainedl1 pat = unwrapPafb . chainl1 pat noSep . WrapPafb
-
+chained1
+  :: (forall x. x -> Either x x)
+  -> APartialIso a b (a,a) (b,b)
+  -> Prismoid a b a b
+chained1 assoc binPat = unwrapPafb . chain1 assoc binPat noSep . WrapPafb
 
 {- |
-Right associate a binary constructor pattern to sequence one or more times.
--}
-chainedr1 :: APartialIso a b (a,a) (b,b) -> Bifocal a b a b
-chainedr1 pat = unwrapPafb . chainr1 pat noSep . WrapPafb
-
-{- |
-Left associate a binary constructor pattern to sequence one or more times,
+Associate a binary constructor pattern to sequence one or more times,
 or use a nilary constructor pattern to sequence zero times.
 -}
-chainedl :: APartialIso a b (a,a) (b,b) -> APartialIso a b () () -> Bifocal a b a b
-chainedl c2 c0 = unwrapPafb . chainl c2 c0 noSep . WrapPafb
-
-{- |
-Right associate a binary constructor pattern to sequence one or more times,
-or use a nilary constructor pattern to sequence zero times.
--}
-chainedr :: APartialIso a b (a,a) (b,b) -> APartialIso a b () () -> Bifocal a b a b
-chainedr c2 c0 = unwrapPafb . chainr c2 c0 noSep . WrapPafb
+chained
+  :: (forall x. x -> Either x x)
+  -> APartialIso a b (a,a) (b,b)
+  -> APrism a b () ()
+  -> Prismoid a b a b
+chained assoc binPat nilPat = unwrapPafb . chain assoc binPat nilPat noSep . WrapPafb
 
 {- | Run `ABifocal` over an `Alternative` & `Filterable`. -}
 withBifocal
   :: (Alternative f, Filterable f)
   => ABifocal s t a b -> ((s -> Maybe a) -> f b) -> f t
-withBifocal bif = unBinocular (catMaybes (bif (Just <$> anyToken)))
+withBifocal bif = unBinocular (catMaybes (bif (Just <$> Binocular ($ Just))))
 
 {- | `Binocular` provides an efficient
 concrete representation of `Bifocal`s. -}
@@ -153,8 +145,6 @@ newtype Binocular a b s t = Binocular
       :: forall f. (Alternative f, Filterable f)
       => ((s -> Maybe a) -> f b) -> f t
   }
-instance Tokenized a b (Binocular a b) where
-  anyToken = Binocular ($ Just)
 instance Profunctor (Binocular a b) where
   dimap f g (Binocular k) = Binocular $ fmap g . k . (. (. f))
 instance Functor (Binocular a b s) where fmap = rmap

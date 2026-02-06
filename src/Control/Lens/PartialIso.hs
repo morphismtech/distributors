@@ -1,7 +1,7 @@
 {- |
 Module      : Control.Lens.PartialIso
 Description : partial isomorphisms
-Copyright   : (C) 2025 - Eitan Chatav
+Copyright   : (C) 2026 - Eitan Chatav
 License     : BSD-style (see the file LICENSE)
 Maintainer  : Eitan Chatav <eitan.chatav@gmail.com>
 Stability   : provisional
@@ -20,41 +20,45 @@ module Control.Lens.PartialIso
   , PartialIso'
   , APartialIso
   , PartialExchange (PartialExchange)
-    -- Combinators
+    -- * Combinators
   , partialIso
+  , partialInvoluted
   , withPartialIso
   , clonePartialIso
   , coPartialIso
   , crossPartialIso
   , altPartialIso
-    -- * Actions
+    -- * Applicators
   , (>?)
   , (?<)
   , (>?<)
-  , mapIso
+  , (>~)
+  , (~<)
   , coPrism
     -- * Patterns
   , satisfied
   , nulled
   , notNulled
-  , streamed
-  , maybeEot
-  , listEot
-    -- * Iterations
+  , eotMaybe
+  , eotList
+    -- * Iterators
   , iterating
   , difoldl1
   , difoldr1
   , difoldl
   , difoldr
-  , difoldl'
-  , difoldr'
     -- * Template Haskell
   , makeNestedPrisms
+    -- * Re-exports
+  , module Control.Lens.Iso
+  , module Control.Lens.Prism
   ) where
 
 import Control.Lens
 import Control.Lens.Internal.NestedPrismTH
 import Control.Lens.Internal.Profunctor
+import Control.Lens.Iso
+import Control.Lens.Prism
 import Control.Monad
 import Data.Functor.Compose
 import Data.Profunctor
@@ -145,13 +149,18 @@ partialIso :: (s -> Maybe a) -> (b -> Maybe t) -> PartialIso s t a b
 partialIso f g =
   unright . iso (maybe (Left ()) Right . f =<<) (mapMaybe g) . right'
 
+{- | Given a function that is its own partial inverse,
+this gives you a `PartialIso'` using it in both directions. -}
+partialInvoluted :: (a -> Maybe a) -> PartialIso' a a
+partialInvoluted f = partialIso f f
+
 {- | Convert `APartialIso` to the pair of functions that characterize it. -}
 withPartialIso
   :: APartialIso s t a b
   -> ((s -> Maybe a) -> (b -> Maybe t) -> r)
   -> r
-withPartialIso i k =
-  case i (PartialExchange Just (Just . Just)) of
+withPartialIso pattern k =
+  case pattern (PartialExchange Just (Just . Just)) of
     PartialExchange f g -> k f (join . g)
 
 {- | Clone `APartialIso` so that you can reuse the same
@@ -160,14 +169,14 @@ monomorphically typed partial isomorphism for different purposes.
 clonePartialIso
   :: APartialIso s t a b
   -> PartialIso s t a b
-clonePartialIso i = withPartialIso i $ \f g -> partialIso f g
+clonePartialIso pattern = withPartialIso pattern $ \f g -> partialIso f g
 
 {- | Clone and invert `APartialIso`. -}
 coPartialIso
   :: APartialIso b a t s
   -> PartialIso s t a b
-coPartialIso i =
-  withPartialIso i $ \f g -> partialIso g f
+coPartialIso pattern =
+  withPartialIso pattern $ \f g -> partialIso g f
 
 {- | Construct a `PartialIso` on pairs from components. -}
 crossPartialIso
@@ -223,8 +232,14 @@ infixl 4 ?<
 infixl 4 >?<
 
 {- | Action of `AnIso` on `Profunctor`s. -}
-mapIso :: Profunctor p => AnIso s t a b -> p a b -> p s t
-mapIso i = withIso i dimap
+(>~) :: Profunctor p => AnIso s t a b -> p a b -> p s t
+(>~) pattern = withIso pattern dimap
+infixl 2 >~
+
+{- | Inverse action of `AnIso` on `Profunctor`s. -}
+(~<) :: Profunctor p => AnIso b a t s -> p a b -> p s t
+(~<) pattern = withIso pattern (flip dimap)
+infixl 2 ~<
 
 {- | Action of a `coPrism`
 on the composition of a `Profunctor` and `Filterable`.
@@ -235,7 +250,7 @@ coPrism p = unwrapPafb . (?<) p . WrapPafb
 {- | `satisfied` is the prototypical proper partial isomorphism,
 identifying a subset which satisfies a predicate. -}
 satisfied :: (a -> Bool) -> PartialIso' a a
-satisfied f = partialIso satiate satiate where
+satisfied f = partialInvoluted satiate where
   satiate a = if f a then Just a else Nothing
 
 {- | `nulled` matches an `Empty` pattern, like `_Empty`. -}
@@ -249,46 +264,33 @@ notNulled :: (AsEmpty s, AsEmpty t) => PartialIso s t s t
 notNulled = partialIso nonEmp nonEmp where
   nonEmp s = if isn't _Empty s then Just s else Nothing
 
-{- | `streamed` is an isomorphism between
-two stream types with the same token type. -}
-streamed
-  :: (AsEmpty s, AsEmpty t, Cons s s c c, Cons t t c c)
-  => Iso' s t
-streamed = iso convertStream convertStream
-  where
-    convertStream s =
-      maybe
-        Empty
-        (\(h,t) -> cons h (convertStream t))
-        (uncons s)
-
 {- | The either-of-tuples representation of `Maybe`. -}
-maybeEot :: Iso (Maybe a) (Maybe b) (Either () a) (Either () b)
-maybeEot = iso
+eotMaybe :: Iso (Maybe a) (Maybe b) (Either () a) (Either () b)
+eotMaybe = iso
   (maybe (Left ()) Right)
   (either (pure Nothing) Just)
 
 {- | The either-of-tuples representation of list-like streams. -}
-listEot
+eotList
   :: (Cons s s a a, AsEmpty t, Cons t t b b)
   => Iso s t (Either () (a,s)) (Either () (b,t))
-listEot = iso
+eotList = iso
   (maybe (Left ()) Right . uncons)
   (either (const Empty) (review _Cons))
 
 {- | Iterate the application of a partial isomorphism,
 useful for constructing fold/unfold isomorphisms. -}
 iterating :: APartialIso a b a b -> Iso a b a b
-iterating i = withPartialIso i $ \f g ->
+iterating pattern = withPartialIso pattern $ \f g ->
   iso (iter f) (iter g) where
     iter h state = maybe state (iter h) (h state)
 
 {- | Left fold & unfold `APartialIso` to an `Control.Lens.Iso.Iso`. -}
 difoldl1
   :: Cons s t a b
-  => APartialIso (c,a) (d,b) c d
-  -> Iso (c,s) (d,t) (c,s) (d,t)
-difoldl1 i =
+  => APartialIso d c (d,b) (c,a)
+  -> Iso (d,t) (c,s) (d,t) (c,s)
+difoldl1 pattern =
   let
     associate = iso
       (\(c,(a,s)) -> ((c,a),s))
@@ -296,15 +298,15 @@ difoldl1 i =
     step
       = crossPartialIso id _Cons
       . associate
-      . crossPartialIso i id
-  in iterating step
+      . crossPartialIso (coPartialIso pattern) id
+  in from (iterating step)
 
 {- | Right fold & unfold `APartialIso` to an `Control.Lens.Iso.Iso`. -}
 difoldr1
   :: Cons s t a b
-  => APartialIso (a,c) (b,d) c d
-  -> Iso (s,c) (t,d) (s,c) (t,d)
-difoldr1 i =
+  => APartialIso d c (b,d) (a,c)
+  -> Iso (t,d) (s,c) (t,d) (s,c)
+difoldr1 pattern =
   let
     reorder = iso
       (\((a,s),c) -> (s,(a,c)))
@@ -312,76 +314,26 @@ difoldr1 i =
     step
       = crossPartialIso _Cons id
       . reorder
-      . crossPartialIso id i
-  in iterating step
+      . crossPartialIso id (coPartialIso pattern)
+  in from (iterating step)
 
-{- | Left fold & unfold `APartialIso` to a `PartialIso`. -}
+{- | Left fold & unfold `APartialIso` to a `Control.Lens.Prism.Prism`. -}
 difoldl
-  :: (AsEmpty s, AsEmpty t, Cons s t a b)
-  => APartialIso (c,a) (d,b) c d
-  -> PartialIso (c,s) (d,t) c d
-difoldl i =
-  let
-    unit' = iso
-      (\(a,()) -> a)
-      (\a -> (a,()))
-  in
-    difoldl1 i
-    . crossPartialIso id nulled
-    . unit'
+  :: (AsEmpty t, Cons s t a b)
+  => APartialIso d c (d,b) (c,a)
+  -> Prism d c (d,t) (c,s)
+difoldl pattern
+  = dimap (,Empty) (fmap fst)
+  . difoldl1 pattern
 
-{- | Right fold & unfold `APartialIso` to a `PartialIso`. -}
+{- | Right fold & unfold `APartialIso` to a `Control.Lens.Prism.Prism`. -}
 difoldr
-  :: (AsEmpty s, AsEmpty t, Cons s t a b)
-  => APartialIso (a,c) (b,d) c d
-  -> PartialIso (s,c) (t,d) c d
-difoldr i =
-  let
-    unit' = iso
-      (\((),c) -> c)
-      (\d -> ((),d))
-  in
-    difoldr1 i
-    . crossPartialIso nulled id
-    . unit'
-
-{- | Left fold & unfold `Control.Lens.Prism.APrism'`
-to a `Control.Lens.Prism.Prism'`. -}
-difoldl'
-  :: (AsEmpty s, Cons s s a a)
-  => APrism' (c,a) c
-  -> Prism' (c,s) c
-difoldl' i =
-  let
-    unit' = iso
-      (\(a,()) -> a)
-      (\a -> (a,()))
-  in
-    difoldl1 (clonePrism i)
-    . aside _Empty
-    . unit'
-
-{- | Right fold & unfold `Control.Lens.Prism.APrism'`
-to a `Control.Lens.Prism.Prism'`. -}
-difoldr'
-  :: (AsEmpty s, Cons s s a a)
-  => APrism' (a,c) c
-  -> Prism' (s,c) c
-difoldr' i =
-  let
-    unit' = iso
-      (\((),c) -> c)
-      (\c -> ((),c))
-    asideFst k =
-      withPrism k $ \bt seta ->
-        prism (first' bt) $ \(s,e) ->
-          case seta s of
-            Left t -> Left  (t,e)
-            Right a -> Right (a,e)
-  in
-    difoldr1 (clonePrism i)
-    . asideFst _Empty
-    . unit'
+  :: (AsEmpty t, Cons s t a b)
+  => APartialIso d c (b,d) (a,c)
+  -> Prism d c (t,d) (s,c)
+difoldr pattern
+  = dimap (Empty,) (fmap snd)
+  . difoldr1 pattern
 
 -- Orphanage --
 

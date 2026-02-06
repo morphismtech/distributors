@@ -23,4 +23,4 @@ stack.yaml.lock
 tags
 .*.swp
 .qodo
-SCRATCH
+SCRATCH*

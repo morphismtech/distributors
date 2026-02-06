@@ -1,7 +1,7 @@
 {- |
 Module      : Control.Lens.Monocle
 Description : monocles
-Copyright   : (C) 2025 - Eitan Chatav
+Copyright   : (C) 2026 - Eitan Chatav
 License     : BSD-style (see the file LICENSE)
 Maintainer  : Eitan Chatav <eitan.chatav@gmail.com>
 Stability   : provisional
@@ -29,7 +29,7 @@ module Control.Lens.Monocle
 import Control.Lens hiding (Traversing)
 import Control.Lens.Internal.Profunctor
 import Data.Distributive
-import Data.Profunctor.Distributor
+import Data.Profunctor.Monoidal
 
 {- | `Monocle`s are an optic that generalizes
 `Control.Lens.Traversal.Traversal`s & `Control.Lens.Grate.Grate`s.
@@ -68,7 +68,7 @@ prop> traverse = ditraversed
 prop> cotraversed = ditraversed
 -}
 ditraversed :: (Traversable g, Distributive g) => Monocle (g a) (g b) a b
-ditraversed = unwrapPafb . replicateP . WrapPafb
+ditraversed = unwrapPafb . ditraverse . WrapPafb
 
 {- | Repeat action indefinitely. -}
 forevered :: Monocle s t () b
@@ -76,14 +76,12 @@ forevered = unwrapPafb . foreverP . WrapPafb
 
 {- | Run `AMonocle` over an `Applicative`. -}
 withMonocle :: Applicative f => AMonocle s t a b -> ((s -> a) -> f b) -> f t
-withMonocle mon = unMonocular (runIdentity <$> mon (Identity <$> anyToken))
+withMonocle mon = unMonocular (runIdentity <$> mon (Identity <$> Monocular ($ id)))
 
 {- | `Monocular` provides an efficient
 concrete representation of `Monocle`s. -}
 newtype Monocular a b s t = Monocular
   {unMonocular :: forall f. Applicative f => ((s -> a) -> f b) -> f t}
-instance Tokenized a b (Monocular a b) where
-  anyToken = Monocular ($ id)
 instance Profunctor (Monocular a b) where
   dimap f g (Monocular k) =
     Monocular (fmap g . k . (. (. f)))

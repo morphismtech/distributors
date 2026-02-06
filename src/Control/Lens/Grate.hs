@@ -1,7 +1,7 @@
 {- |
 Module      : Control.Lens.Grate
 Description : grates
-Copyright   : (C) 2025 - Eitan Chatav
+Copyright   : (C) 2026 - Eitan Chatav
 License     : BSD-style (see the file LICENSE)
 Maintainer  : Eitan Chatav <eitan.chatav@gmail.com>
 Stability   : provisional
@@ -35,7 +35,7 @@ import Data.Function
 import Data.Functor.Identity
 import Data.Functor.Rep
 import Data.Profunctor
-import Data.Profunctor.Distributor
+import Data.Profunctor.Monoidal
 
 {- | `Grate`s are an optic that are dual to
 `Control.Lens.Traversal.Traversal`s, as `Distributive` is `Traversable`.
@@ -77,7 +77,7 @@ cloneGrate = grate . withGrate
 
 {- | Run `AGrate`. -}
 withGrate :: AGrate s t a b -> ((s -> a) -> b) -> t
-withGrate grt = runGrating $ runIdentity <$> grt (Identity <$> anyToken)
+withGrate grt = runGrating $ runIdentity <$> grt (Identity <$> Grating ($ id))
 
 {- | Distribute over a `Closed` `Profunctor`. -}
 distributing
@@ -108,8 +108,6 @@ instance Functor (Grating a b s) where fmap = fmapRep
 instance Applicative (Grating a b s) where
   pure = pureRep
   (<*>) = apRep
-instance Tokenized a b (Grating a b) where
-  anyToken = Grating ($ id)
 instance Distributive (Grating a b s) where
   distribute = distributeRep
   collect = collectRep
