@@ -18,7 +18,7 @@ The term "distributor" is a synonym for "[profunctor](https://ncatlab.org/nlab/s
 
 Since "profunctor" became the standard nomenclature, we reappropriate "distributor" to describe a profunctor on a [distributive category](https://ncatlab.org/nlab/show/distributive+category).
 
-This library provides a study distributor theory and optics,
+This library provides a study of distributor theory and optics,
 and their application to invertible grammar theory.
 
 ## previous work
@@ -30,7 +30,7 @@ While `Distributor`s in the library are lax distributive endoprofunctors, a math
 The idea for unifying Backus-Naur grammars with parsers comes from Joachim Breitner in a post [Showcasing Applicative](https://www.joachim-breitner.de/blog/710-Showcasing_Applicative).
 
 The idea for using monadic profunctors for reversible context-free grammars
-comes from  Li-Yao Xia, in some posts and a paper but particularly
+comes from Li-Yao Xia, in some posts and a paper but particularly
 this post on [Monadic profunctors for bidirectional programming]
 (https://blog.poisson.chat/posts/2017-01-01-monadic-profunctors.html).
 
