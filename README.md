@@ -18,7 +18,8 @@ The term "distributor" is a synonym for "[profunctor](https://ncatlab.org/nlab/s
 
 Since "profunctor" became the standard nomenclature, we reappropriate "distributor" to describe a profunctor on a [distributive category](https://ncatlab.org/nlab/show/distributive+category).
 
-This library provides a study of `Monoidal` profunctors, `Distributor`s, `Alternator`s and `Filtrator`s. These profunctor constraints are analogous to `Applicative`, `Alternative` and `Filterable` functors. Examples of `Distributor`s will include printers and parsers, and it is demonstrated how to write a single term for both. Profunctors naturally give rise to optics and this library also studies some previously discovered optics, `PartialIso`s, `Monocle`s, `Grate`s and `Wither`s and also defines new optics, `Diopter`s and `Bifocal`s. Finally, an application of distributors is demonstrated by unifying Backus-Naur form grammars with invertible parsers, giving users a powerful playground for language syntax design.
+This library provides a study distributor theory and optics,
+and their application to invertible grammar theory.
 
 ## previous work
 
@@ -27,6 +28,11 @@ The results concerning invertible parsers are a profunctorial interpretation of 
 While `Distributor`s in the library are lax distributive endoprofunctors, a mathematical treatment of strong (i.e. with invertible structure morphisms) distributors is given by Travis Squires in [Profunctors and Distributive Categories](https://central.bac-lac.gc.ca/.item?id=MR31635).
 
 The idea for unifying Backus-Naur grammars with parsers comes from Joachim Breitner in a post [Showcasing Applicative](https://www.joachim-breitner.de/blog/710-Showcasing_Applicative).
+
+The idea for using monadic profunctors for reversible context-free grammars
+comes from  Li-Yao Xia, in some posts and a paper but particularly
+this post on [Monadic profunctors for bidirectional programming]
+(https://blog.poisson.chat/posts/2017-01-01-monadic-profunctors.html).
 
 The person deserving the most credit for bringing the power of optics to programming, with his [lens library](https://github.com/ekmett/lens/), is Ed Kmett, to whom I am very grateful for teaching me a lot.
 
