@@ -78,7 +78,8 @@ Unfortunately, we can't use TemplateHaskell to generate it in [GHCi]
 which is used to test this documenation.
 Normally we would write `makeNestedPrisms` @''SemVer@,
 but here is equivalent explicit Haskell code instead.
-Since @SemVer@ is a newtype, @_SemVer@ can be an `Control.Lens.Iso.Iso`.
+Since @SemVer@ has only one constructor,
+@_SemVer@ can be an `Control.Lens.Iso.Iso`.
 
 >>> :set -XRecordWildCards
 >>> import Control.Lens (Iso', iso)
