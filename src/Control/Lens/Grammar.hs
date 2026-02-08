@@ -316,6 +316,7 @@ palindromeG :: CtxGrammar Char String
 palindromeG = rule "palindrome" $
   satisfied (\wrd -> reverse wrd == wrd) >?< manyP (anyToken @Char)
 :}
+
 >>> [pal | word <- ["racecar", "word"], (pal, "") <- parseG palindromeG word]
 ["racecar"]
 -}
@@ -446,6 +447,8 @@ newtype RegString = RegString {runRegString :: RegEx Char}
 
 {- | `RegBnf`s are an embedded domain specific language
 of Backus-Naur forms extended by regular expression strings.
+A `RegBnf` consists of a distinguished `RegString` "start" rule,
+and a set of named `RegString` `rule`s.
 Like `RegString`s they have a string-like interface.
 
 >>> let bnf = fromString "{start} = foo|bar" :: RegBnf
@@ -453,6 +456,11 @@ Like `RegString`s they have a string-like interface.
 {start} = foo|bar
 >>> bnf
 "{start} = foo|bar"
+>>> rule "baz" bnf
+"{start} = \\q{baz}\n{baz} = foo|bar"
+>>> putStringLn (ruleRec "infloop" (\x -> x) :: RegBnf)
+{start} = \q{infloop}
+{infloop} = \q{infloop}
 
 `RegBnf`s can be generated from context-free `Grammar`s with `regbnfG`.
 
