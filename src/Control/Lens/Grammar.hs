@@ -456,11 +456,8 @@ Like `RegString`s they have a string-like interface.
 {start} = foo|bar
 >>> bnf
 "{start} = foo|bar"
->>> rule "baz" bnf
-"{start} = \\q{baz}\n{baz} = foo|bar"
->>> putStringLn (ruleRec "infloop" (\x -> x) :: RegBnf)
-{start} = \q{infloop}
-{infloop} = \q{infloop}
+>>> :type toList bnf
+toList bnf :: [Char]
 
 `RegBnf`s can be generated from context-free `Grammar`s with `regbnfG`.
 
@@ -470,6 +467,13 @@ regbnfG regbnfGrammar :: RegBnf
 Like `RegString`s, `RegBnf`s can be constructed using
 `Lexical`, `Monoid` and `KleeneStarAlgebra` combinators.
 But they also support `BackusNaurForm` `rule`s and `ruleRec`s.
+
+>>> putStringLn (rule "baz" (bnf >|< terminal "baz"))
+{start} = \q{baz}
+{baz} = foo|bar|baz
+>>> putStringLn (ruleRec "∞" (\x -> x) :: RegBnf)
+{start} = \q{∞}
+{∞} = \q{∞}
 -}
 newtype RegBnf = RegBnf {runRegBnf :: Bnf RegString}
   deriving newtype
