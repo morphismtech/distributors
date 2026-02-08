@@ -239,6 +239,9 @@ Just "1+2*3"
 >>> do pr <- printG arithGrammar (Num 69); return (pr "") :: Maybe String
 Just "69"
 
+If all `rule`s are non-recursive, then a `Grammar`
+can be rewritten as a `RegGrammar`.
+
 -}
 type Grammar token a = forall p.
   ( Lexical token p
@@ -246,19 +249,7 @@ type Grammar token a = forall p.
   , Alternator p
   ) => p a a
 
-{- |
-In addition to context-sensitivity via `Monadic` combinators,
-`CtxGrammar`s adds general filtration via `Filtrator` to `Grammar`s.
-
->>> :{
-palindromeG :: CtxGrammar Char String
-palindromeG = rule "palindrome" $
-  satisfied (\wrd -> reverse wrd == wrd) >?< manyP (anyToken @Char)
-:}
-
-The `satisfied` pattern is used together with the `Choice` &
-`Data.Profunctor.Cochoice` applicator `>?<` for general filtration.
-For context-sensitivity,
+{- | For context-sensitivity,
 the `Monadic` interface is used by importing "Data.Profunctor.Monadic"
 qualified and using a "bonding" notation which mixes
 "idiom" style with qualified do-notation.
@@ -291,15 +282,15 @@ The qualified do-notation changes the signature of
 @P.@`Data.Profunctor.Monadic.>>=`,
 so that we must apply the constructor pattern @_LenVec@
 to the do-block with the `>?` applicator.
-Any bound named variable, @var <- action@,
+Any scoped bound action, @var <- action@,
 gets "bonded" to the constructor pattern.
 Any unbound actions, except for the last action in the do-block,
 does not get bonded to the pattern.
 The last action does get bonded to the pattern.
-Any unnamed bound action, @_ <- action@,
+Any unscoped bound action, @_ <- action@,
 also gets bonded to the pattern,
-but being unnamed means it isn't added to the context.
-If all bound actions are unnamed, then a `CtxGrammar` can
+but being unscoped means it isn't added to the context.
+If all bound actions are unscoped, then a `CtxGrammar` can
 be rewritten as a `Grammar` since it is context-free.
 We can't generate a `RegBnf` since the `rule`s
 of a `CtxGrammar` aren't static, but dynamic and contextual.
@@ -313,6 +304,18 @@ We can generate parsers and printers as expected.
 ["2;6,7"]
 >>> [pr "" | pr <- printG lenvecGrammar (LenVec 200 [100])] :: [String]
 []
+
+In addition to context-sensitivity via `Monadic` combinators,
+`CtxGrammar`s adds general filtration via `Filtrator` to `Grammar`s.
+The `satisfy` function can be used as a general predicate character class.
+And the `satisfied` pattern is used together with the `Choice` &
+`Data.Profunctor.Cochoice` applicator `>?<` for general filtration.
+
+>>> :{
+palindromeG :: CtxGrammar Char String
+palindromeG = rule "palindrome" $
+  satisfied (\wrd -> reverse wrd == wrd) >?< manyP (anyToken @Char)
+:}
 >>> [pal | word <- ["racecar", "word"], (pal, "") <- parseG palindromeG word]
 ["racecar"]
 -}
