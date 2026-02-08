@@ -307,7 +307,7 @@ We can generate parsers and printers as expected.
 
 In addition to context-sensitivity via `Monadic` combinators,
 `CtxGrammar`s adds general filtration via `Filtrator` to `Grammar`s.
-The `satisfy` function can be used as a general predicate character class.
+The `satisfy` function is a general character class.
 And the `satisfied` pattern is used together with the `Choice` &
 `Data.Profunctor.Cochoice` applicator `>?<` for general filtration.
 
