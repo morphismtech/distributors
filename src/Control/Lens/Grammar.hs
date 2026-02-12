@@ -56,8 +56,9 @@ import Witherable
 {- |
 A regular grammar may be constructed using
 `Lexical` and `Alternator` combinators.
+
 Let's see an example using
-[semantic versioning](https://semver.org/).
+[semantic versioning](https://semver.org/) syntax.
 
 >>> import Numeric.Natural (Natural)
 >>> :{
@@ -222,7 +223,7 @@ arithGrammar = ruleRec "arith" sumG
       _Num . iso show read >? someP (asIn @Char DecimalNumber)
 :}
 
-We can generate a `RegBnf`, printers and parsers from @arithGrammar@.
+We can generate grammar strings, printers and parsers from @arithGrammar@.
 
 >>> putStringLn (regbnfG arithGrammar)
 {start} = \q{arith}
@@ -231,7 +232,6 @@ We can generate a `RegBnf`, printers and parsers from @arithGrammar@.
 {number} = \p{Nd}+
 {product} = \q{factor}(\*\q{factor})*
 {sum} = \q{product}(\+\q{product})*
-
 >>> [x | (x,"") <- parseG arithGrammar "1+2*3+4"]
 [Add (Add (Num 1) (Mul (Num 2) (Num 3))) (Num 4)]
 >>> unparseG arithGrammar (Add (Num 1) (Mul (Num 2) (Num 3))) "" :: Maybe String
@@ -241,11 +241,10 @@ Just "69"
 
 If all `rule`s are non-recursive, then a `Grammar`
 can be rewritten as a `RegGrammar`.
-
 Since Haskell permits general recursion, and `RegGrammar`s are
-embedded in Haskell, one can define context-free grammars with them,
-but its recommended to use `Grammar`s for `rule` abstraction
-and generator support.
+embedded in Haskell, you can define context-free grammars with them.
+But it's recommended to use `Grammar`s for `rule` abstraction
+and generator support for `ruleRec`.
 
 -}
 type Grammar token a = forall p.
@@ -354,8 +353,9 @@ type Lexical token p =
   ) :: Constraint
 
 {- | `RegString`s are an embedded domain specific language
-of regular expression strings. Since they are strings,
-they have a string-like interface.
+of regular expression strings.
+
+Since they are strings, they have a string-like interface.
 
 >>> let rex = fromString "ab|c" :: RegString
 >>> putStringLn rex
@@ -460,8 +460,14 @@ newtype RegString = RegString {runRegString :: RegEx Char}
 
 {- | `RegBnf`s are an embedded domain specific language
 of Backus-Naur forms extended by regular expression strings.
+
 A `RegBnf` consists of a distinguished `RegString` "start" rule,
 and a set of named `RegString` `rule`s.
+
+>>> putStringLn (rule "baz" (terminal "foo" >|< terminal "bar") :: RegBnf)
+{start} = \q{baz}
+{baz} = foo|bar
+
 Like `RegString`s they have a string-like interface.
 
 >>> let bnf = fromString "{start} = foo|bar" :: RegBnf
