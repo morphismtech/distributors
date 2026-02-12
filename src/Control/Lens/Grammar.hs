@@ -293,8 +293,8 @@ The last action does get bonded to the pattern.
 Any unscoped bound action, @_ <- action@,
 also gets bonded to the pattern,
 but being unscoped means it isn't added to the context.
-If all bound actions are unscoped, then a `CtxGrammar` can
-be rewritten as a `Grammar` since it is context-free.
+If all bound actions are unscoped, and filtration isn't used,
+then a `CtxGrammar` can be rewritten as a `Grammar` since it is context-free.
 We can't generate a `RegBnf` since the `rule`s
 of a `CtxGrammar` aren't static, but dynamic and contextual.
 We can generate parsers and printers as expected.
