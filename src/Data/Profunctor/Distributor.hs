@@ -15,8 +15,6 @@ module Data.Profunctor.Distributor
   , Alternator (..)
   , choice
   , option
-    -- * Homogeneous
-  , Homogeneous (..)
     -- * SepBy
   , SepBy (..)
   , sepBy
@@ -26,6 +24,8 @@ module Data.Profunctor.Distributor
   , chain
   , chain1
   , intercalateP
+    -- * Homogeneous
+  , Homogeneous (..)
   ) where
 
 import Control.Applicative hiding (WrappedArrow)
