@@ -23,7 +23,7 @@ module Control.Lens.Grammar
   , RegBnf (..)
   , regbnfG
   , regbnfGrammar
-    -- * Context-sensitive grammar
+    -- * Unrestricted, context-sensitive grammar
   , CtxGrammar
   , printG
   , parseG
@@ -242,6 +242,11 @@ Just "69"
 If all `rule`s are non-recursive, then a `Grammar`
 can be rewritten as a `RegGrammar`.
 
+Since Haskell permits general recursion, and `RegGrammar`s are
+embedded in Haskell, one can define context-free grammars with them,
+but its recommended to use `Grammar`s for `rule` abstraction
+and generator support.
+
 -}
 type Grammar token a = forall p.
   ( Lexical token p
@@ -319,6 +324,14 @@ palindromeG = rule "palindrome" $
 
 >>> [pal | word <- ["racecar", "word"], (pal, "") <- parseG palindromeG word]
 ["racecar"]
+
+Since Haskell permits computable predicates,
+`CtxGrammar`s are embedded in Haskell,
+and `Filtrator` is implied by the `Monadic` `Altenator` combinator `mfiltrate`,
+the context-sensitivity of `CtxGrammar` also yields
+general filtration, or _unrestricted_ grammars,
+which can parse recursively enumerable languages.
+
 -}
 type CtxGrammar token a = forall p.
   ( Lexical token p
