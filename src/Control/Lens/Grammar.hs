@@ -56,7 +56,6 @@ import Witherable
 {- |
 A regular grammar may be constructed using
 `Lexical` and `Alternator` combinators.
-
 Let's see an example using
 [semantic versioning](https://semver.org/) syntax.
 
