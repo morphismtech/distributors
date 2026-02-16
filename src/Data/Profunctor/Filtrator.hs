@@ -41,8 +41,11 @@ class (Cochoice p, forall x. Filterable (p x))
     prop> unright = snd . filtrate
 
     `filtrate` is a distant relative to `Data.Either.partitionEithers`.
+    `filtrate` can be given a default value for `Monadic` `Alternator`s via `mfiltrate`.
 
-    `filtrate` has a default for `Choice` & `Cochcoice` partial profunctors.
+    prop> filtrate = mfiltrate
+
+    `filtrate` has a default for `Choice` & `Cochoice` partial profunctors.
     -}
     filtrate
       :: p (Either a c) (Either b d)
