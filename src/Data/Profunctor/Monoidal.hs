@@ -25,6 +25,7 @@ import Control.Applicative qualified as Ap (WrappedArrow)
 import Control.Arrow
 import Control.Lens hiding (chosen)
 import Control.Lens.Internal.Context
+import Control.Lens.Internal.Prism
 import Control.Lens.Internal.Profunctor
 import Control.Lens.PartialIso
 import Data.Bifunctor.Clown
@@ -247,3 +248,14 @@ instance (Profunctor p, Alternative (p a))
     empty = proreturn empty
     ab <|> cd = proreturn (proextract ab <|> proextract cd)
     many = proreturn . many . proextract
+instance Applicative (Market a b s) where
+  pure t = Market (pure t) (pure (Left t))
+  Market f0 g0 <*> Market f1 g1 = Market
+    (\b -> f0 b (f1 b))
+    (\s ->
+      case g0 s of
+        Left bt -> case g1 s of
+          Left b -> Left (bt b)
+          Right a -> Right a
+        Right a -> Right a
+    )
