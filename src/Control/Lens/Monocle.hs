@@ -62,7 +62,7 @@ monomorphically typed `Monocle` for different purposes.
 cloneMonocle :: AMonocle s t a b -> Monocle s t a b
 cloneMonocle mon = unwrapPafb . mapMonocle mon . WrapPafb
 
-{- | Convert a `Monocle` to an improper `Prism`.
+{- | Convert a `Monocle` to an improper `Control.Lens.Prism.Prism`.
 
 >>> review (imprism (ditraversed @Complex)) (1 :: Double)
 1.0 :+ 1.0
