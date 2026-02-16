@@ -64,10 +64,10 @@ cloneMonocle mon = unwrapPafb . mapMonocle mon . WrapPafb
 
 {- | Convert a `Monocle` to an improper `Control.Lens.Prism.Prism`.
 
->>> review (imprism (ditraversed @Complex)) (1 :: Double)
-1.0 :+ 1.0
->>> preview (imprism (ditraversed)) (1 :+ 2 :: Complex Double)
-Just 1.0
+>>> review (imprism ditraversed) 1 :: Complex Int
+1 :+ 1
+>>> preview (imprism ditraversed) (1 :+ 2 :: Complex Int)
+Just 1
 -}
 imprism :: Monocle s t a b -> Prism s t a b
 imprism mon = clonePrism mon
