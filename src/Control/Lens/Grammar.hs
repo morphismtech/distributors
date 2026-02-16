@@ -323,11 +323,10 @@ palindromeG = rule "palindrome" $
 >>> [pal | word <- ["racecar", "word"], (pal, "") <- parseG palindromeG word]
 ["racecar"]
 
-Since Haskell permits computable predicates,
-`CtxGrammar`s are embedded in Haskell,
-and `Filtrator` is implied by the `Monadic` `Altenator` combinator `mfiltrate`,
-the context-sensitivity of `CtxGrammar` also yields
-general filtration, or _unrestricted_ grammars,
+Since `CtxGrammar`s are embedded in Haskell which permits computable predicates,
+and `Filtrator` has a default definition for `Monadic` `Alternator`s,
+the context-sensitivity of `CtxGrammar` implies
+general filtration of unrestricted grammars,
 which can parse recursively enumerable languages.
 
 -}

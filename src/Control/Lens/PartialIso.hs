@@ -222,7 +222,7 @@ infixl 4 >?
 (?<) pat = withPrism pat $ \f g -> unright . dimap (either id f) g
 infixl 4 ?<
 
-{- | Action of `APartialIso` on `Choice` and `Cochoice` `Profunctor`s. -}
+{- | Action of `APartialIso` on `Choice` & `Cochoice` partial profunctors. -}
 (>?<)
   :: (Choice p, Cochoice p)
   => APartialIso s t a b

@@ -330,7 +330,7 @@ class (Choice p, Distributor p, forall x. Alternative (p x))
     prop> zeroP = empty
     prop> x >+< y = alternate (Left x) <|> alternate (Right y)
 
-    `alternate` has a default for `Cochoice`.
+    `alternate` has a default for `Choice` & `Cochoice` partial profunctors.
     -}
     alternate
       :: Either (p a b) (p c d)
