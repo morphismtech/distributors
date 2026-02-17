@@ -309,10 +309,10 @@ We can generate parsers and printers as expected.
 []
 
 In addition to context-sensitivity via `Monadic` combinators,
-`CtxGrammar`s adds general filtration via `Filtrator` to `Grammar`s.
-The `satisfy` function is a general character class.
+`CtxGrammar`s add unrestricted filtration to `Grammar`s.
+The `satisfy` combinator is an unrestricted token filter.
 And the `satisfied` pattern is used together with the `Choice` &
-`Data.Profunctor.Cochoice` applicator `>?<` for general filtration.
+`Data.Profunctor.Cochoice` applicator `>?<` for unrestricted filtration.
 
 >>> :{
 palindromeG :: CtxGrammar Char String
@@ -323,11 +323,11 @@ palindromeG = rule "palindrome" $
 >>> [pal | word <- ["racecar", "word"], (pal, "") <- parseG palindromeG word]
 ["racecar"]
 
-Since `CtxGrammar`s are embedded in Haskell which permits computable predicates,
+Since `CtxGrammar`s are embedded in Haskell, permitting computable predicates,
 and `Filtrator` has a default definition for `Monadic` `Alternator`s,
 the context-sensitivity of `CtxGrammar` implies
-general filtration of unrestricted grammars,
-which can parse recursively enumerable languages.
+unrestricted filtration of grammars by computable predicates,
+which can recognize the class of recursively enumerable languages.
 
 -}
 type CtxGrammar token a = forall p.
