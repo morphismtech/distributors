@@ -456,6 +456,6 @@ intercalateP
   => Int {- ^ number of repetitions -}
   -> SepBy (p () ()) -> p a a -> p s s
 intercalateP n (SepBy beg end _) _ | n <= 0 =
-  beg >* lmap (const Empty) asEmpty *< end
+  beg >* asEmpty *< end
 intercalateP n (SepBy beg end comma) p =
   beg >* p >:< replicateP (n-1) (comma >* p) *< end
