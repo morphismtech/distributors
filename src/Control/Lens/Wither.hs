@@ -37,7 +37,6 @@ import Witherable
 
 {- | `Wither`s extends `Control.Lens.Traversal.Traversal`s by filtering.
 
-
 Every one of the following is a `Wither`.
 
 * `Control.Lens.Iso.Iso`
