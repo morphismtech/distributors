@@ -93,7 +93,7 @@ class Monoidal p => Distributor p where
 
   {- | The zero structure morphism of a `Distributor`.
 
-  `zeroP` has a default for `Alternators`.
+  `zeroP` has a default for `Alternator`s.
 
   prop> zeroP = empty
   -}
@@ -103,7 +103,7 @@ class Monoidal p => Distributor p where
 
   {- | The sum structure morphism of a `Distributor`.
 
-  `>+<` has a default for `Alternators`.
+  `>+<` has a default for `Alternator`s.
 
   prop> x >+< y = alternate (Left x) <|> alternate (Right y)
   -}
