@@ -81,7 +81,7 @@ doctests = do
 testGrammarExample :: (Show a, Eq a) => Grammar Char a -> (a, String) -> Spec
 testGrammarExample grammar (expectedSyntax, expectedString) = do
   testCtxGrammarExample grammar (expectedSyntax, expectedString)
-  it ("should match from " <> expectedString <> " correctly") $ do
+  it ("should match " <> expectedString <> " correctly") $ do
     let actualMatch = expectedString =~ regbnfG grammar
     actualMatch `shouldBe` True
 
