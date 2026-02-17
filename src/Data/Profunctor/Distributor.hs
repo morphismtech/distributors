@@ -93,7 +93,7 @@ class Monoidal p => Distributor p where
 
   {- | The zero structure morphism of a `Distributor`.
 
-  `zeroP` has a default for `Alternator`.
+  `zeroP` has a default for `Alternators`.
 
   prop> zeroP = empty
   -}
@@ -103,7 +103,7 @@ class Monoidal p => Distributor p where
 
   {- | The sum structure morphism of a `Distributor`.
 
-  `>+<` has a default for `Alternator`.
+  `>+<` has a default for `Alternators`.
 
   prop> x >+< y = alternate (Left x) <|> alternate (Right y)
   -}
@@ -315,7 +315,13 @@ instance Homogeneous Tree where
 
 {- | The `Alternator` class co-extends `Choice` and `Distributor`,
 as well as `Alternative`, adding the `alternate` method,
-which is a lax monoidal structure morphism on sums.
+which is a lax monoidal structure morphism on sums, with these
+these laws relating them.
+
+prop> left' = alternate . Left
+prop> right' = alternate . Right
+prop> zeroP = empty
+prop> x >+< y = alternate (Left x) <|> alternate (Right y)
 
 For the case of `Functor`s the analog of `alternate` can be defined
 without any other constraint, but the case of `Profunctor`s turns
@@ -324,13 +330,8 @@ out to be slighly more complex.
 class (Choice p, Distributor p, forall x. Alternative (p x))
   => Alternator p where
 
-    {- |
-    prop> left' = alternate . Left
-    prop> right' = alternate . Right
-    prop> zeroP = empty
-    prop> x >+< y = alternate (Left x) <|> alternate (Right y)
-
-    `alternate` has a default for `Choice` & `Cochoice` partial profunctors.
+    {- | The structure morphism for an `Alternator`,
+    `alternate` has a default for `Choice` & `Cochoice` partial distributors.
     -}
     alternate
       :: Either (p a b) (p c d)
@@ -418,7 +419,7 @@ several (SepBy beg end sep) p = iso toList fromList . eotList >~
   beg >* (oneP >+< p >*< manyP (sep >* p)) *< end
 
 {- |
-prop> several1 noSep p = someP p
+prop> several1 noSep = someP
 -}
 several1
   :: (IsList s, IsList t, Distributor p, Choice p)
@@ -451,8 +452,9 @@ chain1 association pat (SepBy beg end sep) = leftOrRight chainl1 chainr1
 
 {- | `intercalateP` adds a `SepBy` to `replicateP`. -}
 intercalateP
-  :: (Monoidal p, Choice p, AsEmpty s, AsEmpty t, Cons s t a b)
-  => Int -> SepBy (p () ()) -> p a b -> p s t
+  :: (Monoidal p, Choice p, AsEmpty s, Cons s s a a)
+  => Int {- ^ number of repetitions -}
+  -> SepBy (p () ()) -> p a a -> p s s
 intercalateP n (SepBy beg end _) _ | n <= 0 =
   beg >* lmap (const Empty) asEmpty *< end
 intercalateP n (SepBy beg end comma) p =

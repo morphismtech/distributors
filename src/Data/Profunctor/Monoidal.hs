@@ -127,11 +127,13 @@ ditraverse
 ditraverse p = traverse (\f -> lmap f p) (distribute id)
 
 {- | `replicateP` is analagous to `Control.Monad.replicateM`,
-for `Monoidal` & `Choice` `Profunctor`s. -}
+for `Monoidal` & `Choice` `Profunctor`s. When the number
+of repetitions is less than or equal to 0, it returns `asEmpty`.
+-}
 replicateP
-  :: (Monoidal p, Choice p, AsEmpty s, AsEmpty t, Cons s t a b)
-  => Int -> p a b -> p s t
-replicateP n _ | n <= 0 = lmap (const Empty) asEmpty
+  :: (Monoidal p, Choice p, AsEmpty s, Cons s s a a)
+  => Int {- ^ number of repetitions -} -> p a a -> p s s
+replicateP n _ | n <= 0 = asEmpty
 replicateP n a = a >:< replicateP (n-1) a
 
 {- | For any `Monoidal`, `Choice` & `Strong` `Profunctor`,
