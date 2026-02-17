@@ -48,8 +48,7 @@ type Grate s t a b = forall p f.
   (Closed p, Monoidal p, Distributive f, Applicative f)
     => p a (f b) -> p s (f t)
 
-{- | If you see `AGrate` in a signature for a function,
-the function is expecting a `Grate`. -}
+{- | `AGrate` is monomorphically a `Grate`. -}
 type AGrate s t a b =
   Grating a b a (Identity b) -> Grating a b s (Identity t)
 

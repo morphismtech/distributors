@@ -43,8 +43,7 @@ type Monocle s t a b = forall p f.
   (Monoidal p, Applicative f)
     => p a (f b) -> p s (f t)
 
-{- | If you see `AMonocle` in a signature for a function,
-the function is expecting a `Monocle`. -}
+{- | `AMonocle` is monomorphically a `Monocle`. -}
 type AMonocle s t a b =
   Monocular a b a (Identity b) -> Monocular a b s (Identity t)
 

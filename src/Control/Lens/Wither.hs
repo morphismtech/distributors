@@ -48,8 +48,7 @@ Every one of the following is a `Wither`.
 -}
 type Wither s t a b = forall f. Alternative f => (a -> f b) -> s -> f t
 
-{- | If you see `AWither` in a signature for a function,
-the function is expecting a `Wither`. -}
+{- | `AWither` is monomorphically a `Wither`. -}
 type AWither s t a b = (a -> Altar a b b) -> s -> Altar a b t
 
 {- | `Witheroid`s generalize `Wither`s.

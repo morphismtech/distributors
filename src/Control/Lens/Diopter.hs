@@ -41,8 +41,7 @@ type Diopter s t a b = forall p f.
   (Distributor p, Applicative f)
     => p a (f b) -> p s (f t)
 
-{- | If you see `ADiopter` in a signature for a function,
-the function is expecting a `Diopter`. -}
+{- | `ADiopter` is monomorphically a `Diopter`. -}
 type ADiopter s t a b =
   Dioptrice a b a (Identity b) -> Dioptrice a b s (Identity t)
 
