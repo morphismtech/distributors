@@ -55,7 +55,7 @@ import Prelude
 --   = Foo Int
 --   | Bar a
 --   | Baz Int Char
---   | Bux Doube String Bool
+--   | Bux Double String Bool
 -- makePrisms ''FooBarBazBux
 -- @
 --
