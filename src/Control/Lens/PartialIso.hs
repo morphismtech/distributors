@@ -117,8 +117,7 @@ some equivalence class of terms.
 -}
 type PartialIso' s a = PartialIso s s a a
 
-{- | If you see `APartialIso` in a signature for a function,
-the function is expecting a `PartialIso`. -}
+{- | `APartialIso` is monomorphically a `PartialIso`. -}
 type APartialIso s t a b =
   PartialExchange a b a (Maybe b) -> PartialExchange a b s (Maybe t)
 
@@ -222,7 +221,7 @@ infixl 4 >?
 (?<) pat = withPrism pat $ \f g -> unright . dimap (either id f) g
 infixl 4 ?<
 
-{- | Action of `APartialIso` on `Choice` and `Cochoice` `Profunctor`s. -}
+{- | Action of `APartialIso` on `Choice` & `Cochoice` partial profunctors. -}
 (>?<)
   :: (Choice p, Cochoice p)
   => APartialIso s t a b

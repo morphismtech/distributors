@@ -23,7 +23,7 @@ module Control.Lens.Grammar
   , RegBnf (..)
   , regbnfG
   , regbnfGrammar
-    -- * Context-sensitive grammar
+    -- * Unrestricted, context-sensitive grammar
   , CtxGrammar
   , printG
   , parseG
@@ -57,7 +57,7 @@ import Witherable
 A regular grammar may be constructed using
 `Lexical` and `Alternator` combinators.
 Let's see an example using
-[semantic versioning](https://semver.org/).
+[semantic versioning](https://semver.org/) syntax.
 
 >>> import Numeric.Natural (Natural)
 >>> :{
@@ -78,7 +78,8 @@ Unfortunately, we can't use TemplateHaskell to generate it in [GHCi]
 which is used to test this documenation.
 Normally we would write `makeNestedPrisms` @''SemVer@,
 but here is equivalent explicit Haskell code instead.
-Since @SemVer@ is a newtype, @_SemVer@ can be an `Control.Lens.Iso.Iso`.
+Since @SemVer@ has only one constructor,
+@_SemVer@ can be an `Control.Lens.Iso.Iso`.
 
 >>> :set -XRecordWildCards
 >>> import Control.Lens (Iso', iso)
@@ -221,7 +222,7 @@ arithGrammar = ruleRec "arith" sumG
       _Num . iso show read >? someP (asIn @Char DecimalNumber)
 :}
 
-We can generate a `RegBnf`, printers and parsers from @arithGrammar@.
+We can generate grammar strings, printers and parsers from @arithGrammar@.
 
 >>> putStringLn (regbnfG arithGrammar)
 {start} = \q{arith}
@@ -230,13 +231,19 @@ We can generate a `RegBnf`, printers and parsers from @arithGrammar@.
 {number} = \p{Nd}+
 {product} = \q{factor}(\*\q{factor})*
 {sum} = \q{product}(\+\q{product})*
-
 >>> [x | (x,"") <- parseG arithGrammar "1+2*3+4"]
 [Add (Add (Num 1) (Mul (Num 2) (Num 3))) (Num 4)]
 >>> unparseG arithGrammar (Add (Num 1) (Mul (Num 2) (Num 3))) "" :: Maybe String
 Just "1+2*3"
 >>> do pr <- printG arithGrammar (Num 69); return (pr "") :: Maybe String
 Just "69"
+
+If all `rule`s are non-recursive, then a `Grammar`
+can be rewritten as a `RegGrammar`.
+Since Haskell permits general recursion, and `RegGrammar`s are
+embedded in Haskell, you can define context-free grammars with them.
+But it's recommended to use `Grammar`s for `rule` abstraction
+and generator support for `ruleRec`.
 
 -}
 type Grammar token a = forall p.
@@ -245,19 +252,7 @@ type Grammar token a = forall p.
   , Alternator p
   ) => p a a
 
-{- |
-In addition to context-sensitivity via `Monadic` combinators,
-`CtxGrammar`s adds general filtration via `Filtrator` to `Grammar`s.
-
->>> :{
-palindromeG :: CtxGrammar Char String
-palindromeG = rule "palindrome" $
-  satisfied (\wrd -> reverse wrd == wrd) >?< manyP (anyToken @Char)
-:}
-
-The `satisfied` pattern is used together with the `Choice` &
-`Data.Profunctor.Cochoice` applicator `>?<` for general filtration.
-For context-sensitivity,
+{- | For context-sensitivity,
 the `Monadic` interface is used by importing "Data.Profunctor.Monadic"
 qualified and using a "bonding" notation which mixes
 "idiom" style with qualified do-notation.
@@ -290,16 +285,16 @@ The qualified do-notation changes the signature of
 @P.@`Data.Profunctor.Monadic.>>=`,
 so that we must apply the constructor pattern @_LenVec@
 to the do-block with the `>?` applicator.
-Any bound named variable, @var <- action@,
+Any scoped bound action, @var <- action@,
 gets "bonded" to the constructor pattern.
 Any unbound actions, except for the last action in the do-block,
 does not get bonded to the pattern.
 The last action does get bonded to the pattern.
-Any unnamed bound action, @_ <- action@,
+Any unscoped bound action, @_ <- action@,
 also gets bonded to the pattern,
-but being unnamed means it isn't added to the context.
-If all bound actions are unnamed, then a `CtxGrammar` can
-be rewritten as a `Grammar` since it is context-free.
+but being unscoped means it isn't added to the context.
+If all bound actions are unscoped, and filtration isn't used,
+then a `CtxGrammar` can be rewritten as a `Grammar` since it is context-free.
 We can't generate a `RegBnf` since the `rule`s
 of a `CtxGrammar` aren't static, but dynamic and contextual.
 We can generate parsers and printers as expected.
@@ -312,8 +307,28 @@ We can generate parsers and printers as expected.
 ["2;6,7"]
 >>> [pr "" | pr <- printG lenvecGrammar (LenVec 200 [100])] :: [String]
 []
+
+In addition to context-sensitivity via `Monadic` combinators,
+`CtxGrammar`s add unrestricted filtration to `Grammar`s.
+The `satisfy` combinator is an unrestricted token filter.
+And the `satisfied` pattern is used together with the `Choice` &
+`Data.Profunctor.Cochoice` applicator `>?<` for unrestricted filtration.
+
+>>> :{
+palindromeG :: CtxGrammar Char String
+palindromeG = rule "palindrome" $
+  satisfied (\wrd -> reverse wrd == wrd) >?< manyP (anyToken @Char)
+:}
+
 >>> [pal | word <- ["racecar", "word"], (pal, "") <- parseG palindromeG word]
 ["racecar"]
+
+Since `CtxGrammar`s are embedded in Haskell, permitting computable predicates,
+and `Filtrator` has a default definition for `Monadic` `Alternator`s,
+the context-sensitivity of `CtxGrammar` implies
+unrestricted filtration of grammars by computable predicates,
+which can recognize the class of recursively enumerable languages.
+
 -}
 type CtxGrammar token a = forall p.
   ( Lexical token p
@@ -336,8 +351,9 @@ type Lexical token p =
   ) :: Constraint
 
 {- | `RegString`s are an embedded domain specific language
-of regular expression strings. Since they are strings,
-they have a string-like interface.
+of regular expression strings.
+
+Since they are strings, they have a string-like interface.
 
 >>> let rex = fromString "ab|c" :: RegString
 >>> putStringLn rex
@@ -442,6 +458,14 @@ newtype RegString = RegString {runRegString :: RegEx Char}
 
 {- | `RegBnf`s are an embedded domain specific language
 of Backus-Naur forms extended by regular expression strings.
+
+A `RegBnf` consists of a distinguished `RegString` "start" rule,
+and a set of named `RegString` `rule`s.
+
+>>> putStringLn (rule "baz" (terminal "foo" >|< terminal "bar") :: RegBnf)
+{start} = \q{baz}
+{baz} = foo|bar
+
 Like `RegString`s they have a string-like interface.
 
 >>> let bnf = fromString "{start} = foo|bar" :: RegBnf
@@ -449,6 +473,8 @@ Like `RegString`s they have a string-like interface.
 {start} = foo|bar
 >>> bnf
 "{start} = foo|bar"
+>>> :type toList bnf
+toList bnf :: [Char]
 
 `RegBnf`s can be generated from context-free `Grammar`s with `regbnfG`.
 
@@ -458,6 +484,13 @@ regbnfG regbnfGrammar :: RegBnf
 Like `RegString`s, `RegBnf`s can be constructed using
 `Lexical`, `Monoid` and `KleeneStarAlgebra` combinators.
 But they also support `BackusNaurForm` `rule`s and `ruleRec`s.
+
+>>> putStringLn (rule "baz" (bnf >|< terminal "baz"))
+{start} = \q{baz}
+{baz} = foo|bar|baz
+>>> putStringLn (ruleRec "∞" (\x -> x) :: RegBnf)
+{start} = \q{∞}
+{∞} = \q{∞}
 -}
 newtype RegBnf = RegBnf {runRegBnf :: Bnf RegString}
   deriving newtype

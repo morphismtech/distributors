@@ -63,7 +63,7 @@ class Monoid k => KleeneStarAlgebra k where
 orK :: (Foldable f, KleeneStarAlgebra k) => f k -> k
 orK = foldl' (>|<) zeroK
 
--- | universal
+-- | existential
 anyK :: (Foldable f, KleeneStarAlgebra k) => (a -> k) -> f a -> k
 anyK f = foldl' (\b a -> b >|< f a) zeroK
 

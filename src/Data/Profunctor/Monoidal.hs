@@ -25,6 +25,7 @@ import Control.Applicative qualified as Ap (WrappedArrow)
 import Control.Arrow
 import Control.Lens hiding (chosen)
 import Control.Lens.Internal.Context
+import Control.Lens.Internal.Prism
 import Control.Lens.Internal.Profunctor
 import Control.Lens.PartialIso
 import Data.Bifunctor.Clown
@@ -126,11 +127,13 @@ ditraverse
 ditraverse p = traverse (\f -> lmap f p) (distribute id)
 
 {- | `replicateP` is analagous to `Control.Monad.replicateM`,
-for `Monoidal` & `Choice` `Profunctor`s. -}
+for `Monoidal` & `Choice` `Profunctor`s. When the number
+of repetitions is less than or equal to 0, it returns `asEmpty`.
+-}
 replicateP
-  :: (Monoidal p, Choice p, AsEmpty s, AsEmpty t, Cons s t a b)
-  => Int -> p a b -> p s t
-replicateP n _ | n <= 0 = lmap (const Empty) asEmpty
+  :: (Monoidal p, Choice p, AsEmpty s, Cons s s a a)
+  => Int {- ^ number of repetitions -} -> p a a -> p s s
+replicateP n _ | n <= 0 = asEmpty
 replicateP n a = a >:< replicateP (n-1) a
 
 {- | For any `Monoidal`, `Choice` & `Strong` `Profunctor`,
@@ -247,3 +250,14 @@ instance (Profunctor p, Alternative (p a))
     empty = proreturn empty
     ab <|> cd = proreturn (proextract ab <|> proextract cd)
     many = proreturn . many . proextract
+instance Applicative (Market a b s) where
+  pure t = Market (pure t) (pure (Left t))
+  Market f0 g0 <*> Market f1 g1 = Market
+    (\b -> f0 b (f1 b))
+    (\s ->
+      case g0 s of
+        Left bt -> case g1 s of
+          Left b -> Left (bt b)
+          Right a -> Right a
+        Right a -> Right a
+    )
