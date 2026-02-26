@@ -347,7 +347,7 @@ class (Choice p, Distributor p, forall x. Alternative (p x))
 
     {- | One or more. -}
     someP :: p a b -> p [a] [b]
-    someP p = _Cons >? p >*< manyP p
+    someP x = x >:< manyP x
 
 -- | Combines all `Alternative` choices in the specified list.
 choice :: (Foldable f, Alternative p) => f (p a) -> p a
