@@ -33,21 +33,40 @@ import qualified Data.Set as Set
 import Data.Set (Set)
 import Prelude
 
--- | Generate a `Control.Lens.Prism.Prism`
+-- | Similar to `Control.Lens.Internal.PrismTH.makePrisms`,
+-- `makeNestedPrisms` generates a `Control.Lens.Prism.Prism`
 -- for each constructor of a data type.
--- `Control.Lens.Iso.Iso`s generated when possible.
--- `Control.Lens.Review.Review`s are created for constructors with existentially
--- quantified constructors and GADTs.
---
--- See `Control.Lens.Internal.PrismTH.makePrisms` for details and examples.
+-- `Control.Lens.Iso.Iso`s are generated when possible.
+-- `Control.Lens.Review.Review`s are generated for constructors
+-- with existentially quantified constructors and GADTs.
 -- The difference in `makeNestedPrisms`
 -- is that constructors with @n > 2@ arguments
 -- will use right-nested pairs, rather than a flat @n@-tuple.
--- This makes them suitable for use on the left-hand-side of
--- `Control.Lens.PartialIso.>~`,
--- `Control.Lens.PartialIso.>?` and `Control.Lens.PartialIso.>?<`;
--- with repeated use of `Data.Profunctor.Distributor.>*<`
--- on the right-hand-side, resulting in right-nested pairs.
+-- This makes them suitable for bonding,
+-- by use of the applicator `Control.Lens.PartialIso.>?`
+-- to `Data.Profunctor.Monoidal.Monoidal` idiom notation
+-- with `Data.Profunctor.Monoidal.>*<`,
+-- or to `Data.Profunctor.Monadic.Monadic` qualified do-notation.
+--
+-- /e.g./
+--
+-- @
+-- data FooBarBazBux a
+--   = Foo Int
+--   | Bar a
+--   | Baz Int Char
+--   | Bux Double String Bool
+-- makePrisms ''FooBarBazBux
+-- @
+--
+-- will create
+--
+-- @
+-- _Foo :: Prism' (FooBarBaz a) Int
+-- _Bar :: Prism (FooBarBaz a) (FooBarBaz b) a b
+-- _Baz :: Prism' (FooBarBaz a) (Int, Char)
+-- _Bux :: Prism' (FooBarBaz a) (Double, (String, Bool))
+-- @
 makeNestedPrisms :: Name -> DecsQ
 makeNestedPrisms typeName =
   do info <- D.reifyDatatype typeName
