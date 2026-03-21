@@ -13,6 +13,7 @@ module Data.Profunctor.Distributor
     Distributor (..), dialt
     -- * Alternator
   , Alternator (..)
+  , malternate
   , choice
   , option
     -- * SepBy
@@ -34,6 +35,7 @@ import Control.Arrow
 import Control.Lens hiding (chosen)
 import Control.Lens.Internal.Profunctor
 import Control.Lens.PartialIso
+import Control.Monad
 import Data.Bifunctor.Clown
 import Data.Bifunctor.Joker
 import Data.Bifunctor.Product
@@ -348,6 +350,19 @@ class (Choice p, Distributor p, forall x. Alternative (p x))
     {- | One or more. -}
     someP :: p a b -> p [a] [b]
     someP x = x >:< manyP x
+
+-- | `malternate` gives a default `alternate` method for
+-- has a default definition when `Data.Profunctor.Monadic.Monadic`.
+--
+-- prop> alternate = malternate
+malternate
+  :: (Choice p, forall x. Alternative (p x), forall x. Monad (p x))
+  => Either (p a b) (p c d)
+  -> p (Either a c) (Either b d)
+malternate =
+  (left' >=> either (pure . Left) (const empty))
+  |||
+  (right' >=> either (const empty) (pure . Right))
 
 -- | Combines all `Alternative` choices in the specified list.
 choice :: (Foldable f, Alternative p) => f (p a) -> p a
