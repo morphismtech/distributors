@@ -19,6 +19,7 @@ module Control.Lens.Monocle
   , monocle
   , withMonocle
   , cloneMonocle
+  , imprism
   , mapMonocle
   , ditraversed
   , forevered
@@ -42,8 +43,7 @@ type Monocle s t a b = forall p f.
   (Monoidal p, Applicative f)
     => p a (f b) -> p s (f t)
 
-{- | If you see `AMonocle` in a signature for a function,
-the function is expecting a `Monocle`. -}
+{- | `AMonocle` is monomorphically a `Monocle`. -}
 type AMonocle s t a b =
   Monocular a b a (Identity b) -> Monocular a b s (Identity t)
 
@@ -60,6 +60,16 @@ monomorphically typed `Monocle` for different purposes.
 -}
 cloneMonocle :: AMonocle s t a b -> Monocle s t a b
 cloneMonocle mon = unwrapPafb . mapMonocle mon . WrapPafb
+
+{- | Convert a `Monocle` to an improper `Control.Lens.Prism.Prism`.
+
+>>> review (imprism ditraversed) 1 :: Complex Int
+1 :+ 1
+>>> preview (imprism ditraversed) (1 :+ 2 :: Complex Int)
+Just 1
+-}
+imprism :: Monocle s t a b -> Prism s t a b
+imprism mon = clonePrism mon
 
 {- | Build a `Monocle` from a `Traversable` & `Distributive`,
 homogeneous, countable product.
