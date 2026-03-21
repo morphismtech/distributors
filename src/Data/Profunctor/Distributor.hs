@@ -52,6 +52,7 @@ import Data.Profunctor qualified as Pro (WrappedArrow)
 import Data.Profunctor.Cayley
 import Data.Profunctor.Composition
 import Data.Profunctor.Monad
+import Data.Profunctor.Monadic
 import Data.Profunctor.Monoidal
 import Data.Profunctor.Yoneda
 import Data.Proxy
@@ -351,13 +352,12 @@ class (Choice p, Distributor p, forall x. Alternative (p x))
     someP :: p a b -> p [a] [b]
     someP x = x >:< manyP x
 
--- | `malternate` gives a default `alternate` method for
--- has a default definition when `Data.Profunctor.Monadic.Monadic`.
+-- | `malternate` gives a default `alternate` when `Monadic`.
 --
 -- prop> alternate = malternate
 malternate
-  :: (Choice p, forall x. Alternative (p x), forall x. Monad (p x))
-  => Either (p a b) (p c d)
+  :: (Monadic p, Choice p, forall x. Alternative (p x))
+  => Either (p a b) (p c d) -- ^ `Left` or `Right` alternates
   -> p (Either a c) (Either b d)
 malternate =
   (left' >=> either (pure . Left) (const empty))

@@ -20,7 +20,6 @@ import Control.Lens.PartialIso
 import Control.Lens.Internal.Profunctor
 import Control.Monad
 import Data.Profunctor
-import Data.Profunctor.Distributor
 import Data.Profunctor.Monad
 import Data.Profunctor.Monadic (Monadic)
 import Data.Profunctor.Yoneda
@@ -59,12 +58,12 @@ class (Cochoice p, forall x. Filterable (p x))
       &&&
       dimapMaybe (Just . Right) (either (const Nothing) Just)
 
--- | `Filtrator` has a default definition for `Monadic` `Alternator`s.
+-- | `Filtrator` has a default definition for `Monadic` `Alternative`s.
 --
 -- prop> filtrate = mfiltrate
 mfiltrate
-  :: (Monadic p, Alternator p)
-  => p (Either a c) (Either b d)
+  :: (Monadic p, forall x. Alternative (p x))
+  => p (Either a c) (Either b d) -- ^ partition `Either`
   -> (p a b, p c d)
 mfiltrate =
   (lmap Left >=> either pure (const empty))
