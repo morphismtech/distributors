@@ -21,7 +21,6 @@ import Control.Applicative
 import Data.Function
 import Control.Lens
 import Control.Lens.Grammar.BackusNaur
-import Control.Lens.Grammar.Boole
 import Control.Lens.PartialIso
 import Control.Lens.Grammar.Symbol
 import Control.Lens.Grammar.Token
@@ -89,7 +88,7 @@ satisfyParsector
      , Item s ~ a
      , Categorized a
      )
-  => TokenTest a
+  => TokenClass a
   -> Parsector s a a
 satisfyParsector test = Parsector $ \args ->
   let
