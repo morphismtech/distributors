@@ -20,15 +20,20 @@ module Control.Lens.Grammar.Kleene
   , RegEx (..)
   , RegExam (..)
   , CategoryTest (..)
+    -- * TokenAlgebra
+  , TokenClass (..)
+  , TokenAlgebra (..)
   ) where
 
 import Control.Applicative
+import Control.Lens.Grammar.Boole
 import Control.Lens.Grammar.Symbol
 import Control.Lens.Grammar.Token
 import Data.Foldable
 import Data.MemoTrie
 import Data.Monoid
 import Data.Profunctor
+import Data.Profunctor.Distributor
 import Data.Set (Set)
 import qualified Data.Set as Set
 import GHC.Generics
@@ -69,7 +74,7 @@ anyK f = foldl' (\b a -> b >|< f a) zeroK
 
 -- | The `RegEx`pression type is the prototypical `KleeneStarAlgebra`.
 data RegEx token
-  = Terminal [token]
+  = Epsilon
   | NonTerminal String
   | Sequence (RegEx token) (RegEx token)
   | KleeneStar (RegEx token)
@@ -77,27 +82,57 @@ data RegEx token
   | KleenePlus (RegEx token)
   | RegExam (RegExam token (RegEx token))
 
-{- | A component of both `RegEx`pressions
-and `Control.Lens.Grammar.Boole.TokenTest`s, so that the latter can
-be embedded in the former with `Control.Lens.Grammar.Boole.tokenClass`.
+{- | A component of both `RegEx`pressions and `TokenClass`es,
+so that the latter can be embedded in the former with `tokenClass`.
 -}
 data RegExam token alg
-  = Fail
-  | Pass
-  | OneOf (Set token)
+  = OneOf (Set token)
   | NotOneOf (Set token) (CategoryTest token)
   | Alternate alg alg
+
+failExam :: RegExam token alg
+failExam = OneOf Set.empty
+
+passExam :: RegExam token alg
+passExam = NotOneOf Set.empty (NotAsIn Set.empty)
+
+isFailExam :: RegExam token alg -> Bool
+isFailExam (OneOf xs) = Set.null xs
+isFailExam _ = False
+
+isPassExam :: RegExam token alg -> Bool
+isPassExam (NotOneOf xs (NotAsIn ys)) = Set.null xs && Set.null ys
+isPassExam _ = False
 
 {- | `CategoryTest`s for `Categorized` tokens.-}
 data CategoryTest token
   = AsIn (Categorize token)
   | NotAsIn (Set (Categorize token))
 
+-- | `TokenClass` forms a closed `Tokenized` `BooleanAlgebra`.
+newtype TokenClass token = TokenClass (RegExam token (TokenClass token))
+
+-- | `TokenAlgebra` extends `Tokenized` methods to support
+-- `BooleanAlgebra` operations in a `tokenClass`.
+class Tokenized token p => TokenAlgebra token p where
+  tokenClass :: TokenClass token -> p
+  default tokenClass
+    :: (p ~ q token token, Alternator q, Cochoice q)
+    => TokenClass token -> p
+  tokenClass (TokenClass exam) = case exam of
+    OneOf chars -> oneOf chars
+    NotOneOf chars (AsIn cat) ->
+      satisfy (notOneOf chars >&&< asIn cat)
+    NotOneOf chars (NotAsIn cats) ->
+      satisfy (notOneOf chars >&&< allB notAsIn cats)
+    Alternate exam1 exam2 -> tokenClass exam1 <|> tokenClass exam2
+
 --instances
 instance (Alternative f, Monoid k) => KleeneStarAlgebra (Ap f k)
 deriving stock instance Generic (RegEx token)
 deriving stock instance Generic (RegExam token alg)
 deriving stock instance Generic1 (RegExam token)
+deriving stock instance Generic (TokenClass token)
 deriving stock instance Generic (CategoryTest token)
 deriving stock instance Categorized token => Eq (RegEx token)
 deriving stock instance Categorized token => Ord (RegEx token)
@@ -107,67 +142,155 @@ deriving stock instance
 deriving stock instance
   (Categorized token, Show token, Show (Categorize token))
     => Show (RegEx token)
-instance TerminalSymbol token (RegEx token) where
-  terminal = Terminal . toList
+deriving stock instance
+  (Categorized token, Read token, Read (Categorize token))
+    => Read (TokenClass token)
+deriving stock instance
+  (Categorized token, Show token, Show (Categorize token))
+    => Show (TokenClass token)
+deriving newtype instance Categorized token => Eq (TokenClass token)
+deriving newtype instance Categorized token => Ord (TokenClass token)
+deriving newtype instance Categorized token => Tokenized token (TokenClass token)
+deriving newtype instance Categorized token => BooleanAlgebra (TokenClass token)
+instance Categorized token => TerminalSymbol token (RegEx token) where
+  terminal = foldl (\acc t -> acc <> token t) mempty
 instance NonTerminalSymbol (RegEx token) where
   nonTerminal = NonTerminal
 instance Categorized token => Tokenized token (RegEx token) where
-  anyToken = RegExam Pass
-  token a = Terminal [a]
-  oneOf as | null as = RegExam Fail
-  oneOf as | length as == 1 = Terminal (toList as)
-  oneOf as = RegExam (OneOf (foldr Set.insert Set.empty as))
-  notOneOf as | null as = RegExam Pass
-  notOneOf as = RegExam
-    (NotOneOf (foldr Set.insert Set.empty as) (NotAsIn Set.empty))
+  anyToken = RegExam passExam
+  token a = RegExam (OneOf (Set.singleton a))
+  oneOf as = RegExam (OneOf (Set.fromList (toList as)))
+  notOneOf as =
+    RegExam (NotOneOf (Set.fromList (toList as)) (NotAsIn Set.empty))
   asIn cat = RegExam (NotOneOf Set.empty (AsIn cat))
-  notAsIn cat = RegExam
-    (NotOneOf Set.empty (NotAsIn (Set.singleton cat)))
-instance Categorized token => Semigroup (RegEx token) where
-  Terminal [] <> rex = rex
-  rex <> Terminal [] = rex
-  RegExam Fail <> _ = zeroK
-  _ <> RegExam Fail = zeroK
-  Terminal str0 <> Terminal str1 = Terminal (str0 <> str1)
-  KleeneStar rex0 <> rex1
-    | rex0 == rex1 = plusK rex0
-  rex0 <> KleeneStar rex1
-    | rex0 == rex1 = plusK rex1
-  rex0 <> rex1 = Sequence rex0 rex1
+  notAsIn cat = RegExam (NotOneOf Set.empty (NotAsIn (Set.singleton cat)))
+instance Categorized token => TokenAlgebra token (token -> Bool) where
+  tokenClass (TokenClass exam) x = case exam of
+    OneOf xs -> Set.member x xs
+    NotOneOf xs (AsIn y) ->
+      Set.notMember x xs && categorize x == y
+    NotOneOf xs (NotAsIn ys) ->
+      Set.notMember x xs && Set.notMember (categorize x) ys
+    Alternate exam1 exam2 ->
+      tokenClass exam1 x || tokenClass exam2 x
+instance Categorized token => TokenAlgebra token (RegEx token) where
+  tokenClass (TokenClass exam) = case exam of
+    OneOf as -> RegExam (OneOf as)
+    NotOneOf as catTest -> RegExam (NotOneOf as catTest)
+    Alternate exam1 exam2 ->
+      RegExam (Alternate (tokenClass exam1) (tokenClass exam2))
 instance Categorized token => Monoid (RegEx token) where
-  mempty = Terminal []
+  mempty = Epsilon
+instance Categorized token => Semigroup (RegEx token) where
+  Epsilon <> rex = rex
+  rex <> Epsilon = rex
+  RegExam exam <> _ | isFailExam exam = zeroK
+  _ <> RegExam exam | isFailExam exam = zeroK
+  KleeneStar rex0 <> rex1 | rex0 == rex1 = plusK rex0
+  rex0 <> KleeneStar rex1 | rex0 == rex1 = plusK rex1
+  rex0 <> rex1 = Sequence rex0 rex1
 instance Categorized token => KleeneStarAlgebra (RegEx token) where
-  zeroK = RegExam Fail
-  optK (RegExam Fail) = mempty
-  optK (Terminal []) = mempty
+  zeroK = RegExam failExam
+  optK (RegExam exam) | isFailExam exam = mempty
+  optK Epsilon = mempty
   optK (KleenePlus rex) = starK rex
   optK rex = KleeneOpt rex
-  starK (RegExam Fail) = mempty
-  starK (Terminal []) = mempty
+  starK (RegExam exam) | isFailExam exam = mempty
+  starK Epsilon = mempty
   starK rex = KleeneStar rex
-  plusK (RegExam Fail) = zeroK
-  plusK (Terminal []) = mempty
+  plusK (RegExam exam) | isFailExam exam = zeroK
+  plusK Epsilon = mempty
   plusK rex = KleenePlus rex
-  KleenePlus rex >|< Terminal [] = starK rex
-  Terminal [] >|< KleenePlus rex = starK rex
-  rex >|< Terminal [] = optK rex
-  Terminal [] >|< rex = optK rex
-  rex >|< RegExam Fail = rex
-  RegExam Fail >|< rex = rex
+  KleenePlus rex >|< Epsilon = starK rex
+  Epsilon >|< KleenePlus rex = starK rex
+  rex >|< Epsilon = optK rex
+  Epsilon >|< rex = optK rex
+  rex >|< RegExam exam | isFailExam exam = rex
+  RegExam exam >|< rex | isFailExam exam = rex
+  rex0 >|< rex1 | Just tokenOr <- maybeOr = tokenClass tokenOr
+    where
+      toTokenClass (RegExam exam) =
+        TokenClass <$> traverse toTokenClass exam
+      toTokenClass _ = Nothing
+      maybeOr = (>||<) <$> toTokenClass rex0 <*> toTokenClass rex1
   rex0 >|< rex1 | rex0 == rex1 = rex0
   rex0 >|< rex1 = RegExam (Alternate rex0 rex1)
-instance Categorized token
-  => Tokenized token (RegExam token alg) where
-  anyToken = Pass
+instance Categorized token => Tokenized token (RegExam token alg) where
+  anyToken = passExam
   token a = OneOf (Set.singleton a)
-  oneOf as | null as = Fail
+  oneOf as | null as = failExam
   oneOf as = OneOf (Set.fromList (toList as))
-  notOneOf as | null as = Pass
+  notOneOf as | null as = passExam
   notOneOf as =
     NotOneOf (Set.fromList (toList as)) (NotAsIn Set.empty)
   asIn cat = NotOneOf Set.empty (AsIn cat)
-  notAsIn cat =
-    NotOneOf Set.empty (NotAsIn (Set.singleton cat))
+  notAsIn cat = NotOneOf Set.empty (NotAsIn (Set.singleton cat))
+instance Categorized token
+  => BooleanAlgebra (RegExam token (TokenClass token)) where
+  fromBool False = failExam
+  fromBool True = passExam
+  notB exam | isFailExam exam = passExam
+  notB exam | isPassExam exam = failExam
+  notB (Alternate (TokenClass x) (TokenClass y)) = notB x >&&< notB y
+  notB (OneOf xs) = notOneOf xs
+  notB (NotOneOf xs (AsIn y)) = oneOf xs >||< notAsIn y
+  notB (NotOneOf xs (NotAsIn ys)) = oneOf xs >||< anyB asIn ys
+  _ >&&< exam | isFailExam exam = failExam
+  exam >&&< _ | isFailExam exam = failExam
+  x >&&< exam | isPassExam exam = x
+  exam >&&< z | isPassExam exam = z
+  x >&&< Alternate (TokenClass y) (TokenClass z) = (x >&&< y) >||< (x >&&< z)
+  Alternate (TokenClass x) (TokenClass y) >&&< z = (x >&&< z) >||< (y >&&< z)
+  OneOf xs >&&< OneOf ys = OneOf (Set.intersection xs ys)
+  OneOf xs >&&< NotOneOf ys (AsIn z) = OneOf
+    (Set.filter (\x -> categorize x == z) (Set.difference xs ys))
+  NotOneOf xs (AsIn y) >&&< OneOf zs = OneOf
+    (Set.filter (\z -> categorize z == y) (Set.difference zs xs))
+  OneOf xs >&&< NotOneOf ys (NotAsIn zs) = OneOf
+    (Set.filter (\x -> categorize x `notElem` zs) (Set.difference xs ys))
+  NotOneOf xs (NotAsIn ys) >&&< OneOf zs = OneOf
+    (Set.filter (\z -> categorize z `notElem` ys) (Set.difference zs xs))
+  NotOneOf xs (AsIn y) >&&< NotOneOf ws (AsIn z) =
+    if y /= z then failExam else NotOneOf
+      (Set.filter (\x -> categorize x == y) (Set.union xs ws)) (AsIn y)
+  NotOneOf xs (AsIn y) >&&< NotOneOf ws (NotAsIn zs) =
+    if y `elem` zs then failExam else NotOneOf
+      (Set.filter (\x -> categorize x == y) (Set.union xs ws)) (AsIn y)
+  NotOneOf xs (NotAsIn ys) >&&< NotOneOf ws (AsIn z) =
+    if z `elem` ys then failExam else NotOneOf
+      (Set.filter (\x -> categorize x == z) (Set.union xs ws)) (AsIn z)
+  NotOneOf xs (NotAsIn ys) >&&< NotOneOf ws (NotAsIn zs) =
+    let
+      xws = Set.union xs ws
+      yzs = Set.union ys zs
+    in
+      NotOneOf
+        (Set.filter (\x -> categorize x `notElem` yzs) xws)
+        (NotAsIn yzs)
+  x >||< exam | isFailExam exam = x
+  exam >||< y | isFailExam exam = y
+  _ >||< exam | isPassExam exam = passExam
+  exam >||< _ | isPassExam exam = passExam
+  x >||< Alternate y z = Alternate (TokenClass x) (TokenClass (Alternate y z))
+  Alternate x y >||< z = Alternate (TokenClass (Alternate x y)) (TokenClass z)
+  OneOf xs >||< OneOf ys = oneOf (Set.union xs ys)
+  OneOf xs >||< NotOneOf ys z =
+    Alternate (TokenClass (OneOf xs)) (TokenClass (NotOneOf ys z))
+  NotOneOf xs y >||< OneOf zs =
+    Alternate (TokenClass (NotOneOf xs y)) (TokenClass (OneOf zs))
+  NotOneOf xs (NotAsIn ys) >||< NotOneOf ws (NotAsIn zs) =
+    notOneOf (Set.intersection xs ws) >&&< allB notAsIn (Set.intersection ys zs)
+  NotOneOf xs (AsIn y) >||< NotOneOf ws (AsIn z) =
+    if y == z then NotOneOf (Set.intersection xs ws) (AsIn y)
+    else Alternate
+      (TokenClass (NotOneOf xs (AsIn y)))
+      (TokenClass (NotOneOf ws (AsIn z)))
+  NotOneOf xs (NotAsIn ys) >||< NotOneOf ws (AsIn z) = Alternate
+    (TokenClass (NotOneOf xs (NotAsIn ys)))
+    (TokenClass (NotOneOf ws (AsIn z)))
+  NotOneOf xs (AsIn y) >||< NotOneOf ws (NotAsIn zs) = Alternate
+    (TokenClass (NotOneOf xs (AsIn y)))
+    (TokenClass (NotOneOf ws (NotAsIn zs)))
 deriving stock instance
   (Categorized token, Read token, Read alg, Read (Categorize token))
     => Read (RegExam token alg)
@@ -177,10 +300,8 @@ deriving stock instance
 deriving stock instance Functor (RegExam token)
 deriving stock instance Foldable (RegExam token)
 deriving stock instance Traversable (RegExam token)
-deriving stock instance (Categorized token, Eq alg)
-  => Eq (RegExam token alg)
-deriving stock instance (Categorized token, Ord alg)
-  => Ord (RegExam token alg)
+deriving stock instance (Categorized token, Eq alg) => Eq (RegExam token alg)
+deriving stock instance (Categorized token, Ord alg) => Ord (RegExam token alg)
 deriving stock instance Categorized token => Eq (CategoryTest token)
 deriving stock instance Categorized token => Ord (CategoryTest token)
 deriving stock instance
@@ -192,40 +313,34 @@ deriving stock instance
 instance (Categorized token, HasTrie token)
   => HasTrie (RegEx token) where
     data (RegEx token :->: b) = RegExTrie
-      { terminalTrie :: [token] :->: b
+      { epsilonTrie :: b
       , nonTerminalTrie :: String :->: b
       , sequenceTrie :: (RegEx token, RegEx token) :->: b
       , alternateTrie :: (RegEx token, RegEx token) :->: b
       , kleeneStarTrie :: RegEx token :->: b
       , kleeneOptTrie :: RegEx token :->: b
       , kleenePlusTrie :: RegEx token :->: b
-      , failTrie :: b
-      , passTrie :: b
       , oneOfTrie :: [token] :->: b
       , notOneOfTrie :: ([token], Either Int [Int]) :->: b
       }
     trie f = RegExTrie
-      { terminalTrie = trie (f . terminal)
+      { epsilonTrie = f mempty
       , nonTerminalTrie = trie (f . nonTerminal)
       , sequenceTrie = trie (f . uncurry (<>))
       , alternateTrie = trie (f . uncurry (>|<))
       , kleeneStarTrie = trie (f . starK)
       , kleeneOptTrie = trie (f . optK)
       , kleenePlusTrie = trie (f . plusK)
-      , failTrie = f zeroK
-      , passTrie = f anyToken
       , oneOfTrie = trie (f . oneOf)
       , notOneOfTrie = trie (f . testNotOneOf)
       }
     untrie rex = \case
-      Terminal word -> untrie (terminalTrie rex) word
+      Epsilon -> epsilonTrie rex
       NonTerminal name -> untrie (nonTerminalTrie rex) name
       Sequence x1 x2 -> untrie (sequenceTrie rex) (x1,x2)
       KleeneStar x -> untrie (kleeneStarTrie rex) x
       KleenePlus x -> untrie (kleenePlusTrie rex) x
       KleeneOpt x -> untrie (kleeneOptTrie rex) x
-      RegExam Fail -> failTrie rex
-      RegExam Pass -> passTrie rex
       RegExam (OneOf chars) -> untrie (oneOfTrie rex) (Set.toList chars)
       RegExam (NotOneOf chars (AsIn cat)) ->
         untrie (notOneOfTrie rex) (Set.toList chars, Left (fromEnum cat))
@@ -234,20 +349,19 @@ instance (Categorized token, HasTrie token)
           (Set.toList chars, Right (Set.toList (Set.map fromEnum cats)))
       RegExam (Alternate x1 x2) -> untrie (alternateTrie rex) (x1,x2)
     enumerate rex = mconcat
-      [ first' Terminal <$> enumerate (terminalTrie rex)
+      [ [(Epsilon, epsilonTrie rex)]
       , first' NonTerminal <$> enumerate (nonTerminalTrie rex)
       , first' (uncurry Sequence) <$> enumerate (sequenceTrie rex)
       , first' (RegExam . uncurry Alternate) <$> enumerate (alternateTrie rex)
       , first' KleeneStar <$> enumerate (kleeneStarTrie rex)
       , first' KleeneOpt <$> enumerate (kleeneOptTrie rex)
       , first' KleenePlus <$> enumerate (kleenePlusTrie rex)
-      , [(RegExam Fail, failTrie rex)]
-      , [(RegExam Pass, passTrie rex)]
       , first' (RegExam . OneOf . Set.fromList) <$> enumerate (oneOfTrie rex)
       , first' testNotOneOf <$> enumerate (notOneOfTrie rex)
       ]
 testNotOneOf
   :: Categorized token
   => ([token], Either Int [Int]) -> RegEx token
-testNotOneOf (chars, catTest) = RegExam $
-  NotOneOf (Set.fromList chars) (either (AsIn . toEnum) (NotAsIn . Set.map toEnum . Set.fromList) catTest)
+testNotOneOf (chars, catTest) = RegExam $ NotOneOf
+  (Set.fromList chars)
+  (either (AsIn . toEnum) (NotAsIn . Set.map toEnum . Set.fromList) catTest)
