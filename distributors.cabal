@@ -41,9 +41,11 @@ library
       Control.Lens.Monocle
       Control.Lens.PartialIso
       Control.Lens.Wither
+      Control.Monad.Try
       Data.Profunctor.Distributor
       Data.Profunctor.Filtrator
       Data.Profunctor.Grammar
+      Data.Profunctor.Grammar.Parsector
       Data.Profunctor.Monadic
       Data.Profunctor.Monoidal
   other-modules:

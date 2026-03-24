@@ -25,9 +25,16 @@ module Data.Profunctor.Monadic
   , (>>=)
   , (>>)
   , return
+  , MonadicTry
   , fail
+  , try
+  , mzero
+  , mplus
+  , mchoice
   ) where
 
+import Control.Monad hiding ((>>=), (>>))
+import Control.Monad.Try
 import Data.Profunctor
 import Prelude hiding ((>>=), (>>))
 
@@ -50,3 +57,5 @@ p >>= f = do
 (>>) :: Monadic p => p () c -> p a b -> p a b
 infixl 1 >>
 x >> y = do _ <- lmap (const ()) x; y
+
+type MonadicTry p = (Profunctor p, forall x. MonadTry (p x))

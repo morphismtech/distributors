@@ -31,6 +31,7 @@ import Control.Lens.Grammar.Kleene
 import Control.Lens.Grammar.Symbol
 import Control.Lens.Grammar.Token
 import Control.Monad
+import Control.Monad.Try
 import Data.Coerce
 import Data.Monoid
 import Data.Profunctor
@@ -177,6 +178,7 @@ instance
 instance BackusNaurForm (Parsor s m a b)
 instance (Alternative m, Monad m) => MonadFail (Parsor s m a) where
   fail _ = empty
+instance (Alternative m, Monad m) => MonadTry (Parsor s m a)
 instance AsEmpty s => Matching s (Parsor s [] a b) where
   word =~ p = case
     [ () | (_, remaining) <- runParsor p Nothing word
@@ -284,6 +286,7 @@ instance
 instance BackusNaurForm (Printor s m a b)
 instance (Alternative m, Monad m) => MonadFail (Printor s m a) where
   fail _ = empty
+instance (Alternative m, Monad m) => MonadTry (Printor s m a)
 
 -- Grammor instances
 instance Functor (Grammor k a) where fmap _ = coerce

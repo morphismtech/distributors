@@ -28,6 +28,8 @@ module Control.Lens.Grammar
   , printG
   , parseG
   , unparseG
+  , parsecG
+  , unparsecG
     -- * Utility
   , putStringLn
   ) where
@@ -47,6 +49,7 @@ import Data.Profunctor.Filtrator
 import Data.Profunctor.Monadic
 import Data.Profunctor.Monoidal
 import Data.Profunctor.Grammar
+import Data.Profunctor.Grammar.Parsector
 import qualified Data.Set as Set
 import Data.String
 import GHC.Exts
@@ -335,7 +338,7 @@ type CtxGrammar token a = forall p.
   , forall x. BackusNaurForm (p x x)
   , Alternator p
   , Filtrator p
-  , Monadic p
+  , MonadicTry p
   ) => p a a
 
 {- |
@@ -792,6 +795,30 @@ unparseG
   -> string {- ^ input -}
   -> m string
 unparseG parsor = unparseP parsor
+
+{- | `parsecG` generates a Parsec-style parser from a `CtxGrammar`,
+returning either a `Expect` error or the parsed value
+and remaining input.
+-}
+parsecG
+  :: (Cons string string token token, Snoc string string token token)
+  => (Item string ~ token, Categorized token)
+  => CtxGrammar token a
+  -> string {- ^ input -}
+  -> Either (Expect string, string) (a, string)
+parsecG parsector = parsecP parsector
+
+{- | `unparsecG` generates a Parsec-style unparser from a `CtxGrammar`,
+returning either a `Expect` error or the output string.
+-}
+unparsecG
+  :: (Cons string string token token, Snoc string string token token)
+  => (Item string ~ token, Categorized token)
+  => CtxGrammar token a
+  -> a {- ^ syntax -}
+  -> string {- ^ input -}
+  -> Either (Expect string, string) string
+unparsecG parsector = unparsecP parsector
 
 {- | `putStringLn` is a utility that generalizes `putStrLn`
 to string-like interfaces such as `RegString` and `RegBnf`.
