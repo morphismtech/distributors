@@ -369,7 +369,7 @@ ab|c
 `RegString`s are actually stored as an algebraic datatype, `RegEx`.
 
 >>> runRegString rex
-RegExam (Alternate (Terminal "ab") (Terminal "c"))
+RegExam (Alternate (Sequence (RegExam (OneOf (fromList "a"))) (RegExam (OneOf (fromList "b")))) (RegExam (OneOf (fromList "c"))))
 
 `RegString`s are similar to regular expression strings in many other
 programming languages. We can use them to see if a word and pattern
@@ -519,20 +519,19 @@ are a context-free language.
 >>> putStringLn (regbnfG regexGrammar)
 {start} = \q{regex}
 {alternate} = \q{sequence}(\|\q{sequence})*
-{atom} = (\\q\{)\q{char}*\}|\q{char}|\q{char-class}|\(\q{regex}\)
+{atom} = \\q\q{nonterminal}|\q{class}|\(\q{regex}\)
 {category} = Ll|Lu|Lt|Lm|Lo|Mn|Mc|Me|Nd|Nl|No|Pc|Pd|Ps|Pe|Pi|Pf|Po|Sm|Sc|Sk|So|Zs|Zl|Zp|Cc|Cf|Cs|Co|Cn
-{category-test} = (\\p\{)\q{category}\}|(\\P\{)(\q{category}(\|\q{category})*)\}
 {char} = [^\(\)\*\+\?\[\\\]\^\{\|\}\P{Cc}]|\\\q{char-escaped}
-{char-any} = \[\^\]
-{char-class} = \q{fail}|\q{char-any}|\q{one-of}|\q{not-one-of}|\q{category-test}
 {char-control} = NUL|SOH|STX|ETX|EOT|ENQ|ACK|BEL|BS|HT|LF|VT|FF|CR|SO|SI|DLE|DC1|DC2|DC3|DC4|NAK|SYN|ETB|CAN|EM|SUB|ESC|FS|GS|RS|US|DEL|PAD|HOP|BPH|NBH|IND|NEL|SSA|ESA|HTS|HTJ|VTS|PLD|PLU|RI|SS2|SS3|DCS|PU1|PU2|STS|CCH|MW|SPA|EPA|SOS|SGCI|SCI|CSI|ST|OSC|PM|APC
 {char-escaped} = [\(\)\*\+\?\[\\\]\^\{\|\}]|\q{char-control}
+{class} = \q{class-one-of}|\q{class-not-one-of}
+{class-category} = \\p\{\q{category}\}|\\P\{(\q{category}(\|\q{category})*)\}
+{class-not-one-of} = \q{class-category}|\[\^\q{char}*(\q{class-category}?\])
+{class-one-of} = \q{char}|\[\q{char}*\]
 {expression} = \q{atom}\?|\q{atom}\*|\q{atom}\+|\q{atom}
-{fail} = \[\]
-{not-one-of} = (\[\^)\q{char}+(\q{category-test}?\])
-{one-of} = \[\q{char}+\]
+{nonterminal} = \{\q{char}*\}
 {regex} = \q{alternate}
-{sequence} = \q{char}*|\q{expression}*
+{sequence} = \q{expression}*
 -}
 regexGrammar :: Grammar Char RegString
 regexGrammar = _RegString >~ ruleRec "regex" altG
@@ -540,10 +539,8 @@ regexGrammar = _RegString >~ ruleRec "regex" altG
     altG rex = rule "alternate" $
       chain1 Left (_RegExam . _Alternate) (sepBy (terminal "|")) (seqG rex)
 
-    seqG rex = rule "sequence" $ choice
-      [ _Terminal >? manyP charG
-      , chain Left _Sequence (_Terminal . _Empty) noSep (exprG rex)
-      ]
+    seqG rex = rule "sequence" $
+      chain Left _Sequence _Epsilon noSep (exprG rex)
 
     exprG rex = rule "expression" $ choice
       [ _KleeneOpt >? atomG rex *< terminal "?"
@@ -553,18 +550,9 @@ regexGrammar = _RegString >~ ruleRec "regex" altG
       ]
 
     atomG rex = rule "atom" $ choice
-      [ _NonTerminal >? terminal "\\q{" >* manyP charG *< terminal "}"
-      , _Terminal >? charG >:< asEmpty
+      [ _NonTerminal >? terminal "\\q" >* nonterminalG
       , _RegExam >? classG
       , terminal "(" >* rex *< terminal ")"
-      ]
-
-    catTestG = rule "category-test" $ choice
-      [ _AsIn >? terminal "\\p{" >* categoryG *< terminal "}"
-      , _NotAsIn >? several1 (sepBy (terminal "|"))
-          { beginBy = terminal "\\P{"
-          , endBy = terminal "}"
-          } categoryG
       ]
 
     categoryG = rule "category" $ choice
@@ -600,24 +588,33 @@ regexGrammar = _RegString >~ ruleRec "regex" altG
       , _NotAssigned >? terminal "Cn"
       ]
 
-    classG = rule "char-class" $ choice
-      [ _Fail >? failG
-      , _Pass >? anyG
-      , _OneOf >? oneOfG
-      , _NotOneOf >? notOneOfG
-      , _NotOneOf >? pure Set.empty >*< catTestG
+    classG = rule "class" $ choice
+      [ _OneOf >? classOneOfG
+      , _NotOneOf >? classNotOneOfG
       ]
 
-    failG = rule "fail" $ terminal "[]"
+    classCatG = rule "class-category" $ choice
+      [ _AsIn >? terminal "\\p{" >* categoryG *< terminal "}"
+      , _NotAsIn >? several1 (sepBy (terminal "|"))
+          { beginBy = terminal "\\P{"
+          , endBy = terminal "}"
+          } categoryG
+      ]
 
-    anyG = rule "char-any" $ terminal "[^]"
+    classOneOfG = rule "class-one-of" $ choice
+      [ iso toList fromList >~ charG >:< asEmpty
+      , terminal "[" >* several noSep charG *< terminal "]"
+      ]
 
-    oneOfG = rule "one-of" $ terminal "[" >* several1 noSep charG *< terminal "]"
+    classNotOneOfG = rule "class-not-one-of" $ choice
+      [ asEmpty >*< classCatG
+      , terminal "[^" >* several noSep charG >*<
+          option (NotAsIn Set.empty) classCatG *< terminal "]"
+      ]
 
-    notOneOfG = rule "not-one-of" $
-      terminal "[^" >* several1 noSep charG
-        >*< option (NotAsIn Set.empty) catTestG
-        *< terminal "]"
+nonterminalG :: Grammar Char String
+nonterminalG = rule "nonterminal" $
+  terminal "{" >* manyP charG *< terminal "}"
 
 charG :: Grammar Char Char
 charG = rule "char" $
@@ -704,30 +701,26 @@ That means that it can generate a self-hosted definition.
 >>> putStringLn (regbnfG regbnfGrammar)
 {start} = \q{regbnf}
 {alternate} = \q{sequence}(\|\q{sequence})*
-{atom} = (\\q\{)\q{char}*\}|\q{char}|\q{char-class}|\(\q{regex}\)
+{atom} = \\q\q{nonterminal}|\q{class}|\(\q{regex}\)
 {category} = Ll|Lu|Lt|Lm|Lo|Mn|Mc|Me|Nd|Nl|No|Pc|Pd|Ps|Pe|Pi|Pf|Po|Sm|Sc|Sk|So|Zs|Zl|Zp|Cc|Cf|Cs|Co|Cn
-{category-test} = (\\p\{)\q{category}\}|(\\P\{)(\q{category}(\|\q{category})*)\}
 {char} = [^\(\)\*\+\?\[\\\]\^\{\|\}\P{Cc}]|\\\q{char-escaped}
-{char-any} = \[\^\]
-{char-class} = \q{fail}|\q{char-any}|\q{one-of}|\q{not-one-of}|\q{category-test}
 {char-control} = NUL|SOH|STX|ETX|EOT|ENQ|ACK|BEL|BS|HT|LF|VT|FF|CR|SO|SI|DLE|DC1|DC2|DC3|DC4|NAK|SYN|ETB|CAN|EM|SUB|ESC|FS|GS|RS|US|DEL|PAD|HOP|BPH|NBH|IND|NEL|SSA|ESA|HTS|HTJ|VTS|PLD|PLU|RI|SS2|SS3|DCS|PU1|PU2|STS|CCH|MW|SPA|EPA|SOS|SGCI|SCI|CSI|ST|OSC|PM|APC
 {char-escaped} = [\(\)\*\+\?\[\\\]\^\{\|\}]|\q{char-control}
+{class} = \q{class-one-of}|\q{class-not-one-of}
+{class-category} = \\p\{\q{category}\}|\\P\{(\q{category}(\|\q{category})*)\}
+{class-not-one-of} = \q{class-category}|\[\^\q{char}*(\q{class-category}?\])
+{class-one-of} = \q{char}|\[\q{char}*\]
 {expression} = \q{atom}\?|\q{atom}\*|\q{atom}\+|\q{atom}
-{fail} = \[\]
-{not-one-of} = (\[\^)\q{char}+(\q{category-test}?\])
-{one-of} = \[\q{char}+\]
-{regbnf} = (\{start\} = )\q{regex}(\LF\q{rule})*
+{nonterminal} = \{\q{char}*\}
+{regbnf} = \{start\} = \q{regex}(\LF\q{nonterminal}( = )\q{regex})*
 {regex} = \q{alternate}
-{rule} = \{\q{char}*(\} = )\q{regex}
-{sequence} = \q{char}*|\q{expression}*
+{sequence} = \q{expression}*
 -}
 regbnfGrammar :: Grammar Char RegBnf
 regbnfGrammar = rule "regbnf" $ _RegBnf . _Bnf >~
-  terminal "{start} = " >* regexGrammar
-    >*< several noSep (terminal "\n" >* ruleG)
-  where
-    ruleG = rule "rule" $ terminal "{" >* manyP charG *< terminal "} = "
-      >*< regexGrammar
+  terminal "{start} = " >* regexGrammar >*< several noSep
+    (terminal "\n" >* nonterminalG *< terminal " = " >*< regexGrammar)
+      
 
 {- | `regstringG` generates a `RegString` from a regular grammar.
 Since context-free `Grammar`s and `CtxGrammar`s aren't necessarily regular,

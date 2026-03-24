@@ -26,7 +26,6 @@ module Control.Lens.Grammar.BackusNaur
 
 import Control.Lens
 import Control.Lens.Extras
-import Control.Lens.Grammar.Boole
 import Control.Lens.Grammar.Kleene
 import Control.Lens.Grammar.Token
 import Control.Lens.Grammar.Symbol
@@ -97,9 +96,7 @@ diffB prefix (Bnf start rules) =
   where
     -- derivative wrt 1 token, memoized
     diff1B = memo2 $ \x -> \case
-      Terminal [] -> zeroK
-      Terminal (tokenY:streamY) ->
-        if x == tokenY then terminal streamY else zeroK
+      Epsilon -> zeroK
       NonTerminal nameY -> anyK (diff1B x) (rulesNamed nameY rules)
       Sequence y1 y2 ->
         if δ (Bnf y1 rules) then y1'y2 >|< y1y2' else y1'y2
@@ -109,8 +106,6 @@ diffB prefix (Bnf start rules) =
       KleeneStar y -> diff1B x y <> starK y
       KleeneOpt y -> diff1B x y
       KleenePlus y -> diff1B x y <> starK y
-      RegExam Fail -> zeroK
-      RegExam Pass -> mempty
       RegExam (OneOf chars) ->
         if x `elem` chars then mempty else zeroK
       RegExam (NotOneOf chars (AsIn cat)) ->
@@ -126,7 +121,7 @@ diffB prefix (Bnf start rules) =
   => Bnf (RegEx token) -> Bool
 δ (Bnf start rules) = ν start where
   ν = memo $ \case
-    Terminal [] -> True
+    Epsilon -> True
     KleeneStar _ -> True
     KleeneOpt _ -> True
     KleenePlus y -> ν y
