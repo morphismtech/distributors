@@ -158,12 +158,16 @@ instance Categorized (Item s) => Monad (Parsector s a) where
         }
     }
 instance Categorized (Item s) => MonadPlus (Parsector s a) where
-  Parsector p `mplus` Parsector q = Parsector $ \args -> p args
-    { emptyErr = \err -> q args
-        { emptyOk = \b st' err' -> emptyOk args b st' (err <> err')
-        , emptyErr = \err' -> emptyErr args (err <> err')
-        }
-    }
+  m `mplus` n = Parsector $ \args ->
+    let
+      eok = emptyOk args
+      eerr = emptyErr args
+      meerr err =
+        let
+          neok y s' err' = eok y s' (err <> err')
+          neerr err' = eerr (err <> err')
+        in runParsector n args { emptyOk = neok, emptyErr = neerr }
+    in runParsector m args { emptyErr = meerr }
 instance Categorized (Item s) => MonadFail (Parsector s a) where
   fail msg = rule msg empty
 instance Categorized (Item s) => MonadTry (Parsector s a) where
