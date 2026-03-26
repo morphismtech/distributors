@@ -141,7 +141,12 @@ instance Categorized (Item s) => Alternative (Parsector s a) where
     { expectOffset = streamOffset args
     , expectPattern = zeroK
     }
-  p <|> q = try p `mplus` q
+  p <|> q = Parsector $ \args -> runParsector p args
+    { emptyErr = \err -> runParsector q args
+        { emptyOk = \syn str err' -> emptyOk args syn str (err <> err')
+        , emptyErr = \err' -> emptyErr args (err <> err')
+        } 
+    }
 instance Categorized (Item s) => Monad (Parsector s a) where
   p >>= k = Parsector $ \args -> runParsector p args
     { consumedOk = \b st' err -> runParsector (k b) args
@@ -157,17 +162,7 @@ instance Categorized (Item s) => Monad (Parsector s a) where
         , emptyErr = \err' -> emptyErr args (err <> err')
         }
     }
-instance Categorized (Item s) => MonadPlus (Parsector s a) where
-  m `mplus` n = Parsector $ \args ->
-    let
-      eok = emptyOk args
-      eerr = emptyErr args
-      meerr err =
-        let
-          neok y s' err' = eok y s' (err <> err')
-          neerr err' = eerr (err <> err')
-        in runParsector n args { emptyOk = neok, emptyErr = neerr }
-    in runParsector m args { emptyErr = meerr }
+instance Categorized (Item s) => MonadPlus (Parsector s a)
 instance Categorized (Item s) => MonadFail (Parsector s a) where
   fail msg = rule msg empty
 instance Categorized (Item s) => MonadTry (Parsector s a) where
