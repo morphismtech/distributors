@@ -38,7 +38,7 @@ newtype Parsector s a b = Parsector
 
 data StateCallbacks s a b x = StateCallbacks
   { streamInput :: s
-  , streamOffset :: !Word
+  , streamOffset :: Word
   , syntaxInput :: Maybe a
   , consumedOk :: b -> s -> Expect s -> x
   , consumedErr :: Expect s -> x
@@ -59,14 +59,16 @@ deriving instance Categorized (Item s) => Eq (Expect s)
 deriving instance Categorized (Item s) => Ord (Expect s)
 
 -- | Run a `Parsector` as a parser, consuming tokens from the input.
-parsecP :: Parsector s a b -> s -> Either (Expect s, s) (b, s)
+parsecP :: AsEmpty s => Parsector s a b -> s -> Either (Expect s, s) b
 parsecP (Parsector p) s = p StateCallbacks
   { streamInput = s
   , streamOffset = 0
   , syntaxInput = Nothing
-  , consumedOk = \b st _ -> Right (b, st)
+  , consumedOk = \b st err ->
+      if isn't _Empty st then Left (err, st) else Right b
   , consumedErr = \err -> Left (err, s)
-  , emptyOk = \b st _ -> Right (b, st)
+  , emptyOk = \b st err ->
+      if isn't _Empty st then Left (err, st) else Right b
   , emptyErr = \err -> Left (err, s)
   }
 
@@ -141,12 +143,7 @@ instance Categorized (Item s) => Alternative (Parsector s a) where
     { expectOffset = streamOffset args
     , expectPattern = zeroK
     }
-  p <|> q = Parsector $ \args -> runParsector p args
-    { emptyErr = \err -> runParsector q args
-        { emptyOk = \syn str err' -> emptyOk args syn str (err <> err')
-        , emptyErr = \err' -> emptyErr args (err <> err')
-        } 
-    }
+  p <|> q = try p `mplus` q
 instance Categorized (Item s) => Monad (Parsector s a) where
   p >>= k = Parsector $ \args -> runParsector p args
     { consumedOk = \b st' err -> runParsector (k b) args
@@ -162,7 +159,13 @@ instance Categorized (Item s) => Monad (Parsector s a) where
         , emptyErr = \err' -> emptyErr args (err <> err')
         }
     }
-instance Categorized (Item s) => MonadPlus (Parsector s a)
+instance Categorized (Item s) => MonadPlus (Parsector s a) where
+  p `mplus` q = Parsector $ \args -> runParsector p args
+    { emptyErr = \err -> runParsector q args
+        { emptyOk = \syn str err' -> emptyOk args syn str (err <> err')
+        , emptyErr = \err' -> emptyErr args (err <> err')
+        } 
+    }
 instance Categorized (Item s) => MonadFail (Parsector s a) where
   fail msg = rule msg empty
 instance Categorized (Item s) => MonadTry (Parsector s a) where

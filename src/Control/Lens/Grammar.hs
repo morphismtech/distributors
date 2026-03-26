@@ -794,11 +794,11 @@ returning either a `Expect` error or the parsed value
 and remaining input.
 -}
 parsecG
-  :: (Cons string string token token, Snoc string string token token)
+  :: (AsEmpty string, Cons string string token token, Snoc string string token token)
   => (Item string ~ token, Categorized token)
   => CtxGrammar token a
   -> string {- ^ input -}
-  -> Either (Expect string, string) (a, string)
+  -> Either (Expect string, string) a
 parsecG parsector = parsecP parsector
 
 {- | `unparsecG` generates a Parsec-style unparser from a `CtxGrammar`,
