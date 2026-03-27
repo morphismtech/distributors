@@ -98,7 +98,7 @@ testCtxGrammarExample grammar (expectedSyntax, expectedString) = do
     actualString `shouldBe` Just expectedString
   it ("should parsec from " <> expectedString <> " correctly") $ do
     let actualSyntax = parsecG grammar expectedString
-    actualSyntax `shouldBe` Right expectedSyntax
+    actualSyntax `shouldBe` Right (expectedSyntax, "")
   it ("should unparsec to " <> expectedString <> " correctly") $ do
     let actualString = unparsecG grammar expectedSyntax ""
     actualString `shouldBe` Right expectedString

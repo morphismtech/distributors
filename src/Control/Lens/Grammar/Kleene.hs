@@ -152,6 +152,12 @@ deriving newtype instance Categorized token => Eq (TokenClass token)
 deriving newtype instance Categorized token => Ord (TokenClass token)
 deriving newtype instance Categorized token => Tokenized token (TokenClass token)
 deriving newtype instance Categorized token => BooleanAlgebra (TokenClass token)
+instance Categorized token
+  => TokenAlgebra token (TokenClass token) where
+  tokenClass = id
+instance Categorized token
+  => TokenAlgebra token (RegExam token (TokenClass token)) where
+  tokenClass (TokenClass exam) = exam
 instance Categorized token => TerminalSymbol token (RegEx token) where
   terminal = foldl (\acc t -> acc <> token t) mempty
 instance NonTerminalSymbol (RegEx token) where
