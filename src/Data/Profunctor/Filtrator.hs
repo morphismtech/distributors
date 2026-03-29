@@ -20,6 +20,7 @@ import Control.Lens.PartialIso
 import Control.Lens.Internal.Profunctor
 import Control.Monad
 import Data.Profunctor
+import Data.Profunctor.Distributor
 import Data.Profunctor.Monad
 import Data.Profunctor.Monadic (Monadic)
 import Data.Profunctor.Yoneda
@@ -27,7 +28,8 @@ import Witherable
 
 {- | The `Filtrator` class extends `Cochoice`,
 as well as `Filterable`, adding the `filtrate` method,
-which is an oplax monoidal structure morphism dual to `>+<`.
+which is an oplax monoidal structure morphism dual to
+`>+<`.
 
 prop> filtrate . uncurry (>+<) = id
 prop> uncurry (>+<) . filtrate = id
@@ -40,7 +42,8 @@ class (Cochoice p, forall x. Filterable (p x))
     prop> unright = snd . filtrate
 
     `filtrate` is a distant relative to `Data.Either.partitionEithers`.
-    `filtrate` can be given a default value for `Monadic` `Alternator`s via `mfiltrate`.
+    `filtrate` can be given a default value for `Monadic`
+    `Alternator`s via `mfiltrate`.
 
     prop> filtrate = mfiltrate
 
@@ -58,11 +61,12 @@ class (Cochoice p, forall x. Filterable (p x))
       &&&
       dimapMaybe (Just . Right) (either (const Nothing) Just)
 
--- | `Filtrator` has a default definition for `Monadic` `Alternative`s.
+-- | Similar to `malternate`, a `Monadic` `Alternator` has
+-- an equivalent to `filtrate`, given by `mfiltrate`.
 --
 -- prop> filtrate = mfiltrate
 mfiltrate
-  :: (Monadic p, forall x. Alternative (p x))
+  :: (Monadic p, Alternator p)
   => p (Either a c) (Either b d) -- ^ partition `Either`
   -> (p a b, p c d)
 mfiltrate =

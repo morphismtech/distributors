@@ -25,16 +25,16 @@ module Data.Profunctor.Monadic
   , (>>=)
   , (>>)
   , return
+    -- * MonadicTry
   , MonadicTry
-  , fail
-  , try
-  , mzero
-  , mplus
+  , MonadTry (..)
+  , MonadFail (..)
+  , MonadPlus (..)
   , mchoice
   ) where
 
 import Control.Monad hiding ((>>=), (>>))
-import Control.Monad.Try
+import Data.Foldable
 import Data.Profunctor
 import Prelude hiding ((>>=), (>>))
 
@@ -58,4 +58,20 @@ p >>= f = do
 infixl 1 >>
 x >> y = do _ <- lmap (const ()) x; y
 
+{- | A `Profunctor` which is also a `MonadTry`. -}
 type MonadicTry p = (Profunctor p, forall x. MonadTry (p x))
+
+{- |
+
+prop> x <|> y = try x `mplus` y
+prop> fail msg `mplus` x = x = x `mplus` fail msg
+
+-}
+class (MonadFail m, MonadPlus m) => MonadTry m where
+  try :: m a -> m a
+  default try :: m a -> m a
+  try = id
+
+-- | Combines all `MonadPlus` choices in the specified list.
+mchoice :: (Foldable f, MonadPlus p) => f (p a) -> p a
+mchoice = foldl' mplus mzero

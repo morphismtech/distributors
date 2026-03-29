@@ -25,11 +25,11 @@ import Control.Lens.PartialIso
 import Control.Lens.Grammar.Symbol
 import Control.Lens.Grammar.Token
 import Control.Monad
-import Control.Monad.Try
 import Control.Lens.Grammar.Kleene
 import Data.Profunctor
 import Data.Profunctor.Distributor
 import Data.Profunctor.Filtrator
+import Data.Profunctor.Monadic (MonadTry (..))
 import GHC.Exts
 import Witherable
 

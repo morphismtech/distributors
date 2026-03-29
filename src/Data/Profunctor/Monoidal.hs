@@ -95,9 +95,9 @@ infixl 6 *<
 analagous to `liftA2`. -}
 dimap2
   :: Monoidal p
-  => (s -> a)
-  -> (s -> c)
-  -> (b -> d -> t)
+  => (s -> a) -- ^ first projection, e.g. `fst`
+  -> (s -> c) -- ^ second projection, e.g. `snd`
+  -> (b -> d -> t) -- ^ pairing function, e.g. @(,)@
   -> p a b -> p c d -> p s t
 dimap2 f g h p q = liftA2 h (lmap f p) (lmap g q)
 
@@ -110,8 +110,9 @@ foreverP a = let a' = a >* a' in a'
 
 A `Traversable` & `Data.Distributive.Distributive` type
 is a homogeneous countable product.
-That means it is a static length container, so unlike `replicateP`,
-`ditraverse` does not need an `Int` argument.
+That means it is a static countable-length container,
+so unlike `replicateP`, `ditraverse` doesn't need
+an additional argument for number of repetitions.
 -}
 ditraverse
   :: (Traversable t, Distributive t, Monoidal p)
@@ -124,8 +125,10 @@ Bidirectionality is encoded by `APrism`.
 Singularity is encoded by the unit type @()@.
 Bidirectional elements can be generated from
 nilary constructors of algebraic datatypes using `makeNestedPrisms`,
-or from terms of a type with an `Eq` instance using `only`,
-or for nil elements using `_Empty`.
+from terms of a type with an `Eq` instance using `only`,
+for nil elements using `_Empty`,
+or from any composition of `Control.Lens.Prism.Prism`s terminating
+with a bidirectional element.
 -}
 pureP
   :: (Monoidal p, Choice p)

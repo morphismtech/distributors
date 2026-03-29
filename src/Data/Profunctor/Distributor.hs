@@ -25,6 +25,7 @@ module Data.Profunctor.Distributor
   , chain
   , chain1
   , intercalateP
+  , ambulate
     -- * Homogeneous
   , Homogeneous (..)
   ) where
@@ -33,6 +34,7 @@ import Control.Applicative hiding (WrappedArrow)
 import Control.Applicative qualified as Ap (WrappedArrow)
 import Control.Arrow
 import Control.Lens hiding (chosen)
+import Control.Lens.Internal.Context
 import Control.Lens.Internal.Profunctor
 import Control.Lens.PartialIso
 import Control.Monad
@@ -352,11 +354,11 @@ class (Choice p, Distributor p, forall x. Alternative (p x))
     someP :: p a b -> p [a] [b]
     someP x = x >:< manyP x
 
--- | `malternate` gives a default `alternate` when `Monadic`.
+-- | `malternate` gives an equivalent to `alternate` when `Monadic`.
 --
 -- prop> alternate = malternate
 malternate
-  :: (Monadic p, Choice p, forall x. Alternative (p x))
+  :: (Monadic p, Alternator p)
   => Either (p a b) (p c d) -- ^ `Left` or `Right` alternates
   -> p (Either a c) (Either b d)
 malternate =
@@ -468,7 +470,7 @@ chain1 association pat (SepBy beg end sep) = leftOrRight chainl1 chainr1
     chainl1 p = difoldl pat >? beg >* p >*< manyP (sep >* p) *< end
     chainr1 p = difoldr pat >? beg >* manyP (p *< sep) >*< p *< end
 
-{- | `intercalateP` adds a `SepBy` to `replicateP`. -}
+{- | Add a `SepBy` to `replicateP` using `intercalateP`. -}
 intercalateP
   :: (Monoidal p, Choice p, AsEmpty s, Cons s s a a)
   => Int {- ^ number of repetitions -}
@@ -477,3 +479,17 @@ intercalateP n (SepBy beg end _) _ | n <= 0 =
   beg >* asEmpty *< end
 intercalateP n (SepBy beg end comma) p =
   beg >* p >:< replicateP (n-1) (comma >* p) *< end
+
+{- | Add a `SepBy` to `meander` using `ambulate`. -}
+ambulate
+  :: (Monoidal p, Choice p)
+  => ATraversal s t a b -> SepBy (p () ()) -> p a b -> p s t
+ambulate f (SepBy sep beg end) p = dimap (f sell) iextract $
+  beg >* ambulating (sepBy sep) {endBy = end} p
+  where
+    ambulating
+      :: (Monoidal q, Choice q)
+      => SepBy (q () ())
+      -> q u v -> q (Bazaar (->) u w x) (Bazaar (->) v w x)
+    ambulating (SepBy sep' _ end') q =
+      eotFunList >~ right' (q >*< sep' >* ambulating (sepBy sep') q *< end')
