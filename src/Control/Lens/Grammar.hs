@@ -50,7 +50,6 @@ import Data.Profunctor.Monadic
 import Data.Profunctor.Monoidal
 import Data.Profunctor.Grammar
 import Data.Profunctor.Grammar.Parsector
-import qualified Data.Set as Set
 import Data.String
 import GHC.Exts
 import Prelude hiding (filter)
@@ -102,8 +101,8 @@ semverGrammar = _SemVer
   >?  numberG
   >*< terminal "." >* numberG
   >*< terminal "." >* numberG
-  >*< option [] (terminal "-" >* identifiersG)
-  >*< option [] (terminal "+" >* identifiersG)
+  >*< optionP _Empty (terminal "-" >* identifiersG)
+  >*< optionP _Empty (terminal "+" >* identifiersG)
   where
     numberG = iso show read >~ someP (asIn @Char DecimalNumber)
     identifiersG = several1 (sepBy (terminal ".")) (someP charG)
@@ -126,15 +125,17 @@ combinators like `<|>` work both `Functor`ially and `Profunctor`ially.
 +------------+---------------+
 | `<$>`      | `>?`          |
 +------------+---------------+
+| `pure`     | `pureP`       |
++------------+---------------+
 | `*>`       | `>*`          |
 +------------+---------------+
 | `<*`       | `*<`          |
 +------------+---------------+
 | `<*>`      | `>*<`         |
 +------------+---------------+
-| `<|>`      | `<|>`         |
+| `empty     | `empty`       |
 +------------+---------------+
-| `option`   | `option`      |
+| `<|>`      | `<|>`         |
 +------------+---------------+
 | `choice`   | `choice`      |
 +------------+---------------+
@@ -605,14 +606,14 @@ regexGrammar = _RegString >~ ruleRec "regex" altG
       ]
 
     classOneOfG = rule "class-one-of" $ choice
-      [ iso toList fromList >~ charG >:< asEmpty
+      [ onlyOne charG
       , terminal "[" >* several noSep charG *< terminal "]"
       ]
 
     classNotOneOfG = rule "class-not-one-of" $ choice
       [ asEmpty >*< classCatG
       , terminal "[^" >* several noSep charG >*<
-          option (NotAsIn Set.empty) classCatG *< terminal "]"
+          optionP (_NotAsIn . _Empty) classCatG *< terminal "]"
       ]
 
 nonterminalG :: Grammar Char String

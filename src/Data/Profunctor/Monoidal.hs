@@ -16,7 +16,7 @@ module Data.Profunctor.Monoidal
   , oneP, (>*<), (>*), (*<)
   , dimap2, foreverP, ditraverse
     -- * Monoidal & Choice
-  , replicateP, (>:<), asEmpty
+  , pureP, asEmpty, (>:<), replicateP, onlyOne
   , meander, eotFunList
   ) where
 
@@ -40,6 +40,7 @@ import Data.Profunctor.Cayley
 import Data.Profunctor.Composition
 import Data.Profunctor.Monad
 import Data.Profunctor.Yoneda
+import GHC.IsList
 
 -- Monoidal --
 
@@ -100,19 +101,10 @@ dimap2
   -> p a b -> p c d -> p s t
 dimap2 f g h p q = liftA2 h (lmap f p) (lmap g q)
 
-{- | `foreverP` repeats an action indefinitely;
+{- | `foreverP` repeats an action a countable infinity of times;
 analagous to `Control.Monad.forever`, extending it to `Monoidal`. -}
 foreverP :: Monoidal p => p () c -> p a b
 foreverP a = let a' = a >* a' in a'
-
-{- | A `Monoidal` & `Choice` nil operator. -}
-asEmpty :: (AsEmpty s, Monoidal p, Choice p) => p s s
-asEmpty = _Empty >? oneP
-
-{- | A `Monoidal` & `Choice` cons operator. -}
-(>:<) :: (Cons s t a b, Monoidal p, Choice p) => p a b -> p s t -> p s t
-x >:< xs = _Cons >? x >*< xs
-infixr 5 >:<
 
 {- | Thanks to Fy on Monoidal Café Discord.
 
@@ -125,6 +117,36 @@ ditraverse
   :: (Traversable t, Distributive t, Monoidal p)
   => p a b -> p (t a) (t b)
 ditraverse p = traverse (\f -> lmap f p) (distribute id)
+
+{- | Lift a single bidirectional element
+into a `Monoidal` & `Choice` structure.
+Bidirectionality is encoded by `APrism`.
+Singularity is encoded by the unit type @()@.
+Bidirectional elements can be generated from
+nilary constructors of algebraic datatypes using `makeNestedPrisms`,
+or from terms of a type with an `Eq` instance using `only`,
+or for nil elements using `_Empty`.
+-}
+pureP
+  :: (Monoidal p, Choice p)
+  => APrism a b () () -- ^ bidirectional element
+  -> p a b
+pureP pattern = pattern >? oneP
+
+{- | A `Monoidal` & `Choice` nil element. -}
+asEmpty :: (AsEmpty s, Monoidal p, Choice p) => p s s
+asEmpty = pureP _Empty
+
+{- | A `Monoidal` & `Choice` cons operator. -}
+(>:<) :: (Cons s t a b, Monoidal p, Choice p) => p a b -> p s t -> p s t
+x >:< xs = _Cons >? x >*< xs
+infixr 5 >:<
+
+{- | Use when `IsList` with `onlyOne` `Item`. -}
+onlyOne
+  :: (Monoidal p, Choice p, IsList s)
+  => p (Item s) (Item s) -> p s s
+onlyOne p = iso toList (fromListN 1) >? p >:< asEmpty
 
 {- | `replicateP` is analagous to `Control.Monad.replicateM`,
 for `Monoidal` & `Choice` `Profunctor`s. When the number

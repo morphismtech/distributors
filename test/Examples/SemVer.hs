@@ -6,6 +6,7 @@ module Examples.SemVer
   ) where
 
 import Control.Applicative
+import Control.Lens
 import Control.Lens.Grammar
 import Control.Lens.Grammar.Symbol
 import Control.Lens.Grammar.Token
@@ -42,8 +43,8 @@ semverGrammar = _SemVer
   >?  numberG
   >*< terminal "." >* numberG
   >*< terminal "." >* numberG
-  >*< option [] (terminal "-" >* identifiersG)
-  >*< option [] (terminal "+" >* identifiersG)
+  >*< optionP _Empty (terminal "-" >* identifiersG)
+  >*< optionP _Empty (terminal "+" >* identifiersG)
   where
     numberG = iso show read >~ someP (asIn @Char DecimalNumber)
     identifiersG = several1 (sepBy (terminal ".")) (someP charG)
@@ -65,8 +66,8 @@ semverCtxGrammar = _SemVer >? P.do
   _ <- numberG
   _ <- terminal "." >* numberG
   _ <- terminal "." >* numberG
-  _ <- option [] (terminal "-" >* identifiersG)
-  option [] (terminal "+" >* identifiersG)
+  _ <- optionP _Empty (terminal "-" >* identifiersG)
+  optionP _Empty (terminal "+" >* identifiersG)
 
 semverExamples :: [(SemVer, String)]
 semverExamples =

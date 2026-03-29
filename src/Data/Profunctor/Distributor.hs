@@ -15,7 +15,7 @@ module Data.Profunctor.Distributor
   , Alternator (..)
   , malternate
   , choice
-  , option
+  , optionP
     -- * SepBy
   , SepBy (..)
   , sepBy
@@ -369,8 +369,11 @@ choice :: (Foldable f, Alternative p) => f (p a) -> p a
 choice = foldl' (<|>) empty
 
 -- | Perform an `Alternative` action or return a default value.
-option :: Alternative p => a {- ^ default value -} -> p a -> p a
-option a p = p <|> pure a
+optionP
+  :: Alternator p
+  => APrism a b () () -- ^ default value
+  -> p a b -> p a b
+optionP def p = p <|> pureP def
 
 instance (Alternator p, Applicative f)
   => Alternator (WrappedPafb f p) where
@@ -451,7 +454,7 @@ chain
   -> APrism a b () () -- ^ nilary constructor pattern
   -> SepBy (p () ()) -> p a b -> p a b
 chain association pat2 pat0 (SepBy beg end sep) p =
-  beg >* (pat0 >? oneP <|> chain1 association pat2 (sepBy sep) p) *< end
+  beg >* optionP pat0 (chain1 association pat2 (sepBy sep) p) *< end
 
 {- | Associate a binary constructor pattern to sequence one or more times. -}
 chain1
