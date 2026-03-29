@@ -126,7 +126,7 @@ Singularity is encoded by the unit type @()@.
 Bidirectional elements can be generated from
 nilary constructors of algebraic datatypes using `makeNestedPrisms`,
 from terms of a type with an `Eq` instance using `only`,
-for nil elements using `_Empty`,
+from nil elements using `_Empty`,
 or from any composition of `Control.Lens.Prism.Prism`s terminating
 with a bidirectional element.
 -}

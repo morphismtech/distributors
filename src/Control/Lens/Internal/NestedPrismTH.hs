@@ -51,21 +51,23 @@ import Prelude
 -- /e.g./
 --
 -- @
--- data FooBarBazBux a
---   = Foo Int
---   | Bar a
+-- data FooBar a
+--   = Foo a
+--   | Bar Int
 --   | Baz Int Char
---   | Bux Double String Bool
--- makePrisms ''FooBarBazBux
+--   | Buzz Double String Bool
+--   | Boop
+-- makeNestedPrisms ''FooBar
 -- @
 --
 -- will create
 --
 -- @
--- _Foo :: Prism' (FooBarBaz a) Int
--- _Bar :: Prism (FooBarBaz a) (FooBarBaz b) a b
+-- _Foo :: Prism (FooBarBaz a) (FooBarBaz b) a b
+-- _Bar :: Prism' (FooBarBaz a) Int
 -- _Baz :: Prism' (FooBarBaz a) (Int, Char)
--- _Bux :: Prism' (FooBarBaz a) (Double, (String, Bool))
+-- _Buzz :: Prism' (FooBarBaz a) (Double, (String, Bool))
+-- _Boop :: Prism' (FooBarBaz a) ()
 -- @
 makeNestedPrisms :: Name -> DecsQ
 makeNestedPrisms typeName =
