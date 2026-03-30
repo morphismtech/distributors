@@ -7,17 +7,17 @@ import Control.Lens.Grammar.BackusNaur
 import Test.DocTest
 import Test.Hspec
 
-import Examples.RegString
 import Examples.Arithmetic
+import Examples.Chain
 import Examples.Json
-import Examples.SExpr
 import Examples.Lambda
 import Examples.LenVec
+import Examples.RegString
 import Examples.SemVer
+import Examples.SExpr
 
 main :: IO ()
 main = do
-  doctests
   hspec $ do
     describe "regexGrammar" $ for_ regexExamples $ testGrammarExample regexGrammar
     describe "semverGrammar" $ for_ semverExamples $ testCtxGrammarExample semverGrammar
@@ -27,6 +27,8 @@ main = do
     describe "sexprGrammar" $ for_ sexprExamples $ testCtxGrammarExample sexprGrammar
     describe "lambdaGrammar" $ for_ lambdaExamples $ testCtxGrammarExample lambdaGrammar
     describe "lenvecGrammar" $ for_ lenvecExamples $ testCtxGrammarExample lenvecGrammar
+    describe "chainGrammar" $ for_ chainExamples $ testCtxGrammarExample chainGrammar
+  doctests
 
 doctests :: IO ()
 doctests = do

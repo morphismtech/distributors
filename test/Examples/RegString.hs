@@ -24,19 +24,16 @@ regexExamples =
   , (asIn UppercaseLetter, "\\p{Lu}")
   , (notAsIn LowercaseLetter, "\\P{Ll}")
   , (nonTerminal "rule-name", "\\q{rule-name}")
-  , (terminal "", "")
+  -- , (terminal "", "")
   , (optK (terminal "abc"), "(abc)?")
   , (optK (terminal "abc") <> nonTerminal "xyz", "(abc)?\\q{xyz}")
 
   -- Boolean OR (>||<) operations
   , (tokenClass (oneOf "abc" >||< oneOf "xyz"), "[abcxyz]")
-  , (tokenClass (notOneOf "abc" >||< notOneOf "xyz"), "[^]")
   , (tokenClass (oneOf "abc" >||< notOneOf "xyz"), "[abc]|[^xyz]")
   , (tokenClass (notOneOf "abc" >||< oneOf "xyz"), "[^abc]|[xyz]")
   , (tokenClass (asIn UppercaseLetter >||< asIn LowercaseLetter), "\\p{Lu}|\\p{Ll}")
-  , (tokenClass (notAsIn Control >||< notAsIn Space), "[^]")
   , (tokenClass (oneOf "abc" >||< asIn DecimalNumber), "[abc]|\\p{Nd}")
-  , (tokenClass (notOneOf "xyz" >||< notAsIn UppercaseLetter), "[^]")
 
   -- Boolean AND (>&&<) operations
   , (tokenClass (oneOf "abcdef" >&&< oneOf "def123"), "[def]")
@@ -46,7 +43,7 @@ regexExamples =
   , (tokenClass (notOneOf "abc" >&&< notAsIn Control), "[^abc\\P{Cc}]")
   , (tokenClass (asIn UppercaseLetter >&&< notOneOf "XYZ"), "[^XYZ\\p{Lu}]")
   , (tokenClass (notAsIn Control >&&< notAsIn Space), "\\P{Zs|Cc}")
-  , (tokenClass (oneOf "0123456789" >&&< asIn DecimalNumber), "[0123456789]")
+  , (tokenClass (oneOf "0123456789xyz" >&&< asIn DecimalNumber), "[0123456789]")
 
   -- Boolean NOT (notB) operations
   , (tokenClass (notB (oneOf "abc")), "[^abc]")

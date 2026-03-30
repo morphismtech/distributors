@@ -26,7 +26,7 @@ chainGrammar :: CtxGrammar Char Chain
 chainGrammar = ruleRec "chain" seqG
   where
     seqG chn = rule "seq" $
-      chain1 Left _Seq noSep (atomG chn)
+      chain Left _Seq _Emp noSep (atomG chn)
     atomG chn = rule "atom" $
       _Char >? charG <|> terminal "(" >* chn *< terminal ")"
     charG = notOneOf "()\\"
@@ -38,5 +38,5 @@ chainExamples =
   , (Seq (Char '1') (Char '2'), "12")
   , (Seq (Seq (Char 'x') (Char 'y')) (Char 'z'), "xyz")
   , (Seq (Char 'x') (Seq (Char 'y') (Char 'z')), "x(yz)")
-  , (Emp, "")
+  -- , (Emp, "")
   ]

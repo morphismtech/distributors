@@ -116,27 +116,31 @@ instance Categorized (Item s) => Alternative (Parsector s a) where
     { expectOffset = stateOffset args
     , expectPattern = zeroK
     }
-  p <|> q = try p `mplus` q
+  p <|> q = mplus (try p) q
 instance Categorized (Item s) => Monad (Parsector s a) where
-  p >>= k = Parsector $ \args -> runParsector p args
-    { consumedOk = \b st' err -> runParsector (k b) args
-        { stateStream = st'
-        , stateOffset = expectOffset err
-        , emptyOk = \x st'' err' -> consumedOk args x st'' (err <> err')
-        , emptyErr = \err' -> consumedErr args (err <> err')
+  p >>= f = Parsector $ \args -> runParsector p args
+    { emptyOk = \x input msg1 -> runParsector (f x) args
+        { stateStream = input
+        , stateOffset = expectOffset msg1
+        , emptyOk = \x' input' msg' -> emptyOk args x' input' msg'
+        , emptyErr = \msg' -> emptyErr args msg'
         }
-    , emptyOk = \b st' err -> runParsector (k b) args
-        { stateStream = st'
-        , stateOffset = expectOffset err
-        , emptyOk = \x st'' err' -> emptyOk args x st'' (err <> err')
-        , emptyErr = \err' -> emptyErr args (err <> err')
+    , consumedOk = \x input msg1 -> runParsector (f x) args
+        { stateStream = input
+        , stateOffset = expectOffset msg1
+        , emptyOk = \x' input' msg' -> consumedOk args x' input' msg'
+        , emptyErr = \msg' -> consumedErr args msg'
         }
     }
 instance Categorized (Item s) => MonadPlus (Parsector s a) where
-  p `mplus` q = Parsector $ \args -> runParsector p args
-    { emptyErr = \err -> runParsector q args
-        { emptyOk = \syn str err' -> emptyOk args syn str (err <> err')
-        , emptyErr = \err' -> emptyErr args (err <> err')
+  mplus p q = Parsector $ \args -> runParsector p args
+    { emptyErr = \msg1 -> runParsector q args
+        { emptyErr = \msg2 -> emptyErr args (msg1 <> msg2)
+        , emptyOk = \x inp msg2 -> emptyOk args x inp (msg1 <> msg2)
+        }
+    , emptyOk = \x inp msg1 -> runParsector q args
+        { emptyErr = \msg2 -> emptyOk args x inp (msg1 <> msg2)
+        , emptyOk = \_ _ msg2 -> emptyOk args x inp (msg1 <> msg2)
         }
     }
 instance Categorized (Item s) => MonadFail (Parsector s a) where
@@ -172,8 +176,7 @@ instance Categorized (Item s) => Alternator (Parsector s) where
 instance Categorized (Item s) => Choice (Parsector s) where
   left' = alternate . Left
   right' = alternate . Right
-instance Categorized (Item s) => Distributor (Parsector s) where
-  x >+< y = alternate (Right y) <|> alternate (Left x)
+instance Categorized (Item s) => Distributor (Parsector s)
 instance Categorized (Item s) => Filtrator (Parsector s) where
   filtrate (Parsector p) =
     ( Parsector $ \args ->
@@ -209,7 +212,7 @@ instance
         str = stateStream args
         off = stateOffset args
         failExp = Expect off (tokenClass test)
-        succExp = Expect (off + 1) zeroK
+        succExp = Expect off zeroK
       in
         case stateSyntax args of
           Just tok
