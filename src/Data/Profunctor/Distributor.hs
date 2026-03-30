@@ -370,12 +370,13 @@ malternate =
 choice :: (Foldable f, Alternative p) => f (p a) -> p a
 choice = foldl' (<|>) empty
 
--- | Perform an `Alternative` action or return a default value.
+-- | Return a default bidirectional element
+-- or perform an `Alternative` action.
 optionP
   :: Alternator p
-  => APrism a b () () -- ^ default value
+  => APrism a b () () -- ^ default bidirection element
   -> p a b -> p a b
-optionP def p = p <|> pureP def
+optionP def p = pureP def <|> p
 
 instance (Alternator p, Applicative f)
   => Alternator (WrappedPafb f p) where
