@@ -339,7 +339,7 @@ type CtxGrammar token a = forall p.
   , forall x. BackusNaurForm (p x x)
   , Alternator p
   , Filtrator p
-  , MonadicTry p
+  , Monadic p
   ) => p a a
 
 {- |
@@ -799,7 +799,7 @@ parsecG
   => (Item string ~ token, Categorized token)
   => CtxGrammar token a
   -> string {- ^ input -}
-  -> Either (Expect string, string) (a, string)
+  -> Reply string a
 parsecG parsector = parsecP parsector
 
 {- | `unparsecG` generates a Parsec-style unparser from a `CtxGrammar`,
@@ -811,7 +811,7 @@ unparsecG
   => CtxGrammar token a
   -> a {- ^ syntax -}
   -> string {- ^ input -}
-  -> Either (Expect string, string) string
+  -> Reply string a
 unparsecG parsector = unparsecP parsector
 
 {- | `putStringLn` is a utility that generalizes `putStrLn`

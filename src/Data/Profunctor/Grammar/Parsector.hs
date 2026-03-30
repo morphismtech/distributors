@@ -11,14 +11,15 @@ Portability : non-portable
 module Data.Profunctor.Grammar.Parsector
   ( -- * Parsector
     Parsector (..)
-  , StateCallbacks (..)
-  , Expect (..)
+  , Reply (..)
   , parsecP
   , unparsecP
   ) where
 
 import Control.Applicative
-import Data.Function
+import Control.Arrow
+import Control.Category
+import Data.Function hiding (id, (.))
 import Control.Lens
 import Control.Lens.Grammar.BackusNaur
 import Control.Lens.PartialIso
@@ -30,205 +31,45 @@ import Data.Profunctor
 import Data.Profunctor.Distributor
 import Data.Profunctor.Filtrator
 import Data.Profunctor.Monadic (MonadTry (..))
+import Data.Profunctor.Monoidal
 import GHC.Exts
+import Prelude hiding (id, (.))
 import Witherable
 
 newtype Parsector s a b = Parsector
-  { runParsector :: forall x. StateCallbacks s a b x -> x }
+  { runParsector :: forall x. (Reply s b -> x) -> Reply s a -> x }
 
-data StateCallbacks s a b x = StateCallbacks
-  { stateStream :: s
-  , stateOffset :: Word
-  , stateSyntax :: Maybe a
-  , consumedOk :: b -> s -> Expect s -> x
-  , consumedErr :: Expect s -> x
-  , emptyOk :: b -> s -> Expect s -> x
-  , emptyErr :: Expect s -> x
-  }
-
-data Expect s = Expect
-  { expectOffset :: Word
-  , expectPattern :: Bnf (RegEx (Item s)) -- ^ first set grammar
-  }
-deriving instance
+data Reply s a = Reply
+  { parsecOffset :: Word
+  , parsecResult :: Either (Bnf (RegEx (Item s))) a
+  , parsecStream :: s -- ^ input stream
+  } deriving (Functor, Foldable, Traversable)
+deriving stock instance
   ( Categorized (Item s)
-  , Show (Item s)
-  , Show (Categorize (Item s))
-  ) => Show (Expect s)
-deriving instance Categorized (Item s) => Eq (Expect s)
-deriving instance Categorized (Item s) => Ord (Expect s)
+  , Show (Item s), Show (Categorize (Item s))
+  , Show a, Show s
+  ) => Show (Reply s a)
+deriving stock instance
+  ( Categorized (Item s)
+  , Read (Item s), Read (Categorize (Item s))
+  , Read a, Read s
+  ) => Read (Reply s a)
+deriving stock instance
+  ( Categorized (Item s)
+  , Eq a, Eq s
+  ) => Eq (Reply s a)
+deriving stock instance
+  ( Categorized (Item s)
+  , Ord a, Ord s
+  ) => Ord (Reply s a)
 
--- | Run a `Parsector` as a parser, consuming tokens from the input.
-parsecP :: Parsector s a b -> s -> Either (Expect s, s) (b, s)
-parsecP (Parsector p) s = p StateCallbacks
-  { stateStream = s
-  , stateOffset = 0
-  , stateSyntax = Nothing
-  , consumedOk = \b st _ -> Right (b, st)
-  , consumedErr = \err -> Left (err, s)
-  , emptyOk = \b st _ -> Right (b, st)
-  , emptyErr = \err -> Left (err, s)
-  }
+parsecP :: Categorized (Item s) => Parsector s a b -> s -> Reply s b
+parsecP p s = runParsector p id (Reply 0 (Left zeroK) s)
 
--- | Run a `Parsector` as an unparser, snocing tokens onto an empty input.
-unparsecP :: Parsector s a b -> a -> s -> Either (Expect s, s) s
-unparsecP (Parsector p) a s = snd <$> p StateCallbacks
-  { stateStream = s
-  , stateOffset = 0
-  , stateSyntax = Just a
-  , consumedOk = \b st _ -> Right (b, st)
-  , consumedErr = \err -> Left (err, s)
-  , emptyOk = \b st _ -> Right (b, st)
-  , emptyErr = \err -> Left (err, s)
-  }
+unparsecP :: Parsector s a b -> a -> s -> Reply s b
+unparsecP p a s = runParsector p id (Reply 0 (Right a) s)
 
 -- Parsector instances
-instance Categorized (Item s) => Semigroup (Expect s) where
-  e1 <> e2 = case compare (expectOffset e1) (expectOffset e2) of
-    GT -> e1
-    LT -> e2
-    EQ -> Expect
-      { expectOffset = expectOffset e1
-      , expectPattern = expectPattern e1 >|< expectPattern e2
-      }
-instance Categorized (Item s) => Monoid (Expect s) where
-  mempty = Expect
-    { expectOffset = 0
-    , expectPattern = zeroK
-    }
-instance Profunctor (Parsector s) where
-  dimap f g p = Parsector $ \args -> runParsector p args
-    { stateSyntax = fmap f (stateSyntax args)
-    , consumedOk = consumedOk args . g
-    , emptyOk = emptyOk args . g
-    }
-instance Functor (Parsector s a) where
-  fmap = rmap
-instance Categorized (Item s) => Applicative (Parsector s a) where
-  pure b = Parsector $ \args ->
-    emptyOk args b (stateStream args) Expect
-      { expectOffset = stateOffset args
-      , expectPattern = zeroK
-      }
-  (<*>) = ap
-instance Categorized (Item s) => Alternative (Parsector s a) where
-  empty = Parsector $ \args -> emptyErr args Expect
-    { expectOffset = stateOffset args
-    , expectPattern = zeroK
-    }
-  p <|> q = mplus (try p) q
-instance Categorized (Item s) => Monad (Parsector s a) where
-  p >>= f = Parsector $ \args -> runParsector p args
-    { emptyOk = \x input msg1 -> runParsector (f x) args
-        { stateStream = input
-        , stateOffset = expectOffset msg1
-        , emptyOk = \x' input' msg' -> emptyOk args x' input' msg'
-        , emptyErr = \msg' -> emptyErr args msg'
-        }
-    , consumedOk = \x input msg1 -> runParsector (f x) args
-        { stateStream = input
-        , stateOffset = expectOffset msg1
-        , emptyOk = \x' input' msg' -> consumedOk args x' input' msg'
-        , emptyErr = \msg' -> consumedErr args msg'
-        }
-    }
-instance Categorized (Item s) => MonadPlus (Parsector s a) where
-  mplus p q = Parsector $ \args -> runParsector p args
-    { emptyErr = \msg1 -> runParsector q args
-        { emptyErr = \msg2 -> emptyErr args (msg1 <> msg2)
-        , emptyOk = \x inp msg2 -> emptyOk args x inp (msg1 <> msg2)
-        }
-    , emptyOk = \x inp msg1 -> runParsector q args
-        { emptyErr = \msg2 -> emptyOk args x inp (msg1 <> msg2)
-        , emptyOk = \_ _ msg2 -> emptyOk args x inp (msg1 <> msg2)
-        }
-    }
-instance Categorized (Item s) => MonadFail (Parsector s a) where
-  fail msg = rule msg empty
-instance Categorized (Item s) => MonadTry (Parsector s a) where
-  try (Parsector p) = Parsector $ \args ->
-    p args { consumedErr = emptyErr args }
-instance Categorized (Item s) => Filterable (Parsector s a) where
-  mapMaybe = dimapMaybe Just
-instance Categorized (Item s) => Alternator (Parsector s) where
-  alternate (Left p) = Parsector $ \args ->
-    case stateSyntax args of
-      Just (Right _) -> emptyErr args Expect
-        { expectOffset = stateOffset args
-        , expectPattern = zeroK
-        }
-      mEAC -> runParsector p args
-        { stateSyntax = mEAC >>= either Just (const Nothing)
-        , consumedOk = \b st' err -> consumedOk args (Left b) st' err
-        , emptyOk = \b st' err -> emptyOk args (Left b) st' err
-        }
-  alternate (Right p) = Parsector $ \args ->
-    case stateSyntax args of
-      Just (Left _) -> emptyErr args Expect
-        { expectOffset = stateOffset args
-        , expectPattern = zeroK
-        }
-      mEAC -> runParsector p args
-        { stateSyntax = mEAC >>= either (const Nothing) Just
-        , consumedOk = \d st' err -> consumedOk args (Right d) st' err
-        , emptyOk = \d st' err -> emptyOk args (Right d) st' err
-        }
-instance Categorized (Item s) => Choice (Parsector s) where
-  left' = alternate . Left
-  right' = alternate . Right
-instance Categorized (Item s) => Distributor (Parsector s)
-instance Categorized (Item s) => Filtrator (Parsector s) where
-  filtrate (Parsector p) =
-    ( Parsector $ \args ->
-        p args
-          { stateSyntax = Left <$> stateSyntax args
-          , consumedOk = \ebd st' err -> case ebd of
-              Left b -> consumedOk args b st' err
-              Right _ -> consumedErr args err
-          , emptyOk = \ebd st' err -> case ebd of
-              Left b -> emptyOk args b st' err
-              Right _ -> emptyErr args err
-          }
-    , Parsector $ \args ->
-        p args
-          { stateSyntax = Right <$> stateSyntax args
-          , consumedOk = \ebd st' err -> case ebd of
-              Right d -> consumedOk args d st' err
-              Left _ -> consumedErr args err
-          , emptyOk = \ebd st' err -> case ebd of
-              Right d -> emptyOk args d st' err
-              Left _ -> emptyErr args err
-          }
-    )
-instance Categorized (Item s) => Cochoice (Parsector s) where
-  unleft = fst . filtrate
-  unright = snd . filtrate
-instance
-  ( Categorized token, Item s ~ token
-  , Cons s s token token, Snoc s s token token
-  ) => TokenAlgebra token (Parsector s token token) where
-    tokenClass test = Parsector $ \args ->
-      let
-        str = stateStream args
-        off = stateOffset args
-        failExp = Expect off (tokenClass test)
-        succExp = Expect off zeroK
-      in
-        case stateSyntax args of
-          Just tok
-            | tokenClass test tok ->
-                consumedOk args tok (snoc str tok) succExp
-            | otherwise -> emptyErr args failExp
-          Nothing -> case uncons str of
-            Nothing -> emptyErr args failExp
-            Just (tok, rest)
-              | tokenClass test tok ->
-                  consumedOk args tok rest succExp
-              | otherwise -> emptyErr args failExp
-instance
-  ( Categorized token, Item s ~ token
-  , Cons s s token token, Snoc s s token token
-  ) => TerminalSymbol token (Parsector s () ())
 instance
   ( Categorized token, Item s ~ token
   , Cons s s token token, Snoc s s token token
@@ -239,13 +80,181 @@ instance
   notOneOf ts = tokenClass (notOneOf ts)
   asIn cat = tokenClass (asIn cat)
   notAsIn cat = tokenClass (notAsIn cat)
+instance
+  ( Categorized token, Item s ~ token
+  , Cons s s token token, Snoc s s token token
+  ) => TokenAlgebra token (Parsector s token token) where
+    tokenClass test = Parsector $ \callback query ->
+      let
+        stream = parsecStream query
+        result = parsecResult query
+        offset = parsecOffset query
+        replyOk tok str = Reply
+          { parsecStream = str
+          , parsecOffset = offset + 1
+          , parsecResult = Right tok
+          }
+        replyErr = query
+          { parsecResult = Left (tokenClass test) }
+      in
+        callback $ case result of
+          Right tok
+            | tokenClass test tok -> replyOk tok (snoc stream tok)
+            | otherwise -> replyErr
+          Left _ -> case uncons stream of
+            Just (tok, rest)
+              | tokenClass test tok -> replyOk tok rest
+              | otherwise -> replyErr
+            Nothing -> replyErr
 instance Categorized (Item s)
   => BackusNaurForm (Parsector s a b) where
-  rule name (Parsector p) = Parsector $ \args -> p args
-    { emptyOk = \b st' -> emptyOk args b st' . label
-    , emptyErr = emptyErr args . label
-    }
-    where
-      label fl = fl
-        { expectPattern = rule name (expectPattern fl)}
+  rule name p = Parsector $ \callback query ->
+    flip (runParsector p) query $ \reply -> callback $
+      case parsecResult reply of
+        Left expect -> reply
+          {parsecResult = Left (rule name expect)}
+        Right _ -> reply
   ruleRec name f = rule name (fix f)
+instance
+  ( Categorized token, Item s ~ token
+  , Cons s s token token, Snoc s s token token
+  ) => TerminalSymbol token (Parsector s () ())
+instance Functor (Parsector s a) where
+  fmap = rmap
+instance Categorized (Item s) => Applicative (Parsector s a) where
+  pure b = Parsector $ \callback query ->
+    callback query { parsecResult = Right b }
+  (<*>) = ap
+instance Categorized (Item s) => Monad (Parsector s a) where
+  return = pure
+  p >>= f = Parsector $ \callback query ->
+    flip (runParsector p) query $ \reply ->
+      case parsecResult reply of
+        Left expect -> callback reply {parsecResult = Left expect}
+        Right b -> runParsector (f b) callback reply
+          {parsecResult = parsecResult query}
+instance Categorized (Item s) => Alternative (Parsector s a) where
+  -- | Always fail, consuming no input and expecting nothing.
+  empty = Parsector $ \callback query ->
+    callback query { parsecResult = Left zeroK }
+  p <|> q = Parsector $ \callback query ->
+    -- Run p on the original input.
+    flip (runParsector p) query $ \replyP ->
+    -- In unparse mode the query already carries a value (Right _).
+    -- If p succeeded, commit immediately without running q:
+    -- this prevents infinite loops in recursive grammars where
+    -- unguarded branches would otherwise keep re-entering p.
+    case (parsecResult query, parsecResult replyP) of
+      (Right _, Right _) -> callback replyP
+      _ ->
+        -- In parse mode (or when p failed), run q on the same input.
+        flip (runParsector q) query $ \replyQ ->
+          case (parsecResult replyP, parsecResult replyQ) of
+            -- Only one branch succeeded: take it.
+            (Right _, Left _) -> callback replyP
+            (Left _, Right _) -> callback replyQ
+            -- Both succeeded: take the longest match.
+            (Right _, Right _) ->
+              if parsecOffset replyP >= parsecOffset replyQ
+              then callback replyP
+              else callback replyQ
+            -- Both failed: report the furthest failure,
+            -- merging expected tokens on a tie.
+            (Left expectP, Left expectQ) ->
+              case compare (parsecOffset replyP) (parsecOffset replyQ) of
+                GT -> callback replyP
+                EQ -> callback replyP
+                  { parsecResult = Left (expectP >|< expectQ) }
+                LT -> callback replyQ
+instance Categorized (Item s) => MonadPlus (Parsector s a)
+instance Categorized (Item s) => MonadFail (Parsector s a) where
+  fail msg = rule msg empty
+instance Categorized (Item s) => MonadTry (Parsector s a) where
+  try p = Parsector $ \callback query ->
+    flip (runParsector p) query $ \reply ->
+      case parsecResult reply of
+        Right _ -> callback reply
+        Left _  -> callback query { parsecResult = Left zeroK }
+instance Categorized (Item s) => Filterable (Parsector s a) where
+  mapMaybe = dimapMaybe Just
+instance Category (Parsector s) where
+  id = Parsector id
+  Parsector q . Parsector p = Parsector (p . q)
+instance Categorized (Item s) => Arrow (Parsector s) where
+  arr f = Parsector $ \callback reply -> callback (f <$> reply)
+  (***) = (>*<)
+  first = first'
+  second = second'
+instance Categorized (Item s) => ArrowZero (Parsector s) where
+  zeroArrow = empty
+instance Categorized (Item s) => ArrowPlus (Parsector s) where
+  (<+>) = (<|>)
+instance Categorized (Item s) => ArrowChoice (Parsector s) where
+  (+++) = (>+<)
+  left = left'
+  right = right'
+instance Profunctor (Parsector s) where
+  dimap f g (Parsector p) = Parsector $
+    dimap (lmap (fmap g)) (lmap (fmap f)) p
+instance Strong (Parsector s) where
+  first' p = Parsector $ \callback reply0 ->
+    flip (runParsector p) (fst <$> reply0) $ \reply1 ->
+      callback reply1
+        { parsecResult = (,)
+            <$> parsecResult reply1
+            <*> (snd <$> parsecResult reply0)
+        }
+  second' p = Parsector $ \callback reply0 ->
+    flip (runParsector p) (snd <$> reply0) $ \reply1 ->
+      callback reply1
+        { parsecResult = (,)
+            <$> (fst <$> parsecResult reply0)
+            <*> parsecResult reply1
+        }
+instance Categorized (Item s) => Choice (Parsector s) where
+  left' = alternate . Left
+  right' = alternate . Right
+instance Categorized (Item s) => Distributor (Parsector s)
+instance Categorized (Item s) => Alternator (Parsector s) where
+  alternate (Left p) = Parsector $ \callback reply0 ->
+    let
+      replyOk = reply0
+        { parsecResult = parsecResult reply0 >>= either Right (const (Left zeroK))
+        }
+      replyErr = reply0
+        { parsecResult = Left zeroK }
+    in
+      case (parsecResult reply0, parsecResult replyOk) of
+        (Right _, Left _) -> callback replyErr
+        _ -> flip (runParsector p) replyOk $ \reply2 ->
+          callback reply2
+            { parsecResult = Left <$> parsecResult reply2 }
+  alternate (Right p) = Parsector $ \callback reply ->
+    let
+      replyOk = reply
+        { parsecResult = parsecResult reply >>= either (const (Left zeroK)) Right
+        }
+      replyErr = reply
+        { parsecResult = Left zeroK }
+    in
+      case (parsecResult reply, parsecResult replyOk) of
+        (Right _, Left _) -> callback replyErr
+        _ -> flip (runParsector p) replyOk $ \reply2 ->
+          callback reply2
+            { parsecResult = Right <$> parsecResult reply2 }
+instance Categorized (Item s) => Cochoice (Parsector s) where
+  unleft = fst . filtrate
+  unright = snd . filtrate
+instance Categorized (Item s) => Filtrator (Parsector s) where
+  filtrate p =
+    ( Parsector $ \callback reply0 ->
+        flip (runParsector p) (Left <$> reply0) $ \reply1 ->
+          callback reply1
+            { parsecResult = parsecResult reply1 >>= either Right (const (Left zeroK))
+            }
+    , Parsector $ \callback reply0 ->
+        flip (runParsector p) (Right <$> reply0) $ \reply1 ->
+          callback reply1
+            { parsecResult = parsecResult reply1 >>= either (const (Left zeroK)) Right
+            }
+    )

@@ -4,6 +4,9 @@ import Data.Foldable hiding (toList)
 import Data.Maybe (listToMaybe)
 import Control.Lens.Grammar
 import Control.Lens.Grammar.BackusNaur
+import Control.Lens.Grammar.Kleene
+import Data.List (genericLength)
+import Data.Profunctor.Grammar.Parsector
 import Test.DocTest
 import Test.Hspec
 
@@ -89,18 +92,22 @@ testGrammarExample grammar (expectedSyntax, expectedString) = do
 
 testCtxGrammarExample :: (Show a, Eq a) => CtxGrammar Char a -> (a, String) -> Spec
 testCtxGrammarExample grammar (expectedSyntax, expectedString) = do
-  it ("should parse from " <> expectedString <> " correctly") $ do
+  it ("should parseG from " <> expectedString <> " correctly") $ do
     let actualSyntax = [parsed | (parsed, "") <- parseG grammar expectedString]
     listToMaybe actualSyntax `shouldBe` Just expectedSyntax
-  it ("should unparse to " <> expectedString <> " correctly") $ do
+  it ("should unparseG to " <> expectedString <> " correctly") $ do
     let actualString = unparseG grammar expectedSyntax ""
     actualString `shouldBe` Just expectedString
-  it ("should print to " <> expectedString <> " correctly") $ do
+  it ("should printG to " <> expectedString <> " correctly") $ do
     let actualString = ($ "") <$> printG grammar expectedSyntax
     actualString `shouldBe` Just expectedString
-  it ("should parsec from " <> expectedString <> " correctly") $ do
+  it ("should parsecG from " <> expectedString <> " correctly") $ do
     let actualSyntax = parsecG grammar expectedString
-    actualSyntax `shouldBe` Right (expectedSyntax, "")
-  it ("should unparsec to " <> expectedString <> " correctly") $ do
+    let expectedLength = genericLength expectedString
+    actualSyntax `shouldBe`
+      (Reply expectedLength zeroK (Just expectedSyntax) "")
+  it ("should unparsecG to " <> expectedString <> " correctly") $ do
     let actualString = unparsecG grammar expectedSyntax ""
-    actualString `shouldBe` Right expectedString
+    let expectedLength = genericLength expectedString
+    actualString `shouldBe`
+      (Reply expectedLength zeroK (Just expectedSyntax) expectedString)
