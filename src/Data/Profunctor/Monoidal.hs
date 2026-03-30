@@ -127,8 +127,8 @@ Bidirectional elements can be generated from
 nilary constructors of algebraic datatypes using `makeNestedPrisms`,
 from terms of a type with an `Eq` instance using `only`,
 from nil elements using `_Empty`,
-or from any composition of `Control.Lens.Prism.Prism`s terminating
-with a bidirectional element.
+or from any `.`-composition of `Control.Lens.Prism.Prism`s
+terminating with a bidirectional element.
 -}
 pureP
   :: (Monoidal p, Choice p)
@@ -136,11 +136,11 @@ pureP
   -> p a b
 pureP pattern = pattern >? oneP
 
-{- | A `Monoidal` & `Choice` nil element. -}
+{- | A `Monoidal` & `Choice` nil combinator. -}
 asEmpty :: (AsEmpty s, Monoidal p, Choice p) => p s s
 asEmpty = pureP _Empty
 
-{- | A `Monoidal` & `Choice` cons operator. -}
+{- | A `Monoidal` & `Choice` cons combinator. -}
 (>:<) :: (Cons s t a b, Monoidal p, Choice p) => p a b -> p s t -> p s t
 x >:< xs = _Cons >? x >*< xs
 infixr 5 >:<
