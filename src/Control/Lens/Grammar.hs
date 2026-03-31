@@ -790,10 +790,7 @@ unparseG
   -> m string
 unparseG parsor = unparseP parsor
 
-{- | `parsecG` generates a Parsec-style parser from a `CtxGrammar`,
-returning either a `Expect` error or the parsed value
-and remaining input.
--}
+{- | `parsecG` generates a Parsec-style parser from a `CtxGrammar`. -}
 parsecG
   :: (Cons string string token token, Snoc string string token token)
   => (Item string ~ token, Categorized token)
@@ -802,9 +799,7 @@ parsecG
   -> Reply string a
 parsecG parsector = parsecP parsector
 
-{- | `unparsecG` generates a Parsec-style unparser from a `CtxGrammar`,
-returning either a `Expect` error or the output string.
--}
+{- | `unparsecG` generates a Parsec-style unparser from a `CtxGrammar`. -}
 unparsecG
   :: (Cons string string token token, Snoc string string token token)
   => (Item string ~ token, Categorized token)
