@@ -34,7 +34,6 @@ module Data.Profunctor.Monadic
   ) where
 
 import Control.Monad hiding ((>>=), (>>))
-import Data.Foldable
 import Data.Profunctor
 import Prelude hiding ((>>=), (>>))
 
