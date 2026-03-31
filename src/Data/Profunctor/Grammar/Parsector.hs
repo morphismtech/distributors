@@ -139,42 +139,39 @@ instance Categorized (Item s) => Alternative (Parsector s a) where
     callback query { parsecResult = Left zeroK }
   p <|> q = Parsector $ \callback query ->
     -- Run p on the original input.
-    flip (runParsector p) query $ \replyP ->
-    -- In unparse mode the query already carries a value (Right _).
-    -- If p succeeded, commit immediately without running q:
-    -- this prevents infinite loops in recursive grammars where
-    -- unguarded branches would otherwise keep re-entering p.
-    case (parsecResult query, parsecResult replyP) of
-      (Right _, Right _) -> callback replyP
-      _ ->
+    flip (runParsector p) query $ \replyP -> callback $
+      case (parsecResult query, parsecResult replyP) of
+        -- In unparse mode the query already carries a value (Right _).
+        -- If p succeeded, commit immediately without running q.
+        (Right _, Right _) -> replyP
         -- In parse mode (or when p failed), run q on the same input.
-        flip (runParsector q) query $ \replyQ ->
-          case (parsecResult replyP, parsecResult replyQ) of
-            -- Only one branch succeeded: take it.
-            (Right _, Left _) -> callback replyP
-            (Left _, Right _) -> callback replyQ
-            -- Both succeeded: take the longest match.
-            (Right _, Right _) ->
-              if parsecOffset replyP >= parsecOffset replyQ
-              then callback replyP
-              else callback replyQ
-            -- Both failed: report the furthest failure,
-            -- merging expected tokens on a tie.
-            (Left expectP, Left expectQ) ->
-              case compare (parsecOffset replyP) (parsecOffset replyQ) of
-                GT -> callback replyP
-                EQ -> callback replyP
-                  { parsecResult = Left (expectP >|< expectQ) }
-                LT -> callback replyQ
+        __________________ ->
+          flip (runParsector q) query $ \replyQ ->
+            case (parsecResult replyP, parsecResult replyQ) of
+              -- Only one branch succeeded: take it.
+              (Right _, Left _) -> replyP
+              (Left _, Right _) -> replyQ
+              -- Both succeeded: take the longest match.
+              (Right _, Right _) ->
+                if parsecOffset replyP >= parsecOffset replyQ
+                then replyP
+                else replyQ
+              -- Both failed: report the furthest failure,
+              -- merging expected tokens on a tie.
+              (Left expectP, Left expectQ) ->
+                case compare (parsecOffset replyP) (parsecOffset replyQ) of
+                  GT -> replyP
+                  EQ -> replyP { parsecResult = Left (expectP >|< expectQ) }
+                  LT -> replyQ
 instance Categorized (Item s) => MonadPlus (Parsector s a)
 instance Categorized (Item s) => MonadFail (Parsector s a) where
   fail msg = rule msg empty
 instance Categorized (Item s) => MonadTry (Parsector s a) where
   try p = Parsector $ \callback query ->
-    flip (runParsector p) query $ \reply ->
+    flip (runParsector p) query $ \reply -> callback $
       case parsecResult reply of
-        Right _ -> callback reply
-        Left _  -> callback query { parsecResult = Left zeroK }
+        Right _ -> reply
+        Left _ -> query { parsecResult = Left zeroK }
 instance Categorized (Item s) => Filterable (Parsector s a) where
   mapMaybe = dimapMaybe Just
 instance Category (Parsector s) where
@@ -216,45 +213,53 @@ instance Categorized (Item s) => Choice (Parsector s) where
   right' = alternate . Right
 instance Categorized (Item s) => Distributor (Parsector s)
 instance Categorized (Item s) => Alternator (Parsector s) where
-  alternate (Left p) = Parsector $ \callback reply0 ->
+  alternate (Left p) = Parsector $ \callback query -> callback $
     let
-      replyOk = reply0
-        { parsecResult = parsecResult reply0 >>= either Right (const (Left zeroK))
+      replyOk = query
+        { parsecResult = do
+            result <- parsecResult query
+            either Right (const (Left zeroK)) result
         }
-      replyErr = reply0
+      replyErr = query
         { parsecResult = Left zeroK }
     in
-      case (parsecResult reply0, parsecResult replyOk) of
-        (Right _, Left _) -> callback replyErr
-        _ -> flip (runParsector p) replyOk $ \reply2 ->
-          callback reply2
-            { parsecResult = Left <$> parsecResult reply2 }
-  alternate (Right p) = Parsector $ \callback reply ->
+      case (parsecResult query, parsecResult replyOk) of
+        (Right _, Left _) -> replyErr
+        _________________ ->
+          flip (runParsector p) replyOk $ \reply -> reply
+            { parsecResult = Left <$> parsecResult reply }
+  alternate (Right p) = Parsector $ \callback query -> callback $
     let
-      replyOk = reply
-        { parsecResult = parsecResult reply >>= either (const (Left zeroK)) Right
+      replyOk = query
+        { parsecResult = do
+            result <- parsecResult query
+            either (const (Left zeroK)) Right result
         }
-      replyErr = reply
+      replyErr = query
         { parsecResult = Left zeroK }
     in
-      case (parsecResult reply, parsecResult replyOk) of
-        (Right _, Left _) -> callback replyErr
-        _ -> flip (runParsector p) replyOk $ \reply2 ->
-          callback reply2
-            { parsecResult = Right <$> parsecResult reply2 }
+      case (parsecResult query, parsecResult replyOk) of
+        (Right _, Left _) -> replyErr
+        _________________ ->
+          flip (runParsector p) replyOk $ \reply -> reply
+            { parsecResult = Right <$> parsecResult reply }
 instance Categorized (Item s) => Cochoice (Parsector s) where
   unleft = fst . filtrate
   unright = snd . filtrate
 instance Categorized (Item s) => Filtrator (Parsector s) where
   filtrate p =
-    ( Parsector $ \callback reply0 ->
-        flip (runParsector p) (Left <$> reply0) $ \reply1 ->
-          callback reply1
-            { parsecResult = parsecResult reply1 >>= either Right (const (Left zeroK))
+    ( Parsector $ \callback query ->
+        flip (runParsector p) (Left <$> query) $ \reply ->
+          callback reply
+            { parsecResult = do
+                result <- parsecResult reply
+                either Right (const (Left zeroK)) result
             }
-    , Parsector $ \callback reply0 ->
-        flip (runParsector p) (Right <$> reply0) $ \reply1 ->
-          callback reply1
-            { parsecResult = parsecResult reply1 >>= either (const (Left zeroK)) Right
+    , Parsector $ \callback query ->
+        flip (runParsector p) (Right <$> query) $ \reply ->
+          callback reply
+            { parsecResult = do
+                result <- parsecResult reply
+                either (const (Left zeroK)) Right result
             }
     )
