@@ -1,10 +1,8 @@
 module Main (main) where
 
 import Data.Foldable hiding (toList)
-import Data.Maybe (listToMaybe)
 import Control.Lens.Grammar
 import Control.Lens.Grammar.BackusNaur
-import Control.Lens.Grammar.Kleene
 import Data.List (genericLength)
 import Data.Profunctor.Grammar.Parsector
 import Test.DocTest
@@ -94,7 +92,7 @@ testCtxGrammarExample :: (Show a, Eq a) => CtxGrammar Char a -> (a, String) -> S
 testCtxGrammarExample grammar (expectedSyntax, expectedString) = do
   it ("should parseG from " <> expectedString <> " correctly") $ do
     let actualSyntax = [parsed | (parsed, "") <- parseG grammar expectedString]
-    listToMaybe actualSyntax `shouldBe` Just expectedSyntax
+    actualSyntax `shouldBe` [expectedSyntax]
   it ("should unparseG to " <> expectedString <> " correctly") $ do
     let actualString = unparseG grammar expectedSyntax ""
     actualString `shouldBe` Just expectedString
@@ -105,9 +103,9 @@ testCtxGrammarExample grammar (expectedSyntax, expectedString) = do
     let actualSyntax = parsecG grammar expectedString
     let expectedLength = genericLength expectedString
     actualSyntax `shouldBe`
-      (Reply expectedLength zeroK (Just expectedSyntax) "")
+      (Reply expectedLength (Right expectedSyntax) "")
   it ("should unparsecG to " <> expectedString <> " correctly") $ do
     let actualString = unparsecG grammar expectedSyntax ""
     let expectedLength = genericLength expectedString
     actualString `shouldBe`
-      (Reply expectedLength zeroK (Just expectedSyntax) expectedString)
+      (Reply expectedLength (Right expectedSyntax) expectedString)

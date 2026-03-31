@@ -24,7 +24,7 @@ regexExamples =
   , (asIn UppercaseLetter, "\\p{Lu}")
   , (notAsIn LowercaseLetter, "\\P{Ll}")
   , (nonTerminal "rule-name", "\\q{rule-name}")
-  -- , (terminal "", "")
+  , (terminal "", "")
   , (optK (terminal "abc"), "(abc)?")
   , (optK (terminal "abc") <> nonTerminal "xyz", "(abc)?\\q{xyz}")
 

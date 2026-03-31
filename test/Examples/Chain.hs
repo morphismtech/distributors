@@ -38,5 +38,5 @@ chainExamples =
   , (Seq (Char '1') (Char '2'), "12")
   , (Seq (Seq (Char 'x') (Char 'y')) (Char 'z'), "xyz")
   , (Seq (Char 'x') (Seq (Char 'y') (Char 'z')), "x(yz)")
-  -- , (Emp, "")
+  , (Emp, "")
   ]
