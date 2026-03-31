@@ -16,7 +16,8 @@ This module can provide qualified do-notation for `Monadic` profunctors.
 >>> import qualified Data.Profunctor.Monadic as P
 
 See "Control.Lens.Grammar#t:CtxGrammar" for
-an example of how to use "bonding" notation.
+an example of how to use qualified do-notation
+with pattern bonding.
 -}
 
 module Data.Profunctor.Monadic
