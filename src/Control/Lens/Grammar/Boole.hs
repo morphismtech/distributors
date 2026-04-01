@@ -42,34 +42,41 @@ class BooleanAlgebra b where
     :: (b ~ f bool, BooleanAlgebra bool, Functor f) => b -> b
   notB = fmap notB
 
-  -- | inclusion
-  fromBool :: Bool -> b
-  default fromBool
-    :: (b ~ f bool, BooleanAlgebra bool, Applicative f) => Bool -> b
-  fromBool = pure . fromBool
+  -- | true
+  trueB :: b
+  default trueB
+    :: (b ~ f bool, BooleanAlgebra bool, Applicative f) => b
+  trueB = pure trueB
+
+  -- | false
+  falseB :: b
+  default falseB
+    :: (b ~ f bool, BooleanAlgebra bool, Applicative f) => b
+  falseB = pure falseB
 
 -- | cumulative conjunction
 andB :: (Foldable f, BooleanAlgebra b) => f b -> b
-andB = foldl' (>&&<) (fromBool True)
+andB = foldl' (>&&<) trueB
 
 -- | cumulative disjunction
 orB :: (Foldable f, BooleanAlgebra b) => f b -> b
-orB = foldl' (>||<) (fromBool False)
+orB = foldl' (>||<) falseB
 
 -- | universal
 allB :: (Foldable f, BooleanAlgebra b) => (a -> b) -> f a -> b
-allB f = foldl' (\b a -> b >&&< f a) (fromBool True)
+allB f = foldl' (\b a -> b >&&< f a) trueB
 
 -- | existential
 anyB :: (Foldable f, BooleanAlgebra b) => (a -> b) -> f a -> b
-anyB f = foldl' (\b a -> b >||< f a) (fromBool False)
+anyB f = foldl' (\b a -> b >||< f a) falseB
 
 --instances
 instance BooleanAlgebra (x -> Bool)
 instance (Applicative f, BooleanAlgebra bool)
   => BooleanAlgebra (Ap f bool)
 instance BooleanAlgebra Bool where
-  fromBool = id
+  falseB = False
+  trueB = True
   notB = not
   (>&&<) = (&&)
   (>||<) = (||)

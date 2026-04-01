@@ -53,9 +53,9 @@ regexExamples =
   , (tokenClass (notB (notAsIn Control)), "\\p{Cc}")
   , (tokenClass (notB (notOneOf "abc" >&&< asIn LowercaseLetter)), "[abc]|\\P{Ll}")
 
-  -- fromBool operations
-  , (tokenClass (fromBool True), "[^]")
-  , (tokenClass (fromBool False), "[]")
+  -- trueB & falseB
+  , (tokenClass trueB, "[^]")
+  , (tokenClass falseB, "[]")
 
   -- Complex combinations
   , (tokenClass (notOneOf "abc" >&&< (asIn LowercaseLetter >||< asIn UppercaseLetter)), "[^abc\\p{Ll}]|\\p{Lu}")

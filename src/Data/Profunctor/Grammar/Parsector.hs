@@ -87,7 +87,7 @@ deriving stock instance
 
 -- | `Parsector` is parsed using `parsecP`.
 parsecP :: Categorized (Item s) => Parsector s a b -> s -> Reply s b
-parsecP p s = runParsector p id (Reply 0 (Left (fromBool False)) s)
+parsecP p s = runParsector p id (Reply 0 (Left falseB) s)
 
 -- | `Parsector` is printed using `unparsecP`.
 unparsecP :: Parsector s a b -> a -> s -> Reply s b
@@ -152,7 +152,7 @@ instance Categorized (Item s) => Monad (Parsector s a) where
 instance Categorized (Item s) => Alternative (Parsector s a) where
   -- | Always fail, consuming no input and expecting nothing.
   empty = Parsector $ \callback query ->
-    callback query { parsecResult = Left (fromBool False) }
+    callback query { parsecResult = Left falseB }
   p <|> q = Parsector $ \callback query ->
     -- Run p on the original input.
     flip (runParsector p) query $ \replyP -> callback $
@@ -187,7 +187,7 @@ instance Categorized (Item s) => MonadTry (Parsector s a) where
     flip (runParsector p) query $ \reply -> callback $
       case parsecResult reply of
         Right _ -> reply
-        Left _ -> query { parsecResult = Left (fromBool False) }
+        Left _ -> query { parsecResult = Left falseB }
 instance Categorized (Item s) => Filterable (Parsector s a) where
   mapMaybe = dimapMaybe Just
 instance Category (Parsector s) where
@@ -234,10 +234,10 @@ instance Categorized (Item s) => Alternator (Parsector s) where
       replyOk = query
         { parsecResult = do
             result <- parsecResult query
-            either Right (const (Left (fromBool False))) result
+            either Right (const (Left falseB)) result
         }
       replyErr = query
-        { parsecResult = Left (fromBool False) }
+        { parsecResult = Left falseB }
     in
       case (parsecResult query, parsecResult replyOk) of
         (Right _, Left _) -> replyErr
@@ -249,10 +249,10 @@ instance Categorized (Item s) => Alternator (Parsector s) where
       replyOk = query
         { parsecResult = do
             result <- parsecResult query
-            either (const (Left (fromBool False))) Right result
+            either (const (Left falseB)) Right result
         }
       replyErr = query
-        { parsecResult = Left (fromBool False) }
+        { parsecResult = Left falseB }
     in
       case (parsecResult query, parsecResult replyOk) of
         (Right _, Left _) -> replyErr
@@ -269,13 +269,13 @@ instance Categorized (Item s) => Filtrator (Parsector s) where
           callback reply
             { parsecResult = do
                 result <- parsecResult reply
-                either Right (const (Left (fromBool False))) result
+                either Right (const (Left falseB)) result
             }
     , Parsector $ \callback query ->
         flip (runParsector p) (Right <$> query) $ \reply ->
           callback reply
             { parsecResult = do
                 result <- parsecResult reply
-                either (const (Left (fromBool False))) Right result
+                either (const (Left falseB)) Right result
             }
     )

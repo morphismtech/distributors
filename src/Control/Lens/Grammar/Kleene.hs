@@ -233,8 +233,8 @@ instance Categorized token => Tokenized token (RegExam token alg) where
   notAsIn cat = NotOneOf Set.empty (NotAsIn (Set.singleton cat))
 instance Categorized token
   => BooleanAlgebra (RegExam token (TokenClass token)) where
-  fromBool False = failExam
-  fromBool True = passExam
+  falseB = failExam
+  trueB = passExam
   notB exam | isFailExam exam = passExam
   notB exam | isPassExam exam = failExam
   notB (Alternate (TokenClass x) (TokenClass y)) = notB x >&&< notB y
