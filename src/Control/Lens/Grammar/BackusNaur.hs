@@ -39,14 +39,12 @@ import Data.Set (Set)
 {- | `BackusNaurForm` grammar combinators formalize
 `rule` abstraction and general recursion. Context-free
 `Control.Lens.Grammar.Grammar`s support the `BackusNaurForm` interface.
+
+prop> rule name bnf = ruleRec name (\_ -> bnf)
 -}
 class BackusNaurForm bnf where
 
-  {- | For a `BackusNaurForm` parser instance,
-  `rule` can be used to detail parse errors.
-
-  prop> rule name bnf = ruleRec name (\_ -> bnf)
-  -}
+  {- | Rule abstraction. -}
   rule :: String -> bnf -> bnf
   rule _ = id
 
