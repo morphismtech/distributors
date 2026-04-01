@@ -22,11 +22,12 @@ import Control.Category
 import Data.Function hiding (id, (.))
 import Control.Lens
 import Control.Lens.Grammar.BackusNaur
-import Control.Lens.PartialIso
+import Control.Lens.Grammar.Boole
+import Control.Lens.Grammar.Kleene
 import Control.Lens.Grammar.Symbol
 import Control.Lens.Grammar.Token
+import Control.Lens.PartialIso
 import Control.Monad
-import Control.Lens.Grammar.Kleene
 import Data.Profunctor
 import Data.Profunctor.Distributor
 import Data.Profunctor.Filtrator
@@ -36,13 +37,34 @@ import GHC.Exts
 import Prelude hiding (id, (.))
 import Witherable
 
+{- | `Parsector` is an invertible parser which can be used
+to parse with `parsecP` or print with `unparsecP`,
+yielding a `Reply`, with detailed errors and offset tracking.
+
+In print mode, `Parsector` yields the left-most
+success among alternatives, regardless of length.
+In parse mode, it yields the longest
+success among alternatives, biased to the left on ties.
+In either mode, it yields the longest
+failure among alternatives, with errors merged on ties.
+-}
 newtype Parsector s a b = Parsector
   { runParsector :: forall x. (Reply s b -> x) -> Reply s a -> x }
 
+{- | `Reply` is the return type for `parsecP` & `unparsecP`.
+It's the fundamental building block of `Parsector`.
+-}
 data Reply s a = Reply
-  { parsecOffset :: Word
-  , parsecResult :: Either (Bnf (RegEx (Item s))) a
-  , parsecStream :: s -- ^ input stream
+  { parsecOffset :: !Word
+    -- ^ number of tokens either parsed or printed
+  , parsecResult :: Either (TokenClass (Item s)) a
+    {- ^ As an input `parsecResult` represents either parse mode,
+    or print mode with an input syntax value.
+    As an output `parsecResult` represents either failure
+    with the expected `TokenClass`,
+    or success with an output syntax value.
+    -}
+  , parsecStream :: s -- ^ both input and output stream
   } deriving (Functor, Foldable, Traversable)
 deriving stock instance
   ( Categorized (Item s)
@@ -63,9 +85,11 @@ deriving stock instance
   , Ord a, Ord s
   ) => Ord (Reply s a)
 
+-- | `Parsector` is parsed using `parsecP`.
 parsecP :: Categorized (Item s) => Parsector s a b -> s -> Reply s b
-parsecP p s = runParsector p id (Reply 0 (Left zeroK) s)
+parsecP p s = runParsector p id (Reply 0 (Left (fromBool False)) s)
 
+-- | `Parsector` is printed using `unparsecP`.
 unparsecP :: Parsector s a b -> a -> s -> Reply s b
 unparsecP p a s = runParsector p id (Reply 0 (Right a) s)
 
@@ -106,15 +130,7 @@ instance
               | tokenClass test tok -> replyOk tok rest
               | otherwise -> replyErr
             Nothing -> replyErr
-instance Categorized (Item s)
-  => BackusNaurForm (Parsector s a b) where
-  rule name p = Parsector $ \callback query ->
-    flip (runParsector p) query $ \reply -> callback $
-      case parsecResult reply of
-        Left expect -> reply
-          {parsecResult = Left (rule name expect)}
-        Right _ -> reply
-  ruleRec name f = rule name (fix f)
+instance BackusNaurForm (Parsector s a b)
 instance
   ( Categorized token, Item s ~ token
   , Cons s s token token, Snoc s s token token
@@ -136,7 +152,7 @@ instance Categorized (Item s) => Monad (Parsector s a) where
 instance Categorized (Item s) => Alternative (Parsector s a) where
   -- | Always fail, consuming no input and expecting nothing.
   empty = Parsector $ \callback query ->
-    callback query { parsecResult = Left zeroK }
+    callback query { parsecResult = Left (fromBool False) }
   p <|> q = Parsector $ \callback query ->
     -- Run p on the original input.
     flip (runParsector p) query $ \replyP -> callback $
@@ -161,7 +177,7 @@ instance Categorized (Item s) => Alternative (Parsector s a) where
               (Left expectP, Left expectQ) ->
                 case compare (parsecOffset replyP) (parsecOffset replyQ) of
                   GT -> replyP
-                  EQ -> replyP { parsecResult = Left (expectP >|< expectQ) }
+                  EQ -> replyP { parsecResult = Left (expectP >||< expectQ) }
                   LT -> replyQ
 instance Categorized (Item s) => MonadPlus (Parsector s a)
 instance Categorized (Item s) => MonadFail (Parsector s a) where
@@ -171,7 +187,7 @@ instance Categorized (Item s) => MonadTry (Parsector s a) where
     flip (runParsector p) query $ \reply -> callback $
       case parsecResult reply of
         Right _ -> reply
-        Left _ -> query { parsecResult = Left zeroK }
+        Left _ -> query { parsecResult = Left (fromBool False) }
 instance Categorized (Item s) => Filterable (Parsector s a) where
   mapMaybe = dimapMaybe Just
 instance Category (Parsector s) where
@@ -218,10 +234,10 @@ instance Categorized (Item s) => Alternator (Parsector s) where
       replyOk = query
         { parsecResult = do
             result <- parsecResult query
-            either Right (const (Left zeroK)) result
+            either Right (const (Left (fromBool False))) result
         }
       replyErr = query
-        { parsecResult = Left zeroK }
+        { parsecResult = Left (fromBool False) }
     in
       case (parsecResult query, parsecResult replyOk) of
         (Right _, Left _) -> replyErr
@@ -233,10 +249,10 @@ instance Categorized (Item s) => Alternator (Parsector s) where
       replyOk = query
         { parsecResult = do
             result <- parsecResult query
-            either (const (Left zeroK)) Right result
+            either (const (Left (fromBool False))) Right result
         }
       replyErr = query
-        { parsecResult = Left zeroK }
+        { parsecResult = Left (fromBool False) }
     in
       case (parsecResult query, parsecResult replyOk) of
         (Right _, Left _) -> replyErr
@@ -253,13 +269,13 @@ instance Categorized (Item s) => Filtrator (Parsector s) where
           callback reply
             { parsecResult = do
                 result <- parsecResult reply
-                either Right (const (Left zeroK)) result
+                either Right (const (Left (fromBool False))) result
             }
     , Parsector $ \callback query ->
         flip (runParsector p) (Right <$> query) $ \reply ->
           callback reply
             { parsecResult = do
                 result <- parsecResult reply
-                either (const (Left zeroK)) Right result
+                either (const (Left (fromBool False))) Right result
             }
     )
