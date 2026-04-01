@@ -492,9 +492,9 @@ But they also support `BackusNaurForm` `rule`s and `ruleRec`s.
 >>> putStringLn (rule "baz" (bnf >|< terminal "baz"))
 {start} = \q{baz}
 {baz} = foo|bar|baz
->>> putStringLn (ruleRec "∞" (\x -> x) :: RegBnf)
-{start} = \q{∞}
-{∞} = \q{∞}
+>>> putStringLn (ruleRec "∞-loop" (\x -> x) :: RegBnf)
+{start} = \q{∞-loop}
+{∞-loop} = \q{∞-loop}
 -}
 newtype RegBnf = RegBnf {runRegBnf :: Bnf RegString}
   deriving newtype
