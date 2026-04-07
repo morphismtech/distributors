@@ -540,7 +540,7 @@ regexGrammar = _RegString >~ ruleRec "regex" altG
       chain1 Left (_RegExam . _Alternate) (sepBy (terminal "|")) (seqG rex)
 
     seqG rex = rule "sequence" $
-      chain Left _Sequence _Epsilon noSep (exprG rex)
+      chain Left _Sequence _SeqEmpty noSep (exprG rex)
 
     exprG rex = rule "expression" $ choice
       [ _KleeneOpt >? atomG rex *< terminal "?"
