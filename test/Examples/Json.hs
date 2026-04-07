@@ -7,15 +7,6 @@ module Examples.Json
 import Control.Applicative
 import Control.Lens
 import Control.Lens.Grammar
-import Control.Lens.Grammar.BackusNaur
-import Control.Lens.Grammar.Boole
-import Control.Lens.Grammar.Kleene
-import Control.Lens.Grammar.Symbol
-import Control.Lens.Grammar.Token
-import Control.Lens.PartialIso
-import Data.Profunctor.Distributor
-import Data.Profunctor.Monoidal
-import Data.Profunctor.Separator
 import qualified Data.Map.Strict as Map
 import Data.Map.Strict (Map)
 import Numeric.Natural

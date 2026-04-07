@@ -7,13 +7,6 @@ module Examples.Arithmetic
 import Control.Applicative
 import Control.Lens
 import Control.Lens.Grammar
-import Control.Lens.Grammar.BackusNaur
-import Control.Lens.Grammar.Symbol
-import Control.Lens.Grammar.Token
-import Control.Lens.PartialIso
-import Data.Profunctor.Distributor
-import Data.Profunctor.Monoidal
-import Data.Profunctor.Separator
 import Numeric.Natural
 
 data Arith

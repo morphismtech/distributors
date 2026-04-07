@@ -2,10 +2,7 @@ module Main (main) where
 
 import Data.Foldable hiding (toList)
 import Control.Lens.Grammar
-import Control.Lens.Grammar.BackusNaur
-import Control.Lens.Grammar.Boole
 import Data.List (genericLength)
-import Data.Profunctor.Grammar.Parsector
 import Test.DocTest
 import Test.Hspec
 

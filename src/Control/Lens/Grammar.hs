@@ -32,6 +32,8 @@ module Control.Lens.Grammar
   , unparsecG
     -- * Utility
   , putStringLn
+    -- * Re-exports
+  , module X
   ) where
 
 import Control.Applicative
@@ -55,6 +57,23 @@ import Data.String
 import GHC.Exts
 import Prelude hiding (filter)
 import Witherable
+
+-- Re-exports
+import Control.Applicative as X
+import Control.Lens.Grammar.BackusNaur as X
+import Control.Lens.Grammar.Boole as X
+import Control.Lens.Grammar.Kleene as X
+import Control.Lens.Grammar.Symbol as X
+import Control.Lens.Grammar.Token as X
+import Control.Lens.PartialIso as X
+import Control.Monad.Fail.Try as X
+import Data.Profunctor.Distributor as X
+import Data.Profunctor.Filtrator as X
+import Data.Profunctor.Grammar as X
+import Data.Profunctor.Grammar.Parsector as X
+import Data.Profunctor.Monoidal as X
+import Data.Profunctor.Separator as X
+import Data.Traversable.Homogeneous as X
 
 {- |
 A regular grammar may be constructed using

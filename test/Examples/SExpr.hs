@@ -5,15 +5,7 @@ module Examples.SExpr
   ) where
 
 import Control.Lens hiding (List)
-import Control.Lens.Grammar
-import Control.Lens.Grammar.BackusNaur
-import Control.Lens.Grammar.Kleene
-import Control.Lens.Grammar.Symbol
-import Control.Lens.Grammar.Token
-import Control.Lens.PartialIso hiding (List)
-import Data.Profunctor.Distributor
-import Data.Profunctor.Monoidal
-import Data.Profunctor.Separator
+import Control.Lens.Grammar hiding (List)
 
 -- | Abstract syntax tree for S-expressions
 data SExpr

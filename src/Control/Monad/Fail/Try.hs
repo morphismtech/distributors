@@ -16,10 +16,9 @@ module Control.Monad.Fail.Try
 
 import Control.Monad
 
-{- | `MonadTry`.
-
-A `MonadTry` implements `fail` & `try` and
-two alternation combinators; `<|>` & `mplus`.
+{- | `MonadTry` implements `fail` & `try` and
+two alternation combinators
+`Control.Applicative.<|>` & `mplus`.
 
 The following invariants should hold.
 

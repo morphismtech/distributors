@@ -8,13 +8,7 @@ module Examples.SemVer
 import Control.Applicative
 import Control.Lens
 import Control.Lens.Grammar
-import Control.Lens.Grammar.Symbol
-import Control.Lens.Grammar.Token
-import Control.Lens.PartialIso
-import Data.Profunctor.Distributor
 import qualified Data.Profunctor.Monadic as P
-import Data.Profunctor.Monoidal
-import Data.Profunctor.Separator
 import Numeric.Natural
 
 -- | Semantic version structure following semver.org specification
