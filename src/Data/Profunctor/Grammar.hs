@@ -120,6 +120,9 @@ instance (Alternative m, Monad m) => Alternator (Parsor s m) where
       Nothing -> fmap (first' Right) (p Nothing s)
       Just (Right a) -> fmap (first' Right) (p (Just a) s)
       Just (Left _) -> empty
+  optionP def p = Parsor $ \ma s -> case ma of
+    Nothing -> runParsor (p <|> pureP def) ma s
+    Just _ -> runParsor (pureP def <|> p) ma s
 instance (Alternative m, Monad m) => Category (Parsor s m) where
   id = Parsor $ \ma s -> case ma of
     Nothing -> empty
@@ -216,6 +219,7 @@ instance Alternative f => Alternator (Printor s f) where
       either (fmap (first' Left) . p) (\_ -> empty)
     Right (Printor p) -> Printor $
       either (\_ -> empty) (fmap (first' Right) . p)
+  optionP def p = pureP def <|> p
 instance Filterable f => Filtrator (Printor s f) where
   filtrate (Printor p) =
     let
@@ -311,6 +315,7 @@ instance KleeneStarAlgebra k => Distributor (Grammor k) where
 instance KleeneStarAlgebra k => Alternator (Grammor k) where
   alternate = either coerce coerce
   someP (Grammor rex) = Grammor (plusK rex)
+  optionP _ (Grammor rex) = Grammor (optK rex)
 instance Tokenized token k => Tokenized token (Grammor k a b) where
   anyToken = Grammor anyToken
   token = Grammor . token

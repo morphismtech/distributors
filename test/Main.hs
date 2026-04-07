@@ -3,6 +3,7 @@ module Main (main) where
 import Data.Foldable hiding (toList)
 import Control.Lens.Grammar
 import Control.Lens.Grammar.BackusNaur
+import Control.Lens.Grammar.Boole
 import Data.List (genericLength)
 import Data.Profunctor.Grammar.Parsector
 import Test.DocTest
@@ -102,10 +103,11 @@ testCtxGrammarExample grammar (expectedSyntax, expectedString) = do
   it ("should parsecG from " <> expectedString <> " correctly") $ do
     let actualSyntax = parsecG grammar expectedString
     let expectedLength = genericLength expectedString
+    let actualExpect = parsecExpect actualSyntax
     actualSyntax `shouldBe`
-      (Reply expectedLength (Right expectedSyntax) "")
+      (Reply expectedLength actualExpect (Just expectedSyntax) "")
   it ("should unparsecG to " <> expectedString <> " correctly") $ do
     let actualString = unparsecG grammar expectedSyntax ""
     let expectedLength = genericLength expectedString
     actualString `shouldBe`
-      (Reply expectedLength (Right expectedSyntax) expectedString)
+      (Reply expectedLength falseB (Just expectedSyntax) expectedString)

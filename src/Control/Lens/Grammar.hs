@@ -239,7 +239,7 @@ We can generate grammar strings, printers and parsers from @arithGrammar@.
 [Add (Add (Num 1) (Mul (Num 2) (Num 3))) (Num 4)]
 >>> unparseG arithGrammar (Add (Num 1) (Mul (Num 2) (Num 3))) "" :: Maybe String
 Just "1+2*3"
->>> do pr <- printG arithGrammar (Num 69); return (pr "") :: Maybe String
+>>> do pr <- printG arithGrammar (Num 69); pure (pr "") :: Maybe String
 Just "69"
 
 If all `rule`s are non-recursive, then a `Grammar`

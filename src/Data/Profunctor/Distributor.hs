@@ -15,7 +15,6 @@ module Data.Profunctor.Distributor
   , Alternator (..)
   , malternate
   , choice
-  , optionP
     -- * SepBy
   , SepBy (..)
   , sepBy
@@ -25,7 +24,6 @@ module Data.Profunctor.Distributor
   , chain
   , chain1
   , intercalateP
-  , ambulate
     -- * Homogeneous
   , Homogeneous (..)
   ) where
@@ -34,7 +32,6 @@ import Control.Applicative hiding (WrappedArrow)
 import Control.Applicative qualified as Ap (WrappedArrow)
 import Control.Arrow
 import Control.Lens hiding (chosen)
-import Control.Lens.Internal.Context
 import Control.Lens.Internal.Profunctor
 import Control.Lens.PartialIso
 import Control.Monad
@@ -121,11 +118,11 @@ class Monoidal p => Distributor p where
 
   {- | One or none. -}
   optionalP :: p a b -> p (Maybe a) (Maybe b)
-  optionalP p = eotMaybe >~ oneP >+< p
+  optionalP p = eotMaybe >~ p >+< oneP
 
   {- | Zero or more. -}
   manyP :: p a b -> p [a] [b]
-  manyP p = eotList >~ oneP >+< p >*< manyP p
+  manyP p = eotList >~ p >*< manyP p >+< oneP
 
 instance Distributor (->) where
   zeroP = id
@@ -308,9 +305,9 @@ instance Homogeneous Maybe where
 instance Homogeneous [] where
   homogeneously = manyP
 instance Homogeneous Vector where
-  homogeneously p = eotList >~ oneP >+< p >*< homogeneously p
+  homogeneously p = eotList >~ p >*< homogeneously p >+< oneP
 instance Homogeneous Seq where
-  homogeneously p = eotList >~ oneP >+< p >*< homogeneously p
+  homogeneously p = eotList >~ p >*< homogeneously p >+< oneP
 instance Homogeneous Complex where
   homogeneously p = dimap2 realPart imagPart (:+) p p
 instance Homogeneous Tree where
@@ -354,6 +351,10 @@ class (Choice p, Distributor p, forall x. Alternative (p x))
     someP :: p a b -> p [a] [b]
     someP x = x >:< manyP x
 
+    {- | Zero or one, with a default bidirectional element for the zero case. -}
+    optionP :: APrism a b () () -> p a b -> p a b
+    optionP def p = p <|> pureP def
+
 -- | `malternate` gives an equivalent to `alternate` when `Monadic`.
 --
 -- prop> alternate = malternate
@@ -369,14 +370,6 @@ malternate =
 -- | Combines all `Alternative` choices in the specified list.
 choice :: (Foldable f, Alternative p) => f (p a) -> p a
 choice = foldl' (<|>) empty
-
--- | Return a default bidirectional element
--- or perform an `Alternative` action.
-optionP
-  :: Alternator p
-  => APrism a b () () -- ^ default bidirection element
-  -> p a b -> p a b
-optionP def p = pureP def <|> p
 
 instance (Alternator p, Applicative f)
   => Alternator (WrappedPafb f p) where
@@ -437,7 +430,7 @@ several
   :: (IsList s, IsList t, Distributor p)
   => SepBy (p () ()) -> p (Item s) (Item t) -> p s t
 several (SepBy beg end sep) p = iso toList fromList . eotList >~
-  beg >* (oneP >+< p >*< manyP (sep >* p)) *< end
+  beg >* (p >*< manyP (sep >* p) >+< oneP) *< end
 
 {- |
 prop> several1 noSep = someP
@@ -480,17 +473,3 @@ intercalateP n (SepBy beg end _) _ | n <= 0 =
   beg >* asEmpty *< end
 intercalateP n (SepBy beg end comma) p =
   beg >* p >:< replicateP (n-1) (comma >* p) *< end
-
-{- | Add a `SepBy` to `meander` using `ambulate`. -}
-ambulate
-  :: (Monoidal p, Choice p)
-  => ATraversal s t a b -> SepBy (p () ()) -> p a b -> p s t
-ambulate f (SepBy sep beg end) p = dimap (f sell) iextract $
-  beg >* ambulating (sepBy sep) {endBy = end} p
-  where
-    ambulating
-      :: (Monoidal q, Choice q)
-      => SepBy (q () ())
-      -> q u v -> q (Bazaar (->) u w x) (Bazaar (->) v w x)
-    ambulating (SepBy sep' _ end') q =
-      eotFunList >~ right' (q >*< sep' >* ambulating (sepBy sep') q *< end')
