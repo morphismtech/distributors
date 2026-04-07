@@ -41,6 +41,7 @@ library
       Control.Lens.Monocle
       Control.Lens.PartialIso
       Control.Lens.Wither
+      Control.Monad.Fail.Try
       Data.Profunctor.Distributor
       Data.Profunctor.Filtrator
       Data.Profunctor.Grammar

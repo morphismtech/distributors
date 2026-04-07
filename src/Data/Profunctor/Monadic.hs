@@ -28,13 +28,11 @@ module Data.Profunctor.Monadic
   , return
     -- * MonadicTry
   , MonadicTry
-  , MonadTry (..)
-  , MonadFail (..)
-  , MonadPlus (..)
   ) where
 
 import Control.Lens
 import Control.Monad hiding ((>>=), (>>), return)
+import Control.Monad.Fail.Try
 import Data.Profunctor.Monoidal
 import Prelude hiding ((>>=), (>>), return)
 
@@ -68,9 +66,3 @@ return = pureP
 
 {- | A `Profunctor` which is also a `MonadTry`. -}
 type MonadicTry p = (Profunctor p, forall x. MonadTry (p x))
-
-{- | `MonadTry`. -}
-class (MonadFail m, MonadPlus m) => MonadTry m where
-  try :: m a -> m a
-  default try :: m a -> m a
-  try = id

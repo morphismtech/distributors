@@ -30,13 +30,13 @@ import Control.Lens.Grammar.Kleene
 import Control.Lens.Grammar.Symbol
 import Control.Lens.Grammar.Token
 import Control.Monad
+import Control.Monad.Fail.Try
 import Data.Coerce
 import Data.Monoid
 import Data.Profunctor
 import Data.Profunctor.Distributor
 import Data.Profunctor.Filtrator
 import Data.Profunctor.Monoidal
-import Data.Profunctor.Monadic (MonadTry (..))
 import Data.Void
 import Prelude hiding (id, (.))
 import GHC.Exts
