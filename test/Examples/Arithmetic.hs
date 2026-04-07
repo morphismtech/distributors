@@ -13,6 +13,7 @@ import Control.Lens.Grammar.Token
 import Control.Lens.PartialIso
 import Data.Profunctor.Distributor
 import Data.Profunctor.Monoidal
+import Data.Profunctor.Separator
 import Numeric.Natural
 
 data Arith

@@ -10,6 +10,7 @@ import Control.Lens.Grammar.Token
 import Control.Lens.PartialIso
 import Data.Profunctor.Distributor
 import qualified Data.Profunctor.Monadic as P
+import Data.Profunctor.Separator
 import Numeric.Natural
 
 data LenVec = LenVec {length :: Natural, vector :: [Natural]}

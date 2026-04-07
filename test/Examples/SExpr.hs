@@ -13,6 +13,7 @@ import Control.Lens.Grammar.Token
 import Control.Lens.PartialIso hiding (List)
 import Data.Profunctor.Distributor
 import Data.Profunctor.Monoidal
+import Data.Profunctor.Separator
 
 -- | Abstract syntax tree for S-expressions
 data SExpr

@@ -27,6 +27,7 @@ module Control.Lens.Diopter
 import Control.Lens
 import Control.Lens.Internal.Profunctor
 import Data.Profunctor.Distributor
+import Data.Traversable.Homogeneous
 import Data.Void
 import GHC.Generics
 

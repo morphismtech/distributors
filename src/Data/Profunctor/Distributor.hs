@@ -15,17 +15,6 @@ module Data.Profunctor.Distributor
   , Alternator (..)
   , malternate
   , choice
-    -- * SepBy
-  , SepBy (..)
-  , sepBy
-  , noSep
-  , several
-  , several1
-  , chain
-  , chain1
-  , intercalateP
-    -- * Homogeneous
-  , Homogeneous (..)
   ) where
 
 import Control.Applicative hiding (WrappedArrow)
@@ -38,14 +27,9 @@ import Control.Monad
 import Data.Bifunctor.Clown
 import Data.Bifunctor.Joker
 import Data.Bifunctor.Product
-import Data.Complex
 import Data.Foldable hiding (toList)
 import Data.Functor.Adjunction
-import Data.Functor.Compose
 import Data.Functor.Contravariant.Divisible
-import qualified Data.Functor.Product as Functor
-import qualified Data.Functor.Sum as Functor
-import qualified Data.Monoid as Monoid
 import Data.Profunctor hiding (WrappedArrow)
 import Data.Profunctor qualified as Pro (WrappedArrow)
 import Data.Profunctor.Cayley
@@ -54,14 +38,7 @@ import Data.Profunctor.Monad
 import Data.Profunctor.Monadic
 import Data.Profunctor.Monoidal
 import Data.Profunctor.Yoneda
-import Data.Proxy
-import Data.Sequence (Seq)
-import Data.Tagged
-import Data.Tree (Tree (..))
-import Data.Vector (Vector)
 import Data.Void
-import GHC.Exts
-import GHC.Generics
 
 -- Distributor --
 
@@ -205,114 +182,6 @@ dialt
   -> p a b -> p c d -> p s t
 dialt f g h p q = dimap f (either g h) (p >+< q)
 
-{- | A class of `Homogeneous`
-countable sums of countable products.
--}
-class Traversable t => Homogeneous t where
-  {- | Sequences actions `homogeneously`.
-
-  prop> homogeneously @Maybe = optionalP
-  prop> homogeneously @[] = manyP
-
-  Any `Traversable` & `Data.Distributive.Distributive` countable product
-  can be given a default implementation for the `homogeneously` method.
-
-  prop> homogeneously = ditraverse
-
-  And any user-defined homogeneous algebraic datatype has
-  a default instance for `Homogeneous`, by deriving `Generic1`.
-  -}
-  homogeneously :: Distributor p => p a b -> p (t a) (t b)
-  default homogeneously
-    :: (Generic1 t, Homogeneous (Rep1 t), Distributor p)
-    => p a b -> p (t a) (t b)
-  homogeneously = dimap from1 to1 . homogeneously
-instance Homogeneous Par1 where
-  homogeneously = dimap unPar1 Par1
-instance Homogeneous Identity where
-  homogeneously = dimap runIdentity Identity
-instance Homogeneous Monoid.Dual where
-  homogeneously = dimap Monoid.getDual Monoid.Dual
-instance Homogeneous Monoid.Product where
-  homogeneously = dimap Monoid.getProduct Monoid.Product
-instance Homogeneous Monoid.Sum where
-  homogeneously = dimap Monoid.getSum Monoid.Sum
-instance Homogeneous (Tagged s) where
-  homogeneously = dimap unTagged Tagged
-instance Homogeneous U1 where
-  homogeneously _ = pure U1
-instance Homogeneous (K1 i ()) where
-  homogeneously _ = pure (K1 ())
-instance Homogeneous (Const ()) where
-  homogeneously _ = pure (Const ())
-instance Homogeneous Proxy where
-  homogeneously _ = pure Proxy
-instance (Homogeneous s, Homogeneous t)
-  => Homogeneous (s :.: t) where
-    homogeneously
-      = dimap unComp1 Comp1
-      . homogeneously . homogeneously
-instance (Homogeneous s, Homogeneous t)
-  => Homogeneous (Compose s t) where
-    homogeneously
-      = dimap getCompose Compose
-      . homogeneously . homogeneously
-instance (Homogeneous s, Homogeneous t)
-  => Homogeneous (s :*: t) where
-    homogeneously p = dimap2
-      (\(s :*: _) -> s)
-      (\(_ :*: t) -> t)
-      (:*:)
-      (homogeneously p)
-      (homogeneously p)
-instance (Homogeneous s, Homogeneous t)
-  => Homogeneous (Functor.Product s t) where
-    homogeneously p = dimap2
-      (\(Functor.Pair s _) -> s)
-      (\(Functor.Pair _ t) -> t)
-      Functor.Pair
-      (homogeneously p)
-      (homogeneously p)
-instance Homogeneous V1 where
-  homogeneously _ = dimap (\case) (\case) zeroP
-instance Homogeneous (K1 i Void) where
-  homogeneously _ = dimap unK1 K1 zeroP
-instance Homogeneous (Const Void) where
-  homogeneously _ = dimap getConst Const zeroP
-instance (Homogeneous s, Homogeneous t)
-  => Homogeneous (s :+: t) where
-    homogeneously p = dialt
-      (\case {L1 s -> Left s; R1 t -> Right t})
-      L1
-      R1
-      (homogeneously p)
-      (homogeneously p)
-instance (Homogeneous s, Homogeneous t)
-  => Homogeneous (Functor.Sum s t) where
-    homogeneously p = dialt
-      (\case {Functor.InL s -> Left s; Functor.InR t -> Right t})
-      Functor.InL
-      Functor.InR
-      (homogeneously p)
-      (homogeneously p)
-instance Homogeneous t
-  => Homogeneous (M1 i c t) where
-    homogeneously = dimap unM1 M1 . homogeneously
-instance Homogeneous f => Homogeneous (Rec1 f) where
-  homogeneously = dimap unRec1 Rec1 . homogeneously
-instance Homogeneous Maybe where
-  homogeneously = optionalP
-instance Homogeneous [] where
-  homogeneously = manyP
-instance Homogeneous Vector where
-  homogeneously p = eotList >~ p >*< homogeneously p >+< oneP
-instance Homogeneous Seq where
-  homogeneously p = eotList >~ p >*< homogeneously p >+< oneP
-instance Homogeneous Complex where
-  homogeneously p = dimap2 realPart imagPart (:+) p p
-instance Homogeneous Tree where
-  homogeneously p = dimap2 rootLabel subForest Node p (manyP (homogeneously p))
-
 -- Alternator --
 
 {- | The `Alternator` class co-extends `Choice` and `Distributor`,
@@ -397,79 +266,3 @@ instance Alternator p => Alternator (Yoneda p) where
   alternate (Left p) = proreturn (alternate (Left (proextract p)))
   alternate (Right p) = proreturn (alternate (Right (proextract p)))
   someP = proreturn . someP . proextract
-
-{- | Used to sequence multiple times,
-separated by a `separateBy`,
-begun by a `beginBy`,
-and ended by an `endBy`. -}
-data SepBy p = SepBy
-  { beginBy :: p
-  , endBy :: p
-  , separateBy :: p
-  } deriving stock
-    ( Functor, Foldable, Traversable
-    , Eq, Ord, Show, Read
-    )
-
-{- | A `SepBy` smart constructor,
-setting the `separateBy` field,
-with no beginning or ending delimitors,
-except by updating `beginBy` or `endBy` fields. -}
-sepBy :: Monoidal p => p () () -> SepBy (p () ())
-sepBy = SepBy oneP oneP
-
-{- | A `SepBy` smart constructor for no separator,
-beginning or ending delimiters. -}
-noSep :: Monoidal p => SepBy (p () ())
-noSep = sepBy oneP
-
-{- |
-prop> several noSep = manyP
--}
-several
-  :: (IsList s, IsList t, Distributor p)
-  => SepBy (p () ()) -> p (Item s) (Item t) -> p s t
-several (SepBy beg end sep) p = iso toList fromList . eotList >~
-  beg >* (p >*< manyP (sep >* p) >+< oneP) *< end
-
-{- |
-prop> several1 noSep = someP
--}
-several1
-  :: (IsList s, IsList t, Distributor p, Choice p)
-  => SepBy (p () ()) -> p (Item s) (Item t) -> p s t
-several1 (SepBy beg end sep) p = iso toList fromList . _Cons >?
-  beg >* (p >*< manyP (sep >* p)) *< end
-
-{- | Use a nilary constructor pattern to sequence zero times, or
-associate a binary constructor pattern to sequence one or more times. -}
-chain
-  :: Alternator p
-  => (forall x. x -> Either x x) -- ^ `Left` or `Right` associate
-  -> APartialIso a b (a,a) (b,b) -- ^ binary constructor pattern
-  -> APrism a b () () -- ^ nilary constructor pattern
-  -> SepBy (p () ()) -> p a b -> p a b
-chain association pat2 pat0 (SepBy beg end sep) p =
-  beg >* optionP pat0 (chain1 association pat2 (sepBy sep) p) *< end
-
-{- | Associate a binary constructor pattern to sequence one or more times. -}
-chain1
-  :: (Distributor p, Choice p)
-  => (forall x. x -> Either x x) -- ^ `Left` or `Right` associate
-  -> APartialIso a b (a,a) (b,b) -- ^ binary constructor pattern
-  -> SepBy (p () ()) -> p a b -> p a b
-chain1 association pat (SepBy beg end sep) = leftOrRight chainl1 chainr1
-  where
-    leftOrRight a b = case association () of Left _ -> a; Right _ -> b
-    chainl1 p = difoldl pat >? beg >* p >*< manyP (sep >* p) *< end
-    chainr1 p = difoldr pat >? beg >* manyP (p *< sep) >*< p *< end
-
-{- | Add a `SepBy` to `replicateP` using `intercalateP`. -}
-intercalateP
-  :: (Monoidal p, Choice p, AsEmpty s, Cons s s a a)
-  => Int {- ^ number of repetitions -}
-  -> SepBy (p () ()) -> p a a -> p s s
-intercalateP n (SepBy beg end _) _ | n <= 0 =
-  beg >* asEmpty *< end
-intercalateP n (SepBy beg end comma) p =
-  beg >* p >:< replicateP (n-1) (comma >* p) *< end

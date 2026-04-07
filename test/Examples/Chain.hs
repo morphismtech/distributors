@@ -11,8 +11,8 @@ import Control.Lens.Grammar.BackusNaur
 import Control.Lens.Grammar.Symbol
 import Control.Lens.Grammar.Token
 import Control.Lens.PartialIso
-import Data.Profunctor.Distributor
 import Data.Profunctor.Monoidal
+import Data.Profunctor.Separator
 
 data Chain
   = Emp

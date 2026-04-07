@@ -50,6 +50,7 @@ import Data.Profunctor.Monadic
 import Data.Profunctor.Monoidal
 import Data.Profunctor.Grammar
 import Data.Profunctor.Grammar.Parsector
+import Data.Profunctor.Separator
 import Data.String
 import GHC.Exts
 import Prelude hiding (filter)

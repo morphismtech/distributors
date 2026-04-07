@@ -15,6 +15,7 @@ import Control.Lens.Grammar.Token
 import Control.Lens.PartialIso
 import Data.Profunctor.Distributor
 import Data.Profunctor.Monoidal
+import Data.Profunctor.Separator
 import qualified Data.Map.Strict as Map
 import Data.Map.Strict (Map)
 import Numeric.Natural
