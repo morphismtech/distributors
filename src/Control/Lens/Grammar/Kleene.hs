@@ -74,9 +74,9 @@ anyK f = foldl' (\b a -> b >|< f a) zeroK
 
 -- | The `RegEx`pression type is the prototypical `KleeneStarAlgebra`.
 data RegEx token
-  = Epsilon
-  | NonTerminal String
+  = SeqEmpty
   | Sequence (RegEx token) (RegEx token)
+  | NonTerminal String
   | KleeneStar (RegEx token)
   | KleeneOpt (RegEx token)
   | KleenePlus (RegEx token)
@@ -186,10 +186,10 @@ instance Categorized token => TokenAlgebra token (RegEx token) where
     Alternate exam1 exam2 ->
       RegExam (Alternate (tokenClass exam1) (tokenClass exam2))
 instance Categorized token => Monoid (RegEx token) where
-  mempty = Epsilon
+  mempty = SeqEmpty
 instance Categorized token => Semigroup (RegEx token) where
-  Epsilon <> rex = rex
-  rex <> Epsilon = rex
+  SeqEmpty <> rex = rex
+  rex <> SeqEmpty = rex
   RegExam exam <> _ | isFailExam exam = zeroK
   _ <> RegExam exam | isFailExam exam = zeroK
   KleeneStar rex0 <> rex1 | rex0 == rex1 = plusK rex0
@@ -198,19 +198,19 @@ instance Categorized token => Semigroup (RegEx token) where
 instance Categorized token => KleeneStarAlgebra (RegEx token) where
   zeroK = RegExam failExam
   optK (RegExam exam) | isFailExam exam = mempty
-  optK Epsilon = mempty
+  optK SeqEmpty = mempty
   optK (KleenePlus rex) = starK rex
   optK rex = KleeneOpt rex
   starK (RegExam exam) | isFailExam exam = mempty
-  starK Epsilon = mempty
+  starK SeqEmpty = mempty
   starK rex = KleeneStar rex
   plusK (RegExam exam) | isFailExam exam = zeroK
-  plusK Epsilon = mempty
+  plusK SeqEmpty = mempty
   plusK rex = KleenePlus rex
-  KleenePlus rex >|< Epsilon = starK rex
-  Epsilon >|< KleenePlus rex = starK rex
-  rex >|< Epsilon = optK rex
-  Epsilon >|< rex = optK rex
+  KleenePlus rex >|< SeqEmpty = starK rex
+  SeqEmpty >|< KleenePlus rex = starK rex
+  rex >|< SeqEmpty = optK rex
+  SeqEmpty >|< rex = optK rex
   rex >|< RegExam exam | isFailExam exam = rex
   RegExam exam >|< rex | isFailExam exam = rex
   rex0 >|< rex1 | Just tokenOr <- maybeOr = tokenClass tokenOr
@@ -341,7 +341,7 @@ instance (Categorized token, HasTrie token)
       , notOneOfTrie = trie (f . testNotOneOf)
       }
     untrie rex = \case
-      Epsilon -> epsilonTrie rex
+      SeqEmpty -> epsilonTrie rex
       NonTerminal name -> untrie (nonTerminalTrie rex) name
       Sequence x1 x2 -> untrie (sequenceTrie rex) (x1,x2)
       KleeneStar x -> untrie (kleeneStarTrie rex) x
@@ -355,7 +355,7 @@ instance (Categorized token, HasTrie token)
           (Set.toList chars, Right (Set.toList (Set.map fromEnum cats)))
       RegExam (Alternate x1 x2) -> untrie (alternateTrie rex) (x1,x2)
     enumerate rex = mconcat
-      [ [(Epsilon, epsilonTrie rex)]
+      [ [(SeqEmpty, epsilonTrie rex)]
       , first' NonTerminal <$> enumerate (nonTerminalTrie rex)
       , first' (uncurry Sequence) <$> enumerate (sequenceTrie rex)
       , first' (RegExam . uncurry Alternate) <$> enumerate (alternateTrie rex)
