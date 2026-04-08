@@ -83,14 +83,18 @@ data ParsecState s a = ParsecState
     -}
   }
 
-{- | `ParsecError` is the error payload inside a failed `ParsecState`.
+{- | `ParsecError` is the error payload
+inside a failed `ParsecState`.
 -}
 data ParsecError s = ParsecError
   { parsecExpect :: TokenClass (Item s)
-    -- ^ class of expected token `Item`s at the failure offset
+    {- ^ class of expected token `Item`s at the failure offset;
+    `tokenClass`es and `Tokenized` combinators specify
+    expectations, `<|>` merges them through disjunction `>||<`.
+    -}
   , parsecLabels :: [Tree String]
     {- ^ forest of `rule` labels active at failure;
-    nested @`rule`@ calls build children, @('<|>')@ merges siblings.
+    nested @`rule`@ calls build children, `<|>` merges siblings.
     -}
   }
 
