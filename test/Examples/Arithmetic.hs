@@ -21,9 +21,9 @@ arithGrammar :: Grammar Char Arith
 arithGrammar = ruleRec "arith" sumG
   where
     sumG arith = rule "sum" $
-      chain1 Left _Add (sepBy (terminal "+")) (prodG arith)
+      chain1 Left _Add (sepWith "+") (prodG arith)
     prodG arith = rule "product" $
-      chain1 Left _Mul (sepBy (terminal "*")) (factorG arith)
+      chain1 Left _Mul (sepWith "*") (factorG arith)
     factorG arith = rule "factor" $
       number <|> terminal "(" >* arith *< terminal ")"
     number = rule "number" $

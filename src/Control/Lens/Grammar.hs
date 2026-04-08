@@ -59,7 +59,6 @@ import Prelude hiding (filter)
 import Witherable
 
 -- Re-exports
-import Control.Applicative as X
 import Control.Lens.Grammar.BackusNaur as X
 import Control.Lens.Grammar.Boole as X
 import Control.Lens.Grammar.Kleene as X
@@ -125,7 +124,7 @@ semverGrammar = _SemVer
   >*< optionP _Empty (terminal "+" >* identifiersG)
   where
     numberG = iso show read >~ someP (asIn @Char DecimalNumber)
-    identifiersG = several1 (sepBy (terminal ".")) (someP charG)
+    identifiersG = several1 (sepWith ".") (someP charG)
     charG = asIn LowercaseLetter
       <|> asIn UppercaseLetter
       <|> asIn DecimalNumber
@@ -237,9 +236,9 @@ arithGrammar :: Grammar Char Arith
 arithGrammar = ruleRec "arith" sumG
   where
     sumG arith = rule "sum" $
-      chain1 Left _Add (sepBy (terminal "+")) (prodG arith)
+      chain1 Left _Add (sepWith "+") (prodG arith)
     prodG arith = rule "product" $
-      chain1 Left _Mul (sepBy (terminal "*")) (factorG arith)
+      chain1 Left _Mul (sepWith "*") (factorG arith)
     factorG arith = rule "factor" $
       numberG <|> terminal "(" >* arith *< terminal ")"
     numberG = rule "number" $
@@ -299,7 +298,7 @@ lenvecGrammar :: CtxGrammar Char LenVec
 lenvecGrammar = _LenVec >? P.do
   let
     numberG = iso show read >~ someP (asIn @Char DecimalNumber)
-    vectorG n = intercalateP n (sepBy (terminal ",")) numberG
+    vectorG n = intercalateP n (sepWith ",") numberG
   len <- numberG             -- bonds to _LenVec
   terminal ";"               -- doesn't bond
   vectorG (fromIntegral len) -- bonds to _LenVec
@@ -561,7 +560,7 @@ regexGrammar :: Grammar Char RegString
 regexGrammar = _RegString >~ ruleRec "regex" altG
   where
     altG rex = rule "alternate" $
-      chain1 Left (_RegExam . _Alternate) (sepBy (terminal "|")) (seqG rex)
+      chain1 Left (_RegExam . _Alternate) (sepWith "|") (seqG rex)
 
     seqG rex = rule "sequence" $
       chain Left _Sequence _SeqEmpty noSep (exprG rex)
@@ -619,10 +618,9 @@ regexGrammar = _RegString >~ ruleRec "regex" altG
 
     classCatG = rule "class-category" $ choice
       [ _AsIn >? terminal "\\p{" >* categoryG *< terminal "}"
-      , _NotAsIn >? several1 (sepBy (terminal "|"))
-          { beginBy = terminal "\\P{"
-          , endBy = terminal "}"
-          } categoryG
+      , _NotAsIn >? several1
+          (sepWith "|" & beginWith "\\P{" & endWith "}")
+          categoryG
       ]
 
     classOneOfG = rule "class-one-of" $ choice

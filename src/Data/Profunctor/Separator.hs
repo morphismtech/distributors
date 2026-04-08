@@ -9,9 +9,14 @@ Portability : non-portable
 -}
 
 module Data.Profunctor.Separator
-  ( SepBy (..)
+  ( -- * SepBy
+    SepBy (..)
   , sepBy
   , noSep
+  , sepWith
+  , beginWith
+  , endWith
+    -- * SepBy Combinators
   , several
   , several1
   , chain
@@ -21,6 +26,7 @@ module Data.Profunctor.Separator
 
 import Control.Lens
 import Control.Lens.PartialIso
+import Control.Lens.Grammar.Symbol
 import Data.Profunctor.Distributor
 import Data.Profunctor.Monoidal
 import GHC.Exts
@@ -39,18 +45,35 @@ data SepBy p = SepBy
     )
 
 {- | A `SepBy` smart constructor,
-setting the `separateBy` field,
-with no beginning or ending delimitors,
-except by updating `beginBy` or `endBy` fields. -}
+setting the `separateBy` field.
+Beginning and ending delimitors will be no-ops,
+except by modifier record updates `beginBy` or `endBy`. -}
 sepBy :: Applicative p => p () -> SepBy (p ())
 sepBy = SepBy (pure ()) (pure ())
 
--- sepWith :: (Monoidal p, TerminalSymbol c (p () ())) => 
-
 {- | A `SepBy` smart constructor for no separator,
 beginning or ending delimiters. -}
-noSep :: Monoidal p => SepBy (p () ())
-noSep = sepBy oneP
+noSep :: Applicative p => SepBy (p ())
+noSep = sepBy (pure ())
+
+{- | A `SepBy` smart constructor like `sepBy`,
+with a `terminal` argument.
+Beginning and ending delimitors will be no-ops,
+except by applying smart modifiers `beginWith` or `endWith`. -}
+sepWith
+  :: (Applicative p, TerminalSymbol c (p ()))
+  => [c] -> SepBy (p ())
+sepWith = sepBy . terminal
+
+{- | A `SepBy` smart modifier like `beginBy`,
+with a `terminal` argument. -}
+beginWith :: TerminalSymbol c p => [c] -> SepBy p -> SepBy p
+beginWith str separator = separator {beginBy = terminal str}
+
+{- | A `SepBy` smart modifier like `endBy`,
+with a `terminal` argument. -}
+endWith :: TerminalSymbol c p => [c] -> SepBy p -> SepBy p
+endWith str separator = separator {endBy = terminal str}
 
 {- |
 prop> several noSep = manyP

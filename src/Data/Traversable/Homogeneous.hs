@@ -9,7 +9,8 @@ Portability : non-portable
 -}
 
 module Data.Traversable.Homogeneous
-  ( Homogeneous (..)
+  ( -- * Homogeneous
+    Homogeneous (..)
   ) where
 
 import Control.Applicative
@@ -41,7 +42,8 @@ class Traversable t => Homogeneous t where
   prop> homogeneously @[] = manyP
 
   Any `Traversable` & `Data.Distributive.Distributive` countable product
-  can be given a default implementation for the `homogeneously` method.
+  can be given a default implementation for the `homogeneously` method
+  with `ditraverse`.
 
   prop> homogeneously = ditraverse
 

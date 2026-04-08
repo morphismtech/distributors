@@ -53,7 +53,7 @@ jsonGrammar = ruleRec "json" elementG
 
     -- members = member | member ',' members
     membersG json = rule "members" $
-      several1 (sepBy (terminal ",")) (memberG json)
+      several1 (sepWith ",") (memberG json)
 
     -- member = ws string ws ':' element
     memberG json = rule "member" $
@@ -67,7 +67,7 @@ jsonGrammar = ruleRec "json" elementG
 
     -- elements = element | element ',' elements
     elementsG json = rule "elements" $
-      several1 (sepBy (terminal ",")) (elementG json)
+      several1 (sepWith ",") (elementG json)
 
     -- string = '"' characters '"'
     stringG = rule "string" $

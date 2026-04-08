@@ -9,11 +9,17 @@ Portability : non-portable
 -}
 
 module Control.Monad.Fail.Try
-  ( MonadTry (..)
+  ( -- * MonadTry
+    MonadTry (..)
+    -- * MonadFail
   , MonadFail (..)
+    -- * MonadPlus
   , MonadPlus (..)
+    -- * Alternative
+  , Alternative (..)
   ) where
 
+import Control.Applicative
 import Control.Monad
 
 {- | `MonadTry` implements `fail` & `try` and
