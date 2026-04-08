@@ -199,13 +199,19 @@ instance Categorized (Item s) => MonadPlus (Parsector s a) where
   mplus p q = Parsector $ \callback query ->
     flip (runParsector p) query $ \replyP -> callback $
       case parsecResult replyP of
+        -- if p succeeds do p's branch,
         Right _ -> replyP
+        -- otherwise,
         Left errP -> flip (runParsector q) query $ \replyQ ->
           case parsecResult replyQ of
+            -- if q succeeds do q's branch,
             Right _ -> replyQ
+            -- otherwise,
             Left errQ ->
+              -- do the longer branch,
               case (compare `on` parsecOffset) replyP replyQ of
                 LT -> replyQ
+                -- merging errors on ties.
                 EQ -> replyP {parsecResult = Left (errP <> errQ)}
                 GT -> replyP
 instance Categorized (Item s) => MonadFail (Parsector s a) where
