@@ -1,6 +1,6 @@
 {-|
 Module      : Data.Traversable.Homogeneous
-Description : distributors
+Description : homogeneous
 Copyright   : (C) 2026 - Eitan Chatav
 License     : BSD-style (see the file LICENSE)
 Maintainer  : Eitan Chatav <eitan.chatav@gmail.com>

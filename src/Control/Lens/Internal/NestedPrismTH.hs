@@ -42,7 +42,7 @@ import Prelude
 -- The difference in `makeNestedPrisms`
 -- is that constructors with @n > 2@ arguments
 -- will use right-nested pairs, rather than a flat @n@-tuple.
--- This makes them suitable for bonding,
+-- This makes them suitable for pattern bonding,
 -- by use of the applicator `Control.Lens.PartialIso.>?`
 -- to `Data.Profunctor.Monoidal.Monoidal` idiom notation
 -- with `Data.Profunctor.Monoidal.>*<`,

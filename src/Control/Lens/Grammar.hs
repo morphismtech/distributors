@@ -94,11 +94,15 @@ data SemVer = SemVer          -- e.g., 2.1.5-rc.1+build.123
 
 We'd like to define an optic @_SemVer@,
 corresponding to the constructor pattern @SemVer@.
+You _could_ generate it with the TemplateHaskell combinator,
+`makeNestedPrisms`.
+
+@makeNestedPrisms ''SemVer@
+
 Unfortunately, we can't use TemplateHaskell to generate it in [GHCi]
 (https://wiki.haskell.org/GHC/GHCi),
 which is used to test this documenation.
-Normally we would write `makeNestedPrisms` @''SemVer@,
-but here is equivalent explicit Haskell code instead.
+Here is equivalent Haskell code instead.
 Since @SemVer@ has only one constructor,
 @_SemVer@ can be an `Control.Lens.Iso.Iso`.
 

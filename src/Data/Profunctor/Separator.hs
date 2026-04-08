@@ -1,6 +1,6 @@
 {-|
 Module      : Data.Profunctor.Separator
-Description : distributors
+Description : separators
 Copyright   : (C) 2026 - Eitan Chatav
 License     : BSD-style (see the file LICENSE)
 Maintainer  : Eitan Chatav <eitan.chatav@gmail.com>

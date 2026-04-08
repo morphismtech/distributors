@@ -1,6 +1,6 @@
 {-|
 Module      : Data.Profunctor.Grammar.Parsector
-Description : Parsec-style invertible parser profunctor
+Description : lookahead grammar distributor
 Copyright   : (C) 2026 - Eitan Chatav
 License     : BSD-style (see the file LICENSE)
 Maintainer  : Eitan Chatav <eitan.chatav@gmail.com>
