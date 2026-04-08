@@ -11,10 +11,10 @@ Portability : non-portable
 module Data.Profunctor.Grammar.Parsector
   ( -- * Parsector
     Parsector (..)
-  , ParsecState (..)
-  , ParsecError (..)
   , parsecP
   , unparsecP
+  , ParsecState (..)
+  , ParsecError (..)
   ) where
 
 import Control.Applicative
@@ -73,7 +73,7 @@ interpretation as input and output.
 -}
 data ParsecState s a = ParsecState
   { parsecOffset :: !Word
-    -- ^ number of tokens either parsed or printed
+    -- ^ token offset number
   , parsecStream :: s -- ^ input and output stream
   , parsecResult :: Either (ParsecError s) a
     {- ^ As an input @parsecResult@ represents either parse mode,
@@ -84,16 +84,19 @@ data ParsecState s a = ParsecState
   }
 
 {- | `ParsecError` is the error payload
-inside a failed `ParsecState`.
+inside a failed `parsecResult` of a `ParsecState` output,
+at a specific `parsecOffset`.
 -}
 data ParsecError s = ParsecError
   { parsecExpect :: TokenClass (Item s)
-    {- ^ class of expected token `Item`s at the failure offset;
+    {- ^ Class of expected token `Item`s at the failure offset;
     `tokenClass`es and `Tokenized` combinators specify
-    expectations, `<|>` merges them through disjunction `>||<`.
+    expectations, `<|>` merges them via disjunction `>||<`.
+    It is to be contrasted with the actual `parsecStream`,
+    which is either empty or begins with an unexpected token.
     -}
   , parsecLabels :: [Tree String]
-    {- ^ forest of `rule` labels active at failure;
+    {- ^ Forest of `rule` labels active at failure;
     nested @`rule`@ calls build children, `<|>` merges siblings.
     -}
   }
