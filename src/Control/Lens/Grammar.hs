@@ -362,7 +362,7 @@ type CtxGrammar token a = forall p.
   , forall x. BackusNaurForm (p x x)
   , Alternator p
   , Filtrator p
-  , Monadic p
+  , MonadicTry p
   ) => p a a
 
 {- |
