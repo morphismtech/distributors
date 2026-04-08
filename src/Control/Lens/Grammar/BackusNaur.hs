@@ -106,10 +106,10 @@ diffB prefix (Bnf start rules) =
       KleenePlus y -> diff1B x y <> starK y
       RegExam (OneOf chars) ->
         if x `elem` chars then mempty else zeroK
-      RegExam (NotOneOf chars (AsIn cat)) ->
+      RegExam (NotOneOf chars (AndAsIn cat)) ->
         if elem x chars || categorize x /= cat
           then zeroK else mempty
-      RegExam (NotOneOf chars (NotAsIn cats)) ->
+      RegExam (NotOneOf chars (AndNotAsIn cats)) ->
         if elem x chars || elem (categorize x) cats
           then zeroK else mempty
       RegExam (Alternate y1 y2) -> diff1B x y1 >|< diff1B x y2
