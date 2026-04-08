@@ -818,7 +818,7 @@ parsecG
   => (Item string ~ token, Categorized token)
   => CtxGrammar token a
   -> string {- ^ input -}
-  -> Reply string a
+  -> ParsecState string a
 parsecG parsector = parsecP parsector
 
 {- | `unparsecG` generates a Parsec-style unparser from a `CtxGrammar`. -}
@@ -828,7 +828,7 @@ unparsecG
   => CtxGrammar token a
   -> a {- ^ syntax -}
   -> string {- ^ input -}
-  -> Reply string a
+  -> ParsecState string a
 unparsecG parsector = unparsecP parsector
 
 {- | `putStringLn` is a utility that generalizes `putStrLn`
