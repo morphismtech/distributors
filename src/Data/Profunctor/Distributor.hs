@@ -13,7 +13,6 @@ module Data.Profunctor.Distributor
     Distributor (..), dialt
     -- * Alternator
   , Alternator (..)
-  , malternate
   , choice
   ) where
 
@@ -23,7 +22,6 @@ import Control.Arrow
 import Control.Lens hiding (chosen)
 import Control.Lens.Internal.Profunctor
 import Control.Lens.PartialIso
-import Control.Monad
 import Data.Bifunctor.Clown
 import Data.Bifunctor.Joker
 import Data.Bifunctor.Product
@@ -35,7 +33,6 @@ import Data.Profunctor qualified as Pro (WrappedArrow)
 import Data.Profunctor.Cayley
 import Data.Profunctor.Composition
 import Data.Profunctor.Monad
-import Data.Profunctor.Monadic
 import Data.Profunctor.Monoidal
 import Data.Profunctor.Yoneda
 import Data.Void
@@ -223,18 +220,6 @@ class (Choice p, Distributor p, forall x. Alternative (p x))
     {- | Zero or one, with a default bidirectional element for the zero case. -}
     optionP :: APrism a b () () -> p a b -> p a b
     optionP def p = p <|> pureP def
-
--- | `malternate` gives an equivalent to `alternate` when `Monadic`.
---
--- prop> alternate = malternate
-malternate
-  :: (Monadic p, Alternator p)
-  => Either (p a b) (p c d) -- ^ `Left` or `Right` alternates
-  -> p (Either a c) (Either b d)
-malternate =
-  (left' >=> either (pure . Left) (const empty))
-  |||
-  (right' >=> either (const empty) (pure . Right))
 
 -- | Combines all `Alternative` choices in the specified list.
 choice :: (Foldable f, Alternative p) => f (p a) -> p a

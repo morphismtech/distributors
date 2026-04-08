@@ -61,7 +61,7 @@ class (Cochoice p, forall x. Filterable (p x))
       &&&
       dimapMaybe (Just . Right) (either (const Nothing) Just)
 
--- | Similar to `malternate`, a `Monadic` `Alternator` has
+-- | A `Monadic` `Alternator` has
 -- an equivalent to `filtrate`, given by `mfiltrate`.
 --
 -- prop> filtrate = mfiltrate
