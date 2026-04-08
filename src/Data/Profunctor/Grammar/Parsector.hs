@@ -57,30 +57,13 @@ short-circuits without entering @p@.
 newtype Parsector s a b = Parsector
   { runParsector :: forall x. (ParsecState s b -> x) -> ParsecState s a -> x }
 
-{- | `ParsecError` is the error payload inside a failed `ParsecState`.
--}
-data ParsecError s = ParsecError
-  { parsecExpect :: TokenClass (Item s)
-    -- ^ class of expected token `Item`s at the failure offset
-  , parsecLabels :: [Tree String]
-    {- ^ forest of `rule` labels active at failure;
-    nested @`rule`@ calls build children, @('<|>')@ merges siblings.
-    -}
-  }
-deriving stock instance
-  ( Categorized (Item s)
-  , Show (Item s), Show (Categorize (Item s))
-  ) => Show (ParsecError s)
-deriving stock instance
-  ( Categorized (Item s)
-  , Read (Item s), Read (Categorize (Item s))
-  ) => Read (ParsecError s)
-deriving stock instance Categorized (Item s) => Eq (ParsecError s)
-deriving stock instance Categorized (Item s) => Ord (ParsecError s)
-instance Categorized (Item s) => Semigroup (ParsecError s) where
-  ParsecError e1 l1 <> ParsecError e2 l2 = ParsecError (e1 >||< e2) (l1 ++ l2)
-instance Categorized (Item s) => Monoid (ParsecError s) where
-  mempty = ParsecError falseB []
+-- | `Parsector` is parsed using `parsecP`.
+parsecP :: Categorized (Item s) => Parsector s a b -> s -> ParsecState s b
+parsecP p s = runParsector p id (ParsecState 0 s (Left mempty))
+
+-- | `Parsector` is printed using `unparsecP`.
+unparsecP :: Parsector s a b -> a -> s -> ParsecState s b
+unparsecP p a s = runParsector p id (ParsecState 0 s (Right a))
 
 {- | `ParsecState` is the outpute type for `parsecP` & `unparsecP`.
 It's the fundamental building block of `Parsector`.
@@ -98,7 +81,39 @@ data ParsecState s a = ParsecState
     As an output @parsecResult@ represents either an error or
     a successful result with an output syntax value.
     -}
-  } deriving (Functor, Foldable, Traversable)
+  }
+
+{- | `ParsecError` is the error payload inside a failed `ParsecState`.
+-}
+data ParsecError s = ParsecError
+  { parsecExpect :: TokenClass (Item s)
+    -- ^ class of expected token `Item`s at the failure offset
+  , parsecLabels :: [Tree String]
+    {- ^ forest of `rule` labels active at failure;
+    nested @`rule`@ calls build children, @('<|>')@ merges siblings.
+    -}
+  }
+
+-- ParsecError instances
+deriving stock instance
+  ( Categorized (Item s)
+  , Show (Item s), Show (Categorize (Item s))
+  ) => Show (ParsecError s)
+deriving stock instance
+  ( Categorized (Item s)
+  , Read (Item s), Read (Categorize (Item s))
+  ) => Read (ParsecError s)
+deriving stock instance Categorized (Item s) => Eq (ParsecError s)
+deriving stock instance Categorized (Item s) => Ord (ParsecError s)
+instance Categorized (Item s) => Semigroup (ParsecError s) where
+  ParsecError e1 l1 <> ParsecError e2 l2 = ParsecError (e1 >||< e2) (l1 ++ l2)
+instance Categorized (Item s) => Monoid (ParsecError s) where
+  mempty = ParsecError falseB []
+
+-- ParsecState instances
+deriving stock instance Functor (ParsecState s)
+deriving stock instance Foldable (ParsecState s)
+deriving stock instance Traversable (ParsecState s)
 deriving stock instance
   ( Categorized (Item s)
   , Show (Item s), Show (Categorize (Item s))
@@ -117,14 +132,6 @@ deriving stock instance
   ( Categorized (Item s)
   , Ord a, Ord s
   ) => Ord (ParsecState s a)
-
--- | `Parsector` is parsed using `parsecP`.
-parsecP :: Categorized (Item s) => Parsector s a b -> s -> ParsecState s b
-parsecP p s = runParsector p id (ParsecState 0 s (Left mempty))
-
--- | `Parsector` is printed using `unparsecP`.
-unparsecP :: Parsector s a b -> a -> s -> ParsecState s b
-unparsecP p a s = runParsector p id (ParsecState 0 s (Right a))
 
 -- Parsector instances
 instance
