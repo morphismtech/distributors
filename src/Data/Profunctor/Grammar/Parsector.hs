@@ -61,7 +61,7 @@ newtype Parsector s a b = Parsector
 -}
 data ParsecError s = ParsecError
   { parsecExpect :: TokenClass (Item s)
-    -- ^ class of expected tokens at the failure offset
+    -- ^ class of expected token `Item`s at the failure offset
   , parsecLabels :: [Tree String]
     {- ^ forest of `rule` labels active at failure;
     nested @`rule`@ calls build children, @('<|>')@ merges siblings.
@@ -82,10 +82,10 @@ instance Categorized (Item s) => Semigroup (ParsecError s) where
 instance Categorized (Item s) => Monoid (ParsecError s) where
   mempty = ParsecError falseB []
 
-{- | `ParsecState` is the return type for `parsecP` & `unparsecP`.
+{- | `ParsecState` is the outpute type for `parsecP` & `unparsecP`.
 It's the fundamental building block of `Parsector`.
 @Parsector s a b@ is equivalent to
-@ParsecState s a -> ParsecState s b@, so it had a dual
+@ParsecState s a -> ParsecState s b@, so it has a dual
 interpretation as input and output.
 -}
 data ParsecState s a = ParsecState
