@@ -94,7 +94,7 @@ data ParsecState s a = ParsecState
   , parsecStream :: s -- ^ input and output stream
   , parsecResult :: Either (ParsecError s) a
     {- ^ As an input @parsecResult@ represents either parse mode,
-    `Left` `mempty`, or print mode with an input syntax value.
+    or print mode with an input syntax value.
     As an output @parsecResult@ represents either an error or
     a successful result with an output syntax value.
     -}
@@ -263,26 +263,7 @@ instance Strong (Parsector s) where
 instance Categorized (Item s) => Choice (Parsector s) where
   left' = alternate . Left
   right' = alternate . Right
-instance Categorized (Item s) => Distributor (Parsector s) where
-  manyP p = Parsector $ \callback query ->
-    case parsecResult query of
-      Left _ ->
-        let
-          queryP = query { parsecResult = Left mempty }
-        in
-          flip (runParsector (try p)) queryP $ \replyP ->
-            case parsecResult replyP of
-              Left _ ->
-                callback query { parsecResult = Right [] }
-              Right a ->
-                let
-                  queryM = replyP { parsecResult = Left mempty }
-                in
-                  flip (runParsector (manyP p)) queryM $
-                    \replyM -> callback replyM
-                      {parsecResult = (a:) <$> parsecResult replyM}
-      Right _ ->
-        runParsector (eotList >~ p >*< manyP p >+< oneP) callback query
+instance Categorized (Item s) => Distributor (Parsector s)
 instance Categorized (Item s) => Alternator (Parsector s) where
   alternate (Left p) = Parsector $ \callback query -> callback $
     let
