@@ -101,9 +101,9 @@ testCtxGrammarExample grammar (expectedSyntax, expectedString) = do
     let actualSyntax = parsecG grammar expectedString
     let expectedLength = genericLength expectedString
     actualSyntax `shouldBe`
-      (ParsecState expectedLength (Right expectedSyntax) "")
+      (ParsecState expectedLength "" (Right expectedSyntax))
   it ("should unparsecG to " <> expectedString <> " correctly") $ do
     let actualString = unparsecG grammar expectedSyntax ""
     let expectedLength = genericLength expectedString
     actualString `shouldBe`
-      (ParsecState expectedLength (Right expectedSyntax) expectedString)
+      (ParsecState expectedLength expectedString (Right expectedSyntax))

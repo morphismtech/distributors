@@ -62,7 +62,7 @@ newtype Parsector s a b = Parsector
 data ParsecError s = ParsecError
   { parsecExpect :: TokenClass (Item s)
     -- ^ class of expected tokens at the failure offset
-  , parsecLabels :: Forest String
+  , parsecLabels :: [Tree String]
     {- ^ forest of `rule` labels active at failure;
     nested @`rule`@ calls build children, @('<|>')@ merges siblings.
     -}
@@ -84,17 +84,20 @@ instance Categorized (Item s) => Monoid (ParsecError s) where
 
 {- | `ParsecState` is the return type for `parsecP` & `unparsecP`.
 It's the fundamental building block of `Parsector`.
+@Parsector s a b@ is equivalent to
+@ParsecState s a -> ParsecState s b@, so it had a dual
+interpretation as input and output.
 -}
 data ParsecState s a = ParsecState
   { parsecOffset :: !Word
     -- ^ number of tokens either parsed or printed
+  , parsecStream :: s -- ^ input and output stream
   , parsecResult :: Either (ParsecError s) a
-    {- ^ As an input @parsecResult@ represents either parse mode (@Left@),
-    or print mode with an input syntax value (@Right a@).
-    As an output @parsecResult@ represents either failure
-    (@Left err@) or success (@Right b@).
+    {- ^ As an input @parsecResult@ represents either parse mode,
+    `Left` `mempty`, or print mode with an input syntax value.
+    As an output @parsecResult@ represents either an error or
+    a successful result with an output syntax value.
     -}
-  , parsecStream :: s -- ^ both input and output stream
   } deriving (Functor, Foldable, Traversable)
 deriving stock instance
   ( Categorized (Item s)
@@ -117,11 +120,11 @@ deriving stock instance
 
 -- | `Parsector` is parsed using `parsecP`.
 parsecP :: Categorized (Item s) => Parsector s a b -> s -> ParsecState s b
-parsecP p s = runParsector p id (ParsecState 0 (Left mempty) s)
+parsecP p s = runParsector p id (ParsecState 0 s (Left mempty))
 
 -- | `Parsector` is printed using `unparsecP`.
 unparsecP :: Parsector s a b -> a -> s -> ParsecState s b
-unparsecP p a s = runParsector p id (ParsecState 0 (Right a) s)
+unparsecP p a s = runParsector p id (ParsecState 0 s (Right a))
 
 -- Parsector instances
 instance
