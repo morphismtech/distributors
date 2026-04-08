@@ -94,20 +94,20 @@ failExam :: RegExam token alg
 failExam = OneOf Set.empty
 
 passExam :: RegExam token alg
-passExam = NotOneOf Set.empty (NotAsIn Set.empty)
+passExam = NotOneOf Set.empty (AndNotAsIn Set.empty)
 
 isFailExam :: RegExam token alg -> Bool
 isFailExam (OneOf xs) = Set.null xs
 isFailExam _ = False
 
 isPassExam :: RegExam token alg -> Bool
-isPassExam (NotOneOf xs (NotAsIn ys)) = Set.null xs && Set.null ys
+isPassExam (NotOneOf xs (AndNotAsIn ys)) = Set.null xs && Set.null ys
 isPassExam _ = False
 
 {- | `CategoryTest`s for `Categorized` tokens.-}
 data CategoryTest token
-  = AsIn (Categorize token)
-  | NotAsIn (Set (Categorize token))
+  = AndAsIn (Categorize token)
+  | AndNotAsIn (Set (Categorize token))
 
 -- | `TokenClass` forms a closed `Tokenized` `BooleanAlgebra`.
 newtype TokenClass token = TokenClass (RegExam token (TokenClass token))
@@ -121,9 +121,9 @@ class Tokenized token p => TokenAlgebra token p where
     => TokenClass token -> p
   tokenClass (TokenClass exam) = case exam of
     OneOf chars -> oneOf chars
-    NotOneOf chars (AsIn cat) ->
+    NotOneOf chars (AndAsIn cat) ->
       satisfy (notOneOf chars >&&< asIn cat)
-    NotOneOf chars (NotAsIn cats) ->
+    NotOneOf chars (AndNotAsIn cats) ->
       satisfy (notOneOf chars >&&< allB notAsIn cats)
     Alternate exam1 exam2 -> tokenClass exam1 <|> tokenClass exam2
 
@@ -161,15 +161,15 @@ instance Categorized token => Tokenized token (RegEx token) where
   token a = RegExam (OneOf (Set.singleton a))
   oneOf as = RegExam (OneOf (Set.fromList (toList as)))
   notOneOf as =
-    RegExam (NotOneOf (Set.fromList (toList as)) (NotAsIn Set.empty))
-  asIn cat = RegExam (NotOneOf Set.empty (AsIn cat))
-  notAsIn cat = RegExam (NotOneOf Set.empty (NotAsIn (Set.singleton cat)))
+    RegExam (NotOneOf (Set.fromList (toList as)) (AndNotAsIn Set.empty))
+  asIn cat = RegExam (NotOneOf Set.empty (AndAsIn cat))
+  notAsIn cat = RegExam (NotOneOf Set.empty (AndNotAsIn (Set.singleton cat)))
 instance Categorized token => TokenAlgebra token (token -> Bool) where
   tokenClass (TokenClass exam) x = case exam of
     OneOf xs -> Set.member x xs
-    NotOneOf xs (AsIn y) ->
+    NotOneOf xs (AndAsIn y) ->
       Set.notMember x xs && categorize x == y
-    NotOneOf xs (NotAsIn ys) ->
+    NotOneOf xs (AndNotAsIn ys) ->
       Set.notMember x xs && Set.notMember (categorize x) ys
     Alternate exam1 exam2 ->
       tokenClass exam1 x || tokenClass exam2 x
@@ -222,9 +222,9 @@ instance Categorized token => Tokenized token (RegExam token alg) where
   oneOf as = OneOf (Set.fromList (toList as))
   notOneOf as | null as = passExam
   notOneOf as =
-    NotOneOf (Set.fromList (toList as)) (NotAsIn Set.empty)
-  asIn cat = NotOneOf Set.empty (AsIn cat)
-  notAsIn cat = NotOneOf Set.empty (NotAsIn (Set.singleton cat))
+    NotOneOf (Set.fromList (toList as)) (AndNotAsIn Set.empty)
+  asIn cat = NotOneOf Set.empty (AndAsIn cat)
+  notAsIn cat = NotOneOf Set.empty (AndNotAsIn (Set.singleton cat))
 instance Categorized token
   => BooleanAlgebra (RegExam token (TokenClass token)) where
   fromBool False = failExam
@@ -233,8 +233,8 @@ instance Categorized token
   notB exam | isPassExam exam = failExam
   notB (Alternate (TokenClass x) (TokenClass y)) = notB x >&&< notB y
   notB (OneOf xs) = notOneOf xs
-  notB (NotOneOf xs (AsIn y)) = oneOf xs >||< notAsIn y
-  notB (NotOneOf xs (NotAsIn ys)) = oneOf xs >||< anyB asIn ys
+  notB (NotOneOf xs (AndAsIn y)) = oneOf xs >||< notAsIn y
+  notB (NotOneOf xs (AndNotAsIn ys)) = oneOf xs >||< anyB asIn ys
   _ >&&< exam | isFailExam exam = failExam
   exam >&&< _ | isFailExam exam = failExam
   x >&&< exam | isPassExam exam = x
@@ -242,31 +242,31 @@ instance Categorized token
   x >&&< Alternate (TokenClass y) (TokenClass z) = (x >&&< y) >||< (x >&&< z)
   Alternate (TokenClass x) (TokenClass y) >&&< z = (x >&&< z) >||< (y >&&< z)
   OneOf xs >&&< OneOf ys = OneOf (Set.intersection xs ys)
-  OneOf xs >&&< NotOneOf ys (AsIn z) = OneOf
+  OneOf xs >&&< NotOneOf ys (AndAsIn z) = OneOf
     (Set.filter (\x -> categorize x == z) (Set.difference xs ys))
-  NotOneOf xs (AsIn y) >&&< OneOf zs = OneOf
+  NotOneOf xs (AndAsIn y) >&&< OneOf zs = OneOf
     (Set.filter (\z -> categorize z == y) (Set.difference zs xs))
-  OneOf xs >&&< NotOneOf ys (NotAsIn zs) = OneOf
+  OneOf xs >&&< NotOneOf ys (AndNotAsIn zs) = OneOf
     (Set.filter (\x -> categorize x `notElem` zs) (Set.difference xs ys))
-  NotOneOf xs (NotAsIn ys) >&&< OneOf zs = OneOf
+  NotOneOf xs (AndNotAsIn ys) >&&< OneOf zs = OneOf
     (Set.filter (\z -> categorize z `notElem` ys) (Set.difference zs xs))
-  NotOneOf xs (AsIn y) >&&< NotOneOf ws (AsIn z) =
+  NotOneOf xs (AndAsIn y) >&&< NotOneOf ws (AndAsIn z) =
     if y /= z then failExam else NotOneOf
-      (Set.filter (\x -> categorize x == y) (Set.union xs ws)) (AsIn y)
-  NotOneOf xs (AsIn y) >&&< NotOneOf ws (NotAsIn zs) =
+      (Set.filter (\x -> categorize x == y) (Set.union xs ws)) (AndAsIn y)
+  NotOneOf xs (AndAsIn y) >&&< NotOneOf ws (AndNotAsIn zs) =
     if y `elem` zs then failExam else NotOneOf
-      (Set.filter (\x -> categorize x == y) (Set.union xs ws)) (AsIn y)
-  NotOneOf xs (NotAsIn ys) >&&< NotOneOf ws (AsIn z) =
+      (Set.filter (\x -> categorize x == y) (Set.union xs ws)) (AndAsIn y)
+  NotOneOf xs (AndNotAsIn ys) >&&< NotOneOf ws (AndAsIn z) =
     if z `elem` ys then failExam else NotOneOf
-      (Set.filter (\x -> categorize x == z) (Set.union xs ws)) (AsIn z)
-  NotOneOf xs (NotAsIn ys) >&&< NotOneOf ws (NotAsIn zs) =
+      (Set.filter (\x -> categorize x == z) (Set.union xs ws)) (AndAsIn z)
+  NotOneOf xs (AndNotAsIn ys) >&&< NotOneOf ws (AndNotAsIn zs) =
     let
       xws = Set.union xs ws
       yzs = Set.union ys zs
     in
       NotOneOf
         (Set.filter (\x -> categorize x `notElem` yzs) xws)
-        (NotAsIn yzs)
+        (AndNotAsIn yzs)
   x >||< exam | isFailExam exam = x
   exam >||< y | isFailExam exam = y
   _ >||< exam | isPassExam exam = passExam
@@ -278,19 +278,19 @@ instance Categorized token
     Alternate (TokenClass (OneOf xs)) (TokenClass (NotOneOf ys z))
   NotOneOf xs y >||< OneOf zs =
     Alternate (TokenClass (NotOneOf xs y)) (TokenClass (OneOf zs))
-  NotOneOf xs (NotAsIn ys) >||< NotOneOf ws (NotAsIn zs) =
+  NotOneOf xs (AndNotAsIn ys) >||< NotOneOf ws (AndNotAsIn zs) =
     notOneOf (Set.intersection xs ws) >&&< allB notAsIn (Set.intersection ys zs)
-  NotOneOf xs (AsIn y) >||< NotOneOf ws (AsIn z) =
-    if y == z then NotOneOf (Set.intersection xs ws) (AsIn y)
+  NotOneOf xs (AndAsIn y) >||< NotOneOf ws (AndAsIn z) =
+    if y == z then NotOneOf (Set.intersection xs ws) (AndAsIn y)
     else Alternate
-      (TokenClass (NotOneOf xs (AsIn y)))
-      (TokenClass (NotOneOf ws (AsIn z)))
-  NotOneOf xs (NotAsIn ys) >||< NotOneOf ws (AsIn z) = Alternate
-    (TokenClass (NotOneOf xs (NotAsIn ys)))
-    (TokenClass (NotOneOf ws (AsIn z)))
-  NotOneOf xs (AsIn y) >||< NotOneOf ws (NotAsIn zs) = Alternate
-    (TokenClass (NotOneOf xs (AsIn y)))
-    (TokenClass (NotOneOf ws (NotAsIn zs)))
+      (TokenClass (NotOneOf xs (AndAsIn y)))
+      (TokenClass (NotOneOf ws (AndAsIn z)))
+  NotOneOf xs (AndNotAsIn ys) >||< NotOneOf ws (AndAsIn z) = Alternate
+    (TokenClass (NotOneOf xs (AndNotAsIn ys)))
+    (TokenClass (NotOneOf ws (AndAsIn z)))
+  NotOneOf xs (AndAsIn y) >||< NotOneOf ws (AndNotAsIn zs) = Alternate
+    (TokenClass (NotOneOf xs (AndAsIn y)))
+    (TokenClass (NotOneOf ws (AndNotAsIn zs)))
 deriving stock instance
   (Categorized token, Read token, Read alg, Read (Categorize token))
     => Read (RegExam token alg)
@@ -342,9 +342,9 @@ instance (Categorized token, HasTrie token)
       KleenePlus x -> untrie (kleenePlusTrie rex) x
       KleeneOpt x -> untrie (kleeneOptTrie rex) x
       RegExam (OneOf chars) -> untrie (oneOfTrie rex) (Set.toList chars)
-      RegExam (NotOneOf chars (AsIn cat)) ->
+      RegExam (NotOneOf chars (AndAsIn cat)) ->
         untrie (notOneOfTrie rex) (Set.toList chars, Left (fromEnum cat))
-      RegExam (NotOneOf chars (NotAsIn cats)) ->
+      RegExam (NotOneOf chars (AndNotAsIn cats)) ->
         untrie (notOneOfTrie rex)
           (Set.toList chars, Right (Set.toList (Set.map fromEnum cats)))
       RegExam (Alternate x1 x2) -> untrie (alternateTrie rex) (x1,x2)
@@ -364,4 +364,4 @@ testNotOneOf
   => ([token], Either Int [Int]) -> RegEx token
 testNotOneOf (chars, catTest) = RegExam $ NotOneOf
   (Set.fromList chars)
-  (either (AsIn . toEnum) (NotAsIn . Set.map toEnum . Set.fromList) catTest)
+  (either (AndAsIn . toEnum) (AndNotAsIn . Set.map toEnum . Set.fromList) catTest)

@@ -594,8 +594,8 @@ regexGrammar = _RegString >~ ruleRec "regex" altG
       ]
 
     classCatG = rule "class-category" $ choice
-      [ _AsIn >? terminal "\\p{" >* categoryG *< terminal "}"
-      , _NotAsIn >? several1 (sepBy (terminal "|"))
+      [ _AndAsIn >? terminal "\\p{" >* categoryG *< terminal "}"
+      , _AndNotAsIn >? several1 (sepBy (terminal "|"))
           { beginBy = terminal "\\P{"
           , endBy = terminal "}"
           } categoryG
@@ -609,7 +609,7 @@ regexGrammar = _RegString >~ ruleRec "regex" altG
     classNotOneOfG = rule "class-not-one-of" $ choice
       [ asEmpty >*< classCatG
       , terminal "[^" >* several noSep charG >*<
-          option (NotAsIn Set.empty) classCatG *< terminal "]"
+          option (AndNotAsIn Set.empty) classCatG *< terminal "]"
       ]
 
 nonterminalG :: Grammar Char String
