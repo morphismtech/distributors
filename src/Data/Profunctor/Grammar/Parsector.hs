@@ -197,21 +197,17 @@ instance Categorized (Item s) => Alternative (Parsector s a) where
   p <|> q = mplus (try p) q
 instance Categorized (Item s) => MonadPlus (Parsector s a) where
   mplus p q = Parsector $ \callback query ->
-    let
-      offset0 = parsecOffset query
-    in
-      flip (runParsector p) query $ \replyP -> callback $
-        if parsecOffset replyP == offset0
-        then case parsecResult replyP of
-          Left errP ->
-            flip (runParsector q) query $ \replyQ ->
-              if parsecOffset replyQ == offset0
-              then case parsecResult replyQ of
-                Left errQ -> replyQ { parsecResult = Left (errP <> errQ) }
-                Right _   -> replyQ
-              else replyQ
-          Right _ -> replyP
-        else replyP
+    flip (runParsector p) query $ \replyP -> callback $
+      case parsecResult replyP of
+        Right _ -> replyP
+        Left errP -> flip (runParsector q) query $ \replyQ ->
+          case parsecResult replyQ of
+            Right _ -> replyQ
+            Left errQ ->
+              case (compare `on` parsecOffset) replyP replyQ of
+                LT -> replyQ
+                EQ -> replyP {parsecResult = Left (errP <> errQ)}
+                GT -> replyP
 instance Categorized (Item s) => MonadFail (Parsector s a) where
   fail msg = rule msg empty
 instance Categorized (Item s) => MonadTry (Parsector s a) where
