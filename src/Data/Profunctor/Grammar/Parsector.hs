@@ -39,23 +39,12 @@ import GHC.Exts
 import Prelude hiding (id, (.))
 import Witherable
 
-{- | `Parsector` is an invertible parser which can be used
-to parse with `parsecP` or print with `unparsecP`,
-yielding a `ParsecState`, with detailed errors and offset tracking.
-
-`(<|>)` uses left-biased ordered choice in both parse and print mode:
-if the left alternative succeeds it is committed to immediately,
-regardless of mode or how much input was consumed.
-On any failure the right alternative is always tried.
-Errors at the same offset are merged.
-
-`optionP` is mode-sensitive: in parse mode it tries @p@ first
-(greedy), falling back to the default; in print mode it tries
-the default first so that a value matching the default prism
-short-circuits without entering @p@.
+{- | `Parsector` is an invertible parser which is intended
+to provide detailed error information, based on [Parsec]
+(https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/parsec-paper-letter.pdf)
 -}
 newtype Parsector s a b = Parsector
-  { runParsector :: forall x. (ParsecState s b -> x) -> ParsecState s a -> x }
+  {runParsector :: forall x. (ParsecState s b -> x) -> ParsecState s a -> x}
 
 -- | `Parsector` is parsed using `parsecP`.
 parsecP :: Categorized (Item s) => Parsector s a b -> s -> ParsecState s b
@@ -83,21 +72,21 @@ data ParsecState s a = ParsecState
     -}
   }
 
-{- | `ParsecError` is the error payload
-inside a failed `parsecResult` of a `ParsecState` output,
-at a specific `parsecOffset`.
+{- | `ParsecError` is the error payload produced by `Parsector`,
+inside a failed `parsecResult` of a `ParsecState` output.
 -}
 data ParsecError s = ParsecError
   { parsecExpect :: TokenClass (Item s)
-    {- ^ Class of expected token `Item`s at the failure offset;
-    `tokenClass`es and `Tokenized` combinators specify
-    expectations, `<|>` merges them via disjunction `>||<`.
-    It is to be contrasted with the actual `parsecStream`,
+    {- ^ Class of expected token `Item`s at the `parsecOffset`.
+    `tokenClass`es and `Tokenized` combinators specify expectations.
+    `<|>` merges them via disjunction `>||<`.
+    Contrast with the actual `parsecStream`,
     which is either empty or begins with an unexpected token.
     -}
   , parsecLabels :: [Tree String]
-    {- ^ Forest of `rule` labels active at failure;
-    nested @`rule`@ calls build children, `<|>` merges siblings.
+    {- ^ Forest of `rule` labels active at failure.
+    @`rule`@ create a new label `Node`, as does  `ruleRec` & `fail`.
+    `<|>` merges siblings. Utilize `drawForest` to display.
     -}
   }
 
@@ -183,9 +172,10 @@ instance BackusNaurForm (Parsector s a b) where
   rule name p = Parsector $ \callback query ->
     flip (runParsector p) query $ \reply -> callback $
       case parsecResult reply of
-        Left (ParsecError expect labels) ->
-          reply { parsecResult = Left (ParsecError expect [Node name labels]) }
+        Left (ParsecError expect labels) -> reply
+          {parsecResult = Left (ParsecError expect [Node name labels])}
         Right _ -> reply
+  ruleRec name = rule name . fix
 instance
   ( Categorized token, Item s ~ token
   , Cons s s token token, Snoc s s token token
@@ -222,12 +212,12 @@ instance Categorized (Item s) => MonadPlus (Parsector s a) where
             Right _ -> replyQ
             -- otherwise,
             Left errQ ->
-              -- do the longer branch,
               case (compare `on` parsecOffset) replyP replyQ of
+                -- do the longer branch,
                 LT -> replyQ
+                GT -> replyP
                 -- merging errors on ties.
                 EQ -> replyP {parsecResult = Left (errP <> errQ)}
-                GT -> replyP
 instance Categorized (Item s) => MonadFail (Parsector s a) where
   fail msg = rule msg empty
 instance Categorized (Item s) => MonadTry (Parsector s a) where

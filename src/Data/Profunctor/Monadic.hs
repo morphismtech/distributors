@@ -28,6 +28,8 @@ module Data.Profunctor.Monadic
   , return
     -- * MonadicTry
   , MonadicTry
+  , try
+  , fail
   ) where
 
 import Control.Lens

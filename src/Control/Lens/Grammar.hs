@@ -350,11 +350,16 @@ palindromeG = rule "palindrome" $
 >>> [pal | word <- ["racecar", "word"], (pal, "") <- parseG palindromeG word]
 ["racecar"]
 
-Since `CtxGrammar`s are embedded in Haskell, permitting computable predicates,
+Since `CtxGrammar`s are embedded in Haskell,
+permitting computable predicates,
 and `Filtrator` has a default definition for `Monadic` `Alternator`s,
 the context-sensitivity of `CtxGrammar` implies
 unrestricted filtration of grammars by computable predicates,
 which can recognize the class of recursively enumerable languages.
+
+Finally, `CtxGrammar`s support error reporting and backtracking.
+This has no effect on `printG`, `parseG` or `unparseG`;
+but it effects `parsecG` and `unparsecG`.
 
 -}
 type CtxGrammar token a = forall p.
