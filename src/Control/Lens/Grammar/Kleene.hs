@@ -16,13 +16,13 @@ module Control.Lens.Grammar.Kleene
   ( -- * KleeneStarAlgebra
     KleeneStarAlgebra (..)
   , orK, anyK
-    -- * RegEx
+    -- * TokenAlgebra
+  , TokenAlgebra (..)
+    -- * RegEx & TokenClass
   , RegEx (..)
+  , TokenClass (..)
   , RegExam (..)
   , CategoryTest (..)
-    -- * TokenAlgebra
-  , TokenClass (..)
-  , TokenAlgebra (..)
   ) where
 
 import Control.Applicative
@@ -109,7 +109,16 @@ data CategoryTest token
   = AndAsIn (Categorize token)
   | AndNotAsIn (Set (Categorize token))
 
--- | `TokenClass` forms a closed `Tokenized` `BooleanAlgebra`.
+{- | `TokenClass` forms a `Tokenized` `BooleanAlgebra`,
+such that the following invariants hold.
+
+prop> trueB = anyToken
+prop> notB . oneOf = notOneOf
+prop> notB . notOneOf = oneOf
+prop> notB . asIn = notAsIn
+prop> notB . notAsIn = asIn
+
+-}
 newtype TokenClass token = TokenClass (RegExam token (TokenClass token))
 
 -- | `TokenAlgebra` extends `Tokenized` methods to support
