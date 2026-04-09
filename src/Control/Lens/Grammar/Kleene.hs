@@ -72,7 +72,13 @@ orK = foldl' (>|<) zeroK
 anyK :: (Foldable f, KleeneStarAlgebra k) => (a -> k) -> f a -> k
 anyK f = foldl' (\b a -> b >|< f a) zeroK
 
--- | The `RegEx`pression type is the prototypical `KleeneStarAlgebra`.
+{- | The `RegEx`pression type forms the prototypical `KleeneStarAlgebra`.
+It is also a `TokenAlgebra`, such that the following invariants hold.
+
+prop> zeroK = tokenClass falseB
+prop> tokenClass x >|< tokenClass y = tokenClass (x >||< y)
+
+-}
 data RegEx token
   = SeqEmpty
   | Sequence (RegEx token) (RegEx token)
