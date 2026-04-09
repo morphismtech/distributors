@@ -127,6 +127,7 @@ test-suite test
       Examples.RegString
       Examples.SemVer
       Examples.SExpr
+      Properties.Kleene
       Paths_distributors
   autogen-modules:
       Paths_distributors
@@ -173,6 +174,7 @@ test-suite test
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints
   build-depends:
       MemoTrie >=0.6 && <1
+    , QuickCheck >=2.14 && <3
     , adjunctions >=4.4 && <5
     , base >=4.15 && <5
     , bifunctors >=5.5 && <6

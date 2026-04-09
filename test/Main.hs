@@ -14,6 +14,7 @@ import Examples.LenVec
 import Examples.RegString
 import Examples.SemVer
 import Examples.SExpr
+import Properties.Kleene
 
 main :: IO ()
 main = do
@@ -27,15 +28,14 @@ main = do
     describe "lambdaGrammar" $ for_ lambdaExamples $ testCtxGrammarExample lambdaGrammar
     describe "lenvecGrammar" $ for_ lenvecExamples $ testCtxGrammarExample lenvecGrammar
     describe "chainGrammar" $ for_ chainExamples $ testCtxGrammarExample chainGrammar
+    describe "Kleene" kleeneProperties
   doctests
 
 doctests :: IO ()
 doctests = do
   let
     modulePaths =
-      [ "src/Control/Lens/Grammar.hs"
-      , "src/Control/Lens/Grammar/Token.hs"
-      ]
+      [ "src/Control/Lens/Grammar.hs" ]
     languageExtensions =
       [ "-XAllowAmbiguousTypes"
       , "-XArrows"

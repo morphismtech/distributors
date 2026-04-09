@@ -97,3 +97,4 @@ tests:
       - distributors
       - doctest >= 0.18 && < 1
       - hspec >= 2.7 && < 3
+      - QuickCheck >= 2.14 && < 3

@@ -39,7 +39,7 @@ import qualified Data.Set as Set
 import GHC.Generics
 
 {- | A `KleeneStarAlgebra` is a ring
-with a generally non-commutaive multiplication,
+with a generally non-commutative multiplication,
 the `Monoid` concatenation operator `<>` with identity `mempty`;
 and an idempotent addition, the alternation operator `>|<`
 with identity `zeroK`.
@@ -49,6 +49,14 @@ It has three unary operators `optK`, `plusK` and the eponymous `starK`.
 prop> starK x = optK (plusK x)
 prop> plusK x = x <> starK x
 prop> optK x = mempty >|< x
+
+The following invariants should hold.
+
+prop> x >|< x = x
+prop> zeroK >|< x = x = x >|< zeroK
+prop> mempty >|< x = optK x = x >|< mempty
+prop> zeroK <> x = zeroK = x <> zeroK
+prop> mempty <> x = x = x <> mempty
 
 -}
 class Monoid k => KleeneStarAlgebra k where
@@ -119,6 +127,8 @@ data CategoryTest token
 such that the following invariants hold.
 
 prop> trueB = anyToken
+prop> trueB = notOneOf []
+prop> falseB = oneOf []
 prop> notB . oneOf = notOneOf
 prop> notB . notOneOf = oneOf
 prop> notB . asIn = notAsIn
@@ -127,8 +137,28 @@ prop> notB . notAsIn = asIn
 -}
 newtype TokenClass token = TokenClass (RegExam token (TokenClass token))
 
--- | `TokenAlgebra` extends `Tokenized` methods to support
--- `BooleanAlgebra` operations in a `tokenClass`.
+{- | `TokenAlgebra` extends `Tokenized` methods to support
+`BooleanAlgebra` operations within a `tokenClass`.
+When a `TokenAlgebra` is an `Alternative` or a `KleeneStarAlgebra`,
+then `tokenClass` is expected to act homomorphically on disjunction.
+
+prop> empty = tokenClass falseB
+prop> tokenClass x <|> tokenClass y = tokenClass (x >||< y)
+
+prop> zeroK = tokenClass falseB
+prop> tokenClass x >|< tokenClass y = tokenClass (x >||< y)
+
+And `tokenClass` is only needed for conjunction `>&&<`.
+It should propagate simple `Tokenized` operators.
+
+prop> anyToken = tokenClass anyToken
+prop> token = tokenClass . token
+prop> oneOf = tokenClass . oneOf
+prop> notOneOf = tokenClass . notOneOf
+prop> asIn = tokenClass . asIn
+prop> notAsIn = tokenClass . notAsIn
+
+-}
 class Tokenized token p => TokenAlgebra token p where
   tokenClass :: TokenClass token -> p
   default tokenClass
@@ -222,6 +252,7 @@ instance Categorized token => KleeneStarAlgebra (RegEx token) where
   plusK (RegExam exam) | isFailExam exam = zeroK
   plusK SeqEmpty = mempty
   plusK rex = KleenePlus rex
+  rex0 >|< rex1 | rex0 == rex1 = rex0
   KleenePlus rex >|< SeqEmpty = starK rex
   SeqEmpty >|< KleenePlus rex = starK rex
   rex >|< SeqEmpty = optK rex
@@ -234,7 +265,6 @@ instance Categorized token => KleeneStarAlgebra (RegEx token) where
         TokenClass <$> traverse toTokenClass exam
       toTokenClass _ = Nothing
       maybeOr = (>||<) <$> toTokenClass rex0 <*> toTokenClass rex1
-  rex0 >|< rex1 | rex0 == rex1 = rex0
   rex0 >|< rex1 = RegExam (Alternate rex0 rex1)
 instance Categorized token => Tokenized token (RegExam token alg) where
   anyToken = passExam
@@ -256,6 +286,7 @@ instance Categorized token
   notB (OneOf xs) = notOneOf xs
   notB (NotOneOf xs (AndAsIn y)) = oneOf xs >||< notAsIn y
   notB (NotOneOf xs (AndNotAsIn ys)) = oneOf xs >||< anyB asIn ys
+  x >&&< y | x == y = x
   _ >&&< exam | isFailExam exam = failExam
   exam >&&< _ | isFailExam exam = failExam
   x >&&< exam | isPassExam exam = x
@@ -288,6 +319,7 @@ instance Categorized token
       NotOneOf
         (Set.filter (\x -> categorize x `notElem` yzs) xws)
         (AndNotAsIn yzs)
+  x >||< y | x == y = x
   x >||< exam | isFailExam exam = x
   exam >||< y | isFailExam exam = y
   _ >||< exam | isPassExam exam = passExam
@@ -334,7 +366,7 @@ deriving stock instance
 instance (Categorized token, HasTrie token)
   => HasTrie (RegEx token) where
     data (RegEx token :->: b) = RegExTrie
-      { epsilonTrie :: b
+      { seqEmptyTrie :: b
       , nonTerminalTrie :: String :->: b
       , sequenceTrie :: (RegEx token, RegEx token) :->: b
       , alternateTrie :: (RegEx token, RegEx token) :->: b
@@ -345,7 +377,7 @@ instance (Categorized token, HasTrie token)
       , notOneOfTrie :: ([token], Either Int [Int]) :->: b
       }
     trie f = RegExTrie
-      { epsilonTrie = f mempty
+      { seqEmptyTrie = f mempty
       , nonTerminalTrie = trie (f . nonTerminal)
       , sequenceTrie = trie (f . uncurry (<>))
       , alternateTrie = trie (f . uncurry (>|<))
@@ -356,7 +388,7 @@ instance (Categorized token, HasTrie token)
       , notOneOfTrie = trie (f . testNotOneOf)
       }
     untrie rex = \case
-      SeqEmpty -> epsilonTrie rex
+      SeqEmpty -> seqEmptyTrie rex
       NonTerminal name -> untrie (nonTerminalTrie rex) name
       Sequence x1 x2 -> untrie (sequenceTrie rex) (x1,x2)
       KleeneStar x -> untrie (kleeneStarTrie rex) x
@@ -370,7 +402,7 @@ instance (Categorized token, HasTrie token)
           (Set.toList chars, Right (Set.toList (Set.map fromEnum cats)))
       RegExam (Alternate x1 x2) -> untrie (alternateTrie rex) (x1,x2)
     enumerate rex = mconcat
-      [ [(SeqEmpty, epsilonTrie rex)]
+      [ [(SeqEmpty, seqEmptyTrie rex)]
       , first' NonTerminal <$> enumerate (nonTerminalTrie rex)
       , first' (uncurry Sequence) <$> enumerate (sequenceTrie rex)
       , first' (RegExam . uncurry Alternate) <$> enumerate (alternateTrie rex)

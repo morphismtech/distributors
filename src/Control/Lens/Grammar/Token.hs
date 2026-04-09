@@ -60,14 +60,22 @@ class Categorized token => Tokenized token p | p -> token where
     => token -> p
   token = satisfy . token
 
-  {- | A single token which is `oneOf` a set. -}
+  {- | A single token which is `oneOf` a set.
+
+  prop> token x = oneOf [x]
+  
+  -}
   oneOf :: Foldable f => f token -> p
   default oneOf
     :: (p ~ q token token, Choice q, Cochoice q, Foldable f)
     => f token -> p
   oneOf = satisfy . oneOf
 
-  {- | A single token which is `notOneOf` a set. -}
+  {- | A single token which is `notOneOf` a set.
+  
+  prop> anyToken = notOneOf []
+  
+  -}
   notOneOf :: Foldable f => f token -> p
   default notOneOf
     :: (p ~ q token token, Choice q, Cochoice q, Foldable f)
