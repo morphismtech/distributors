@@ -84,8 +84,8 @@ data ParsecError s = ParsecError
     which is either empty or begins with an unexpected token.
     -}
   , parsecLabels :: [Tree String]
-    {- ^ Forest of `rule` labels active at failure.
-    @`rule`@ create a new label `Node`, as does  `ruleRec` & `fail`.
+    {- ^ Forest of `rule` labels active at the `parsecOffset`.
+    @`rule`@ creates a new label `Node`, as do  `ruleRec` & `fail`.
     `<|>` merges siblings. Utilize `drawForest` to display.
     -}
   }
