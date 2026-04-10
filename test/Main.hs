@@ -103,11 +103,13 @@ testCtxGrammar isLL1 grammar (expectedSyntax, expectedString) = do
       let actualSyntax = parsecG grammar expectedString
       let expectedLength = genericLength expectedString
       let actualLooked = parsecLooked actualSyntax
+      let actualHint   = parsecHint   actualSyntax
       actualSyntax `shouldBe`
-        (ParsecState actualLooked expectedLength "" (Right expectedSyntax))
+        (ParsecState actualLooked expectedLength "" actualHint (Right expectedSyntax))
     it ("should unparsecG to " <> expectedString <> " correctly") $ do
       let actualString = unparsecG grammar expectedSyntax ""
       let expectedLength = genericLength expectedString
       let actualLooked = parsecLooked actualString
+      let actualHint   = parsecHint   actualString
       actualString `shouldBe`
-        (ParsecState actualLooked expectedLength expectedString (Right expectedSyntax))
+        (ParsecState actualLooked expectedLength expectedString actualHint (Right expectedSyntax))

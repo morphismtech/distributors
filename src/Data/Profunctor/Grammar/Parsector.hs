@@ -48,11 +48,11 @@ newtype Parsector s a b = Parsector
 
 -- | `Parsector` is parsed using `parsecP`.
 parsecP :: Categorized (Item s) => Parsector s a b -> s -> ParsecState s b
-parsecP p s = runParsector p id (ParsecState False 0 s (Left mempty))
+parsecP p s = runParsector p id (ParsecState False 0 s mempty (Left mempty))
 
 -- | `Parsector` is printed using `unparsecP`.
-unparsecP :: Parsector s a b -> a -> s -> ParsecState s b
-unparsecP p a s = runParsector p id (ParsecState False 0 s (Right a))
+unparsecP :: Categorized (Item s) => Parsector s a b -> a -> s -> ParsecState s b
+unparsecP p a s = runParsector p id (ParsecState False 0 s mempty (Right a))
 
 {- | `ParsecState` is the outpute type for `parsecP` & `unparsecP`.
 It's the fundamental building block of `Parsector`.
@@ -65,6 +65,12 @@ data ParsecState s a = ParsecState
   , parsecOffset :: !Word
     -- ^ token offset number
   , parsecStream :: s -- ^ input and output stream
+  , parsecHint   :: ParsecError s
+    {- ^ Accumulated hint: the merged empty-failure errors from all discarded
+    alternatives at the current position.
+    On the success path in `<|>` & `>>=`, this propagates forward so that
+    downstream failures include the full expected-token set.
+    -}
   , parsecResult :: Either (ParsecError s) a
     {- ^ As an input @parsecResult@ represents either parse mode,
     or print mode with an input syntax value.
@@ -152,12 +158,14 @@ instance
         offset = parsecOffset query
         replyOk tok str = query
           { parsecLooked = True
+          , parsecHint   = mempty
           , parsecStream = str
           , parsecOffset = offset + 1
           , parsecResult = Right tok
           }
         replyErr = query
-          { parsecResult = Left (ParsecError test []) }
+          { parsecHint   = mempty
+          , parsecResult = Left (ParsecError test []) }
       in
         callback $ case mode of
           -- print mode
@@ -188,6 +196,20 @@ instance Categorized (Item s) => Applicative (Parsector s a) where
   pure b = Parsector $ \callback query ->
     callback query { parsecResult = Right b }
   (<*>) = ap
+
+-- | Merge a hint into a reply. If the reply did not consume input,
+-- prepend the hint to any empty failure, or accumulate it into the
+-- success hint for further propagation. If the reply consumed, ignore
+-- the hint (LL(1) commitment means old alternatives are irrelevant).
+applyHint
+  :: Categorized (Item s)
+  => ParsecError s -> ParsecState s a -> ParsecState s a
+applyHint hint st
+  | parsecLooked st = st
+  | otherwise = case parsecResult st of
+      Left err -> st { parsecResult = Left (hint <> err) }
+      Right _  -> st { parsecHint   = hint <> parsecHint st }
+
 instance Categorized (Item s) => Monad (Parsector s a) where
   return = pure
   p >>= f = Parsector $ \callback query ->
@@ -196,13 +218,16 @@ instance Categorized (Item s) => Monad (Parsector s a) where
         Left err -> callback reply {parsecResult = Left err}
         Right b ->
           let
+            hintP  = parsecHint reply
             fQuery = reply
               { parsecLooked = False
+              , parsecHint   = mempty
               , parsecResult = parsecResult query
               }
           in
-            flip (runParsector (f b)) fQuery $ \fReply -> callback fReply
-              { parsecLooked = parsecLooked reply || parsecLooked fReply }
+            flip (runParsector (f b)) fQuery $ \fReply -> callback $
+              (applyHint hintP fReply)
+                { parsecLooked = parsecLooked reply || parsecLooked fReply }
 instance Categorized (Item s) => Alternative (Parsector s a) where
   -- | Always fail, consuming no input and expecting nothing.
   empty = Parsector $ \callback query ->
@@ -216,13 +241,13 @@ instance Categorized (Item s) => Alternative (Parsector s a) where
         Left _ | parsecLooked replyP -> replyP
         -- if p failed without consuming, try q
         Left errP -> flip (runParsector q) query $ \replyQ ->
-          case parsecResult replyQ of
-            -- if q succeeds, take q's branch
-            Right _ -> replyQ
-            -- if q failed after consuming (committed), propagate q's error
-            Left _ | parsecLooked replyQ -> replyQ
-            -- both failed without consuming: merge errors
-            Left errQ -> replyP {parsecResult = Left (errP <> errQ)}
+          case (parsecLooked replyQ, parsecResult replyQ) of
+            -- q consumed (ok or err): propagate as-is, drop errP
+            (True, _)         -> replyQ
+            -- q empty ok: carry errP forward as hint for downstream
+            (False, Right _)  -> replyQ { parsecHint = errP <> parsecHint replyQ }
+            -- both empty fail: merge errors
+            (False, Left errQ) -> replyP { parsecResult = Left (errP <> errQ) }
 instance Categorized (Item s) => MonadPlus (Parsector s a)
 instance Categorized (Item s) => MonadFail (Parsector s a) where
   fail msg = rule msg empty

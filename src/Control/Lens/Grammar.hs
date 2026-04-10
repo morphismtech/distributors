@@ -373,13 +373,13 @@ Since both `Parsor` & `Parsector` are @LL@ parsers they
 diverge if the `CtxGrammar` they're run on is left-recursive.
 
 >>> parsecG (rule "foo" (fail "bar") <|> fail "baz") "abc"
-ParsecState {parsecLooked = False, parsecOffset = 0, parsecStream = "abc", parsecResult = Left (ParsecError {parsecExpect = TokenClass (OneOf (fromList "")), parsecLabels = [Node {rootLabel = "foo", subForest = [Node {rootLabel = "bar", subForest = []}]},Node {rootLabel = "baz", subForest = []}]})}
+ParsecState {parsecLooked = False, parsecOffset = 0, parsecStream = "abc", parsecHint = ParsecError {parsecExpect = TokenClass (OneOf (fromList "")), parsecLabels = []}, parsecResult = Left (ParsecError {parsecExpect = TokenClass (OneOf (fromList "")), parsecLabels = [Node {rootLabel = "foo", subForest = [Node {rootLabel = "bar", subForest = []}]},Node {rootLabel = "baz", subForest = []}]})}
 
->>> parsecG (terminal "abc" >* tokenClass (notOneOf "456" >&&< asIn @Char DecimalNumber)) "abcd"
-ParsecState {parsecLooked = True, parsecOffset = 3, parsecStream = "d", parsecResult = Left (ParsecError {parsecExpect = TokenClass (NotOneOf (fromList "456") (AndAsIn DecimalNumber)), parsecLabels = []})}
+>>> parsecG (manyP (token 'a') >*< asIn @Char DecimalNumber) "aaab"
+ParsecState {parsecLooked = True, parsecOffset = 3, parsecStream = "b", parsecHint = ParsecError {parsecExpect = TokenClass (OneOf (fromList "")), parsecLabels = []}, parsecResult = Left (ParsecError {parsecExpect = TokenClass (Alternate (TokenClass (OneOf (fromList "a"))) (TokenClass (NotOneOf (fromList "") (AndAsIn DecimalNumber)))), parsecLabels = []})}
 
 >>> unparsecG (tokens "abc") "abx" ""
-ParsecState {parsecLooked = True, parsecOffset = 2, parsecStream = "ab", parsecResult = Left (ParsecError {parsecExpect = TokenClass (OneOf (fromList "c")), parsecLabels = []})}
+ParsecState {parsecLooked = True, parsecOffset = 2, parsecStream = "ab", parsecHint = ParsecError {parsecExpect = TokenClass (OneOf (fromList "")), parsecLabels = []}, parsecResult = Left (ParsecError {parsecExpect = TokenClass (OneOf (fromList "c")), parsecLabels = []})}
 
 -}
 type CtxGrammar token a = forall p.
