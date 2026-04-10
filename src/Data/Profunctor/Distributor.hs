@@ -10,7 +10,8 @@ Portability : non-portable
 
 module Data.Profunctor.Distributor
   ( -- * Distributor
-    Distributor (..), dialt
+    Distributor (..)
+  , dialt
     -- * Alternator
   , Alternator (..)
   , choice
@@ -217,7 +218,11 @@ class (Choice p, Distributor p, forall x. Alternative (p x))
     someP :: p a b -> p [a] [b]
     someP x = x >:< manyP x
 
-    {- | Zero or one, with a default bidirectional element for the zero case. -}
+    {- | One or zero with default.
+    
+    prop> optionP _Nothing (_Just >? p) = optionalP p
+
+    -}
     optionP :: APrism a b () () -> p a b -> p a b
     optionP def p = p <|> pureP def
 
