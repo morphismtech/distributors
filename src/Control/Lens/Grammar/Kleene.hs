@@ -139,24 +139,11 @@ newtype TokenClass token = TokenClass (RegExam token (TokenClass token))
 
 {- | `TokenAlgebra` extends `Tokenized` methods to support
 `BooleanAlgebra` operations within a `tokenClass`.
-When a `TokenAlgebra` is an `Alternative` or a `KleeneStarAlgebra`,
+When a `TokenAlgebra` is an `Alternative`,
 then `tokenClass` is expected to act homomorphically on disjunction.
 
 prop> empty = tokenClass falseB
 prop> tokenClass x <|> tokenClass y = tokenClass (x >||< y)
-
-prop> zeroK = tokenClass falseB
-prop> tokenClass x >|< tokenClass y = tokenClass (x >||< y)
-
-And `tokenClass` is only needed for conjunction `>&&<`.
-It should propagate simple `Tokenized` operators.
-
-prop> anyToken = tokenClass anyToken
-prop> token = tokenClass . token
-prop> oneOf = tokenClass . oneOf
-prop> notOneOf = tokenClass . notOneOf
-prop> asIn = tokenClass . asIn
-prop> notAsIn = tokenClass . notAsIn
 
 -}
 class Tokenized token p => TokenAlgebra token p where
