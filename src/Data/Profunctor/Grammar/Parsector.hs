@@ -60,7 +60,7 @@ parsecP
   -> ParsecState s b
 parsecP p s = runParsector p id (ParsecState False 0 s mempty (Left mempty))
 
-{- | Run `Parsector` as an unparser: given a syntax value @a@ and
+{- | Run `Parsector` as a printer: given a syntax value @a@ and
 an input stream, append tokens to @s@ left to right,
 returning a `ParsecState` whose `parsecResult` is
 either a `ParsecError` or a successful output syntax value,
@@ -84,10 +84,9 @@ data ParsecState s a = ParsecState
   { parsecLooked :: !Bool
     {- ^ @True@ once the parser has consumed at least one token
     since the last `<|>` / `try` decision point.
-    Controls LL(1) commitment: a failure with `parsecLooked = True`
+    Controls LL(1) commitment: a failure with `parsecLooked` @True@
     is propagated immediately without trying alternatives.
-    Reset to @False@ by `try` on failure, and at the start of
-    each `>>=` continuation.
+    Reset to @False@ by `try` on failure.
     -}
   , parsecOffset :: !Word
     -- ^ Number of tokens consumed from the start of the stream.
