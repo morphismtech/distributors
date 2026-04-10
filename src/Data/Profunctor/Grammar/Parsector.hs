@@ -198,9 +198,7 @@ instance Categorized (Item s) => Alternative (Parsector s a) where
   -- | Always fail, consuming no input and expecting nothing.
   empty = Parsector $ \callback query ->
     callback query { parsecResult = Left mempty }
-  p <|> q = mplus (try p) q
-instance Categorized (Item s) => MonadPlus (Parsector s a) where
-  mplus p q = Parsector $ \callback query ->
+  p <|> q = Parsector $ \callback query ->
     flip (runParsector p) query $ \replyP -> callback $
       case parsecResult replyP of
         -- if p succeeds do p's branch,
@@ -218,6 +216,7 @@ instance Categorized (Item s) => MonadPlus (Parsector s a) where
                 GT -> replyP
                 -- merging errors on ties.
                 EQ -> replyP {parsecResult = Left (errP <> errQ)}
+instance Categorized (Item s) => MonadPlus (Parsector s a)
 instance Categorized (Item s) => MonadFail (Parsector s a) where
   fail msg = rule msg empty
 instance Categorized (Item s) => MonadTry (Parsector s a) where

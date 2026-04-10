@@ -38,7 +38,8 @@ import Data.Set (Set)
 
 {- | `BackusNaurForm` grammar combinators formalize
 `rule` abstraction and general recursion. Context-free
-`Control.Lens.Grammar.Grammar`s support the `BackusNaurForm` interface.
+`Control.Lens.Grammar.Grammar`s & `CtxGrammar`s
+support the `BackusNaurForm` interface.
 
 prop> rule name bnf = ruleRec name (\_ -> bnf)
 -}

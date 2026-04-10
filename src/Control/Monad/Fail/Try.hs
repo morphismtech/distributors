@@ -22,25 +22,25 @@ module Control.Monad.Fail.Try
 import Control.Applicative
 import Control.Monad
 
-{- | `MonadTry` implements `fail` & `try` and
-two alternation combinators
-`Control.Applicative.<|>` & `mplus`.
-
-The following invariants should hold.
+{- | `MonadTry` is a failure handling interface,
+with `fail` & `try` and redundant alternation operators.
 
 prop> empty = mzero
-prop> x <|> y = try x `mplus` y
-
-prop> fail msg <|> x = x = x <|> fail msg
+prop> (<|>) = mplus
 
 When a `MonadTry` is also a
 `Control.Lens.Grammar.BackusNaur.BackusNaurForm`,
 then the following invariant should hold.
 
-prop> fail msg = rule msg empty
+prop> fail label = rule label empty
 
 -}
 class (MonadFail m, MonadPlus m) => MonadTry m where
+
+  {- | A handler for failures.
+  Used for backtracking state on failure in
+  `Data.Profunctor.Grammar.Parsector.Parsector`.
+  -}
   try :: m a -> m a
   default try :: m a -> m a
   try = id
