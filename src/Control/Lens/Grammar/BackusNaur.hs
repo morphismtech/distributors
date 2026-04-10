@@ -45,7 +45,7 @@ prop> rule name bnf = ruleRec name (\_ -> bnf)
 -}
 class BackusNaurForm bnf where
 
-  {- | Rule abstraction. -}
+  {- | Rule abstraction, `rule` can be used to detail parse errors. -}
   rule :: String -> bnf -> bnf
   rule _ = id
 
