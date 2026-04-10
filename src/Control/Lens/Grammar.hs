@@ -360,6 +360,39 @@ which can recognize the class of recursively enumerable languages.
 Finally, `CtxGrammar`s support error reporting and backtracking.
 This has no effect on `printG`, `parseG` or `unparseG`;
 but it effects `parsecG` and `unparsecG`.
+For context, an @LL@ grammar can be (un)parsed by an @LL@ parser.
+An @LL@ parser (un)parses from left to right,
+and constucts leftmost derivations.
+An @LL(k)@ parser can look @k@ tokens ahead.
+`Parsor` is an @LL(∞)@ parser,
+which disables it from reporting error information.
+`Parsector` is an @LL(1)@ parser,
+so it can report precise `ParsecError` information.
+The backtracking `try` combinator
+restores full lookahead to `Parsector`,
+at the potential cost of error information.
+Since both `Parsor` & `Parsector` are @LL@ parsers they
+diverge if the `CtxGrammar` they're run on is left-recursive.
+
+>>> :{
+abcG :: CtxGrammar Char String
+abcG = rule "αβγ" (tokens "αβγ")
+  <|> rule "abx" (tokens "abx")
+  <|> rule "abyz"
+    (rule "aby" (tokens "aby") <|> rule "abz" (tokens "abz"))
+:}
+
+>>> parsecG abcG "abc"
+ParsecState {parsecOffset = 2, parsecStream = "c", parsecResult = Left (ParsecError {parsecExpect = TokenClass (OneOf (fromList "xyz")), parsecLabels = [Node {rootLabel = "abx", subForest = []},Node {rootLabel = "abyz", subForest = [Node {rootLabel = "aby", subForest = []},Node {rootLabel = "abz", subForest = []}]}]})}
+
+>>> parsecG abcG "abx"
+ParsecState {parsecOffset = 3, parsecStream = "", parsecResult = Right "abx"}
+
+>>> unparsecG abcG "abc" ""
+ParsecState {parsecOffset = 2, parsecStream = "ab", parsecResult = Left (ParsecError {parsecExpect = TokenClass (OneOf (fromList "xyz")), parsecLabels = [Node {rootLabel = "abx", subForest = []},Node {rootLabel = "abyz", subForest = [Node {rootLabel = "aby", subForest = []},Node {rootLabel = "abz", subForest = []}]}]})}
+
+>>> unparsecG abcG "aby" ""
+ParsecState {parsecOffset = 3, parsecStream = "aby", parsecResult = Right "aby"}
 
 -}
 type CtxGrammar token a = forall p.
