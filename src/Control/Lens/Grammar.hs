@@ -804,7 +804,7 @@ printG
   -> m (string -> string)
 printG printor = printP printor
 
-{- | `parseG` generates a parser from a `CtxGrammar`.
+{- | `parseG` generates a parser from a @LL(∞)@ `CtxGrammar`.
 Since both `RegGrammar`s and context-free `Grammar`s are `CtxGrammar`s,
 the type system will allow `parseG` to be applied to them.
 Running the parser on an input string value `uncons`es
@@ -820,10 +820,10 @@ parseG
   -> m (a, string)
 parseG parsor = parseP parsor
 
-{- | `unparseG` generates an unparser from a `CtxGrammar`.
+{- | `unparseG` generates a printer from a @LL(∞)@ `CtxGrammar`.
 Since both `RegGrammar`s and context-free `Grammar`s are `CtxGrammar`s,
 the type system will allow `unparseG` to be applied to them.
-Running the unparser on a syntax value and an input string
+Running the printer on a syntax value and an input string
 `snoc`s tokens at the end of the string, from left to right,
 returning the output string.
 -}
@@ -837,7 +837,15 @@ unparseG
   -> m string
 unparseG parsor = unparseP parsor
 
-{- | `parsecG` generates a Parsec-style parser from a `CtxGrammar`. -}
+{- | `parsecG` generates a parser from a @LL(1)@ `CtxGrammar`,
+with `try` for restoring full @LL(∞)@ lookahead.
+Since both `RegGrammar`s and context-free `Grammar`s are `CtxGrammar`s,
+the type system will allow `parsecG` to be applied to them.
+Running the parser on an input string value `uncons`es
+tokens from the beginning of an input string from left to right,
+returning a `parsecResult` which is a `ParsecError` or a syntax value,
+and a remaining output `parsecStream`.
+-}
 parsecG
   :: (Cons string string token token, Snoc string string token token)
   => (Item string ~ token, Categorized token)
@@ -846,7 +854,15 @@ parsecG
   -> ParsecState string a
 parsecG parsector = parsecP parsector
 
-{- | `unparsecG` generates a Parsec-style unparser from a `CtxGrammar`. -}
+{- | `unparsecG` generates a printer from a @LL(1)@ `CtxGrammar`,
+with `try` for restoring full @LL(∞)@ lookahead.
+Since both `RegGrammar`s and context-free `Grammar`s are `CtxGrammar`s,
+the type system will allow `unparsecG` to be applied to them.
+Running the printer on a syntax value and an input string
+`snoc`s tokens at the end of the string, from left to right,
+returning a `parsecResult` which is a `ParsecError`
+or the input syntax value, and a remaining output `parsecStream`.
+-}
 unparsecG
   :: (Cons string string token token, Snoc string string token token)
   => (Item string ~ token, Categorized token)
