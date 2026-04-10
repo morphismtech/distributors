@@ -6,6 +6,10 @@ License     : BSD-style (see the file LICENSE)
 Maintainer  : Eitan Chatav <eitan.chatav@gmail.com>
 Stability   : provisional
 Portability : non-portable
+
+See Leijen,
+[Parsec: Direct Style Monadic Parser Combinators For The Real World]
+(https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/parsec-paper-letter.pdf)
 -}
 
 module Data.Profunctor.Grammar.Parsector
@@ -39,43 +43,63 @@ import GHC.Exts
 import Prelude hiding (id, (.))
 import Witherable
 
-{- | `Parsector` is an invertible parser which is intended
+{- | `Parsector` is an invertible @LL(1)@ parser which is intended
 to provide detailed error information, based on [Parsec]
-(https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/parsec-paper-letter.pdf)
+(https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/parsec-paper-letter.pdf).
 -}
 newtype Parsector s a b = Parsector
   {runParsector :: forall x. (ParsecState s b -> x) -> ParsecState s a -> x}
 
--- | `Parsector` is parsed using `parsecP`.
-parsecP :: Categorized (Item s) => Parsector s a b -> s -> ParsecState s b
+{- | Run `Parsector` as a parser: consume tokens from @s@,
+left to right, returning a `ParsecState` whose `parsecResult`
+is either a successful output syntax value or a `ParsecError`. -}
+parsecP
+  :: Categorized (Item s)
+  => Parsector s a b
+  -> s -- ^ input stream
+  -> ParsecState s b
 parsecP p s = runParsector p id (ParsecState False 0 s mempty (Left mempty))
 
--- | `Parsector` is printed using `unparsecP`.
-unparsecP :: Categorized (Item s) => Parsector s a b -> a -> s -> ParsecState s b
+{- | Run `Parsector` as an unparser: given a syntax value @a@ and
+an input stream, append tokens to @s@ left to right,
+returning a `ParsecState` whose `parsecResult` is
+either a `ParsecError` or a successful output syntax value,
+in which case, `parsecStream` is the output stream. -}
+unparsecP
+  :: Categorized (Item s)
+  => Parsector s a b
+  -> a -- ^ input syntax
+  -> s -- ^ input stream
+  -> ParsecState s b
 unparsecP p a s = runParsector p id (ParsecState False 0 s mempty (Right a))
 
-{- | `ParsecState` is the outpute type for `parsecP` & `unparsecP`.
-It's the fundamental building block of `Parsector`.
+{- | `ParsecState` is both the input and output type of the
+underlying function inside `Parsector`.
 @Parsector s a b@ is equivalent to
-@ParsecState s a -> ParsecState s b@, so it has a dual
-interpretation as input and output.
--}
+
+@ParsecState s a -> ParsecState s b@
+
+So `ParsecState` has a dual interpretation as input and output. -}
 data ParsecState s a = ParsecState
   { parsecLooked :: !Bool
-  , parsecOffset :: !Word
-    -- ^ token offset number
-  , parsecStream :: s -- ^ input and output stream
-  , parsecHint   :: ParsecError s
-    {- ^ Accumulated hint: the merged empty-failure errors from all discarded
-    alternatives at the current position.
-    On the success path in `<|>` & `>>=`, this propagates forward so that
-    downstream failures include the full expected-token set.
+    {- ^ @True@ once the parser has consumed at least one token
+    since the last `<|>` / `try` decision point.
+    Controls LL(1) commitment: a failure with `parsecLooked = True`
+    is propagated immediately without trying alternatives.
+    Reset to @False@ by `try` on failure, and at the start of
+    each `>>=` continuation.
     -}
+  , parsecOffset :: !Word
+    -- ^ Number of tokens consumed from the start of the stream.
+  , parsecStream :: s -- ^ stream
+  , parsecHint   :: ParsecError s
+    {- ^ Hint: the merged `ParsecError`s from all empty-failing
+    alternatives at the current position.
+    Carried forward on the *success* path by `<|>` and `>>=` so that
+    downstream failures include the full set of expected tokens. -}
   , parsecResult :: Either (ParsecError s) a
-    {- ^ As an input @parsecResult@ represents either parse mode,
-    or print mode with an input syntax value.
-    As an output @parsecResult@ represents either an error or
-    a successful result with an output syntax value.
+    {- ^ As an input: Either parse mode or print mode with syntax value.
+    As an output: Either a failure or success with syntax value.
     -}
   }
 
@@ -92,8 +116,11 @@ data ParsecError s = ParsecError
     -}
   , parsecLabels :: [Tree String]
     {- ^ Forest of `rule` labels active at the `parsecOffset`.
-    @`rule`@ creates a new label `Node`, as do  `ruleRec` & `fail`.
-    `<|>` merges siblings. Utilize `drawForest` to display.
+    Each `rule` wraps its inner labels in a new `Node`.
+    `ruleRec` & `fail` also create label nodes.
+    When two empty failures are merged by `<|>`,
+    their forests are concatenated as siblings.
+    Use `drawForest` to display.
     -}
   }
 
@@ -179,6 +206,8 @@ instance
               | otherwise -> replyErr
             Nothing -> replyErr
 instance BackusNaurForm (Parsector s a b) where
+  -- | Wraps inner `parsecLabels` in a new `Node name` on failure.
+  -- Has no effect on success.
   rule name p = Parsector $ \callback query ->
     flip (runParsector p) query $ \reply -> callback $
       case parsecResult reply of
@@ -197,19 +226,6 @@ instance Categorized (Item s) => Applicative (Parsector s a) where
     callback query { parsecResult = Right b }
   (<*>) = ap
 
--- | Merge a hint into a reply. If the reply did not consume input,
--- prepend the hint to any empty failure, or accumulate it into the
--- success hint for further propagation. If the reply consumed, ignore
--- the hint (LL(1) commitment means old alternatives are irrelevant).
-applyHint
-  :: Categorized (Item s)
-  => ParsecError s -> ParsecState s a -> ParsecState s a
-applyHint hint st
-  | parsecLooked st = st
-  | otherwise = case parsecResult st of
-      Left err -> st { parsecResult = Left (hint <> err) }
-      Right _  -> st { parsecHint   = hint <> parsecHint st }
-
 instance Categorized (Item s) => Monad (Parsector s a) where
   return = pure
   p >>= f = Parsector $ \callback query ->
@@ -226,10 +242,19 @@ instance Categorized (Item s) => Monad (Parsector s a) where
               }
           in
             flip (runParsector (f b)) fQuery $ \fReply -> callback $
-              (applyHint hintP fReply)
-                { parsecLooked = parsecLooked reply || parsecLooked fReply }
+              if parsecLooked fReply
+                then fReply
+                else case parsecResult fReply of
+                  Left err -> fReply
+                    { parsecLooked = parsecLooked reply
+                    , parsecResult = Left (hintP <> err)
+                    }
+                  Right _ -> fReply
+                    { parsecLooked = parsecLooked reply
+                    , parsecHint   = hintP <> parsecHint fReply
+                    }
 instance Categorized (Item s) => Alternative (Parsector s a) where
-  -- | Always fail, consuming no input and expecting nothing.
+  -- | Always fails without consuming input; expects nothing.
   empty = Parsector $ \callback query ->
     callback query { parsecResult = Left mempty }
   p <|> q = Parsector $ \callback query ->
@@ -252,6 +277,9 @@ instance Categorized (Item s) => MonadPlus (Parsector s a)
 instance Categorized (Item s) => MonadFail (Parsector s a) where
   fail msg = rule msg empty
 instance Categorized (Item s) => MonadTry (Parsector s a) where
+  -- | On failure, resets `parsecLooked` to @False@, allowing
+  -- the enclosing `<|>` to try the next alternative even if @p@
+  -- consumed input. Has no effect on success.
   try p = Parsector $ \callback query ->
     flip (runParsector p) query $ \reply -> callback $
       case parsecResult reply of
