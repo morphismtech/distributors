@@ -37,8 +37,8 @@ import qualified Data.Set as Set
 import Data.Set (Set)
 
 {- | `BackusNaurForm` grammar combinators formalize
-`rule` abstraction and general recursion. Context-free
-`Control.Lens.Grammar.Grammar`s & `CtxGrammar`s
+`rule` abstraction and general recursion. Both Context-free
+`Control.Lens.Grammar.Grammar`s & `Control.Lens.Grammar.CtxGrammar`s
 support the `BackusNaurForm` interface.
 
 prop> rule name bnf = ruleRec name (\_ -> bnf)
