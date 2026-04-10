@@ -9,13 +9,13 @@ Portability : non-portable
 -}
 
 module Data.Profunctor.Grammar
-  ( -- * Parsor
-    Parsor (..)
+  ( -- * Printor
+    Printor (..)
+  , printP
+    -- * Parsor
+  , Parsor (..)
   , unparseP
   , parseP
-    -- * Printor
-  , Printor (..)
-  , printP
     -- * Grammor
   , Grammor (..)
   ) where
@@ -42,6 +42,15 @@ import Prelude hiding (id, (.))
 import GHC.Exts
 import Witherable
 
+-- | `Printor` is a simple printer `Profunctor`.
+newtype Printor s f a b = Printor {runPrintor :: a -> f (b, s -> s)}
+
+-- | Run the printer on a value, returning a function
+-- that `cons`es tokens at the beginning of an input string,
+-- from right to left.
+printP :: Functor f => Printor s f a b -> a -> f (s -> s)
+printP (Printor f) = fmap snd . f
+
 -- | `Parsor` is a simple invertible parser `Profunctor`.
 newtype Parsor s f a b = Parsor {runParsor :: Maybe a -> s -> f (b,s)}
 
@@ -56,15 +65,6 @@ parseP (Parsor f) = f Nothing
 -- and returning the new string.
 unparseP :: Functor f => Parsor s f a b -> a -> s -> f s
 unparseP (Parsor f) a = fmap snd . f (Just a)
-
--- | `Printor` is a simple printer `Profunctor`.
-newtype Printor s f a b = Printor {runPrintor :: a -> f (b, s -> s)}
-
--- | Run the printer on a value, returning a function
--- that `cons`es tokens at the beginning of an input string,
--- from right to left.
-printP :: Functor f => Printor s f a b -> a -> f (s -> s)
-printP (Printor f) = fmap snd . f
 
 -- | `Grammor` is a constant `Profunctor`.
 newtype Grammor k a b = Grammor {runGrammor :: k}
