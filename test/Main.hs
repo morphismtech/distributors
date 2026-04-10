@@ -2,6 +2,7 @@ module Main (main) where
 
 import Data.Foldable hiding (toList)
 import Control.Lens.Grammar
+import Control.Monad (when)
 import Data.List (genericLength)
 import Test.DocTest
 import Test.Hspec
@@ -19,15 +20,15 @@ import Properties.Kleene
 main :: IO ()
 main = do
   hspec $ do
-    describe "regexGrammar" $ for_ regexExamples $ testGrammarExample regexGrammar
-    describe "semverGrammar" $ for_ semverExamples $ testCtxGrammarExample semverGrammar
-    describe "semverCtxGrammar" $ for_ semverExamples $ testCtxGrammarExample semverCtxGrammar
-    describe "arithGrammar" $ for_ arithExamples $ testGrammarExample arithGrammar
-    describe "jsonGrammar" $ for_ jsonExamples $ testCtxGrammarExample jsonGrammar
-    describe "sexprGrammar" $ for_ sexprExamples $ testCtxGrammarExample sexprGrammar
-    describe "lambdaGrammar" $ for_ lambdaExamples $ testCtxGrammarExample lambdaGrammar
-    describe "lenvecGrammar" $ for_ lenvecExamples $ testCtxGrammarExample lenvecGrammar
-    describe "chainGrammar" $ for_ chainExamples $ testCtxGrammarExample chainGrammar
+    describe "regexGrammar" $ for_ regexExamples $ testGrammar False regexGrammar
+    describe "semverGrammar" $ for_ semverExamples $ testCtxGrammar True semverGrammar
+    describe "semverCtxGrammar" $ for_ semverExamples $ testCtxGrammar True semverCtxGrammar
+    describe "arithGrammar" $ for_ arithExamples $ testGrammar True arithGrammar
+    describe "jsonGrammar" $ for_ jsonExamples $ testCtxGrammar False jsonGrammar
+    describe "sexprGrammar" $ for_ sexprExamples $ testCtxGrammar True sexprGrammar
+    describe "lambdaGrammar" $ for_ lambdaExamples $ testCtxGrammar True lambdaGrammar
+    describe "lenvecGrammar" $ for_ lenvecExamples $ testCtxGrammar True lenvecGrammar
+    describe "chainGrammar" $ for_ chainExamples $ testCtxGrammar True chainGrammar
     describe "Kleene" kleeneProperties
   doctests
 
@@ -79,15 +80,15 @@ doctests = do
     putStrLn modulePath
     doctest (modulePath : languageExtensions)
 
-testGrammarExample :: (Show a, Eq a) => Grammar Char a -> (a, String) -> Spec
-testGrammarExample grammar (expectedSyntax, expectedString) = do
-  testCtxGrammarExample grammar (expectedSyntax, expectedString)
+testGrammar :: (Show a, Eq a) => Bool -> Grammar Char a -> (a, String) -> Spec
+testGrammar isLL1 grammar (expectedSyntax, expectedString) = do
+  testCtxGrammar isLL1 grammar (expectedSyntax, expectedString)
   it ("should match " <> expectedString <> " correctly") $ do
     let actualMatch = expectedString =~ regbnfG grammar
     actualMatch `shouldBe` True
 
-testCtxGrammarExample :: (Show a, Eq a) => CtxGrammar Char a -> (a, String) -> Spec
-testCtxGrammarExample grammar (expectedSyntax, expectedString) = do
+testCtxGrammar :: (Show a, Eq a) => Bool -> CtxGrammar Char a -> (a, String) -> Spec
+testCtxGrammar isLL1 grammar (expectedSyntax, expectedString) = do
   it ("should parseG from " <> expectedString <> " correctly") $ do
     let actualSyntax = [parsed | (parsed, "") <- parseG grammar expectedString]
     actualSyntax `shouldBe` [expectedSyntax]
@@ -97,15 +98,16 @@ testCtxGrammarExample grammar (expectedSyntax, expectedString) = do
   it ("should printG to " <> expectedString <> " correctly") $ do
     let actualString = ($ "") <$> printG grammar expectedSyntax
     actualString `shouldBe` Just expectedString
-  -- it ("should parsecG from " <> expectedString <> " correctly") $ do
-  --   let actualSyntax = parsecG grammar expectedString
-  --   let expectedLength = genericLength expectedString
-  --   let actualImpure = parsecImpure actualSyntax
-  --   actualSyntax `shouldBe`
-  --     (ParsecState actualImpure expectedLength "" (Right expectedSyntax))
-  -- it ("should unparsecG to " <> expectedString <> " correctly") $ do
-  --   let actualString = unparsecG grammar expectedSyntax ""
-  --   let expectedLength = genericLength expectedString
-  --   let actualImpure = parsecImpure actualString
-  --   actualString `shouldBe`
-  --     (ParsecState actualImpure expectedLength expectedString (Right expectedSyntax))
+  when isLL1 $ do
+    it ("should parsecG from " <> expectedString <> " correctly") $ do
+      let actualSyntax = parsecG grammar expectedString
+      let expectedLength = genericLength expectedString
+      let actualLooked = parsecLooked actualSyntax
+      actualSyntax `shouldBe`
+        (ParsecState actualLooked expectedLength "" (Right expectedSyntax))
+    it ("should unparsecG to " <> expectedString <> " correctly") $ do
+      let actualString = unparsecG grammar expectedSyntax ""
+      let expectedLength = genericLength expectedString
+      let actualLooked = parsecLooked actualString
+      actualString `shouldBe`
+        (ParsecState actualLooked expectedLength expectedString (Right expectedSyntax))
