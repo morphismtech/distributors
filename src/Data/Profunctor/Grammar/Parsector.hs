@@ -1,6 +1,6 @@
 {-|
 Module      : Data.Profunctor.Grammar.Parsector
-Description : lookahead grammar distributor
+Description : grammar distributor with errors
 Copyright   : (C) 2026 - Eitan Chatav
 License     : BSD-style (see the file LICENSE)
 Maintainer  : Eitan Chatav <eitan.chatav@gmail.com>
@@ -20,7 +20,7 @@ module Data.Profunctor.Grammar.Parsector
 import Control.Applicative
 import Control.Arrow
 import Control.Category
-import Data.Function hiding (id, (.))
+import Data.Function (fix)
 import Control.Lens
 import Control.Lens.Grammar.BackusNaur
 import Control.Lens.Grammar.Boole
@@ -48,11 +48,11 @@ newtype Parsector s a b = Parsector
 
 -- | `Parsector` is parsed using `parsecP`.
 parsecP :: Categorized (Item s) => Parsector s a b -> s -> ParsecState s b
-parsecP p s = runParsector p id (ParsecState 0 s (Left mempty))
+parsecP p s = runParsector p id (ParsecState False 0 s (Left mempty))
 
 -- | `Parsector` is printed using `unparsecP`.
 unparsecP :: Parsector s a b -> a -> s -> ParsecState s b
-unparsecP p a s = runParsector p id (ParsecState 0 s (Right a))
+unparsecP p a s = runParsector p id (ParsecState False 0 s (Right a))
 
 {- | `ParsecState` is the outpute type for `parsecP` & `unparsecP`.
 It's the fundamental building block of `Parsector`.
@@ -61,7 +61,8 @@ It's the fundamental building block of `Parsector`.
 interpretation as input and output.
 -}
 data ParsecState s a = ParsecState
-  { parsecOffset :: !Word
+  { parsecImpure :: Bool
+  , parsecOffset :: !Word
     -- ^ token offset number
   , parsecStream :: s -- ^ input and output stream
   , parsecResult :: Either (ParsecError s) a
@@ -150,7 +151,8 @@ instance
         mode = parsecResult query
         offset = parsecOffset query
         replyOk tok str = query
-          { parsecStream = str
+          { parsecImpure = True
+          , parsecStream = str
           , parsecOffset = offset + 1
           , parsecResult = Right tok
           }
@@ -192,8 +194,15 @@ instance Categorized (Item s) => Monad (Parsector s a) where
     flip (runParsector p) query $ \reply ->
       case parsecResult reply of
         Left err -> callback reply {parsecResult = Left err}
-        Right b -> runParsector (f b) callback reply
-          {parsecResult = parsecResult query}
+        Right b ->
+          let fQuery = reply
+                { parsecImpure = False
+                , parsecResult = parsecResult query
+                }
+          in runParsector (f b)
+              (\fReply -> callback fReply
+                { parsecImpure = parsecImpure reply || parsecImpure fReply })
+              fQuery
 instance Categorized (Item s) => Alternative (Parsector s a) where
   -- | Always fail, consuming no input and expecting nothing.
   empty = Parsector $ \callback query ->
@@ -201,32 +210,28 @@ instance Categorized (Item s) => Alternative (Parsector s a) where
   p <|> q = Parsector $ \callback query ->
     flip (runParsector p) query $ \replyP -> callback $
       case parsecResult replyP of
-        -- if p succeeds do p's branch,
+        -- if p succeeds, take p's branch
         Right _ -> replyP
-        -- otherwise,
+        -- if p failed after consuming (committed), propagate immediately
+        Left _ | parsecImpure replyP -> replyP
+        -- if p failed without consuming, try q
         Left errP -> flip (runParsector q) query $ \replyQ ->
           case parsecResult replyQ of
-            -- if q succeeds do q's branch,
+            -- if q succeeds, take q's branch
             Right _ -> replyQ
-            -- otherwise,
-            Left errQ ->
-              case (compare `on` parsecOffset) replyP replyQ of
-                -- do the longer branch,
-                LT -> replyQ
-                GT -> replyP
-                -- merging errors on ties.
-                EQ -> replyP {parsecResult = Left (errP <> errQ)}
+            -- if q failed after consuming (committed), propagate q's error
+            Left _ | parsecImpure replyQ -> replyQ
+            -- both failed without consuming: merge errors
+            Left errQ -> replyP {parsecResult = Left (errP <> errQ)}
 instance Categorized (Item s) => MonadPlus (Parsector s a)
 instance Categorized (Item s) => MonadFail (Parsector s a) where
   fail msg = rule msg empty
 instance Categorized (Item s) => MonadTry (Parsector s a) where
   try p = Parsector $ \callback query ->
     flip (runParsector p) query $ \reply -> callback $
-      if parsecOffset reply > parsecOffset query
-      then case parsecResult reply of
-        Left err -> query { parsecResult = Left err }
-        Right _  -> reply
-      else reply
+      case parsecResult reply of
+        Left _ -> reply { parsecImpure = False }
+        Right _ -> reply
 instance Categorized (Item s) => Filterable (Parsector s a) where
   mapMaybe = dimapMaybe Just
 instance Category (Parsector s) where
