@@ -5,7 +5,7 @@ cabal-version: 2.2
 -- see: https://github.com/sol/hpack
 
 name:           distributors
-version:        0.3.0.0
+version:        0.4.0.0
 synopsis:       Unifying Parsers, Printers & Grammars
 description:    Distributors provides mathematically inspired abstractions for coders to write parsers that can also be inverted to printers.
 category:       Profunctors, Optics, Parsing
