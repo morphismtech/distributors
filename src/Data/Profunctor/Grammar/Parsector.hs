@@ -61,7 +61,7 @@ It's the fundamental building block of `Parsector`.
 interpretation as input and output.
 -}
 data ParsecState s a = ParsecState
-  { parsecImpure :: Bool
+  { parsecLooked :: !Bool
   , parsecOffset :: !Word
     -- ^ token offset number
   , parsecStream :: s -- ^ input and output stream
@@ -151,7 +151,7 @@ instance
         mode = parsecResult query
         offset = parsecOffset query
         replyOk tok str = query
-          { parsecImpure = True
+          { parsecLooked = True
           , parsecStream = str
           , parsecOffset = offset + 1
           , parsecResult = Right tok
@@ -195,14 +195,14 @@ instance Categorized (Item s) => Monad (Parsector s a) where
       case parsecResult reply of
         Left err -> callback reply {parsecResult = Left err}
         Right b ->
-          let fQuery = reply
-                { parsecImpure = False
-                , parsecResult = parsecResult query
-                }
-          in runParsector (f b)
-              (\fReply -> callback fReply
-                { parsecImpure = parsecImpure reply || parsecImpure fReply })
-              fQuery
+          let
+            fQuery = reply
+              { parsecLooked = False
+              , parsecResult = parsecResult query
+              }
+          in
+            flip (runParsector (f b)) fQuery $ \fReply -> callback fReply
+              { parsecLooked = parsecLooked reply || parsecLooked fReply }
 instance Categorized (Item s) => Alternative (Parsector s a) where
   -- | Always fail, consuming no input and expecting nothing.
   empty = Parsector $ \callback query ->
@@ -213,14 +213,14 @@ instance Categorized (Item s) => Alternative (Parsector s a) where
         -- if p succeeds, take p's branch
         Right _ -> replyP
         -- if p failed after consuming (committed), propagate immediately
-        Left _ | parsecImpure replyP -> replyP
+        Left _ | parsecLooked replyP -> replyP
         -- if p failed without consuming, try q
         Left errP -> flip (runParsector q) query $ \replyQ ->
           case parsecResult replyQ of
             -- if q succeeds, take q's branch
             Right _ -> replyQ
             -- if q failed after consuming (committed), propagate q's error
-            Left _ | parsecImpure replyQ -> replyQ
+            Left _ | parsecLooked replyQ -> replyQ
             -- both failed without consuming: merge errors
             Left errQ -> replyP {parsecResult = Left (errP <> errQ)}
 instance Categorized (Item s) => MonadPlus (Parsector s a)
@@ -230,7 +230,7 @@ instance Categorized (Item s) => MonadTry (Parsector s a) where
   try p = Parsector $ \callback query ->
     flip (runParsector p) query $ \reply -> callback $
       case parsecResult reply of
-        Left _ -> reply { parsecImpure = False }
+        Left _ -> reply { parsecLooked = False }
         Right _ -> reply
 instance Categorized (Item s) => Filterable (Parsector s a) where
   mapMaybe = dimapMaybe Just
