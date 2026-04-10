@@ -1,5 +1,46 @@
 # Changelog for `distributors`
 
+## 0.4.0.0 - 2026-04-10
+
+### New Modules
+
+- `Control.Monad.Fail.Try` - `MonadTry` class with `try` & `fail` for backtracking parsers
+- `Data.Profunctor.Grammar.Parsector` - Invertible LL(1) parser with Parsec-style error reporting:
+  `ParsecState`, `ParsecError`, `parsecP`, `unparsecP`; implements hints, LL(1) commitment
+  via `parsecLooked`, and `try` for explicit backtracking
+- `Data.Profunctor.Separator` - Separator/delimiter combinators: `sepWith`, `noSep`,
+  `beginWith`, `endWith`, `several`, `several1`, `intercalateP`, `chain`, `chain1`
+- `Data.Traversable.Homogeneous` - `Homogeneous` class for static containers with uniform elements;
+  `ditraverse` for distributive traversals
+
+### New Combinators
+
+- `Control.Lens.Grammar.Kleene`: `tokenClass` embedding into `RegEx`; `KleeneAlgebra` laws
+  as QuickCheck properties; `RegExam` helpers `failExam`, `passExam`, `isFailExam`
+- `Control.Lens.Grammar.Boole`: `trueB`, `falseB` added to `BooleanAlgebra`;
+  `andB`, `orB`, `allB`, `anyB` fold combinators
+- `Data.Profunctor.Monadic`: `MonadicTry` constraint alias; `P.return` combinator;
+  improved documentation for qualified do-notation pattern bonding
+- `Data.Profunctor.Distributor`: `manyP` / `optionalP` now place the empty case on
+  the right of `>+<` for correct LL(1) behaviour (`p >*< manyP p >+< oneP`)
+
+### Changes
+
+- `<|>` in `Parsector` now commits when the left branch consumes input (LL(1));
+  use `try` to opt into backtracking
+- `TokenTest` renamed to `TokenClass` throughout
+- `chain`, `chain1`, `intercalateP` moved from `Data.Profunctor.Distributor`
+  to the new `Data.Profunctor.Separator`
+- `BackusNaurForm`: `rule` documentation clarified; added reference to Breitner's
+  *Showcasing Applicative*
+
+### Testing
+
+- `test/Properties/Kleene` - QuickCheck properties for `KleeneStarAlgebra`,
+  `TokenAlgebra`, `BooleanAlgebra TokenClass`
+- `test/Examples/Chain` - Chain grammar example
+- `test/Main`: `testCtxGrammarExample` extended with `parsecG` / `unparsecG` round-trip checks
+
 ## 0.3.0.0 - 2026-02-05
 
 ### New Modules
