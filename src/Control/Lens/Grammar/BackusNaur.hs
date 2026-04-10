@@ -42,6 +42,9 @@ import Data.Set (Set)
 support the `BackusNaurForm` interface.
 
 prop> rule name bnf = ruleRec name (\_ -> bnf)
+
+See Breitner, [Showcasing Applicative]
+(https://www.joachim-breitner.de/blog/710-Showcasing_Applicative)
 -}
 class BackusNaurForm bnf where
 
