@@ -148,7 +148,7 @@ partialIso :: (s -> Maybe a) -> (b -> Maybe t) -> PartialIso s t a b
 partialIso f g =
   unright . iso (maybe (Left ()) Right . f =<<) (mapMaybe g) . right'
 
-{- | Given a function that is its own partial inverse,
+{- | Given a partial function that is its own inverse,
 this gives you a `PartialIso'` using it in both directions. -}
 partialInvoluted :: (a -> Maybe a) -> PartialIso' a a
 partialInvoluted f = partialIso f f
