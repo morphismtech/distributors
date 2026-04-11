@@ -22,6 +22,7 @@ module Control.Lens.Bifocal
     -- * Prismoid
   , Prismoid
   , somed
+  , opted
   , lefted
   , righted
   , chained1
@@ -93,6 +94,10 @@ cloneBifocal bif = unwrapPafb . mapBifocal bif . WrapPafb
 {- | One or more. -}
 somed :: Prismoid [a] [b] a b
 somed = unwrapPafb . someP . WrapPafb
+
+{- | One or zero with default. -}
+opted :: APrism a b () () -> Prismoid a b a b
+opted def = unwrapPafb . optionP def . WrapPafb
 
 {- | `lefted` is like `_Left`, except
 with heterogeneous `Right` parameters. -}
