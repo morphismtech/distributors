@@ -52,18 +52,18 @@ newtype Parsector s a b = Parsector
 
 {- | Run `Parsector` as a parser: consume tokens from @s@,
 left to right, returning a `ParsecState` whose `parsecResult`
-is either a successful output syntax value or a `ParsecError`. -}
+is `Nothing` on failure and `Just` the output syntax value on success. -}
 parsecP
   :: Categorized (Item s)
   => Parsector s a b
   -> s -- ^ input stream
   -> ParsecState s b
-parsecP p s = runParsector p id (ParsecState False 0 s mempty (Left mempty))
+parsecP p s = runParsector p id (ParsecState False 0 s mempty Nothing)
 
 {- | Run `Parsector` as a printer: given a syntax value @a@ and
 an input stream, append tokens to @s@ left to right,
 returning a `ParsecState` whose `parsecResult` is
-either a `ParsecError` or a successful output syntax value,
+`Nothing` on failure or `Just` a successful output syntax value,
 in which case, `parsecStream` is the output stream. -}
 unparsecP
   :: Categorized (Item s)
@@ -71,7 +71,7 @@ unparsecP
   -> a -- ^ input syntax
   -> s -- ^ input stream
   -> ParsecState s b
-unparsecP p a s = runParsector p id (ParsecState False 0 s mempty (Right a))
+unparsecP p a s = runParsector p id (ParsecState False 0 s mempty (Just a))
 
 {- | `ParsecState` is both the input and output type of the
 underlying function inside `Parsector`.
@@ -82,35 +82,49 @@ underlying function inside `Parsector`.
 So `ParsecState` has a dual interpretation as input and output. -}
 data ParsecState s a = ParsecState
   { parsecLooked :: !Bool
-    {- ^ @True@ once the parser has consumed at least one token
+    {- ^ `True` once the parser has consumed at least one token
     since the last `<|>` / `try` decision point.
-    Controls LL(1) commitment: a failure with `parsecLooked` @True@
+    Controls LL(1) commitment: a failure with `parsecLooked` `True`
     is propagated immediately without trying alternatives.
     Reset to @False@ by `try` on failure.
     -}
   , parsecOffset :: !Word
     -- ^ Number of tokens consumed from the start of the stream.
   , parsecStream :: s -- ^ stream
-  , parsecHint   :: ParsecError s
-    {- ^ Hint: the merged `ParsecError`s from all empty-failing
-    alternatives at the current position.
-    Carried forward on the *success* path by `<|>` and `>>=` so that
-    downstream failures include the full set of expected tokens. -}
-  , parsecResult :: Either (ParsecError s) a
-    {- ^ As an input: Either parse mode or print mode with syntax value.
-    As an output: Either a failure or success with syntax value.
+  , parsecError  :: ParsecError s
+    {- ^ `ParsecError` channel.
+
+    * If `parsecResult` is `Nothing`, this is the hard failure.
+    * If `parsecResult` is `Just`, this is deferred error/hint info
+      from empty-failing alternatives at the current position.
+
+    `<|>` and `>>=` propagate and merge this field to preserve
+    expected-token reporting on downstream failures.
+    -}
+  , parsecResult :: Maybe a
+    {- ^ Dual role for parse and print modes.
+
+    As input:
+
+    * `Nothing` means parse mode.
+    * `Just` means print mode with syntax value.
+
+    As output:
+
+    * `Nothing` means failure; inspect `parsecError`.
+    * `Just` means success with a syntax value.
     -}
   }
 
 {- | `ParsecError` is the error payload produced by `Parsector`,
-inside a failed `parsecResult` of a `ParsecState` output.
+stored in `parsecError`.
 -}
 data ParsecError s = ParsecError
   { parsecExpect :: TokenClass (Item s)
     {- ^ Class of expected token `Item`s at the `parsecOffset`.
     `tokenClass`es and `Tokenized` combinators specify expectations.
     `<|>` merges them via disjunction `>||<`.
-    Contrast with the actual `parsecStream`,
+    In case of a parse error, contrast with the actual `parsecStream`,
     which is either empty or begins with an unexpected token.
     -}
   , parsecLabels :: [Tree String]
@@ -184,22 +198,22 @@ instance
         offset = parsecOffset query
         replyOk tok str = query
           { parsecLooked = True
-          , parsecHint   = mempty
+          , parsecError  = mempty
           , parsecStream = str
           , parsecOffset = offset + 1
-          , parsecResult = Right tok
+          , parsecResult = Just tok
           }
         replyErr = query
-          { parsecHint   = mempty
-          , parsecResult = Left (ParsecError test []) }
+          { parsecError  = ParsecError test []
+          , parsecResult = Nothing }
       in
         callback $ case mode of
           -- print mode
-          Right tok
+          Just tok
             | tokenClass test tok -> replyOk tok (snoc stream tok)
             | otherwise -> replyErr
           -- parse mode
-          Left _ -> case uncons stream of
+          Nothing -> case uncons stream of
             Just (tok, rest)
               | tokenClass test tok -> replyOk tok rest
               | otherwise -> replyErr
@@ -210,9 +224,12 @@ instance BackusNaurForm (Parsector s a b) where
   rule name p = Parsector $ \callback query ->
     flip (runParsector p) query $ \reply -> callback $
       case parsecResult reply of
-        Left (ParsecError expect labels) -> reply
-          {parsecResult = Left (ParsecError expect [Node name labels])}
-        Right _ -> reply
+        Nothing -> reply
+          { parsecError =
+              let ParsecError expect labels = parsecError reply
+              in ParsecError expect [Node name labels]
+          }
+        Just _ -> reply
   ruleRec name = rule name . fix
 instance
   ( Categorized token, Item s ~ token
@@ -222,7 +239,7 @@ instance Functor (Parsector s a) where
   fmap = rmap
 instance Categorized (Item s) => Applicative (Parsector s a) where
   pure b = Parsector $ \callback query ->
-    callback query { parsecResult = Right b }
+    callback query { parsecResult = Just b }
   (<*>) = ap
 
 instance Categorized (Item s) => Monad (Parsector s a) where
@@ -230,48 +247,45 @@ instance Categorized (Item s) => Monad (Parsector s a) where
   p >>= f = Parsector $ \callback query ->
     flip (runParsector p) query $ \reply ->
       case parsecResult reply of
-        Left err -> callback reply {parsecResult = Left err}
-        Right b ->
+        Nothing -> callback reply { parsecResult = Nothing }
+        Just b ->
           let
-            hintP  = parsecHint reply
+            hintP  = parsecError reply
             fQuery = reply
               { parsecLooked = False
-              , parsecHint   = mempty
+              , parsecError  = mempty
               , parsecResult = parsecResult query
               }
           in
             flip (runParsector (f b)) fQuery $ \fReply -> callback $
               if parsecLooked fReply
                 then fReply
-                else case parsecResult fReply of
-                  Left err -> fReply
-                    { parsecLooked = parsecLooked reply
-                    , parsecResult = Left (hintP <> err)
-                    }
-                  Right _ -> fReply
-                    { parsecLooked = parsecLooked reply
-                    , parsecHint   = hintP <> parsecHint fReply
-                    }
+                else fReply
+                  { parsecLooked = parsecLooked reply
+                  , parsecError  = hintP <> parsecError fReply
+                  }
 instance Categorized (Item s) => Alternative (Parsector s a) where
   -- | Always fails without consuming input; expects nothing.
   empty = Parsector $ \callback query ->
-    callback query { parsecResult = Left mempty }
+    callback query { parsecError = mempty, parsecResult = Nothing }
   p <|> q = Parsector $ \callback query ->
     flip (runParsector p) query $ \replyP -> callback $
       case parsecResult replyP of
         -- if p succeeds, take p's branch
-        Right _ -> replyP
+        Just _ -> replyP
         -- if p failed after consuming (committed), propagate immediately
-        Left _ | parsecLooked replyP -> replyP
+        Nothing | parsecLooked replyP -> replyP
         -- if p failed without consuming, try q
-        Left errP -> flip (runParsector q) query $ \replyQ ->
+        Nothing ->
+          let errP = parsecError replyP
+          in flip (runParsector q) query $ \replyQ ->
           case (parsecLooked replyQ, parsecResult replyQ) of
             -- q consumed (ok or err): propagate as-is, drop errP
             (True, _)         -> replyQ
             -- q empty ok: carry errP forward as hint for downstream
-            (False, Right _)  -> replyQ { parsecHint = errP <> parsecHint replyQ }
+            (False, Just _)   -> replyQ { parsecError = errP <> parsecError replyQ }
             -- both empty fail: merge errors
-            (False, Left errQ) -> replyP { parsecResult = Left (errP <> errQ) }
+            (False, Nothing)  -> replyP { parsecError = errP <> parsecError replyQ }
 instance Categorized (Item s) => MonadPlus (Parsector s a)
 instance Categorized (Item s) => MonadFail (Parsector s a) where
   fail msg = rule msg empty
@@ -282,8 +296,8 @@ instance Categorized (Item s) => MonadTry (Parsector s a) where
   try p = Parsector $ \callback query ->
     flip (runParsector p) query $ \reply -> callback $
       case parsecResult reply of
-        Left _ -> reply { parsecLooked = False }
-        Right _ -> reply
+        Nothing -> reply { parsecLooked = False }
+        Just _ -> reply
 instance Categorized (Item s) => Filterable (Parsector s a) where
   mapMaybe = dimapMaybe Just
 instance Category (Parsector s) where
@@ -329,14 +343,14 @@ instance Categorized (Item s) => Alternator (Parsector s) where
     let
       replyOk = query
         { parsecResult = case parsecResult query of
-            Left err       -> Left err
-            Right (Left a) -> Right a
-            Right (Right _) -> Left mempty
+            Nothing         -> Nothing
+            Just (Left a)   -> Just a
+            Just (Right _)  -> Nothing
         }
-      replyErr = query { parsecResult = Left mempty }
+      replyErr = query { parsecError = mempty, parsecResult = Nothing }
     in
       case (parsecResult query, parsecResult replyOk) of
-        (Right _, Left _) -> replyErr
+        (Just _, Nothing) -> replyErr
         _________________ ->
           flip (runParsector p) replyOk $ \reply -> reply
             { parsecResult = fmap Left (parsecResult reply) }
@@ -344,21 +358,21 @@ instance Categorized (Item s) => Alternator (Parsector s) where
     let
       replyOk = query
         { parsecResult = case parsecResult query of
-            Left err        -> Left err
-            Right (Left _)  -> Left mempty
-            Right (Right b) -> Right b
+            Nothing         -> Nothing
+            Just (Left _)   -> Nothing
+            Just (Right b)  -> Just b
         }
-      replyErr = query { parsecResult = Left mempty }
+      replyErr = query { parsecError = mempty, parsecResult = Nothing }
     in
       case (parsecResult query, parsecResult replyOk) of
-        (Right _, Left _) -> replyErr
+        (Just _, Nothing) -> replyErr
         _________________ ->
           flip (runParsector p) replyOk $ \reply -> reply
             { parsecResult = fmap Right (parsecResult reply) }
   optionP def p = Parsector $ \callback query ->
     case parsecResult query of
-      Left _ -> runParsector (p <|> pureP def) callback query
-      Right _ -> runParsector (pureP def <|> p) callback query
+      Nothing -> runParsector (p <|> pureP def) callback query
+      Just _ -> runParsector (pureP def <|> p) callback query
 instance Categorized (Item s) => Cochoice (Parsector s) where
   unleft = fst . filtrate
   unright = snd . filtrate
@@ -367,13 +381,19 @@ instance Categorized (Item s) => Filtrator (Parsector s) where
     ( Parsector $ \callback query ->
         flip (runParsector p) (Left <$> query) $ \reply ->
           callback reply
-            { parsecResult =
-                parsecResult reply >>= either Right (const (Left mempty))
-            }
+          { parsecError = case parsecResult reply of
+            Just (Right _) -> mempty
+            _ -> parsecError reply
+          , parsecResult =
+            parsecResult reply >>= either Just (const Nothing)
+          }
     , Parsector $ \callback query ->
         flip (runParsector p) (Right <$> query) $ \reply ->
           callback reply
-            { parsecResult =
-                parsecResult reply >>= either (const (Left mempty)) Right
-            }
+          { parsecError = case parsecResult reply of
+            Just (Left _) -> mempty
+            _ -> parsecError reply
+          , parsecResult =
+            parsecResult reply >>= either (const Nothing) Just
+          }
     )

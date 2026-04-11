@@ -65,6 +65,11 @@ prop> p >+< zeroP = runit p
 prop> p >+< q >+< r = assoc ((p >+< q) >+< r)
 prop> dimap (f >+< g) (h >+< i) (p >+< q) = dimap f h p >+< dimap g i q
 
+`Distributor` additionally has methods `manyP` & `optionalP`,
+distributing an action over `[]` and `Maybe` datatypes,
+which generalize to `Data.Traversable.Homogeneous.homogeneously`
+distributing an action over homogeneous sum-of-products datatypes.
+
 -}
 class Monoidal p => Distributor p where
 
@@ -184,17 +189,32 @@ dialt f g h p q = dimap f (either g h) (p >+< q)
 
 {- | The `Alternator` class co-extends `Choice` and `Distributor`,
 as well as `Alternative`, adding the `alternate` method,
-which is a lax monoidal structure morphism on sums, with these
-these laws relating them.
+which is a lax monoidal structure morphism on sums,
+and methods `someP` & `optionP`,
+with these these laws relating them.
 
 prop> left' = alternate . Left
 prop> right' = alternate . Right
 prop> zeroP = empty
 prop> x >+< y = alternate (Left x) <|> alternate (Right y)
+prop> manyP p = optionP _Empty (someP p)
+prop> optionalP p = optionP _Nothing (_Just >? p)
+prop> someP p = p >:< manyP p
 
-For the case of `Functor`s the analog of `alternate` can be defined
+For the case of `Functor`s, the analog of `alternate` can be defined
 without any other constraint, but the case of `Profunctor`s turns
-out to be slighly more complex.
+out to be slighly more complex, necessitating `Alternator`.
+
+>>> :{
+alternateF :: Functor f => Either (f a) (f b) -> f (Either a b)
+alternateF = either (fmap Left) (fmap Right)
+:}
+
+Not all `Distributor`s are `Alternator`s, in particular @(->)@ is
+a `Distributor` but cannot be `Alternative`,
+because there is no `empty` function for any @a -> b@,
+so @(->)@ isn't an `Alternator`.
+
 -}
 class (Choice p, Distributor p, forall x. Alternative (p x))
   => Alternator p where
@@ -218,12 +238,8 @@ class (Choice p, Distributor p, forall x. Alternative (p x))
     someP :: p a b -> p [a] [b]
     someP x = x >:< manyP x
 
-    {- | One or zero with default.
-    
-    prop> optionP _Nothing (_Just >? p) = optionalP p
-
-    -}
-    optionP :: APrism a b () () -> p a b -> p a b
+    {- | One or zero-with-default. -}
+    optionP :: APrism a b () () {- ^ default -} -> p a b -> p a b
     optionP def p = p <|> pureP def
 
 -- | Combines all `Alternative` choices in the specified list.

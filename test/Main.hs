@@ -30,7 +30,8 @@ main = do
     describe "lenvecGrammar" $ for_ lenvecExamples $ testCtxGrammar True lenvecGrammar
     describe "chainGrammar" $ for_ chainExamples $ testCtxGrammar True chainGrammar
     describe "Kleene" kleeneProperties
-  doctests
+    describe "doctest" $
+      it "runs module documentation examples" doctests
 
 doctests :: IO ()
 doctests = do
@@ -103,13 +104,13 @@ testCtxGrammar isLL1 grammar (expectedSyntax, expectedString) = do
       let actualSyntax = parsecG grammar expectedString
       let expectedLength = genericLength expectedString
       let actualLooked = parsecLooked actualSyntax
-      let actualHint   = parsecHint   actualSyntax
+      let actualError  = parsecError  actualSyntax
       actualSyntax `shouldBe`
-        (ParsecState actualLooked expectedLength "" actualHint (Right expectedSyntax))
+        (ParsecState actualLooked expectedLength "" actualError (Just expectedSyntax))
     it ("should unparsecG to " <> expectedString <> " correctly") $ do
       let actualString = unparsecG grammar expectedSyntax ""
       let expectedLength = genericLength expectedString
       let actualLooked = parsecLooked actualString
-      let actualHint   = parsecHint   actualString
+      let actualError  = parsecError  actualString
       actualString `shouldBe`
-        (ParsecState actualLooked expectedLength expectedString actualHint (Right expectedSyntax))
+        (ParsecState actualLooked expectedLength expectedString actualError (Just expectedSyntax))

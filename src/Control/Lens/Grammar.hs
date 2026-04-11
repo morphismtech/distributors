@@ -373,13 +373,13 @@ Since both `Parsor` & `Parsector` are @LL@ parsers they
 diverge if the `CtxGrammar` they're run on is left-recursive.
 
 >>> parsecG (rule "foo" (fail "bar") <|> fail "baz") "abc"
-ParsecState {parsecLooked = False, parsecOffset = 0, parsecStream = "abc", parsecHint = ParsecError {parsecExpect = TokenClass (OneOf (fromList "")), parsecLabels = []}, parsecResult = Left (ParsecError {parsecExpect = TokenClass (OneOf (fromList "")), parsecLabels = [Node {rootLabel = "foo", subForest = [Node {rootLabel = "bar", subForest = []}]},Node {rootLabel = "baz", subForest = []}]})}
+ParsecState {parsecLooked = False, parsecOffset = 0, parsecStream = "abc", parsecError = ParsecError {parsecExpect = TokenClass (OneOf (fromList "")), parsecLabels = [Node {rootLabel = "foo", subForest = [Node {rootLabel = "bar", subForest = []}]},Node {rootLabel = "baz", subForest = []}]}, parsecResult = Nothing}
 
 >>> parsecG (manyP (token 'a') >*< asIn @Char DecimalNumber) "aaab"
-ParsecState {parsecLooked = True, parsecOffset = 3, parsecStream = "b", parsecHint = ParsecError {parsecExpect = TokenClass (OneOf (fromList "")), parsecLabels = []}, parsecResult = Left (ParsecError {parsecExpect = TokenClass (Alternate (TokenClass (OneOf (fromList "a"))) (TokenClass (NotOneOf (fromList "") (AndAsIn DecimalNumber)))), parsecLabels = []})}
+ParsecState {parsecLooked = True, parsecOffset = 3, parsecStream = "b", parsecError = ParsecError {parsecExpect = TokenClass (Alternate (TokenClass (OneOf (fromList "a"))) (TokenClass (NotOneOf (fromList "") (AndAsIn DecimalNumber)))), parsecLabels = []}, parsecResult = Nothing}
 
 >>> unparsecG (tokens "abc") "abx" ""
-ParsecState {parsecLooked = True, parsecOffset = 2, parsecStream = "ab", parsecHint = ParsecError {parsecExpect = TokenClass (OneOf (fromList "")), parsecLabels = []}, parsecResult = Left (ParsecError {parsecExpect = TokenClass (OneOf (fromList "c")), parsecLabels = []})}
+ParsecState {parsecLooked = True, parsecOffset = 2, parsecStream = "ab", parsecError = ParsecError {parsecExpect = TokenClass (OneOf (fromList "c")), parsecLabels = []}, parsecResult = Nothing}
 
 -}
 type CtxGrammar token a = forall p.
@@ -843,7 +843,8 @@ Since both `RegGrammar`s and context-free `Grammar`s are `CtxGrammar`s,
 the type system will allow `parsecG` to be applied to them.
 Running the parser on an input string value `uncons`es
 tokens from the beginning of an input string from left to right,
-returning a `parsecResult` which is a `ParsecError` or a syntax value,
+returning `parsecResult` as `Nothing` on failure or `Just` a syntax value,
+with failure/deferred expectations stored in `parsecError`,
 and a remaining output `parsecStream`.
 -}
 parsecG
@@ -860,8 +861,9 @@ Since both `RegGrammar`s and context-free `Grammar`s are `CtxGrammar`s,
 the type system will allow `unparsecG` to be applied to them.
 Running the printer on a syntax value and an input string
 `snoc`s tokens at the end of the string, from left to right,
-returning a `parsecResult` which is a `ParsecError`
-or the input syntax value, and a remaining output `parsecStream`.
+returning `parsecResult` as `Nothing` on failure or `Just`
+the input syntax value, with failure/deferred expectations stored
+in `parsecError`, and the output `parsecStream`.
 -}
 unparsecG
   :: (Cons string string token token, Snoc string string token token)
