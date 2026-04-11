@@ -9,13 +9,13 @@ Portability : non-portable
 -}
 
 module Data.Profunctor.Grammar
-  ( -- * Parsor
-    Parsor (..)
+  ( -- * Printor
+    Printor (..)
+  , printP
+    -- * Parsor
+  , Parsor (..)
   , unparseP
   , parseP
-    -- * Printor
-  , Printor (..)
-  , printP
     -- * Grammor
   , Grammor (..)
   ) where
@@ -26,11 +26,11 @@ import Control.Category
 import Control.Lens
 import Control.Lens.Extras
 import Control.Lens.Grammar.BackusNaur
-import Control.Lens.Grammar.Boole
 import Control.Lens.Grammar.Kleene
 import Control.Lens.Grammar.Symbol
 import Control.Lens.Grammar.Token
 import Control.Monad
+import Control.Monad.Fail.Try
 import Data.Coerce
 import Data.Monoid
 import Data.Profunctor
@@ -41,6 +41,15 @@ import Data.Void
 import Prelude hiding (id, (.))
 import GHC.Exts
 import Witherable
+
+-- | `Printor` is a simple printer `Profunctor`.
+newtype Printor s f a b = Printor {runPrintor :: a -> f (b, s -> s)}
+
+-- | Run the printer on a value, returning a function
+-- that `cons`es tokens at the beginning of an input string,
+-- from right to left.
+printP :: Functor f => Printor s f a b -> a -> f (s -> s)
+printP (Printor f) = fmap snd . f
 
 -- | `Parsor` is a simple invertible parser `Profunctor`.
 newtype Parsor s f a b = Parsor {runParsor :: Maybe a -> s -> f (b,s)}
@@ -56,15 +65,6 @@ parseP (Parsor f) = f Nothing
 -- and returning the new string.
 unparseP :: Functor f => Parsor s f a b -> a -> s -> f s
 unparseP (Parsor f) a = fmap snd . f (Just a)
-
--- | `Printor` is a simple printer `Profunctor`.
-newtype Printor s f a b = Printor {runPrintor :: a -> f (b, s -> s)}
-
--- | Run the printer on a value, returning a function
--- that `cons`es tokens at the beginning of an input string,
--- from right to left.
-printP :: Functor f => Printor s f a b -> a -> f (s -> s)
-printP (Printor f) = fmap snd . f
 
 -- | `Grammor` is a constant `Profunctor`.
 newtype Grammor k a b = Grammor {runGrammor :: k}
@@ -120,6 +120,9 @@ instance (Alternative m, Monad m) => Alternator (Parsor s m) where
       Nothing -> fmap (first' Right) (p Nothing s)
       Just (Right a) -> fmap (first' Right) (p (Just a) s)
       Just (Left _) -> empty
+  optionP def p = Parsor $ \ma s -> case ma of
+    Nothing -> runParsor (p <|> pureP def) ma s
+    Just _ -> runParsor (pureP def <|> p) ma s
 instance (Alternative m, Monad m) => Category (Parsor s m) where
   id = Parsor $ \ma s -> case ma of
     Nothing -> empty
@@ -177,6 +180,7 @@ instance
 instance BackusNaurForm (Parsor s m a b)
 instance (Alternative m, Monad m) => MonadFail (Parsor s m a) where
   fail _ = empty
+instance (Alternative m, Monad m) => MonadTry (Parsor s m a)
 instance AsEmpty s => Matching s (Parsor s [] a b) where
   word =~ p = case
     [ () | (_, remaining) <- runParsor p Nothing word
@@ -215,6 +219,7 @@ instance Alternative f => Alternator (Printor s f) where
       either (fmap (first' Left) . p) (\_ -> empty)
     Right (Printor p) -> Printor $
       either (\_ -> empty) (fmap (first' Right) . p)
+  optionP def p = pureP def <|> p
 instance Filterable f => Filtrator (Printor s f) where
   filtrate (Printor p) =
     let
@@ -284,6 +289,7 @@ instance
 instance BackusNaurForm (Printor s m a b)
 instance (Alternative m, Monad m) => MonadFail (Printor s m a) where
   fail _ = empty
+instance (Alternative m, Monad m) => MonadTry (Printor s m a)
 
 -- Grammor instances
 instance Functor (Grammor k a) where fmap _ = coerce
@@ -309,6 +315,7 @@ instance KleeneStarAlgebra k => Distributor (Grammor k) where
 instance KleeneStarAlgebra k => Alternator (Grammor k) where
   alternate = either coerce coerce
   someP (Grammor rex) = Grammor (plusK rex)
+  optionP _ (Grammor rex) = Grammor (optK rex)
 instance Tokenized token k => Tokenized token (Grammor k a b) where
   anyToken = Grammor anyToken
   token = Grammor . token

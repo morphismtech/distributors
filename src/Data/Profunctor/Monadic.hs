@@ -16,7 +16,8 @@ This module can provide qualified do-notation for `Monadic` profunctors.
 >>> import qualified Data.Profunctor.Monadic as P
 
 See "Control.Lens.Grammar#t:CtxGrammar" for
-an example of how to use "bonding" notation.
+an example of how to use qualified do-notation
+with pattern bonding.
 -}
 
 module Data.Profunctor.Monadic
@@ -25,17 +26,23 @@ module Data.Profunctor.Monadic
   , (>>=)
   , (>>)
   , return
+    -- * MonadicTry
+  , MonadicTry
+  , try
   , fail
   ) where
 
-import Data.Profunctor
-import Prelude hiding ((>>=), (>>))
+import Control.Lens
+import Control.Monad hiding ((>>=), (>>), return)
+import Control.Monad.Fail.Try
+import Data.Profunctor.Monoidal
+import Prelude hiding ((>>=), (>>), return)
 
 {- | A `Profunctor` which is also a `Monad`. -}
 type Monadic p = (Profunctor p, forall x. Monad (p x))
 
 {- | The pair bonding operator @P.@`>>=` is a context-sensitive
-version of `Data.Profunctor.Monoidal.>*<`.
+version of `>*<`.
 
 prop> x >*< y = x P.>>= (\_ -> y)
 -}
@@ -44,9 +51,20 @@ infixl 1 >>=
 p >>= f = do
   b <- lmap fst p
   d <- lmap snd (f b)
-  return (b,d)
+  pure (b,d)
 
 {- | @P.@`>>` sequences actions. -}
 (>>) :: Monadic p => p () c -> p a b -> p a b
 infixl 1 >>
 x >> y = do _ <- lmap (const ()) x; y
+
+{- | @P.@`return` is a `Monadic`-restricted
+version of `pureP`.
+
+prop> pureP = P.return
+-}
+return :: (Monadic p, Choice p) => Prism a b () () -> p a b
+return = pureP
+
+{- | A `Profunctor` which is also a `MonadTry`. -}
+type MonadicTry p = (Profunctor p, forall x. MonadTry (p x))

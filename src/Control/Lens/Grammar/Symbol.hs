@@ -26,7 +26,7 @@ class TerminalSymbol token s | s -> token where
   default terminal
     :: (p () () ~ s, Tokenized token (p token token), Monoidal p, Cochoice p)
     => [token] -> s
-  terminal = foldr (\a p -> only a ?< anyToken *> p) oneP
+  terminal = foldr (\a p -> only a ?< token a *> p) oneP
 
 -- | A `nonTerminal` symbol in a grammar.
 class NonTerminalSymbol s where

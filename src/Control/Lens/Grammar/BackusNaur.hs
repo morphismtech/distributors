@@ -26,7 +26,6 @@ module Control.Lens.Grammar.BackusNaur
 
 import Control.Lens
 import Control.Lens.Extras
-import Control.Lens.Grammar.Boole
 import Control.Lens.Grammar.Kleene
 import Control.Lens.Grammar.Token
 import Control.Lens.Grammar.Symbol
@@ -38,16 +37,18 @@ import qualified Data.Set as Set
 import Data.Set (Set)
 
 {- | `BackusNaurForm` grammar combinators formalize
-`rule` abstraction and general recursion. Context-free
-`Control.Lens.Grammar.Grammar`s support the `BackusNaurForm` interface.
+`rule` abstraction and general recursion. Both Context-free
+`Control.Lens.Grammar.Grammar`s & `Control.Lens.Grammar.CtxGrammar`s
+support the `BackusNaurForm` interface.
+
+prop> rule name bnf = ruleRec name (\_ -> bnf)
+
+See Breitner, [Showcasing Applicative]
+(https://www.joachim-breitner.de/blog/710-Showcasing_Applicative)
 -}
 class BackusNaurForm bnf where
 
-  {- | For a `BackusNaurForm` parser instance,
-  `rule` can be used to detail parse errors.
-
-  prop> rule name bnf = ruleRec name (\_ -> bnf)
-  -}
+  {- | Rule abstraction, `rule` can be used to detail parse errors. -}
   rule :: String -> bnf -> bnf
   rule _ = id
 
@@ -97,9 +98,7 @@ diffB prefix (Bnf start rules) =
   where
     -- derivative wrt 1 token, memoized
     diff1B = memo2 $ \x -> \case
-      Terminal [] -> zeroK
-      Terminal (tokenY:streamY) ->
-        if x == tokenY then terminal streamY else zeroK
+      SeqEmpty -> zeroK
       NonTerminal nameY -> anyK (diff1B x) (rulesNamed nameY rules)
       Sequence y1 y2 ->
         if δ (Bnf y1 rules) then y1'y2 >|< y1y2' else y1'y2
@@ -109,14 +108,12 @@ diffB prefix (Bnf start rules) =
       KleeneStar y -> diff1B x y <> starK y
       KleeneOpt y -> diff1B x y
       KleenePlus y -> diff1B x y <> starK y
-      RegExam Fail -> zeroK
-      RegExam Pass -> mempty
       RegExam (OneOf chars) ->
         if x `elem` chars then mempty else zeroK
-      RegExam (NotOneOf chars (AsIn cat)) ->
+      RegExam (NotOneOf chars (AndAsIn cat)) ->
         if elem x chars || categorize x /= cat
           then zeroK else mempty
-      RegExam (NotOneOf chars (NotAsIn cats)) ->
+      RegExam (NotOneOf chars (AndNotAsIn cats)) ->
         if elem x chars || elem (categorize x) cats
           then zeroK else mempty
       RegExam (Alternate y1 y2) -> diff1B x y1 >|< diff1B x y2
@@ -126,7 +123,7 @@ diffB prefix (Bnf start rules) =
   => Bnf (RegEx token) -> Bool
 δ (Bnf start rules) = ν start where
   ν = memo $ \case
-    Terminal [] -> True
+    SeqEmpty -> True
     KleeneStar _ -> True
     KleeneOpt _ -> True
     KleenePlus y -> ν y

@@ -1,39 +1,42 @@
 module Main (main) where
 
 import Data.Foldable hiding (toList)
-import Data.Maybe (listToMaybe)
 import Control.Lens.Grammar
+import Control.Monad (when)
+import Data.List (genericLength)
 import Test.DocTest
 import Test.Hspec
 
-import Examples.RegString
 import Examples.Arithmetic
+import Examples.Chain
 import Examples.Json
-import Examples.SExpr
 import Examples.Lambda
 import Examples.LenVec
+import Examples.RegString
 import Examples.SemVer
+import Examples.SExpr
+import Properties.Kleene
 
 main :: IO ()
 main = do
-  doctests
   hspec $ do
-    testGrammar "regexGrammar" regexGrammar regexExamples
-    testGrammar "semverGrammar" semverGrammar semverExamples
-    testGrammar "semverCtxGrammar" semverCtxGrammar semverExamples
-    testGrammar "arithGrammar" arithGrammar arithExamples
-    testGrammar "jsonGrammar" jsonGrammar jsonExamples
-    testGrammar "sexprGrammar" sexprGrammar sexprExamples
-    testGrammar "lambdaGrammar" lambdaGrammar lambdaExamples
-    testGrammar "lenvecGrammar" lenvecGrammar lenvecExamples
+    describe "regexGrammar" $ for_ regexExamples $ testGrammar False regexGrammar
+    describe "semverGrammar" $ for_ semverExamples $ testCtxGrammar True semverGrammar
+    describe "semverCtxGrammar" $ for_ semverExamples $ testCtxGrammar True semverCtxGrammar
+    describe "arithGrammar" $ for_ arithExamples $ testGrammar True arithGrammar
+    describe "jsonGrammar" $ for_ jsonExamples $ testCtxGrammar False jsonGrammar
+    describe "sexprGrammar" $ for_ sexprExamples $ testCtxGrammar True sexprGrammar
+    describe "lambdaGrammar" $ for_ lambdaExamples $ testCtxGrammar True lambdaGrammar
+    describe "lenvecGrammar" $ for_ lenvecExamples $ testCtxGrammar True lenvecGrammar
+    describe "chainGrammar" $ for_ chainExamples $ testCtxGrammar True chainGrammar
+    describe "Kleene" kleeneProperties
+  doctests
 
 doctests :: IO ()
 doctests = do
   let
     modulePaths =
-      [ "src/Control/Lens/Grammar.hs"
-      , "src/Control/Lens/Grammar/Token.hs"
-      ]
+      [ "src/Control/Lens/Grammar.hs" ]
     languageExtensions =
       [ "-XAllowAmbiguousTypes"
       , "-XArrows"
@@ -77,16 +80,36 @@ doctests = do
     putStrLn modulePath
     doctest (modulePath : languageExtensions)
 
-testGrammar :: (Show a, Eq a) => String -> CtxGrammar Char a -> [(a, String)] -> Spec
-testGrammar name grammar examples =
-  describe name $
-    for_ examples $ \(expectedSyntax, expectedString) -> do
-      it ("should parse from " <> expectedString <> " correctly") $ do
-        let actualSyntax = [parsed | (parsed, "") <- parseG grammar expectedString]
-        listToMaybe actualSyntax `shouldBe` Just expectedSyntax
-      it ("should unparse to " <> expectedString <> " correctly") $ do
-        let actualString = unparseG grammar expectedSyntax ""
-        actualString `shouldBe` Just expectedString
-      it ("should print to " <> expectedString <> " correctly") $ do
-        let actualString = ($ "") <$> printG grammar expectedSyntax
-        actualString `shouldBe` Just expectedString
+testGrammar :: (Show a, Eq a) => Bool -> Grammar Char a -> (a, String) -> Spec
+testGrammar isLL1 grammar (expectedSyntax, expectedString) = do
+  testCtxGrammar isLL1 grammar (expectedSyntax, expectedString)
+  it ("should match " <> expectedString <> " correctly") $ do
+    let actualMatch = expectedString =~ regbnfG grammar
+    actualMatch `shouldBe` True
+
+testCtxGrammar :: (Show a, Eq a) => Bool -> CtxGrammar Char a -> (a, String) -> Spec
+testCtxGrammar isLL1 grammar (expectedSyntax, expectedString) = do
+  it ("should parseG from " <> expectedString <> " correctly") $ do
+    let actualSyntax = [parsed | (parsed, "") <- parseG grammar expectedString]
+    actualSyntax `shouldBe` [expectedSyntax]
+  it ("should unparseG to " <> expectedString <> " correctly") $ do
+    let actualString = unparseG grammar expectedSyntax ""
+    actualString `shouldBe` Just expectedString
+  it ("should printG to " <> expectedString <> " correctly") $ do
+    let actualString = ($ "") <$> printG grammar expectedSyntax
+    actualString `shouldBe` Just expectedString
+  when isLL1 $ do
+    it ("should parsecG from " <> expectedString <> " correctly") $ do
+      let actualSyntax = parsecG grammar expectedString
+      let expectedLength = genericLength expectedString
+      let actualLooked = parsecLooked actualSyntax
+      let actualHint   = parsecHint   actualSyntax
+      actualSyntax `shouldBe`
+        (ParsecState actualLooked expectedLength "" actualHint (Right expectedSyntax))
+    it ("should unparsecG to " <> expectedString <> " correctly") $ do
+      let actualString = unparsecG grammar expectedSyntax ""
+      let expectedLength = genericLength expectedString
+      let actualLooked = parsecLooked actualString
+      let actualHint   = parsecHint   actualString
+      actualString `shouldBe`
+        (ParsecState actualLooked expectedLength expectedString actualHint (Right expectedSyntax))

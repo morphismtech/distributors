@@ -10,22 +10,11 @@ Portability : non-portable
 
 module Data.Profunctor.Distributor
   ( -- * Distributor
-    Distributor (..), dialt
+    Distributor (..)
+  , dialt
     -- * Alternator
   , Alternator (..)
   , choice
-  , option
-    -- * Homogeneous
-  , Homogeneous (..)
-    -- * SepBy
-  , SepBy (..)
-  , sepBy
-  , noSep
-  , several
-  , several1
-  , chain
-  , chain1
-  , intercalateP
   ) where
 
 import Control.Applicative hiding (WrappedArrow)
@@ -37,14 +26,9 @@ import Control.Lens.PartialIso
 import Data.Bifunctor.Clown
 import Data.Bifunctor.Joker
 import Data.Bifunctor.Product
-import Data.Complex
 import Data.Foldable hiding (toList)
 import Data.Functor.Adjunction
-import Data.Functor.Compose
 import Data.Functor.Contravariant.Divisible
-import qualified Data.Functor.Product as Functor
-import qualified Data.Functor.Sum as Functor
-import qualified Data.Monoid as Monoid
 import Data.Profunctor hiding (WrappedArrow)
 import Data.Profunctor qualified as Pro (WrappedArrow)
 import Data.Profunctor.Cayley
@@ -52,14 +36,7 @@ import Data.Profunctor.Composition
 import Data.Profunctor.Monad
 import Data.Profunctor.Monoidal
 import Data.Profunctor.Yoneda
-import Data.Proxy
-import Data.Sequence (Seq)
-import Data.Tagged
-import Data.Tree (Tree (..))
-import Data.Vector (Vector)
 import Data.Void
-import GHC.Exts
-import GHC.Generics
 
 -- Distributor --
 
@@ -93,7 +70,7 @@ class Monoidal p => Distributor p where
 
   {- | The zero structure morphism of a `Distributor`.
 
-  `zeroP` has a default for `Alternator`.
+  `zeroP` has a default for `Alternator`s.
 
   prop> zeroP = empty
   -}
@@ -103,7 +80,7 @@ class Monoidal p => Distributor p where
 
   {- | The sum structure morphism of a `Distributor`.
 
-  `>+<` has a default for `Alternator`.
+  `>+<` has a default for `Alternator`s.
 
   prop> x >+< y = alternate (Left x) <|> alternate (Right y)
   -}
@@ -116,11 +93,11 @@ class Monoidal p => Distributor p where
 
   {- | One or none. -}
   optionalP :: p a b -> p (Maybe a) (Maybe b)
-  optionalP p = eotMaybe >~ oneP >+< p
+  optionalP p = eotMaybe >~ p >+< oneP
 
   {- | Zero or more. -}
   manyP :: p a b -> p [a] [b]
-  manyP p = eotList >~ oneP >+< p >*< manyP p
+  manyP p = eotList >~ p >*< manyP p >+< oneP
 
 instance Distributor (->) where
   zeroP = id
@@ -203,119 +180,17 @@ dialt
   -> p a b -> p c d -> p s t
 dialt f g h p q = dimap f (either g h) (p >+< q)
 
-{- | A class of `Homogeneous`
-countable sums of countable products.
--}
-class Traversable t => Homogeneous t where
-  {- | Sequences actions `homogeneously`.
-
-  prop> homogeneously @Maybe = optionalP
-  prop> homogeneously @[] = manyP
-
-  Any `Traversable` & `Data.Distributive.Distributive` countable product
-  can be given a default implementation for the `homogeneously` method.
-
-  prop> homogeneously = ditraverse
-
-  And any user-defined homogeneous algebraic datatype has
-  a default instance for `Homogeneous`, by deriving `Generic1`.
-  -}
-  homogeneously :: Distributor p => p a b -> p (t a) (t b)
-  default homogeneously
-    :: (Generic1 t, Homogeneous (Rep1 t), Distributor p)
-    => p a b -> p (t a) (t b)
-  homogeneously = dimap from1 to1 . homogeneously
-instance Homogeneous Par1 where
-  homogeneously = dimap unPar1 Par1
-instance Homogeneous Identity where
-  homogeneously = dimap runIdentity Identity
-instance Homogeneous Monoid.Dual where
-  homogeneously = dimap Monoid.getDual Monoid.Dual
-instance Homogeneous Monoid.Product where
-  homogeneously = dimap Monoid.getProduct Monoid.Product
-instance Homogeneous Monoid.Sum where
-  homogeneously = dimap Monoid.getSum Monoid.Sum
-instance Homogeneous (Tagged s) where
-  homogeneously = dimap unTagged Tagged
-instance Homogeneous U1 where
-  homogeneously _ = pure U1
-instance Homogeneous (K1 i ()) where
-  homogeneously _ = pure (K1 ())
-instance Homogeneous (Const ()) where
-  homogeneously _ = pure (Const ())
-instance Homogeneous Proxy where
-  homogeneously _ = pure Proxy
-instance (Homogeneous s, Homogeneous t)
-  => Homogeneous (s :.: t) where
-    homogeneously
-      = dimap unComp1 Comp1
-      . homogeneously . homogeneously
-instance (Homogeneous s, Homogeneous t)
-  => Homogeneous (Compose s t) where
-    homogeneously
-      = dimap getCompose Compose
-      . homogeneously . homogeneously
-instance (Homogeneous s, Homogeneous t)
-  => Homogeneous (s :*: t) where
-    homogeneously p = dimap2
-      (\(s :*: _) -> s)
-      (\(_ :*: t) -> t)
-      (:*:)
-      (homogeneously p)
-      (homogeneously p)
-instance (Homogeneous s, Homogeneous t)
-  => Homogeneous (Functor.Product s t) where
-    homogeneously p = dimap2
-      (\(Functor.Pair s _) -> s)
-      (\(Functor.Pair _ t) -> t)
-      Functor.Pair
-      (homogeneously p)
-      (homogeneously p)
-instance Homogeneous V1 where
-  homogeneously _ = dimap (\case) (\case) zeroP
-instance Homogeneous (K1 i Void) where
-  homogeneously _ = dimap unK1 K1 zeroP
-instance Homogeneous (Const Void) where
-  homogeneously _ = dimap getConst Const zeroP
-instance (Homogeneous s, Homogeneous t)
-  => Homogeneous (s :+: t) where
-    homogeneously p = dialt
-      (\case {L1 s -> Left s; R1 t -> Right t})
-      L1
-      R1
-      (homogeneously p)
-      (homogeneously p)
-instance (Homogeneous s, Homogeneous t)
-  => Homogeneous (Functor.Sum s t) where
-    homogeneously p = dialt
-      (\case {Functor.InL s -> Left s; Functor.InR t -> Right t})
-      Functor.InL
-      Functor.InR
-      (homogeneously p)
-      (homogeneously p)
-instance Homogeneous t
-  => Homogeneous (M1 i c t) where
-    homogeneously = dimap unM1 M1 . homogeneously
-instance Homogeneous f => Homogeneous (Rec1 f) where
-  homogeneously = dimap unRec1 Rec1 . homogeneously
-instance Homogeneous Maybe where
-  homogeneously = optionalP
-instance Homogeneous [] where
-  homogeneously = manyP
-instance Homogeneous Vector where
-  homogeneously p = eotList >~ oneP >+< p >*< homogeneously p
-instance Homogeneous Seq where
-  homogeneously p = eotList >~ oneP >+< p >*< homogeneously p
-instance Homogeneous Complex where
-  homogeneously p = dimap2 realPart imagPart (:+) p p
-instance Homogeneous Tree where
-  homogeneously p = dimap2 rootLabel subForest Node p (manyP (homogeneously p))
-
 -- Alternator --
 
 {- | The `Alternator` class co-extends `Choice` and `Distributor`,
 as well as `Alternative`, adding the `alternate` method,
-which is a lax monoidal structure morphism on sums.
+which is a lax monoidal structure morphism on sums, with these
+these laws relating them.
+
+prop> left' = alternate . Left
+prop> right' = alternate . Right
+prop> zeroP = empty
+prop> x >+< y = alternate (Left x) <|> alternate (Right y)
 
 For the case of `Functor`s the analog of `alternate` can be defined
 without any other constraint, but the case of `Profunctor`s turns
@@ -324,13 +199,8 @@ out to be slighly more complex.
 class (Choice p, Distributor p, forall x. Alternative (p x))
   => Alternator p where
 
-    {- |
-    prop> left' = alternate . Left
-    prop> right' = alternate . Right
-    prop> zeroP = empty
-    prop> x >+< y = alternate (Left x) <|> alternate (Right y)
-
-    `alternate` has a default for `Cochoice`.
+    {- | The structure morphism for an `Alternator`,
+    `alternate` has a default for `Choice` & `Cochoice` partial distributors.
     -}
     alternate
       :: Either (p a b) (p c d)
@@ -346,15 +216,19 @@ class (Choice p, Distributor p, forall x. Alternative (p x))
 
     {- | One or more. -}
     someP :: p a b -> p [a] [b]
-    someP p = _Cons >? p >*< manyP p
+    someP x = x >:< manyP x
+
+    {- | One or zero with default.
+    
+    prop> optionP _Nothing (_Just >? p) = optionalP p
+
+    -}
+    optionP :: APrism a b () () -> p a b -> p a b
+    optionP def p = p <|> pureP def
 
 -- | Combines all `Alternative` choices in the specified list.
 choice :: (Foldable f, Alternative p) => f (p a) -> p a
 choice = foldl' (<|>) empty
-
--- | Perform an `Alternative` action or return a default value.
-option :: Alternative p => a {- ^ default value -} -> p a -> p a
-option a p = p <|> pure a
 
 instance (Alternator p, Applicative f)
   => Alternator (WrappedPafb f p) where
@@ -382,78 +256,3 @@ instance Alternator p => Alternator (Yoneda p) where
   alternate (Left p) = proreturn (alternate (Left (proextract p)))
   alternate (Right p) = proreturn (alternate (Right (proextract p)))
   someP = proreturn . someP . proextract
-
-{- | Used to sequence multiple times,
-separated by a `separateBy`,
-begun by a `beginBy`,
-and ended by an `endBy`. -}
-data SepBy p = SepBy
-  { beginBy :: p
-  , endBy :: p
-  , separateBy :: p
-  } deriving stock
-    ( Functor, Foldable, Traversable
-    , Eq, Ord, Show, Read
-    )
-
-{- | A `SepBy` smart constructor,
-setting the `separateBy` field,
-with no beginning or ending delimitors,
-except by updating `beginBy` or `endBy` fields. -}
-sepBy :: Monoidal p => p () () -> SepBy (p () ())
-sepBy = SepBy oneP oneP
-
-{- | A `SepBy` smart constructor for no separator,
-beginning or ending delimiters. -}
-noSep :: Monoidal p => SepBy (p () ())
-noSep = sepBy oneP
-
-{- |
-prop> several noSep = manyP
--}
-several
-  :: (IsList s, IsList t, Distributor p)
-  => SepBy (p () ()) -> p (Item s) (Item t) -> p s t
-several (SepBy beg end sep) p = iso toList fromList . eotList >~
-  beg >* (oneP >+< p >*< manyP (sep >* p)) *< end
-
-{- |
-prop> several1 noSep p = someP p
--}
-several1
-  :: (IsList s, IsList t, Distributor p, Choice p)
-  => SepBy (p () ()) -> p (Item s) (Item t) -> p s t
-several1 (SepBy beg end sep) p = iso toList fromList . _Cons >?
-  beg >* (p >*< manyP (sep >* p)) *< end
-
-{- | Use a nilary constructor pattern to sequence zero times, or
-associate a binary constructor pattern to sequence one or more times. -}
-chain
-  :: Alternator p
-  => (forall x. x -> Either x x) -- ^ `Left` or `Right` associate
-  -> APartialIso a b (a,a) (b,b) -- ^ binary constructor pattern
-  -> APrism a b () () -- ^ nilary constructor pattern
-  -> SepBy (p () ()) -> p a b -> p a b
-chain association pat2 pat0 (SepBy beg end sep) p =
-  beg >* (pat0 >? oneP <|> chain1 association pat2 (sepBy sep) p) *< end
-
-{- | Associate a binary constructor pattern to sequence one or more times. -}
-chain1
-  :: (Distributor p, Choice p)
-  => (forall x. x -> Either x x) -- ^ `Left` or `Right` associate
-  -> APartialIso a b (a,a) (b,b) -- ^ binary constructor pattern
-  -> SepBy (p () ()) -> p a b -> p a b
-chain1 association pat (SepBy beg end sep) = leftOrRight chainl1 chainr1
-  where
-    leftOrRight a b = case association () of Left _ -> a; Right _ -> b
-    chainl1 p = difoldl pat >? beg >* p >*< manyP (sep >* p) *< end
-    chainr1 p = difoldr pat >? beg >* manyP (p *< sep) >*< p *< end
-
-{- | `intercalateP` adds a `SepBy` to `replicateP`. -}
-intercalateP
-  :: (Monoidal p, Choice p, AsEmpty s, AsEmpty t, Cons s t a b)
-  => Int -> SepBy (p () ()) -> p a b -> p s t
-intercalateP n (SepBy beg end _) _ | n <= 0 =
-  beg >* lmap (const Empty) asEmpty *< end
-intercalateP n (SepBy beg end comma) p =
-  beg >* p >:< replicateP (n-1) (comma >* p) *< end

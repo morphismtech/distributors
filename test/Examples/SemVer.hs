@@ -6,13 +6,9 @@ module Examples.SemVer
   ) where
 
 import Control.Applicative
+import Control.Lens
 import Control.Lens.Grammar
-import Control.Lens.Grammar.Symbol
-import Control.Lens.Grammar.Token
-import Control.Lens.PartialIso
-import Data.Profunctor.Distributor
 import qualified Data.Profunctor.Monadic as P
-import Data.Profunctor.Monoidal
 import Numeric.Natural
 
 -- | Semantic version structure following semver.org specification
@@ -42,11 +38,11 @@ semverGrammar = _SemVer
   >?  numberG
   >*< terminal "." >* numberG
   >*< terminal "." >* numberG
-  >*< option [] (terminal "-" >* identifiersG)
-  >*< option [] (terminal "+" >* identifiersG)
+  >*< optionP _Empty (terminal "-" >* identifiersG)
+  >*< optionP _Empty (terminal "+" >* identifiersG)
   where
     numberG = iso show read >~ someP (asIn @Char DecimalNumber)
-    identifiersG = several1 (sepBy (terminal ".")) (someP charG)
+    identifiersG = several1 (sepWith ".") (someP charG)
     charG = asIn LowercaseLetter
       <|> asIn UppercaseLetter
       <|> asIn DecimalNumber
@@ -57,7 +53,7 @@ semverCtxGrammar :: CtxGrammar Char SemVer
 semverCtxGrammar = _SemVer >? P.do
   let
     numberG = iso show read >~ someP (asIn @Char DecimalNumber)
-    identifiersG = several1 (sepBy (terminal ".")) (someP charG)
+    identifiersG = several1 (sepWith ".") (someP charG)
     charG = asIn LowercaseLetter
       <|> asIn UppercaseLetter
       <|> asIn DecimalNumber
@@ -65,8 +61,8 @@ semverCtxGrammar = _SemVer >? P.do
   _ <- numberG
   _ <- terminal "." >* numberG
   _ <- terminal "." >* numberG
-  _ <- option [] (terminal "-" >* identifiersG)
-  option [] (terminal "+" >* identifiersG)
+  _ <- optionP _Empty (terminal "-" >* identifiersG)
+  optionP _Empty (terminal "+" >* identifiersG)
 
 semverExamples :: [(SemVer, String)]
 semverExamples =

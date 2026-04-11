@@ -117,8 +117,7 @@ some equivalence class of terms.
 -}
 type PartialIso' s a = PartialIso s s a a
 
-{- | If you see `APartialIso` in a signature for a function,
-the function is expecting a `PartialIso`. -}
+{- | `APartialIso` is monomorphically a `PartialIso`. -}
 type APartialIso s t a b =
   PartialExchange a b a (Maybe b) -> PartialExchange a b s (Maybe t)
 
@@ -222,7 +221,7 @@ infixl 4 >?
 (?<) pat = withPrism pat $ \f g -> unright . dimap (either id f) g
 infixl 4 ?<
 
-{- | Action of `APartialIso` on `Choice` and `Cochoice` `Profunctor`s. -}
+{- | Action of `APartialIso` on `Choice` & `Cochoice` partial profunctors. -}
 (>?<)
   :: (Choice p, Cochoice p)
   => APartialIso s t a b
@@ -265,18 +264,18 @@ notNulled = partialIso nonEmp nonEmp where
   nonEmp s = if isn't _Empty s then Just s else Nothing
 
 {- | The either-of-tuples representation of `Maybe`. -}
-eotMaybe :: Iso (Maybe a) (Maybe b) (Either () a) (Either () b)
+eotMaybe :: Iso (Maybe a) (Maybe b) (Either a ()) (Either b ())
 eotMaybe = iso
-  (maybe (Left ()) Right)
-  (either (pure Nothing) Just)
+  (maybe (Right ()) Left)
+  (either Just (const Nothing))
 
 {- | The either-of-tuples representation of list-like streams. -}
 eotList
   :: (Cons s s a a, AsEmpty t, Cons t t b b)
-  => Iso s t (Either () (a,s)) (Either () (b,t))
+  => Iso s t (Either (a,s) ()) (Either (b,t) ())
 eotList = iso
-  (maybe (Left ()) Right . uncons)
-  (either (const Empty) (review _Cons))
+  (maybe (Right ()) Left . uncons)
+  (either (review _Cons) (const Empty))
 
 {- | Iterate the application of a partial isomorphism,
 useful for constructing fold/unfold isomorphisms. -}

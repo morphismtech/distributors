@@ -5,14 +5,7 @@ module Examples.SExpr
   ) where
 
 import Control.Lens hiding (List)
-import Control.Lens.Grammar
-import Control.Lens.Grammar.BackusNaur
-import Control.Lens.Grammar.Boole
-import Control.Lens.Grammar.Symbol
-import Control.Lens.Grammar.Token
-import Control.Lens.PartialIso hiding (List)
-import Data.Profunctor.Distributor
-import Data.Profunctor.Monoidal
+import Control.Lens.Grammar hiding (List)
 
 -- | Abstract syntax tree for S-expressions
 data SExpr
@@ -36,7 +29,7 @@ sexprGrammar = ruleRec "sexpr" $ \sexpr -> choice
     -- List: parenthesized sequence of S-expressions
     -- Elements are separated by whitespace
     listG sexpr = rule "list" $
-      terminal "(" >* several (sepBy (terminal " ")) sexpr *< terminal ")"
+      terminal "(" >* several (sepWith " ") sexpr *< terminal ")"
 
     -- Characters allowed in atoms: letters, digits, and symbols
     atomChars =

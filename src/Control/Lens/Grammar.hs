@@ -23,13 +23,17 @@ module Control.Lens.Grammar
   , RegBnf (..)
   , regbnfG
   , regbnfGrammar
-    -- * Context-sensitive grammar
+    -- * Unrestricted, context-sensitive grammar
   , CtxGrammar
   , printG
   , parseG
   , unparseG
+  , parsecG
+  , unparsecG
     -- * Utility
   , putStringLn
+    -- * Re-exports
+  , module X
   ) where
 
 import Control.Applicative
@@ -47,17 +51,34 @@ import Data.Profunctor.Filtrator
 import Data.Profunctor.Monadic
 import Data.Profunctor.Monoidal
 import Data.Profunctor.Grammar
-import qualified Data.Set as Set
+import Data.Profunctor.Grammar.Parsector
+import Data.Profunctor.Separator
 import Data.String
 import GHC.Exts
 import Prelude hiding (filter)
 import Witherable
 
+-- Re-exports
+import Control.Lens.Grammar.BackusNaur as X
+import Control.Lens.Grammar.Boole as X
+import Control.Lens.Grammar.Kleene as X
+import Control.Lens.Grammar.Symbol as X
+import Control.Lens.Grammar.Token as X
+import Control.Lens.PartialIso as X
+import Control.Monad.Fail.Try as X
+import Data.Profunctor.Distributor as X
+import Data.Profunctor.Filtrator as X
+import Data.Profunctor.Grammar as X
+import Data.Profunctor.Grammar.Parsector as X
+import Data.Profunctor.Monoidal as X
+import Data.Profunctor.Separator as X
+import Data.Traversable.Homogeneous as X
+
 {- |
 A regular grammar may be constructed using
 `Lexical` and `Alternator` combinators.
 Let's see an example using
-[semantic versioning](https://semver.org/).
+[semantic versioning](https://semver.org/) syntax.
 
 >>> import Numeric.Natural (Natural)
 >>> :{
@@ -73,12 +94,17 @@ data SemVer = SemVer          -- e.g., 2.1.5-rc.1+build.123
 
 We'd like to define an optic @_SemVer@,
 corresponding to the constructor pattern @SemVer@.
+You _could_ generate it with the TemplateHaskell combinator,
+`makeNestedPrisms`.
+
+@makeNestedPrisms ''SemVer@
+
 Unfortunately, we can't use TemplateHaskell to generate it in [GHCi]
 (https://wiki.haskell.org/GHC/GHCi),
 which is used to test this documenation.
-Normally we would write `makeNestedPrisms` @''SemVer@,
-but here is equivalent explicit Haskell code instead.
-Since @SemVer@ is a newtype, @_SemVer@ can be an `Control.Lens.Iso.Iso`.
+Here is equivalent Haskell code instead.
+Since @SemVer@ has only one constructor,
+@_SemVer@ can be an `Control.Lens.Iso.Iso`.
 
 >>> :set -XRecordWildCards
 >>> import Control.Lens (Iso', iso)
@@ -98,11 +124,11 @@ semverGrammar = _SemVer
   >?  numberG
   >*< terminal "." >* numberG
   >*< terminal "." >* numberG
-  >*< option [] (terminal "-" >* identifiersG)
-  >*< option [] (terminal "+" >* identifiersG)
+  >*< optionP _Empty (terminal "-" >* identifiersG)
+  >*< optionP _Empty (terminal "+" >* identifiersG)
   where
     numberG = iso show read >~ someP (asIn @Char DecimalNumber)
-    identifiersG = several1 (sepBy (terminal ".")) (someP charG)
+    identifiersG = several1 (sepWith ".") (someP charG)
     charG = asIn LowercaseLetter
       <|> asIn UppercaseLetter
       <|> asIn DecimalNumber
@@ -122,15 +148,17 @@ combinators like `<|>` work both `Functor`ially and `Profunctor`ially.
 +------------+---------------+
 | `<$>`      | `>?`          |
 +------------+---------------+
+| `pure`     | `pureP`       |
++------------+---------------+
 | `*>`       | `>*`          |
 +------------+---------------+
 | `<*`       | `*<`          |
 +------------+---------------+
 | `<*>`      | `>*<`         |
 +------------+---------------+
-| `<|>`      | `<|>`         |
+| `empty`    | `empty`       |
 +------------+---------------+
-| `option`   | `option`      |
+| `<|>`      | `<|>`         |
 +------------+---------------+
 | `choice`   | `choice`      |
 +------------+---------------+
@@ -212,16 +240,16 @@ arithGrammar :: Grammar Char Arith
 arithGrammar = ruleRec "arith" sumG
   where
     sumG arith = rule "sum" $
-      chain1 Left _Add (sepBy (terminal "+")) (prodG arith)
+      chain1 Left _Add (sepWith "+") (prodG arith)
     prodG arith = rule "product" $
-      chain1 Left _Mul (sepBy (terminal "*")) (factorG arith)
+      chain1 Left _Mul (sepWith "*") (factorG arith)
     factorG arith = rule "factor" $
       numberG <|> terminal "(" >* arith *< terminal ")"
     numberG = rule "number" $
       _Num . iso show read >? someP (asIn @Char DecimalNumber)
 :}
 
-We can generate a `RegBnf`, printers and parsers from @arithGrammar@.
+We can generate grammar strings, printers and parsers from @arithGrammar@.
 
 >>> putStringLn (regbnfG arithGrammar)
 {start} = \q{arith}
@@ -230,13 +258,19 @@ We can generate a `RegBnf`, printers and parsers from @arithGrammar@.
 {number} = \p{Nd}+
 {product} = \q{factor}(\*\q{factor})*
 {sum} = \q{product}(\+\q{product})*
-
 >>> [x | (x,"") <- parseG arithGrammar "1+2*3+4"]
 [Add (Add (Num 1) (Mul (Num 2) (Num 3))) (Num 4)]
 >>> unparseG arithGrammar (Add (Num 1) (Mul (Num 2) (Num 3))) "" :: Maybe String
 Just "1+2*3"
->>> do pr <- printG arithGrammar (Num 69); return (pr "") :: Maybe String
+>>> do pr <- printG arithGrammar (Num 69); pure (pr "") :: Maybe String
 Just "69"
+
+If all `rule`s are non-recursive, then a `Grammar`
+can be rewritten as a `RegGrammar`.
+Since Haskell permits general recursion, and `RegGrammar`s are
+embedded in Haskell, you can define context-free grammars with them.
+But it's recommended to use `Grammar`s for `rule` abstraction
+and generator support for `ruleRec`.
 
 -}
 type Grammar token a = forall p.
@@ -245,19 +279,7 @@ type Grammar token a = forall p.
   , Alternator p
   ) => p a a
 
-{- |
-In addition to context-sensitivity via `Monadic` combinators,
-`CtxGrammar`s adds general filtration via `Filtrator` to `Grammar`s.
-
->>> :{
-palindromeG :: CtxGrammar Char String
-palindromeG = rule "palindrome" $
-  satisfied (\wrd -> reverse wrd == wrd) >?< manyP (anyToken @Char)
-:}
-
-The `satisfied` pattern is used together with the `Choice` &
-`Data.Profunctor.Cochoice` applicator `>?<` for general filtration.
-For context-sensitivity,
+{- | For context-sensitivity,
 the `Monadic` interface is used by importing "Data.Profunctor.Monadic"
 qualified and using a "bonding" notation which mixes
 "idiom" style with qualified do-notation.
@@ -280,7 +302,7 @@ lenvecGrammar :: CtxGrammar Char LenVec
 lenvecGrammar = _LenVec >? P.do
   let
     numberG = iso show read >~ someP (asIn @Char DecimalNumber)
-    vectorG n = intercalateP n (sepBy (terminal ",")) numberG
+    vectorG n = intercalateP n (sepWith ",") numberG
   len <- numberG             -- bonds to _LenVec
   terminal ";"               -- doesn't bond
   vectorG (fromIntegral len) -- bonds to _LenVec
@@ -290,16 +312,17 @@ The qualified do-notation changes the signature of
 @P.@`Data.Profunctor.Monadic.>>=`,
 so that we must apply the constructor pattern @_LenVec@
 to the do-block with the `>?` applicator.
-Any bound named variable, @var <- action@,
+Any scoped bound action, @var <- action@,
 gets "bonded" to the constructor pattern.
 Any unbound actions, except for the last action in the do-block,
 does not get bonded to the pattern.
 The last action does get bonded to the pattern.
-Any unnamed bound action, @_ <- action@,
+Any unscoped bound action, @_ <- action@,
 also gets bonded to the pattern,
-but being unnamed means it isn't added to the context.
-If all bound actions are unnamed, then a `CtxGrammar` can
-be rewritten as a `Grammar` since it is context-free.
+but being unscoped means it isn't added to the context.
+If all bound actions are unscoped,
+and filtration & failure handling aren't used,
+then a `CtxGrammar` can be rewritten as a `Grammar` since it is context-free.
 We can't generate a `RegBnf` since the `rule`s
 of a `CtxGrammar` aren't static, but dynamic and contextual.
 We can generate parsers and printers as expected.
@@ -312,15 +335,59 @@ We can generate parsers and printers as expected.
 ["2;6,7"]
 >>> [pr "" | pr <- printG lenvecGrammar (LenVec 200 [100])] :: [String]
 []
+
+In addition to context-sensitivity via `Monadic` combinators,
+`CtxGrammar`s add unrestricted filtration to `Grammar`s.
+The `satisfy` combinator is an unrestricted token filter.
+And the `satisfied` pattern is used together with the `Choice` &
+`Data.Profunctor.Cochoice` applicator `>?<` for unrestricted filtration.
+
+>>> :{
+palindromeG :: CtxGrammar Char String
+palindromeG = rule "palindrome" $
+  satisfied (\wrd -> reverse wrd == wrd) >?< manyP (anyToken @Char)
+:}
+
 >>> [pal | word <- ["racecar", "word"], (pal, "") <- parseG palindromeG word]
 ["racecar"]
+
+Since `CtxGrammar`s are embedded in Haskell,
+permitting computable predicates,
+and `Filtrator` has a default definition for `Monadic` `Alternator`s,
+the context-sensitivity of `CtxGrammar` implies
+unrestricted filtration of grammars by computable predicates,
+which can recognize the class of recursively enumerable languages.
+
+Finally, `CtxGrammar`s support error reporting and backtracking.
+This has no effect on `printG`, `parseG` or `unparseG`;
+but it effects `parsecG` and `unparsecG`.
+For context, an @LL@ grammar can be (un)parsed by an @LL@ parser.
+An @LL@ parser (un)parses from left to right,
+and constucts leftmost derivations.
+An @LL(k)@ parser can look @k@ tokens ahead.
+`Parsor` is an @LL(∞)@ parser.
+`Parsector` is an @LL(1)@ parser.
+The backtracking `try` combinator
+restores full lookahead to `Parsector`.
+Since both `Parsor` & `Parsector` are @LL@ parsers they
+diverge if the `CtxGrammar` they're run on is left-recursive.
+
+>>> parsecG (rule "foo" (fail "bar") <|> fail "baz") "abc"
+ParsecState {parsecLooked = False, parsecOffset = 0, parsecStream = "abc", parsecHint = ParsecError {parsecExpect = TokenClass (OneOf (fromList "")), parsecLabels = []}, parsecResult = Left (ParsecError {parsecExpect = TokenClass (OneOf (fromList "")), parsecLabels = [Node {rootLabel = "foo", subForest = [Node {rootLabel = "bar", subForest = []}]},Node {rootLabel = "baz", subForest = []}]})}
+
+>>> parsecG (manyP (token 'a') >*< asIn @Char DecimalNumber) "aaab"
+ParsecState {parsecLooked = True, parsecOffset = 3, parsecStream = "b", parsecHint = ParsecError {parsecExpect = TokenClass (OneOf (fromList "")), parsecLabels = []}, parsecResult = Left (ParsecError {parsecExpect = TokenClass (Alternate (TokenClass (OneOf (fromList "a"))) (TokenClass (NotOneOf (fromList "") (AndAsIn DecimalNumber)))), parsecLabels = []})}
+
+>>> unparsecG (tokens "abc") "abx" ""
+ParsecState {parsecLooked = True, parsecOffset = 2, parsecStream = "ab", parsecHint = ParsecError {parsecExpect = TokenClass (OneOf (fromList "")), parsecLabels = []}, parsecResult = Left (ParsecError {parsecExpect = TokenClass (OneOf (fromList "c")), parsecLabels = []})}
+
 -}
 type CtxGrammar token a = forall p.
   ( Lexical token p
   , forall x. BackusNaurForm (p x x)
   , Alternator p
   , Filtrator p
-  , Monadic p
+  , MonadicTry p
   ) => p a a
 
 {- |
@@ -336,8 +403,9 @@ type Lexical token p =
   ) :: Constraint
 
 {- | `RegString`s are an embedded domain specific language
-of regular expression strings. Since they are strings,
-they have a string-like interface.
+of regular expression strings.
+
+Since they are strings, they have a string-like interface.
 
 >>> let rex = fromString "ab|c" :: RegString
 >>> putStringLn rex
@@ -353,7 +421,7 @@ ab|c
 `RegString`s are actually stored as an algebraic datatype, `RegEx`.
 
 >>> runRegString rex
-RegExam (Alternate (Terminal "ab") (Terminal "c"))
+RegExam (Alternate (Sequence (RegExam (OneOf (fromList "a"))) (RegExam (OneOf (fromList "b")))) (RegExam (OneOf (fromList "c"))))
 
 `RegString`s are similar to regular expression strings in many other
 programming languages. We can use them to see if a word and pattern
@@ -442,6 +510,14 @@ newtype RegString = RegString {runRegString :: RegEx Char}
 
 {- | `RegBnf`s are an embedded domain specific language
 of Backus-Naur forms extended by regular expression strings.
+
+A `RegBnf` consists of a distinguished `RegString` "start" rule,
+and a set of named `RegString` `rule`s.
+
+>>> putStringLn (rule "baz" (terminal "foo" >|< terminal "bar") :: RegBnf)
+{start} = \q{baz}
+{baz} = foo|bar
+
 Like `RegString`s they have a string-like interface.
 
 >>> let bnf = fromString "{start} = foo|bar" :: RegBnf
@@ -449,6 +525,8 @@ Like `RegString`s they have a string-like interface.
 {start} = foo|bar
 >>> bnf
 "{start} = foo|bar"
+>>> :type toList bnf
+toList bnf :: [Char]
 
 `RegBnf`s can be generated from context-free `Grammar`s with `regbnfG`.
 
@@ -458,6 +536,13 @@ regbnfG regbnfGrammar :: RegBnf
 Like `RegString`s, `RegBnf`s can be constructed using
 `Lexical`, `Monoid` and `KleeneStarAlgebra` combinators.
 But they also support `BackusNaurForm` `rule`s and `ruleRec`s.
+
+>>> putStringLn (rule "baz" (bnf >|< terminal "baz"))
+{start} = \q{baz}
+{baz} = foo|bar|baz
+>>> putStringLn (ruleRec "∞-loop" (\x -> x) :: RegBnf)
+{start} = \q{∞-loop}
+{∞-loop} = \q{∞-loop}
 -}
 newtype RegBnf = RegBnf {runRegBnf :: Bnf RegString}
   deriving newtype
@@ -486,31 +571,28 @@ are a context-free language.
 >>> putStringLn (regbnfG regexGrammar)
 {start} = \q{regex}
 {alternate} = \q{sequence}(\|\q{sequence})*
-{atom} = (\\q\{)\q{char}*\}|\q{char}|\q{char-class}|\(\q{regex}\)
+{atom} = \\q\q{nonterminal}|\q{class}|\(\q{regex}\)
 {category} = Ll|Lu|Lt|Lm|Lo|Mn|Mc|Me|Nd|Nl|No|Pc|Pd|Ps|Pe|Pi|Pf|Po|Sm|Sc|Sk|So|Zs|Zl|Zp|Cc|Cf|Cs|Co|Cn
-{category-test} = (\\p\{)\q{category}\}|(\\P\{)(\q{category}(\|\q{category})*)\}
 {char} = [^\(\)\*\+\?\[\\\]\^\{\|\}\P{Cc}]|\\\q{char-escaped}
-{char-any} = \[\^\]
-{char-class} = \q{fail}|\q{char-any}|\q{one-of}|\q{not-one-of}|\q{category-test}
 {char-control} = NUL|SOH|STX|ETX|EOT|ENQ|ACK|BEL|BS|HT|LF|VT|FF|CR|SO|SI|DLE|DC1|DC2|DC3|DC4|NAK|SYN|ETB|CAN|EM|SUB|ESC|FS|GS|RS|US|DEL|PAD|HOP|BPH|NBH|IND|NEL|SSA|ESA|HTS|HTJ|VTS|PLD|PLU|RI|SS2|SS3|DCS|PU1|PU2|STS|CCH|MW|SPA|EPA|SOS|SGCI|SCI|CSI|ST|OSC|PM|APC
 {char-escaped} = [\(\)\*\+\?\[\\\]\^\{\|\}]|\q{char-control}
+{class} = \q{class-one-of}|\q{class-not-one-of}
+{class-category} = \\p\{\q{category}\}|\\P\{(\q{category}(\|\q{category})*)\}
+{class-not-one-of} = \q{class-category}|\[\^\q{char}*(\q{class-category}?\])
+{class-one-of} = \q{char}|\[\q{char}*\]
 {expression} = \q{atom}\?|\q{atom}\*|\q{atom}\+|\q{atom}
-{fail} = \[\]
-{not-one-of} = (\[\^)\q{char}+(\q{category-test}?\])
-{one-of} = \[\q{char}+\]
+{nonterminal} = \{\q{char}*\}
 {regex} = \q{alternate}
-{sequence} = \q{char}*|\q{expression}*
+{sequence} = \q{expression}*
 -}
 regexGrammar :: Grammar Char RegString
 regexGrammar = _RegString >~ ruleRec "regex" altG
   where
     altG rex = rule "alternate" $
-      chain1 Left (_RegExam . _Alternate) (sepBy (terminal "|")) (seqG rex)
+      chain1 Left (_RegExam . _Alternate) (sepWith "|") (seqG rex)
 
-    seqG rex = rule "sequence" $ choice
-      [ _Terminal >? manyP charG
-      , chain Left _Sequence (_Terminal . _Empty) noSep (exprG rex)
-      ]
+    seqG rex = rule "sequence" $
+      chain Left _Sequence _SeqEmpty noSep (exprG rex)
 
     exprG rex = rule "expression" $ choice
       [ _KleeneOpt >? atomG rex *< terminal "?"
@@ -520,18 +602,9 @@ regexGrammar = _RegString >~ ruleRec "regex" altG
       ]
 
     atomG rex = rule "atom" $ choice
-      [ _NonTerminal >? terminal "\\q{" >* manyP charG *< terminal "}"
-      , _Terminal >? charG >:< asEmpty
+      [ _NonTerminal >? terminal "\\q" >* nonterminalG
       , _RegExam >? classG
       , terminal "(" >* rex *< terminal ")"
-      ]
-
-    catTestG = rule "category-test" $ choice
-      [ _AsIn >? terminal "\\p{" >* categoryG *< terminal "}"
-      , _NotAsIn >? several1 (sepBy (terminal "|"))
-          { beginBy = terminal "\\P{"
-          , endBy = terminal "}"
-          } categoryG
       ]
 
     categoryG = rule "category" $ choice
@@ -567,24 +640,32 @@ regexGrammar = _RegString >~ ruleRec "regex" altG
       , _NotAssigned >? terminal "Cn"
       ]
 
-    classG = rule "char-class" $ choice
-      [ _Fail >? failG
-      , _Pass >? anyG
-      , _OneOf >? oneOfG
-      , _NotOneOf >? notOneOfG
-      , _NotOneOf >? pure Set.empty >*< catTestG
+    classG = rule "class" $ choice
+      [ _OneOf >? classOneOfG
+      , _NotOneOf >? classNotOneOfG
       ]
 
-    failG = rule "fail" $ terminal "[]"
+    classCatG = rule "class-category" $ choice
+      [ _AndAsIn >? terminal "\\p{" >* categoryG *< terminal "}"
+      , _AndNotAsIn >? several1
+          (sepWith "|" & beginWith "\\P{" & endWith "}")
+          categoryG
+      ]
 
-    anyG = rule "char-any" $ terminal "[^]"
+    classOneOfG = rule "class-one-of" $ choice
+      [ onlyOne charG
+      , terminal "[" >* several noSep charG *< terminal "]"
+      ]
 
-    oneOfG = rule "one-of" $ terminal "[" >* several1 noSep charG *< terminal "]"
+    classNotOneOfG = rule "class-not-one-of" $ choice
+      [ asEmpty >*< classCatG
+      , terminal "[^" >* several noSep charG >*<
+          optionP (_AndNotAsIn . _Empty) classCatG *< terminal "]"
+      ]
 
-    notOneOfG = rule "not-one-of" $
-      terminal "[^" >* several1 noSep charG
-        >*< option (NotAsIn Set.empty) catTestG
-        *< terminal "]"
+nonterminalG :: Grammar Char String
+nonterminalG = rule "nonterminal" $
+  terminal "{" >* manyP charG *< terminal "}"
 
 charG :: Grammar Char Char
 charG = rule "char" $
@@ -671,30 +752,26 @@ That means that it can generate a self-hosted definition.
 >>> putStringLn (regbnfG regbnfGrammar)
 {start} = \q{regbnf}
 {alternate} = \q{sequence}(\|\q{sequence})*
-{atom} = (\\q\{)\q{char}*\}|\q{char}|\q{char-class}|\(\q{regex}\)
+{atom} = \\q\q{nonterminal}|\q{class}|\(\q{regex}\)
 {category} = Ll|Lu|Lt|Lm|Lo|Mn|Mc|Me|Nd|Nl|No|Pc|Pd|Ps|Pe|Pi|Pf|Po|Sm|Sc|Sk|So|Zs|Zl|Zp|Cc|Cf|Cs|Co|Cn
-{category-test} = (\\p\{)\q{category}\}|(\\P\{)(\q{category}(\|\q{category})*)\}
 {char} = [^\(\)\*\+\?\[\\\]\^\{\|\}\P{Cc}]|\\\q{char-escaped}
-{char-any} = \[\^\]
-{char-class} = \q{fail}|\q{char-any}|\q{one-of}|\q{not-one-of}|\q{category-test}
 {char-control} = NUL|SOH|STX|ETX|EOT|ENQ|ACK|BEL|BS|HT|LF|VT|FF|CR|SO|SI|DLE|DC1|DC2|DC3|DC4|NAK|SYN|ETB|CAN|EM|SUB|ESC|FS|GS|RS|US|DEL|PAD|HOP|BPH|NBH|IND|NEL|SSA|ESA|HTS|HTJ|VTS|PLD|PLU|RI|SS2|SS3|DCS|PU1|PU2|STS|CCH|MW|SPA|EPA|SOS|SGCI|SCI|CSI|ST|OSC|PM|APC
 {char-escaped} = [\(\)\*\+\?\[\\\]\^\{\|\}]|\q{char-control}
+{class} = \q{class-one-of}|\q{class-not-one-of}
+{class-category} = \\p\{\q{category}\}|\\P\{(\q{category}(\|\q{category})*)\}
+{class-not-one-of} = \q{class-category}|\[\^\q{char}*(\q{class-category}?\])
+{class-one-of} = \q{char}|\[\q{char}*\]
 {expression} = \q{atom}\?|\q{atom}\*|\q{atom}\+|\q{atom}
-{fail} = \[\]
-{not-one-of} = (\[\^)\q{char}+(\q{category-test}?\])
-{one-of} = \[\q{char}+\]
-{regbnf} = (\{start\} = )\q{regex}(\LF\q{rule})*
+{nonterminal} = \{\q{char}*\}
+{regbnf} = \{start\} = \q{regex}(\LF\q{nonterminal}( = )\q{regex})*
 {regex} = \q{alternate}
-{rule} = \{\q{char}*(\} = )\q{regex}
-{sequence} = \q{char}*|\q{expression}*
+{sequence} = \q{expression}*
 -}
 regbnfGrammar :: Grammar Char RegBnf
 regbnfGrammar = rule "regbnf" $ _RegBnf . _Bnf >~
-  terminal "{start} = " >* regexGrammar
-    >*< several noSep (terminal "\n" >* ruleG)
-  where
-    ruleG = rule "rule" $ terminal "{" >* manyP charG *< terminal "} = "
-      >*< regexGrammar
+  terminal "{start} = " >* regexGrammar >*< several noSep
+    (terminal "\n" >* nonterminalG *< terminal " = " >*< regexGrammar)
+      
 
 {- | `regstringG` generates a `RegString` from a regular grammar.
 Since context-free `Grammar`s and `CtxGrammar`s aren't necessarily regular,
@@ -727,7 +804,7 @@ printG
   -> m (string -> string)
 printG printor = printP printor
 
-{- | `parseG` generates a parser from a `CtxGrammar`.
+{- | `parseG` generates a parser from a @LL(∞)@ `CtxGrammar`.
 Since both `RegGrammar`s and context-free `Grammar`s are `CtxGrammar`s,
 the type system will allow `parseG` to be applied to them.
 Running the parser on an input string value `uncons`es
@@ -743,10 +820,10 @@ parseG
   -> m (a, string)
 parseG parsor = parseP parsor
 
-{- | `unparseG` generates an unparser from a `CtxGrammar`.
+{- | `unparseG` generates a printer from a @LL(∞)@ `CtxGrammar`.
 Since both `RegGrammar`s and context-free `Grammar`s are `CtxGrammar`s,
 the type system will allow `unparseG` to be applied to them.
-Running the unparser on a syntax value and an input string
+Running the printer on a syntax value and an input string
 `snoc`s tokens at the end of the string, from left to right,
 returning the output string.
 -}
@@ -759,6 +836,41 @@ unparseG
   -> string {- ^ input -}
   -> m string
 unparseG parsor = unparseP parsor
+
+{- | `parsecG` generates a parser from a @LL(1)@ `CtxGrammar`,
+with `try` for restoring full @LL(∞)@ lookahead.
+Since both `RegGrammar`s and context-free `Grammar`s are `CtxGrammar`s,
+the type system will allow `parsecG` to be applied to them.
+Running the parser on an input string value `uncons`es
+tokens from the beginning of an input string from left to right,
+returning a `parsecResult` which is a `ParsecError` or a syntax value,
+and a remaining output `parsecStream`.
+-}
+parsecG
+  :: (Cons string string token token, Snoc string string token token)
+  => (Item string ~ token, Categorized token)
+  => CtxGrammar token a
+  -> string {- ^ input -}
+  -> ParsecState string a
+parsecG parsector = parsecP parsector
+
+{- | `unparsecG` generates a printer from a @LL(1)@ `CtxGrammar`,
+with `try` for restoring full @LL(∞)@ lookahead.
+Since both `RegGrammar`s and context-free `Grammar`s are `CtxGrammar`s,
+the type system will allow `unparsecG` to be applied to them.
+Running the printer on a syntax value and an input string
+`snoc`s tokens at the end of the string, from left to right,
+returning a `parsecResult` which is a `ParsecError`
+or the input syntax value, and a remaining output `parsecStream`.
+-}
+unparsecG
+  :: (Cons string string token token, Snoc string string token token)
+  => (Item string ~ token, Categorized token)
+  => CtxGrammar token a
+  -> a {- ^ syntax -}
+  -> string {- ^ input -}
+  -> ParsecState string a
+unparsecG parsector = unparsecP parsector
 
 {- | `putStringLn` is a utility that generalizes `putStrLn`
 to string-like interfaces such as `RegString` and `RegBnf`.

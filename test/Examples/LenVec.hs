@@ -5,10 +5,6 @@ module Examples.LenVec
   ) where
 
 import Control.Lens.Grammar
-import Control.Lens.Grammar.Symbol
-import Control.Lens.Grammar.Token
-import Control.Lens.PartialIso
-import Data.Profunctor.Distributor
 import qualified Data.Profunctor.Monadic as P
 import Numeric.Natural
 
@@ -21,7 +17,7 @@ lenvecGrammar :: CtxGrammar Char LenVec
 lenvecGrammar = _LenVec >? P.do
   let
     numberG = iso show read >~ someP (asIn @Char DecimalNumber)
-    vectorG n = intercalateP n (sepBy (terminal ",")) numberG
+    vectorG n = intercalateP n (sepWith ",") numberG
   len <- numberG             -- bonds to _LenVec
   terminal ";"               -- doesn't bond
   vectorG (fromIntegral len) -- bonds to _LenVec

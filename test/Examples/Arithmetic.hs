@@ -7,12 +7,6 @@ module Examples.Arithmetic
 import Control.Applicative
 import Control.Lens
 import Control.Lens.Grammar
-import Control.Lens.Grammar.BackusNaur
-import Control.Lens.Grammar.Symbol
-import Control.Lens.Grammar.Token
-import Control.Lens.PartialIso
-import Data.Profunctor.Distributor
-import Data.Profunctor.Monoidal
 import Numeric.Natural
 
 data Arith
@@ -27,9 +21,9 @@ arithGrammar :: Grammar Char Arith
 arithGrammar = ruleRec "arith" sumG
   where
     sumG arith = rule "sum" $
-      chain1 Left _Add (sepBy (terminal "+")) (prodG arith)
+      chain1 Left _Add (sepWith "+") (prodG arith)
     prodG arith = rule "product" $
-      chain1 Left _Mul (sepBy (terminal "*")) (factorG arith)
+      chain1 Left _Mul (sepWith "*") (factorG arith)
     factorG arith = rule "factor" $
       number <|> terminal "(" >* arith *< terminal ")"
     number = rule "number" $

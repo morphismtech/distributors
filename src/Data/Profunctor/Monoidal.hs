@@ -16,7 +16,7 @@ module Data.Profunctor.Monoidal
   , oneP, (>*<), (>*), (*<)
   , dimap2, foreverP, ditraverse
     -- * Monoidal & Choice
-  , replicateP, (>:<), asEmpty
+  , pureP, asEmpty, (>:<), replicateP, onlyOne
   , meander, eotFunList
   ) where
 
@@ -25,6 +25,7 @@ import Control.Applicative qualified as Ap (WrappedArrow)
 import Control.Arrow
 import Control.Lens hiding (chosen)
 import Control.Lens.Internal.Context
+import Control.Lens.Internal.Prism
 import Control.Lens.Internal.Profunctor
 import Control.Lens.PartialIso
 import Data.Bifunctor.Clown
@@ -39,6 +40,7 @@ import Data.Profunctor.Cayley
 import Data.Profunctor.Composition
 import Data.Profunctor.Monad
 import Data.Profunctor.Yoneda
+import GHC.IsList
 
 -- Monoidal --
 
@@ -93,44 +95,70 @@ infixl 6 *<
 analagous to `liftA2`. -}
 dimap2
   :: Monoidal p
-  => (s -> a)
-  -> (s -> c)
-  -> (b -> d -> t)
+  => (s -> a) -- ^ first projection, e.g. `fst`
+  -> (s -> c) -- ^ second projection, e.g. `snd`
+  -> (b -> d -> t) -- ^ pairing function, e.g. @(,)@
   -> p a b -> p c d -> p s t
 dimap2 f g h p q = liftA2 h (lmap f p) (lmap g q)
 
-{- | `foreverP` repeats an action indefinitely;
+{- | `foreverP` repeats an action a countable infinity of times;
 analagous to `Control.Monad.forever`, extending it to `Monoidal`. -}
 foreverP :: Monoidal p => p () c -> p a b
 foreverP a = let a' = a >* a' in a'
-
-{- | A `Monoidal` & `Choice` nil operator. -}
-asEmpty :: (AsEmpty s, Monoidal p, Choice p) => p s s
-asEmpty = _Empty >? oneP
-
-{- | A `Monoidal` & `Choice` cons operator. -}
-(>:<) :: (Cons s t a b, Monoidal p, Choice p) => p a b -> p s t -> p s t
-x >:< xs = _Cons >? x >*< xs
-infixr 5 >:<
 
 {- | Thanks to Fy on Monoidal Café Discord.
 
 A `Traversable` & `Data.Distributive.Distributive` type
 is a homogeneous countable product.
-That means it is a static length container, so unlike `replicateP`,
-`ditraverse` does not need an `Int` argument.
+That means it is a static countable-length container,
+so unlike `replicateP`, `ditraverse` doesn't need
+an additional argument for number of repetitions.
 -}
 ditraverse
   :: (Traversable t, Distributive t, Monoidal p)
   => p a b -> p (t a) (t b)
 ditraverse p = traverse (\f -> lmap f p) (distribute id)
 
+{- | Lift a single bidirectional element
+into a `Monoidal` & `Choice` structure.
+Bidirectionality is encoded by `APrism`.
+Singularity is encoded by the unit type @()@.
+Bidirectional elements can be generated from
+nilary constructors of algebraic datatypes using `makeNestedPrisms`,
+from terms of a type with an `Eq` instance using `only`,
+from nil elements using `_Empty`,
+or from any `.`-composition of `Control.Lens.Prism.Prism`s
+terminating with a bidirectional element.
+-}
+pureP
+  :: (Monoidal p, Choice p)
+  => APrism a b () () -- ^ bidirectional element
+  -> p a b
+pureP pattern = pattern >? oneP
+
+{- | A `Monoidal` & `Choice` nil combinator. -}
+asEmpty :: (AsEmpty s, Monoidal p, Choice p) => p s s
+asEmpty = pureP _Empty
+
+{- | A `Monoidal` & `Choice` cons combinator. -}
+(>:<) :: (Cons s t a b, Monoidal p, Choice p) => p a b -> p s t -> p s t
+x >:< xs = _Cons >? x >*< xs
+infixr 5 >:<
+
+{- | Use when `IsList` with `onlyOne` `Item`. -}
+onlyOne
+  :: (Monoidal p, Choice p, IsList s)
+  => p (Item s) (Item s) -> p s s
+onlyOne p = iso toList (fromListN 1) >? p >:< asEmpty
+
 {- | `replicateP` is analagous to `Control.Monad.replicateM`,
-for `Monoidal` & `Choice` `Profunctor`s. -}
+for `Monoidal` & `Choice` `Profunctor`s. When the number
+of repetitions is less than or equal to 0, it returns `asEmpty`.
+-}
 replicateP
-  :: (Monoidal p, Choice p, AsEmpty s, AsEmpty t, Cons s t a b)
-  => Int -> p a b -> p s t
-replicateP n _ | n <= 0 = lmap (const Empty) asEmpty
+  :: (Monoidal p, Choice p, AsEmpty s, Cons s s a a)
+  => Int {- ^ number of repetitions -} -> p a a -> p s s
+replicateP n _ | n <= 0 = asEmpty
 replicateP n a = a >:< replicateP (n-1) a
 
 {- | For any `Monoidal`, `Choice` & `Strong` `Profunctor`,
@@ -247,3 +275,14 @@ instance (Profunctor p, Alternative (p a))
     empty = proreturn empty
     ab <|> cd = proreturn (proextract ab <|> proextract cd)
     many = proreturn . many . proextract
+instance Applicative (Market a b s) where
+  pure t = Market (pure t) (pure (Left t))
+  Market f0 g0 <*> Market f1 g1 = Market
+    (\b -> f0 b (f1 b))
+    (\s ->
+      case g0 s of
+        Left bt -> case g1 s of
+          Left b -> Left (bt b)
+          Right a -> Right a
+        Right a -> Right a
+    )
