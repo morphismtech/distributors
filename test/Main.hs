@@ -27,7 +27,7 @@ main = do
   hspec $ do
     when shouldRunDoctests $
       describe "doctest" $
-        it "runs module documentation examples" doctests
+        it "should run haddock examples" doctests
     describe "regexGrammar" $ for_ regexExamples $ testGrammar False regexGrammar
     describe "semverGrammar" $ for_ semverExamples $ testCtxGrammar True semverGrammar
     describe "semverCtxGrammar" $ for_ semverExamples $ testCtxGrammar True semverCtxGrammar
