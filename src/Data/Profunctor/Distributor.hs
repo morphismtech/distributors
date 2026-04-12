@@ -214,7 +214,7 @@ alternateF = either (fmap Left) (fmap Right)
 
 Not all `Distributor`s are `Alternator`s, in particular @(->)@ is
 a `Distributor` but cannot be `Alternative`,
-because there is no `empty` function for any @a -> b@,
+because there is no general polymorphic function @empty :: a -> b@,
 so @(->)@ isn't an `Alternator`.
 
 -}
