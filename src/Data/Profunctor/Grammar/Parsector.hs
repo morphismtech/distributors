@@ -86,7 +86,7 @@ data ParsecState s a = ParsecState
     since the last `<|>` / `try` decision point.
     Controls @LL(1)@ commitment: a failure with `parsecLooked` `True`
     is propagated immediately without trying alternatives.
-    Reset to @False@ by `try` on failure.
+    Reset to `False` by `try` on failure.
     -}
   , parsecOffset :: !Word
     -- ^ Number of tokens consumed from the start of the stream.
@@ -103,7 +103,7 @@ data ParsecState s a = ParsecState
     -}
   , parsecResult :: Maybe a
     {- ^
-    As input, `Nothing` means parse mode.
+    As input, `Nothing` means parse mode and
     `Just` means print mode with an input syntax value.
 
     As output `Nothing` means failure (inspect `parsecError`) and
