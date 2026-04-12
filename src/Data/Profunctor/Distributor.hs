@@ -133,6 +133,12 @@ instance Applicative f => Distributor (Star f) where
     Star (either (fmap Left . f) (fmap Right . g))
   optionalP (Star f) = Star (traverse f)
   manyP (Star f) = Star (traverse f)
+instance Alternative f => Alternator (Star f) where
+  alternate = \case
+    Left (Star f) -> Star $ either (fmap Left . f) (const empty)
+    Right (Star f) -> Star $ either (const empty) (fmap Right . f)
+deriving via Star f instance (Alternative f, Monad f)
+  => Alternator (Kleisli f)
 deriving via (Star m) instance Monad m => Distributor (Kleisli m)
 instance Adjunction f u => Distributor (Costar f) where
   zeroP = Costar unabsurdL
