@@ -5,7 +5,9 @@ import Control.Lens.Grammar
 import Control.Monad (when)
 import Data.IORef
 import Data.List (genericLength)
+import Data.Maybe (isJust)
 import Data.Profunctor.Types (Star (..))
+import System.Environment (lookupEnv)
 import Test.DocTest
 import Test.Hspec
 
@@ -21,7 +23,11 @@ import Properties.Kleene
 
 main :: IO ()
 main = do
+  shouldRunDoctests <- isJust <$> lookupEnv "DISTRIBUTORS_RUN_DOCTESTS"
   hspec $ do
+    when shouldRunDoctests $
+      describe "doctest" $
+        it "should run haddock examples" doctests
     describe "regexGrammar" $ for_ regexExamples $ testGrammar False regexGrammar
     describe "semverGrammar" $ for_ semverExamples $ testCtxGrammar True semverGrammar
     describe "semverCtxGrammar" $ for_ semverExamples $ testCtxGrammar True semverCtxGrammar
@@ -34,8 +40,6 @@ main = do
     describe "Parsector try rollback" tryRollbackTests
     describe "Kleene" kleeneProperties
     describe "meander" meanderProperties
-    describe "doctest" $
-      it "runs module documentation examples" doctests
 
 tryRollbackTests :: Spec
 tryRollbackTests = do
