@@ -32,4 +32,6 @@ jobs:
         run: stack build
 
       - name: Run tests
+        env:
+          DISTRIBUTORS_RUN_DOCTESTS: "1"
         run: stack test
