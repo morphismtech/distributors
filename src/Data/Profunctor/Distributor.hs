@@ -264,19 +264,15 @@ instance (Alternator p, Applicative f)
           . unwrapPafb
       in
         either f g
-
     someP (WrapPafb x) = WrapPafb (rmap sequenceA (someP x))
+    optionP def (WrapPafb x) = WrapPafb (optionP (prism pure pure . def) x)
 instance Alternator p => Alternator (Coyoneda p) where
   alternate (Left p) = proreturn (alternate (Left (proextract p)))
   alternate (Right p) = proreturn (alternate (Right (proextract p)))
   someP = proreturn . someP . proextract
+  optionP def = proreturn . optionP def . proextract
 instance Alternator p => Alternator (Yoneda p) where
   alternate (Left p) = proreturn (alternate (Left (proextract p)))
   alternate (Right p) = proreturn (alternate (Right (proextract p)))
   someP = proreturn . someP . proextract
-instance Alternative f => Alternator (Star f) where
-  alternate = \case
-    Left (Star f) -> Star $ either (fmap Left . f) (const empty)
-    Right (Star f) -> Star $ either (const empty) (fmap Right . f)
-deriving via Star f instance (Alternative f, Monad f)
-  => Alternator (Kleisli f)
+  optionP def = proreturn . optionP def . proextract
