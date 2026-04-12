@@ -113,28 +113,22 @@ data ParsecState s a = ParsecState
 
 {- | `ParsecError` is the error payload produced by `Parsector`,
 stored in `parsecError`.
-
 `ParsecError` is a `Monoid` and `Parsector` merges errors/hints
-when control flow reaches the same offset without commitment:
-
-* In `p <|> q`, if @p@ fails without looking and @q@
-  also stays uncommitted, their `ParsecError`s are merged.
-* In `p >>= f`, if @p@ succeeds and @f@ stays uncommitted,
-  any hint from @p@ is merged into @f@'s `ParsecError`.
+when control flow reaches the same offset without commitment.
 -}
 data ParsecError s = ParsecError
   { parsecExpect :: TokenClass (Item s)
     {- ^ Class of expected token `Item`s at the `parsecOffset`.
     `tokenClass`es and `Tokenized` combinators specify expectations.
-    Under `(<>)`, expectations are combined with disjunction `>||<`.
+    Under `<>`, expectations are combined with disjunction `>||<`.
     In case of a parse error, contrast with the actual `parsecStream`,
-    which is either empty or begins with an unexpected token.
+    which is either unexpectedly empty or begins with an unexpected token.
     -}
   , parsecLabels :: [Tree String]
     {- ^ Forest of `rule` labels active at the `parsecOffset`.
     Each `rule` wraps its inner labels in a new `Node`.
     `ruleRec` & `fail` also create label nodes.
-    Under `(<>)`, forests are concatenated as siblings.
+    Under `<>`, forests are concatenated as siblings.
     Use `drawForest` to display.
     -}
   }

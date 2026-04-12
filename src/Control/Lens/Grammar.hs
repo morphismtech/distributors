@@ -23,7 +23,7 @@ module Control.Lens.Grammar
   , RegBnf (..)
   , regbnfG
   , regbnfGrammar
-    -- * Unrestricted, context-sensitive grammar
+    -- * Context-sensitive grammar
   , CtxGrammar
   , printG
   , parseG
@@ -323,8 +323,8 @@ but being unscoped means it isn't added to the context.
 If all bound actions are unscoped,
 and filtration & failure handling aren't used,
 then a `CtxGrammar` can be rewritten as a `Grammar` since it is context-free.
-We can't generate a `RegBnf` since the `rule`s
-of a `CtxGrammar` aren't static, but dynamic and contextual.
+We can't generate a `RegBnf` from a `CtxGrammar` since the `rule`s
+aren't static, but dynamic and contextual.
 We can generate parsers and printers as expected.
 
 >>> [vec | (vec, "") <- parseG lenvecGrammar "3;1,2,3"] :: [LenVec]
@@ -356,7 +356,7 @@ permitting computable predicates,
 and `Filtrator` has a default definition for `Monadic` `Alternator`s,
 the context-sensitivity of `CtxGrammar` implies
 unrestricted filtration of grammars by computable predicates,
-which can recognize the class of recursively enumerable languages.
+which can recognize the larger class of recursively enumerable languages.
 
 Finally, `CtxGrammar`s support error reporting and backtracking.
 This has no effect on `printG`, `parseG` or `unparseG`;
@@ -391,11 +391,8 @@ type CtxGrammar token a = forall p.
   ) => p a a
 
 {- |
-`Lexical` combinators include
-
-* `terminal` symbols from "Control.Lens.Grammar.Symbol";
-* `Tokenized` combinators from "Control.Lens.Grammar.Token";
-* `tokenClass`es from "Control.Lens.Grammar.Boole".
+`Lexical` combinators include `terminal` symbols,
+`Tokenized` combinators and `tokenClass`es.
 -}
 type Lexical token p =
   ( forall x y. (x ~ (), y ~ ()) => TerminalSymbol token (p x y)
@@ -843,8 +840,8 @@ Since both `RegGrammar`s and context-free `Grammar`s are `CtxGrammar`s,
 the type system will allow `parsecG` to be applied to them.
 Running the parser on an input string value `uncons`es
 tokens from the beginning of an input string from left to right,
-returning `parsecResult` as `Nothing` on failure or `Just` a syntax value,
-with failure/deferred expectations stored in `parsecError`,
+returning `parsecResult` as `Nothing` on failure or `Just`
+an output syntax value, with parse failure stored in `parsecError`,
 and a remaining output `parsecStream`.
 -}
 parsecG
@@ -862,8 +859,7 @@ the type system will allow `unparsecG` to be applied to them.
 Running the printer on a syntax value and an input string
 `snoc`s tokens at the end of the string, from left to right,
 returning `parsecResult` as `Nothing` on failure or `Just`
-the input syntax value, with failure/deferred expectations stored
-in `parsecError`, and the output `parsecStream`.
+the input syntax value, with print success stored in `parsecStream`.
 -}
 unparsecG
   :: (Cons string string token token, Snoc string string token token)
