@@ -311,26 +311,8 @@ instance Categorized token
   exam >||< y | isFailExam exam = y
   _ >||< exam | isPassExam exam = passExam
   exam >||< _ | isPassExam exam = passExam
-  x >||< Alternate y z = Alternate (TokenClass x) (TokenClass (Alternate y z))
-  Alternate x y >||< z = Alternate (TokenClass (Alternate x y)) (TokenClass z)
   OneOf xs >||< OneOf ys = oneOf (Set.union xs ys)
-  OneOf xs >||< NotOneOf ys z =
-    Alternate (TokenClass (OneOf xs)) (TokenClass (NotOneOf ys z))
-  NotOneOf xs y >||< OneOf zs =
-    Alternate (TokenClass (NotOneOf xs y)) (TokenClass (OneOf zs))
-  NotOneOf xs (AndNotAsIn ys) >||< NotOneOf ws (AndNotAsIn zs) =
-    notOneOf (Set.intersection xs ws) >&&< allB notAsIn (Set.intersection ys zs)
-  NotOneOf xs (AndAsIn y) >||< NotOneOf ws (AndAsIn z) =
-    if y == z then NotOneOf (Set.intersection xs ws) (AndAsIn y)
-    else Alternate
-      (TokenClass (NotOneOf xs (AndAsIn y)))
-      (TokenClass (NotOneOf ws (AndAsIn z)))
-  NotOneOf xs (AndNotAsIn ys) >||< NotOneOf ws (AndAsIn z) = Alternate
-    (TokenClass (NotOneOf xs (AndNotAsIn ys)))
-    (TokenClass (NotOneOf ws (AndAsIn z)))
-  NotOneOf xs (AndAsIn y) >||< NotOneOf ws (AndNotAsIn zs) = Alternate
-    (TokenClass (NotOneOf xs (AndAsIn y)))
-    (TokenClass (NotOneOf ws (AndNotAsIn zs)))
+  x >||< y = Alternate (TokenClass x) (TokenClass y)
 deriving stock instance
   (Categorized token, Read token, Read alg, Read (Categorize token))
     => Read (RegExam token alg)
