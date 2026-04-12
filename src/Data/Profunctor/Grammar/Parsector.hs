@@ -294,11 +294,16 @@ instance Categorized (Item s) => MonadFail (Parsector s a) where
 instance Categorized (Item s) => MonadTry (Parsector s a) where
   -- | On failure, resets `parsecLooked` to @False@, allowing
   -- the enclosing `<|>` to try the next alternative even if @p@
-  -- consumed input. Has no effect on success.
+  -- consumed input. Also restores the stream/offset decision state.
+  -- Has no effect on success.
   try p = Parsector $ \callback query ->
     flip (runParsector p) query $ \reply -> callback $
       case parsecResult reply of
-        Nothing -> reply { parsecLooked = False }
+        Nothing -> query
+          { parsecLooked = False
+          , parsecError  = parsecError reply
+          , parsecResult = Nothing
+          }
         Just _ -> reply
 instance Categorized (Item s) => Filterable (Parsector s a) where
   mapMaybe = dimapMaybe Just

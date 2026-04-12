@@ -31,10 +31,26 @@ main = do
     describe "lambdaGrammar" $ for_ lambdaExamples $ testCtxGrammar True lambdaGrammar
     describe "lenvecGrammar" $ for_ lenvecExamples $ testCtxGrammar True lenvecGrammar
     describe "chainGrammar" $ for_ chainExamples $ testCtxGrammar True chainGrammar
+    describe "Parsector try rollback" tryRollbackTests
     describe "Kleene" kleeneProperties
     describe "meander" meanderProperties
     describe "doctest" $
       it "runs module documentation examples" doctests
+
+tryRollbackTests :: Spec
+tryRollbackTests = do
+  it "rolls back parse stream/offset on failed try" $ do
+    let actual = parsecG (try (tokens "ab")) "ax"
+    parsecLooked actual `shouldBe` False
+    parsecOffset actual `shouldBe` 0
+    parsecStream actual `shouldBe` "ax"
+    parsecResult actual `shouldBe` (Nothing :: Maybe String)
+  it "rolls back unparse stream/offset on failed try" $ do
+    let actual = unparsecG (try (tokens "ab")) "ax" ""
+    parsecLooked actual `shouldBe` False
+    parsecOffset actual `shouldBe` 0
+    parsecStream actual `shouldBe` ""
+    parsecResult actual `shouldBe` (Nothing :: Maybe String)
 
 doctests :: IO ()
 doctests = do
