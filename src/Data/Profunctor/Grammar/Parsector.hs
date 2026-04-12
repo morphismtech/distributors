@@ -82,7 +82,7 @@ underlying function inside `Parsector`.
 So `ParsecState` has a dual interpretation as input and output. -}
 data ParsecState s a = ParsecState
   { parsecLooked :: !Bool
-    {- ^ `True` once the parser has consumed at least one token
+    {- ^ `True` once the parser has consumed/produced at least one token
     since the last `<|>` / `try` decision point.
     Controls LL(1) commitment: a failure with `parsecLooked` `True`
     is propagated immediately without trying alternatives.
@@ -102,17 +102,16 @@ data ParsecState s a = ParsecState
     expected-token reporting on downstream failures.
     -}
   , parsecResult :: Maybe a
-    {- ^ Dual role for parse and print modes.
-
+    {- ^
     As input:
 
     * `Nothing` means parse mode.
-    * `Just` means print mode with syntax value.
+    * `Just` means print mode with an input syntax value.
 
     As output:
 
     * `Nothing` means failure; inspect `parsecError`.
-    * `Just` means success with a syntax value.
+    * `Just` means success with an output syntax value.
     -}
   }
 
@@ -131,7 +130,7 @@ data ParsecError s = ParsecError
     {- ^ Forest of `rule` labels active at the `parsecOffset`.
     Each `rule` wraps its inner labels in a new `Node`.
     `ruleRec` & `fail` also create label nodes.
-    When two empty failures are merged by `<|>`,
+    When two failures are merged by `<|>`,
     their forests are concatenated as siblings.
     Use `drawForest` to display.
     -}
