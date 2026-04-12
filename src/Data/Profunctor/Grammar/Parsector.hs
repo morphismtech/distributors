@@ -84,7 +84,7 @@ data ParsecState s a = ParsecState
   { parsecLooked :: !Bool
     {- ^ `True` once the parser has consumed/produced at least one token
     since the last `<|>` / `try` decision point.
-    Controls LL(1) commitment: a failure with `parsecLooked` `True`
+    Controls @LL(1)@ commitment: a failure with `parsecLooked` `True`
     is propagated immediately without trying alternatives.
     Reset to @False@ by `try` on failure.
     -}
@@ -103,26 +103,30 @@ data ParsecState s a = ParsecState
     -}
   , parsecResult :: Maybe a
     {- ^
-    As input:
+    As input, `Nothing` means parse mode.
+    `Just` means print mode with an input syntax value.
 
-    * `Nothing` means parse mode.
-    * `Just` means print mode with an input syntax value.
-
-    As output:
-
-    * `Nothing` means failure; inspect `parsecError`.
-    * `Just` means success with an output syntax value.
+    As output `Nothing` means failure (inspect `parsecError`) and
+    `Just` means success with an output syntax value.
     -}
   }
 
 {- | `ParsecError` is the error payload produced by `Parsector`,
 stored in `parsecError`.
+
+`ParsecError` is a `Monoid` and `Parsector` merges errors/hints
+when control flow reaches the same offset without commitment:
+
+* In `p <|> q`, if @p@ fails without looking and @q@
+  also stays uncommitted, their `ParsecError`s are merged.
+* In `p >>= f`, if @p@ succeeds and @f@ stays uncommitted,
+  any hint from @p@ is merged into @f@'s `ParsecError`.
 -}
 data ParsecError s = ParsecError
   { parsecExpect :: TokenClass (Item s)
     {- ^ Class of expected token `Item`s at the `parsecOffset`.
     `tokenClass`es and `Tokenized` combinators specify expectations.
-    `<|>` merges them via disjunction `>||<`.
+    Under `(<>)`, expectations are combined with disjunction `>||<`.
     In case of a parse error, contrast with the actual `parsecStream`,
     which is either empty or begins with an unexpected token.
     -}
@@ -130,8 +134,7 @@ data ParsecError s = ParsecError
     {- ^ Forest of `rule` labels active at the `parsecOffset`.
     Each `rule` wraps its inner labels in a new `Node`.
     `ruleRec` & `fail` also create label nodes.
-    When two failures are merged by `<|>`,
-    their forests are concatenated as siblings.
+    Under `(<>)`, forests are concatenated as siblings.
     Use `drawForest` to display.
     -}
   }
