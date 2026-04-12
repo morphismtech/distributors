@@ -3,7 +3,9 @@ module Main (main) where
 import Data.Foldable hiding (toList)
 import Control.Lens.Grammar
 import Control.Monad (when)
+import Data.IORef
 import Data.List (genericLength)
+import Data.Profunctor.Types (Star (..))
 import Test.DocTest
 import Test.Hspec
 
@@ -30,6 +32,7 @@ main = do
     describe "lenvecGrammar" $ for_ lenvecExamples $ testCtxGrammar True lenvecGrammar
     describe "chainGrammar" $ for_ chainExamples $ testCtxGrammar True chainGrammar
     describe "Kleene" kleeneProperties
+    describe "meander" meanderProperties
     describe "doctest" $
       it "runs module documentation examples" doctests
 
@@ -80,6 +83,17 @@ doctests = do
     putStr "Testing module documentation in "
     putStrLn modulePath
     doctest (modulePath : languageExtensions)
+
+meanderProperties :: Spec
+meanderProperties =
+  it "preserves left-to-right traversal effects" $ do
+    let input = ["h", "e", "l", "l", "o"]
+    seenRef <- newIORef []
+    let visit item = modifyIORef' seenRef (item :) >> pure ()
+    units <- runStar (meander traverse (Star visit)) input
+    seen <- reverse <$> readIORef seenRef
+    seen `shouldBe` input
+    units `shouldBe` replicate (length input) ()
 
 testGrammar :: (Show a, Eq a) => Bool -> Grammar Char a -> (a, String) -> Spec
 testGrammar isLL1 grammar (expectedSyntax, expectedString) = do

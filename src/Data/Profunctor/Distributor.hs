@@ -68,7 +68,9 @@ prop> dimap (f >+< g) (h >+< i) (p >+< q) = dimap f h p >+< dimap g i q
 `Distributor` additionally has methods `manyP` & `optionalP`,
 distributing an action over @[]@ and `Maybe` datatypes,
 which generalize to `Data.Traversable.Homogeneous.homogeneously`
-distributing an action over homogeneous sum-of-products datatypes.
+distributing an action over
+`Data.Traversable.Homogeneous.Homogeneous`
+sum-of-products datatypes.
 
 -}
 class Monoidal p => Distributor p where

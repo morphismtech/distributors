@@ -205,7 +205,7 @@ toFun (Bazaar f) = f sell
 fromFun :: FunList a b t -> Bazaar (->) a b t
 fromFun = \case
   DoneFun t -> pure t
-  MoreFun a f -> ($) <$> f <*> sell a
+  MoreFun a f -> flip ($) <$> sell a <*> f
 instance Functor (FunList a b) where
   fmap f = \case
     DoneFun t -> DoneFun (f t)
