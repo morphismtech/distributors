@@ -9,7 +9,7 @@ Portability : non-portable
 
 See Naur & Backus, et al.
 [Report on the Algorithmic Language ALGOL 60]
-(https://softwarepreservation.computerhistory.org/ALGOL/report/Algol60_report_CACM_1960_June.pdf)
+(https://softwarepreservation.computerhistory.org/ALGOL/report/Algol60_report_CACM_1960_June.pdf).
 -}
 
 module Control.Lens.Grammar.BackusNaur
@@ -44,7 +44,7 @@ support the `BackusNaurForm` interface.
 prop> rule name bnf = ruleRec name (\_ -> bnf)
 
 See Breitner, [Showcasing Applicative]
-(https://www.joachim-breitner.de/blog/710-Showcasing_Applicative)
+(https://www.joachim-breitner.de/blog/710-Showcasing_Applicative).
 -}
 class BackusNaurForm bnf where
 
@@ -89,6 +89,11 @@ The [Brzozowski derivative]
 `RegEx`tended `Bnf`, with memoization.
 
 prop> word =~ diffB prefix pattern = prefix <> word =~ pattern
+
+Unfortunately, despite elegance & optimization, Brzozowski's
+pattern matching algorithm is worst case exponential in grammar size.
+See Might, Darais & Spiewak, [Parsing With Derivatives]
+(https://matt.might.net/papers/might2011derivatives.pdf).
 -}
 diffB
   :: (Categorized token, HasTrie token)
