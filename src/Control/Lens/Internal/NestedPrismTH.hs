@@ -63,11 +63,11 @@ import Prelude
 -- will create
 --
 -- @
--- _Foo :: Prism (FooBarBaz a) (FooBarBaz b) a b
--- _Bar :: Prism' (FooBarBaz a) Int
--- _Baz :: Prism' (FooBarBaz a) (Int, Char)
--- _Buzz :: Prism' (FooBarBaz a) (Double, (String, Bool))
--- _Boop :: Prism' (FooBarBaz a) ()
+-- _Foo :: Prism (FooBar a) (FooBar b) a b
+-- _Bar :: Prism' (FooBar a) Int
+-- _Baz :: Prism' (FooBar a) (Int, Char)
+-- _Buzz :: Prism' (FooBar a) (Double, (String, Bool))
+-- _Boop :: Prism' (FooBar a) ()
 -- @
 makeNestedPrisms :: Name -> DecsQ
 makeNestedPrisms typeName =
