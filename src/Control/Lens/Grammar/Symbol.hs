@@ -24,9 +24,9 @@ import Data.Profunctor.Monoidal
 class TerminalSymbol token s | s -> token where
   terminal :: [token] -> s
   default terminal
-    :: (p () () ~ s, Tokenized token (p token token), Monoidal p, Cochoice p)
+    :: (p () () ~ s, Tokenized token (p token token), Monoidal p, Choice p, Cochoice p)
     => [token] -> s
-  terminal = foldr (\a p -> only a ?< token a *> p) oneP
+  terminal str = only str ?< tokens str
 
 -- | A `nonTerminal` symbol in a grammar.
 class NonTerminalSymbol s where
