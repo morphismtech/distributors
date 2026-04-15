@@ -904,22 +904,17 @@ using the Megaparsec library.
 import qualified Text.Megaparsec as M
 import qualified Text.Megaparsec.Char as M
 import Control.Lens.Grammar
-import GHC.IsList
 
-newtype WrapMega s e m a = WrapMega {unwrapMega :: M.ParsecT s e m a}
+newtype WrapMega a = WrapMega {unwrapMega :: M.Parsec String String a}
   deriving newtype
     ( Functor, Applicative, Alternative
     , Monad, MonadPlus, MonadFail
     )
-instance (M.Stream s, IsList (M.Tokens s), Item (M.Tokens s) ~ token, Ord e)
-  => TerminalSymbol token (WrapMega e s m ()) where
-  terminal str = WrapMega $ do
-    _ <- M.chunk (fromList str)
-    pure ()
-instance
-  ( M.Stream s, token ~ M.Token s, Categorized token
-  , Show (Categorize token), Ord e
-  ) => Tokenized token (WrapMega e s m token) where
+instance TerminalSymbol Char (WrapMega ()) where
+  terminal str = WrapMega (M.chunk str *> pure ())
+instance TokenAlgebra Char (WrapMega Char) where
+  tokenClass exam = WrapMega $ M.label (show exam) (M.satisfy (tokenClass exam))
+instance Tokenized Char (WrapMega Char) where
   anyToken = WrapMega M.anySingle
   token = WrapMega . M.single
   oneOf = WrapMega . M.oneOf
@@ -928,29 +923,17 @@ instance
     (M.satisfy (tokenClass (asIn cat)))
   notAsIn cat = WrapMega $ M.label ("not in category " ++ show cat)
     (M.satisfy (tokenClass (notAsIn cat)))
-instance
-  ( M.Stream s, token ~ M.Token s, Categorized token
-  , Show token, Show (Categorize token), Ord e
-  ) => TokenAlgebra token (WrapMega e s m token) where
-  tokenClass exam = WrapMega $
-    M.label (show exam) (M.satisfy (tokenClass exam))
-instance (M.Stream s, Ord e)
-  => BackusNaurForm (WrapMega e s m a) where
+instance BackusNaurForm (WrapMega a) where
   rule lbl (WrapMega p) = WrapMega (M.label lbl p)
   ruleRec lbl = rule lbl . fix
-instance M.Stream s => Filterable (WrapMega e s m) where
-  catMaybes m = m >>=
-    maybe (fail "unrestricted filtration") return
-instance (M.Stream s, Ord e) => MonadTry (WrapMega e s m) where
+instance Filterable WrapMega where
+  catMaybes m = m >>= maybe (fail "unrestricted filtration") pure
+instance MonadTry WrapMega where
   try (WrapMega p) = WrapMega (M.try p)
 
 megaparsecG
-  :: ( M.Stream s, IsList (M.Tokens s), token ~ Item (M.Tokens s)
-     , token ~ M.Token s, Categorized token
-     , Show token, Show (Categorize token), Ord e
-     )
-  => CtxGrammar token a
-  -> M.ParsecT e s m a
+  :: CtxGrammar Char a
+  -> M.Parsec String String a
 megaparsecG gram = unwrapMega (monadG gram)
 @
 
