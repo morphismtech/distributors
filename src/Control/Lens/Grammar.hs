@@ -771,7 +771,7 @@ regbnfGrammar :: Grammar Char RegBnf
 regbnfGrammar = rule "regbnf" $ _RegBnf . _Bnf >~
   terminal "{start} = " >* regexGrammar >*< several noSep
     (terminal "\n" >* nonterminalG *< terminal " = " >*< regexGrammar)
-      
+
 
 {- | `regstringG` generates a `RegString` from a regular grammar.
 Since context-free `Grammar`s and `CtxGrammar`s aren't necessarily regular,
@@ -883,16 +883,70 @@ applicativeG
   -> f a
 applicativeG joker = runJoker joker
 
+{- | You can generate any parser `Monad` backend
+from a `CtxGrammar` with `monadG`.
+Let's see how to do this without orphan instances,
+using the Megaparsec library.
+
+@
+import qualified Text.Megaparsec as M
+import qualified Text.Megaparsec.Char as M
+import Control.Lens.Grammar
+import GHC.IsList
+
+newtype WrapMega s e m a = WrapMega {unwrapMega :: M.ParsecT s e m a}
+  deriving newtype
+    ( Functor, Applicative, Alternative
+    , Monad, MonadPlus, MonadFail
+    )
+instance (M.Stream s, IsList (M.Tokens s), Item (M.Tokens s) ~ token, Ord e)
+  => TerminalSymbol token (WrapMega e s m ()) where
+  terminal str = WrapMega $ do
+    _ <- M.chunk (fromList str)
+    pure ()
+instance (M.Stream s, token ~ M.Token s, Categorized token, Show token, Show (Categorize token), Ord e)
+  => TokenAlgebra token (WrapMega e s m token) where
+  tokenClass exam = WrapMega $
+    M.label (show exam) (M.satisfy (tokenClass exam))
+instance (M.Stream s, token ~ M.Token s, Categorized token, Show (Categorize token), Ord e)
+  => Tokenized token (WrapMega e s m token) where
+  anyToken = WrapMega M.anySingle
+  token = WrapMega .  M.single
+  oneOf = WrapMega . M.oneOf
+  notOneOf = WrapMega . M.noneOf
+  asIn cat = WrapMega $ M.label ("in category " ++ show cat)
+    (M.satisfy (tokenClass (asIn cat)))
+  notAsIn cat = WrapMega $ M.label ("not in category " ++ show cat)
+    (M.satisfy (tokenClass (notAsIn cat)))
+instance (M.Stream s, Ord e)
+  => BackusNaurForm (WrapMega e s m a) where
+  rule lbl (WrapMega p) = WrapMega (M.label lbl p)
+  ruleRec lbl = rule lbl . fix
+instance M.Stream s => Filterable (WrapMega e s m) where
+  catMaybes m = m >>= maybe (fail "unrestricted filtration") return
+instance (M.Stream s, Ord e) => MonadTry (WrapMega e s m) where
+  try (WrapMega p) = WrapMega (M.try p)
+
+megaparsecG
+  :: ( M.Stream s, IsList (M.Tokens s), token ~ Item (M.Tokens s)
+     , token ~ M.Token s, Categorized token
+     , Show token, Show (Categorize token), Ord e
+     )
+  => CtxGrammar token a
+  -> M.ParsecT e s m a
+megaparsecG = unwrapMega . monadG
+@
+
+-}
 monadG
   :: ( MonadTry f
-     , Filterable f
      , forall x. BackusNaurForm (f x)
      , TokenAlgebra token (f token)
      , TerminalSymbol token (f ())
      )
   => CtxGrammar token a
   -> f a
-monadG joker = runJoker joker 
+monadG joker = runJoker joker
 
 {- | `putStringLn` is a utility that generalizes `putStrLn`
 to string-like interfaces such as `RegString` and `RegBnf`.

@@ -41,7 +41,6 @@ import Data.Profunctor.Monoidal
 import Data.Tree
 import GHC.Exts
 import Prelude hiding (id, (.))
-import Witherable
 
 {- | `Parsector` is an invertible @LL(1)@ parser which is intended
 to provide detailed error information, based on [Parsec]
