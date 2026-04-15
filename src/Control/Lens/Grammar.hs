@@ -951,7 +951,7 @@ megaparsecG
      )
   => CtxGrammar token a
   -> M.ParsecT e s m a
-megaparsecG = unwrapMega . monadG
+megaparsecG gram = unwrapMega (monadG gram)
 @
 
 -}
