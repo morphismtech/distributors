@@ -280,8 +280,8 @@ and generator support for `ruleRec`.
 -}
 type Grammar token a = forall p.
   ( Lexical token p
-  , forall x. BackusNaurForm (p x x)
   , Alternator p
+  , forall x. BackusNaurForm (p x x)
   ) => p a a
 
 {- | For context-sensitivity,
@@ -883,9 +883,9 @@ that can only parse context-free `Grammar`s.
 -}
 applicativeG
   :: ( Alternative f
-     , forall x. BackusNaurForm (f x)
      , TokenAlgebra token (f token)
      , TerminalSymbol token (f ())
+     , forall x. BackusNaurForm (f x)
      )
   => Grammar token a -- ^ context-free grammar
   -> f a
