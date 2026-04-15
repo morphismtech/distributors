@@ -918,12 +918,8 @@ instance (M.Stream s, IsList (M.Tokens s), Item (M.Tokens s) ~ token, Ord e)
     pure ()
 instance
   ( M.Stream s, token ~ M.Token s, Categorized token
-  , Show token, Show (Categorize token), Ord e
-  ) => TokenAlgebra token (WrapMega e s m token) where
-  tokenClass exam = WrapMega $
-    M.label (show exam) (M.satisfy (tokenClass exam))
-instance (M.Stream s, token ~ M.Token s, Categorized token, Show (Categorize token), Ord e)
-  => Tokenized token (WrapMega e s m token) where
+  , Show (Categorize token), Ord e
+  ) => Tokenized token (WrapMega e s m token) where
   anyToken = WrapMega M.anySingle
   token = WrapMega . M.single
   oneOf = WrapMega . M.oneOf
@@ -932,12 +928,19 @@ instance (M.Stream s, token ~ M.Token s, Categorized token, Show (Categorize tok
     (M.satisfy (tokenClass (asIn cat)))
   notAsIn cat = WrapMega $ M.label ("not in category " ++ show cat)
     (M.satisfy (tokenClass (notAsIn cat)))
+instance
+  ( M.Stream s, token ~ M.Token s, Categorized token
+  , Show token, Show (Categorize token), Ord e
+  ) => TokenAlgebra token (WrapMega e s m token) where
+  tokenClass exam = WrapMega $
+    M.label (show exam) (M.satisfy (tokenClass exam))
 instance (M.Stream s, Ord e)
   => BackusNaurForm (WrapMega e s m a) where
   rule lbl (WrapMega p) = WrapMega (M.label lbl p)
   ruleRec lbl = rule lbl . fix
 instance M.Stream s => Filterable (WrapMega e s m) where
-  catMaybes m = m >>= maybe (fail "unrestricted filtration") return
+  catMaybes m = m >>=
+    maybe (fail "unrestricted filtration") return
 instance (M.Stream s, Ord e) => MonadTry (WrapMega e s m) where
   try (WrapMega p) = WrapMega (M.try p)
 
