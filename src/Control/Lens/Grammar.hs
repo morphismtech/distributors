@@ -60,7 +60,7 @@ import Data.Profunctor.Separator
 import Data.String
 import GHC.Exts
 import Prelude hiding (filter)
-import Text.ParserCombinators.ReadP (ReadP)
+import Text.ParserCombinators.ReadP (ReadP, readP_to_S)
 import Witherable
 
 -- Re-exports
@@ -976,7 +976,7 @@ instance IsList RegString where
     = fromMaybe zeroK
     . listToMaybe
     . mapMaybe prsF
-    . parseP regexGrammar
+    . readP_to_S (readG regexGrammar)
     where
       prsF (rex,"") = Just rex
       prsF _ = Nothing
@@ -995,7 +995,7 @@ instance IsList RegBnf where
     = fromMaybe zeroK
     . listToMaybe
     . mapMaybe prsF
-    . parseP regbnfGrammar
+    . readP_to_S (readG regbnfGrammar)
     where
       prsF (regbnf,"") = Just regbnf
       prsF _ = Nothing
