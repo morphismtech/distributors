@@ -22,6 +22,7 @@ module Control.Monad.Fail.Try
   ) where
 
 import Control.Applicative
+import Control.Lens.Grammar.BackusNaur
 import Control.Lens.PartialIso ()
 import Control.Monad
 import Data.Bifunctor.Joker
@@ -35,14 +36,16 @@ prop> empty = mzero
 prop> (<|>) = mplus
 prop> filter = mfilter
 
-When a `MonadTry` is also a
-`Control.Lens.Grammar.BackusNaur.BackusNaurForm`,
-then the following invariant should hold.
+`MonadTry` also supports the `BackusNaurForm` interface
+for tracing failures and the following invariant should hold.
 
 prop> fail label = rule label empty
 
 -}
-class (MonadFail m, MonadPlus m, Filterable m) => MonadTry m where
+class
+  ( MonadFail m, MonadPlus m, Filterable m
+  , forall x. BackusNaurForm (m x)
+  ) => MonadTry m where
 
   {- | A handler for failures.
   Used for backtracking state on failure in

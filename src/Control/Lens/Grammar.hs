@@ -389,7 +389,6 @@ ParsecState {parsecLooked = True, parsecOffset = 2, parsecStream = "ab", parsecE
 -}
 type CtxGrammar token a = forall p.
   ( Lexical token p
-  , forall x. BackusNaurForm (p x x)
   , Alternator p
   , Filtrator p
   , MonadicTry p
@@ -879,7 +878,8 @@ unparsecG parsector = unparsecP parsector
 from a `Grammar` with `applicativeG`.
 It works the same way as `monadG`,
 for parsers without `Monad` instances.
-That permits backends which can only parse context-free `Grammar`s.
+That permits backends to use algorithms
+that can only parse context-free `Grammar`s.
 -}
 applicativeG
   :: ( Alternative f
@@ -957,7 +957,6 @@ megaparsecG = unwrapMega . monadG
 -}
 monadG
   :: ( MonadTry m
-     , forall x. BackusNaurForm (m x)
      , TokenAlgebra token (m token)
      , TerminalSymbol token (m ())
      )

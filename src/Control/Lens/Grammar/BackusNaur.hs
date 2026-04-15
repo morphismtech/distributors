@@ -60,11 +60,6 @@ prop> ruleRec _ = fix
 
 The `BackusNaurForm` interface permits overloading these methods,
 and tracing their occurence with a label.
-When a `BackusNaurForm` is a
-`Control.Monad.Fail.Try.MonadTry`,
-this invariant should hold.
-
-prop> fail label = rule label mzero
 
 Both context-free `Control.Lens.Grammar.Grammar`s
 & `Control.Lens.Grammar.CtxGrammar`s
