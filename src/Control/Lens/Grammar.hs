@@ -886,7 +886,7 @@ applicativeG
 applicativeG joker = runJoker joker
 
 readG :: Grammar Char a -> ReadP a
-readG = monadG
+readG joker = monadG joker
 
 {- | You can generate any parser `Monad` backend
 from a `CtxGrammar` with `monadG`.
