@@ -39,8 +39,8 @@ class (Cochoice p, forall x. Filterable (p x))
   => Filtrator p where
 
     {- |
-    prop> unleft = fst . filtrate
-    prop> unright = snd . filtrate
+    prop> unleft = fst . filtrate = mapMaybe (either Just (const Nothing)) . lmap Left
+    prop> unright = snd . filtrate = mapMaybe (either (const Nothing) Just) . lmap Right
 
     `filtrate` is a distant relative to `Data.Either.partitionEithers`.
     `filtrate` can be given a default value for `Monadic`
