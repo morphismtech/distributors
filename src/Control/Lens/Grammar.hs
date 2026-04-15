@@ -99,7 +99,7 @@ data SemVer = SemVer          -- e.g., 2.1.5-rc.1+build.123
 
 We'd like to define an optic @_SemVer@,
 corresponding to the constructor pattern @SemVer@.
-You _could_ generate it with the TemplateHaskell combinator,
+You could generate it with the TemplateHaskell combinator,
 `makeNestedPrisms`.
 
 @makeNestedPrisms ''SemVer@
@@ -875,20 +875,27 @@ unparsecG
   -> ParsecState string a
 unparsecG parsector = unparsecP parsector
 
+{- | Generate any `Applicative` parser backend
+from a `Grammar` with `applicativeG`.
+It works the same way as `monadG`,
+for parsers without `Monad` instances.
+That permits backends which can only parse context-free `Grammar`s.
+-}
 applicativeG
   :: ( Alternative f
      , forall x. BackusNaurForm (f x)
      , TokenAlgebra token (f token)
      , TerminalSymbol token (f ())
      )
-  => Grammar token a
+  => Grammar token a -- ^ context-free grammar
   -> f a
 applicativeG joker = runJoker joker
 
-readG :: Grammar Char a -> ReadP a
+{- | Generate a `ReadP` backend from a `CtxGrammar` `Char`. -}
+readG :: CtxGrammar Char a -> ReadP a
 readG joker = monadG joker
 
-{- | You can generate any parser `Monad` backend
+{- | Generate any parser `Monad` backend
 from a `CtxGrammar` with `monadG`.
 Let's see how to do this without orphan instances,
 using the Megaparsec library.
@@ -909,14 +916,16 @@ instance (M.Stream s, IsList (M.Tokens s), Item (M.Tokens s) ~ token, Ord e)
   terminal str = WrapMega $ do
     _ <- M.chunk (fromList str)
     pure ()
-instance (M.Stream s, token ~ M.Token s, Categorized token, Show token, Show (Categorize token), Ord e)
-  => TokenAlgebra token (WrapMega e s m token) where
+instance
+  ( M.Stream s, token ~ M.Token s, Categorized token
+  , Show token, Show (Categorize token), Ord e
+  ) => TokenAlgebra token (WrapMega e s m token) where
   tokenClass exam = WrapMega $
     M.label (show exam) (M.satisfy (tokenClass exam))
 instance (M.Stream s, token ~ M.Token s, Categorized token, Show (Categorize token), Ord e)
   => Tokenized token (WrapMega e s m token) where
   anyToken = WrapMega M.anySingle
-  token = WrapMega .  M.single
+  token = WrapMega . M.single
   oneOf = WrapMega . M.oneOf
   notOneOf = WrapMega . M.noneOf
   asIn cat = WrapMega $ M.label ("in category " ++ show cat)
@@ -944,13 +953,13 @@ megaparsecG = unwrapMega . monadG
 
 -}
 monadG
-  :: ( MonadTry f
-     , forall x. BackusNaurForm (f x)
-     , TokenAlgebra token (f token)
-     , TerminalSymbol token (f ())
+  :: ( MonadTry m
+     , forall x. BackusNaurForm (m x)
+     , TokenAlgebra token (m token)
+     , TerminalSymbol token (m ())
      )
-  => CtxGrammar token a
-  -> f a
+  => CtxGrammar token a -- ^ context-sensitive grammar
+  -> m a
 monadG joker = runJoker joker
 
 {- | `putStringLn` is a utility that generalizes `putStrLn`

@@ -145,11 +145,11 @@ replicateP
 replicateP n _ | n <= 0 = asEmpty
 replicateP n a = a >:< replicateP (n-1) a
 
-{- | For any `Monoidal`, `Choice` & `Strong` `Profunctor`,
+{- | For any `Monoidal`, `Choice` & `Data.Profunctor.Strong` `Profunctor`,
 `meander` is invertible and gives a default implementation for the
 `Data.Profunctor.Traversing.wander`
 method of `Data.Profunctor.Traversing.Traversing`,
-though `Strong` is not needed for its definition.
+though `Data.Profunctor.Strong` is not needed for its definition.
 
 See Pickering, Gibbons & Wu,
 [Profunctor Optics - Modular Data Accessors](https://arxiv.org/abs/1703.10857)
