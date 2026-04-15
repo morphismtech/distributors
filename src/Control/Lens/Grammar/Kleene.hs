@@ -38,6 +38,8 @@ import Data.Profunctor.Distributor
 import Data.Set (Set)
 import qualified Data.Set as Set
 import GHC.Generics
+import Text.ParserCombinators.ReadP (ReadP)
+import qualified Text.ParserCombinators.ReadP as ReadP
 
 {- | A `KleeneStarAlgebra` is a ring
 with a generally non-commutative multiplication,
@@ -221,6 +223,8 @@ instance Categorized token => TokenAlgebra token (RegEx token) where
 instance TokenAlgebra token (f token)
   => TokenAlgebra token (Joker f token token) where
     tokenClass = Joker . tokenClass
+instance TokenAlgebra Char (ReadP Char) where
+  tokenClass = ReadP.satisfy . tokenClass
 instance Categorized token => Monoid (RegEx token) where
   mempty = SeqEmpty
 instance Categorized token => Semigroup (RegEx token) where

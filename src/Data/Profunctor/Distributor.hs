@@ -280,4 +280,5 @@ instance Alternative f => Alternator (Joker f) where
   alternate (Left (Joker x)) = Joker (Left <$> x)
   alternate (Right (Joker y)) = Joker (Right <$> y)
   someP (Joker x) = Joker (some x)
-  optionP def (Joker x) = Joker (x <|> withPrism def (\f _ -> pure (f ())))
+  optionP def (Joker x) =
+    Joker (x <|> withPrism def (\f _ -> pure (f ())))

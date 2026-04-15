@@ -1,5 +1,5 @@
 {- |
-Module      : Control.Lens.Internal.NestedPrismTH
+Module      : Control.Lens.Grammar.Internal.NestedPrismTH
 Description : nested pair prisms
 Copyright   : (C) 2026 - Eitan Chatav
 License     : BSD-style (see the file LICENSE)
@@ -11,7 +11,7 @@ Code is duplicated from `Control.Lens.Internal.PrismTH`,
 with small tweaks to support nested pairs.
 -}
 
-module Control.Lens.Internal.NestedPrismTH
+module Control.Lens.Grammar.Internal.NestedPrismTH
   ( -- * Nested prisms
     makeNestedPrisms
   ) where

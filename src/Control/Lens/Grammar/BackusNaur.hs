@@ -36,6 +36,7 @@ import Data.Function
 import Data.MemoTrie
 import qualified Data.Set as Set
 import Data.Set (Set)
+import Text.ParserCombinators.ReadP (ReadP)
 
 {- | `BackusNaurForm` grammar combinators formalize traced
 `rule` abstraction and general recursion with `ruleRec`,
@@ -185,6 +186,7 @@ instance (forall x. BackusNaurForm (f x))
   => BackusNaurForm (Joker f a b) where
     rule name = Joker . rule name . runJoker
     ruleRec name = Joker . ruleRec name . dimap Joker runJoker
+instance BackusNaurForm (ReadP a)
 instance (Ord rule, TerminalSymbol token rule)
   => TerminalSymbol token (Bnf rule) where
   terminal = liftBnf0 . terminal

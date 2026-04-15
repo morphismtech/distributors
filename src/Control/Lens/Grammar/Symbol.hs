@@ -20,6 +20,8 @@ import Control.Lens.Grammar.Token
 import Data.Bifunctor.Joker
 import Data.Profunctor
 import Data.Profunctor.Monoidal
+import Text.ParserCombinators.ReadP (ReadP)
+import qualified Text.ParserCombinators.ReadP as ReadP
 
 -- | A `terminal` symbol in a grammar.
 class TerminalSymbol token s | s -> token where
@@ -37,3 +39,7 @@ class NonTerminalSymbol s where
 instance TerminalSymbol token (f ())
   => TerminalSymbol token (Joker f () ()) where
     terminal = Joker . terminal @token
+instance TerminalSymbol Char (ReadP ()) where
+  terminal str = do
+    _ <- ReadP.string str
+    return ()

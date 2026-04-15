@@ -20,18 +20,19 @@ module Control.Lens.Grammar
   , regexGrammar
     -- * Context-free grammar
   , Grammar
-  , applicativeG
   , RegBnf (..)
   , regbnfG
   , regbnfGrammar
+  , applicativeG
     -- * Context-sensitive grammar
   , CtxGrammar
-  , monadG
   , printG
   , parseG
   , unparseG
   , parsecG
   , unparsecG
+  , readG
+  , monadG
     -- * Utility
   , putStringLn
     -- * Re-exports
@@ -59,6 +60,7 @@ import Data.Profunctor.Separator
 import Data.String
 import GHC.Exts
 import Prelude hiding (filter)
+import Text.ParserCombinators.ReadP (ReadP)
 import Witherable
 
 -- Re-exports
@@ -882,6 +884,9 @@ applicativeG
   => Grammar token a
   -> f a
 applicativeG joker = runJoker joker
+
+readG :: Grammar Char a -> ReadP a
+readG = monadG
 
 {- | You can generate any parser `Monad` backend
 from a `CtxGrammar` with `monadG`.

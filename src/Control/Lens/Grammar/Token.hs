@@ -25,6 +25,8 @@ import Data.Char
 import Data.Profunctor
 import Data.Profunctor.Monoidal
 import Data.Word
+import Text.ParserCombinators.ReadP (ReadP)
+import qualified Text.ParserCombinators.ReadP as ReadP
 
 {- | `Categorized` provides a type family `Categorize`
 and a function to `categorize` tokens into disjoint categories.
@@ -128,3 +130,10 @@ instance Tokenized token (f token)
     notOneOf = Joker . notOneOf @token
     asIn = Joker . asIn @token
     notAsIn = Joker . notAsIn @token
+instance Tokenized Char (ReadP Char) where
+  anyToken = ReadP.get
+  token = ReadP.char
+  oneOf = ReadP.satisfy . oneOf
+  notOneOf = ReadP.satisfy . notOneOf
+  asIn = ReadP.satisfy . asIn
+  notAsIn = ReadP.satisfy . notAsIn

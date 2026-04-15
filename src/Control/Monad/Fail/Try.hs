@@ -25,6 +25,7 @@ import Control.Applicative
 import Control.Lens.PartialIso ()
 import Control.Monad
 import Data.Bifunctor.Joker
+import Text.ParserCombinators.ReadP (ReadP)
 import Witherable
 
 {- | `MonadTry` is a failure handling interface, with `fail` & `try`
@@ -53,3 +54,4 @@ class (MonadFail m, MonadPlus m, Filterable m) => MonadTry m where
 
 instance MonadTry m => MonadTry (Joker m a) where
   try = Joker . try . runJoker
+instance MonadTry ReadP
