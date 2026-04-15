@@ -20,7 +20,9 @@ module Control.Monad.Fail.Try
   ) where
 
 import Control.Applicative
+import Control.Lens.PartialIso ()
 import Control.Monad
+import Data.Bifunctor.Joker
 
 {- | `MonadTry` is a failure handling interface,
 with `fail` & `try` and redundant alternation operators.
@@ -44,3 +46,6 @@ class (MonadFail m, MonadPlus m) => MonadTry m where
   try :: m a -> m a
   default try :: m a -> m a
   try = id
+
+instance MonadTry m => MonadTry (Joker m a) where
+  try = Joker . try . runJoker

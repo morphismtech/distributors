@@ -20,11 +20,13 @@ module Control.Lens.Grammar
   , regexGrammar
     -- * Context-free grammar
   , Grammar
+  , applicativeG
   , RegBnf (..)
   , regbnfG
   , regbnfGrammar
     -- * Context-sensitive grammar
   , CtxGrammar
+  , monadG
   , printG
   , parseG
   , unparseG
@@ -44,6 +46,7 @@ import Control.Lens.Grammar.Boole
 import Control.Lens.Grammar.Kleene
 import Control.Lens.Grammar.Token
 import Control.Lens.Grammar.Symbol
+import Data.Bifunctor.Joker
 import Data.Maybe hiding (mapMaybe)
 import Data.Monoid
 import Data.Profunctor.Distributor
@@ -869,6 +872,27 @@ unparsecG
   -> string {- ^ input -}
   -> ParsecState string a
 unparsecG parsector = unparsecP parsector
+
+applicativeG
+  :: ( Alternative f
+     , forall x. BackusNaurForm (f x)
+     , TokenAlgebra token (f token)
+     , TerminalSymbol token (f ())
+     )
+  => Grammar token a
+  -> f a
+applicativeG joker = runJoker joker
+
+monadG
+  :: ( MonadTry f
+     , Filterable f
+     , forall x. BackusNaurForm (f x)
+     , TokenAlgebra token (f token)
+     , TerminalSymbol token (f ())
+     )
+  => CtxGrammar token a
+  -> f a
+monadG joker = runJoker joker 
 
 {- | `putStringLn` is a utility that generalizes `putStrLn`
 to string-like interfaces such as `RegString` and `RegBnf`.

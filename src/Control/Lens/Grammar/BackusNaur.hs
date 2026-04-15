@@ -29,6 +29,7 @@ import Control.Lens.Extras
 import Control.Lens.Grammar.Kleene
 import Control.Lens.Grammar.Token
 import Control.Lens.Grammar.Symbol
+import Data.Bifunctor.Joker
 import Data.Coerce
 import Data.Foldable
 import Data.Function
@@ -59,8 +60,7 @@ prop> ruleRec _ = fix
 The `BackusNaurForm` interface permits overloading these methods,
 and tracing their occurence with a label.
 When a `BackusNaurForm` is a
-`Control.Monad.Fail.Try.MonadFail` &
-`Control.Monad.Fail.Try.MonadPlus`,
+`Control.Monad.Fail.Try.MonadTry`,
 this invariant should hold.
 
 prop> fail label = rule label mzero
@@ -181,6 +181,10 @@ instance (Ord rule, NonTerminalSymbol rule)
     rule label (Bnf newRule oldRules) = (nonTerminal label)
       {rulesBnf = Set.insert (label, newRule) oldRules}
     ruleRec label f = rule label (f (nonTerminal label))
+instance (forall x. BackusNaurForm (f x))
+  => BackusNaurForm (Joker f a b) where
+    rule name = Joker . rule name . runJoker
+    ruleRec name = Joker . ruleRec name . dimap Joker runJoker
 instance (Ord rule, TerminalSymbol token rule)
   => TerminalSymbol token (Bnf rule) where
   terminal = liftBnf0 . terminal

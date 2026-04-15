@@ -28,12 +28,9 @@ import Control.Lens.Internal.Context
 import Control.Lens.Internal.Prism
 import Control.Lens.Internal.Profunctor
 import Control.Lens.PartialIso
-import Data.Bifunctor.Clown
-import Data.Bifunctor.Joker
 import Data.Bifunctor.Product
 import Data.Distributive
 import Data.Functor.Compose
-import Data.Functor.Contravariant.Divisible
 import Data.Profunctor hiding (WrappedArrow)
 import Data.Profunctor qualified as Pro (WrappedArrow)
 import Data.Profunctor.Cayley
@@ -219,14 +216,6 @@ instance Applicative (FunList a b) where
 instance Sellable (->) FunList where sell b = MoreFun b (pure id)
 
 -- Orphanage --
-
-instance Monoid r => Applicative (Forget r a) where
-  pure _ = Forget mempty
-  Forget f <*> Forget g = Forget (f <> g)
-instance Decidable f => Applicative (Clown f a) where
-  pure _ = Clown conquer
-  Clown x <*> Clown y = Clown (divide (id &&& id) x y)
-deriving newtype instance Applicative f => Applicative (Joker f a)
 deriving via Compose (p a) f instance
   (Profunctor p, Applicative (p a), Applicative f)
     => Applicative (WrappedPafb f p a)

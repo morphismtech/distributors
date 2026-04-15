@@ -20,6 +20,7 @@ module Control.Lens.Grammar.Token
 
 import Control.Lens
 import Control.Lens.PartialIso
+import Data.Bifunctor.Joker
 import Data.Char
 import Data.Profunctor
 import Data.Profunctor.Monoidal
@@ -96,14 +97,6 @@ class Categorized token => Tokenized token p | p -> token where
     => Categorize token -> p
   notAsIn = satisfy . notAsIn
 
-instance Categorized token => Tokenized token (token -> Bool) where
-  anyToken _ = True
-  token = (==)
-  oneOf = flip elem
-  notOneOf = flip notElem
-  asIn = lmap categorize . (==)
-  notAsIn = lmap categorize . (/=)
-
 {- | A single token that satisfies a predicate. -}
 satisfy
   :: (Tokenized a (p a a), Choice p, Cochoice p)
@@ -118,3 +111,20 @@ tokens
      )
   => f a -> p s s
 tokens = foldr ((>:<) . token) asEmpty
+
+-- instances
+instance Categorized token => Tokenized token (token -> Bool) where
+  anyToken _ = True
+  token = (==)
+  oneOf = flip elem
+  notOneOf = flip notElem
+  asIn = lmap categorize . (==)
+  notAsIn = lmap categorize . (/=)
+instance Tokenized token (f token)
+  => Tokenized token (Joker f token token) where
+    anyToken = Joker (anyToken @token)
+    token = Joker . token @token
+    oneOf = Joker . oneOf @token
+    notOneOf = Joker . notOneOf @token
+    asIn = Joker . asIn @token
+    notAsIn = Joker . notAsIn @token

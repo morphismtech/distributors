@@ -29,6 +29,7 @@ import Control.Applicative
 import Control.Lens.Grammar.Boole
 import Control.Lens.Grammar.Symbol
 import Control.Lens.Grammar.Token
+import Data.Bifunctor.Joker
 import Data.Foldable
 import Data.MemoTrie
 import Data.Monoid
@@ -217,6 +218,9 @@ instance Categorized token => TokenAlgebra token (RegEx token) where
     NotOneOf as catTest -> RegExam (NotOneOf as catTest)
     Alternate exam1 exam2 ->
       RegExam (Alternate (tokenClass exam1) (tokenClass exam2))
+instance TokenAlgebra token (f token)
+  => TokenAlgebra token (Joker f token token) where
+    tokenClass = Joker . tokenClass
 instance Categorized token => Monoid (RegEx token) where
   mempty = SeqEmpty
 instance Categorized token => Semigroup (RegEx token) where

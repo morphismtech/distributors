@@ -54,13 +54,18 @@ module Control.Lens.PartialIso
   , module Control.Lens.Prism
   ) where
 
+import Control.Applicative
+import Control.Arrow
 import Control.Lens
 import Control.Lens.Internal.NestedPrismTH
 import Control.Lens.Internal.Profunctor
 import Control.Lens.Iso
 import Control.Lens.Prism
 import Control.Monad
+import Data.Bifunctor.Clown
+import Data.Bifunctor.Joker
 import Data.Functor.Compose
+import Data.Functor.Contravariant.Divisible
 import Data.Profunctor
 import Data.Profunctor.Monad
 import Data.Profunctor.Yoneda
@@ -335,7 +340,6 @@ difoldr pattern
   . difoldr1 pattern
 
 -- Orphanage --
-
 instance (Profunctor p, Functor f)
   => Functor (WrappedPafb f p a) where fmap = rmap
 deriving via Compose (p a) f instance
@@ -357,3 +361,21 @@ instance Filterable (Forget r a) where
   catMaybes (Forget f) = Forget f
 instance Filterable f => Filterable (Star f a) where
   catMaybes (Star f) = Star (catMaybes . f)
+
+instance Monoid r => Applicative (Forget r a) where
+  pure _ = Forget mempty
+  Forget f <*> Forget g = Forget (f <> g)
+instance Decidable f => Applicative (Clown f a) where
+  pure _ = Clown conquer
+  Clown x <*> Clown y = Clown (divide (id &&& id) x y)
+deriving newtype instance Applicative f => Applicative (Joker f a)
+deriving newtype instance Alternative f => Alternative (Joker f a)
+deriving newtype instance Filterable f => Filterable (Joker f a)
+deriving newtype instance Monad m => Monad (Joker m a)
+deriving newtype instance MonadFail m => MonadFail (Joker m a)
+deriving newtype instance MonadPlus m => MonadPlus (Joker m a)
+instance Filterable f => Cochoice (Joker f) where
+  unleft (Joker x) = Joker
+    (mapMaybe (either Just (const Nothing)) x)
+  unright (Joker x) = Joker
+    (mapMaybe (either (const Nothing) Just) x)

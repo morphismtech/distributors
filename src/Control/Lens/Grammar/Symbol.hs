@@ -17,6 +17,7 @@ module Control.Lens.Grammar.Symbol
 import Control.Lens
 import Control.Lens.PartialIso
 import Control.Lens.Grammar.Token
+import Data.Bifunctor.Joker
 import Data.Profunctor
 import Data.Profunctor.Monoidal
 
@@ -31,3 +32,8 @@ class TerminalSymbol token s | s -> token where
 -- | A `nonTerminal` symbol in a grammar.
 class NonTerminalSymbol s where
   nonTerminal :: String -> s
+
+-- instances
+instance TerminalSymbol token (f ())
+  => TerminalSymbol token (Joker f () ()) where
+    terminal = Joker . terminal @token
