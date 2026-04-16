@@ -919,10 +919,8 @@ instance Tokenized Char (WrapMega Char) where
   token = WrapMega . M.single
   oneOf = WrapMega . M.oneOf
   notOneOf = WrapMega . M.noneOf
-  asIn cat = WrapMega $ M.label ("in category " ++ show cat)
-    (M.satisfy (tokenClass (asIn cat)))
-  notAsIn cat = WrapMega $ M.label ("not in category " ++ show cat)
-    (M.satisfy (tokenClass (notAsIn cat)))
+  asIn cat = WrapMega $ M.label ("in category " ++ show cat) (M.satisfy (asIn cat))
+  notAsIn cat = WrapMega $ M.label ("not in category " ++ show cat) (M.satisfy (notAsIn cat))
 instance BackusNaurForm (WrapMega a) where
   rule lbl (WrapMega p) = WrapMega (M.label lbl p)
   ruleRec lbl = rule lbl . fix
