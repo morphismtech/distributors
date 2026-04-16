@@ -9,7 +9,6 @@ Portability : non-portable
 
 See Boole, [The Mathematical Analysis of Logic]
 (https://www.gutenberg.org/files/36884/36884-pdf.pdf).
-Categorized token classes form a Boolean algebra.
 -}
 
 module Control.Lens.Grammar.Boole
