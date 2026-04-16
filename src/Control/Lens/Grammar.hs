@@ -363,7 +363,7 @@ the context-sensitivity of `CtxGrammar` implies
 unrestricted filtration of grammars by computable predicates,
 which can recognize the larger class of recursively enumerable languages.
 
-Finally, `CtxGrammar`s support error reporting and backtracking.
+Finally, `CtxGrammar`s support failure reporting and backtracking.
 This has no effect on `printG`, `parseG` or `unparseG`;
 but it effects `parsecG` and `unparsecG`.
 For context, an @LL@ grammar can be (un)parsed by an @LL@ parser.
@@ -378,13 +378,13 @@ Since both `Parsor` & `Parsector` are @LL@ parsers they
 diverge if the `CtxGrammar` they're run on is left-recursive.
 
 >>> parsecG (rule "foo" (fail "bar") <|> fail "baz") "abc"
-ParsecState {parsecLooked = False, parsecOffset = 0, parsecStream = "abc", parsecError = ParsecError {parsecExpect = TokenClass (OneOf (fromList "")), parsecLabels = [Node {rootLabel = "foo", subForest = [Node {rootLabel = "bar", subForest = []}]},Node {rootLabel = "baz", subForest = []}]}, parsecResult = Nothing}
+ParsecState {parsecLooked = False, parsecOffset = 0, parsecStream = "abc", parsecFail = ParsecFailure {parsecExpect = TokenClass (OneOf (fromList "")), parsecLabels = [Node {rootLabel = "foo", subForest = [Node {rootLabel = "bar", subForest = []}]},Node {rootLabel = "baz", subForest = []}]}, parsecResult = Nothing}
 
 >>> parsecG (manyP (token 'a') >*< asIn @Char DecimalNumber) "aaab"
-ParsecState {parsecLooked = True, parsecOffset = 3, parsecStream = "b", parsecError = ParsecError {parsecExpect = TokenClass (Alternate (TokenClass (OneOf (fromList "a"))) (TokenClass (NotOneOf (fromList "") (AndAsIn DecimalNumber)))), parsecLabels = []}, parsecResult = Nothing}
+ParsecState {parsecLooked = True, parsecOffset = 3, parsecStream = "b", parsecFail = ParsecFailure {parsecExpect = TokenClass (Alternate (TokenClass (OneOf (fromList "a"))) (TokenClass (NotOneOf (fromList "") (AndAsIn DecimalNumber)))), parsecLabels = []}, parsecResult = Nothing}
 
 >>> unparsecG (tokens "abc") "abx" ""
-ParsecState {parsecLooked = True, parsecOffset = 2, parsecStream = "ab", parsecError = ParsecError {parsecExpect = TokenClass (OneOf (fromList "c")), parsecLabels = []}, parsecResult = Nothing}
+ParsecState {parsecLooked = True, parsecOffset = 2, parsecStream = "ab", parsecFail = ParsecFailure {parsecExpect = TokenClass (OneOf (fromList "c")), parsecLabels = []}, parsecResult = Nothing}
 
 -}
 type CtxGrammar token a = forall p.
@@ -845,7 +845,7 @@ the type system will allow `parsecG` to be applied to them.
 Running the parser on an input string value `uncons`es
 tokens from the beginning of an input string from left to right,
 returning `parsecResult` as `Nothing` on failure or `Just`
-an output syntax value, with parse failure stored in `parsecError`,
+an output syntax value, with parse failure stored in `parsecFail`,
 and a remaining output `parsecStream`.
 -}
 parsecG

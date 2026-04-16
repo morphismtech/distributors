@@ -1,6 +1,6 @@
 {-|
 Module      : Data.Profunctor.Grammar.Parsector
-Description : grammar distributor with errors
+Description : grammar distributor with failures
 Copyright   : (C) 2026 - Eitan Chatav
 License     : BSD-style (see the file LICENSE)
 Maintainer  : Eitan Chatav <eitan.chatav@gmail.com>
@@ -18,7 +18,7 @@ module Data.Profunctor.Grammar.Parsector
   , parsecP
   , unparsecP
   , ParsecState (..)
-  , ParsecError (..)
+  , ParsecFailure (..)
   ) where
 
 import Control.Applicative
@@ -43,7 +43,7 @@ import GHC.Exts
 import Prelude hiding (id, (.))
 
 {- | `Parsector` is an invertible @LL(1)@ parser which is intended
-to provide detailed error information, based on [Parsec]
+to provide detailed failure information, based on [Parsec]
 (https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/parsec-paper-letter.pdf).
 -}
 newtype Parsector s a b = Parsector
@@ -90,11 +90,11 @@ data ParsecState s a = ParsecState
   , parsecOffset :: !Word
     -- ^ Number of tokens consumed from the start of the stream.
   , parsecStream :: s -- ^ stream
-  , parsecError  :: ParsecError s
-    {- ^ `ParsecError` channel.
+  , parsecFail  :: ParsecFailure s
+    {- ^ `ParsecFailure` channel.
 
     * If `parsecResult` is `Nothing`, this is the hard failure.
-    * If `parsecResult` is `Just`, this is deferred error/hint info
+    * If `parsecResult` is `Just`, this is deferred failure/hint info
       from empty-failing alternatives at the current position.
 
     `<|>` and `>>=` propagate and merge this field to preserve
@@ -105,22 +105,22 @@ data ParsecState s a = ParsecState
     As input, `Nothing` means parse mode and
     `Just` means print mode with an input syntax value.
 
-    As output `Nothing` means failure (inspect `parsecError`) and
+    As output `Nothing` means failure (inspect `parsecFail`) and
     `Just` means success with an output syntax value.
     -}
   }
 
-{- | `ParsecError` is the error payload produced by `Parsector`,
-stored in `parsecError`.
-`ParsecError` is a `Monoid` and `Parsector` merges errors/hints
+{- | `ParsecFailure` is the failure payload produced by `Parsector`,
+stored in `parsecFail`.
+`ParsecFailure` is a `Monoid` and `Parsector` merges failures/hints
 when control flow reaches the same offset without commitment.
 -}
-data ParsecError s = ParsecError
+data ParsecFailure s = ParsecFailure
   { parsecExpect :: TokenClass (Item s)
     {- ^ Class of expected token `Item`s at the `parsecOffset`.
     `tokenClass`es and `Tokenized` combinators specify expectations.
     Under `<>`, expectations are combined with disjunction `>||<`.
-    In case of a parse error, contrast with the actual `parsecStream`,
+    In case of a parse failure, contrast with the actual `parsecStream`,
     which is either unexpectedly empty or begins with an unexpected token.
     -}
   , parsecLabels :: [Tree String]
@@ -132,21 +132,21 @@ data ParsecError s = ParsecError
     -}
   }
 
--- ParsecError instances
+-- ParsecFailure instances
 deriving stock instance
   ( Categorized (Item s)
   , Show (Item s), Show (Categorize (Item s))
-  ) => Show (ParsecError s)
+  ) => Show (ParsecFailure s)
 deriving stock instance
   ( Categorized (Item s)
   , Read (Item s), Read (Categorize (Item s))
-  ) => Read (ParsecError s)
-deriving stock instance Categorized (Item s) => Eq (ParsecError s)
-deriving stock instance Categorized (Item s) => Ord (ParsecError s)
-instance Categorized (Item s) => Semigroup (ParsecError s) where
-  ParsecError e1 l1 <> ParsecError e2 l2 = ParsecError (e1 >||< e2) (l1 ++ l2)
-instance Categorized (Item s) => Monoid (ParsecError s) where
-  mempty = ParsecError falseB []
+  ) => Read (ParsecFailure s)
+deriving stock instance Categorized (Item s) => Eq (ParsecFailure s)
+deriving stock instance Categorized (Item s) => Ord (ParsecFailure s)
+instance Categorized (Item s) => Semigroup (ParsecFailure s) where
+  ParsecFailure e1 l1 <> ParsecFailure e2 l2 = ParsecFailure (e1 >||< e2) (l1 ++ l2)
+instance Categorized (Item s) => Monoid (ParsecFailure s) where
+  mempty = ParsecFailure falseB []
 
 -- ParsecState instances
 deriving stock instance Functor (ParsecState s)
@@ -193,13 +193,13 @@ instance
         offset = parsecOffset query
         replyOk tok str = query
           { parsecLooked = True
-          , parsecError  = mempty
+          , parsecFail  = mempty
           , parsecStream = str
           , parsecOffset = offset + 1
           , parsecResult = Just tok
           }
         replyErr = query
-          { parsecError  = ParsecError test []
+          { parsecFail  = ParsecFailure test []
           , parsecResult = Nothing }
       in
         callback $ case mode of
@@ -220,9 +220,9 @@ instance BackusNaurForm (Parsector s a b) where
     flip (runParsector p) query $ \reply -> callback $
       case parsecResult reply of
         Nothing -> reply
-          { parsecError =
-              let ParsecError expect labels = parsecError reply
-              in ParsecError expect [Node name labels]
+          { parsecFail =
+              let ParsecFailure expect labels = parsecFail reply
+              in ParsecFailure expect [Node name labels]
           }
         Just _ -> reply
   ruleRec name = rule name . fix
@@ -245,10 +245,10 @@ instance Categorized (Item s) => Monad (Parsector s a) where
         Nothing -> callback reply { parsecResult = Nothing }
         Just b ->
           let
-            hintP  = parsecError reply
+            hintP  = parsecFail reply
             fQuery = reply
               { parsecLooked = False
-              , parsecError  = mempty
+              , parsecFail  = mempty
               , parsecResult = parsecResult query
               }
           in
@@ -257,12 +257,12 @@ instance Categorized (Item s) => Monad (Parsector s a) where
                 then fReply
                 else fReply
                   { parsecLooked = parsecLooked reply
-                  , parsecError  = hintP <> parsecError fReply
+                  , parsecFail  = hintP <> parsecFail fReply
                   }
 instance Categorized (Item s) => Alternative (Parsector s a) where
   -- | Always fails without consuming input; expects nothing.
   empty = Parsector $ \callback query ->
-    callback query { parsecError = mempty, parsecResult = Nothing }
+    callback query { parsecFail = mempty, parsecResult = Nothing }
   p <|> q = Parsector $ \callback query ->
     flip (runParsector p) query $ \replyP -> callback $
       case parsecResult replyP of
@@ -272,15 +272,15 @@ instance Categorized (Item s) => Alternative (Parsector s a) where
         Nothing | parsecLooked replyP -> replyP
         -- if p failed without consuming, try q
         Nothing ->
-          let errP = parsecError replyP
+          let errP = parsecFail replyP
           in flip (runParsector q) query $ \replyQ ->
           case (parsecLooked replyQ, parsecResult replyQ) of
             -- q consumed (ok or err): propagate as-is, drop errP
             (True, _)         -> replyQ
             -- q empty ok: carry errP forward as hint for downstream
-            (False, Just _)   -> replyQ { parsecError = errP <> parsecError replyQ }
-            -- both empty fail: merge errors
-            (False, Nothing)  -> replyP { parsecError = errP <> parsecError replyQ }
+            (False, Just _)   -> replyQ { parsecFail = errP <> parsecFail replyQ }
+            -- both empty fail: merge failures
+            (False, Nothing)  -> replyP { parsecFail = errP <> parsecFail replyQ }
 instance Categorized (Item s) => MonadPlus (Parsector s a)
 instance Categorized (Item s) => MonadFail (Parsector s a) where
   fail msg = rule msg empty
@@ -294,7 +294,7 @@ instance Categorized (Item s) => MonadTry (Parsector s a) where
       case parsecResult reply of
         Nothing -> query
           { parsecLooked = False
-          , parsecError  = parsecError reply
+          , parsecFail  = parsecFail reply
           , parsecResult = Nothing
           }
         Just _ -> reply
@@ -347,7 +347,7 @@ instance Categorized (Item s) => Alternator (Parsector s) where
             Just (Left a)   -> Just a
             Just (Right _)  -> Nothing
         }
-      replyErr = query { parsecError = mempty, parsecResult = Nothing }
+      replyErr = query { parsecFail = mempty, parsecResult = Nothing }
     in
       case (parsecResult query, parsecResult replyOk) of
         (Just _, Nothing) -> replyErr
@@ -362,7 +362,7 @@ instance Categorized (Item s) => Alternator (Parsector s) where
             Just (Left _)   -> Nothing
             Just (Right b)  -> Just b
         }
-      replyErr = query { parsecError = mempty, parsecResult = Nothing }
+      replyErr = query { parsecFail = mempty, parsecResult = Nothing }
     in
       case (parsecResult query, parsecResult replyOk) of
         (Just _, Nothing) -> replyErr
@@ -381,18 +381,18 @@ instance Categorized (Item s) => Filtrator (Parsector s) where
     ( Parsector $ \callback query ->
         flip (runParsector p) (Left <$> query) $ \reply ->
           callback reply
-          { parsecError = case parsecResult reply of
+          { parsecFail = case parsecResult reply of
             Just (Right _) -> mempty
-            _ -> parsecError reply
+            _ -> parsecFail reply
           , parsecResult =
             parsecResult reply >>= either Just (const Nothing)
           }
     , Parsector $ \callback query ->
         flip (runParsector p) (Right <$> query) $ \reply ->
           callback reply
-          { parsecError = case parsecResult reply of
+          { parsecFail = case parsecResult reply of
             Just (Left _) -> mempty
-            _ -> parsecError reply
+            _ -> parsecFail reply
           , parsecResult =
             parsecResult reply >>= either (const Nothing) Just
           }

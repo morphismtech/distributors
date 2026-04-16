@@ -140,16 +140,16 @@ testCtxGrammar isLL1 grammar (expectedSyntax, expectedString) = do
       let actualSyntax = parsecG grammar expectedString
       let expectedLength = genericLength expectedString
       let actualLooked = parsecLooked actualSyntax
-      let actualError  = parsecError  actualSyntax
+      let actualFailure  = parsecFail  actualSyntax
       actualSyntax `shouldBe`
-        (ParsecState actualLooked expectedLength "" actualError (Just expectedSyntax))
+        (ParsecState actualLooked expectedLength "" actualFailure (Just expectedSyntax))
     it ("should unparsecG to " <> expectedString <> " correctly") $ do
       let actualString = unparsecG grammar expectedSyntax ""
       let expectedLength = genericLength expectedString
       let actualLooked = parsecLooked actualString
-      let actualError  = parsecError  actualString
+      let actualFailure  = parsecFail  actualString
       actualString `shouldBe`
-        (ParsecState actualLooked expectedLength expectedString actualError (Just expectedSyntax))
+        (ParsecState actualLooked expectedLength expectedString actualFailure (Just expectedSyntax))
     it ("should parse with megaparsec to " <> expectedString <> " correctly") $ do
       let megaparsec = unwrapMega (monadG grammar)
       let actualSyntax = M.parse megaparsec "<megaparsec>" expectedString
