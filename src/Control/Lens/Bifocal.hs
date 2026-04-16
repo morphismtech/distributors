@@ -59,8 +59,7 @@ type Bifocal s t a b = forall p f.
   (Alternator p, Filtrator p, Alternative f, Filterable f)
     => p a (f b) -> p s (f t)
 
-{- | If you see `ABifocal` in a signature for a function,
-the function is expecting a `Bifocal`. -}
+{- | `ABifocal` is monomorphically a `Bifocal`. -}
 type ABifocal s t a b =
   Binocular a b a (Maybe b) -> Binocular a b s (Maybe t)
 
