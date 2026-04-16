@@ -1,5 +1,26 @@
 # Changelog for `distributors`
 
+## 0.5.0.0 - 2026-04-16
+
+### Changes
+
+- `MonadTry` now implies `BackusNaurForm` (so `rule` tracing/failure semantics are available)
+  and `Filtrator` (via `MonadPlus`, with `filtrate = mfiltrate`).
+- Simplified the default implementation of `terminal`.
+- Added `applicativeG` and `monadG` generators via `Joker` orphan and non-orphan instances.
+
+### Internal
+
+- Moved orphan instances and Template Haskell internals to `Control.Lens.Grammar.Internal`.
+
+### Documentation
+
+- Expanded `BackusNaurForm` documentation with separate motivation from:
+  category-theoretic structure and failure-tracing semantics (both called “trace”
+  in different senses, and combined by BNF-style rules).
+- Added a `monadG` Megaparsec example.
+- Fixed typo in the `makeNestedPrisms` example.
+
 ## 0.4.0.0 - 2026-04-10
 
 ### New Modules
