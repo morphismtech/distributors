@@ -1,6 +1,6 @@
 {- |
 Module      : Control.Lens.Grammar.Boole
-Description : Boolean algebras & token classes
+Description : Boolean algebras
 Copyright   : (C) 2026 - Eitan Chatav
 License     : BSD-style (see the file LICENSE)
 Maintainer  : Eitan Chatav <eitan.chatav@gmail.com>

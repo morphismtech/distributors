@@ -1,6 +1,6 @@
 {- |
 Module      : Control.Lens.Grammar.Kleene
-Description : Kleene star algebras & regular expressions
+Description : Kleene star algebras, regular expressions & token classes
 Copyright   : (C) 2026 - Eitan Chatav
 License     : BSD-style (see the file LICENSE)
 Maintainer  : Eitan Chatav <eitan.chatav@gmail.com>
