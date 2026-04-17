@@ -378,13 +378,13 @@ Since both `Parsor` & `Parsector` are @LL@ parsers they
 diverge if the `CtxGrammar` they're run on is left-recursive.
 
 >>> parsecG (rule "foo" (fail "bar") <|> fail "baz") "abc"
-ParsecState {parsecLooked = False, parsecOffset = 0, parsecStream = "abc", parsecFail = ParsecFailure {parsecExpect = TokenClass (OneOf (fromList "")), parsecLabels = [Node {rootLabel = "foo", subForest = [Node {rootLabel = "bar", subForest = []}]},Node {rootLabel = "baz", subForest = []}]}, parsecResult = Nothing}
+ParsecState {parsecLooked = False, parsecOffset = 0, parsecStream = "abc", parsecFailure = ParsecFailure {parsecExpect = TokenClass (OneOf (fromList "")), parsecLabels = [Node {rootLabel = "foo", subForest = [Node {rootLabel = "bar", subForest = []}]},Node {rootLabel = "baz", subForest = []}]}, parsecResult = Nothing}
 
 >>> parsecG (manyP (token 'a') >*< asIn @Char DecimalNumber) "aaab"
-ParsecState {parsecLooked = True, parsecOffset = 3, parsecStream = "b", parsecFail = ParsecFailure {parsecExpect = TokenClass (Alternate (TokenClass (OneOf (fromList "a"))) (TokenClass (NotOneOf (fromList "") (AndAsIn DecimalNumber)))), parsecLabels = []}, parsecResult = Nothing}
+ParsecState {parsecLooked = True, parsecOffset = 3, parsecStream = "b", parsecFailure = ParsecFailure {parsecExpect = TokenClass (Alternate (TokenClass (OneOf (fromList "a"))) (TokenClass (NotOneOf (fromList "") (AndAsIn DecimalNumber)))), parsecLabels = []}, parsecResult = Nothing}
 
 >>> unparsecG (tokens "abc") "abx" ""
-ParsecState {parsecLooked = True, parsecOffset = 2, parsecStream = "ab", parsecFail = ParsecFailure {parsecExpect = TokenClass (OneOf (fromList "c")), parsecLabels = []}, parsecResult = Nothing}
+ParsecState {parsecLooked = True, parsecOffset = 2, parsecStream = "ab", parsecFailure = ParsecFailure {parsecExpect = TokenClass (OneOf (fromList "c")), parsecLabels = []}, parsecResult = Nothing}
 
 -}
 type CtxGrammar token a = forall p.

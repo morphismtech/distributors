@@ -90,7 +90,7 @@ data ParsecState s a = ParsecState
   , parsecOffset :: !Word
     -- ^ Number of tokens consumed from the start of the stream.
   , parsecStream :: s -- ^ stream
-  , parsecFail  :: ParsecFailure s
+  , parsecFailure  :: ParsecFailure s
     {- ^ `ParsecFailure` channel.
 
     * If `parsecResult` is `Nothing`, this is the hard failure.
@@ -193,13 +193,13 @@ instance
         offset = parsecOffset query
         replyOk tok str = query
           { parsecLooked = True
-          , parsecFail  = mempty
+          , parsecFailure  = mempty
           , parsecStream = str
           , parsecOffset = offset + 1
           , parsecResult = Just tok
           }
         replyErr = query
-          { parsecFail  = ParsecFailure test []
+          { parsecFailure  = ParsecFailure test []
           , parsecResult = Nothing }
       in
         callback $ case mode of
@@ -220,8 +220,8 @@ instance BackusNaurForm (Parsector s a b) where
     flip (runParsector p) query $ \reply -> callback $
       case parsecResult reply of
         Nothing -> reply
-          { parsecFail =
-              let ParsecFailure expect labels = parsecFail reply
+          { parsecFailure =
+              let ParsecFailure expect labels = parsecFailure reply
               in ParsecFailure expect [Node name labels]
           }
         Just _ -> reply
@@ -245,10 +245,10 @@ instance Categorized (Item s) => Monad (Parsector s a) where
         Nothing -> callback reply { parsecResult = Nothing }
         Just b ->
           let
-            hintP  = parsecFail reply
+            hintP  = parsecFailure reply
             fQuery = reply
               { parsecLooked = False
-              , parsecFail  = mempty
+              , parsecFailure  = mempty
               , parsecResult = parsecResult query
               }
           in
@@ -257,12 +257,12 @@ instance Categorized (Item s) => Monad (Parsector s a) where
                 then fReply
                 else fReply
                   { parsecLooked = parsecLooked reply
-                  , parsecFail  = hintP <> parsecFail fReply
+                  , parsecFailure  = hintP <> parsecFailure fReply
                   }
 instance Categorized (Item s) => Alternative (Parsector s a) where
   -- | Always fails without consuming input; expects nothing.
   empty = Parsector $ \callback query ->
-    callback query { parsecFail = mempty, parsecResult = Nothing }
+    callback query { parsecFailure = mempty, parsecResult = Nothing }
   p <|> q = Parsector $ \callback query ->
     flip (runParsector p) query $ \replyP -> callback $
       case parsecResult replyP of
@@ -272,15 +272,15 @@ instance Categorized (Item s) => Alternative (Parsector s a) where
         Nothing | parsecLooked replyP -> replyP
         -- if p failed without consuming, try q
         Nothing ->
-          let errP = parsecFail replyP
+          let errP = parsecFailure replyP
           in flip (runParsector q) query $ \replyQ ->
           case (parsecLooked replyQ, parsecResult replyQ) of
             -- q consumed (ok or err): propagate as-is, drop errP
             (True, _)         -> replyQ
             -- q empty ok: carry errP forward as hint for downstream
-            (False, Just _)   -> replyQ { parsecFail = errP <> parsecFail replyQ }
+            (False, Just _)   -> replyQ { parsecFailure = errP <> parsecFailure replyQ }
             -- both empty fail: merge failures
-            (False, Nothing)  -> replyP { parsecFail = errP <> parsecFail replyQ }
+            (False, Nothing)  -> replyP { parsecFailure = errP <> parsecFailure replyQ }
 instance Categorized (Item s) => MonadPlus (Parsector s a)
 instance Categorized (Item s) => MonadFail (Parsector s a) where
   fail msg = rule msg empty
@@ -294,7 +294,7 @@ instance Categorized (Item s) => MonadTry (Parsector s a) where
       case parsecResult reply of
         Nothing -> query
           { parsecLooked = False
-          , parsecFail  = parsecFail reply
+          , parsecFailure  = parsecFailure reply
           , parsecResult = Nothing
           }
         Just _ -> reply
@@ -347,7 +347,7 @@ instance Categorized (Item s) => Alternator (Parsector s) where
             Just (Left a)   -> Just a
             Just (Right _)  -> Nothing
         }
-      replyErr = query { parsecFail = mempty, parsecResult = Nothing }
+      replyErr = query { parsecFailure = mempty, parsecResult = Nothing }
     in
       case (parsecResult query, parsecResult replyOk) of
         (Just _, Nothing) -> replyErr
@@ -362,7 +362,7 @@ instance Categorized (Item s) => Alternator (Parsector s) where
             Just (Left _)   -> Nothing
             Just (Right b)  -> Just b
         }
-      replyErr = query { parsecFail = mempty, parsecResult = Nothing }
+      replyErr = query { parsecFailure = mempty, parsecResult = Nothing }
     in
       case (parsecResult query, parsecResult replyOk) of
         (Just _, Nothing) -> replyErr
@@ -381,18 +381,18 @@ instance Categorized (Item s) => Filtrator (Parsector s) where
     ( Parsector $ \callback query ->
         flip (runParsector p) (Left <$> query) $ \reply ->
           callback reply
-          { parsecFail = case parsecResult reply of
+          { parsecFailure = case parsecResult reply of
             Just (Right _) -> mempty
-            _ -> parsecFail reply
+            _ -> parsecFailure reply
           , parsecResult =
             parsecResult reply >>= either Just (const Nothing)
           }
     , Parsector $ \callback query ->
         flip (runParsector p) (Right <$> query) $ \reply ->
           callback reply
-          { parsecFail = case parsecResult reply of
+          { parsecFailure = case parsecResult reply of
             Just (Left _) -> mempty
-            _ -> parsecFail reply
+            _ -> parsecFailure reply
           , parsecResult =
             parsecResult reply >>= either (const Nothing) Just
           }
