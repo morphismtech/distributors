@@ -194,7 +194,7 @@ instance Categorized token
   => TokenAlgebra token (RegExam token (TokenClass token)) where
   tokenClass (TokenClass exam) = exam
 instance Categorized token => TerminalSymbol token (RegEx token) where
-  terminal = mconcat . map token
+  terminal = foldl (\acc t -> acc <> token t) mempty
 instance NonTerminalSymbol (RegEx token) where
   nonTerminal = NonTerminal
 instance Categorized token => Tokenized token (RegEx token) where
