@@ -105,13 +105,13 @@ data ParsecState s a = ParsecState
     As input, `Nothing` means parse mode and
     `Just` means print mode with an input syntax value.
 
-    As output `Nothing` means failure (inspect `parsecFail`) and
+    As output `Nothing` means failure (inspect `parsecFailure`) and
     `Just` means success with an output syntax value.
     -}
   }
 
 {- | `ParsecFailure` is the failure payload produced by `Parsector`,
-stored in `parsecFail`.
+stored in `parsecFailure`.
 `ParsecFailure` is a `Monoid` and `Parsector` merges failures/hints
 when control flow reaches the same offset without commitment.
 -}

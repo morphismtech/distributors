@@ -845,7 +845,7 @@ the type system will allow `parsecG` to be applied to them.
 Running the parser on an input string value `uncons`es
 tokens from the beginning of an input string from left to right,
 returning `parsecResult` as `Nothing` on failure or `Just`
-an output syntax value, with parse failure stored in `parsecFail`,
+an output syntax value, with parse failure stored in `parsecFailure`,
 and a remaining output `parsecStream`.
 -}
 parsecG
