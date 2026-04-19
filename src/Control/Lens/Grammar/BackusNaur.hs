@@ -51,8 +51,8 @@ First as a [traced Cartesian monoidal category]
 which models general recursion abstractly,
 and second as a `Debug.Trace.trace`-like label for `rule` abstraction.
 The category @(->)@ already has a traced @(,)@-monoidal structure
-in the form of `Data.Profunctor.unfirst` or `Control.Arrow.loop`
-and the general recursion function `fix`,
+in the form of `Data.Profunctor.unfirst` @=@ `Control.Arrow.loop`
+or equivalently the fixpoint function `fix`,
 determining default methods for a `BackusNaurForm`.
 
 prop> rule _ = id
