@@ -1,6 +1,6 @@
 {- |
 Module      : Control.Lens.Grammar.Boole
-Description : Boolean algebras & token classes
+Description : Boolean algebras
 Copyright   : (C) 2026 - Eitan Chatav
 License     : BSD-style (see the file LICENSE)
 Maintainer  : Eitan Chatav <eitan.chatav@gmail.com>
@@ -9,7 +9,6 @@ Portability : non-portable
 
 See Boole, [The Mathematical Analysis of Logic]
 (https://www.gutenberg.org/files/36884/36884-pdf.pdf).
-Categorized token classes form a Boolean algebra.
 -}
 
 module Control.Lens.Grammar.Boole

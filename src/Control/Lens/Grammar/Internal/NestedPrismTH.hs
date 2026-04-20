@@ -1,5 +1,5 @@
 {- |
-Module      : Control.Lens.Internal.NestedPrismTH
+Module      : Control.Lens.Grammar.Internal.NestedPrismTH
 Description : nested pair prisms
 Copyright   : (C) 2026 - Eitan Chatav
 License     : BSD-style (see the file LICENSE)
@@ -11,7 +11,7 @@ Code is duplicated from `Control.Lens.Internal.PrismTH`,
 with small tweaks to support nested pairs.
 -}
 
-module Control.Lens.Internal.NestedPrismTH
+module Control.Lens.Grammar.Internal.NestedPrismTH
   ( -- * Nested prisms
     makeNestedPrisms
   ) where
@@ -63,11 +63,11 @@ import Prelude
 -- will create
 --
 -- @
--- _Foo :: Prism (FooBarBaz a) (FooBarBaz b) a b
--- _Bar :: Prism' (FooBarBaz a) Int
--- _Baz :: Prism' (FooBarBaz a) (Int, Char)
--- _Buzz :: Prism' (FooBarBaz a) (Double, (String, Bool))
--- _Boop :: Prism' (FooBarBaz a) ()
+-- _Foo :: Prism (FooBar a) (FooBar b) a b
+-- _Bar :: Prism' (FooBar a) Int
+-- _Baz :: Prism' (FooBar a) (Int, Char)
+-- _Buzz :: Prism' (FooBar a) (Double, (String, Bool))
+-- _Boop :: Prism' (FooBar a) ()
 -- @
 makeNestedPrisms :: Name -> DecsQ
 makeNestedPrisms typeName =

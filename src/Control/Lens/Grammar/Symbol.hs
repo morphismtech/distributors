@@ -17,17 +17,26 @@ module Control.Lens.Grammar.Symbol
 import Control.Lens
 import Control.Lens.PartialIso
 import Control.Lens.Grammar.Token
+import Data.Bifunctor.Joker
 import Data.Profunctor
 import Data.Profunctor.Monoidal
+import Text.ParserCombinators.ReadP (ReadP, string)
 
 -- | A `terminal` symbol in a grammar.
 class TerminalSymbol token s | s -> token where
   terminal :: [token] -> s
   default terminal
-    :: (p () () ~ s, Tokenized token (p token token), Monoidal p, Cochoice p)
+    :: (p () () ~ s, Tokenized token (p token token), Monoidal p, Choice p, Cochoice p)
     => [token] -> s
-  terminal = foldr (\a p -> only a ?< token a *> p) oneP
+  terminal str = only str ?< tokens str
 
 -- | A `nonTerminal` symbol in a grammar.
 class NonTerminalSymbol s where
   nonTerminal :: String -> s
+
+-- instances
+instance TerminalSymbol token (f ())
+  => TerminalSymbol token (Joker f () ()) where
+    terminal = Joker . terminal @token
+instance TerminalSymbol Char (ReadP ()) where
+  terminal str = string str *> pure ()

@@ -19,6 +19,7 @@ import Control.Arrow
 import Control.Lens.PartialIso
 import Control.Lens.Internal.Profunctor
 import Control.Monad
+import Data.Bifunctor.Joker
 import Data.Profunctor
 import Data.Profunctor.Distributor
 import Data.Profunctor.Monad
@@ -38,8 +39,8 @@ class (Cochoice p, forall x. Filterable (p x))
   => Filtrator p where
 
     {- |
-    prop> unleft = fst . filtrate
-    prop> unright = snd . filtrate
+    prop> unleft = fst . filtrate = lmap Left . mapMaybe (either Just (const Nothing))
+    prop> unright = snd . filtrate = lmap Right . mapMaybe (either (const Nothing) Just)
 
     `filtrate` is a distant relative to `Data.Either.partitionEithers`.
     `filtrate` can be given a default value for `Monadic`
@@ -99,4 +100,9 @@ instance Filtrator (PartialExchange a b) where
   filtrate (PartialExchange f g) =
     ( PartialExchange (f . Left) (either Just (pure Nothing) <=< g)
     , PartialExchange (f . Right) (either (pure Nothing) Just <=< g)
+    )
+instance Filterable f => Filtrator (Joker f) where
+  filtrate (Joker x) =
+    ( Joker (mapMaybe (either Just (const Nothing)) x)
+    , Joker (mapMaybe (either (const Nothing) Just) x)
     )

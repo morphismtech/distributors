@@ -4,12 +4,14 @@ import Data.Foldable hiding (toList)
 import Control.Lens.Grammar
 import Control.Monad (when)
 import Data.IORef
+import Data.Function (fix)
 import Data.List (genericLength)
 import Data.Maybe (isJust)
 import Data.Profunctor.Types (Star (..))
 import System.Environment (lookupEnv)
 import Test.DocTest
 import Test.Hspec
+import qualified Text.Megaparsec as M
 
 import Examples.Arithmetic
 import Examples.Chain
@@ -138,13 +140,43 @@ testCtxGrammar isLL1 grammar (expectedSyntax, expectedString) = do
       let actualSyntax = parsecG grammar expectedString
       let expectedLength = genericLength expectedString
       let actualLooked = parsecLooked actualSyntax
-      let actualError  = parsecError  actualSyntax
+      let actualFailure  = parsecFailure  actualSyntax
       actualSyntax `shouldBe`
-        (ParsecState actualLooked expectedLength "" actualError (Just expectedSyntax))
+        (ParsecState actualLooked expectedLength "" actualFailure (Just expectedSyntax))
     it ("should unparsecG to " <> expectedString <> " correctly") $ do
       let actualString = unparsecG grammar expectedSyntax ""
       let expectedLength = genericLength expectedString
       let actualLooked = parsecLooked actualString
-      let actualError  = parsecError  actualString
+      let actualFailure  = parsecFailure  actualString
       actualString `shouldBe`
-        (ParsecState actualLooked expectedLength expectedString actualError (Just expectedSyntax))
+        (ParsecState actualLooked expectedLength expectedString actualFailure (Just expectedSyntax))
+    it ("should parse with megaparsec to " <> expectedString <> " correctly") $ do
+      let megaparsec = unwrapMega (monadG grammar)
+      let actualSyntax = M.parse megaparsec "<megaparsec>" expectedString
+      actualSyntax `shouldBe` Right expectedSyntax
+
+newtype WrapMega a = WrapMega {unwrapMega :: M.Parsec String String a}
+  deriving newtype
+    ( Functor, Applicative, Alternative
+    , Monad, MonadPlus, MonadFail
+    )
+instance TerminalSymbol Char (WrapMega ()) where
+  terminal str = WrapMega (M.chunk str *> pure ())
+instance TokenAlgebra Char (WrapMega Char) where
+  tokenClass exam = WrapMega $ M.label (show exam) (M.satisfy (tokenClass exam))
+instance Tokenized Char (WrapMega Char) where
+  anyToken = WrapMega M.anySingle
+  token = WrapMega . M.single
+  oneOf = WrapMega . M.oneOf
+  notOneOf = WrapMega . M.noneOf
+  asIn cat = WrapMega $ M.label ("in category " ++ show cat)
+    (M.satisfy (tokenClass (asIn cat)))
+  notAsIn cat = WrapMega $ M.label ("not in category " ++ show cat)
+    (M.satisfy (tokenClass (notAsIn cat)))
+instance BackusNaurForm (WrapMega a) where
+  rule lbl (WrapMega p) = WrapMega (M.label lbl p)
+  ruleRec lbl = rule lbl . fix
+instance Filterable WrapMega where
+  catMaybes m = m >>= maybe (fail "unrestricted filtration") pure
+instance MonadTry WrapMega where
+  try (WrapMega p) = WrapMega (M.try p)

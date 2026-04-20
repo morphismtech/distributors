@@ -1,12 +1,34 @@
 # Changelog for `distributors`
 
+## 0.5.0.0 - 2026-04-16
+
+### Changes
+
+- `MonadTry` now implies `BackusNaurForm` (so `rule` tracing/failure semantics are available)
+  and `Filtrator` (via `MonadPlus`, with `filtrate = mfiltrate`).
+- Simplified the default implementation of `terminal`.
+- Added `applicativeG` and `monadG` generators via `Joker` orphan and non-orphan instances.
+- Made nomenclature consistent with use of "fail" and "failure", not "error".
+
+### Internal
+
+- Moved orphan instances and Template Haskell internals to `Control.Lens.Grammar.Internal`.
+
+### Documentation
+
+- Expanded `BackusNaurForm` documentation with separate motivation from:
+  category-theoretic structure and failure-tracing semantics (both called “trace”
+  in different senses, and combined by BNF-style rules).
+- Added a `monadG` Megaparsec example.
+- Fixed typo in the `makeNestedPrisms` example.
+
 ## 0.4.0.0 - 2026-04-10
 
 ### New Modules
 
 - `Control.Monad.Fail.Try` - `MonadTry` class with `try` & `fail` for backtracking parsers
-- `Data.Profunctor.Grammar.Parsector` - Invertible LL(1) parser with Parsec-style error reporting:
-  `ParsecState`, `ParsecError`, `parsecP`, `unparsecP`; implements hints, LL(1) commitment
+- `Data.Profunctor.Grammar.Parsector` - Invertible LL(1) parser with Parsec-style failure reporting:
+  `ParsecState`, `ParsecFailure`, `parsecP`, `unparsecP`; implements hints, LL(1) commitment
   via `parsecLooked`, and `try` for explicit backtracking
 - `Data.Profunctor.Separator` - Separator/delimiter combinators: `sepWith`, `noSep`,
   `beginWith`, `endWith`, `several`, `several1`, `intercalateP`, `chain`, `chain1`

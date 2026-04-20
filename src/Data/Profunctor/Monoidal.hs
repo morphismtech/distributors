@@ -20,26 +20,10 @@ module Data.Profunctor.Monoidal
   , meander, eotFunList
   ) where
 
-import Control.Applicative hiding (WrappedArrow)
-import Control.Applicative qualified as Ap (WrappedArrow)
-import Control.Arrow
-import Control.Lens hiding (chosen)
+import Control.Lens
 import Control.Lens.Internal.Context
-import Control.Lens.Internal.Prism
-import Control.Lens.Internal.Profunctor
 import Control.Lens.PartialIso
-import Data.Bifunctor.Clown
-import Data.Bifunctor.Joker
-import Data.Bifunctor.Product
 import Data.Distributive
-import Data.Functor.Compose
-import Data.Functor.Contravariant.Divisible
-import Data.Profunctor hiding (WrappedArrow)
-import Data.Profunctor qualified as Pro (WrappedArrow)
-import Data.Profunctor.Cayley
-import Data.Profunctor.Composition
-import Data.Profunctor.Monad
-import Data.Profunctor.Yoneda
 import GHC.IsList
 
 -- Monoidal --
@@ -161,11 +145,11 @@ replicateP
 replicateP n _ | n <= 0 = asEmpty
 replicateP n a = a >:< replicateP (n-1) a
 
-{- | For any `Monoidal`, `Choice` & `Strong` `Profunctor`,
+{- | For any `Monoidal`, `Choice` & `Data.Profunctor.Strong` `Profunctor`,
 `meander` is invertible and gives a default implementation for the
 `Data.Profunctor.Traversing.wander`
 method of `Data.Profunctor.Traversing.Traversing`,
-though `Strong` is not needed for its definition.
+though `Data.Profunctor.Strong` is not needed for its definition.
 
 See Pickering, Gibbons & Wu,
 [Profunctor Optics - Modular Data Accessors](https://arxiv.org/abs/1703.10857)
@@ -217,72 +201,3 @@ instance Applicative (FunList a b) where
     MoreFun a h -> \l ->
       MoreFun a (flip <$> h <*> fromFun l)
 instance Sellable (->) FunList where sell b = MoreFun b (pure id)
-
--- Orphanage --
-
-instance Monoid r => Applicative (Forget r a) where
-  pure _ = Forget mempty
-  Forget f <*> Forget g = Forget (f <> g)
-instance Decidable f => Applicative (Clown f a) where
-  pure _ = Clown conquer
-  Clown x <*> Clown y = Clown (divide (id &&& id) x y)
-deriving newtype instance Applicative f => Applicative (Joker f a)
-deriving via Compose (p a) f instance
-  (Profunctor p, Applicative (p a), Applicative f)
-    => Applicative (WrappedPafb f p a)
-deriving via Compose (p a) f instance
-  (Profunctor p, Alternative (p a), Applicative f)
-    => Alternative (WrappedPafb f p a)
-instance (Closed p, Distributive f)
-  => Closed (WrappedPafb f p) where
-    closed (WrapPafb p) = WrapPafb (rmap distribute (closed p))
-deriving via (Ap.WrappedArrow p a) instance Arrow p
-  => Functor (Pro.WrappedArrow p a)
-deriving via (Ap.WrappedArrow p a) instance Arrow p
-  => Applicative (Pro.WrappedArrow p a)
-deriving via (Pro.WrappedArrow p) instance Arrow p
-  => Profunctor (Ap.WrappedArrow p)
-instance (Monoidal p, Applicative (q a))
-  => Applicative (Procompose p q a) where
-    pure b = Procompose (pure b) (pure b)
-    Procompose wb aw <*> Procompose vb av = Procompose
-      (dimap2 fst snd ($) wb vb)
-      (liftA2 (,) aw av)
-instance (Monoidal p, Monoidal q)
-  => Applicative (Product p q a) where
-    pure b = Pair (pure b) (pure b)
-    Pair x0 y0 <*> Pair x1 y1 = Pair (x0 <*> x1) (y0 <*> y1)
-instance (Functor f, Functor (p a)) => Functor (Cayley f p a) where
-  fmap f (Cayley x) = Cayley (fmap (fmap f) x)
-instance (Applicative f, Applicative (p a)) => Applicative (Cayley f p a) where
-  pure b = Cayley (pure (pure b))
-  Cayley x <*> Cayley y = Cayley ((<*>) <$> x <*> y)
-instance (Profunctor p, Applicative (p a))
-  => Applicative (Yoneda p a) where
-    pure = proreturn . pure
-    ab <*> cd = proreturn (proextract ab <*> proextract cd)
-instance (Profunctor p, Applicative (p a))
-  => Applicative (Coyoneda p a) where
-    pure = proreturn . pure
-    ab <*> cd = proreturn (proextract ab <*> proextract cd)
-instance (Profunctor p, Alternative (p a))
-  => Alternative (Yoneda p a) where
-    empty = proreturn empty
-    ab <|> cd = proreturn (proextract ab <|> proextract cd)
-    many = proreturn . many . proextract
-instance (Profunctor p, Alternative (p a))
-  => Alternative (Coyoneda p a) where
-    empty = proreturn empty
-    ab <|> cd = proreturn (proextract ab <|> proextract cd)
-    many = proreturn . many . proextract
-instance Applicative (Market a b s) where
-  pure t = Market (pure t) (pure (Left t))
-  Market f0 g0 <*> Market f1 g1 = Market
-    (\b -> f0 b (f1 b))
-    (\s ->
-      case g0 s of
-        Left bt -> case g1 s of
-          Left b -> Left (bt b)
-          Right a -> Right a
-        Right a -> Right a
-    )

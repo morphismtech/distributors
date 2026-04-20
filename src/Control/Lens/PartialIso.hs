@@ -11,8 +11,6 @@ See Rendel & Ostermann,
 [Invertible syntax descriptions](https://www.informatik.uni-marburg.de/~rendel/unparse/)
 -}
 
-{-# OPTIONS_GHC -Wno-orphans #-}
-
 module Control.Lens.PartialIso
   ( -- * PartialIso
     dimapMaybe
@@ -55,15 +53,13 @@ module Control.Lens.PartialIso
   ) where
 
 import Control.Lens
-import Control.Lens.Internal.NestedPrismTH
+import Control.Lens.Grammar.Internal.Orphanage ()
+import Control.Lens.Grammar.Internal.NestedPrismTH
 import Control.Lens.Internal.Profunctor
 import Control.Lens.Iso
 import Control.Lens.Prism
 import Control.Monad
-import Data.Functor.Compose
 import Data.Profunctor
-import Data.Profunctor.Monad
-import Data.Profunctor.Yoneda
 import Witherable
 
 {- | The `dimapMaybe` function endows
@@ -333,27 +329,3 @@ difoldr
 difoldr pattern
   = dimap (Empty,) (fmap snd)
   . difoldr1 pattern
-
--- Orphanage --
-
-instance (Profunctor p, Functor f)
-  => Functor (WrappedPafb f p a) where fmap = rmap
-deriving via Compose (p a) f instance
-  (Profunctor p, Functor (p a), Filterable f)
-    => Filterable (WrappedPafb f p a)
-instance (Profunctor p, Filterable f)
-  => Cochoice (WrappedPafb f p) where
-    unleft (WrapPafb p) = WrapPafb $
-      dimap Left (mapMaybe (either Just (const Nothing))) p
-    unright (WrapPafb p) = WrapPafb $
-      dimap Right (mapMaybe (either (const Nothing) Just)) p
-instance (Profunctor p, Filterable (p a))
-  => Filterable (Yoneda p a) where
-    catMaybes = proreturn . catMaybes . proextract
-instance (Profunctor p, Filterable (p a))
-  => Filterable (Coyoneda p a) where
-    catMaybes = proreturn . catMaybes . proextract
-instance Filterable (Forget r a) where
-  catMaybes (Forget f) = Forget f
-instance Filterable f => Filterable (Star f a) where
-  catMaybes (Star f) = Star (catMaybes . f)

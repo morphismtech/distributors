@@ -5,7 +5,7 @@ cabal-version: 2.2
 -- see: https://github.com/sol/hpack
 
 name:           distributors
-version:        0.4.0.0
+version:        0.5.0.0
 synopsis:       Unifying Parsers, Printers & Grammars
 description:    Distributors provides mathematically inspired abstractions for coders to write parsers that can also be inverted to printers.
 category:       Profunctors, Optics, Parsing
@@ -33,11 +33,12 @@ library
       Control.Lens.Grammar
       Control.Lens.Grammar.BackusNaur
       Control.Lens.Grammar.Boole
+      Control.Lens.Grammar.Internal.NestedPrismTH
+      Control.Lens.Grammar.Internal.Orphanage
       Control.Lens.Grammar.Kleene
       Control.Lens.Grammar.Symbol
       Control.Lens.Grammar.Token
       Control.Lens.Grate
-      Control.Lens.Internal.NestedPrismTH
       Control.Lens.Monocle
       Control.Lens.PartialIso
       Control.Lens.Wither
@@ -186,6 +187,7 @@ test-suite test
     , doctest >=0.18 && <1
     , hspec >=2.7 && <3
     , lens >=5.0 && <6
+    , megaparsec >=9.0 && <10
     , mtl >=2.2 && <3
     , profunctors >=5.6 && <6
     , tagged >=0.8 && <1

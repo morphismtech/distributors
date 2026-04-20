@@ -29,35 +29,64 @@ import Control.Lens.Extras
 import Control.Lens.Grammar.Kleene
 import Control.Lens.Grammar.Token
 import Control.Lens.Grammar.Symbol
+import Data.Bifunctor.Joker
 import Data.Coerce
 import Data.Foldable
 import Data.Function
 import Data.MemoTrie
 import qualified Data.Set as Set
 import Data.Set (Set)
+import Text.ParserCombinators.ReadP (ReadP)
 
-{- | `BackusNaurForm` grammar combinators formalize
-`rule` abstraction and general recursion. Both context-free
-`Control.Lens.Grammar.Grammar`s & `Control.Lens.Grammar.CtxGrammar`s
+{- | `BackusNaurForm` grammar combinators formalize traced
+`rule` abstraction and general recursion with `ruleRec`,
+related by this invariant.
+
+prop> rule label bnf = ruleRec label (\_ -> bnf)
+
+The `BackusNaurForm` interface is reminiscent of
+two distinct notions of "trace".
+First as a [traced Cartesian monoidal category]
+(https://ncatlab.org/nlab/show/traced+monoidal+category#in_cartesian_monoidal_categories)
+which models general recursion abstractly,
+and second as a `Debug.Trace.trace`-like label for `rule` abstraction.
+The category @(->)@ already has a traced @(,)@-monoidal structure
+in the form of `Data.Profunctor.unfirst` @=@ `Control.Arrow.loop`
+or equivalently the fixpoint function `fix`,
+determining default methods for a `BackusNaurForm`.
+
+prop> rule _ = id
+prop> ruleRec _ = fix
+
+The `BackusNaurForm` interface permits overloading these methods,
+and tracing them with a label.
+
+Both context-free `Control.Lens.Grammar.Grammar`s
+& `Control.Lens.Grammar.CtxGrammar`s
 support the `BackusNaurForm` interface.
-
-prop> rule name bnf = ruleRec name (\_ -> bnf)
-
 See Breitner, [Showcasing Applicative]
-(https://www.joachim-breitner.de/blog/710-Showcasing_Applicative).
+(https://www.joachim-breitner.de/blog/710-Showcasing_Applicative),
+for the original interface.
+
 -}
 class BackusNaurForm bnf where
 
-  {- | Rule abstraction, `rule` can be used to detail parse errors. -}
+  {- | Rule abstraction. -}
   rule :: String -> bnf -> bnf
   rule _ = id
 
-  {- | General recursion, using `ruleRec`, rules can refer to themselves. -}
+  {- | General recursion. -}
   ruleRec :: String -> (bnf -> bnf) -> bnf
   ruleRec _ = fix
 
 {- | A `Bnf` consists of a distinguished starting rule
-and a set of named rules, supporting the `BackusNaurForm` interface. -}
+and a set of named rules. When a `Bnf` supports `NonTerminalSymbol`s,
+then it supports the `BackusNaurForm` interface
+by replacing recursive calls with `nonTerminal`s.
+
+prop> ruleRec label f = rule label (f (nonTerminal label))
+
+-}
 data Bnf rule = Bnf
   { startBnf :: rule
   , rulesBnf :: Set (String, rule)
@@ -145,14 +174,14 @@ rulesNamed nameX = foldl' (flip inserter) Set.empty where
 -- instances
 instance (Ord rule, NonTerminalSymbol rule)
   => BackusNaurForm (Bnf rule) where
-    rule name = ruleRec name . const
-    ruleRec name f =
-      let
-        newStart = nonTerminal name
-        Bnf newRule oldRules = f (Bnf newStart mempty)
-        newRules = Set.insert (name, newRule) oldRules
-      in
-        Bnf newStart newRules
+    rule label (Bnf newRule oldRules) = (nonTerminal label)
+      {rulesBnf = Set.insert (label, newRule) oldRules}
+    ruleRec label f = rule label (f (nonTerminal label))
+instance (forall x. BackusNaurForm (f x))
+  => BackusNaurForm (Joker f a b) where
+    rule name = Joker . rule name . runJoker
+    ruleRec name = Joker . ruleRec name . dimap Joker runJoker
+instance BackusNaurForm (ReadP a)
 instance (Ord rule, TerminalSymbol token rule)
   => TerminalSymbol token (Bnf rule) where
   terminal = liftBnf0 . terminal

@@ -17,25 +17,35 @@ module Control.Monad.Fail.Try
   , MonadPlus (..)
     -- * Alternative
   , Alternative (..)
+    -- * Filterable
+  , Filterable (..)
   ) where
 
 import Control.Applicative
+import Control.Lens.Grammar.BackusNaur
+import Control.Lens.PartialIso ()
 import Control.Monad
+import Data.Bifunctor.Joker
+import Text.ParserCombinators.ReadP (ReadP)
+import Witherable
 
-{- | `MonadTry` is a failure handling interface,
-with `fail` & `try` and redundant alternation operators.
+{- | `MonadTry` is a failure handling interface, with `fail` & `try`
+and redundant alternation & filtration operators.
 
 prop> empty = mzero
 prop> (<|>) = mplus
+prop> filter = mfilter
 
-When a `MonadTry` is also a
-`Control.Lens.Grammar.BackusNaur.BackusNaurForm`,
-then the following invariant should hold.
+`MonadTry` also supports the `BackusNaurForm` interface
+for tracing failures and the following invariant should hold.
 
 prop> fail label = rule label empty
 
 -}
-class (MonadFail m, MonadPlus m) => MonadTry m where
+class
+  ( MonadFail m, MonadPlus m, Filterable m
+  , forall x. BackusNaurForm (m x)
+  ) => MonadTry m where
 
   {- | A handler for failures.
   Used for backtracking state on failure in
@@ -44,3 +54,7 @@ class (MonadFail m, MonadPlus m) => MonadTry m where
   try :: m a -> m a
   default try :: m a -> m a
   try = id
+
+instance MonadTry m => MonadTry (Joker m a) where
+  try = Joker . try . runJoker
+instance MonadTry ReadP

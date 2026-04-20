@@ -23,6 +23,7 @@ module Control.Lens.Grammar
   , RegBnf (..)
   , regbnfG
   , regbnfGrammar
+  , applicativeG
     -- * Context-sensitive grammar
   , CtxGrammar
   , printG
@@ -30,6 +31,8 @@ module Control.Lens.Grammar
   , unparseG
   , parsecG
   , unparsecG
+  , readG
+  , monadG
     -- * Utility
   , putStringLn
     -- * Re-exports
@@ -44,6 +47,7 @@ import Control.Lens.Grammar.Boole
 import Control.Lens.Grammar.Kleene
 import Control.Lens.Grammar.Token
 import Control.Lens.Grammar.Symbol
+import Data.Bifunctor.Joker
 import Data.Maybe hiding (mapMaybe)
 import Data.Monoid
 import Data.Profunctor.Distributor
@@ -56,6 +60,7 @@ import Data.Profunctor.Separator
 import Data.String
 import GHC.Exts
 import Prelude hiding (filter)
+import Text.ParserCombinators.ReadP (ReadP, readP_to_S)
 import Witherable
 
 -- Re-exports
@@ -94,7 +99,7 @@ data SemVer = SemVer          -- e.g., 2.1.5-rc.1+build.123
 
 We'd like to define an optic @_SemVer@,
 corresponding to the constructor pattern @SemVer@.
-You _could_ generate it with the TemplateHaskell combinator,
+You could generate it with the TemplateHaskell combinator,
 `makeNestedPrisms`.
 
 @makeNestedPrisms ''SemVer@
@@ -275,8 +280,8 @@ and generator support for `ruleRec`.
 -}
 type Grammar token a = forall p.
   ( Lexical token p
-  , forall x. BackusNaurForm (p x x)
   , Alternator p
+  , forall x. BackusNaurForm (p x x)
   ) => p a a
 
 {- | For context-sensitivity,
@@ -358,7 +363,7 @@ the context-sensitivity of `CtxGrammar` implies
 unrestricted filtration of grammars by computable predicates,
 which can recognize the larger class of recursively enumerable languages.
 
-Finally, `CtxGrammar`s support error reporting and backtracking.
+Finally, `CtxGrammar`s support failure reporting and backtracking.
 This has no effect on `printG`, `parseG` or `unparseG`;
 but it effects `parsecG` and `unparsecG`.
 For context, an @LL@ grammar can be (un)parsed by an @LL@ parser.
@@ -373,18 +378,17 @@ Since both `Parsor` & `Parsector` are @LL@ parsers they
 diverge if the `CtxGrammar` they're run on is left-recursive.
 
 >>> parsecG (rule "foo" (fail "bar") <|> fail "baz") "abc"
-ParsecState {parsecLooked = False, parsecOffset = 0, parsecStream = "abc", parsecError = ParsecError {parsecExpect = TokenClass (OneOf (fromList "")), parsecLabels = [Node {rootLabel = "foo", subForest = [Node {rootLabel = "bar", subForest = []}]},Node {rootLabel = "baz", subForest = []}]}, parsecResult = Nothing}
+ParsecState {parsecLooked = False, parsecOffset = 0, parsecStream = "abc", parsecFailure = ParsecFailure {parsecExpect = TokenClass (OneOf (fromList "")), parsecLabels = [Node {rootLabel = "foo", subForest = [Node {rootLabel = "bar", subForest = []}]},Node {rootLabel = "baz", subForest = []}]}, parsecResult = Nothing}
 
 >>> parsecG (manyP (token 'a') >*< asIn @Char DecimalNumber) "aaab"
-ParsecState {parsecLooked = True, parsecOffset = 3, parsecStream = "b", parsecError = ParsecError {parsecExpect = TokenClass (Alternate (TokenClass (OneOf (fromList "a"))) (TokenClass (NotOneOf (fromList "") (AndAsIn DecimalNumber)))), parsecLabels = []}, parsecResult = Nothing}
+ParsecState {parsecLooked = True, parsecOffset = 3, parsecStream = "b", parsecFailure = ParsecFailure {parsecExpect = TokenClass (Alternate (TokenClass (OneOf (fromList "a"))) (TokenClass (NotOneOf (fromList "") (AndAsIn DecimalNumber)))), parsecLabels = []}, parsecResult = Nothing}
 
 >>> unparsecG (tokens "abc") "abx" ""
-ParsecState {parsecLooked = True, parsecOffset = 2, parsecStream = "ab", parsecError = ParsecError {parsecExpect = TokenClass (OneOf (fromList "c")), parsecLabels = []}, parsecResult = Nothing}
+ParsecState {parsecLooked = True, parsecOffset = 2, parsecStream = "ab", parsecFailure = ParsecFailure {parsecExpect = TokenClass (OneOf (fromList "c")), parsecLabels = []}, parsecResult = Nothing}
 
 -}
 type CtxGrammar token a = forall p.
   ( Lexical token p
-  , forall x. BackusNaurForm (p x x)
   , Alternator p
   , Filtrator p
   , MonadicTry p
@@ -768,7 +772,7 @@ regbnfGrammar :: Grammar Char RegBnf
 regbnfGrammar = rule "regbnf" $ _RegBnf . _Bnf >~
   terminal "{start} = " >* regexGrammar >*< several noSep
     (terminal "\n" >* nonterminalG *< terminal " = " >*< regexGrammar)
-      
+
 
 {- | `regstringG` generates a `RegString` from a regular grammar.
 Since context-free `Grammar`s and `CtxGrammar`s aren't necessarily regular,
@@ -841,7 +845,7 @@ the type system will allow `parsecG` to be applied to them.
 Running the parser on an input string value `uncons`es
 tokens from the beginning of an input string from left to right,
 returning `parsecResult` as `Nothing` on failure or `Just`
-an output syntax value, with parse failure stored in `parsecError`,
+an output syntax value, with parse failure stored in `parsecFailure`,
 and a remaining output `parsecStream`.
 -}
 parsecG
@@ -870,6 +874,77 @@ unparsecG
   -> ParsecState string a
 unparsecG parsector = unparsecP parsector
 
+{- | Generate any `Applicative` parser backend
+from a `Grammar` with `applicativeG`.
+It works the same way as `monadG`,
+for parsers without `Monad` instances.
+That permits backends to use algorithms
+that can only parse context-free `Grammar`s.
+-}
+applicativeG
+  :: ( Alternative f
+     , TokenAlgebra token (f token)
+     , TerminalSymbol token (f ())
+     , forall x. BackusNaurForm (f x)
+     )
+  => Grammar token a -- ^ context-free grammar
+  -> f a
+applicativeG joker = runJoker joker
+
+{- | Generate a `ReadP` backend from a `CtxGrammar` `Char`. -}
+readG :: CtxGrammar Char a -> ReadP a
+readG joker = monadG joker
+
+{- | Generate any parser `Monad` backend
+from a `CtxGrammar` with `monadG`.
+Let's see how to do this without orphan instances,
+using the Megaparsec library.
+
+@
+import qualified Text.Megaparsec as M
+import qualified Text.Megaparsec.Char as M
+import Control.Lens.Grammar
+
+newtype WrapMega a = WrapMega {unwrapMega :: M.Parsec String String a}
+  deriving newtype
+    ( Functor, Applicative, Alternative
+    , Monad, MonadPlus, MonadFail
+    )
+instance TerminalSymbol Char (WrapMega ()) where
+  terminal str = WrapMega (M.chunk str *> pure ())
+instance TokenAlgebra Char (WrapMega Char) where
+  tokenClass exam = WrapMega $ M.label (show exam) (M.satisfy (tokenClass exam))
+instance Tokenized Char (WrapMega Char) where
+  anyToken = WrapMega M.anySingle
+  token = WrapMega . M.single
+  oneOf = WrapMega . M.oneOf
+  notOneOf = WrapMega . M.noneOf
+  asIn cat = WrapMega $ M.label ("in category " ++ show cat) (M.satisfy (asIn cat))
+  notAsIn cat = WrapMega $ M.label ("not in category " ++ show cat) (M.satisfy (notAsIn cat))
+instance BackusNaurForm (WrapMega a) where
+  rule lbl (WrapMega p) = WrapMega (M.label lbl p)
+  ruleRec lbl = rule lbl . fix
+instance Filterable WrapMega where
+  catMaybes m = m >>= maybe (fail "unrestricted filtration") pure
+instance MonadTry WrapMega where
+  try (WrapMega p) = WrapMega (M.try p)
+
+megaparsecG
+  :: CtxGrammar Char a
+  -> M.Parsec String String a
+megaparsecG gram = unwrapMega (monadG gram)
+@
+
+-}
+monadG
+  :: ( MonadTry m
+     , TokenAlgebra token (m token)
+     , TerminalSymbol token (m ())
+     )
+  => CtxGrammar token a -- ^ context-sensitive grammar
+  -> m a
+monadG joker = runJoker joker
+
 {- | `putStringLn` is a utility that generalizes `putStrLn`
 to string-like interfaces such as `RegString` and `RegBnf`.
 -}
@@ -882,7 +957,7 @@ instance IsList RegString where
     = fromMaybe zeroK
     . listToMaybe
     . mapMaybe prsF
-    . parseP regexGrammar
+    . readP_to_S (readG regexGrammar)
     where
       prsF (rex,"") = Just rex
       prsF _ = Nothing
@@ -901,7 +976,7 @@ instance IsList RegBnf where
     = fromMaybe zeroK
     . listToMaybe
     . mapMaybe prsF
-    . parseP regbnfGrammar
+    . readP_to_S (readG regbnfGrammar)
     where
       prsF (regbnf,"") = Just regbnf
       prsF _ = Nothing

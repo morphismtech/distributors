@@ -1,6 +1,6 @@
 {- |
 Module      : Control.Lens.Grammar.Kleene
-Description : Kleene star algebras & regular expressions
+Description : Kleene star algebras, regular expressions & token classes
 Copyright   : (C) 2026 - Eitan Chatav
 License     : BSD-style (see the file LICENSE)
 Maintainer  : Eitan Chatav <eitan.chatav@gmail.com>
@@ -29,6 +29,7 @@ import Control.Applicative
 import Control.Lens.Grammar.Boole
 import Control.Lens.Grammar.Symbol
 import Control.Lens.Grammar.Token
+import Data.Bifunctor.Joker
 import Data.Foldable
 import Data.MemoTrie
 import Data.Monoid
@@ -37,6 +38,8 @@ import Data.Profunctor.Distributor
 import Data.Set (Set)
 import qualified Data.Set as Set
 import GHC.Generics
+import Text.ParserCombinators.ReadP (ReadP)
+import qualified Text.ParserCombinators.ReadP as ReadP
 
 {- | A `KleeneStarAlgebra` is a ring
 with a generally non-commutative multiplication,
@@ -217,6 +220,11 @@ instance Categorized token => TokenAlgebra token (RegEx token) where
     NotOneOf as catTest -> RegExam (NotOneOf as catTest)
     Alternate exam1 exam2 ->
       RegExam (Alternate (tokenClass exam1) (tokenClass exam2))
+instance TokenAlgebra token (f token)
+  => TokenAlgebra token (Joker f token token) where
+    tokenClass = Joker . tokenClass
+instance TokenAlgebra Char (ReadP Char) where
+  tokenClass = ReadP.satisfy . tokenClass
 instance Categorized token => Monoid (RegEx token) where
   mempty = SeqEmpty
 instance Categorized token => Semigroup (RegEx token) where
