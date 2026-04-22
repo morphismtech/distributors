@@ -33,6 +33,10 @@ import Data.Bifunctor.Joker
 import Data.Coerce
 import Data.Foldable
 import Data.Function
+import qualified Data.IntMap.Strict as IntMap
+import Data.IntMap.Strict (IntMap)
+import qualified Data.IntSet as IntSet
+import Data.IntSet (IntSet)
 import Data.MemoTrie
 import qualified Data.Set as Set
 import Data.Set (Set)
@@ -171,6 +175,111 @@ rulesNamed nameX = foldl' (flip inserter) Set.empty where
   inserter (nameY,y) =
     if nameX == nameY then Set.insert y else id
 
+data ThompsonState token = ThompsonState (TokenClass token) IntSet
+
+thompsonFinalState :: Int
+thompsonFinalState = 0
+
+bypassStates :: Bool -> IntSet -> IntSet
+bypassStates True = id
+bypassStates False = const IntSet.empty
+
+containsNonTerminal :: RegEx token -> Bool
+containsNonTerminal = \
+  case
+    NonTerminal _ -> True
+    Sequence rex0 rex1 ->
+      containsNonTerminal rex0 || containsNonTerminal rex1
+    KleeneStar rex -> containsNonTerminal rex
+    KleeneOpt rex -> containsNonTerminal rex
+    KleenePlus rex -> containsNonTerminal rex
+    RegExam (Alternate rex0 rex1) ->
+      containsNonTerminal rex0 || containsNonTerminal rex1
+    _ -> False
+
+compileThompson
+  :: RegEx token
+  -> Int
+  -> IntSet
+  -> (IntSet, [(Int, ThompsonState token)], Int, Bool)
+compileThompson = go where
+  go rex nextId dests = case rex of
+    SeqEmpty -> (IntSet.empty, [], nextId, True)
+    NonTerminal _ -> (IntSet.empty, [], nextId, False)
+    Sequence rex0 rex1 ->
+      let
+        (firsts1, states1, nextId1, bypass1) = go rex1 nextId dests
+        (firsts0, states0, nextId0, bypass0) =
+          go rex0 nextId1 (firsts1 <> bypassStates bypass1 dests)
+      in
+        ( firsts0 <> bypassStates bypass0 firsts1
+        , states0 <> states1
+        , nextId0
+        , bypass0 && bypass1
+        )
+    KleeneStar rex0 ->
+      let
+        (firsts, states, nextId', _) = go rex0 nextId (firsts <> dests)
+      in
+        (firsts, states, nextId', True)
+    KleeneOpt rex0 ->
+      let
+        (firsts, states, nextId', _) = go rex0 nextId dests
+      in
+        (firsts, states, nextId', True)
+    KleenePlus rex0 ->
+      let
+        (firsts, states, nextId', bypass) = go rex0 nextId (firsts <> dests)
+      in
+        (firsts, states, nextId', bypass)
+    RegExam (OneOf chars)
+      | Set.null chars -> (IntSet.empty, [], nextId, False)
+      | otherwise ->
+          ( IntSet.singleton nextId
+          , [(nextId, ThompsonState (TokenClass (OneOf chars)) dests)]
+          , nextId + 1
+          , False
+          )
+    RegExam (NotOneOf chars catTest) ->
+      ( IntSet.singleton nextId
+      , [(nextId, ThompsonState (TokenClass (NotOneOf chars catTest)) dests)]
+      , nextId + 1
+      , False
+      )
+    RegExam (Alternate rex0 rex1) ->
+      let
+        (firsts1, states1, nextId1, bypass1) = go rex1 nextId dests
+        (firsts0, states0, nextId0, bypass0) = go rex0 nextId1 dests
+      in
+        ( firsts0 <> firsts1
+        , states0 <> states1
+        , nextId0
+        , bypass0 || bypass1
+        )
+
+compileThompsonTop
+  :: RegEx token
+  -> (IntSet, IntMap (ThompsonState token))
+compileThompsonTop rex =
+  (firsts <> bypassStates bypass finalStates, IntMap.fromList states)
+  where
+    finalStates = IntSet.singleton thompsonFinalState
+    (firsts, states, _, bypass) = compileThompson rex 1 finalStates
+
+matchThompson :: Categorized token => [token] -> RegEx token -> Bool
+matchThompson word rex = IntSet.member thompsonFinalState finalStates
+  where
+    (startStates, states) = compileThompsonTop rex
+    finalStates = foldl' step startStates word
+    step activeStates input = IntSet.foldl' advance IntSet.empty activeStates
+      where
+        advance nextStates stateId
+          | stateId == thompsonFinalState = nextStates
+          | otherwise = case IntMap.lookup stateId states of
+              Just (ThompsonState exam dests)
+                | tokenClass exam input -> nextStates <> dests
+              _ -> nextStates
+
 -- instances
 instance (Ord rule, NonTerminalSymbol rule)
   => BackusNaurForm (Bnf rule) where
@@ -215,6 +324,8 @@ instance (Categorized token, HasTrie token)
     (=~) word = δ . diffB word
 instance (Categorized token, HasTrie token)
   => Matching [token] (RegEx token) where
-    word =~ pattern = word =~ liftBnf0 pattern
+    word =~ pattern
+      | containsNonTerminal pattern = word =~ liftBnf0 pattern
+      | otherwise = matchThompson word pattern
 instance Matching s (APrism s t a b) where
   word =~ pattern = is pattern word
