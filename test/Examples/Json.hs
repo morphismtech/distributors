@@ -5,7 +5,7 @@ module Examples.Json
   ) where
 
 import Control.Applicative
-import Control.Lens hiding (element)
+import Control.Lens
 import Control.Lens.Grammar
 import qualified Data.Map.Strict as Map
 import Data.Map.Strict (Map)
