@@ -24,6 +24,7 @@ module Control.Lens.Grammar
   , regbnfG
   , regbnfGrammar
   , applicativeG
+  , languageG
     -- * Context-sensitive grammar
   , CtxGrammar
   , printG
@@ -45,6 +46,7 @@ import Control.Lens.PartialIso
 import Control.Lens.Grammar.BackusNaur
 import Control.Lens.Grammar.Boole
 import Control.Lens.Grammar.Kleene
+import Control.Lens.Grammar.Matching
 import Control.Lens.Grammar.Token
 import Control.Lens.Grammar.Symbol
 import Data.Bifunctor.Joker
@@ -67,6 +69,7 @@ import Witherable
 import Control.Lens.Grammar.BackusNaur as X
 import Control.Lens.Grammar.Boole as X
 import Control.Lens.Grammar.Kleene as X
+import Control.Lens.Grammar.Matching as X
 import Control.Lens.Grammar.Symbol as X
 import Control.Lens.Grammar.Token as X
 import Control.Lens.PartialIso as X
@@ -788,6 +791,9 @@ It can apply to a `RegGrammar`.
 -}
 regbnfG :: Grammar Char a -> RegBnf
 regbnfG bnf = runGrammor bnf
+
+languageG :: (Applicative f, TokenAlgebra token (f token)) => Grammar token a -> f [[token]]
+languageG bnf = languageGen (runGrammor bnf)
 
 {- | `printG` generates a printer from a `CtxGrammar`.
 Since both `RegGrammar`s and context-free `Grammar`s are `CtxGrammar`s,

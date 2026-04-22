@@ -22,9 +22,13 @@ import Control.Lens
 import Control.Lens.PartialIso
 import Data.Bifunctor.Joker
 import Data.Char
+import Data.Foldable
 import Data.Profunctor
 import Data.Profunctor.Monoidal
 import Data.Word
+import Test.QuickCheck.Arbitrary
+import Test.QuickCheck.Gen (Gen)
+import qualified Test.QuickCheck.Gen as Gen
 import Text.ParserCombinators.ReadP (ReadP)
 import qualified Text.ParserCombinators.ReadP as ReadP
 
@@ -137,3 +141,10 @@ instance Tokenized Char (ReadP Char) where
   notOneOf = ReadP.satisfy . notOneOf
   asIn = ReadP.satisfy . asIn
   notAsIn = ReadP.satisfy . notAsIn
+instance (Categorized token, Arbitrary token) => Tokenized token (Gen token) where
+  anyToken = arbitrary @token
+  token = pure
+  oneOf = Gen.elements . toList
+  notOneOf xs = arbitrary `Gen.suchThat` (`notElem` xs)
+  asIn cat = arbitrary `Gen.suchThat` ((==) cat . categorize)
+  notAsIn cat = arbitrary `Gen.suchThat` ((/=) cat . categorize)

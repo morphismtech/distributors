@@ -11,6 +11,7 @@ import Data.Profunctor.Types (Star (..))
 import System.Environment (lookupEnv)
 import Test.DocTest
 import Test.Hspec
+import Test.QuickCheck (generate)
 import qualified Text.Megaparsec as M
 
 import Examples.Arithmetic
@@ -30,15 +31,15 @@ main = do
     when shouldRunDoctests $
       describe "doctest" $
         it "should run haddock examples" doctests
-    describe "regexGrammar" $ for_ regexExamples $ testGrammar False regexGrammar
-    describe "semverGrammar" $ for_ semverExamples $ testGrammar True semverGrammar
-    describe "semverCtxGrammar" $ for_ semverExamples $ testCtxGrammar True semverCtxGrammar
-    describe "arithGrammar" $ for_ arithExamples $ testGrammar True arithGrammar
-    describe "jsonGrammar" $ for_ jsonExamples $ testGrammar False jsonGrammar
-    describe "sexprGrammar" $ for_ sexprExamples $ testGrammar True sexprGrammar
-    describe "lambdaGrammar" $ for_ lambdaExamples $ testGrammar True lambdaGrammar
-    describe "lenvecGrammar" $ for_ lenvecExamples $ testCtxGrammar True lenvecGrammar
-    describe "chainGrammar" $ for_ chainExamples $ testGrammar True chainGrammar
+    describe "regexGrammar" $ testCfg False regexExamples regexGrammar
+    describe "semverGrammar" $ testCfg True semverExamples semverGrammar
+    describe "semverCtxGrammar" $ testCsg True semverExamples semverCtxGrammar
+    describe "arithGrammar" $ testCfg True arithExamples arithGrammar
+    describe "jsonGrammar" $ testCfg False jsonExamples jsonGrammar
+    describe "sexprGrammar" $ testCfg True sexprExamples sexprGrammar
+    describe "lambdaGrammar" $ testCfg True lambdaExamples lambdaGrammar
+    describe "lenvecGrammar" $ testCsg True lenvecExamples lenvecGrammar
+    describe "chainGrammar" $ testCfg True chainExamples chainGrammar
     describe "Parsector try rollback" tryRollbackTests
     describe "Kleene" kleeneProperties
     describe "meander" meanderProperties
@@ -117,12 +118,23 @@ meanderProperties =
     seen `shouldBe` input
     units `shouldBe` replicate (length input) ()
 
-testGrammar :: (Show a, Eq a) => Bool -> Grammar Char a -> (a, String) -> Spec
-testGrammar isLL1 grammar (expectedSyntax, expectedString) = do
-  testCtxGrammar isLL1 grammar (expectedSyntax, expectedString)
-  it ("should match " <> expectedString <> " correctly") $ do
-    let actualMatch = expectedString =~ regbnfG grammar
-    actualMatch `shouldBe` True
+testCfg :: (Show a, Eq a) => Bool -> [(a, String)] -> Grammar Char a -> Spec
+testCfg isLL1 examples grammar = do
+  describe "examples" $ for_ examples $ \(expectedSyntax, expectedString) -> do
+    testCtxGrammar isLL1 grammar (expectedSyntax, expectedString)
+    it ("should match " <> expectedString <> " correctly") $ do
+      let actualMatch = expectedString =~ regbnfG grammar
+      actualMatch `shouldBe` True
+  describe "generated languageG" $ do
+    it "should parses with exactly one full parse" $ do
+      generated <- generate (take 100 <$> languageG grammar)
+      for_ generated $ \word -> do
+        let fullParses = [() | (_, "") <- parseG grammar word]
+        fullParses `shouldBe` [()]
+
+testCsg :: (Show a, Eq a) => Bool -> [(a, String)] -> CtxGrammar Char a -> Spec
+testCsg isLL1 examples grammar =
+  describe "examples" $ for_ examples $ testCtxGrammar isLL1 grammar
 
 testCtxGrammar :: (Show a, Eq a) => Bool -> CtxGrammar Char a -> (a, String) -> Spec
 testCtxGrammar isLL1 grammar (expectedSyntax, expectedString) = do

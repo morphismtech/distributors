@@ -36,6 +36,7 @@ library
       Control.Lens.Grammar.Internal.NestedPrismTH
       Control.Lens.Grammar.Internal.Orphanage
       Control.Lens.Grammar.Kleene
+      Control.Lens.Grammar.Matching
       Control.Lens.Grammar.Symbol
       Control.Lens.Grammar.Token
       Control.Lens.Grate
@@ -98,6 +99,7 @@ library
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints
   build-depends:
       MemoTrie >=0.6 && <1
+    , QuickCheck >=2.14 && <3
     , adjunctions >=4.4 && <5
     , base >=4.15 && <5
     , bifunctors >=5.5 && <6
