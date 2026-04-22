@@ -29,6 +29,8 @@ import Control.Applicative
 import Control.Lens.Grammar.Boole
 import Control.Lens.Grammar.Symbol
 import Control.Lens.Grammar.Token
+import Control.Monad.Loops
+import Control.Monad.Trans.State.Strict (StateT, state)
 import Data.Bifunctor.Joker
 import Data.Foldable
 import Data.MemoTrie
@@ -38,6 +40,7 @@ import Data.Profunctor.Distributor
 import Data.Set (Set)
 import qualified Data.Set as Set
 import GHC.Generics
+import System.Random (RandomGen, Random, random)
 import Test.QuickCheck.Arbitrary
 import Test.QuickCheck.Gen (Gen)
 import qualified Test.QuickCheck.Gen as Gen
@@ -236,6 +239,17 @@ instance (Categorized token, Arbitrary token) => TokenAlgebra token (Gen token) 
     NotOneOf xs (AndNotAsIn cats) -> arbitrary `Gen.suchThat`
       (\x -> x `notElem` xs && categorize x `notElem` cats)
     Alternate cls1 cls2 -> Gen.oneof [tokenClass cls1, tokenClass cls2]
+instance (RandomGen g, Monad m, Categorized token, Random token)
+  => TokenAlgebra token (StateT g m token) where
+  tokenClass (TokenClass exam) = case exam of
+    OneOf xs -> oneOf xs
+    NotOneOf xs (AndAsIn cat) ->
+      iterateUntil (\x -> x `notElem` xs && categorize x == cat) anyToken
+    NotOneOf xs (AndNotAsIn cats) ->
+      iterateUntil (\x -> x `notElem` xs && categorize x `notElem` cats) anyToken
+    Alternate cls1 cls2 -> do
+      b <- state random
+      if (b :: Bool) then tokenClass cls1 else tokenClass cls2
 instance Categorized token => Monoid (RegEx token) where
   mempty = SeqEmpty
 instance Categorized token => Semigroup (RegEx token) where

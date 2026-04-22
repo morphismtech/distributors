@@ -20,12 +20,15 @@ module Control.Lens.Grammar.Token
 
 import Control.Lens
 import Control.Lens.PartialIso
+import Control.Monad.Loops (iterateUntil)
 import Data.Bifunctor.Joker
 import Data.Char
 import Data.Foldable
 import Data.Profunctor
 import Data.Profunctor.Monoidal
 import Data.Word
+import Control.Monad.Trans.State.Strict (StateT, state)
+import System.Random (RandomGen, Random, random, randomR)
 import Test.QuickCheck.Arbitrary
 import Test.QuickCheck.Gen (Gen)
 import qualified Test.QuickCheck.Gen as Gen
@@ -148,3 +151,14 @@ instance (Categorized token, Arbitrary token) => Tokenized token (Gen token) whe
   notOneOf xs = arbitrary `Gen.suchThat` (`notElem` xs)
   asIn cat = arbitrary `Gen.suchThat` ((==) cat . categorize)
   notAsIn cat = arbitrary `Gen.suchThat` ((/=) cat . categorize)
+instance (RandomGen g, Monad m, Categorized token, Random token)
+  => Tokenized token (StateT g m token) where
+  anyToken = state random
+  token = pure
+  oneOf xs = do
+    let ys = toList xs
+    i <- state (randomR (0, length ys - 1))
+    pure (ys !! i)
+  notOneOf xs = iterateUntil (`notElem` xs) anyToken
+  asIn cat = iterateUntil ((== cat) . categorize) anyToken
+  notAsIn cat = iterateUntil ((/= cat) . categorize) anyToken
