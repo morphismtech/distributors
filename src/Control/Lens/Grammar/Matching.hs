@@ -14,6 +14,8 @@ http://trevorjim.com/papers/ldta-2009.pdf
 module Control.Lens.Grammar.Matching
   ( Matching (..)
   , languageGen
+  , expected
+  , unreachableRules
   ) where
 
 import Control.Lens
@@ -29,6 +31,7 @@ import Data.IntSet (IntSet)
 import qualified Data.Map.Strict as Map
 import Data.Map.Strict (Map)
 import qualified Data.Set as Set
+import Data.Set (Set)
 
 -- | Does a word match a pattern?
 class Matching word pattern | pattern -> word where
@@ -184,21 +187,21 @@ compileEarley (Bnf start rules) = EarleyTransducer
             )
 
 matchEarley :: Categorized token => [token] -> EarleyTransducer token -> Bool
-matchEarley word et = acceptsChart n finalSets et
+matchEarley word et = acceptsChart n chart et
+  where (n, chart) = runEarleyPrefix word et
+
+runEarleyPrefix
+  :: Categorized token
+  => [token]
+  -> EarleyTransducer token
+  -> (Int, IntMap (IntMap IntSet))
+runEarleyPrefix word et = go 0 (initialChart et) word
   where
-
-    initialE0 = IntMap.fromList
-      [ (s, IntSet.singleton 0) | s <- IntSet.toList (earleyStartStates et) ]
-
-    sets0 = closeChartAt 0 (IntMap.singleton 0 initialE0) et
-
-    (finalSets, n) = runInput 0 sets0 word
-
-    runInput j ss [] = (ss, j)
-    runInput j ss (x : xs) =
+    go j ss [] = (j, ss)
+    go j ss (x : xs) =
       let scanned = scanFrom j x ss
           closed = closeChartAt (j + 1) (IntMap.insert (j + 1) scanned ss) et
-      in runInput (j + 1) closed xs
+      in go (j + 1) closed xs
 
     scanFrom j input ss = IntMap.foldrWithKey advance IntMap.empty e_j
       where
@@ -208,6 +211,47 @@ matchEarley word et = acceptsChart n finalSets et
             IntSet.foldr
               (\d -> IntMap.insertWith IntSet.union d origs) acc ds
           _ -> acc
+
+{- |
+Token classes that could legally appear next after the given input prefix,
+according to the grammar. An empty result means the prefix is a dead end —
+no extension can ever be accepted. Useful for autocomplete and for
+\"expected one of …\" parse errors.
+-}
+expected
+  :: Categorized token
+  => [token] -> Bnf (RegEx token) -> [TokenClass token]
+expected word bnf = map fst (scanClassOptions n chart et)
+  where
+    et = compileEarley bnf
+    (n, chart) = runEarleyPrefix word et
+
+{- |
+Rule names declared in the `Bnf` that can never be entered from the start
+expression — dead productions. A non-empty result is a grammar-hygiene
+warning: those rules can be deleted without changing the recognized language.
+-}
+unreachableRules :: Bnf (RegEx token) -> Set String
+unreachableRules bnf =
+  Map.keysSet (earleyRules et) `Set.difference` called
+  where
+    et = compileEarley bnf
+    called = bfs (earleyStartStates et) IntSet.empty Set.empty
+
+    bfs frontier seen calls
+      | IntSet.null fresh = calls
+      | otherwise = bfs next (seen <> fresh) calls'
+      where
+        fresh = IntSet.difference frontier seen
+        (next, calls') = IntSet.foldr step (IntSet.empty, calls) fresh
+
+    step s (acc, cs) = case IntMap.lookup s (earleyStates et) of
+      Just (EarleyTerminal _ ds) -> (acc <> ds, cs)
+      Just (EarleyNonTerminal name ds) ->
+        let firsts = maybe IntSet.empty fst (Map.lookup name (earleyRules et))
+        in (acc <> ds <> firsts, Set.insert name cs)
+      Just (EarleyEmit _) -> (acc, cs)
+      Nothing -> (acc, cs)
 -- instances
 instance Categorized token
   => Matching [token] (Bnf (RegEx token)) where
