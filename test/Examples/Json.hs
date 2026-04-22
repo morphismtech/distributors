@@ -32,46 +32,47 @@ makePrisms ''Json
 -- every cyclic back-edge must instead use the `element` stub produced
 -- by the inner `ruleRec "element"` below.
 jsonGrammar :: Grammar Char Json
-jsonGrammar = ruleRec "json" $ \_json ->
-  ruleRec "element" $ \element ->
-    ws >* valueG element *< ws
+jsonGrammar = rule "json" elementG
   where
+    elementG = ruleRec "element" $ \json ->
+      ws >* valueG json *< ws
+
     -- value = object | array | string | number | "true" | "false" | "null"
-    valueG element = rule "value" $ choice
+    valueG json = rule "value" $ choice
       [ _JNull >? terminal "null"
       , _JBool . only True >? terminal "true"
       , _JBool . only False >? terminal "false"
       , _JNumber >? numberG
       , _JString >? stringG
-      , _JArray >? arrayG element
-      , _JObject >? objectG element
+      , _JArray >? arrayG json
+      , _JObject >? objectG json
       ]
 
     -- object = '{' ws '}' | '{' members '}'
-    objectG element = rule "object" $ choice
+    objectG json = rule "object" $ choice
       [ only Map.empty >?
           terminal "{" >* ws >* terminal "}"
       , iso Map.toList Map.fromList >~
-          terminal "{" >* membersG element *< terminal "}"
+          terminal "{" >* membersG json *< terminal "}"
       ]
 
     -- members = member | member ',' members
-    membersG element = rule "members" $
-      several1 (sepWith ",") (memberG element)
+    membersG json = rule "members" $
+      several1 (sepWith ",") (memberG json)
 
     -- member = ws string ws ':' element
-    memberG element = rule "member" $
-      ws >* stringG *< ws *< terminal ":" >*< element
+    memberG json = rule "member" $
+      ws >* stringG *< ws *< terminal ":" >*< json
 
     -- array = '[' ws ']' | '[' elements ']'
-    arrayG element = rule "array" $ choice
+    arrayG json = rule "array" $ choice
       [ only [] >? terminal "[" >* ws >* terminal "]"
-      , terminal "[" >* elementsG element *< terminal "]"
+      , terminal "[" >* elementsG json *< terminal "]"
       ]
 
     -- elements = element | element ',' elements
-    elementsG element = rule "elements" $
-      several1 (sepWith ",") element
+    elementsG json = rule "elements" $
+      several1 (sepWith ",") json
 
     -- string = '"' characters '"'
     stringG = rule "string" $
