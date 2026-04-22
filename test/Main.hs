@@ -34,7 +34,7 @@ main = do
     describe "semverGrammar" $ for_ semverExamples $ testGrammar True semverGrammar
     describe "semverCtxGrammar" $ for_ semverExamples $ testCtxGrammar True semverCtxGrammar
     describe "arithGrammar" $ for_ arithExamples $ testGrammar True arithGrammar
-    describe "jsonGrammar" $ for_ jsonExamples $ testCtxGrammar False jsonGrammar
+    describe "jsonGrammar" $ for_ jsonExamples $ testGrammar False jsonGrammar
     describe "sexprGrammar" $ for_ sexprExamples $ testGrammar True sexprGrammar
     describe "lambdaGrammar" $ for_ lambdaExamples $ testGrammar True lambdaGrammar
     describe "lenvecGrammar" $ for_ lenvecExamples $ testCtxGrammar True lenvecGrammar
