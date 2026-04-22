@@ -40,6 +40,7 @@ main = do
     describe "lenvecGrammar" $ for_ lenvecExamples $ testCtxGrammar True lenvecGrammar
     describe "chainGrammar" $ for_ chainExamples $ testCtxGrammar True chainGrammar
     describe "Parsector try rollback" tryRollbackTests
+    describe "Thompson matcher" thompsonMatcherTests
     describe "Kleene" kleeneProperties
     describe "meander" meanderProperties
 
@@ -57,6 +58,121 @@ tryRollbackTests = do
     parsecOffset actual `shouldBe` 0
     parsecStream actual `shouldBe` ""
     parsecResult actual `shouldBe` (Nothing :: Maybe String)
+
+thompsonMatcherTests :: Spec
+thompsonMatcherTests = do
+  let
+    sandwich = terminal "a" <> starK (terminal "b") <> terminal "a"
+    evenA = starK (sandwich >|< terminal "b")
+    nullableSeq = optK (terminal "a") <> terminal "b"
+    nestedStar = starK (starK (terminal "a"))
+    onePlusA = plusK (terminal "a")
+    altThenTerm = (terminal "a" >|< terminal "b") <> terminal "c"
+    notXY = notOneOf ("xy" :: String) :: RegEx Char
+    abcClass = oneOf ("abc" :: String) :: RegEx Char
+    checks :: [(String, RegEx Char, [(String, Bool)])]
+    checks =
+      [ ( "paper sandwich language"
+        , sandwich
+        , [ ("aa", True)
+          , ("aba", True)
+          , ("abbba", True)
+          , ("", False)
+          , ("a", False)
+          , ("ab", False)
+          , ("baa", False)
+          ]
+        )
+      , ( "paper even-a language"
+        , evenA
+        , [ ("", True)
+          , ("b", True)
+          , ("bb", True)
+          , ("aa", True)
+          , ("abba", True)
+          , ("baab", True)
+          , ("abaaab", True)
+          , ("a", False)
+          , ("ababa", False)
+          ]
+        )
+      , ( "nullable sequence wiring"
+        , nullableSeq
+        , [ ("b", True)
+          , ("ab", True)
+          , ("", False)
+          , ("a", False)
+          ]
+        )
+      , ( "empty and empty-class handling"
+        , mempty
+        , [ ("", True)
+          , ("a", False)
+          ]
+        )
+      , ( "failing token class"
+        , zeroK
+        , [ ("", False)
+          , ("a", False)
+          ]
+        )
+      , ( "nested star (a*)*"
+        , nestedStar
+        , [ ("", True)
+          , ("a", True)
+          , ("aaaa", True)
+          , ("b", False)
+          , ("aab", False)
+          ]
+        )
+      , ( "kleene plus a+"
+        , onePlusA
+        , [ ("a", True)
+          , ("aaa", True)
+          , ("", False)
+          , ("ab", False)
+          , ("b", False)
+          ]
+        )
+      , ( "alternate then terminal (a|b)c"
+        , altThenTerm
+        , [ ("ac", True)
+          , ("bc", True)
+          , ("", False)
+          , ("c", False)
+          , ("abc", False)
+          , ("a", False)
+          ]
+        )
+      , ( "notOneOf \"xy\""
+        , notXY
+        , [ ("a", True)
+          , ("z", True)
+          , ("x", False)
+          , ("y", False)
+          , ("", False)
+          , ("ab", False)
+          ]
+        )
+      , ( "oneOf \"abc\""
+        , abcClass
+        , [ ("a", True)
+          , ("b", True)
+          , ("c", True)
+          , ("d", False)
+          , ("", False)
+          , ("ab", False)
+          ]
+        )
+      ]
+
+  for_ checks $ \(label, rex, cases) ->
+    for_ cases $ \(word, expected) ->
+      it (label <> " matches " <> show word) $ do
+        let thompsonMatch = word =~ rex
+        let derivativeMatch = word =~ liftBnf0 rex
+        thompsonMatch `shouldBe` expected
+        thompsonMatch `shouldBe` derivativeMatch
 
 doctests :: IO ()
 doctests = do

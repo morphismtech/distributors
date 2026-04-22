@@ -205,7 +205,8 @@ compileThompson
 compileThompson = go where
   go rex nextId dests = case rex of
     SeqEmpty -> (IntSet.empty, [], nextId, True)
-    NonTerminal _ -> (IntSet.empty, [], nextId, False)
+    NonTerminal _ ->
+      error "compileThompson: NonTerminal unsupported; route via diffB"
     Sequence rex0 rex1 ->
       let
         (firsts1, states1, nextId1, bypass1) = go rex1 nextId dests
