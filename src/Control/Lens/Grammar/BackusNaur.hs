@@ -177,155 +177,27 @@ rulesNamed nameX = foldl' (flip inserter) Set.empty where
   inserter (nameY,y) =
     if nameX == nameY then Set.insert y else id
 
-data ThompsonState token = ThompsonState (TokenClass token) IntSet
-
-thompsonFinalState :: Int
-thompsonFinalState = 0
-
-bypassStates :: Bool -> IntSet -> IntSet
-bypassStates True = id
-bypassStates False = const IntSet.empty
-
-containsNonTerminal :: RegEx token -> Bool
-containsNonTerminal = \
-  case
-    NonTerminal _ -> True
-    Sequence rex0 rex1 ->
-      containsNonTerminal rex0 || containsNonTerminal rex1
-    KleeneStar rex -> containsNonTerminal rex
-    KleeneOpt rex -> containsNonTerminal rex
-    KleenePlus rex -> containsNonTerminal rex
-    RegExam (Alternate rex0 rex1) ->
-      containsNonTerminal rex0 || containsNonTerminal rex1
-    _ -> False
-
-compileThompson
-  :: RegEx token
-  -> Int
-  -> IntSet
-  -> (IntSet, [(Int, ThompsonState token)], Int, Bool)
-compileThompson = go where
-  go rex nextId dests = case rex of
-    SeqEmpty -> (IntSet.empty, [], nextId, True)
-    NonTerminal _ ->
-      error "compileThompson: NonTerminal unsupported; route via diffB"
-    Sequence rex0 rex1 ->
-      let
-        (firsts1, states1, nextId1, bypass1) = go rex1 nextId dests
-        (firsts0, states0, nextId0, bypass0) =
-          go rex0 nextId1 (firsts1 <> bypassStates bypass1 dests)
-      in
-        ( firsts0 <> bypassStates bypass0 firsts1
-        , states0 <> states1
-        , nextId0
-        , bypass0 && bypass1
-        )
-    KleeneStar rex0 ->
-      let
-        (firsts, states, nextId', _) = go rex0 nextId (firsts <> dests)
-      in
-        (firsts, states, nextId', True)
-    KleeneOpt rex0 ->
-      let
-        (firsts, states, nextId', _) = go rex0 nextId dests
-      in
-        (firsts, states, nextId', True)
-    KleenePlus rex0 ->
-      let
-        (firsts, states, nextId', bypass) = go rex0 nextId (firsts <> dests)
-      in
-        (firsts, states, nextId', bypass)
-    RegExam (OneOf chars)
-      | Set.null chars -> (IntSet.empty, [], nextId, False)
-      | otherwise ->
-          ( IntSet.singleton nextId
-          , [(nextId, ThompsonState (TokenClass (OneOf chars)) dests)]
-          , nextId + 1
-          , False
-          )
-    RegExam (NotOneOf chars catTest) ->
-      ( IntSet.singleton nextId
-      , [(nextId, ThompsonState (TokenClass (NotOneOf chars catTest)) dests)]
-      , nextId + 1
-      , False
-      )
-    RegExam (Alternate rex0 rex1) ->
-      let
-        (firsts1, states1, nextId1, bypass1) = go rex1 nextId dests
-        (firsts0, states0, nextId0, bypass0) = go rex0 nextId1 dests
-      in
-        ( firsts0 <> firsts1
-        , states0 <> states1
-        , nextId0
-        , bypass0 || bypass1
-        )
-
-compileThompsonTop
-  :: RegEx token
-  -> (IntSet, IntMap (ThompsonState token))
-compileThompsonTop rex =
-  (firsts <> bypassStates bypass finalStates, IntMap.fromList states)
-  where
-    finalStates = IntSet.singleton thompsonFinalState
-    (firsts, states, _, bypass) = compileThompson rex 1 finalStates
-
-matchThompson :: Categorized token => [token] -> RegEx token -> Bool
-matchThompson word rex = IntSet.member thompsonFinalState finalStates
-  where
-    (startStates, states) = compileThompsonTop rex
-    finalStates = foldl' step startStates word
-    step activeStates input = IntSet.foldl' advance IntSet.empty activeStates
-      where
-        advance nextStates stateId
-          | stateId == thompsonFinalState = nextStates
-          | otherwise = case IntMap.lookup stateId states of
-              Just (ThompsonState exam dests)
-                | tokenClass exam input -> nextStates <> dests
-              _ -> nextStates
-
 -- | A state in the Earley-extended Thompson transducer for a `Bnf`.
--- @ESTerminal cls ds@ matches on a token class and transitions to @ds@.
--- @ESNonterm name ds@ is a call point for rule @name@; after @name@
--- completes, control flows to @ds@. @ESEmit name@ is the final state
+-- @EarleyTerminal cls ds@ matches on a token class and transitions to @ds@.
+-- @EarleyNonTerminal name ds@ is a call point for rule @name@; after @name@
+-- completes, control flows to @ds@. @EarleyEmit name@ is the final state
 -- for rule @name@ and triggers completion during Earley closure.
 data EarleyState token
-  = ESTerminal (TokenClass token) IntSet
-  | ESNonterm String IntSet
-  | ESEmit String
+  = EarleyTerminal (TokenClass token) IntSet
+  | EarleyNonTerminal String IntSet
+  | EarleyEmit String
 
 data EarleyTransducer token = EarleyTransducer
-  { etStates      :: IntMap (EarleyState token)
-  , etRuleEntries :: Map String (IntSet, Bool)
-  , etAcceptId    :: Int
-  , etStartStates :: IntSet
+  { earleyStates :: IntMap (EarleyState token)
+  , earleyRules :: Map String (IntSet, Bool)
+  , earleyAcceptId :: Int
+  , earleyStartStates :: IntSet
   }
 
-earleyAcceptId :: Int
-earleyAcceptId = 0
-
-nullableRules :: Map String [RegEx token] -> Map String Bool
-nullableRules ruleMap = iter (Map.map (const False) ruleMap)
-  where
-  iter nm =
-    let nm' = Map.mapWithKey
-          (\n _ -> any (rexNullable nm) (Map.findWithDefault [] n ruleMap)) nm
-    in if nm == nm' then nm else iter nm'
-  rexNullable nm = \case
-    SeqEmpty -> True
-    NonTerminal n -> Map.findWithDefault False n nm
-    Sequence x y -> rexNullable nm x && rexNullable nm y
-    KleeneStar _ -> True
-    KleeneOpt _ -> True
-    KleenePlus x -> rexNullable nm x
-    RegExam (Alternate x y) -> rexNullable nm x || rexNullable nm y
-    RegExam (OneOf _) -> False
-    RegExam (NotOneOf _ _) -> False
-
-compileEarley
-  :: forall token. Bnf (RegEx token) -> EarleyTransducer token
+compileEarley :: Bnf (RegEx token) -> EarleyTransducer token
 compileEarley (Bnf start rules) = EarleyTransducer
-  { etStates = IntMap.fromList allStates
-  , etRuleEntries = Map.fromList
+  { earleyStates = IntMap.fromList allStates
+  , earleyRules = Map.fromList
       [ ( n
         , ( Map.findWithDefault IntSet.empty n firstsMap
           , Map.findWithDefault False n nullMap
@@ -333,19 +205,43 @@ compileEarley (Bnf start rules) = EarleyTransducer
         )
       | n <- Map.keys ruleMap
       ]
-  , etAcceptId = earleyAcceptId
-  , etStartStates = startStates
+  , earleyAcceptId = earleyAcceptId0
+  , earleyStartStates = startStates
   }
+
   where
-    ruleMap :: Map String [RegEx token]
+
     ruleMap = foldr
       (\(n, r) -> Map.insertWith (++) n [r]) Map.empty (toList rules)
-    nullMap = nullableRules ruleMap
+
+    rexNullable nm = \case
+      SeqEmpty -> True
+      NonTerminal n -> Map.findWithDefault False n nm
+      Sequence x y -> rexNullable nm x && rexNullable nm y
+      KleeneStar _ -> True
+      KleeneOpt _ -> True
+      KleenePlus x -> rexNullable nm x
+      RegExam (Alternate x y) -> rexNullable nm x || rexNullable nm y
+      RegExam (OneOf _) -> False
+      RegExam (NotOneOf _ _) -> False
+
+    iterNull nm =
+      let nm' = Map.mapWithKey
+            (\n _ -> any (rexNullable nm) (Map.findWithDefault [] n ruleMap)) nm
+      in if nm == nm' then nm else iterNull nm'
+
+    nullMap = iterNull (Map.map (const False) ruleMap)
+
     ruleNames = Map.keys ruleMap
+
+    earleyAcceptId0 = 0
+
     (finalMap, nextIdAfterFinals) =
-      foldl' alloc (Map.empty, earleyAcceptId + 1) ruleNames
+      foldl' alloc (Map.empty, earleyAcceptId0 + 1) ruleNames
       where alloc (m, i) n = (Map.insert n i m, i + 1)
-    finalStatesList = [(finalMap Map.! n, ESEmit n) | n <- ruleNames]
+
+    finalStatesList = [(finalMap Map.! n, EarleyEmit n) | n <- ruleNames]
+
     (rulesStatesList, firstsMap, nextIdAfterRules) =
       foldl' compileRule ([], Map.empty, nextIdAfterFinals) (Map.toList ruleMap)
       where
@@ -355,159 +251,153 @@ compileEarley (Bnf start rules) = EarleyTransducer
                 foldl' compileProd ([], IntSet.empty, nid) prods
               compileProd (s, fs, i) prod =
                 let (f, st, i', _) =
-                      goEarley nullMap prod i (IntSet.singleton finalId)
+                      goEarley prod i (IntSet.singleton finalId)
                 in (s <> st, fs <> f, i')
           in (sts <> newSts, Map.insert name newFirsts fm, nid')
+
     (startFirsts, startStatesRaw, _, startBypass) =
-      goEarley nullMap start nextIdAfterRules (IntSet.singleton earleyAcceptId)
+      goEarley start nextIdAfterRules (IntSet.singleton earleyAcceptId0)
+
     startStates =
-      startFirsts <> bypassStates startBypass (IntSet.singleton earleyAcceptId)
+      startFirsts <> bypassStates startBypass (IntSet.singleton earleyAcceptId0)
+
     allStates = finalStatesList <> rulesStatesList <> startStatesRaw
 
-goEarley
-  :: Map String Bool
-  -> RegEx token
-  -> Int
-  -> IntSet
-  -> (IntSet, [(Int, EarleyState token)], Int, Bool)
-goEarley nullMap = go
-  where
-  go rex nextId dests = case rex of
-    SeqEmpty -> (IntSet.empty, [], nextId, True)
-    NonTerminal name ->
-      ( IntSet.singleton nextId
-      , [(nextId, ESNonterm name dests)]
-      , nextId + 1
-      , Map.findWithDefault False name nullMap
-      )
-    Sequence rex0 rex1 ->
-      let
-        (firsts1, states1, nextId1, bypass1) = go rex1 nextId dests
-        (firsts0, states0, nextId0, bypass0) =
-          go rex0 nextId1 (firsts1 <> bypassStates bypass1 dests)
-      in
-        ( firsts0 <> bypassStates bypass0 firsts1
-        , states0 <> states1
-        , nextId0
-        , bypass0 && bypass1
-        )
-    KleeneStar rex0 ->
-      let
-        (firsts, states, nextId', _) = go rex0 nextId (firsts <> dests)
-      in
-        (firsts, states, nextId', True)
-    KleeneOpt rex0 ->
-      let
-        (firsts, states, nextId', _) = go rex0 nextId dests
-      in
-        (firsts, states, nextId', True)
-    KleenePlus rex0 ->
-      let
-        (firsts, states, nextId', bypass) = go rex0 nextId (firsts <> dests)
-      in
-        (firsts, states, nextId', bypass)
-    RegExam (OneOf chars)
-      | Set.null chars -> (IntSet.empty, [], nextId, False)
-      | otherwise ->
+    bypassStates True = id
+    bypassStates False = const IntSet.empty
+
+    goEarley rex nextId dests = case rex of
+        SeqEmpty -> (IntSet.empty, [], nextId, True)
+        NonTerminal name ->
           ( IntSet.singleton nextId
-          , [(nextId, ESTerminal (TokenClass (OneOf chars)) dests)]
+          , [(nextId, EarleyNonTerminal name dests)]
+          , nextId + 1
+          , Map.findWithDefault False name nullMap
+          )
+        Sequence rex0 rex1 ->
+          let
+            (firsts1, states1, nextId1, bypass1) = goEarley rex1 nextId dests
+            (firsts0, states0, nextId0, bypass0) =
+              goEarley rex0 nextId1 (firsts1 <> bypassStates bypass1 dests)
+          in
+            ( firsts0 <> bypassStates bypass0 firsts1
+            , states0 <> states1
+            , nextId0
+            , bypass0 && bypass1
+            )
+        KleeneStar rex0 ->
+          let
+            (firsts, states, nextId', _) = goEarley rex0 nextId (firsts <> dests)
+          in
+            (firsts, states, nextId', True)
+        KleeneOpt rex0 ->
+          let
+            (firsts, states, nextId', _) = goEarley rex0 nextId dests
+          in
+            (firsts, states, nextId', True)
+        KleenePlus rex0 ->
+          let
+            (firsts, states, nextId', bypass) = goEarley rex0 nextId (firsts <> dests)
+          in
+            (firsts, states, nextId', bypass)
+        RegExam (OneOf chars)
+          | Set.null chars -> (IntSet.empty, [], nextId, False)
+          | otherwise ->
+              ( IntSet.singleton nextId
+              , [(nextId, EarleyTerminal (TokenClass (OneOf chars)) dests)]
+              , nextId + 1
+              , False
+              )
+        RegExam (NotOneOf chars catTest) ->
+          ( IntSet.singleton nextId
+          , [(nextId, EarleyTerminal (TokenClass (NotOneOf chars catTest)) dests)]
           , nextId + 1
           , False
           )
-    RegExam (NotOneOf chars catTest) ->
-      ( IntSet.singleton nextId
-      , [(nextId, ESTerminal (TokenClass (NotOneOf chars catTest)) dests)]
-      , nextId + 1
-      , False
-      )
-    RegExam (Alternate rex0 rex1) ->
-      let
-        (firsts1, states1, nextId1, bypass1) = go rex1 nextId dests
-        (firsts0, states0, nextId0, bypass0) = go rex0 nextId1 dests
-      in
-        ( firsts0 <> firsts1
-        , states0 <> states1
-        , nextId0
-        , bypass0 || bypass1
-        )
+        RegExam (Alternate rex0 rex1) ->
+          let
+            (firsts1, states1, nextId1, bypass1) = goEarley rex1 nextId dests
+            (firsts0, states0, nextId0, bypass0) = goEarley rex0 nextId1 dests
+          in
+            ( firsts0 <> firsts1
+            , states0 <> states1
+            , nextId0
+            , bypass0 || bypass1
+            )
 
-matchEarley
-  :: Categorized token => [token] -> EarleyTransducer token -> Bool
+matchEarley :: Categorized token => [token] -> EarleyTransducer token -> Bool
 matchEarley word et = IntSet.member 0 acceptOrigins
   where
+
     initialE0 = IntMap.fromList
-      [ (s, IntSet.singleton 0) | s <- IntSet.toList (etStartStates et) ]
+      [ (s, IntSet.singleton 0) | s <- IntSet.toList (earleyStartStates et) ]
+
     sets0 = IntMap.singleton 0 initialE0
-    sets0closed = closureAt et 0 sets0
+
+    sets0closed = closureAt 0 sets0
+
     (finalSets, n) = runInput 0 sets0closed word
+
     runInput j ss [] = (ss, j)
     runInput j ss (x : xs) =
-      let scanned = scanFrom et j x ss
+      let scanned = scanFrom j x ss
           ss' = IntMap.insert (j + 1) scanned ss
-          closed = closureAt et (j + 1) ss'
+          closed = closureAt (j + 1) ss'
       in runInput (j + 1) closed xs
+
     en = IntMap.findWithDefault IntMap.empty n finalSets
-    acceptOrigins = IntMap.findWithDefault IntSet.empty (etAcceptId et) en
 
-scanFrom
-  :: Categorized token
-  => EarleyTransducer token -> Int -> token
-  -> IntMap (IntMap IntSet) -> IntMap IntSet
-scanFrom et j input ss = IntMap.foldrWithKey advance IntMap.empty e_j
-  where
-    e_j = IntMap.findWithDefault IntMap.empty j ss
-    advance s origs acc = case IntMap.lookup s (etStates et) of
-      Just (ESTerminal cls ds) | tokenClass cls input ->
-        IntSet.foldr
-          (\d -> IntMap.insertWith IntSet.union d origs) acc ds
-      _ -> acc
+    acceptOrigins = IntMap.findWithDefault IntSet.empty (earleyAcceptId et) en
 
-closureAt
-  :: EarleyTransducer token -> Int
-  -> IntMap (IntMap IntSet) -> IntMap (IntMap IntSet)
-closureAt et j initialSets = loop initialWork initialSets
-  where
-    initialE = IntMap.findWithDefault IntMap.empty j initialSets
-    initialWork =
-      [ (s, i) | (s, os) <- IntMap.toList initialE, i <- IntSet.toList os ]
-    loop [] ss = ss
-    loop ((s, i) : rest) ss = case IntMap.lookup s (etStates et) of
-      Just (ESNonterm name ds) ->
-        let (firsts, isNull) = Map.findWithDefault
-              (IntSet.empty, False) name (etRuleEntries et)
-            predItems = [(f, j) | f <- IntSet.toList firsts]
-            nullItems =
-              if isNull then [(d, i) | d <- IntSet.toList ds] else []
-            (ss', new) = addEarleyItems j (predItems <> nullItems) ss
-        in loop (new <> rest) ss'
-      Just (ESEmit name) ->
-        let e_i = IntMap.findWithDefault IntMap.empty i ss
-            completions =
-              [ (d, i')
-              | (t, os) <- IntMap.toList e_i
-              , Just (ESNonterm n ds) <- [IntMap.lookup t (etStates et)]
-              , n == name
-              , i' <- IntSet.toList os
-              , d <- IntSet.toList ds
-              ]
-            (ss', new) = addEarleyItems j completions ss
-        in loop (new <> rest) ss'
-      _ -> loop rest ss
+    scanFrom j input ss = IntMap.foldrWithKey advance IntMap.empty e_j
+      where
+        e_j = IntMap.findWithDefault IntMap.empty j ss
+        advance s origs acc = case IntMap.lookup s (earleyStates et) of
+          Just (EarleyTerminal cls ds) | tokenClass cls input ->
+            IntSet.foldr
+              (\d -> IntMap.insertWith IntSet.union d origs) acc ds
+          _ -> acc
 
-addEarleyItems
-  :: Int -> [(Int, Int)] -> IntMap (IntMap IntSet)
-  -> (IntMap (IntMap IntSet), [(Int, Int)])
-addEarleyItems j items ss = foldl' ins (ss, []) items
-  where
-    ins (acc, new) (state, origin) =
-      let e_j = IntMap.findWithDefault IntMap.empty j acc
-          os = IntMap.findWithDefault IntSet.empty state e_j
-      in if IntSet.member origin os
-         then (acc, new)
-         else
-           let e_j' = IntMap.insert state (IntSet.insert origin os) e_j
-               acc' = IntMap.insert j e_j' acc
-           in (acc', (state, origin) : new)
+    closureAt j initialSets = loop initialWork initialSets
+      where
+        initialE = IntMap.findWithDefault IntMap.empty j initialSets
+        initialWork =
+          [ (s, i) | (s, os) <- IntMap.toList initialE, i <- IntSet.toList os ]
+        loop [] ss = ss
+        loop ((s, i) : rest) ss = case IntMap.lookup s (earleyStates et) of
+          Just (EarleyNonTerminal name ds) ->
+            let (firsts, isNull) = Map.findWithDefault
+                  (IntSet.empty, False) name (earleyRules et)
+                predItems = [(f, j) | f <- IntSet.toList firsts]
+                nullItems =
+                  if isNull then [(d, i) | d <- IntSet.toList ds] else []
+                (ss', new) = addEarleyItems j (predItems <> nullItems) ss
+            in loop (new <> rest) ss'
+          Just (EarleyEmit name) ->
+            let e_i = IntMap.findWithDefault IntMap.empty i ss
+                completions =
+                  [ (d, i')
+                  | (t, os) <- IntMap.toList e_i
+                  , Just (EarleyNonTerminal n' ds) <- [IntMap.lookup t (earleyStates et)]
+                  , n' == name
+                  , i' <- IntSet.toList os
+                  , d <- IntSet.toList ds
+                  ]
+                (ss', new) = addEarleyItems j completions ss
+            in loop (new <> rest) ss'
+          _ -> loop rest ss
+
+    addEarleyItems j items ss = foldl' ins (ss, []) items
+      where
+        ins (acc, new) (state, origin) =
+          let e_j = IntMap.findWithDefault IntMap.empty j acc
+              os = IntMap.findWithDefault IntSet.empty state e_j
+          in if IntSet.member origin os
+            then (acc, new)
+            else
+              let e_j' = IntMap.insert state (IntSet.insert origin os) e_j
+                  acc' = IntMap.insert j e_j' acc
+              in (acc', (state, origin) : new)
 
 -- instances
 instance (Ord rule, NonTerminalSymbol rule)
@@ -553,8 +443,6 @@ instance Categorized token
     word =~ bnf = matchEarley word (compileEarley bnf)
 instance Categorized token
   => Matching [token] (RegEx token) where
-    word =~ pattern
-      | containsNonTerminal pattern = word =~ liftBnf0 pattern
-      | otherwise = matchThompson word pattern
+    word =~ pattern = word =~ liftBnf0 pattern
 instance Matching s (APrism s t a b) where
   word =~ pattern = is pattern word
