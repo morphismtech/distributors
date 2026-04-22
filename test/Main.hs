@@ -31,16 +31,17 @@ main = do
       describe "doctest" $
         it "should run haddock examples" doctests
     describe "regexGrammar" $ for_ regexExamples $ testGrammar False regexGrammar
-    describe "semverGrammar" $ for_ semverExamples $ testCtxGrammar True semverGrammar
+    describe "semverGrammar" $ for_ semverExamples $ testGrammar True semverGrammar
     describe "semverCtxGrammar" $ for_ semverExamples $ testCtxGrammar True semverCtxGrammar
     describe "arithGrammar" $ for_ arithExamples $ testGrammar True arithGrammar
     describe "jsonGrammar" $ for_ jsonExamples $ testCtxGrammar False jsonGrammar
-    describe "sexprGrammar" $ for_ sexprExamples $ testCtxGrammar True sexprGrammar
-    describe "lambdaGrammar" $ for_ lambdaExamples $ testCtxGrammar True lambdaGrammar
+    describe "sexprGrammar" $ for_ sexprExamples $ testGrammar True sexprGrammar
+    describe "lambdaGrammar" $ for_ lambdaExamples $ testGrammar True lambdaGrammar
     describe "lenvecGrammar" $ for_ lenvecExamples $ testCtxGrammar True lenvecGrammar
-    describe "chainGrammar" $ for_ chainExamples $ testCtxGrammar True chainGrammar
+    describe "chainGrammar" $ for_ chainExamples $ testGrammar True chainGrammar
     describe "Parsector try rollback" tryRollbackTests
     describe "Thompson matcher" thompsonMatcherTests
+    describe "Earley matcher" earleyMatcherTests
     describe "Kleene" kleeneProperties
     describe "meander" meanderProperties
 
@@ -170,9 +171,100 @@ thompsonMatcherTests = do
     for_ cases $ \(word, expected) ->
       it (label <> " matches " <> show word) $ do
         let thompsonMatch = word =~ rex
-        let derivativeMatch = word =~ liftBnf0 rex
+        let earleyMatch = word =~ liftBnf0 rex
         thompsonMatch `shouldBe` expected
-        thompsonMatch `shouldBe` derivativeMatch
+        thompsonMatch `shouldBe` earleyMatch
+
+earleyMatcherTests :: Spec
+earleyMatcherTests = do
+  let
+    parens :: Bnf (RegEx Char)
+    parens = ruleRec "S" $ \s ->
+      mempty >|< terminal "(" <> s <> terminal ")"
+    -- S = A B; A = "a"; B = "b"
+    ab :: Bnf (RegEx Char)
+    ab = rule "A" (terminal "a")
+      <> rule "B" (terminal "b")
+    -- Left-recursive: A = A 'x' | 'x'
+    leftRec :: Bnf (RegEx Char)
+    leftRec = ruleRec "A" $ \a ->
+      a <> terminal "x" >|< terminal "x"
+    -- Mutual recursion with nullable bridges.
+    -- S = A B; A = 'a'?; B = 'b'
+    mutualNull :: Bnf (RegEx Char)
+    mutualNull = rule "A" (optK (terminal "a"))
+      <> rule "B" (terminal "b")
+    -- Ambiguous palindromes over 'a','b':
+    -- P = 'a' P 'a' | 'b' P 'b' | 'a' | 'b' | ε
+    palindrome :: Bnf (RegEx Char)
+    palindrome = ruleRec "P" $ \p ->
+      terminal "a" <> p <> terminal "a"
+      >|< terminal "b" <> p <> terminal "b"
+      >|< terminal "a"
+      >|< terminal "b"
+      >|< mempty
+    checks :: [(String, Bnf (RegEx Char), [(String, Bool)])]
+    checks =
+      [ ( "balanced parens S = (S) | ε"
+        , parens
+        , [ ("", True)
+          , ("()", True)
+          , ("(())", True)
+          , ("((()))", True)
+          , ("(", False)
+          , (")", False)
+          , ("(()", False)
+          , ("())", False)
+          ]
+        )
+      , ( "two-rule concat A B"
+        , ab
+        , [ ("ab", True)
+          , ("", False)
+          , ("a", False)
+          , ("b", False)
+          , ("ba", False)
+          , ("abc", False)
+          ]
+        )
+      , ( "left recursion A = A x | x"
+        , leftRec
+        , [ ("x", True)
+          , ("xx", True)
+          , ("xxxx", True)
+          , ("", False)
+          , ("y", False)
+          , ("xy", False)
+          ]
+        )
+      , ( "nullable nonterminal A?B"
+        , mutualNull
+        , [ ("b", True)
+          , ("ab", True)
+          , ("", False)
+          , ("a", False)
+          , ("bb", False)
+          ]
+        )
+      , ( "ambiguous palindromes"
+        , palindrome
+        , [ ("", True)
+          , ("a", True)
+          , ("b", True)
+          , ("aa", True)
+          , ("aba", True)
+          , ("abba", True)
+          , ("abaaba", True)
+          , ("ab", False)
+          , ("abab", False)
+          , ("abca", False)
+          ]
+        )
+      ]
+  for_ checks $ \(label, bnf, cases) ->
+    for_ cases $ \(word, expected) ->
+      it (label <> " matches " <> show word) $
+        (word =~ bnf) `shouldBe` expected
 
 doctests :: IO ()
 doctests = do

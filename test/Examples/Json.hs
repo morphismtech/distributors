@@ -5,7 +5,7 @@ module Examples.Json
   ) where
 
 import Control.Applicative
-import Control.Lens
+import Control.Lens hiding (element)
 import Control.Lens.Grammar
 import qualified Data.Map.Strict as Map
 import Data.Map.Strict (Map)
@@ -24,50 +24,54 @@ data Json
 -- Generate prisms
 makePrisms ''Json
 
--- | JSON grammar following the McKeeman Form specification from json.org
+-- | JSON grammar following the McKeeman Form specification from json.org.
+-- The inner rules are mutually recursive: element ↔ value ↔ array ↔
+-- elements ↔ element, and element ↔ value ↔ object ↔ members ↔ member
+-- ↔ element. Only a rule bound via `ruleRec` produces a stub that
+-- breaks the cycle; a plain `rule` invocation forces its body, so
+-- every cyclic back-edge must instead use the `element` stub produced
+-- by the inner `ruleRec "element"` below.
 jsonGrammar :: Grammar Char Json
-jsonGrammar = ruleRec "json" elementG
+jsonGrammar = ruleRec "json" $ \_json ->
+  ruleRec "element" $ \element ->
+    ws >* valueG element *< ws
   where
-    -- element = ws value ws
-    elementG json = rule "element" $
-      ws >* valueG json *< ws
-
     -- value = object | array | string | number | "true" | "false" | "null"
-    valueG json = rule "value" $ choice
+    valueG element = rule "value" $ choice
       [ _JNull >? terminal "null"
       , _JBool . only True >? terminal "true"
       , _JBool . only False >? terminal "false"
       , _JNumber >? numberG
       , _JString >? stringG
-      , _JArray >? arrayG json
-      , _JObject >? objectG json
+      , _JArray >? arrayG element
+      , _JObject >? objectG element
       ]
 
     -- object = '{' ws '}' | '{' members '}'
-    objectG json = rule "object" $ choice
+    objectG element = rule "object" $ choice
       [ only Map.empty >?
           terminal "{" >* ws >* terminal "}"
       , iso Map.toList Map.fromList >~
-          terminal "{" >* membersG json *< terminal "}"
+          terminal "{" >* membersG element *< terminal "}"
       ]
 
     -- members = member | member ',' members
-    membersG json = rule "members" $
-      several1 (sepWith ",") (memberG json)
+    membersG element = rule "members" $
+      several1 (sepWith ",") (memberG element)
 
     -- member = ws string ws ':' element
-    memberG json = rule "member" $
-      ws >* stringG *< ws *< terminal ":" >*< elementG json
+    memberG element = rule "member" $
+      ws >* stringG *< ws *< terminal ":" >*< element
 
     -- array = '[' ws ']' | '[' elements ']'
-    arrayG json = rule "array" $ choice
+    arrayG element = rule "array" $ choice
       [ only [] >? terminal "[" >* ws >* terminal "]"
-      , terminal "[" >* elementsG json *< terminal "]"
+      , terminal "[" >* elementsG element *< terminal "]"
       ]
 
     -- elements = element | element ',' elements
-    elementsG json = rule "elements" $
-      several1 (sepWith ",") (elementG json)
+    elementsG element = rule "elements" $
+      several1 (sepWith ",") element
 
     -- string = '"' characters '"'
     stringG = rule "string" $
