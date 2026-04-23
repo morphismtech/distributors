@@ -13,9 +13,12 @@ http://trevorjim.com/papers/ldta-2009.pdf
 
 module Control.Lens.Grammar.Matching
   ( Matching (..)
+  , Transducer (..)
+  , TransducerState (..)
+  , compileTransducer
   , languageGen
-  , expected
-  , unreachableRules
+  , expectedGen
+  , unreachableGen
   ) where
 
 import Control.Lens
@@ -39,26 +42,26 @@ class Matching word pattern | pattern -> word where
   infix 2 =~
 
 -- | A state in the Earley-extended Thompson transducer for a `Bnf`.
--- @EarleyTerminal cls ds@ matches on a token class and transitions to @ds@.
--- @EarleyNonTerminal name ds@ is a call point for rule @name@; after @name@
--- completes, control flows to @ds@. @EarleyEmit name@ is the final state
+-- @TransducerTokenClass cls ds@ matches on a token class and transitions to @ds@.
+-- @TransducerNonTerminal name ds@ is a call point for rule @name@; after @name@
+-- completes, control flows to @ds@. @TransducerEmit name@ is the final state
 -- for rule @name@ and triggers completion during Earley closure.
-data EarleyState token
-  = EarleyTerminal (TokenClass token) IntSet
-  | EarleyNonTerminal String IntSet
-  | EarleyEmit String
+data TransducerState token
+  = TransducerTokenClass (TokenClass token) IntSet
+  | TransducerNonTerminal String IntSet
+  | TransducerEmit String
 
-data EarleyTransducer token = EarleyTransducer
-  { earleyStates :: IntMap (EarleyState token)
-  , earleyRules :: Map String (IntSet, Bool)
-  , earleyAcceptId :: Int
-  , earleyStartStates :: IntSet
+data Transducer token = Transducer
+  { transducerStates :: IntMap (TransducerState token)
+  , transducerRules :: Map String (IntSet, Bool)
+  , transducerAcceptId :: Int
+  , transducerStartStates :: IntSet
   }
 
-compileEarley :: Bnf (RegEx token) -> EarleyTransducer token
-compileEarley (Bnf start rules) = EarleyTransducer
-  { earleyStates = IntMap.fromList allStates
-  , earleyRules = Map.fromList
+compileTransducer :: Bnf (RegEx token) -> Transducer token
+compileTransducer (Bnf start rules) = Transducer
+  { transducerStates = IntMap.fromList allStates
+  , transducerRules = Map.fromList
       [ ( n
         , ( Map.findWithDefault IntSet.empty n firstsMap
           , Map.findWithDefault False n nullMap
@@ -66,8 +69,8 @@ compileEarley (Bnf start rules) = EarleyTransducer
         )
       | n <- Map.keys ruleMap
       ]
-  , earleyAcceptId = earleyAcceptId0
-  , earleyStartStates = startStates
+  , transducerAcceptId = transducerAcceptId0
+  , transducerStartStates = startStates
   }
 
   where
@@ -95,13 +98,13 @@ compileEarley (Bnf start rules) = EarleyTransducer
 
     ruleNames = Map.keys ruleMap
 
-    earleyAcceptId0 = 0
+    transducerAcceptId0 = 0
 
     (finalMap, nextIdAfterFinals) =
-      foldl' alloc (Map.empty, earleyAcceptId0 + 1) ruleNames
+      foldl' alloc (Map.empty, transducerAcceptId0 + 1) ruleNames
       where alloc (m, i) n = (Map.insert n i m, i + 1)
 
-    finalStatesList = [(finalMap Map.! n, EarleyEmit n) | n <- ruleNames]
+    finalStatesList = [(finalMap Map.! n, TransducerEmit n) | n <- ruleNames]
 
     (rulesStatesList, firstsMap, nextIdAfterRules) =
       foldl' compileRule ([], Map.empty, nextIdAfterFinals) (Map.toList ruleMap)
@@ -117,10 +120,10 @@ compileEarley (Bnf start rules) = EarleyTransducer
           in (sts <> newSts, Map.insert name newFirsts fm, nid')
 
     (startFirsts, startStatesRaw, _, startBypass) =
-      goEarley start nextIdAfterRules (IntSet.singleton earleyAcceptId0)
+      goEarley start nextIdAfterRules (IntSet.singleton transducerAcceptId0)
 
     startStates =
-      startFirsts <> bypassStates startBypass (IntSet.singleton earleyAcceptId0)
+      startFirsts <> bypassStates startBypass (IntSet.singleton transducerAcceptId0)
 
     allStates = finalStatesList <> rulesStatesList <> startStatesRaw
 
@@ -131,7 +134,7 @@ compileEarley (Bnf start rules) = EarleyTransducer
         SeqEmpty -> (IntSet.empty, [], nextId, True)
         NonTerminal name ->
           ( IntSet.singleton nextId
-          , [(nextId, EarleyNonTerminal name dests)]
+          , [(nextId, TransducerNonTerminal name dests)]
           , nextId + 1
           , Map.findWithDefault False name nullMap
           )
@@ -165,13 +168,13 @@ compileEarley (Bnf start rules) = EarleyTransducer
           | Set.null chars -> (IntSet.empty, [], nextId, False)
           | otherwise ->
               ( IntSet.singleton nextId
-              , [(nextId, EarleyTerminal (TokenClass (OneOf chars)) dests)]
+              , [(nextId, TransducerTokenClass (TokenClass (OneOf chars)) dests)]
               , nextId + 1
               , False
               )
         RegExam (NotOneOf chars catTest) ->
           ( IntSet.singleton nextId
-          , [(nextId, EarleyTerminal (TokenClass (NotOneOf chars catTest)) dests)]
+          , [(nextId, TransducerTokenClass (TokenClass (NotOneOf chars catTest)) dests)]
           , nextId + 1
           , False
           )
@@ -186,16 +189,12 @@ compileEarley (Bnf start rules) = EarleyTransducer
             , bypass0 || bypass1
             )
 
-matchEarley :: Categorized token => [token] -> EarleyTransducer token -> Bool
-matchEarley word et = acceptsChart n chart et
-  where (n, chart) = runEarleyPrefix word et
-
-runEarleyPrefix
+prefixGen
   :: Categorized token
   => [token]
-  -> EarleyTransducer token
+  -> Transducer token
   -> (Int, IntMap (IntMap IntSet))
-runEarleyPrefix word et = go 0 (initialChart et) word
+prefixGen word et = go 0 (initialChart et) word
   where
     go j ss [] = (j, ss)
     go j ss (x : xs) =
@@ -206,8 +205,8 @@ runEarleyPrefix word et = go 0 (initialChart et) word
     scanFrom j input ss = IntMap.foldrWithKey advance IntMap.empty e_j
       where
         e_j = IntMap.findWithDefault IntMap.empty j ss
-        advance s origs acc = case IntMap.lookup s (earleyStates et) of
-          Just (EarleyTerminal cls ds) | tokenClass cls input ->
+        advance s origs acc = case IntMap.lookup s (transducerStates et) of
+          Just (TransducerTokenClass cls ds) | tokenClass cls input ->
             IntSet.foldr
               (\d -> IntMap.insertWith IntSet.union d origs) acc ds
           _ -> acc
@@ -218,25 +217,23 @@ according to the grammar. An empty result means the prefix is a dead end —
 no extension can ever be accepted. Useful for autocomplete and for
 \"expected one of …\" parse errors.
 -}
-expected
+expectedGen
   :: Categorized token
-  => [token] -> Bnf (RegEx token) -> [TokenClass token]
-expected word bnf = map fst (scanClassOptions n chart et)
+  => [token] -> Transducer token -> [TokenClass token]
+expectedGen word et = map fst (scanClassOptions n chart et)
   where
-    et = compileEarley bnf
-    (n, chart) = runEarleyPrefix word et
+    (n, chart) = prefixGen word et
 
 {- |
 Rule names declared in the `Bnf` that can never be entered from the start
 expression — dead productions. A non-empty result is a grammar-hygiene
 warning: those rules can be deleted without changing the recognized language.
 -}
-unreachableRules :: Bnf (RegEx token) -> Set String
-unreachableRules bnf =
-  Map.keysSet (earleyRules et) `Set.difference` called
+unreachableGen :: Transducer token -> Set String
+unreachableGen et =
+  Map.keysSet (transducerRules et) `Set.difference` called
   where
-    et = compileEarley bnf
-    called = bfs (earleyStartStates et) IntSet.empty Set.empty
+    called = bfs (transducerStartStates et) IntSet.empty Set.empty
 
     bfs frontier seen calls
       | IntSet.null fresh = calls
@@ -245,17 +242,20 @@ unreachableRules bnf =
         fresh = IntSet.difference frontier seen
         (next, calls') = IntSet.foldr step (IntSet.empty, calls) fresh
 
-    step s (acc, cs) = case IntMap.lookup s (earleyStates et) of
-      Just (EarleyTerminal _ ds) -> (acc <> ds, cs)
-      Just (EarleyNonTerminal name ds) ->
-        let firsts = maybe IntSet.empty fst (Map.lookup name (earleyRules et))
+    step s (acc, cs) = case IntMap.lookup s (transducerStates et) of
+      Just (TransducerTokenClass _ ds) -> (acc <> ds, cs)
+      Just (TransducerNonTerminal name ds) ->
+        let firsts = maybe IntSet.empty fst (Map.lookup name (transducerRules et))
         in (acc <> ds <> firsts, Set.insert name cs)
-      Just (EarleyEmit _) -> (acc, cs)
+      Just (TransducerEmit _) -> (acc, cs)
       Nothing -> (acc, cs)
 -- instances
 instance Categorized token
   => Matching [token] (Bnf (RegEx token)) where
-    word =~ bnf = matchEarley word (compileEarley bnf)
+    word =~ bnf = acceptsChart n chart et
+      where
+        et = compileTransducer bnf
+        (n, chart) = prefixGen word et
 instance Categorized token
   => Matching [token] (RegEx token) where
     word =~ pattern = word =~ liftBnf0 pattern
@@ -270,11 +270,10 @@ random but always valid for the selected terminal class.
 -}
 languageGen
   :: (Applicative f, TokenAlgebra token (f token))
-  => Bnf (RegEx token)
+  => Transducer token
   -> f [[token]]
-languageGen bnf = sequenceA (fmap sampleWord classWords)
+languageGen et = sequenceA (fmap sampleWord classWords)
   where
-    et = compileEarley bnf
 
     classWords = enumerateByLength [(0, [], initialChart et)] Set.empty
 
@@ -304,28 +303,28 @@ languageGen bnf = sequenceA (fmap sampleWord classWords)
       ]
 
 initialChart
-  :: EarleyTransducer token
+  :: Transducer token
   -> IntMap (IntMap IntSet)
 initialChart et = closeChartAt 0 (IntMap.singleton 0 initialE0) et
   where
     initialE0 = IntMap.fromList
-      [ (s, IntSet.singleton 0) | s <- IntSet.toList (earleyStartStates et) ]
+      [ (s, IntSet.singleton 0) | s <- IntSet.toList (transducerStartStates et) ]
 
 acceptsChart
   :: Int
   -> IntMap (IntMap IntSet)
-  -> EarleyTransducer token
+  -> Transducer token
   -> Bool
 acceptsChart j chart et = IntSet.member 0 acceptOrigins
   where
     e_j = IntMap.findWithDefault IntMap.empty j chart
-    acceptOrigins = IntMap.findWithDefault IntSet.empty (earleyAcceptId et) e_j
+    acceptOrigins = IntMap.findWithDefault IntSet.empty (transducerAcceptId et) e_j
 
 scanClassOptions
   :: Categorized token
   => Int
   -> IntMap (IntMap IntSet)
-  -> EarleyTransducer token
+  -> Transducer token
   -> [(TokenClass token, IntMap (IntMap IntSet))]
 scanClassOptions j chart et =
   [ (cls, closeChartAt (j + 1) (IntMap.insert (j + 1) scanned chart) et)
@@ -335,20 +334,18 @@ scanClassOptions j chart et =
     grouped = IntMap.foldrWithKey advance Map.empty e_j
     e_j = IntMap.findWithDefault IntMap.empty j chart
 
-    advance s origs acc = case IntMap.lookup s (earleyStates et) of
-      Just (EarleyTerminal cls ds) ->
-        Map.insertWith mergeEarleySet cls scanned acc
+    advance s origs acc = case IntMap.lookup s (transducerStates et) of
+      Just (TransducerTokenClass cls ds) ->
+        Map.insertWith (IntMap.unionWith IntSet.union) cls scanned acc
         where
           scanned = IntSet.foldr
             (\d -> IntMap.insertWith IntSet.union d origs) IntMap.empty ds
       _ -> acc
 
-    mergeEarleySet = IntMap.unionWith IntSet.union
-
 closeChartAt
   :: Int
   -> IntMap (IntMap IntSet)
-  -> EarleyTransducer token
+  -> Transducer token
   -> IntMap (IntMap IntSet)
 closeChartAt j initialChart0 et = loop initialWork initialChart0
   where
@@ -357,23 +354,23 @@ closeChartAt j initialChart0 et = loop initialWork initialChart0
       [ (s, i) | (s, os) <- IntMap.toList initialE, i <- IntSet.toList os ]
 
     loop [] chart = chart
-    loop ((s, i) : rest) chart = case IntMap.lookup s (earleyStates et) of
-      Just (EarleyNonTerminal name ds) ->
+    loop ((s, i) : rest) chart = case IntMap.lookup s (transducerStates et) of
+      Just (TransducerNonTerminal name ds) ->
         let
           (firsts, isNull) = Map.findWithDefault
-            (IntSet.empty, False) name (earleyRules et)
+            (IntSet.empty, False) name (transducerRules et)
           predItems = [(f, j) | f <- IntSet.toList firsts]
           nullItems =
             if isNull then [(d, i) | d <- IntSet.toList ds] else []
           (chart', new) = addEarleyItems (predItems <> nullItems) chart
         in loop (new <> rest) chart'
-      Just (EarleyEmit name) ->
+      Just (TransducerEmit name) ->
         let
           e_i = IntMap.findWithDefault IntMap.empty i chart
           completions =
             [ (d, i')
             | (t, os) <- IntMap.toList e_i
-            , Just (EarleyNonTerminal n' ds) <- [IntMap.lookup t (earleyStates et)]
+            , Just (TransducerNonTerminal n' ds) <- [IntMap.lookup t (transducerStates et)]
             , n' == name
             , i' <- IntSet.toList os
             , d <- IntSet.toList ds
