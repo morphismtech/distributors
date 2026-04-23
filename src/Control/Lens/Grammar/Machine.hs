@@ -34,17 +34,13 @@ References:
 -}
 
 module Control.Lens.Grammar.Machine
-  (
-    -- * Matching Interface
+  ( -- * Matching Interface
     Matching (..)
-
     -- * Machine Representation
   , Transducer (..)
   , TransducerState (..)
-
     -- * Compilation
   , compileTransducer
-
     -- * Machine Execution Utilities
   , languageGen
   , expectedGen
