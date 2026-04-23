@@ -295,7 +295,7 @@ Returns terminal classes that can be scanned next after the given input prefix.
 An empty result means the current chart has no scanner transitions, i.e. the
 prefix is a dead end for recognition.
 
-This is the machine-level version of "what terminals are expected next?".
+This is the machine-level version of "what tokens are expected next?".
 -}
 expectedGen
   :: Categorized token
