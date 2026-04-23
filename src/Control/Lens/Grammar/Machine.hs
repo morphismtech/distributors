@@ -1,21 +1,51 @@
 {- |
-Module      : Control.Lens.Grammar.Matching
-Description : pattern matching & language generation
+Module      : Control.Lens.Grammar.Machine
+Description : finite-machine compilation and Earley-style matching
 Copyright   : (C) 2026 - Eitan Chatav
 License     : BSD-style (see the file LICENSE)
 Maintainer  : Eitan Chatav <eitan.chatav@gmail.com>
 Stability   : provisional
 Portability : non-portable
 
-https://www.cs.dartmouth.edu/~doug/nfa.pdf
-http://trevorjim.com/papers/ldta-2009.pdf
+This module presents a machine-oriented view of grammars:
+
+1. Compile a grammar with regular right-hand sides into a finite control machine
+   (`Transducer`) using a Thompson-style construction over regular expressions.
+2. Run Earley-style chart recognition over that machine.
+3. Derive practical products from the same engine: boolean matching,
+   "expected token class" reporting, language generation, and dead-rule analysis.
+
+The implementation follows mainstream Earley terminology (predict/scan/complete)
+while adopting the transducer perspective used by Jim and Mandelbaum:
+
+* Earley item `(q,i)` is represented as "machine state id @q@ with origin @i@"
+  stored in chart set @E_j@.
+* `closeChartAt` performs predict and complete to a fixed point at position @j@.
+* `scanFrom`/`scanClassOptions` perform scanner steps to build @E_{j+1}@.
+* `TransducerEmit` provides the "completed nonterminal" signal used by complete.
+
+References:
+
+* Trevor Jim and Yitzhak Mandelbaum, /Efficient Earley Parsing with Regular
+  Right-hand Sides/ (LDTA 2009).
+* Thompson-style NFA compilation accounts from compiler literature.
+* Standard Earley algorithm presentations (state sets, origin indices,
+  predictor/scanner/completer).
 -}
 
-module Control.Lens.Grammar.Matching
-  ( Matching (..)
+module Control.Lens.Grammar.Machine
+  (
+    -- * Matching Interface
+    Matching (..)
+
+    -- * Machine Representation
   , Transducer (..)
   , TransducerState (..)
+
+    -- * Compilation
   , compileTransducer
+
+    -- * Machine Execution Utilities
   , languageGen
   , expectedGen
   , unreachableGen
@@ -37,27 +67,73 @@ import qualified Data.Set as Set
 import Data.Set (Set)
 
 -- | Does a word match a pattern?
+--
+-- For grammar and regular-expression patterns in this package, matching is
+-- performed by chart recognition over a compiled machine (`Transducer`).
 class Matching word pattern | pattern -> word where
   (=~) :: word -> pattern -> Bool
   infix 2 =~
 
--- | A state in the Earley-extended Thompson transducer for a `Bnf`.
--- @TransducerTokenClass cls ds@ matches on a token class and transitions to @ds@.
--- @TransducerNonTerminal name ds@ is a call point for rule @name@; after @name@
--- completes, control flows to @ds@. @TransducerEmit name@ is the final state
--- for rule @name@ and triggers completion during Earley closure.
+-- | A control state in the compiled parsing machine.
+--
+-- Read these constructors as machine instructions:
+--
+-- * `TransducerTokenClass` is a scanner transition over a terminal class.
+-- * `TransducerNonTerminal` is a call site for a nonterminal.
+-- * `TransducerEmit` is a completed nonterminal output used by completion.
+--
+-- This corresponds to the "finite control + call/return" view of parsing
+-- transducers in LDTA 2009.
 data TransducerState token
   = TransducerTokenClass (TokenClass token) IntSet
   | TransducerNonTerminal String IntSet
   | TransducerEmit String
 
+-- | Finite control machine used by the Earley-style recognizer.
+--
+-- Formal machine view (adapted for this parser):
+--
+-- @
+-- T = (Q, Σ, Γ, I, F, δ)
+-- @
+--
+-- where:
+--
+-- * @Q@ (control states) = keys of `transducerStates`.
+-- * @Σ@ (terminal alphabet) is represented intensionally by
+--   `TokenClass token` labels in `TransducerTokenClass` transitions.
+-- * @Γ@ (call alphabet / nonterminal symbols) = keys of `transducerRules`
+--   and names carried by `TransducerNonTerminal` / `TransducerEmit`.
+-- * @I@ (initial states) = `transducerStartStates`.
+-- * @F@ (accepting states) = singleton `{transducerAcceptId}` for recognition.
+-- * @δ@ (transition relation) is encoded by `transducerStates` constructors:
+--
+--   * `TransducerTokenClass cls ds` contributes terminal transitions on any
+--     token matching @cls@ from the current state to each state in @ds@.
+--   * `TransducerNonTerminal name ds` contributes call transitions on symbol
+--     @name@ with return destinations @ds@ (used by Earley predict/complete).
+--   * `TransducerEmit name` is a completion/output state for nonterminal @name@,
+--     consumed by Earley completion rather than terminal scanning.
+--
+-- `transducerRules` is auxiliary indexing for Earley closure (entry-state set and
+-- nullability per nonterminal), not an additional machine component.
 data Transducer token = Transducer
-  { transducerStates :: IntMap (TransducerState token)
-  , transducerRules :: Map String (IntSet, Bool)
-  , transducerAcceptId :: Int
-  , transducerStartStates :: IntSet
+  { transducerStates :: IntMap (TransducerState token) -- ^ @Q@
+  , transducerRules :: Map String (IntSet, Bool) -- ^ @Γ@
+  , transducerAcceptId :: Int -- ^ @F@
+  , transducerStartStates :: IntSet -- ^ @I@
   }
 
+-- | Compile a regular-right-side grammar into a parsing transducer.
+--
+-- Construction outline:
+--
+-- * Regular-expression fragments are lowered in Thompson style by `goEarley`.
+-- * Each nonterminal gets a distinguished emit/final state.
+-- * Concatenation/alternation/Kleene operators wire state sets and bypassability
+--   (nullability) as in regular-expression automata construction.
+-- * A fixed-point nullability analysis over the grammar enables null completion
+--   during Earley closure.
 compileTransducer :: Bnf (RegEx token) -> Transducer token
 compileTransducer (Bnf start rules) = Transducer
   { transducerStates = IntMap.fromList allStates
@@ -191,20 +267,20 @@ compileTransducer (Bnf start rules) = Transducer
 
 prefixGen
   :: Categorized token
-  => [token]
-  -> Transducer token
+  => Transducer token
+  -> [token]
   -> (Int, IntMap (IntMap IntSet))
-prefixGen word et = go 0 (initialChart et) word
+prefixGen et word = go 0 (initialChart et) word
   where
-    go j ss [] = (j, ss)
-    go j ss (x : xs) =
-      let scanned = scanFrom j x ss
-          closed = closeChartAt (j + 1) (IntMap.insert (j + 1) scanned ss) et
+    go j chart [] = (j, chart)
+    go j chart (x : xs) =
+      let scanned = scanFrom j x chart
+          closed = closeChartAt et (j + 1) (IntMap.insert (j + 1) scanned chart)
       in go (j + 1) closed xs
 
-    scanFrom j input ss = IntMap.foldrWithKey advance IntMap.empty e_j
+    scanFrom j input chart = IntMap.foldrWithKey advance IntMap.empty eJ
       where
-        e_j = IntMap.findWithDefault IntMap.empty j ss
+        eJ = IntMap.findWithDefault IntMap.empty j chart
         advance s origs acc = case IntMap.lookup s (transducerStates et) of
           Just (TransducerTokenClass cls ds) | tokenClass cls input ->
             IntSet.foldr
@@ -212,22 +288,27 @@ prefixGen word et = go 0 (initialChart et) word
           _ -> acc
 
 {- |
-Token classes that could legally appear next after the given input prefix,
-according to the grammar. An empty result means the prefix is a dead end —
-no extension can ever be accepted. Useful for autocomplete and for
-\"expected one of …\" parse errors.
+Earley scanner frontier summarized as token classes.
+
+Returns terminal classes that can be scanned next after the given input prefix.
+An empty result means the current chart has no scanner transitions, i.e. the
+prefix is a dead end for recognition.
+
+This is the machine-level version of "what terminals are expected next?".
 -}
 expectedGen
   :: Categorized token
-  => [token] -> Transducer token -> [TokenClass token]
-expectedGen word et = map fst (scanClassOptions n chart et)
+  => Transducer token -> [token] -> [TokenClass token]
+expectedGen et word = map fst (scanClassOptions et n chart)
   where
-    (n, chart) = prefixGen word et
+    (n, chart) = prefixGen et word
 
 {- |
 Rule names declared in the `Bnf` that can never be entered from the start
 expression — dead productions. A non-empty result is a grammar-hygiene
 warning: those rules can be deleted without changing the recognized language.
+
+Operationally, this is reachability over control states plus nonterminal calls.
 -}
 unreachableGen :: Transducer token -> Set String
 unreachableGen et =
@@ -252,10 +333,10 @@ unreachableGen et =
 -- instances
 instance Categorized token
   => Matching [token] (Bnf (RegEx token)) where
-    word =~ bnf = acceptsChart n chart et
+    word =~ bnf = acceptsChart et n chart
       where
         et = compileTransducer bnf
-        (n, chart) = prefixGen word et
+        (n, chart) = prefixGen et word
 instance Categorized token
   => Matching [token] (RegEx token) where
     word =~ pattern = word =~ liftBnf0 pattern
@@ -263,10 +344,14 @@ instance Matching s (APrism s t a b) where
   word =~ pattern = is pattern word
 
 {- |
-Generate words recognized by a `Bnf` using Earley chart progression.
+Generate words recognized by a grammar machine using chart progression.
 
-Chart/state progression is deterministic (state id order). Token realization is
-random but always valid for the selected terminal class.
+The algorithm performs a breadth-first exploration over scanner frontiers derived
+from Earley sets, so words are produced by nondecreasing length.
+
+Chart/state progression is deterministic (state id order). Token realization uses
+`TokenAlgebra` and may be nondeterministic, but is always valid for the chosen
+terminal class.
 -}
 languageGen
   :: (Applicative f, TokenAlgebra token (f token))
@@ -291,7 +376,7 @@ languageGen et = sequenceA (fmap sampleWord classWords)
       in (reverse acceptedRev, seen')
       where
         step (acc, seen) (j, revWord, chart)
-          | acceptsChart j chart et =
+          | acceptsChart et j chart =
               if Set.member revWord seen
                 then (acc, seen)
                 else (revWord : acc, Set.insert revWord seen)
@@ -299,40 +384,43 @@ languageGen et = sequenceA (fmap sampleWord classWords)
 
     expand (j, revWord, chart) =
       [ (j + 1, cls : revWord, nextChart)
-      | (cls, nextChart) <- scanClassOptions j chart et
+      | (cls, nextChart) <- scanClassOptions et j chart
       ]
 
 initialChart
   :: Transducer token
   -> IntMap (IntMap IntSet)
-initialChart et = closeChartAt 0 (IntMap.singleton 0 initialE0) et
+initialChart et = closeChartAt et 0 (IntMap.singleton 0 initialE0)
   where
     initialE0 = IntMap.fromList
       [ (s, IntSet.singleton 0) | s <- IntSet.toList (transducerStartStates et) ]
 
+-- Accept iff (q_accept, 0) is in E_n.
 acceptsChart
-  :: Int
+  :: Transducer token
+  -> Int
   -> IntMap (IntMap IntSet)
-  -> Transducer token
   -> Bool
-acceptsChart j chart et = IntSet.member 0 acceptOrigins
+acceptsChart et j chart = IntSet.member 0 acceptOrigins
   where
-    e_j = IntMap.findWithDefault IntMap.empty j chart
-    acceptOrigins = IntMap.findWithDefault IntSet.empty (transducerAcceptId et) e_j
+    eJ = IntMap.findWithDefault IntMap.empty j chart
+    acceptOrigins = IntMap.findWithDefault IntSet.empty (transducerAcceptId et) eJ
 
+-- Group all scanner moves from E_j by token class; each result also carries the
+-- closed successor chart at j+1.
 scanClassOptions
-  :: Categorized token
+  :: Transducer token
+  -> Categorized token
   => Int
   -> IntMap (IntMap IntSet)
-  -> Transducer token
   -> [(TokenClass token, IntMap (IntMap IntSet))]
-scanClassOptions j chart et =
-  [ (cls, closeChartAt (j + 1) (IntMap.insert (j + 1) scanned chart) et)
+scanClassOptions et j chart =
+  [ (cls, closeChartAt et (j + 1) (IntMap.insert (j + 1) scanned chart))
   | (cls, scanned) <- Map.toAscList grouped
   ]
   where
-    grouped = IntMap.foldrWithKey advance Map.empty e_j
-    e_j = IntMap.findWithDefault IntMap.empty j chart
+    grouped = IntMap.foldrWithKey advance Map.empty eJ
+    eJ = IntMap.findWithDefault IntMap.empty j chart
 
     advance s origs acc = case IntMap.lookup s (transducerStates et) of
       Just (TransducerTokenClass cls ds) ->
@@ -343,16 +431,17 @@ scanClassOptions j chart et =
       _ -> acc
 
 closeChartAt
-  :: Int
+  :: Transducer token
+  -> Int
   -> IntMap (IntMap IntSet)
-  -> Transducer token
   -> IntMap (IntMap IntSet)
-closeChartAt j initialChart0 et = loop initialWork initialChart0
+closeChartAt et j initialChart0 = loop initialWork initialChart0
   where
-    initialE = IntMap.findWithDefault IntMap.empty j initialChart0
+    initialEJ = IntMap.findWithDefault IntMap.empty j initialChart0
     initialWork =
-      [ (s, i) | (s, os) <- IntMap.toList initialE, i <- IntSet.toList os ]
+      [ (s, i) | (s, os) <- IntMap.toList initialEJ, i <- IntSet.toList os ]
 
+    -- Earley closure at E_j: apply predict/complete until fixed point.
     loop [] chart = chart
     loop ((s, i) : rest) chart = case IntMap.lookup s (transducerStates et) of
       Just (TransducerNonTerminal name ds) ->
@@ -366,10 +455,10 @@ closeChartAt j initialChart0 et = loop initialWork initialChart0
         in loop (new <> rest) chart'
       Just (TransducerEmit name) ->
         let
-          e_i = IntMap.findWithDefault IntMap.empty i chart
+          eI = IntMap.findWithDefault IntMap.empty i chart
           completions =
             [ (d, i')
-            | (t, os) <- IntMap.toList e_i
+            | (t, os) <- IntMap.toList eI
             , Just (TransducerNonTerminal n' ds) <- [IntMap.lookup t (transducerStates et)]
             , n' == name
             , i' <- IntSet.toList os
@@ -383,12 +472,12 @@ closeChartAt j initialChart0 et = loop initialWork initialChart0
       where
         ins (acc, new) (state, origin) =
           let
-            e_j = IntMap.findWithDefault IntMap.empty j acc
-            os = IntMap.findWithDefault IntSet.empty state e_j
+            eJ = IntMap.findWithDefault IntMap.empty j acc
+            os = IntMap.findWithDefault IntSet.empty state eJ
           in if IntSet.member origin os
             then (acc, new)
             else
               let
-                e_j' = IntMap.insert state (IntSet.insert origin os) e_j
-                acc' = IntMap.insert j e_j' acc
+                eJ' = IntMap.insert state (IntSet.insert origin os) eJ
+                acc' = IntMap.insert j eJ' acc
               in (acc', (state, origin) : new)

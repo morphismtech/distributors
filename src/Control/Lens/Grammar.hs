@@ -46,7 +46,7 @@ import Control.Lens.PartialIso
 import Control.Lens.Grammar.BackusNaur
 import Control.Lens.Grammar.Boole
 import Control.Lens.Grammar.Kleene
-import Control.Lens.Grammar.Matching
+import Control.Lens.Grammar.Machine
 import Control.Lens.Grammar.Token
 import Control.Lens.Grammar.Symbol
 import Data.Bifunctor.Joker
@@ -69,7 +69,7 @@ import Witherable
 import Control.Lens.Grammar.BackusNaur as X
 import Control.Lens.Grammar.Boole as X
 import Control.Lens.Grammar.Kleene as X
-import Control.Lens.Grammar.Matching as X
+import Control.Lens.Grammar.Machine as X
 import Control.Lens.Grammar.Symbol as X
 import Control.Lens.Grammar.Token as X
 import Control.Lens.PartialIso as X

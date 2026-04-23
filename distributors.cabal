@@ -36,7 +36,7 @@ library
       Control.Lens.Grammar.Internal.NestedPrismTH
       Control.Lens.Grammar.Internal.Orphanage
       Control.Lens.Grammar.Kleene
-      Control.Lens.Grammar.Matching
+      Control.Lens.Grammar.Machine
       Control.Lens.Grammar.Symbol
       Control.Lens.Grammar.Token
       Control.Lens.Grate
