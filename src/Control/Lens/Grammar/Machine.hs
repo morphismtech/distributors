@@ -54,6 +54,7 @@ module Control.Lens.Grammar.Machine
 import Control.Lens
 import Control.Lens.Extras
 import Control.Lens.Grammar.BackusNaur
+import Control.Lens.Grammar.Boole
 import Control.Lens.Grammar.Kleene
 import Control.Lens.Grammar.Token
 import Data.Foldable
@@ -298,8 +299,8 @@ This is the machine-level version of "what terminals are expected next?".
 -}
 expectedGen
   :: Categorized token
-  => Transducer token -> [token] -> [TokenClass token]
-expectedGen et word = map fst (scanClassOptions et n chart)
+  => Transducer token -> [token] -> TokenClass token
+expectedGen et word = anyB fst (scanClassOptions et n chart)
   where
     (n, chart) = prefixGen et word
 
@@ -409,9 +410,9 @@ acceptsChart et j chart = IntSet.member 0 acceptOrigins
 -- Group all scanner moves from E_j by token class; each result also carries the
 -- closed successor chart at j+1.
 scanClassOptions
-  :: Transducer token
-  -> Categorized token
-  => Int
+  :: Categorized token
+  => Transducer token
+  -> Int
   -> IntMap (IntMap IntSet)
   -> [(TokenClass token, IntMap (IntMap IntSet))]
 scanClassOptions et j chart =
