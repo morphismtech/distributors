@@ -24,6 +24,7 @@ module Control.Lens.Grammar
   , regbnfG
   , regbnfGrammar
   , applicativeG
+  , transducerG
   , languageG
     -- * Context-sensitive grammar
   , CtxGrammar
@@ -792,8 +793,11 @@ It can apply to a `RegGrammar`.
 regbnfG :: Grammar Char a -> RegBnf
 regbnfG bnf = runGrammor bnf
 
+transducerG :: Categorized token => Grammar token a -> Transducer token
+transducerG bnf = transducer (runGrammor bnf)
+
 languageG :: (Applicative f, TokenAlgebra token (f token)) => Grammar token a -> f [[token]]
-languageG bnf = languageGen (transducer (runGrammor bnf))
+languageG bnf = languageRun (transducer (runGrammor bnf))
 
 {- | `printG` generates a printer from a `CtxGrammar`.
 Since both `RegGrammar`s and context-free `Grammar`s are `CtxGrammar`s,

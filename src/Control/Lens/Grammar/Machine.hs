@@ -6,20 +6,18 @@ License     : BSD-style (see the file LICENSE)
 Maintainer  : Eitan Chatav <eitan.chatav@gmail.com>
 Stability   : provisional
 Portability : non-portable
-
-See 
 -}
 
 module Control.Lens.Grammar.Machine
   ( -- * Matching
     Matching (..)
     -- * Transducer
+  , transducer
+  , languageRun
+  , expectedRun
+  , unreachableRun
   , Transducer (..)
   , TransducerStep (..)
-  , transducer
-  , expectedGen
-  , languageGen
-  , unreachableGen
   ) where
 
 import Control.Lens
@@ -42,6 +40,20 @@ import Data.Set (Set)
 class Matching word pattern | pattern -> word where
   (=~) :: word -> pattern -> Bool
   infix 2 =~
+-- instances
+instance Categorized token
+  => Matching [token] (Transducer token) where
+    word =~ et = acceptsChart n chart
+      where
+        (n, chart) = prefixRun et word
+instance Categorized token
+  => Matching [token] (Bnf (RegEx token)) where
+    word =~ bnf = word =~ transducer bnf
+instance Categorized token
+  => Matching [token] (RegEx token) where
+    word =~ pattern = word =~ liftBnf0 pattern
+instance Matching s (APrism s t a b) where
+  word =~ pattern = is pattern word
 
 {-| A `Transducer` is a tuple
 
@@ -74,7 +86,14 @@ data TransducerStep token
 {- | Compile a `RegEx`tended `Bnf` into a `Transducer`,
 using a combination of Thompson's algorithm for regular expressions
 and Earley's algorithm for context-free grammars. See Jim & Mandelbaum,
-[Efficient Earley Parsing with Regular Right-hand Sides](http://trevorjim.com/papers/ldta-2009.pdf).
+[Efficient Earley Parsing with Regular Right-hand Sides]
+(http://trevorjim.com/papers/ldta-2009.pdf),
+and McIlroy, [Enumerating the strings of regular languages]
+(https://www.cs.dartmouth.edu/~doug/nfa.pdf).
+
+A transducer is a form of [finite state machine]
+(https://www.scribd.com/doc/76189520/John-H-Conway-Regular-Algebra-and-Finite-Machines)
+that can be run in various ways like `=~`, `expectedRun`, `languageRun` & `unreachableRun`.
 -}
 transducer :: Bnf (RegEx token) -> Transducer token
 transducer (Bnf start rules) = Transducer
@@ -206,12 +225,12 @@ transducer (Bnf start rules) = Transducer
             , bypass0 || bypass1
             )
 
-prefixGen
+prefixRun
   :: Categorized token
   => Transducer token
   -> [token]
   -> (Int, IntMap (IntMap IntSet))
-prefixGen et word = go 0 (initialChart et) word
+prefixRun et word = go 0 (initialChart et) word
   where
     go j chart [] = (j, chart)
     go j chart (x : xs) =
@@ -229,27 +248,25 @@ prefixGen et word = go 0 (initialChart et) word
           _ -> acc
 
 {- | What token is expected next?
-The scanner frontier, `expectedGen` returns `TokenClass`
+The scanner frontier, `expectedRun` returns the `TokenClass`
 that can be scanned next after the given input prefix.
 A `falseB` result means the current chart has no scanner transitions,
 i.e. the prefix is a dead end for recognition.
 -}
-expectedGen
+expectedRun
   :: Categorized token
   => Transducer token -> [token] {- ^ prefix -} -> TokenClass token
-expectedGen et word = anyB fst (scanClassOptions et n chart)
+expectedRun et word = anyB fst (scanClassOptions et n chart)
   where
-    (n, chart) = prefixGen et word
+    (n, chart) = prefixRun et word
 
 {- |
-Rule names declared in the `Bnf` that can never be entered from the start
+Rule names that can never be entered from the start
 expression — dead productions. A non-empty result is a grammar-hygiene
 warning: those rules can be deleted without changing the recognized language.
-
-Operationally, this is reachability over control states plus nonterminal calls.
 -}
-unreachableGen :: Transducer token -> Set String
-unreachableGen et =
+unreachableRun :: Transducer token -> Set String
+unreachableRun et =
   Map.keysSet (transducerRules et) `Set.difference` called
   where
     called = bfs (transducerStarts et) IntSet.empty Set.empty
@@ -268,34 +285,18 @@ unreachableGen et =
         in (acc <> ds <> firsts, Set.insert name cs)
       Just (EmitNonTerminal _) -> (acc, cs)
       Nothing -> (acc, cs)
--- instances
-instance Categorized token
-  => Matching [token] (Bnf (RegEx token)) where
-    word =~ bnf = acceptsChart n chart
-      where
-        et = transducer bnf
-        (n, chart) = prefixGen et word
-instance Categorized token
-  => Matching [token] (RegEx token) where
-    word =~ pattern = word =~ liftBnf0 pattern
-instance Matching s (APrism s t a b) where
-  word =~ pattern = is pattern word
 
 {- |
-Generate words recognized by a grammar machine using chart progression.
-
-The algorithm performs a breadth-first exploration over scanner frontiers derived
-from Earley sets, so words are produced by nondecreasing length.
-
-Chart/state progression is deterministic (state id order). Token realization uses
-`TokenAlgebra` and may be nondeterministic, but is always valid for the chosen
-terminal class.
+`languageRun` lazily produces all words in a language from shortest to longest.
+However since `TokenClass`es can resolve to infinite sets of tokens,
+and the relevant case of `Char` tokens while not infinite is huge,
+it samples tokens in an `Applicative` `TokenAlgebra`.
 -}
-languageGen
+languageRun
   :: (Applicative f, TokenAlgebra token (f token))
-  => Transducer token
+  => Transducer token -- ^ transducer
   -> f [[token]]
-languageGen et = sequenceA (fmap sampleWord classWords)
+languageRun et = sequenceA (fmap sampleWord classWords)
   where
 
     classWords = enumerateByLength [(0, [], initialChart et)] Set.empty
