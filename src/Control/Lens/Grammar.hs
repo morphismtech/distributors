@@ -793,7 +793,7 @@ regbnfG :: Grammar Char a -> RegBnf
 regbnfG bnf = runGrammor bnf
 
 languageG :: (Applicative f, TokenAlgebra token (f token)) => Grammar token a -> f [[token]]
-languageG bnf = languageGen (compileTransducer (runGrammor bnf))
+languageG bnf = languageGen (transducer (runGrammor bnf))
 
 {- | `printG` generates a printer from a `CtxGrammar`.
 Since both `RegGrammar`s and context-free `Grammar`s are `CtxGrammar`s,

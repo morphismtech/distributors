@@ -1,49 +1,24 @@
 {- |
 Module      : Control.Lens.Grammar.Machine
-Description : finite-machine compilation and Earley-style matching
+Description : matching & transducers
 Copyright   : (C) 2026 - Eitan Chatav
 License     : BSD-style (see the file LICENSE)
 Maintainer  : Eitan Chatav <eitan.chatav@gmail.com>
 Stability   : provisional
 Portability : non-portable
 
-This module presents a machine-oriented view of grammars:
-
-1. Compile a grammar with regular right-hand sides into a finite control machine
-   (`Transducer`) using a Thompson-style construction over regular expressions.
-2. Run Earley-style chart recognition over that machine.
-3. Derive practical products from the same engine: boolean matching,
-   "expected token class" reporting, language generation, and dead-rule analysis.
-
-The implementation follows mainstream Earley terminology (predict/scan/complete)
-while adopting the transducer perspective used by Jim and Mandelbaum:
-
-* Earley item `(q,i)` is represented as "machine state id @q@ with origin @i@"
-  stored in chart set @E_j@.
-* `closeChartAt` performs predict and complete to a fixed point at position @j@.
-* `scanFrom`/`scanClassOptions` perform scanner steps to build @E_{j+1}@.
-* `TransducerEmit` provides the "completed nonterminal" signal used by complete.
-
-References:
-
-* Trevor Jim and Yitzhak Mandelbaum, /Efficient Earley Parsing with Regular
-  Right-hand Sides/ (LDTA 2009).
-* Thompson-style NFA compilation accounts from compiler literature.
-* Standard Earley algorithm presentations (state sets, origin indices,
-  predictor/scanner/completer).
+See 
 -}
 
 module Control.Lens.Grammar.Machine
-  ( -- * Matching Interface
+  ( -- * Matching
     Matching (..)
-    -- * Machine Representation
+    -- * Transducer
   , Transducer (..)
-  , TransducerState (..)
-    -- * Compilation
-  , compileTransducer
-    -- * Machine Execution Utilities
-  , languageGen
+  , TransducerStep (..)
+  , transducer
   , expectedGen
+  , languageGen
   , unreachableGen
   ) where
 
@@ -64,76 +39,46 @@ import qualified Data.Set as Set
 import Data.Set (Set)
 
 -- | Does a word match a pattern?
---
--- For grammar and regular-expression patterns in this package, matching is
--- performed by chart recognition over a compiled machine (`Transducer`).
 class Matching word pattern | pattern -> word where
   (=~) :: word -> pattern -> Bool
   infix 2 =~
 
--- | A control state in the compiled parsing machine.
---
--- Read these constructors as machine instructions:
---
--- * `TransducerTokenClass` is a scanner transition over a terminal class.
--- * `TransducerNonTerminal` is a call site for a nonterminal.
--- * `TransducerEmit` is a completed nonterminal output used by completion.
---
--- This corresponds to the "finite control + call/return" view of parsing
--- transducers in LDTA 2009.
-data TransducerState token
-  = TransducerTokenClass (TokenClass token) IntSet
-  | TransducerNonTerminal String IntSet
-  | TransducerEmit String
+{-| A `Transducer` is a tuple
 
--- | Finite control machine used by the Earley-style recognizer.
---
--- Formal machine view (adapted for this parser):
---
--- @
--- T = (Q, Σ, Γ, I, F, δ)
--- @
---
--- where:
---
--- * @Q@ (control states) = keys of `transducerStates`.
--- * @Σ@ (terminal alphabet) is represented intensionally by
---   `TokenClass token` labels in `TransducerTokenClass` transitions.
--- * @Γ@ (call alphabet / nonterminal symbols) = keys of `transducerRules`
---   and names carried by `TransducerNonTerminal` / `TransducerEmit`.
--- * @I@ (initial states) = `transducerStartStates`.
--- * @F@ (accepting states) = singleton `{transducerAcceptId}` for recognition.
--- * @δ@ (transition relation) is encoded by `transducerStates` constructors:
---
---   * `TransducerTokenClass cls ds` contributes terminal transitions on any
---     token matching @cls@ from the current state to each state in @ds@.
---   * `TransducerNonTerminal name ds` contributes call transitions on symbol
---     @name@ with return destinations @ds@ (used by Earley predict/complete).
---   * `TransducerEmit name` is a completion/output state for nonterminal @name@,
---     consumed by Earley completion rather than terminal scanning.
---
--- `transducerRules` is auxiliary indexing for Earley closure (entry-state set and
--- nullability per nonterminal), not an additional machine component.
+@
+T = (Σ, Δ, Q, I ⊆ Q, F ∈ Q, transition ⊆ Q × (Σ ∪ ∆) × Q, output ⊆ Q × ∆)
+@
+
+* @Σ@ is a (possibly infinite) set of terminal token classes, represented by `TokenClass`es.
+* @Δ@ is a finite set of nonterminals, represented by the key set of `transducerRules`.
+* @Q@ is a set of states, which is represented by the key set of `transducerRelations`.
+* @I@ are initial states represented by `transducerStarts`.
+* @F@ is a final state represented by @0@.
+* @transition@ is a relation represented by `transducerRelations`
+  with `TransitionTokenClass` and `TransitionNonTerminal` transitions.
+* @output@ is a relation represented by `transducerRelations` with `EmitNonTerminal` outputs.
+-}
 data Transducer token = Transducer
-  { transducerStates :: IntMap (TransducerState token) -- ^ @Q@
-  , transducerRules :: Map String (IntSet, Bool) -- ^ @Γ@
-  , transducerAcceptId :: Int -- ^ @F@
-  , transducerStartStates :: IntSet -- ^ @I@
+  { transducerRelations :: IntMap (TransducerStep token)
+  , transducerRules :: Map String (IntSet, Bool)
+  -- ^ an index into `transducerRelations` for nonterminals with precomputed nullability
+  , transducerStarts :: IntSet
   }
 
--- | Compile a regular-right-side grammar into a parsing transducer.
---
--- Construction outline:
---
--- * Regular-expression fragments are lowered in Thompson style by `goEarley`.
--- * Each nonterminal gets a distinguished emit/final state.
--- * Concatenation/alternation/Kleene operators wire state sets and bypassability
---   (nullability) as in regular-expression automata construction.
--- * A fixed-point nullability analysis over the grammar enables null completion
---   during Earley closure.
-compileTransducer :: Bnf (RegEx token) -> Transducer token
-compileTransducer (Bnf start rules) = Transducer
-  { transducerStates = IntMap.fromList allStates
+-- | A `TransducerStep` in a `Transducer`.
+data TransducerStep token
+  = TransitionTokenClass (TokenClass token) IntSet
+  | TransitionNonTerminal String IntSet
+  | EmitNonTerminal String
+
+{- | Compile a `RegEx`tended `Bnf` into a `Transducer`,
+using a combination of Thompson's algorithm for regular expressions
+and Earley's algorithm for context-free grammars. See Jim & Mandelbaum,
+[Efficient Earley Parsing with Regular Right-hand Sides](http://trevorjim.com/papers/ldta-2009.pdf).
+-}
+transducer :: Bnf (RegEx token) -> Transducer token
+transducer (Bnf start rules) = Transducer
+  { transducerRelations = IntMap.fromList allStates
   , transducerRules = Map.fromList
       [ ( n
         , ( Map.findWithDefault IntSet.empty n firstsMap
@@ -142,8 +87,7 @@ compileTransducer (Bnf start rules) = Transducer
         )
       | n <- Map.keys ruleMap
       ]
-  , transducerAcceptId = transducerAcceptId0
-  , transducerStartStates = startStates
+  , transducerStarts = startStates
   }
 
   where
@@ -177,7 +121,7 @@ compileTransducer (Bnf start rules) = Transducer
       foldl' alloc (Map.empty, transducerAcceptId0 + 1) ruleNames
       where alloc (m, i) n = (Map.insert n i m, i + 1)
 
-    finalStatesList = [(finalMap Map.! n, TransducerEmit n) | n <- ruleNames]
+    finalStatesList = [(finalMap Map.! n, EmitNonTerminal n) | n <- ruleNames]
 
     (rulesStatesList, firstsMap, nextIdAfterRules) =
       foldl' compileRule ([], Map.empty, nextIdAfterFinals) (Map.toList ruleMap)
@@ -188,12 +132,12 @@ compileTransducer (Bnf start rules) = Transducer
                 foldl' compileProd ([], IntSet.empty, nid) prods
               compileProd (s, fs, i) prod =
                 let (f, st, i', _) =
-                      goEarley prod i (IntSet.singleton finalId)
+                      thompson prod i (IntSet.singleton finalId)
                 in (s <> st, fs <> f, i')
           in (sts <> newSts, Map.insert name newFirsts fm, nid')
 
     (startFirsts, startStatesRaw, _, startBypass) =
-      goEarley start nextIdAfterRules (IntSet.singleton transducerAcceptId0)
+      thompson start nextIdAfterRules (IntSet.singleton transducerAcceptId0)
 
     startStates =
       startFirsts <> bypassStates startBypass (IntSet.singleton transducerAcceptId0)
@@ -203,19 +147,19 @@ compileTransducer (Bnf start rules) = Transducer
     bypassStates True = id
     bypassStates False = const IntSet.empty
 
-    goEarley rex nextId dests = case rex of
+    thompson rex nextId dests = case rex of
         SeqEmpty -> (IntSet.empty, [], nextId, True)
         NonTerminal name ->
           ( IntSet.singleton nextId
-          , [(nextId, TransducerNonTerminal name dests)]
+          , [(nextId, TransitionNonTerminal name dests)]
           , nextId + 1
           , Map.findWithDefault False name nullMap
           )
         Sequence rex0 rex1 ->
           let
-            (firsts1, states1, nextId1, bypass1) = goEarley rex1 nextId dests
+            (firsts1, states1, nextId1, bypass1) = thompson rex1 nextId dests
             (firsts0, states0, nextId0, bypass0) =
-              goEarley rex0 nextId1 (firsts1 <> bypassStates bypass1 dests)
+              thompson rex0 nextId1 (firsts1 <> bypassStates bypass1 dests)
           in
             ( firsts0 <> bypassStates bypass0 firsts1
             , states0 <> states1
@@ -224,37 +168,37 @@ compileTransducer (Bnf start rules) = Transducer
             )
         KleeneStar rex0 ->
           let
-            (firsts, states, nextId', _) = goEarley rex0 nextId (firsts <> dests)
+            (firsts, states, nextId', _) = thompson rex0 nextId (firsts <> dests)
           in
             (firsts, states, nextId', True)
         KleeneOpt rex0 ->
           let
-            (firsts, states, nextId', _) = goEarley rex0 nextId dests
+            (firsts, states, nextId', _) = thompson rex0 nextId dests
           in
             (firsts, states, nextId', True)
         KleenePlus rex0 ->
           let
-            (firsts, states, nextId', bypass) = goEarley rex0 nextId (firsts <> dests)
+            (firsts, states, nextId', bypass) = thompson rex0 nextId (firsts <> dests)
           in
             (firsts, states, nextId', bypass)
         RegExam (OneOf chars)
           | Set.null chars -> (IntSet.empty, [], nextId, False)
           | otherwise ->
               ( IntSet.singleton nextId
-              , [(nextId, TransducerTokenClass (TokenClass (OneOf chars)) dests)]
+              , [(nextId, TransitionTokenClass (TokenClass (OneOf chars)) dests)]
               , nextId + 1
               , False
               )
         RegExam (NotOneOf chars catTest) ->
           ( IntSet.singleton nextId
-          , [(nextId, TransducerTokenClass (TokenClass (NotOneOf chars catTest)) dests)]
+          , [(nextId, TransitionTokenClass (TokenClass (NotOneOf chars catTest)) dests)]
           , nextId + 1
           , False
           )
         RegExam (Alternate rex0 rex1) ->
           let
-            (firsts1, states1, nextId1, bypass1) = goEarley rex1 nextId dests
-            (firsts0, states0, nextId0, bypass0) = goEarley rex0 nextId1 dests
+            (firsts1, states1, nextId1, bypass1) = thompson rex1 nextId dests
+            (firsts0, states0, nextId0, bypass0) = thompson rex0 nextId1 dests
           in
             ( firsts0 <> firsts1
             , states0 <> states1
@@ -278,24 +222,21 @@ prefixGen et word = go 0 (initialChart et) word
     scanFrom j input chart = IntMap.foldrWithKey advance IntMap.empty eJ
       where
         eJ = IntMap.findWithDefault IntMap.empty j chart
-        advance s origs acc = case IntMap.lookup s (transducerStates et) of
-          Just (TransducerTokenClass cls ds) | tokenClass cls input ->
+        advance s origs acc = case IntMap.lookup s (transducerRelations et) of
+          Just (TransitionTokenClass cls ds) | tokenClass cls input ->
             IntSet.foldr
               (\d -> IntMap.insertWith IntSet.union d origs) acc ds
           _ -> acc
 
-{- |
-Earley scanner frontier summarized as token classes.
-
-Returns terminal classes that can be scanned next after the given input prefix.
-An empty result means the current chart has no scanner transitions, i.e. the
-prefix is a dead end for recognition.
-
-This is the machine-level version of "what tokens are expected next?".
+{- | What token is expected next?
+The scanner frontier, `expectedGen` returns `TokenClass`
+that can be scanned next after the given input prefix.
+A `falseB` result means the current chart has no scanner transitions,
+i.e. the prefix is a dead end for recognition.
 -}
 expectedGen
   :: Categorized token
-  => Transducer token -> [token] -> TokenClass token
+  => Transducer token -> [token] {- ^ prefix -} -> TokenClass token
 expectedGen et word = anyB fst (scanClassOptions et n chart)
   where
     (n, chart) = prefixGen et word
@@ -311,7 +252,7 @@ unreachableGen :: Transducer token -> Set String
 unreachableGen et =
   Map.keysSet (transducerRules et) `Set.difference` called
   where
-    called = bfs (transducerStartStates et) IntSet.empty Set.empty
+    called = bfs (transducerStarts et) IntSet.empty Set.empty
 
     bfs frontier seen calls
       | IntSet.null fresh = calls
@@ -320,19 +261,19 @@ unreachableGen et =
         fresh = IntSet.difference frontier seen
         (next, calls') = IntSet.foldr step (IntSet.empty, calls) fresh
 
-    step s (acc, cs) = case IntMap.lookup s (transducerStates et) of
-      Just (TransducerTokenClass _ ds) -> (acc <> ds, cs)
-      Just (TransducerNonTerminal name ds) ->
+    step s (acc, cs) = case IntMap.lookup s (transducerRelations et) of
+      Just (TransitionTokenClass _ ds) -> (acc <> ds, cs)
+      Just (TransitionNonTerminal name ds) ->
         let firsts = maybe IntSet.empty fst (Map.lookup name (transducerRules et))
         in (acc <> ds <> firsts, Set.insert name cs)
-      Just (TransducerEmit _) -> (acc, cs)
+      Just (EmitNonTerminal _) -> (acc, cs)
       Nothing -> (acc, cs)
 -- instances
 instance Categorized token
   => Matching [token] (Bnf (RegEx token)) where
-    word =~ bnf = acceptsChart et n chart
+    word =~ bnf = acceptsChart n chart
       where
-        et = compileTransducer bnf
+        et = transducer bnf
         (n, chart) = prefixGen et word
 instance Categorized token
   => Matching [token] (RegEx token) where
@@ -373,7 +314,7 @@ languageGen et = sequenceA (fmap sampleWord classWords)
       in (reverse acceptedRev, seen')
       where
         step (acc, seen) (j, revWord, chart)
-          | acceptsChart et j chart =
+          | acceptsChart j chart =
               if Set.member revWord seen
                 then (acc, seen)
                 else (revWord : acc, Set.insert revWord seen)
@@ -390,18 +331,17 @@ initialChart
 initialChart et = closeChartAt et 0 (IntMap.singleton 0 initialE0)
   where
     initialE0 = IntMap.fromList
-      [ (s, IntSet.singleton 0) | s <- IntSet.toList (transducerStartStates et) ]
+      [ (s, IntSet.singleton 0) | s <- IntSet.toList (transducerStarts et) ]
 
 -- Accept iff (q_accept, 0) is in E_n.
 acceptsChart
-  :: Transducer token
-  -> Int
+  :: Int
   -> IntMap (IntMap IntSet)
   -> Bool
-acceptsChart et j chart = IntSet.member 0 acceptOrigins
+acceptsChart j chart = IntSet.member 0 acceptOrigins
   where
     eJ = IntMap.findWithDefault IntMap.empty j chart
-    acceptOrigins = IntMap.findWithDefault IntSet.empty (transducerAcceptId et) eJ
+    acceptOrigins = IntMap.findWithDefault IntSet.empty 0 eJ
 
 -- Group all scanner moves from E_j by token class; each result also carries the
 -- closed successor chart at j+1.
@@ -419,8 +359,8 @@ scanClassOptions et j chart =
     grouped = IntMap.foldrWithKey advance Map.empty eJ
     eJ = IntMap.findWithDefault IntMap.empty j chart
 
-    advance s origs acc = case IntMap.lookup s (transducerStates et) of
-      Just (TransducerTokenClass cls ds) ->
+    advance s origs acc = case IntMap.lookup s (transducerRelations et) of
+      Just (TransitionTokenClass cls ds) ->
         Map.insertWith (IntMap.unionWith IntSet.union) cls scanned acc
         where
           scanned = IntSet.foldr
@@ -440,8 +380,8 @@ closeChartAt et j initialChart0 = loop initialWork initialChart0
 
     -- Earley closure at E_j: apply predict/complete until fixed point.
     loop [] chart = chart
-    loop ((s, i) : rest) chart = case IntMap.lookup s (transducerStates et) of
-      Just (TransducerNonTerminal name ds) ->
+    loop ((s, i) : rest) chart = case IntMap.lookup s (transducerRelations et) of
+      Just (TransitionNonTerminal name ds) ->
         let
           (firsts, isNull) = Map.findWithDefault
             (IntSet.empty, False) name (transducerRules et)
@@ -450,13 +390,13 @@ closeChartAt et j initialChart0 = loop initialWork initialChart0
             if isNull then [(d, i) | d <- IntSet.toList ds] else []
           (chart', new) = addEarleyItems (predItems <> nullItems) chart
         in loop (new <> rest) chart'
-      Just (TransducerEmit name) ->
+      Just (EmitNonTerminal name) ->
         let
           eI = IntMap.findWithDefault IntMap.empty i chart
           completions =
             [ (d, i')
             | (t, os) <- IntMap.toList eI
-            , Just (TransducerNonTerminal n' ds) <- [IntMap.lookup t (transducerStates et)]
+            , Just (TransitionNonTerminal n' ds) <- [IntMap.lookup t (transducerRelations et)]
             , n' == name
             , i' <- IntSet.toList os
             , d <- IntSet.toList ds
