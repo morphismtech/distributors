@@ -8,6 +8,7 @@ import Data.Function (fix)
 import Data.List (genericLength)
 import Data.Maybe (isJust)
 import Data.Profunctor.Types (Star (..))
+import Data.Tree (Tree (..))
 import System.Environment (lookupEnv)
 import Test.DocTest
 import Test.Hspec
@@ -40,9 +41,32 @@ main = do
     describe "lambdaGrammar" $ testCfg True lambdaExamples lambdaGrammar
     describe "lenvecGrammar" $ testCsg True lenvecExamples lenvecGrammar
     describe "chainGrammar" $ testCfg True chainExamples chainGrammar
+    describe "parseForestRun" parseForestRunTests
     describe "Parsector try rollback" tryRollbackTests
     describe "Kleene" kleeneProperties
     describe "meander" meanderProperties
+
+parseForestRunTests :: Spec
+parseForestRunTests = do
+  it "returns the nested rule forest for a full parse" $ do
+    let (actualForest, actualRest) = parseForestRun (transducerG arithGrammar) "2*3+4;;;"
+    actualForest `shouldBe`
+      [ Node ("arith", 0, 5, "2*3+4")
+          [ Node ("sum", 0, 5, "2*3+4")
+              [ Node ("product", 0, 3, "2*3")
+                  [ Node ("factor", 0, 1, "2")
+                      [Node ("number", 0, 1, "2") []]
+                  , Node ("factor", 2, 3, "3")
+                      [Node ("number", 2, 3, "3") []]
+                  ]
+              , Node ("product", 4, 5, "4")
+                  [ Node ("factor", 4, 5, "4")
+                      [Node ("number", 4, 5, "4") []]
+                  ]
+              ]
+          ]
+      ]
+    actualRest `shouldBe` ";;;"
 
 tryRollbackTests :: Spec
 tryRollbackTests = do

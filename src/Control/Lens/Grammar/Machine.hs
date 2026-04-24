@@ -13,6 +13,7 @@ module Control.Lens.Grammar.Machine
     Matching (..)
     -- * Transducer
   , transducer
+  , parseForestRun
   , languageRun
   , expectedRun
   , unreachableRun
@@ -35,6 +36,7 @@ import qualified Data.Map.Strict as Map
 import Data.Map.Strict (Map)
 import qualified Data.Set as Set
 import Data.Set (Set)
+import Data.Tree (Tree (..))
 
 -- | Does a word match a pattern?
 class Matching word pattern | pattern -> word where
@@ -45,7 +47,7 @@ instance Categorized token
   => Matching [token] (Transducer token) where
     word =~ et = acceptsChart n chart
       where
-        (n, chart) = prefixRun et word
+        (n, chart) = prefixGen et word
 instance Categorized token
   => Matching [token] (Bnf (RegEx token)) where
     word =~ bnf = word =~ transducer bnf
@@ -227,12 +229,118 @@ transducer (Bnf start rules) = Transducer
             , bypass0 || bypass1
             )
 
-prefixRun
+parseForestRun
+  :: Categorized token
+  => Transducer token
+  -> [token]
+  -> ([Tree (String, Int, Int, [token])], [token]) -- ^ parse forest spans & remaining unparsed tokens
+parseForestRun et word = (concat (itemForests Set.empty Nothing 0 acceptedLen 0), drop acceptedLen word)
+  where
+    (n, chart) = prefixGen et word
+    relations = transducerRelations et
+    acceptedLen = maximum [j | j <- [0 .. n], acceptsChart j chart]
+
+    acceptedWord = take acceptedLen word
+    sliceAt start end = take (end - start) (drop start acceptedWord)
+    itemsAt j = IntMap.findWithDefault IntMap.empty j chart
+    ruleInfo name = Map.findWithDefault (IntSet.empty, False) name (transducerRules et)
+
+    edgesAt :: IntMap (IntMap [edge]) -> Int -> Int -> [edge]
+    edgesAt table pos stateId =
+      IntMap.findWithDefault [] stateId (IntMap.findWithDefault IntMap.empty pos table)
+
+    insertEdges :: edge -> IntSet -> IntMap [edge] -> IntMap [edge]
+    insertEdges edge dests acc = IntSet.foldr
+      (\stateId m -> IntMap.insertWith (++) stateId [edge] m)
+      acc
+      dests
+
+    scanBack = IntMap.fromList
+      [ (end, backRow (end - 1) input)
+      | (end, input) <- zip [1 .. acceptedLen] acceptedWord
+      ]
+      where
+        backRow prev input = IntMap.foldrWithKey step IntMap.empty (itemsAt prev)
+          where
+            step prevState origins acc = case IntMap.lookup prevState relations of
+              Just (TransitionTokenClass cls dests) | tokenClass cls input ->
+                insertEdges (prevState, origins) dests acc
+              _ -> acc
+
+    completeBack = IntMap.fromList
+      [ (split, IntMap.foldrWithKey step IntMap.empty (itemsAt split))
+      | split <- [0 .. acceptedLen]
+      ]
+      where
+        step caller origins acc = case IntMap.lookup caller relations of
+          Just (TransitionNonTerminal name dests) ->
+            insertEdges (caller, origins, name) dests acc
+          _ -> acc
+
+    ruleFinals = IntMap.foldrWithKey finalStates Map.empty relations
+    finalStates stateId step acc = case step of
+      EmitNonTerminal name -> Map.insert name stateId acc
+      _ -> acc
+
+    entryStates Nothing = transducerStarts et
+    entryStates (Just name) = fst (ruleInfo name)
+
+    ruleNullable = snd . ruleInfo
+
+    itemForests guards entry origin end stateId
+      | Set.member itemKey guards = []
+      | otherwise = baseForests <> scannedForests <> completedForests
+      where
+        itemKey = Left (entry, origin, end, stateId)
+        guards' = Set.insert itemKey guards
+
+        baseForests
+          | end == origin && IntSet.member stateId (entryStates entry) = [[]]
+          | otherwise = []
+
+        scannedForests
+          | end <= origin = []
+          | otherwise =
+              [ forest
+              | (prevState, origins) <- edgesAt scanBack end stateId
+              , IntSet.member origin origins
+              , let prev = end - 1
+              , forest <- itemForests guards' entry origin prev prevState
+              ]
+
+        completedForests =
+          [ prefix <> [subtree]
+          | split <- [origin .. end]
+          , (caller, origins, name) <- edgesAt completeBack split stateId
+          , IntSet.member origin origins
+          , prefix <- itemForests guards' entry origin split caller
+          , subtree <- ruleTrees guards' name split end
+          ]
+
+    ruleTrees guards name start end
+      | Set.member ruleKey guards = []
+      | otherwise = nullableTrees <> derivedTrees
+      where
+        ruleKey = Right (name, start, end)
+        guards' = Set.insert ruleKey guards
+
+        nullableTrees
+          | start == end && ruleNullable name = [Node (name, start, end, []) []]
+          | otherwise = []
+
+        derivedTrees = case Map.lookup name ruleFinals of
+          Nothing -> []
+          Just finalState ->
+            [ Node (name, start, end, sliceAt start end) subtrees
+            | subtrees <- itemForests guards' (Just name) start end finalState
+            ]
+
+prefixGen
   :: Categorized token
   => Transducer token
   -> [token]
   -> (Int, IntMap (IntMap IntSet))
-prefixRun et word = go 0 (initialChart et) word
+prefixGen et word = go 0 (initialChart et) word
   where
     go j chart [] = (j, chart)
     go j chart (x : xs) =
@@ -260,7 +368,7 @@ expectedRun
   => Transducer token -> [token] {- ^ prefix -} -> TokenClass token
 expectedRun et word = anyB fst (scanClassOptions et n chart)
   where
-    (n, chart) = prefixRun et word
+    (n, chart) = prefixGen et word
 
 {- |
 Rule names that can never be entered from the start
