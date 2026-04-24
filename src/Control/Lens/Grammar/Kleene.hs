@@ -30,7 +30,7 @@ import Control.Lens.Grammar.Boole
 import Control.Lens.Grammar.Symbol
 import Control.Lens.Grammar.Token
 import Control.Monad.Loops
-import Control.Monad.Trans.State.Strict (StateT, state)
+import Control.Monad.State (StateT, state)
 import Data.Bifunctor.Joker
 import Data.Foldable
 import Data.MemoTrie

@@ -27,7 +27,7 @@ import Data.Foldable
 import Data.Profunctor
 import Data.Profunctor.Monoidal
 import Data.Word
-import Control.Monad.Trans.State.Strict (StateT, state)
+import Control.Monad.State (StateT, state)
 import System.Random (RandomGen, Random, random, randomR)
 import Test.QuickCheck.Arbitrary
 import Test.QuickCheck.Gen (Gen)
