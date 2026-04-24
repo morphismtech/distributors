@@ -100,7 +100,7 @@ transducer (Bnf start rules) = Transducer
   , transducerRules = Map.fromList
       [ ( n
         , ( Map.findWithDefault IntSet.empty n firstsMap
-          , Map.findWithDefault False n nullMap
+          , Set.member n nullSet
           )
         )
       | n <- Map.keys ruleMap
@@ -115,7 +115,7 @@ transducer (Bnf start rules) = Transducer
 
     rexNullable nm = \case
       SeqEmpty -> True
-      NonTerminal n -> Map.findWithDefault False n nm
+      NonTerminal n -> Set.member n nm
       Sequence x y -> rexNullable nm x && rexNullable nm y
       KleeneStar _ -> True
       KleeneOpt _ -> True
@@ -124,14 +124,17 @@ transducer (Bnf start rules) = Transducer
       RegExam (OneOf _) -> False
       RegExam (NotOneOf _ _) -> False
 
-    iterNull nm =
-      let nm' = Map.mapWithKey
-            (\n _ -> any (rexNullable nm) (Map.findWithDefault [] n ruleMap)) nm
-      in if nm == nm' then nm else iterNull nm'
-
-    nullMap = iterNull (Map.map (const False) ruleMap)
-
     ruleNames = Map.keys ruleMap
+
+    iterNull ns =
+      let ns' = Set.fromList
+            [ n
+            | n <- ruleNames
+            , any (rexNullable ns) (Map.findWithDefault [] n ruleMap)
+            ]
+      in if ns == ns' then ns else iterNull ns'
+
+    nullSet = iterNull Set.empty
 
     transducerAcceptId0 = 0
 
@@ -171,7 +174,7 @@ transducer (Bnf start rules) = Transducer
           ( IntSet.singleton nextId
           , [(nextId, TransitionNonTerminal name dests)]
           , nextId + 1
-          , Map.findWithDefault False name nullMap
+          , Set.member name nullSet
           )
         Sequence rex0 rex1 ->
           let
