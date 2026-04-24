@@ -801,7 +801,28 @@ that can be run in various ways like `=~`, `expectedRun`, `languageRun` & `unrea
 transducerG :: Categorized token => Grammar token a -> Transducer token
 transducerG bnf = transducer (runGrammor bnf)
 
-languageG :: (Applicative f, TokenAlgebra token (f token)) => Grammar token a -> f [[token]]
+{- |
+`languageG` lazily produces all words in a language from shortest to longest.
+However since `TokenClass`es can resolve to infinite sets of tokens,
+and the relevant case of `Char` tokens while not infinite is huge,
+it samples tokens in an `Applicative` `TokenAlgebra`.
+
+>>> import Control.Monad.State
+>>> import System.Random
+>>> let gen = mkStdGen 69
+>>> evalState (take 10 <$> languageG @Char regexGrammar) gen
+["","|","\776269","()","[]","\\[","||","|\249908","\770923*","\1008821+"]
+
+This is useful for generating valid language examples for property tests.
+
+>>> import Test.QuickCheck
+>>> let rg = regbnfG regexGrammar
+>>> words100 <- generate (take 100 <$> languageG @Char regexGrammar)
+>>> quickCheckWith stdArgs {maxSuccess = 1} (property (all (=~ rg) words100))
++++ OK, passed 1 test.
+
+-}
+languageG :: (TokenAlgebra token (f token), Applicative f) => Grammar token a -> f [[token]]
 languageG bnf = languageRun (transducerG bnf)
 
 {- | `printG` generates a printer from a `CtxGrammar`.
