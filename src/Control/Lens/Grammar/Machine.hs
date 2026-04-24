@@ -375,15 +375,21 @@ closeChartAt
   -> Int
   -> IntMap (IntMap IntSet)
   -> IntMap (IntMap IntSet)
-closeChartAt et j initialChart0 = loop initialWork initialChart0
+closeChartAt et j initialChart0 = loop initialWork initialChart0 IntMap.empty
   where
     initialEJ = IntMap.findWithDefault IntMap.empty j initialChart0
     initialWork =
       [ (s, i) | (s, os) <- IntMap.toList initialEJ, i <- IntSet.toList os ]
 
+    -- For fixed i < j, E_i does not change while closing E_j. Cache an index
+    -- from nonterminal name to caller origins/continuations to speed completion.
+    -- IntMap key: origin index i
+    -- Map key: nonterminal name
+    -- Value: list of (caller origins, continuation destinations)
+
     -- Earley closure at E_j: apply predict/complete until fixed point.
-    loop [] chart = chart
-    loop ((s, i) : rest) chart = case IntMap.lookup s (transducerRelations et) of
+    loop [] chart _ = chart
+    loop ((s, i) : rest) chart callerCache = case IntMap.lookup s (transducerRelations et) of
       Just (TransitionNonTerminal name ds) ->
         let
           (firsts, isNull) = Map.findWithDefault
@@ -392,21 +398,36 @@ closeChartAt et j initialChart0 = loop initialWork initialChart0
           nullItems =
             if isNull then [(d, i) | d <- IntSet.toList ds] else []
           (chart', new) = addEarleyItems (predItems <> nullItems) chart
-        in loop (new <> rest) chart'
+        in loop (new <> rest) chart' callerCache
       Just (EmitNonTerminal name) ->
         let
-          eI = IntMap.findWithDefault IntMap.empty i chart
+          (indexed, callerCache') = callerEntries i chart callerCache
+          callerRows = Map.findWithDefault [] name indexed
           completions =
             [ (d, i')
-            | (t, os) <- IntMap.toList eI
-            , Just (TransitionNonTerminal n' ds) <- [IntMap.lookup t (transducerRelations et)]
-            , n' == name
+            | (os, ds) <- callerRows
             , i' <- IntSet.toList os
             , d <- IntSet.toList ds
             ]
           (chart', new) = addEarleyItems completions chart
-        in loop (new <> rest) chart'
-      _ -> loop rest chart
+        in loop (new <> rest) chart' callerCache'
+      _ -> loop rest chart callerCache
+
+    callerEntries i chart callerCache
+      -- E_j mutates during closure, so do not cache index for i == j.
+      | i == j = (buildCallerIndex (IntMap.findWithDefault IntMap.empty i chart), callerCache)
+      | otherwise = case IntMap.lookup i callerCache of
+          Just indexed -> (indexed, callerCache)
+          Nothing ->
+            let indexed = buildCallerIndex (IntMap.findWithDefault IntMap.empty i chart)
+            in (indexed, IntMap.insert i indexed callerCache)
+
+    buildCallerIndex eI = IntMap.foldrWithKey step Map.empty eI
+      where
+        step t os acc = case IntMap.lookup t (transducerRelations et) of
+          Just (TransitionNonTerminal n ds) ->
+            Map.insertWith (++) n [(os, ds)] acc
+          _ -> acc
 
     addEarleyItems items chart = foldl' ins (chart, []) items
       where
