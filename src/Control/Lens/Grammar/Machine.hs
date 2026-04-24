@@ -401,8 +401,8 @@ closeChartAt et j initialChart0 = loop initialWork initialChart0 IntMap.empty
         in loop (new <> rest) chart' callerCache
       Just (EmitNonTerminal name) ->
         let
-          (indexed, callerCache') = callerEntries i chart callerCache
-          callerRows = Map.findWithDefault [] name indexed
+          (ixed, callerCache') = callerEntries i chart callerCache
+          callerRows = Map.findWithDefault [] name ixed
           completions =
             [ (d, i')
             | (os, ds) <- callerRows
@@ -417,10 +417,10 @@ closeChartAt et j initialChart0 = loop initialWork initialChart0 IntMap.empty
       -- E_j mutates during closure, so do not cache index for i == j.
       | i == j = (buildCallerIndex (IntMap.findWithDefault IntMap.empty i chart), callerCache)
       | otherwise = case IntMap.lookup i callerCache of
-          Just indexed -> (indexed, callerCache)
+          Just ixed -> (ixed, callerCache)
           Nothing ->
-            let indexed = buildCallerIndex (IntMap.findWithDefault IntMap.empty i chart)
-            in (indexed, IntMap.insert i indexed callerCache)
+            let ixed = buildCallerIndex (IntMap.findWithDefault IntMap.empty i chart)
+            in (ixed, IntMap.insert i ixed callerCache)
 
     buildCallerIndex eI = IntMap.foldrWithKey step Map.empty eI
       where
