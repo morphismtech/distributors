@@ -91,8 +91,7 @@ and Earley's algorithm for context-free grammars. See Jim & Mandelbaum,
 and McIlroy, [Enumerating the strings of regular languages]
 (https://www.cs.dartmouth.edu/~doug/nfa.pdf).
 
-A transducer is a form of [finite state machine]
-(https://www.scribd.com/doc/76189520/John-H-Conway-Regular-Algebra-and-Finite-Machines)
+A transducer is a form of finite state machine
 that can be run in various ways like `=~`, `expectedRun`, `languageRun` & `unreachableRun`.
 -}
 transducer :: Bnf (RegEx token) -> Transducer token

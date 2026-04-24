@@ -793,11 +793,16 @@ It can apply to a `RegGrammar`.
 regbnfG :: Grammar Char a -> RegBnf
 regbnfG bnf = runGrammor bnf
 
+{- | Compile a `Grammar` into a `Transducer`.
+
+A transducer is a form of finite state machine
+that can be run in various ways like `=~`, `expectedRun`, `languageRun` & `unreachableRun`.
+-}
 transducerG :: Categorized token => Grammar token a -> Transducer token
 transducerG bnf = transducer (runGrammor bnf)
 
 languageG :: (Applicative f, TokenAlgebra token (f token)) => Grammar token a -> f [[token]]
-languageG bnf = languageRun (transducer (runGrammor bnf))
+languageG bnf = languageRun (transducerG bnf)
 
 {- | `printG` generates a printer from a `CtxGrammar`.
 Since both `RegGrammar`s and context-free `Grammar`s are `CtxGrammar`s,
