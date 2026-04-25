@@ -233,7 +233,7 @@ instance TokenAlgebra Char (ReadP Char) where
   tokenClass = ReadP.satisfy . tokenClass
 instance (Categorized token, Arbitrary token) => TokenAlgebra token (Gen token) where
   tokenClass (TokenClass exam) = case exam of
-    OneOf xs -> Gen.elements (toList xs)
+    OneOf xs -> oneOf xs
     NotOneOf xs (AndAsIn cat) -> arbitrary `Gen.suchThat`
       (\x -> x `notElem` xs && categorize x == cat)
     NotOneOf xs (AndNotAsIn cats) -> arbitrary `Gen.suchThat`
