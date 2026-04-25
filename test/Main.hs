@@ -164,7 +164,7 @@ testCfg isLL1 examples grammar = do
       actualMatch `shouldBe` True
   describe "generated languageG" $ do
     it "should parses with exactly one full parse" $ do
-      generated <- generate (take 100 <$> languageG grammar)
+      generated <- generate (take 100 <$> languageSample (transducerG grammar))
       for_ generated $ \word -> do
         let fullParses = [() | (_, "") <- parseG grammar word]
         fullParses `shouldBe` [()]

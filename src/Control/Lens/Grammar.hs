@@ -25,7 +25,6 @@ module Control.Lens.Grammar
   , regbnfGrammar
   , applicativeG
   , transducerG
-  , languageG
     -- * Context-sensitive grammar
   , CtxGrammar
   , printG
@@ -795,35 +794,68 @@ regbnfG bnf = runGrammor bnf
 
 {- | Compile a `Grammar` into a `Transducer`.
 
-A transducer is a form of finite state machine
-that can be run in various ways like `=~`, `expectedRun`, `languageRun` & `unreachableRun`.
--}
-transducerG :: Categorized token => Grammar token a -> Transducer token
-transducerG bnf = transducer (runGrammor bnf)
+>>> let regexMachine = transducerG @Char regexGrammar
 
-{- |
-`languageG` lazily produces all words in a language from shortest to longest.
-However since `TokenClass`es can resolve to infinite sets of tokens,
-and the relevant case of `Char` tokens while not infinite is huge,
-it samples tokens in an `Applicative` `TokenAlgebra`.
+A transducer is a form of finite state machine,
+usable as an intermediary for further generators like
+`=~`, `expectNext`, `languageSample`, `parseForestGen` & `unreachableRules`.
 
+>>> import Test.QuickCheck
+>>> let regexLang = languageSample @Char regexMachine
+>>> words100 <- generate (take 100 <$> regexLang)
+>>> quickCheck (property (all (=~ regexMachine) words100))
++++ OK, passed 1 test.
 >>> import Control.Monad.State
 >>> import System.Random
 >>> let gen = mkStdGen 69
->>> evalState (take 10 <$> languageG @Char regexGrammar) gen
-["","|","\776269","()","[]","\\[","||","|\249908","\770923*","\1008821+"]
+>>> evalState (take 15 <$> regexLang) gen
+["","|","\776269","()","[]","\\[","||","|\249908","\770923*","\1008821+","\318904?","\845807|","\477898\1026934","()*","()+"]
 
-This is useful for generating valid language examples for property tests.
+>>> import Data.Tree (drawForest)
 
->>> import Test.QuickCheck
->>> let rg = regbnfG regexGrammar
->>> words100 <- generate (take 100 <$> languageG @Char regexGrammar)
->>> quickCheckWith stdArgs {maxSuccess = 1} (property (all (=~ rg) words100))
-+++ OK, passed 1 test.
+@>>> let (forest, _) = parseForestGen regexMachine "xy|z" in putStr (drawForest (map (fmap show) forest))
+("regex",0,4,"xy|z")
+|
+`- ("alternate",0,4,"xy|z")
+   |
+   +- ("sequence",0,2,"xy")
+   |  |
+   |  +- ("expression",0,1,"x")
+   |  |  |
+   |  |  `- ("atom",0,1,"x")
+   |  |     |
+   |  |     `- ("class",0,1,"x")
+   |  |        |
+   |  |        `- ("class-one-of",0,1,"x")
+   |  |           |
+   |  |           `- ("char",0,1,"x")
+   |  |
+   |  `- ("expression",1,2,"y")
+   |     |
+   |     `- ("atom",1,2,"y")
+   |        |
+   |        `- ("class",1,2,"y")
+   |           |
+   |           `- ("class-one-of",1,2,"y")
+   |              |
+   |              `- ("char",1,2,"y")
+   |
+   `- ("sequence",3,4,"z")
+      |
+      `- ("expression",3,4,"z")
+         |
+         `- ("atom",3,4,"z")
+            |
+            `- ("class",3,4,"z")
+               |
+               `- ("class-one-of",3,4,"z")
+                  |
+                  `- ("char",3,4,"z")
+@
 
 -}
-languageG :: (TokenAlgebra token (f token), Applicative f) => Grammar token a -> f [[token]]
-languageG bnf = languageRun (transducerG bnf)
+transducerG :: Categorized token => Grammar token a -> Transducer token
+transducerG bnf = transducer (runGrammor bnf)
 
 {- | `printG` generates a printer from a `CtxGrammar`.
 Since both `RegGrammar`s and context-free `Grammar`s are `CtxGrammar`s,
