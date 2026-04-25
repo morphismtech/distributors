@@ -798,7 +798,7 @@ regbnfG bnf = runGrammor bnf
 
 A transducer is a form of finite state machine,
 usable as an intermediary for further generators like
-`=~`, `expectNext`, `languageSample`, `parseForestGen` & `unreachableRules`.
+`=~`, `expectNext`, `languageSample`, `parseForest` & `unreachableRules`.
 
 >>> import Test.QuickCheck
 >>> let regexLang = languageSample @Char regexMachine
@@ -813,7 +813,7 @@ usable as an intermediary for further generators like
 
 >>> import Data.Tree (drawForest)
 
-@>>> let (forest, _) = parseForestGen regexMachine "xy|z" in putStr (drawForest (map (fmap show) forest))
+@>>> let (forest, _) = parseForest regexMachine "xy|z" in putStr (drawForest (map (fmap show) forest))
 ("regex",0,4,"xy|z")
 |
 `- ("alternate",0,4,"xy|z")

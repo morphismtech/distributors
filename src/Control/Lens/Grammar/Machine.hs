@@ -13,7 +13,7 @@ module Control.Lens.Grammar.Machine
     Matching (..)
     -- * Transducer
   , transducer
-  , parseForestGen
+  , parseForest
   , languageSample
   , expectNext
   , unreachableRules
@@ -95,7 +95,7 @@ and McIlroy, [Enumerating the strings of regular languages]
 
 A transducer is a form of finite state machine
 that can be run in various ways like
-`=~`, `expectNext`, `languageSample`, `parseForestGen` & `unreachableRules`.
+`=~`, `expectNext`, `languageSample`, `parseForest` & `unreachableRules`.
 -}
 transducer :: Bnf (RegEx token) -> Transducer token
 transducer (Bnf start rules) = Transducer
@@ -230,13 +230,14 @@ transducer (Bnf start rules) = Transducer
             , bypass0 || bypass1
             )
 
-parseForestGen
+{- | The parse forest of a string of tokens. -}
+parseForest
   :: Categorized token
   => Transducer token
-  -> [token]
+  -> [token] -- ^ string
   -> ([Tree (String, Int, Int, [token])], [token])
   {- ^ parse forest & remaining unparsed tokens -}
-parseForestGen et word = (concat (itemForests Set.empty Nothing 0 acceptedLen 0), drop acceptedLen word)
+parseForest et word = (concat (itemForests Set.empty Nothing 0 acceptedLen 0), drop acceptedLen word)
   where
     (n, chart) = prefixGen et word
     relations = transducerRelations et

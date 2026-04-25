@@ -41,15 +41,15 @@ main = do
     describe "lambdaGrammar" $ testCfg True lambdaExamples lambdaGrammar
     describe "lenvecGrammar" $ testCsg True lenvecExamples lenvecGrammar
     describe "chainGrammar" $ testCfg True chainExamples chainGrammar
-    describe "parseForestGen" parseForestGenTests
+    describe "parseForest" parseForestTests
     describe "Parsector try rollback" tryRollbackTests
     describe "Kleene" kleeneProperties
     describe "meander" meanderProperties
 
-parseForestGenTests :: Spec
-parseForestGenTests = do
+parseForestTests :: Spec
+parseForestTests = do
   it "returns the nested rule forest for a full parse" $ do
-    let (actualForest, actualRest) = parseForestGen (transducerG arithGrammar) "2*3+4;;;"
+    let (actualForest, actualRest) = parseForest (transducerG arithGrammar) "2*3+4;;;"
     actualForest `shouldBe`
       [ Node ("arith", 0, 5, "2*3+4")
           [ Node ("sum", 0, 5, "2*3+4")
