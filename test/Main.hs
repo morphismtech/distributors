@@ -41,15 +41,15 @@ main = do
     describe "lambdaGrammar" $ testCfg True lambdaExamples lambdaGrammar
     describe "lenvecGrammar" $ testCsg True lenvecExamples lenvecGrammar
     describe "chainGrammar" $ testCfg True chainExamples chainGrammar
-    describe "parseForestRun" parseForestRunTests
+    describe "parseForestGen" parseForestGenTests
     describe "Parsector try rollback" tryRollbackTests
     describe "Kleene" kleeneProperties
     describe "meander" meanderProperties
 
-parseForestRunTests :: Spec
-parseForestRunTests = do
+parseForestGenTests :: Spec
+parseForestGenTests = do
   it "returns the nested rule forest for a full parse" $ do
-    let (actualForest, actualRest) = parseForestRun (transducerG arithGrammar) "2*3+4;;;"
+    let (actualForest, actualRest) = parseForestGen (transducerG arithGrammar) "2*3+4;;;"
     actualForest `shouldBe`
       [ Node ("arith", 0, 5, "2*3+4")
           [ Node ("sum", 0, 5, "2*3+4")
@@ -85,9 +85,22 @@ tryRollbackTests = do
 
 doctests :: IO ()
 doctests = do
+  stackExe <- lookupEnv "STACK_EXE"
+  ghcEnvironment <- lookupEnv "GHC_ENVIRONMENT"
   let
     modulePaths =
       [ "src/Control/Lens/Grammar.hs" ]
+    sourceDirs =
+      [ "-isrc"
+      , "-itest"
+      ]
+    packageEnvFlags = case ghcEnvironment of
+      Just "-" -> []
+      Just path -> ["-package-env=" <> path]
+      Nothing -> []
+    runnerFlags
+      | isJust stackExe = []
+      | otherwise = sourceDirs <> packageEnvFlags
     languageExtensions =
       [ "-XAllowAmbiguousTypes"
       , "-XArrows"
@@ -129,7 +142,7 @@ doctests = do
   for_ modulePaths $ \modulePath -> do
     putStr "Testing module documentation in "
     putStrLn modulePath
-    doctest (modulePath : languageExtensions)
+    doctest (modulePath : runnerFlags <> languageExtensions)
 
 meanderProperties :: Spec
 meanderProperties =
