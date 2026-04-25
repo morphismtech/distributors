@@ -5,7 +5,7 @@ cabal-version: 2.2
 -- see: https://github.com/sol/hpack
 
 name:           distributors
-version:        0.5.0.0
+version:        0.6.0.0
 synopsis:       Unifying Parsers, Printers & Grammars
 description:    Distributors provides mathematically inspired abstractions for coders to write parsers that can also be inverted to printers.
 category:       Profunctors, Optics, Parsing
@@ -36,6 +36,7 @@ library
       Control.Lens.Grammar.Internal.NestedPrismTH
       Control.Lens.Grammar.Internal.Orphanage
       Control.Lens.Grammar.Kleene
+      Control.Lens.Grammar.Machine
       Control.Lens.Grammar.Symbol
       Control.Lens.Grammar.Token
       Control.Lens.Grate
@@ -98,6 +99,7 @@ library
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints
   build-depends:
       MemoTrie >=0.6 && <1
+    , QuickCheck >=2.14 && <3
     , adjunctions >=4.4 && <5
     , base >=4.15 && <5
     , bifunctors >=5.5 && <6
@@ -106,12 +108,15 @@ library
     , contravariant >=1.5 && <2
     , distributive >=0.6 && <1
     , lens >=5.0 && <6
+    , monad-loops >=0.4.3 && <1
     , mtl >=2.2 && <3
     , profunctors >=5.6 && <6
+    , random >=1.2 && <2
     , tagged >=0.8 && <1
     , template-haskell >=2.17 && <3
     , text ==2.*
     , th-abstraction >=0.4 && <1
+    , transformers >=0.5 && <1
     , vector >=0.12 && <1
     , witherable >=0.4 && <1
   default-language: Haskell2010
@@ -188,12 +193,15 @@ test-suite test
     , hspec >=2.7 && <3
     , lens >=5.0 && <6
     , megaparsec >=9.0 && <10
+    , monad-loops >=0.4.3 && <1
     , mtl >=2.2 && <3
     , profunctors >=5.6 && <6
+    , random >=1.2 && <2
     , tagged >=0.8 && <1
     , template-haskell >=2.17 && <3
     , text ==2.*
     , th-abstraction >=0.4 && <1
+    , transformers >=0.5 && <1
     , vector >=0.12 && <1
     , witherable >=0.4 && <1
   default-language: Haskell2010

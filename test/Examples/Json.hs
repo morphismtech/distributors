@@ -24,12 +24,17 @@ data Json
 -- Generate prisms
 makePrisms ''Json
 
--- | JSON grammar following the McKeeman Form specification from json.org
+-- | JSON grammar following the McKeeman Form specification from json.org.
+-- The inner rules are mutually recursive: element ↔ value ↔ array ↔
+-- elements ↔ element, and element ↔ value ↔ object ↔ members ↔ member
+-- ↔ element. Only a rule bound via `ruleRec` produces a stub that
+-- breaks the cycle; a plain `rule` invocation forces its body, so
+-- every cyclic back-edge must instead use the `element` stub produced
+-- by the inner `ruleRec "element"` below.
 jsonGrammar :: Grammar Char Json
-jsonGrammar = ruleRec "json" elementG
+jsonGrammar = rule "json" elementG
   where
-    -- element = ws value ws
-    elementG json = rule "element" $
+    elementG = ruleRec "element" $ \json ->
       ws >* valueG json *< ws
 
     -- value = object | array | string | number | "true" | "false" | "null"
@@ -57,7 +62,7 @@ jsonGrammar = ruleRec "json" elementG
 
     -- member = ws string ws ':' element
     memberG json = rule "member" $
-      ws >* stringG *< ws *< terminal ":" >*< elementG json
+      ws >* stringG *< ws *< terminal ":" >*< json
 
     -- array = '[' ws ']' | '[' elements ']'
     arrayG json = rule "array" $ choice
@@ -67,7 +72,7 @@ jsonGrammar = ruleRec "json" elementG
 
     -- elements = element | element ',' elements
     elementsG json = rule "elements" $
-      several1 (sepWith ",") (elementG json)
+      several1 (sepWith ",") json
 
     -- string = '"' characters '"'
     stringG = rule "string" $

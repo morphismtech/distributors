@@ -19,13 +19,10 @@ module Control.Lens.Grammar.BackusNaur
   , liftBnf0
   , liftBnf1
   , liftBnf2
-    -- * Matching
-  , Matching (..)
   , diffB
   ) where
 
 import Control.Lens
-import Control.Lens.Extras
 import Control.Lens.Grammar.Kleene
 import Control.Lens.Grammar.Token
 import Control.Lens.Grammar.Symbol
@@ -106,11 +103,6 @@ liftBnf2
   => (a -> b -> c) -> Bnf a -> Bnf b -> Bnf c
 liftBnf2 f (Bnf start0 rules0) (Bnf start1 rules1) =
   Bnf (f start0 start1) (Set.map coerce rules0 <> Set.map coerce rules1)
-
--- | Does a word match a pattern?
-class Matching word pattern | pattern -> word where
-  (=~) :: word -> pattern -> Bool
-  infix 2 =~
 
 {- |
 The [Brzozowski derivative]
@@ -210,11 +202,3 @@ instance (Ord rule, Monoid rule) => Monoid (Bnf rule) where
   mempty = liftBnf0 mempty
 instance (Ord rule, Semigroup rule) => Semigroup (Bnf rule) where
   (<>) = liftBnf2 (<>)
-instance (Categorized token, HasTrie token)
-  => Matching [token] (Bnf (RegEx token)) where
-    (=~) word = δ . diffB word
-instance (Categorized token, HasTrie token)
-  => Matching [token] (RegEx token) where
-    word =~ pattern = word =~ liftBnf0 pattern
-instance Matching s (APrism s t a b) where
-  word =~ pattern = is pattern word

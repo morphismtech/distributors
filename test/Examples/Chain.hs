@@ -16,7 +16,7 @@ data Chain
 
 makePrisms ''Chain
 
-chainGrammar :: CtxGrammar Char Chain
+chainGrammar :: Grammar Char Chain
 chainGrammar = ruleRec "chain" seqG
   where
     seqG chn = rule "seq" $

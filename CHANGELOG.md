@@ -1,5 +1,38 @@
 # Changelog for `distributors`
 
+## 0.6.0.0 - 2026-04-24
+
+### New Module
+
+- Added `Control.Lens.Grammar.Machine` as the transducer/matching runtime layer.
+
+### New Types
+
+- Added `Transducer` and `TransducerStep` as the finite-state representation for
+  compiled grammar machines.
+
+### New APIs (Machine Runtime)
+
+- Added `transducer` to compile `Bnf (RegEx token)` into `Transducer`.
+- Added `parseForest` to reconstruct parse forests with rule labels and token spans/slices,
+  returning the remaining unparsed suffix.
+- Added `expectNext` to compute scanner-frontier expected token classes after a prefix.
+- Added `languageSample` to lazily enumerate sampled language words from shortest length upward.
+- Added `unreachableRules` to report dead nonterminals unreachable from the start expression.
+
+### Internal Machinery
+
+- Implemented Thompson-style transducer construction over `RegEx`-extended BNF.
+- Implemented Earley-style chart runtime (`initialChart`, `closeChartAt`, `scanClassOptions`,
+  `prefixGen`) with predict/complete closure and scanner grouping.
+- Added completion-time caller indexing/cache optimizations and precomputed rule nullability/first-state
+  indexing to speed machine execution.
+
+### Grammar Integration
+
+- `Control.Lens.Grammar` now exposes machine-backed generators:
+  `transducerG` and the parse-forest examples/docs built on the Machine runtime.
+
 ## 0.5.0.0 - 2026-04-16
 
 ### Changes

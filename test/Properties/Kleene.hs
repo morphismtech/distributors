@@ -2,6 +2,7 @@
 module Properties.Kleene (kleeneProperties) where
 
 import Control.Lens.Grammar
+import Data.Foldable (for_)
 import Test.Hspec
 import Test.Hspec.QuickCheck (prop)
 import Test.QuickCheck
@@ -95,6 +96,26 @@ kleeneProperties = do
     prop "notAsIn cat = tokenClass (notAsIn cat)" $
       \(cat :: GeneralCategory) ->
         (notAsIn cat :: RegEx Char) == tokenClass (notAsIn cat)
+    it "matching agrees with lifted Bnf on examples" $ do
+      let
+        cases =
+          [ ("", mempty :: RegEx Char)
+          , ("a", token 'a')
+          , ("b", token 'a')
+          , ("ab", token 'a' <> token 'b')
+          , ("a", token 'a' >|< token 'b')
+          , ("bbb", starK (token 'b'))
+          , ("bbb", plusK (token 'b'))
+          , ("", optK (token 'b'))
+          , ("x", oneOf "xyz")
+          , ("x", notOneOf "abc")
+          , ("A", asIn UppercaseLetter)
+          , ("a", notAsIn UppercaseLetter)
+          , ("abbb", token 'a' <> starK (token 'b'))
+          , ("cat", terminal "cat" >|< terminal "dog")
+          ]
+      for_ cases $ \(word, rex) ->
+        (word =~ rex) `shouldBe` (word =~ liftBnf0 rex)
   describe "BooleanAlgebra TokenClass" $ do
     it "trueB = anyToken" $
       (trueB :: TokenClass Char) `shouldBe` anyToken

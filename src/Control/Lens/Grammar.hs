@@ -24,6 +24,7 @@ module Control.Lens.Grammar
   , regbnfG
   , regbnfGrammar
   , applicativeG
+  , transducerG
     -- * Context-sensitive grammar
   , CtxGrammar
   , printG
@@ -45,6 +46,7 @@ import Control.Lens.PartialIso
 import Control.Lens.Grammar.BackusNaur
 import Control.Lens.Grammar.Boole
 import Control.Lens.Grammar.Kleene
+import Control.Lens.Grammar.Machine
 import Control.Lens.Grammar.Token
 import Control.Lens.Grammar.Symbol
 import Data.Bifunctor.Joker
@@ -67,6 +69,7 @@ import Witherable
 import Control.Lens.Grammar.BackusNaur as X
 import Control.Lens.Grammar.Boole as X
 import Control.Lens.Grammar.Kleene as X
+import Control.Lens.Grammar.Machine as X
 import Control.Lens.Grammar.Symbol as X
 import Control.Lens.Grammar.Token as X
 import Control.Lens.PartialIso as X
@@ -788,6 +791,71 @@ It can apply to a `RegGrammar`.
 -}
 regbnfG :: Grammar Char a -> RegBnf
 regbnfG bnf = runGrammor bnf
+
+{- | Compile a `Grammar` into a `Transducer`.
+
+>>> let regexMachine = transducerG @Char regexGrammar
+
+A transducer is a form of finite state machine,
+usable as an intermediary for further generators like
+`=~`, `expectNext`, `languageSample`, `parseForest` & `unreachableRules`.
+
+>>> import Test.QuickCheck
+>>> let regexLang = languageSample @Char regexMachine
+>>> words100 <- generate (take 100 <$> regexLang)
+>>> quickCheck (property (all (=~ regexMachine) words100))
++++ OK, passed 1 test.
+>>> import Control.Monad.State
+>>> import System.Random
+>>> let gen = mkStdGen 69
+>>> evalState (take 15 <$> regexLang) gen
+["","|","\776269","()","[]","\\[","||","|\249908","\770923*","\1008821+","\318904?","\845807|","\477898\1026934","()*","()+"]
+
+>>> import Data.Tree (drawForest)
+
+@>>> let (forest, _) = parseForest regexMachine "xy|z" in putStr (drawForest (map (fmap show) forest))
+("regex",0,4,"xy|z")
+|
+`- ("alternate",0,4,"xy|z")
+   |
+   +- ("sequence",0,2,"xy")
+   |  |
+   |  +- ("expression",0,1,"x")
+   |  |  |
+   |  |  `- ("atom",0,1,"x")
+   |  |     |
+   |  |     `- ("class",0,1,"x")
+   |  |        |
+   |  |        `- ("class-one-of",0,1,"x")
+   |  |           |
+   |  |           `- ("char",0,1,"x")
+   |  |
+   |  `- ("expression",1,2,"y")
+   |     |
+   |     `- ("atom",1,2,"y")
+   |        |
+   |        `- ("class",1,2,"y")
+   |           |
+   |           `- ("class-one-of",1,2,"y")
+   |              |
+   |              `- ("char",1,2,"y")
+   |
+   `- ("sequence",3,4,"z")
+      |
+      `- ("expression",3,4,"z")
+         |
+         `- ("atom",3,4,"z")
+            |
+            `- ("class",3,4,"z")
+               |
+               `- ("class-one-of",3,4,"z")
+                  |
+                  `- ("char",3,4,"z")
+@
+
+-}
+transducerG :: Categorized token => Grammar token a -> Transducer token
+transducerG bnf = transducer (runGrammor bnf)
 
 {- | `printG` generates a printer from a `CtxGrammar`.
 Since both `RegGrammar`s and context-free `Grammar`s are `CtxGrammar`s,

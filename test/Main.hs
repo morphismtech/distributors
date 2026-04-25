@@ -8,9 +8,11 @@ import Data.Function (fix)
 import Data.List (genericLength)
 import Data.Maybe (isJust)
 import Data.Profunctor.Types (Star (..))
+import Data.Tree (Tree (..))
 import System.Environment (lookupEnv)
 import Test.DocTest
 import Test.Hspec
+import Test.QuickCheck (generate)
 import qualified Text.Megaparsec as M
 
 import Examples.Arithmetic
@@ -30,18 +32,41 @@ main = do
     when shouldRunDoctests $
       describe "doctest" $
         it "should run haddock examples" doctests
-    describe "regexGrammar" $ for_ regexExamples $ testGrammar False regexGrammar
-    describe "semverGrammar" $ for_ semverExamples $ testCtxGrammar True semverGrammar
-    describe "semverCtxGrammar" $ for_ semverExamples $ testCtxGrammar True semverCtxGrammar
-    describe "arithGrammar" $ for_ arithExamples $ testGrammar True arithGrammar
-    describe "jsonGrammar" $ for_ jsonExamples $ testCtxGrammar False jsonGrammar
-    describe "sexprGrammar" $ for_ sexprExamples $ testCtxGrammar True sexprGrammar
-    describe "lambdaGrammar" $ for_ lambdaExamples $ testCtxGrammar True lambdaGrammar
-    describe "lenvecGrammar" $ for_ lenvecExamples $ testCtxGrammar True lenvecGrammar
-    describe "chainGrammar" $ for_ chainExamples $ testCtxGrammar True chainGrammar
+    describe "regexGrammar" $ testCfg False regexExamples regexGrammar
+    describe "semverGrammar" $ testCfg True semverExamples semverGrammar
+    describe "semverCtxGrammar" $ testCsg True semverExamples semverCtxGrammar
+    describe "arithGrammar" $ testCfg True arithExamples arithGrammar
+    describe "jsonGrammar" $ testCfg False jsonExamples jsonGrammar
+    describe "sexprGrammar" $ testCfg True sexprExamples sexprGrammar
+    describe "lambdaGrammar" $ testCfg True lambdaExamples lambdaGrammar
+    describe "lenvecGrammar" $ testCsg True lenvecExamples lenvecGrammar
+    describe "chainGrammar" $ testCfg True chainExamples chainGrammar
+    describe "parseForest" parseForestTests
     describe "Parsector try rollback" tryRollbackTests
     describe "Kleene" kleeneProperties
     describe "meander" meanderProperties
+
+parseForestTests :: Spec
+parseForestTests = do
+  it "returns the nested rule forest for a full parse" $ do
+    let (actualForest, actualRest) = parseForest (transducerG arithGrammar) "2*3+4;;;"
+    actualForest `shouldBe`
+      [ Node ("arith", 0, 5, "2*3+4")
+          [ Node ("sum", 0, 5, "2*3+4")
+              [ Node ("product", 0, 3, "2*3")
+                  [ Node ("factor", 0, 1, "2")
+                      [Node ("number", 0, 1, "2") []]
+                  , Node ("factor", 2, 3, "3")
+                      [Node ("number", 2, 3, "3") []]
+                  ]
+              , Node ("product", 4, 5, "4")
+                  [ Node ("factor", 4, 5, "4")
+                      [Node ("number", 4, 5, "4") []]
+                  ]
+              ]
+          ]
+      ]
+    actualRest `shouldBe` ";;;"
 
 tryRollbackTests :: Spec
 tryRollbackTests = do
@@ -60,9 +85,22 @@ tryRollbackTests = do
 
 doctests :: IO ()
 doctests = do
+  stackExe <- lookupEnv "STACK_EXE"
+  ghcEnvironment <- lookupEnv "GHC_ENVIRONMENT"
   let
     modulePaths =
       [ "src/Control/Lens/Grammar.hs" ]
+    sourceDirs =
+      [ "-isrc"
+      , "-itest"
+      ]
+    packageEnvFlags = case ghcEnvironment of
+      Just "-" -> []
+      Just path -> ["-package-env=" <> path]
+      Nothing -> []
+    runnerFlags
+      | isJust stackExe = []
+      | otherwise = sourceDirs <> packageEnvFlags
     languageExtensions =
       [ "-XAllowAmbiguousTypes"
       , "-XArrows"
@@ -104,7 +142,7 @@ doctests = do
   for_ modulePaths $ \modulePath -> do
     putStr "Testing module documentation in "
     putStrLn modulePath
-    doctest (modulePath : languageExtensions)
+    doctest (modulePath : runnerFlags <> languageExtensions)
 
 meanderProperties :: Spec
 meanderProperties =
@@ -117,12 +155,23 @@ meanderProperties =
     seen `shouldBe` input
     units `shouldBe` replicate (length input) ()
 
-testGrammar :: (Show a, Eq a) => Bool -> Grammar Char a -> (a, String) -> Spec
-testGrammar isLL1 grammar (expectedSyntax, expectedString) = do
-  testCtxGrammar isLL1 grammar (expectedSyntax, expectedString)
-  it ("should match " <> expectedString <> " correctly") $ do
-    let actualMatch = expectedString =~ regbnfG grammar
-    actualMatch `shouldBe` True
+testCfg :: (Show a, Eq a) => Bool -> [(a, String)] -> Grammar Char a -> Spec
+testCfg isLL1 examples grammar = do
+  describe "examples" $ for_ examples $ \(expectedSyntax, expectedString) -> do
+    testCtxGrammar isLL1 grammar (expectedSyntax, expectedString)
+    it ("should match " <> expectedString <> " correctly") $ do
+      let actualMatch = expectedString =~ regbnfG grammar
+      actualMatch `shouldBe` True
+  describe "transducerG" $ do
+    it "should generate the hundred shorted valid words in a language" $ do
+      generated <- generate (take 100 <$> languageSample (transducerG grammar))
+      for_ generated $ \word -> do
+        let fullParses = [() | (_, "") <- parseG grammar word]
+        fullParses `shouldBe` [()]
+
+testCsg :: (Show a, Eq a) => Bool -> [(a, String)] -> CtxGrammar Char a -> Spec
+testCsg isLL1 examples grammar =
+  describe "examples" $ for_ examples $ testCtxGrammar isLL1 grammar
 
 testCtxGrammar :: (Show a, Eq a) => Bool -> CtxGrammar Char a -> (a, String) -> Spec
 testCtxGrammar isLL1 grammar (expectedSyntax, expectedString) = do
