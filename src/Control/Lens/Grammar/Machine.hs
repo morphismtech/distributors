@@ -77,6 +77,7 @@ data Transducer token = Transducer
   , transducerRules :: Map String (IntSet, Bool)
   -- ^ an index into `transducerRelations` for nonterminals with precomputed nullability
   , transducerStarts :: IntSet
+  -- ^ an index into `transducerRelations` for the starting rule
   }
 
 -- | A `TransducerStep` in a `Transducer`.
