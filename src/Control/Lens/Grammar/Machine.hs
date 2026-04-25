@@ -13,10 +13,10 @@ module Control.Lens.Grammar.Machine
     Matching (..)
     -- * Transducer
   , transducer
-  , parseForestRun
-  , languageRun
-  , expectedRun
-  , unreachableRun
+  , parseForestGen
+  , languageGen
+  , expectedGen
+  , unreachableGen
   , Transducer (..)
   , TransducerStep (..)
   ) where
@@ -94,7 +94,8 @@ and McIlroy, [Enumerating the strings of regular languages]
 (https://www.cs.dartmouth.edu/~doug/nfa.pdf).
 
 A transducer is a form of finite state machine
-that can be run in various ways like `=~`, `expectedRun`, `languageRun` & `unreachableRun`.
+that can be run in various ways like
+`=~`, `expectedGen`, `languageGen`, `parseForestGen` & `unreachableGen`.
 -}
 transducer :: Bnf (RegEx token) -> Transducer token
 transducer (Bnf start rules) = Transducer
@@ -229,12 +230,13 @@ transducer (Bnf start rules) = Transducer
             , bypass0 || bypass1
             )
 
-parseForestRun
+parseForestGen
   :: Categorized token
   => Transducer token
   -> [token]
-  -> ([Tree (String, Int, Int, [token])], [token]) -- ^ parse forest spans & remaining unparsed tokens
-parseForestRun et word = (concat (itemForests Set.empty Nothing 0 acceptedLen 0), drop acceptedLen word)
+  -> ([Tree (String, Int, Int, [token])], [token])
+  {- ^ parse forest & remaining unparsed tokens -}
+parseForestGen et word = (concat (itemForests Set.empty Nothing 0 acceptedLen 0), drop acceptedLen word)
   where
     (n, chart) = prefixGen et word
     relations = transducerRelations et
@@ -358,15 +360,15 @@ prefixGen et word = go 0 (initialChart et) word
           _ -> acc
 
 {- | What token is expected next?
-The scanner frontier, `expectedRun` returns the `TokenClass`
+The scanner frontier, `expectedGen` returns the `TokenClass`
 that can be scanned next after the given input prefix.
 A `falseB` result means the current chart has no scanner transitions,
 i.e. the prefix is a dead end for recognition.
 -}
-expectedRun
+expectedGen
   :: Categorized token
   => Transducer token -> [token] {- ^ prefix -} -> TokenClass token
-expectedRun et word = anyB fst (scanClassOptions et n chart)
+expectedGen et word = anyB fst (scanClassOptions et n chart)
   where
     (n, chart) = prefixGen et word
 
@@ -375,8 +377,8 @@ Rule names that can never be entered from the start
 expression — dead productions. A non-empty result is a grammar-hygiene
 warning: those rules can be deleted without changing the recognized language.
 -}
-unreachableRun :: Transducer token -> Set String
-unreachableRun et =
+unreachableGen :: Transducer token -> Set String
+unreachableGen et =
   Map.keysSet (transducerRules et) `Set.difference` called
   where
     called = bfs (transducerStarts et) IntSet.empty Set.empty
@@ -397,16 +399,16 @@ unreachableRun et =
       Nothing -> (acc, cs)
 
 {- |
-`languageRun` lazily produces all words in a language from shortest to longest.
+`languageGen` lazily produces all words in a language from shortest to longest.
 However since `TokenClass`es can resolve to infinite sets of tokens,
 and the relevant case of `Char` tokens while not infinite is huge,
 it samples tokens in an `Applicative` `TokenAlgebra`.
 -}
-languageRun
+languageGen
   :: (Applicative f, TokenAlgebra token (f token))
   => Transducer token -- ^ transducer
   -> f [[token]]
-languageRun et = sequenceA (fmap sampleWord classWords)
+languageGen et = sequenceA (fmap sampleWord classWords)
   where
 
     classWords = enumerateByLength [(0, [], initialChart et)] Set.empty
