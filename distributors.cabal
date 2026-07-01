@@ -130,6 +130,7 @@ test-suite test
       Examples.Json
       Examples.Lambda
       Examples.LenVec
+      Examples.Nix
       Examples.RegString
       Examples.SemVer
       Examples.SExpr

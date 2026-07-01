@@ -20,6 +20,7 @@ import Examples.Chain
 import Examples.Json
 import Examples.Lambda
 import Examples.LenVec
+import Examples.Nix
 import Examples.RegString
 import Examples.SemVer
 import Examples.SExpr
@@ -39,6 +40,7 @@ main = do
     describe "jsonGrammar" $ testCfg False jsonExamples jsonGrammar
     describe "sexprGrammar" $ testCfg True sexprExamples sexprGrammar
     describe "lambdaGrammar" $ testCfg True lambdaExamples lambdaGrammar
+    describe "nixGrammar" $ testCsg False nixExamples nixGrammar
     describe "lenvecGrammar" $ testCsg True lenvecExamples lenvecGrammar
     describe "chainGrammar" $ testCfg True chainExamples chainGrammar
     describe "parseForest" parseForestTests
