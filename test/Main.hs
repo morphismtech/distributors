@@ -17,6 +17,7 @@ import qualified Text.Megaparsec as M
 
 import Examples.Arithmetic
 import Examples.Chain
+import Examples.Expression
 import Examples.Json
 import Examples.Lambda
 import Examples.LenVec
@@ -41,6 +42,9 @@ main = do
     describe "lambdaGrammar" $ testCfg True lambdaExamples lambdaGrammar
     describe "lenvecGrammar" $ testCsg True lenvecExamples lenvecGrammar
     describe "chainGrammar" $ testCfg True chainExamples chainGrammar
+    describe "exprGrammar" $ testCfg False exprExamples exprGrammar
+    describe "powGrammar" $ testCfg False powExamples powGrammar
+    describe "leftGrammar" $ testCfg True leftExamples leftGrammar
     describe "parseForest" parseForestTests
     describe "Parsector try rollback" tryRollbackTests
     describe "Kleene" kleeneProperties

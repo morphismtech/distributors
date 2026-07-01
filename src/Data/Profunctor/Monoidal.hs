@@ -16,7 +16,7 @@ module Data.Profunctor.Monoidal
   , oneP, (>*<), (>*), (*<)
   , dimap2, foreverP, ditraverse
     -- * Monoidal & Choice
-  , pureP, asEmpty, (>:<), replicateP, onlyOne
+  , pureP, asEmpty, (>:<), snocP, replicateP, onlyOne
   , meander, eotFunList
   ) where
 
@@ -128,6 +128,10 @@ asEmpty = pureP _Empty
 (>:<) :: (Cons s t a b, Monoidal p, Choice p) => p a b -> p s t -> p s t
 x >:< xs = _Cons >? x >*< xs
 infixr 5 >:<
+
+{- | A `Monoidal` & `Choice` snoc combinator. -}
+snocP :: (Snoc s t a b, Monoidal p, Choice p) => p s t -> p a b -> p s t
+snocP xs x = _Snoc >? xs >*< x
 
 {- | Use when `IsList` with `onlyOne` `Item`. -}
 onlyOne

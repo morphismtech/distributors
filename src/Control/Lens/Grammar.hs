@@ -66,6 +66,8 @@ import Text.ParserCombinators.ReadP (ReadP, readP_to_S)
 import Witherable
 
 -- Re-exports
+import Control.Lens.Cons as X
+import Control.Lens.Empty as X
 import Control.Lens.Grammar.BackusNaur as X
 import Control.Lens.Grammar.Boole as X
 import Control.Lens.Grammar.Kleene as X

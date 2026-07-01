@@ -11,7 +11,7 @@ Portability : non-portable
 module Data.Profunctor.Distributor
   ( -- * Distributor
     Distributor (..)
-  , dialt
+  , dialt, (>?:<), (>:?<)
     -- * Alternator
   , Alternator (..)
   , choice
@@ -282,3 +282,15 @@ instance Alternative f => Alternator (Joker f) where
   someP (Joker x) = Joker (some x)
   optionP def (Joker x) =
     Joker (x <|> withPrism def (\f _ -> pure (f ())))
+
+(>?:< ):: (Cons s s a a, Distributor p, Choice p) => p a a -> p s s -> p s s
+x >?:< xs = prism'
+  (\case (Just a, s) -> cons a s; (Nothing, s) -> s)
+  (\s -> case uncons s of Nothing -> Nothing; Just (a,s) -> Just (Just a, s))
+    >? optionalP x >*< xs
+
+(>:?<) :: (Snoc s s a a, Distributor p, Choice p) => p s s -> p a a -> p s s
+xs >:?< x = prism'
+  (\case (s, Just a) -> snoc s a; (s, Nothing) -> s)
+  (\s -> case unsnoc s of Nothing -> Nothing; Just (s,a) -> Just (s, Just a))
+    >? xs >*< optionalP x
