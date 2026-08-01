@@ -246,8 +246,14 @@ class (Choice p, Distributor p, forall x. Alternative (p x))
 
 -- | Combines all `Alternative` choices in the specified list.
 choice :: (Foldable f, Alternative p) => f (p a) -> p a
-choice = foldl' (<|>) empty
+-- choice = foldl' (<|>) empty
+choice = asum
 
+instance Alternative f
+  => Alternator (Star f) where
+    alternate = either
+      (\(Star f) -> Star (either (fmap Left . f) (const empty)))
+      (\(Star f) -> Star (either (const empty) (fmap Right . f)))
 instance (Alternator p, Applicative f)
   => Alternator (WrappedPafb f p) where
     alternate =
