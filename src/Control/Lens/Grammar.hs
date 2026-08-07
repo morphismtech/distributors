@@ -286,7 +286,7 @@ and generator support for `ruleRec`.
 type Grammar token a = forall p.
   ( Lexical token p
   , Alternator p
-  , forall x. BackusNaurForm (p x x)
+  , forall x y. BackusNaurForm (p x y)
   ) => p a a
 
 {- | For context-sensitivity,
