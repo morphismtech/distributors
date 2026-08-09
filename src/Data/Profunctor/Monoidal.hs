@@ -156,9 +156,13 @@ replicateP n a = a >:< replicateP (n-1) a
 `meander` is invertible and gives a default implementation for the
 `Data.Profunctor.Traversing.wander`
 method of `Data.Profunctor.Traversing.Traversing`,
-though `Strong` is not needed for its definition.
+though `Strong` isn't needed for its definition,
+but for its invertibility property.
 
->>> let traversalP f = runStar . f . Star
+>>> :{
+traversalP :: (forall p. (Monoidal p, Choice p, Strong p) => p a b -> p s t) -> Traversal s t a b
+traversalP f = runStar . f . Star
+:}
 prop> traversalP . meander = id
 prop> meander . traversalP = id
 
@@ -185,7 +189,7 @@ traverseP
 traverseP = meander traverse
 
 {- | `foldP` gives a contravariant, profunctorial `Foldable` method.
-A `Profunctor` which is also `Contravariant` in its last argument
+However, a `Profunctor` which is also `Contravariant` in its last argument
 is /constant/ over or /phantom/ in its last argument.
 
 prop> foldMap f = getConst . runStar (foldP (Star (Const . f)))
