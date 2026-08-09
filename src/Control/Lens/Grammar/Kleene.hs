@@ -47,7 +47,7 @@ import qualified Test.QuickCheck.Gen as Gen
 import Text.ParserCombinators.ReadP (ReadP)
 import qualified Text.ParserCombinators.ReadP as ReadP
 
-{- | A `KleeneStarAlgebra` is a ring
+{- | A `KleeneStarAlgebra` is a semiring
 with a generally non-commutative multiplication,
 the `Monoid` concatenation operator `<>` with identity `mempty`;
 and an idempotent addition, the alternation operator `>|<`
