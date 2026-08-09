@@ -26,7 +26,6 @@ import Control.Lens.PartialIso
 import Data.Bifunctor.Clown
 import Data.Bifunctor.Joker
 import Data.Bifunctor.Product
-import Data.Foldable hiding (toList)
 import Data.Functor.Adjunction
 import Data.Functor.Contravariant.Divisible
 import Data.Profunctor hiding (WrappedArrow)
