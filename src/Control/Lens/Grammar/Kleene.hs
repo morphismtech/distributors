@@ -60,15 +60,15 @@ prop> mempty <> x = x = x <> mempty
 
 It also has three unary Kleene quantifier operators;
 
-* `optK`, @0@ or @1@,
+* `optK`, zero or one,
 
 prop> optK x = mempty >|< x = x >|< mempty
 
-* `plusK`, @1@ or more,
+* `plusK`, one or more,
 
 prop> plusK x = x <> starK x = starK x <> x
 
-* and the eponymous `starK`, @0@ or more.
+* and the eponymous `starK`, zero or more.
 
 prop> starK x = optK (plusK x)
 
