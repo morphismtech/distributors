@@ -66,6 +66,8 @@ import Text.ParserCombinators.ReadP (ReadP, readP_to_S)
 import Witherable
 
 -- Re-exports
+import Control.Lens.Cons as X
+import Control.Lens.Empty as X
 import Control.Lens.Grammar.BackusNaur as X
 import Control.Lens.Grammar.Boole as X
 import Control.Lens.Grammar.Kleene as X
@@ -284,7 +286,7 @@ and generator support for `ruleRec`.
 type Grammar token a = forall p.
   ( Lexical token p
   , Alternator p
-  , forall x. BackusNaurForm (p x x)
+  , forall x y. BackusNaurForm (p x y)
   ) => p a a
 
 {- | For context-sensitivity,

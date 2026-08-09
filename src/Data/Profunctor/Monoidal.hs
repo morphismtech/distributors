@@ -1,4 +1,4 @@
-{-# OPTIONS_GHC -Wno-orphans #-}
+{-# OPTIONS_GHC -Wno-orphans -Wno-redundant-constraints #-}
 
 {-|
 Module      : Data.Profunctor.Monoidal
@@ -16,14 +16,17 @@ module Data.Profunctor.Monoidal
   , oneP, (>*<), (>*), (*<)
   , dimap2, foreverP, ditraverse
     -- * Monoidal & Choice
-  , pureP, asEmpty, (>:<), replicateP, onlyOne
-  , meander, eotFunList
+  , pureP, asEmpty, (>:<), snocP, replicateP, onlyOne
+    -- * Monoidal, Choice & Strong
+  , meander, traverseP, foldP
   ) where
 
 import Control.Lens
 import Control.Lens.Internal.Context
 import Control.Lens.PartialIso
 import Data.Distributive
+import Data.Profunctor
+import Data.Foldable (traverse_)
 import GHC.IsList
 
 -- Monoidal --
@@ -129,6 +132,10 @@ asEmpty = pureP _Empty
 x >:< xs = _Cons >? x >*< xs
 infixr 5 >:<
 
+{- | A `Monoidal` & `Choice` snoc combinator. -}
+snocP :: (Snoc s t a b, Monoidal p, Choice p) => p s t -> p a b -> p s t
+snocP xs x = _Snoc >? xs >*< x
+
 {- | Use when `IsList` with `onlyOne` `Item`. -}
 onlyOne
   :: (Monoidal p, Choice p, IsList s)
@@ -145,17 +152,25 @@ replicateP
 replicateP n _ | n <= 0 = asEmpty
 replicateP n a = a >:< replicateP (n-1) a
 
-{- | For any `Monoidal`, `Choice` & `Data.Profunctor.Strong` `Profunctor`,
+{- | For any `Monoidal`, `Choice` & `Strong` `Profunctor`,
 `meander` is invertible and gives a default implementation for the
 `Data.Profunctor.Traversing.wander`
 method of `Data.Profunctor.Traversing.Traversing`,
-though `Data.Profunctor.Strong` is not needed for its definition.
+though `Strong` isn't needed for its definition,
+but for its invertibility property.
+
+>>> :{
+traversalP :: (forall p. (Monoidal p, Choice p, Strong p) => p a b -> p s t) -> Traversal s t a b
+traversalP f = runStar . f . Star
+:}
+prop> traversalP . meander = id
+prop> meander . traversalP = id
 
 See Pickering, Gibbons & Wu,
 [Profunctor Optics - Modular Data Accessors](https://arxiv.org/abs/1703.10857)
 -}
 meander
-  :: (Monoidal p, Choice p)
+  :: (Monoidal p, Choice p, Strong p)
   => ATraversal s t a b -> p a b -> p s t
 meander f = dimap (f sell) iextract . meandering
   where
@@ -163,6 +178,26 @@ meander f = dimap (f sell) iextract . meandering
       :: (Monoidal q, Choice q)
       => q u v -> q (Bazaar (->) u w x) (Bazaar (->) v w x)
     meandering q = eotFunList >~ right' (q >*< meandering q)
+
+{- | `traverseP` gives a default implementation for the
+`Data.Profunctor.Traversing.traverse'`
+method of `Data.Profunctor.Traversing.Traversing`.
+-}
+traverseP
+  :: (Traversable f, Monoidal p, Choice p, Strong p)
+  => p a b -> p (f a) (f b)
+traverseP = meander traverse
+
+{- | `foldP` gives a contravariant, profunctorial `Foldable` method.
+However, a `Profunctor` which is also `Contravariant` in its last argument
+is /constant/ over or /phantom/ in its last argument.
+
+prop> foldMap f = getConst . runStar (foldP (Star (Const . f)))
+-}
+foldP
+  :: (Foldable f, Monoidal p, Choice p, Strong p, forall x. (Contravariant (p x)))
+  => p a b -> p (f a) (f b)
+foldP = contramap (const ()) . meander traverse_
 
 {- |
 `eotFunList` is used to define `meander`.
