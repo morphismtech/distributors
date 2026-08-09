@@ -26,6 +26,7 @@ import Control.Lens.PartialIso
 import Data.Bifunctor.Clown
 import Data.Bifunctor.Joker
 import Data.Bifunctor.Product
+import Data.Foldable (foldl')
 import Data.Functor.Adjunction
 import Data.Functor.Contravariant.Divisible
 import Data.Profunctor hiding (WrappedArrow)
@@ -245,8 +246,7 @@ class (Choice p, Distributor p, forall x. Alternative (p x))
 
 -- | Combines all `Alternative` choices in the specified list.
 choice :: (Foldable f, Alternative p) => f (p a) -> p a
--- choice = foldl' (<|>) empty
-choice = asum
+choice = foldl' (<|>) empty
 
 instance Alternative f
   => Alternator (Star f) where
