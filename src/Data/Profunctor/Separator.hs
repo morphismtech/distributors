@@ -146,7 +146,58 @@ an atomic term `Alternator`, analagous to @buildExpressionParser@ from
 The operator table is a list of list of operators, ordered from highest to lowest precedence.
 Each level is a list of `Operator`s which share precedence.
 Within a level, `InfixL`, `InfixR` & `Infix` set left, right & non-associativity for binary operators,
-while `Prefix` & `Postfix` are for unary operators. -}
+while `Prefix` & `Postfix` are for unary operators.
+
+For example, an expression grammar over natural numbers with a
+right-associative exponent @^@ binding tighter than left-associative @*@,
+which binds tighter than left-associative @+@ & @-@:
+
+>>> import Numeric.Natural (Natural)
+>>> import Control.Lens.Grammar
+>>> import Control.Lens (Prism', prism', iso)
+>>> :{
+data Expr
+  = Nat Natural
+  | Exp Expr Expr
+  | Mul Expr Expr
+  | Add Expr Expr
+  | Sub Expr Expr
+  deriving stock (Eq, Ord, Show, Read)
+_Nat :: Prism' Expr Natural
+_Nat = prism' Nat (\case Nat n -> Just n; _ -> Nothing)
+_Exp, _Mul, _Add, _Sub :: Prism' Expr (Expr, Expr)
+_Exp = prism' (uncurry Exp) (\case Exp x y -> Just (x,y); _ -> Nothing)
+_Mul = prism' (uncurry Mul) (\case Mul x y -> Just (x,y); _ -> Nothing)
+_Add = prism' (uncurry Add) (\case Add x y -> Just (x,y); _ -> Nothing)
+_Sub = prism' (uncurry Sub) (\case Sub x y -> Just (x,y); _ -> Nothing)
+exprGrammar :: Grammar Char Expr
+exprGrammar = ruleRec "expr" $ \expr ->
+  let atom = rule "atom" $ nat <|> terminal "(" >* expr *< terminal ")"
+      nat  = rule "nat"  $ _Nat . iso show read >? someP (asIn @Char DecimalNumber)
+  in withOperators
+    [ [ InfixR _Exp (terminal "^") ]
+    , [ InfixL _Mul (terminal "*") ]
+    , [ InfixL _Add (terminal "+"), InfixL _Sub (terminal "-") ]
+    ] atom
+:}
+
+The right-associative @^@ groups to the right, @-@ to the left, and @*@
+binds tighter than @+@:
+
+>>> [e | (e,"") <- parseG exprGrammar "2^3^2"]
+[Exp (Nat 2) (Exp (Nat 3) (Nat 2))]
+>>> [e | (e,"") <- parseG exprGrammar "3-2-1"]
+[Sub (Sub (Nat 3) (Nat 2)) (Nat 1)]
+>>> [e | (e,"") <- parseG exprGrammar "2*3+4"]
+[Add (Mul (Nat 2) (Nat 3)) (Nat 4)]
+>>> [e | (e,"") <- parseG exprGrammar "2*(3+4)"]
+[Mul (Nat 2) (Add (Nat 3) (Nat 4))]
+
+Being bidirectional, the same grammar prints:
+
+>>> unparseG exprGrammar (Exp (Nat 2) (Exp (Nat 3) (Nat 2))) "" :: Maybe String
+Just "2^3^2"
+-}
 withOperators
   :: Alternator p
   => [[Operator p a b]] -- ^ operator table

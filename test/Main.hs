@@ -93,7 +93,9 @@ doctests = do
   ghcEnvironment <- lookupEnv "GHC_ENVIRONMENT"
   let
     modulePaths =
-      [ "src/Control/Lens/Grammar.hs" ]
+      [ "src/Control/Lens/Grammar.hs"
+      , "src/Data/Profunctor/Separator.hs"
+      ]
     sourceDirs =
       [ "-isrc"
       , "-itest"
