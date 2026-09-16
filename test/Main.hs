@@ -12,14 +12,18 @@ import Data.Tree (Tree (..))
 import System.Environment (lookupEnv)
 import Test.DocTest
 import Test.Hspec
-import Test.QuickCheck (generate)
+import Test.Hspec.QuickCheck (prop)
+import Test.QuickCheck (generate, (==>))
 import qualified Text.Megaparsec as M
 
 import Examples.Arithmetic
 import Examples.Chain
+import Examples.Floating
+import Examples.Integer
 import Examples.Json
 import Examples.Lambda
 import Examples.LenVec
+import Examples.Natural
 import Examples.RegString
 import Examples.SemVer
 import Examples.SExpr
@@ -41,10 +45,63 @@ main = do
     describe "lambdaGrammar" $ testCfg True lambdaExamples lambdaGrammar
     describe "lenvecGrammar" $ testCsg True lenvecExamples lenvecGrammar
     describe "chainGrammar" $ testCfg True chainExamples chainGrammar
+    describe "naturalGrammar" $ do
+      testCfg False naturalExamples naturalGrammar
+      naturalSyntaxTests
+    describe "integerGrammar" $ do
+      testCfg False integerExamples integerGrammar
+      integerSyntaxTests
+    describe "doubleGrammar" $ do
+      testCfg False doubleExamples doubleGrammar
+      floatingSyntaxTests doubleGrammar
+      prop "prints exactly like `show`" $ \x -> not (isNaN x) ==>
+        (($ "") <$> printG doubleGrammar x) == Just (show (x :: Double))
+      prop "parses `show`'s output back to the original value" $ \x -> not (isNaN x) ==>
+        [y | (y, "") <- parseG doubleGrammar (show (x :: Double))] == [x]
+    describe "floatGrammar" $
+      testCfg False floatExamples floatGrammar
     describe "parseForest" parseForestTests
     describe "Parsector try rollback" tryRollbackTests
     describe "Kleene" kleeneProperties
     describe "meander" meanderProperties
+
+naturalSyntaxTests :: Spec
+naturalSyntaxTests =
+  describe "alternative syntaxes" $
+    for_ naturalSyntaxExamples $ \(str, expected) -> do
+      it ("should parseG " <> str <> " as " <> show expected) $ do
+        let actual = [n | (n, "") <- parseG naturalGrammar str]
+        actual `shouldBe` [expected]
+      it ("should printG " <> show expected <> " as decimal, not " <> str) $ do
+        let actualString = ($ "") <$> printG naturalGrammar expected
+        actualString `shouldBe` Just (show expected)
+
+integerSyntaxTests :: Spec
+integerSyntaxTests =
+  describe "alternative syntaxes" $
+    for_ integerSyntaxExamples $ \(str, expected) -> do
+      it ("should parseG " <> str <> " as " <> show expected) $ do
+        let actual = [i | (i, "") <- parseG integerGrammar str]
+        actual `shouldBe` [expected]
+      it ("should printG " <> show expected <> " as decimal, not " <> str) $ do
+        let actualString = ($ "") <$> printG integerGrammar expected
+        actualString `shouldBe` Just (show expected)
+
+floatingSyntaxTests :: Grammar Char Double -> Spec
+floatingSyntaxTests grammar = describe "alternative syntaxes" $ do
+  for_ doubleSyntaxExamples $ \(str, expected) -> do
+    it ("should parseG " <> str <> " as " <> show expected) $ do
+      let actual = [x | (x, "") <- parseG grammar str]
+      actual `shouldBe` [expected]
+    it ("should printG " <> show expected <> " as `show` would, not " <> str) $ do
+      let actualString = ($ "") <$> printG grammar expected
+      actualString `shouldBe` Just (show expected)
+  it "should parseG NaN as NaN" $ do
+    let actual = [x | (x, "") <- parseG grammar "NaN"]
+    map isNaN actual `shouldBe` [True]
+  it "should printG NaN as NaN" $ do
+    let actualString = ($ "") <$> printG grammar (0 / 0)
+    actualString `shouldBe` Just "NaN"
 
 parseForestTests :: Spec
 parseForestTests = do

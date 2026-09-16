@@ -34,6 +34,23 @@ module Control.Lens.Grammar
   , unparsecG
   , readG
   , monadG
+    -- * Haskell syntax grammars
+  , naturalGrammar
+  , NaturalSyntax (..)
+  , DecimalDigit (..)
+  , OctalDigit (..)
+  , HexDigit (..)
+  , _NaturalSyntax
+  , naturalOctal
+  , naturalHexadecimal
+  , integerGrammar
+  , Sign (..)
+  , IntegerSyntax (..)
+  , _IntegerSyntax
+  , doubleGrammar
+  , floatGrammar
+  , FloatingSyntax (..)
+  , _FloatingSyntax
     -- * Utility
   , putStringLn
     -- * Re-exports
@@ -50,6 +67,7 @@ import Control.Lens.Grammar.Machine
 import Control.Lens.Grammar.Token
 import Control.Lens.Grammar.Symbol
 import Data.Bifunctor.Joker
+import Data.List (foldl')
 import Data.Maybe hiding (mapMaybe)
 import Data.Monoid
 import Data.Profunctor.Distributor
@@ -59,8 +77,11 @@ import Data.Profunctor.Monoidal
 import Data.Profunctor.Grammar
 import Data.Profunctor.Grammar.Parsector
 import Data.Profunctor.Separator
+import Data.Ratio ((%))
 import Data.String
 import GHC.Exts
+import Numeric (floatToDigits)
+import Numeric.Natural
 import Prelude hiding (filter)
 import Text.ParserCombinators.ReadP (ReadP, readP_to_S)
 import Witherable
@@ -1057,3 +1078,410 @@ instance Show RegBnf where
   showsPrec precision = showsPrec precision . toList
 instance Read RegBnf where
   readsPrec _ str = [(fromList str, "")]
+
+data DecimalDigit
+  = Dec0 | Dec1 | Dec2 | Dec3 | Dec4
+  | Dec5 | Dec6 | Dec7 | Dec8 | Dec9
+  deriving stock (Eq, Ord, Show, Read)
+
+data OctalDigit
+  = Oct0 | Oct1 | Oct2 | Oct3
+  | Oct4 | Oct5 | Oct6 | Oct7
+  deriving stock (Eq, Ord, Show, Read)
+
+data HexDigit
+  = Hex0 | Hex1 | Hex2 | Hex3 | Hex4 | Hex5 | Hex6 | Hex7
+  | Hex8 | Hex9 | HexA | HexB | HexC | HexD | HexE | HexF
+  deriving stock (Eq, Ord, Show, Read)
+
+data NaturalSyntax
+  = NaturalDecimal [DecimalDigit]
+  | NaturalOctal [OctalDigit]
+  | NaturalHexadecimal [HexDigit]
+  deriving stock (Eq, Ord, Show, Read)
+makeNestedPrisms ''NaturalSyntax
+
+decimalDigitValue :: DecimalDigit -> Natural
+decimalDigitValue = \case
+  Dec0 -> 0; Dec1 -> 1; Dec2 -> 2; Dec3 -> 3; Dec4 -> 4
+  Dec5 -> 5; Dec6 -> 6; Dec7 -> 7; Dec8 -> 8; Dec9 -> 9
+
+octalDigitValue :: OctalDigit -> Natural
+octalDigitValue = \case
+  Oct0 -> 0; Oct1 -> 1; Oct2 -> 2; Oct3 -> 3
+  Oct4 -> 4; Oct5 -> 5; Oct6 -> 6; Oct7 -> 7
+
+hexDigitValue :: HexDigit -> Natural
+hexDigitValue = \case
+  Hex0 -> 0;  Hex1 -> 1;  Hex2 -> 2;  Hex3 -> 3
+  Hex4 -> 4;  Hex5 -> 5;  Hex6 -> 6;  Hex7 -> 7
+  Hex8 -> 8;  Hex9 -> 9;  HexA -> 10; HexB -> 11
+  HexC -> 12; HexD -> 13; HexE -> 14; HexF -> 15
+
+digitsToNatural :: (digit -> Natural) -> Natural -> [digit] -> Natural
+digitsToNatural value base = foldl' (\acc d -> acc * base + value d) 0
+
+naturalToDigits :: (Natural -> digit) -> digit -> Natural -> Natural -> [digit]
+naturalToDigits fromValue zero base = \case
+  0 -> [zero]
+  n -> reverse (goDigits n)
+  where
+    goDigits 0 = []
+    goDigits m = let (q, r) = m `divMod` base in fromValue r : goDigits q
+
+natDecimalDigit :: Natural -> DecimalDigit
+natDecimalDigit = \case
+  0 -> Dec0; 1 -> Dec1; 2 -> Dec2; 3 -> Dec3; 4 -> Dec4
+  5 -> Dec5; 6 -> Dec6; 7 -> Dec7; 8 -> Dec8; 9 -> Dec9
+  n -> natDecimalDigit (n `mod` 10)
+
+natOctalDigit :: Natural -> OctalDigit
+natOctalDigit = \case
+  0 -> Oct0; 1 -> Oct1; 2 -> Oct2; 3 -> Oct3
+  4 -> Oct4; 5 -> Oct5; 6 -> Oct6; 7 -> Oct7
+  n -> natOctalDigit (n `mod` 8)
+
+natHexDigit :: Natural -> HexDigit
+natHexDigit = \case
+  0 -> Hex0;  1 -> Hex1;  2 -> Hex2;  3 -> Hex3
+  4 -> Hex4;  5 -> Hex5;  6 -> Hex6;  7 -> Hex7
+  8 -> Hex8;  9 -> Hex9;  10 -> HexA; 11 -> HexB
+  12 -> HexC; 13 -> HexD; 14 -> HexE; 15 -> HexF
+  n -> natHexDigit (n `mod` 16)
+
+naturalOctal :: Natural -> NaturalSyntax
+naturalOctal = NaturalOctal . naturalToDigits natOctalDigit Oct0 8
+
+naturalHexadecimal :: Natural -> NaturalSyntax
+naturalHexadecimal = NaturalHexadecimal . naturalToDigits natHexDigit Hex0 16
+
+_NaturalSyntax :: Iso' Natural NaturalSyntax
+_NaturalSyntax = iso
+  (NaturalDecimal . naturalToDigits natDecimalDigit Dec0 10)
+  naturalSyntaxValue
+  where
+    naturalSyntaxValue (NaturalDecimal ds) = digitsToNatural decimalDigitValue 10 ds
+    naturalSyntaxValue (NaturalOctal ds) = digitsToNatural octalDigitValue 8 ds
+    naturalSyntaxValue (NaturalHexadecimal ds) = digitsToNatural hexDigitValue 16 ds
+
+decimalDigitG :: Grammar Char DecimalDigit
+decimalDigitG = rule "decimal-digit" $ choice
+  [ only Dec0 >? terminal "0"
+  , only Dec1 >? terminal "1"
+  , only Dec2 >? terminal "2"
+  , only Dec3 >? terminal "3"
+  , only Dec4 >? terminal "4"
+  , only Dec5 >? terminal "5"
+  , only Dec6 >? terminal "6"
+  , only Dec7 >? terminal "7"
+  , only Dec8 >? terminal "8"
+  , only Dec9 >? terminal "9"
+  ]
+
+octalDigitG :: Grammar Char OctalDigit
+octalDigitG = rule "octal-digit" $ choice
+  [ only Oct0 >? terminal "0"
+  , only Oct1 >? terminal "1"
+  , only Oct2 >? terminal "2"
+  , only Oct3 >? terminal "3"
+  , only Oct4 >? terminal "4"
+  , only Oct5 >? terminal "5"
+  , only Oct6 >? terminal "6"
+  , only Oct7 >? terminal "7"
+  ]
+
+hexDigitG :: Grammar Char HexDigit
+hexDigitG = rule "hex-digit" $ choice
+  [ only Hex0 >? terminal "0"
+  , only Hex1 >? terminal "1"
+  , only Hex2 >? terminal "2"
+  , only Hex3 >? terminal "3"
+  , only Hex4 >? terminal "4"
+  , only Hex5 >? terminal "5"
+  , only Hex6 >? terminal "6"
+  , only Hex7 >? terminal "7"
+  , only Hex8 >? terminal "8"
+  , only Hex9 >? terminal "9"
+  , only HexA >? (terminal "a" <|> terminal "A")
+  , only HexB >? (terminal "b" <|> terminal "B")
+  , only HexC >? (terminal "c" <|> terminal "C")
+  , only HexD >? (terminal "d" <|> terminal "D")
+  , only HexE >? (terminal "e" <|> terminal "E")
+  , only HexF >? (terminal "f" <|> terminal "F")
+  ]
+
+naturalSyntaxGrammar :: Grammar Char NaturalSyntax
+naturalSyntaxGrammar = rule "natural" $ choice
+  [ _NaturalHexadecimal >? (terminal "0x" <|> terminal "0X") >* someP hexDigitG
+  , _NaturalOctal >? (terminal "0o" <|> terminal "0O") >* someP octalDigitG
+  , _NaturalDecimal >? someP decimalDigitG
+  ]
+
+naturalGrammar :: Grammar Char Natural
+naturalGrammar = _NaturalSyntax >~ naturalSyntaxGrammar
+
+{- | `Sign` marks whether an `IntegerSyntax` term is negative -- present
+as a leading @-@ -- or not.
+-}
+data Sign = NonNegative | Negative
+  deriving stock (Eq, Ord, Show, Read)
+
+{- | `IntegerSyntax` extends `NaturalSyntax` with an optional leading
+@-@, mirroring how `Read` `Integer` reads: an optional sign, followed
+by exactly the same decimal\/octal\/hexadecimal syntax as `Natural`
+(GHC's `Read` also tolerates whitespace between the @-@ and the
+digits, /e.g./ @read \"-  5\" :: Integer@ is @-5@; `integerGrammar`,
+being an exact structural grammar like the rest of this module, does
+not).
+
+>>> reads "-0x2A" :: [(Integer, String)]
+[(-42,"")]
+>>> reads "+5" :: [(Integer, String)]
+[]
+
+There's no @NonNegative@ analogue of the leading @-@: a leading @+@ is
+not part of GHC's numeral syntax at all, so @IntegerSyntax@ has
+nothing to store for it -- `NonNegative` is simply the absence of a sign.
+-}
+data IntegerSyntax = IntegerSyntax Sign NaturalSyntax
+  deriving stock (Eq, Ord, Show, Read)
+
+-- | Apply a `Sign` to a number.
+signed :: Num a => Sign -> a -> a
+signed NonNegative = id
+signed Negative = negate
+
+{- | `_IntegerSyntax` is an /improper/ `Iso'`, for the same reason
+`_NaturalSyntax` is: going from `Integer` to `IntegerSyntax` and back
+always recovers the original value (the forward direction always
+picks `NonNegative` for @0@, mirroring `show (negate 0 :: Integer) = "0"`),
+but an `IntegerSyntax` term with leading zeroes, or a redundant
+`Negative` sign on @0@, is normalized away on the round trip.
+
+>>> view _IntegerSyntax (-42)
+IntegerSyntax Negative (NaturalDecimal [Dec4,Dec2])
+>>> IntegerSyntax Negative (NaturalDecimal [Dec0]) ^. from _IntegerSyntax
+0
+-}
+_IntegerSyntax :: Iso' Integer IntegerSyntax
+_IntegerSyntax = iso
+  (\i -> IntegerSyntax
+    (if i < 0 then Negative else NonNegative)
+    (view _NaturalSyntax (fromInteger (abs i))))
+  (\(IntegerSyntax sign nat) -> signed sign (toInteger (nat ^. from _NaturalSyntax)))
+
+signG :: Grammar Char Sign
+signG = rule "sign" $ optionP (only NonNegative) (only Negative >? terminal "-")
+
+{- | Like `signG`, but also accepts (and never prints) a leading @+@ --
+used for the exponent of `FloatingSyntax`, since GHC's `Read` accepts
+/e.g./ @1.5e+10@ even though a leading @+@ is never part of `show`'s
+output.
+-}
+exponentSignG :: Grammar Char Sign
+exponentSignG = rule "exponent-sign" $
+  optionP (only NonNegative) (only Negative >? terminal "-")
+  <|> (only NonNegative >? terminal "+")
+
+{- | `integerGrammar` is a context-free `Grammar` for `Integer`s,
+following the syntax described at `IntegerSyntax`: an optional leading
+@-@, then exactly `naturalSyntaxGrammar`.
+
+>>> [i | (i, "") <- parseG integerGrammar "-42"]
+[-42]
+>>> [i | (i, "") <- parseG integerGrammar "-0x2A"]
+[-42]
+>>> ($ "") <$> printG integerGrammar (-42) :: Maybe String
+Just "-42"
+-}
+integerGrammar :: Grammar Char Integer
+integerGrammar = _IntegerSyntax >~ rule "integer"
+  ( iso (\(IntegerSyntax s n) -> (s, n)) (\(s, n) -> IntegerSyntax s n)
+    >~ (signG >*< naturalSyntaxGrammar)
+  )
+
+{- | `FloatingSyntax` reflects how GHC lexes & shows `Float`\/`Double`
+literals. Per the
+[Haskell Report's lexical syntax](https://www.haskell.org/onlinereport/haskell2010/haskellch2.html#x7-160002.5)
+for @float@ tokens, a floating-point literal is an optional leading
+@-@, then decimal digits, then /either/ a @.@ followed by more decimal
+digits, /or/ an exponent (@e@\/@E@, an optional sign, then decimal
+digits), /or both/ -- /e.g./ @1.5@, @1e10@, @1.5e-3@. `Read` is more
+permissive still: unlike the plain @float@ token, it also accepts a
+bare integer with neither a @.@ nor an exponent (@read \"1\" ::
+Double@ is @1.0@), and it accepts @NaN@ & @Infinity@\/@-Infinity@,
+`show`'s renderings of the non-finite `Float`\/`Double` values.
+
+>>> reads "1e10" :: [(Double, String)]
+[(1.0e10,"")]
+>>> reads "1" :: [(Double, String)]
+[(1.0,"")]
+>>> reads "Infinity" :: [(Double, String)]
+[(Infinity,"")]
+
+GHC's `HexFloatLiterals` extension adds a fourth, @0x@-prefixed
+hexadecimal-mantissa\/binary-exponent syntax (/e.g./ @0x1p4@) for
+source code literals; like `BinaryLiterals` for `NaturalSyntax`, that
+syntax is a compile-time desugaring, not part of `Read`:
+
+>>> reads "0x1p4" :: [(Double, String)]
+[(1.0,"p4")]
+
+only the leading @0x1@ (hexadecimal @1@) is consumed. So
+`FloatingSyntax` has no hex-float branch.
+-}
+data FloatingSyntax
+  = FloatingDecimal
+      Sign               -- ^ overall sign
+      [DecimalDigit]     -- ^ digits before the decimal point, at least one
+      (Maybe [DecimalDigit])
+        -- ^ digits after a @.@, at least one when the @.@ is present
+      (Maybe (Sign, [DecimalDigit]))
+        -- ^ @e@\/@E@, then a sign & at least one digit, when present
+  | FloatingNaN
+  | FloatingInfinity Sign
+  deriving stock (Eq, Ord, Show, Read)
+makeNestedPrisms ''FloatingSyntax
+
+{- | Fold a floating mantissa\/exponent's digits into the `Rational`
+they denote. Like `digitsToNatural`, this is plain fixed-point
+arithmetic -- no `read`, `Numeric.readFloat` or otherwise -- built on
+`%` and `(^^)`. Takes the `FloatingDecimal` fields directly, rather
+than a `FloatingSyntax`, so that it's total: `FloatingNaN` &
+`FloatingInfinity` don't denote a `Rational` at all, and are handled
+separately by `fromFloatingSyntax`.
+-}
+floatingSyntaxRational
+  :: Sign -> [DecimalDigit] -> Maybe [DecimalDigit] -> Maybe (Sign, [DecimalDigit])
+  -> Rational
+floatingSyntaxRational sign intDs fracDs mExp =
+  signed sign (magnitude * (10 ^^ expVal))
+  where
+    intVal = toInteger (digitsToNatural decimalDigitValue 10 intDs)
+    (fracVal, fracLen) = case fracDs of
+      Nothing -> (0, 0)
+      Just ds -> (toInteger (digitsToNatural decimalDigitValue 10 ds), length ds)
+    mantissa = intVal * 10 ^ fracLen + fracVal
+    magnitude = mantissa % (10 ^ fracLen)
+    expVal = case mExp of
+      Nothing -> 0
+      Just (esign, eds) -> signed esign (toInteger (digitsToNatural decimalDigitValue 10 eds))
+
+-- | The `RealFloat` value a `FloatingSyntax` denotes.
+fromFloatingSyntax :: RealFloat a => FloatingSyntax -> a
+fromFloatingSyntax FloatingNaN = 0 / 0
+fromFloatingSyntax (FloatingInfinity NonNegative) = 1 / 0
+fromFloatingSyntax (FloatingInfinity Negative) = negate (1 / 0)
+fromFloatingSyntax (FloatingDecimal sign intDs fracDs mExp) =
+  fromRational (floatingSyntaxRational sign intDs fracDs mExp)
+
+{- | Render a `RealFloat` value's significant decimal digits @ds@ &
+decimal exponent @e@ -- a `Numeric.floatToDigits` pair, meaning the
+value is @0.ds * 10^e@ -- as a `FloatingSyntax`, replicating GHC's own
+choice (in @GHC.Float.formatRealFloatAlt@) between plain decimal &
+scientific notation: scientific when @e < 0 || e > 7@, plain otherwise.
+`floatToDigits` is the numeric mantissa\/exponent decomposition
+`RealFloat` itself is built on -- the same primitive `show` uses --
+so what's hand-rolled here is exactly the string-shaped part: the
+`FFGeneric` threshold, digit padding & the trailing @.0@, not the
+digit generation itself.
+-}
+digitsToFloatingSyntax :: Sign -> ([Int], Int) -> FloatingSyntax
+digitsToFloatingSyntax sign (is, e)
+  | e < 0 || e > 7 = scientificForm
+  | otherwise = fixedForm
+  where
+    ds = map (natDecimalDigit . fromIntegral) is
+
+    fixedForm
+      | e <= 0 = FloatingDecimal sign [Dec0]
+          (Just (replicate (negate e) Dec0 ++ ds)) Nothing
+      | otherwise =
+          let
+            (intDs, fracDs0) = splitAt e ds
+            intDs' = intDs ++ replicate (e - length intDs) Dec0
+            fracDs = if null fracDs0 then [Dec0] else fracDs0
+          in
+            FloatingDecimal sign intDs' (Just fracDs) Nothing
+
+    scientificForm =
+      let
+        (d, ds') = case ds of
+          (d0 : rest) -> (d0, rest)
+          [] -> (Dec0, [])
+        frac = if null ds' then [Dec0] else ds'
+        expn = e - 1
+        expSign = if expn < 0 then Negative else NonNegative
+        expDigits = naturalToDigits natDecimalDigit Dec0 10 (fromInteger (abs (toInteger expn)))
+      in
+        FloatingDecimal sign [d] (Just frac) (Just (expSign, expDigits))
+
+{- | `_FloatingSyntax` is an /improper/ `Iso'`, for the same reason
+`_NaturalSyntax` & `_IntegerSyntax` are: the forward direction always
+picks the canonical form `show` would produce (plain decimal or
+scientific, per the `digitsToFloatingSyntax` threshold), so going
+`RealFloat` value @->@ `FloatingSyntax` @->@ value recovers the
+original value, but a `FloatingSyntax` term with, /e.g./, a redundant
+@+@ on its exponent, or digits that would print differently, doesn't
+round trip the other way.
+
+>>> view _FloatingSyntax (1.5 :: Double)
+FloatingDecimal NonNegative [Dec1] (Just [Dec5]) Nothing
+>>> view _FloatingSyntax (1.0e10 :: Double)
+FloatingDecimal NonNegative [Dec1] (Just [Dec0]) (Just (NonNegative,[Dec1,Dec0]))
+-}
+_FloatingSyntax :: RealFloat a => Iso' a FloatingSyntax
+_FloatingSyntax = iso toFloatingSyntax fromFloatingSyntax
+  where
+    toFloatingSyntax x
+      | isNaN x = FloatingNaN
+      | isInfinite x = FloatingInfinity (if x < 0 then Negative else NonNegative)
+      | x < 0 || isNegativeZero x =
+          digitsToFloatingSyntax Negative (floatToDigits 10 (negate x))
+      | otherwise =
+          digitsToFloatingSyntax NonNegative (floatToDigits 10 x)
+
+{- | `floatingSyntaxGrammar` follows the syntax described at
+`FloatingSyntax`: `NaN`, `NonNegative`\/`Negative` `Infinity`, or a
+signed decimal mantissa with an optional fractional part & an
+optional signed exponent.
+-}
+floatingSyntaxGrammar :: Grammar Char FloatingSyntax
+floatingSyntaxGrammar = rule "floating" $ choice
+  [ _FloatingNaN >? terminal "NaN"
+  , _FloatingInfinity >? signG *< terminal "Infinity"
+  , _FloatingDecimal >?
+      signG >*< someP decimalDigitG >*<
+        optionalP (terminal "." >* someP decimalDigitG) >*<
+        optionalP ((terminal "e" <|> terminal "E") >* (exponentSignG >*< someP decimalDigitG))
+  ]
+
+{- | `doubleGrammar` is a context-free `Grammar` for `Double`s,
+following the syntax described at `FloatingSyntax`. It always prints
+& unparses exactly as `show` would -- plain decimal or scientific,
+matching GHC's own threshold -- since `_FloatingSyntax` normalizes to
+that canonical form on its way out, but it parses anything `Read`
+does (bar hex-float literals), including bare integers, `NaN` &
+`Infinity`.
+
+>>> [x | (x, "") <- parseG doubleGrammar "1.5"]
+[1.5]
+>>> [x | (x, "") <- parseG doubleGrammar "1e10"]
+[1.0e10]
+>>> ($ "") <$> printG doubleGrammar (10000000.0 :: Double) :: Maybe String
+Just "1.0e7"
+>>> ($ "") <$> printG doubleGrammar (1/0 :: Double) :: Maybe String
+Just "Infinity"
+-}
+doubleGrammar :: Grammar Char Double
+doubleGrammar = _FloatingSyntax >~ floatingSyntaxGrammar
+
+{- | `floatGrammar` is `doubleGrammar`'s `Float` analogue, sharing
+`floatingSyntaxGrammar` & `_FloatingSyntax`; only the final
+`fromRational`\/`floatToDigits` precision differs.
+
+>>> ($ "") <$> printG floatGrammar (1.5 :: Float) :: Maybe String
+Just "1.5"
+-}
+floatGrammar :: Grammar Char Float
+floatGrammar = _FloatingSyntax >~ floatingSyntaxGrammar

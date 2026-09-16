@@ -1,6 +1,6 @@
 cabal-version: 2.2
 
--- This file has been generated from package.yaml by hpack version 0.39.1.
+-- This file has been generated from package.yaml by hpack version 0.39.6.
 --
 -- see: https://github.com/sol/hpack
 
@@ -127,9 +127,12 @@ test-suite test
   other-modules:
       Examples.Arithmetic
       Examples.Chain
+      Examples.Floating
+      Examples.Integer
       Examples.Json
       Examples.Lambda
       Examples.LenVec
+      Examples.Natural
       Examples.RegString
       Examples.SemVer
       Examples.SExpr
