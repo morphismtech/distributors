@@ -25,6 +25,7 @@ import Examples.RegString
 import Examples.SemVer
 import Examples.SExpr
 import Properties.Kleene
+import Properties.Number
 
 main :: IO ()
 main = do
@@ -48,6 +49,7 @@ main = do
     describe "parseForest" parseForestTests
     describe "Parsector try rollback" tryRollbackTests
     describe "Kleene" kleeneProperties
+    describe "Number" numberProperties
     describe "meander" meanderProperties
 
 parseForestTests :: Spec

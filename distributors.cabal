@@ -37,6 +37,7 @@ library
       Control.Lens.Grammar.Internal.Orphanage
       Control.Lens.Grammar.Kleene
       Control.Lens.Grammar.Machine
+      Control.Lens.Grammar.Number
       Control.Lens.Grammar.Symbol
       Control.Lens.Grammar.Token
       Control.Lens.Grate
@@ -135,6 +136,7 @@ test-suite test
       Examples.SemVer
       Examples.SExpr
       Properties.Kleene
+      Properties.Number
       Paths_distributors
   autogen-modules:
       Paths_distributors
