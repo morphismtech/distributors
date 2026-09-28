@@ -28,7 +28,6 @@ import Control.Lens.Grammar.Token
 import Control.Lens.Grammar.Symbol
 import Data.Bifunctor.Joker
 import Data.Coerce
-import Data.Foldable (foldl')
 import Data.Function
 import Data.MemoTrie
 import qualified Data.Set as Set
