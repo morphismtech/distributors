@@ -82,7 +82,7 @@ endWith :: TerminalSymbol c p => [c] -> SepBy p -> SepBy p
 endWith str separator = separator {endBy = terminal str}
 
 {- |
-prop> several noSep = manyP
+@prop> several noSep = manyP@
 -}
 several
   :: (IsList s, IsList t, Distributor p)
@@ -91,7 +91,7 @@ several (SepBy beg end sep) p = iso toList fromList . eotList >~
   beg >* (p >*< manyP (sep >* p) >+< oneP) *< end
 
 {- |
-prop> several1 noSep = someP
+@prop> several1 noSep = someP@
 -}
 several1
   :: (IsList s, IsList t, Distributor p, Choice p)
@@ -153,7 +153,7 @@ right-associative exponent @^@ binding tighter than left-associative @*@,
 which binds tighter than left-associative @+@ & @-@:
 
 >>> import Numeric.Natural (Natural)
->>> import Control.Lens.Grammar
+>>> import Control.Lens.Grammar hiding (Operator (..), withOperators)
 >>> import Control.Lens (Prism', prism', iso)
 >>> :{
 data Expr

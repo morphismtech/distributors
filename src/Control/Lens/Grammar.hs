@@ -806,7 +806,7 @@ usable as an intermediary for further generators like
 >>> let regexLang = languageSample @Char regexMachine
 >>> words100 <- generate (take 100 <$> regexLang)
 >>> quickCheck (property (all (=~ regexMachine) words100))
-+++ OK, passed 1 test.
++++ OK, passed 100 tests.
 >>> import Control.Monad.State
 >>> import System.Random
 >>> let gen = mkStdGen 69
