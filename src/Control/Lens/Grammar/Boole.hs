@@ -17,7 +17,7 @@ module Control.Lens.Grammar.Boole
   , andB, orB, allB, anyB
   ) where
 
-import Data.Foldable
+import Data.Foldable (foldl')
 import Data.Monoid
 
 -- | A `BooleanAlgebra`, like `Bool`, supporting classical logical operations.

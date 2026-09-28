@@ -26,7 +26,7 @@ import Control.Lens.PartialIso
 import Data.Bifunctor.Clown
 import Data.Bifunctor.Joker
 import Data.Bifunctor.Product
-import Data.Foldable hiding (toList)
+import Data.Foldable (foldl')
 import Data.Functor.Adjunction
 import Data.Functor.Contravariant.Divisible
 import Data.Profunctor hiding (WrappedArrow)
@@ -248,6 +248,11 @@ class (Choice p, Distributor p, forall x. Alternative (p x))
 choice :: (Foldable f, Alternative p) => f (p a) -> p a
 choice = foldl' (<|>) empty
 
+instance Alternative f
+  => Alternator (Star f) where
+    alternate = either
+      (\(Star f) -> Star (either (fmap Left . f) (const empty)))
+      (\(Star f) -> Star (either (const empty) (fmap Right . f)))
 instance (Alternator p, Applicative f)
   => Alternator (WrappedPafb f p) where
     alternate =

@@ -66,6 +66,8 @@ import Text.ParserCombinators.ReadP (ReadP, readP_to_S)
 import Witherable
 
 -- Re-exports
+import Control.Lens.Cons as X
+import Control.Lens.Empty as X
 import Control.Lens.Grammar.BackusNaur as X
 import Control.Lens.Grammar.Boole as X
 import Control.Lens.Grammar.Kleene as X
@@ -284,7 +286,7 @@ and generator support for `ruleRec`.
 type Grammar token a = forall p.
   ( Lexical token p
   , Alternator p
-  , forall x. BackusNaurForm (p x x)
+  , forall x y. BackusNaurForm (p x y)
   ) => p a a
 
 {- | For context-sensitivity,
@@ -804,7 +806,7 @@ usable as an intermediary for further generators like
 >>> let regexLang = languageSample @Char regexMachine
 >>> words100 <- generate (take 100 <$> regexLang)
 >>> quickCheck (property (all (=~ regexMachine) words100))
-+++ OK, passed 1 test.
++++ OK, passed 100 tests.
 >>> import Control.Monad.State
 >>> import System.Random
 >>> let gen = mkStdGen 69

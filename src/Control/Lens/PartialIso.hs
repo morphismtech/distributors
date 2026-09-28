@@ -298,16 +298,16 @@ difoldl1 pattern =
 
 {- | Right fold & unfold `APartialIso` to an `Control.Lens.Iso.Iso`. -}
 difoldr1
-  :: Cons s t a b
+  :: Snoc s t a b
   => APartialIso d c (b,d) (a,c)
   -> Iso (t,d) (s,c) (t,d) (s,c)
 difoldr1 pattern =
   let
     reorder = iso
-      (\((a,s),c) -> (s,(a,c)))
-      (\(t,(b,d)) -> ((b,t),d))
+      (\((s,a),c) -> (s,(a,c)))
+      (\(t,(b,d)) -> ((t,b),d))
     step
-      = crossPartialIso _Cons id
+      = crossPartialIso _Snoc id
       . reorder
       . crossPartialIso id (coPartialIso pattern)
   in from (iterating step)
@@ -323,7 +323,7 @@ difoldl pattern
 
 {- | Right fold & unfold `APartialIso` to a `Control.Lens.Prism.Prism`. -}
 difoldr
-  :: (AsEmpty t, Cons s t a b)
+  :: (AsEmpty t, Snoc s t a b)
   => APartialIso d c (b,d) (a,c)
   -> Prism d c (t,d) (s,c)
 difoldr pattern

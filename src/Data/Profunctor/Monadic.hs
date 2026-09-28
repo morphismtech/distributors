@@ -63,7 +63,7 @@ version of `pureP`.
 
 prop> pureP = P.return
 -}
-return :: (Monadic p, Choice p) => Prism a b () () -> p a b
+return :: (Monadic p, Choice p) => APrism a b () () -> p a b
 return = pureP
 
 {- | A `Profunctor` which is also a `MonadTry`. -}

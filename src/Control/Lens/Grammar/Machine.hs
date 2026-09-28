@@ -242,7 +242,7 @@ parseForest et word = (concat (itemForests Set.empty Nothing 0 acceptedLen 0), d
   where
     (n, chart) = prefixGen et word
     relations = transducerRelations et
-    acceptedLen = maximum [j | j <- [0 .. n], acceptsChart j chart]
+    acceptedLen = maximum (0 : [j | j <- [0 .. n], acceptsChart j chart])
 
     acceptedWord = take acceptedLen word
     sliceAt start end = take (end - start) (drop start acceptedWord)
@@ -347,10 +347,12 @@ prefixGen
 prefixGen et word = go 0 (initialChart et) word
   where
     go j chart [] = (j, chart)
-    go j chart (x : xs) =
-      let scanned = scanFrom j x chart
-          closed = closeChartAt et (j + 1) (IntMap.insert (j + 1) scanned chart)
-      in go (j + 1) closed xs
+    go j chart (x : xs)
+      | IntMap.null scanned = (j + 1, closed)
+      | otherwise = go (j + 1) closed xs
+      where
+        scanned = scanFrom j x chart
+        closed = closeChartAt et (j + 1) (IntMap.insert (j + 1) scanned chart)
 
     scanFrom j input chart = IntMap.foldrWithKey advance IntMap.empty eJ
       where

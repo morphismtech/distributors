@@ -7,10 +7,6 @@ import Test.Hspec
 import Test.Hspec.QuickCheck (prop)
 import Test.QuickCheck
 
-instance Arbitrary GeneralCategory where
-  arbitrary = arbitraryBoundedEnum
-  shrink = shrinkBoundedEnum
-
 instance Arbitrary (TokenClass Char) where
   arbitrary = sized go
     where
