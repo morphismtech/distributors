@@ -7,8 +7,6 @@ import Test.Hspec
 import Test.Hspec.QuickCheck (prop)
 import Test.QuickCheck
 
--- NB: @Arbitrary GeneralCategory@ is now provided by QuickCheck itself.
-
 instance Arbitrary (TokenClass Char) where
   arbitrary = sized go
     where
