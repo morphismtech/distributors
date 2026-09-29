@@ -3,8 +3,11 @@ module Control.Lens.Grammar.Number
   , OctalDigit (..)
   , HexDigit (..)
   , NaturalDigits (..)
+  , IntegerDigits (..)
   , naturalDigitsImproperIso
-  , natGrammar
+  , naturalGrammar
+  , integerDigitsImproperIso
+  , integerGrammar
   ) where
 
 import Control.Applicative
@@ -33,13 +36,67 @@ data NaturalDigits
   | NaturalHexadecimal HexDigit [HexDigit]
   deriving stock (Eq, Ord, Show, Read)
 
+data IntegerDigits = IntegerDigits
+  { negative :: Bool
+  , naturalDigits :: NaturalDigits
+  } deriving stock (Eq, Ord, Show, Read)
+
 makeNestedPrisms ''DecimalDigit
 makeNestedPrisms ''OctalDigit
 makeNestedPrisms ''HexDigit
 makeNestedPrisms ''NaturalDigits
+makeNestedPrisms ''IntegerDigits
 
-natGrammar :: RegGrammar Char Natural
-natGrammar = naturalDigitsImproperIso >? (nonzeroDecimalG <|> zeroLedG)
+{- | Parses `Natural` numbers matching the lexical syntax of GHC's
+`Read` instance: decimal digits, or hexadecimal (@0x@\/@0X@) or
+octal (@0o@\/@0O@) digits with the usual prefix. Unparses always
+in decimal, matching `Show`; the hexadecimal and octal alternatives
+are print-side unreachable, since `naturalDigitsImproperIso`
+always normalizes to `NaturalDecimal`.
+
+Left-factored down to single-character terminals throughout, so
+every choice point commits after exactly one token of lookahead —
+this grammar is @LL(1)@, safe for `parsecG`\/`unparsecG`.
+
+The nonzero-headed decimal alternative is tried /before/ the
+zero-led one. `Parsector`'s `Control.Applicative.<|>` does not
+backtrack past consumed input, so if the zero-led alternative
+(which unconditionally consumes\/emits a leading @0@) were tried
+first, it would wrongly commit while unparsing any nonzero value,
+never falling back. Trying the nonzero case first means the
+zero-led alternative is only ever attempted for a genuine leading
+@0@, where it cannot fail.
+
+Deliberately narrower than GHC's actual lexer in three ways, all
+kept on purpose rather than matched:
+
+* No sign. GHC's @Read Natural@ lexes a leading @-@ (it reuses
+  @Read Integer@'s reader, filtering to non-negative results), so
+  @read \"-0\" :: Natural@ succeeds. A natural number shouldn't need
+  to understand negation to parse its own magnitude; that belongs
+  to the surrounding `Integer` grammar (`IntegerDigits`), not here.
+* No fraction\/exponent swallowing. GHC's lexer treats @3.5@ or
+  @1e2@ as one atomic numeric lexeme and rejects it outright for an
+  integral type, rather than reading just the @3@\/@1@ prefix. That
+  behavior falls out of sharing one lexeme grammar across
+  'Int'\/'Integer'\/'Double'; for a composable token like this one,
+  matching just the leading digits and leaving @.5@\/@e2@ for
+  whatever grammar comes next is the more useful behavior.
+* No leading-whitespace skip. GHC's @reads@ skips leading space via
+  @lex@, a top-level `Read` convention. A token-level grammar meant
+  to be embedded inside larger grammars shouldn't unilaterally eat
+  whitespace; that's the enclosing grammar's decision.
+-}
+naturalGrammar :: RegGrammar Char Natural
+naturalGrammar = naturalDigitsImproperIso >? naturalDigitsGrammar
+
+{- | The unsigned digit grammar shared by `naturalGrammar` and
+`integerGrammar`. See `naturalGrammar` for the design notes: this is
+the same @LL(1)@, nonzero-before-zero-led grammar, just without the
+outer `naturalDigitsImproperIso` conversion to `Natural`.
+-}
+naturalDigitsGrammar :: RegGrammar Char NaturalDigits
+naturalDigitsGrammar = nonzeroDecimalG <|> zeroLedG
   where
     nonzeroDigitG :: RegGrammar Char DecimalDigit
     nonzeroDigitG = choice
@@ -112,6 +169,47 @@ naturalDigitsImproperIso = iso naturalToDigits digitsToNatural
     digitsToNaturalBase :: Enum a => Natural -> [a] -> Natural
     digitsToNaturalBase base =
       foldl (\acc d -> acc * base + fromIntegral (fromEnum d)) 0
+
+{- | Signed decimal, hexadecimal or octal digits, matching GHC's
+`Read` lexical syntax for `Integer`, except (as with `naturalGrammar`)
+it doesn't swallow leading whitespace or a fractional\/exponent
+suffix — see `naturalGrammar` for why that's kept deliberately.
+
+Unparses always as an optional @-@ followed by canonical decimal
+digits, matching `Show`. The sign is handled by `optionP`, whose
+`Parsector` instance tries the alternatives in a mode-dependent
+order: for parsing, it tries the @-@ branch first, falling back to
+no sign; for unparsing, it checks the value first (is it negative?)
+and only then emits @-@ or nothing. That mode-awareness is exactly
+what avoids the commit-before-checking trap that `naturalGrammar`'s
+docs describe for the zero-led\/nonzero-led split.
+-}
+integerGrammar :: RegGrammar Char Integer
+integerGrammar =
+  integerDigitsImproperIso >? (_IntegerDigits >? (signG >*< naturalDigitsGrammar))
+  where
+    signG :: RegGrammar Char Bool
+    signG = optionP (only False) (only True >? terminal "-")
+
+{- | An improper isomorphism between `Integer` and `IntegerDigits`,
+built the same way GHC's own @Read Natural@ is built from @Read
+Integer@, but inverted: here `Integer` is decomposed into a sign and
+a `Natural` magnitude (via `naturalDigitsImproperIso`). Only the left
+inverse law holds; the right inverse normalizes away a redundant
+@negative = True@ paired with a zero magnitude to @negative = False@,
+since @-0 = 0@.
+-}
+integerDigitsImproperIso :: Iso' Integer IntegerDigits
+integerDigitsImproperIso = iso integerToDigits digitsToInteger
+  where
+    integerToDigits :: Integer -> IntegerDigits
+    integerToDigits n =
+      IntegerDigits (n < 0) (fromInteger (abs n) ^. naturalDigitsImproperIso)
+
+    digitsToInteger :: IntegerDigits -> Integer
+    digitsToInteger (IntegerDigits neg nd) =
+      (if neg then negate else id)
+        (toInteger (nd ^. from naturalDigitsImproperIso))
 
 instance Num DecimalDigit where
   (+) = \case
