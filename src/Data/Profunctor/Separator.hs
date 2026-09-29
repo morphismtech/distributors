@@ -24,15 +24,14 @@ module Data.Profunctor.Separator
   , intercalateP
     -- * Operator Expressions
   , Operator (..)
+  , Assoc (..)
   , withOperators
   ) where
 
-import Control.Applicative ((<|>))
 import Control.Lens
 import Control.Lens.PartialIso
 import Control.Lens.Grammar.Symbol
-import Data.Foldable (asum)
-import Data.Maybe (listToMaybe)
+import Data.Maybe (fromMaybe)
 import Data.Profunctor.Distributor
 import Data.Profunctor.Monoidal
 import GHC.Exts
@@ -132,12 +131,27 @@ intercalateP n (SepBy beg end _) _ | n <= 0 =
 intercalateP n (SepBy beg end comma) p =
   beg >* p >:< replicateP (n-1) (comma >* p) *< end
 
+{- | An operator at some level of an operator table, for use with
+`withOperators`. `Infix` takes an `Assoc` to distinguish binary operators;
+`Prefix` & `Postfix` are for unary operators. -}
 data Operator p a b where
-  Infix :: APartialIso a b (a,a) (b,b) -> p () () -> Operator p a b
-  InfixL :: APartialIso a b (a,a) (b,b) -> p () () -> Operator p a b
-  InfixR :: APartialIso a b (a,a) (b,b) -> p () () -> Operator p a b
-  Prefix :: APartialIso a b a b -> p () () -> Operator p a b
-  Postfix :: APartialIso a b a b -> p () () -> Operator p a b
+  Infix
+    :: Assoc -- ^ `NonAssoc`, `LeftAssoc`, `RightAssoc`
+    -> APartialIso a b (a,a) (b,b) -- ^ binary constructor pattern
+    -> p () () -- ^ operator symbol
+    -> Operator p a b
+  Prefix
+    :: APartialIso a b a b -- ^ unary endopattern
+    -> p () () -- ^ operator symbol
+    -> Operator p a b
+  Postfix
+    :: APartialIso a b a b -- ^ unary endopattern
+    -> p () () -- ^ operator symbol
+    -> Operator p a b
+
+{- | The associativity of an `Infix` binary operator. -}
+data Assoc = NonAssoc | LeftAssoc | RightAssoc
+  deriving stock (Eq, Ord, Show, Read)
 
 {- | Build an expression `Alternator` from a table of `Operator`s and
 an atomic term `Alternator`, analagous to @buildExpressionParser@ from
@@ -145,19 +159,21 @@ an atomic term `Alternator`, analagous to @buildExpressionParser@ from
 
 The operator table is a list of list of operators, ordered from highest to lowest precedence.
 Each level is a list of `Operator`s which share precedence.
-Within a level, `InfixL`, `InfixR` & `Infix` set left, right & non-associativity for binary operators,
+Within a level, `Infix` takes an `Assoc` to set left, right or non-associativity for binary operators,
 while `Prefix` & `Postfix` are for unary operators.
 
 For example, an expression grammar over natural numbers with a
-right-associative exponent @^@ binding tighter than left-associative @*@,
-which binds tighter than left-associative @+@ & @-@:
+postfix factorial @!@ (binding tightest, and not required to actually
+compute a factorial), a right-associative exponent @^@, a left-associative
+@*@, and left-associative @+@ & @-@ binding loosest:
 
 >>> import Numeric.Natural (Natural)
->>> import Control.Lens.Grammar hiding (Operator (..), withOperators)
+>>> import Control.Lens.Grammar hiding (Operator (..), Assoc (..), withOperators)
 >>> import Control.Lens (Prism', prism', iso)
 >>> :{
 data Expr
   = Nat Natural
+  | Fac Expr
   | Exp Expr Expr
   | Mul Expr Expr
   | Add Expr Expr
@@ -165,6 +181,8 @@ data Expr
   deriving stock (Eq, Ord, Show, Read)
 _Nat :: Prism' Expr Natural
 _Nat = prism' Nat (\case Nat n -> Just n; _ -> Nothing)
+_Fac :: Prism' Expr Expr
+_Fac = prism' Fac (\case Fac x -> Just x; _ -> Nothing)
 _Exp, _Mul, _Add, _Sub :: Prism' Expr (Expr, Expr)
 _Exp = prism' (uncurry Exp) (\case Exp x y -> Just (x,y); _ -> Nothing)
 _Mul = prism' (uncurry Mul) (\case Mul x y -> Just (x,y); _ -> Nothing)
@@ -175,14 +193,15 @@ exprGrammar = ruleRec "expr" $ \expr ->
   let atom = rule "atom" $ nat <|> terminal "(" >* expr *< terminal ")"
       nat  = rule "nat"  $ _Nat . iso show read >? someP (asIn @Char DecimalNumber)
   in withOperators
-    [ [ InfixR _Exp (terminal "^") ]
-    , [ InfixL _Mul (terminal "*") ]
-    , [ InfixL _Add (terminal "+"), InfixL _Sub (terminal "-") ]
+    [ [ Postfix _Fac (terminal "!") ]
+    , [ Infix RightAssoc _Exp (terminal "^") ]
+    , [ Infix LeftAssoc _Mul (terminal "*") ]
+    , [ Infix LeftAssoc _Add (terminal "+"), Infix LeftAssoc _Sub (terminal "-") ]
     ] atom
 :}
 
-The right-associative @^@ groups to the right, @-@ to the left, and @*@
-binds tighter than @+@:
+The right-associative @^@ groups to the right, @-@ to the left, @*@
+binds tighter than @+@, and postfix @!@ binds tighter than @^@:
 
 >>> [e | (e,"") <- parseG exprGrammar "2^3^2"]
 [Exp (Nat 2) (Exp (Nat 3) (Nat 2))]
@@ -192,11 +211,17 @@ binds tighter than @+@:
 [Add (Mul (Nat 2) (Nat 3)) (Nat 4)]
 >>> [e | (e,"") <- parseG exprGrammar "2*(3+4)"]
 [Mul (Nat 2) (Add (Nat 3) (Nat 4))]
+>>> [e | (e,"") <- parseG exprGrammar "3!"]
+[Fac (Nat 3)]
+>>> [e | (e,"") <- parseG exprGrammar "2^3!"]
+[Exp (Nat 2) (Fac (Nat 3))]
 
 Being bidirectional, the same grammar prints:
 
 >>> unparseG exprGrammar (Exp (Nat 2) (Exp (Nat 3) (Nat 2))) "" :: Maybe String
 Just "2^3^2"
+>>> unparseG exprGrammar (Exp (Nat 2) (Fac (Nat 3))) "" :: Maybe String
+Just "2^3!"
 -}
 withOperators
   :: Alternator p
@@ -207,25 +232,15 @@ withOperators table p = foldl makeLevel p table
   where
     makeLevel term ops =
       let
-        (nas, las, ras, pres, posts) =
-          foldr splitOp ([],[],[],[],[]) ops
+        (infixes, pres, posts) = foldr splitOp ([],[],[]) ops
         termP = withPostP posts (withPreP pres term)
       in
-        case (nas, las, ras) of
-          (_,  [], []) -> infixNP nas termP
-          ([], _,  []) -> infixLP manyP las termP
-          ([], [], _ ) -> infixRP manyP ras termP
-          _            ->
-            infixRP someP ras termP
-            <|> infixLP someP las termP
-            <|> infixNP nas termP
+        infixP infixes termP
 
-    splitOp oper (nas, las, ras, pres, posts) = case oper of
-      Infix   pat sym -> ((pat,sym):nas, las, ras, pres, posts)
-      InfixL  pat sym -> (nas, (pat,sym):las, ras, pres, posts)
-      InfixR  pat sym -> (nas, las, (pat,sym):ras, pres, posts)
-      Prefix  pat sym -> (nas, las, ras, (pat,sym):pres, posts)
-      Postfix pat sym -> (nas, las, ras, pres, (pat,sym):posts)
+    splitOp oper (infixes, pres, posts) = case oper of
+      Infix assoc pat sym -> ((assoc,pat,sym):infixes, pres, posts)
+      Prefix pat sym -> (infixes, (pat,sym):pres, posts)
+      Postfix pat sym -> (infixes, pres, (pat,sym):posts)
 
     tagSepP syms = choice [only i >? sym | (i, sym) <- zip [0 :: Int ..] syms]
 
@@ -233,7 +248,7 @@ withOperators table p = foldl makeLevel p table
       difoldr (partialIso fwd bwd) >? manyP (tagSepP (snd <$> ops)) >*< inner
       where
         fns = [withPartialIso pat (,) | (pat, _) <- ops]
-        fwd x = asum
+        fwd x = choice
           [ (\y -> (i,y)) <$> f x | (i, (f,_)) <- zip [0 :: Int ..] fns ]
         bwd (i,y) = case drop i fns of
           (_,g):_ -> g y
@@ -243,59 +258,58 @@ withOperators table p = foldl makeLevel p table
       difoldl (partialIso fwd bwd) >? inner >*< manyP (tagSepP (snd <$> ops))
       where
         fns = [withPartialIso pat (,) | (pat, _) <- ops]
-        fwd x = asum
+        fwd x = choice
           [ (\y -> (y,i)) <$> f x | (i, (f,_)) <- zip [0 :: Int ..] fns ]
         bwd (y,i) = case drop i fns of
           (_,g):_ -> g y
           [] -> Nothing
 
-    infixNP ops term =
-      difoldl (partialIso fwd bwd) >? term >*< oneTail
-      where
-        oneTail =
-          iso listToMaybe (maybe [] pure) >~
-            optionalP (tagSepP (snd <$> ops) >*< term)
-        fns = [withPartialIso pat (,) | (pat, _) <- ops]
-        fwd x = asum
-          [ (\(l,r) -> (l,(i,r))) <$> f x
-          | (i, (f,_)) <- zip [0 :: Int ..] fns ]
-        bwd (l,(i,r)) = case drop i fns of
-          (_,g):_ -> g (l,r)
-          [] -> Nothing
+    {- | Parse one operand, then zero or more @(operator, operand)@ steps,
+    each testing its operator *before* consuming a further operand --
+    the same shape parsec's & megaparsec's expression-table builders use.
+    A missing operator is therefore always a zero-consumption failure, so
+    the chain's end is found by plain alternation, with no backtracking
+    needed. (Parsing @(operand, operator)@ pairs instead, as a naive
+    right-associative reading would, over-consumes the final operand
+    before discovering there is no trailing operator, which is exactly
+    the bug this replaces.)
 
-    -- Left-associative applications, folded to the left. The @rep@ tail
-    -- combinator is `manyP` for a pure-left level (the empty tail folds back
-    -- to the bare term) or `someP` in a mixed level (an operator is required).
-    infixLP
-      :: Alternator p
-      => (p (Int,a) (Int,b) -> p [(Int,a)] [(Int,b)])
-      -> [(APartialIso a b (a,a) (b,b), p () ())] -> p a b -> p a b
-    infixLP rep ops term =
-      difoldl (partialIso fwd bwd) >?
-        term >*< rep (tagSepP (snd <$> ops) >*< term)
+    The tagged steps are then folded according to each matched operator's
+    `Assoc`iativity: `RightAssoc` recurses into the tail before combining,
+    associating to the right; `LeftAssoc` & `NonAssoc` combine immediately
+    and continue, associating to the left. Mixing associativities within
+    one level, like parsec, only supports chaining within a single run of
+    the same associativity -- a differently-associating operator simply
+    ends the current run and begins a new one.
+    -}
+    infixP infixes term =
+      prism (uncurry go) (Right . fwd) >? term >*< manyP (tagSepP syms >*< term)
       where
-        fns = [withPartialIso pat (,) | (pat, _) <- ops]
-        fwd x = asum
-          [ (\(l,r) -> (l,(i,r))) <$> f x
-          | (i, (f,_)) <- zip [0 :: Int ..] fns ]
-        bwd (l,(i,r)) = case drop i fns of
-          (_,g):_ -> g (l,r)
-          [] -> Nothing
+        syms = [sym | (_,_,sym) <- infixes]
+        fns = [(assoc,f,g) | (assoc,pat,_) <- infixes, let (f,g) = withPartialIso pat (,)]
 
-    -- Right-associative applications, folded to the right. As with `infixLP`,
-    -- @rep@ is `manyP` for a pure-right level or `someP` in a mixed level.
-    infixRP
-      :: Alternator p
-      => (p (a,Int) (b,Int) -> p [(a,Int)] [(b,Int)])
-      -> [(APartialIso a b (a,a) (b,b), p () ())] -> p a b -> p a b
-    infixRP rep ops term =
-      difoldr (partialIso fwd bwd) >?
-        rep (term >*< tagSepP (snd <$> ops)) >*< term
-      where
-        fns = [withPartialIso pat (,) | (pat, _) <- ops]
-        fwd x = asum
-          [ (\(l,r) -> ((l,i),r)) <$> f x
-          | (i, (f,_)) <- zip [0 :: Int ..] fns ]
-        bwd ((l,i),r) = case drop i fns of
-          (_,g):_ -> g (l,r)
-          [] -> Nothing
+        assocOf i = let (assoc,_,_) = fns !! i in assoc
+        applyTag i (l,r) = let (_,_,g) = fns !! i in
+          fromMaybe (error "withOperators: impossible operator pattern") (g (l,r))
+
+        -- fold a shared seed together with a left-to-right list of tagged
+        -- steps, dispatching on each step's `Assoc`iativity in turn
+        go l [] = l
+        go l ((i,r):more) = case assocOf i of
+          RightAssoc -> applyTag i (l, go r more)
+          _          -> go (applyTag i (l,r)) more
+
+        -- the exact inverse of `go`: decompose a value into a seed and the
+        -- list of tagged steps that `go` would fold back into that value
+        fwd x = decompose x
+          where
+            decompose y = case tryTags y of
+              Nothing -> (y, [])
+              Just (i,l,r) -> case assocOf i of
+                RightAssoc ->
+                  let (r0, rest) = decompose r in (l, (i,r0) : rest)
+                _ ->
+                  let (l0, prior) = decompose l in (l0, prior ++ [(i,r)])
+            tryTags y = choice
+              [ (\(l,r) -> (i,l,r)) <$> f y
+              | (i,(_,f,_)) <- zip [0 :: Int ..] fns ]

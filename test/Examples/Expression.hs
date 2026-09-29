@@ -15,6 +15,7 @@ import Numeric.Natural
 
 data Expr
   = Nat Natural
+  | Fac Expr
   | Exp Expr Expr
   | Mul Expr Expr
   | Div Expr Expr
@@ -26,8 +27,12 @@ makePrisms ''Expr
 
 -- | An expression grammar over natural numbers, built with `withOperators`
 -- from a precedence table: parenthesization binds tightest, then a
--- right-associative exponent @^@, then left-associative @*@ & @/@, then
--- left-associative @+@ & @-@.
+-- postfix factorial @!@ (not required to actually compute a factorial),
+-- then a right-associative exponent @^@, then left-associative @*@ & @/@,
+-- then left-associative @+@ & @-@. `withOperators` parses each operand
+-- exactly once regardless of associativity, so this is LL1 and is tested
+-- against the predictive @parsecG@ / megaparsec backends too
+-- (@testCfg True@).
 exprGrammar :: Grammar Char Expr
 exprGrammar = ruleRec "expr" $ \expr ->
   let
@@ -36,9 +41,10 @@ exprGrammar = ruleRec "expr" $ \expr ->
     nat = rule "nat" $
       _Nat . iso show read >? someP (asIn @Char DecimalNumber)
   in withOperators
-    [ [ InfixR _Exp (terminal "^") ]
-    , [ InfixL _Mul (terminal "*"), InfixL _Div (terminal "/") ]
-    , [ InfixL _Add (terminal "+"), InfixL _Sub (terminal "-") ]
+    [ [ Postfix _Fac (terminal "!") ]
+    , [ Infix RightAssoc _Exp (terminal "^") ]
+    , [ Infix LeftAssoc _Mul (terminal "*"), Infix LeftAssoc _Div (terminal "/") ]
+    , [ Infix LeftAssoc _Add (terminal "+"), Infix LeftAssoc _Sub (terminal "-") ]
     ] atom
 
 exprExamples :: [(Expr, String)]
@@ -53,6 +59,10 @@ exprExamples =
   , (Mul (Exp (Nat 2) (Nat 3)) (Nat 4), "2^3*4")
   , (Mul (Nat 2) (Add (Nat 3) (Nat 4)), "2*(3+4)")
   , (Exp (Add (Nat 1) (Nat 2)) (Nat 3), "(1+2)^3")
+  , (Fac (Nat 3), "3!")
+  , (Fac (Fac (Nat 2)), "2!!")
+  , (Exp (Nat 2) (Fac (Nat 3)), "2^3!")
+  , (Fac (Add (Nat 1) (Nat 2)), "(1+2)!")
   ]
 
 -- | A purely right-associative grammar built directly with `chain1` @Right@,
@@ -77,10 +87,8 @@ powExamples =
   ]
 
 -- | A purely left-associative expression grammar (no right-associative
--- exponent) built with `withOperators`. Because every level is a single
--- associativity, `withOperators` parses each leading term exactly once, so
--- unlike the mixed `exprGrammar` this one is LL1 and is tested against the
--- predictive @parsecG@ / megaparsec backends (@testCfg True@).
+-- exponent) built with `withOperators`, tested against the predictive
+-- @parsecG@ / megaparsec backends (@testCfg True@) as a minimal case.
 leftGrammar :: Grammar Char Expr
 leftGrammar = ruleRec "expr" $ \expr ->
   let
@@ -89,8 +97,8 @@ leftGrammar = ruleRec "expr" $ \expr ->
     nat = rule "nat" $
       _Nat . iso show read >? someP (asIn @Char DecimalNumber)
   in withOperators
-    [ [ InfixL _Mul (terminal "*"), InfixL _Div (terminal "/") ]
-    , [ InfixL _Add (terminal "+"), InfixL _Sub (terminal "-") ]
+    [ [ Infix LeftAssoc _Mul (terminal "*"), Infix LeftAssoc _Div (terminal "/") ]
+    , [ Infix LeftAssoc _Add (terminal "+"), Infix LeftAssoc _Sub (terminal "-") ]
     ] atom
 
 leftExamples :: [(Expr, String)]
