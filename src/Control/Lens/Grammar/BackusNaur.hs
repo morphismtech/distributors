@@ -26,10 +26,12 @@ import Control.Lens
 import Control.Lens.Grammar.Kleene
 import Control.Lens.Grammar.Token
 import Control.Lens.Grammar.Symbol
+import Control.Monad.Trans.Reader (ReaderT)
 import Data.Bifunctor.Joker
 import Data.Coerce
 import Data.Function
 import Data.MemoTrie
+import Data.Profunctor (Star)
 import qualified Data.Set as Set
 import Data.Set (Set)
 import Text.ParserCombinators.ReadP (ReadP)
@@ -173,6 +175,8 @@ instance (forall x. BackusNaurForm (f x))
     rule name = Joker . rule name . runJoker
     ruleRec name = Joker . ruleRec name . dimap Joker runJoker
 instance BackusNaurForm (ReadP a)
+instance BackusNaurForm (ReaderT r m a)
+instance BackusNaurForm (Star f a b)
 instance (Ord rule, TerminalSymbol token rule)
   => TerminalSymbol token (Bnf rule) where
   terminal = liftBnf0 . terminal

@@ -19,6 +19,7 @@ description:
 
 dependencies:
 - base >= 4.15 && < 5
+- aeson
 - adjunctions >= 4.4 && < 5
 - bifunctors >= 5.5 && < 6
 - bytestring >= 0.11 && < 1
@@ -33,6 +34,7 @@ dependencies:
 - random >= 1.2 && < 2
 - transformers >= 0.5 && < 1
 - profunctors >= 5.6 && < 6
+- scientific
 - tagged >= 0.8 && < 1
 - template-haskell >= 2.17 && < 3
 - text >= 2 && < 3

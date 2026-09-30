@@ -1,6 +1,6 @@
 cabal-version: 2.2
 
--- This file has been generated from package.yaml by hpack version 0.39.6.
+-- This file has been generated from package.yaml by hpack version 0.39.1.
 --
 -- see: https://github.com/sol/hpack
 
@@ -35,6 +35,7 @@ library
       Control.Lens.Grammar.Boole
       Control.Lens.Grammar.Internal.NestedPrismTH
       Control.Lens.Grammar.Internal.Orphanage
+      Control.Lens.Grammar.Json
       Control.Lens.Grammar.Kleene
       Control.Lens.Grammar.Machine
       Control.Lens.Grammar.Symbol
@@ -101,6 +102,7 @@ library
       MemoTrie >=0.6 && <1
     , QuickCheck >=2.14 && <3
     , adjunctions >=4.4 && <5
+    , aeson
     , base >=4.15 && <5
     , bifunctors >=5.5 && <6
     , bytestring >=0.11 && <1
@@ -112,6 +114,7 @@ library
     , mtl >=2.2 && <3
     , profunctors >=5.6 && <6
     , random >=1.2 && <2
+    , scientific
     , tagged >=0.8 && <1
     , template-haskell >=2.17 && <3
     , text ==2.*
@@ -183,6 +186,7 @@ test-suite test
       MemoTrie >=0.6 && <1
     , QuickCheck >=2.14 && <3
     , adjunctions >=4.4 && <5
+    , aeson
     , base >=4.15 && <5
     , bifunctors >=5.5 && <6
     , bytestring >=0.11 && <1
@@ -198,6 +202,7 @@ test-suite test
     , mtl >=2.2 && <3
     , profunctors >=5.6 && <6
     , random >=1.2 && <2
+    , scientific
     , tagged >=0.8 && <1
     , template-haskell >=2.17 && <3
     , text ==2.*
