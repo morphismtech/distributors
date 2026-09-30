@@ -8,6 +8,8 @@ module Control.Lens.Grammar.Json
   , JsonObj (..)
   , jsonPrint
   , jsonParse
+    -- * Generics
+  , GJson (..)
     -- * TypeScript
   , TypeScript (..)
   , TsType (..)
@@ -36,9 +38,16 @@ import Data.Profunctor.Strong
 import Data.Scientific
 import Data.Set qualified as Set
 import Data.Text (Text)
-import GHC.IsList qualified as IsList
+import Data.Text qualified as Text
+import GHC.Generics qualified as GHC
+import GHC.IsList qualified as GHC
 
-class Json a where json :: JsonVal p => p a a
+class Json a where
+  json :: JsonVal p => p a a
+  default json :: (GHC.Generic a, GJson (GHC.Rep a), JsonVal p) => p a a
+  json = iso GHC.from GHC.to >~ gjson
+
+class GJson f where gjson :: JsonVal p => p (f a) (f a)
 
 class JsonKey a where jsonKey :: JsonString p => p a a
 
@@ -55,6 +64,8 @@ class
 
 class Profunctor p => JsonString p where
   jsonString :: p Text Text
+  -- | A literal string.
+  jsonText :: Text -> p () ()
 
 class Alternator q => JsonArr p q | q -> p where
   jsonElement :: p a b -> q a b
@@ -92,9 +103,9 @@ instance Json Array where
 instance Json a => Json [a] where
   json = jsonArray (manyP (jsonElement json))
 listIso
-  :: IsList.IsList list
-  => Iso list list [IsList.Item list] [IsList.Item list]
-listIso = iso IsList.toList IsList.fromList
+  :: GHC.IsList list
+  => Iso list list [GHC.Item list] [GHC.Item list]
+listIso = iso GHC.toList GHC.fromList
 instance Json Object where
   json = jsonObject
     (listIso >~ manyP (keyIso >~ jsonProperty jsonString jsonVal))
@@ -105,6 +116,8 @@ instance (Ord k, JsonKey k, Json v)
     json = jsonObject (listIso >~ manyP (jsonProperty jsonKey json))
 instance JsonString (Joker (ReaderT Value Parser)) where
   jsonString = Joker (ReaderT (withText "String" pure))
+  jsonText t = Joker $ ReaderT $ withText "String" $ \s ->
+    if s == t then pure () else fail ("expected " <> show t)
 instance JsonVal (Joker (ReaderT Value Parser)) where
   jsonObject p = Joker $ ReaderT $ withObject "Object" $ \obj -> do
     (b, rest) <- runStateT (runJoker p) obj
@@ -140,10 +153,11 @@ printer :: (a -> Maybe Value) -> Star (Compose Maybe (Const (First Value))) a b
 printer f = Star (Compose . fmap (Const . First . Just) . f)
 instance JsonString (Star (Compose Maybe (Const (First Value)))) where
   jsonString = printer (Just . String)
+  jsonText t = printer (\_ -> Just (String t))
 instance JsonVal (Star (Compose Maybe (Const (First Value)))) where
   jsonObject p = printer (fmap (Object . getConst) . getCompose . runStar p)
   jsonArray p = printer
-    (fmap (Array . IsList.fromList . getConst) . getCompose . runStar p)
+    (fmap (Array . GHC.fromList . getConst) . getCompose . runStar p)
   jsonNumber = printer (Just . Number)
   jsonBool = printer (Just . Bool)
   jsonVal = printer Just
@@ -158,6 +172,111 @@ instance JsonObj
     String key <- printV k a
     val <- printV v c
     pure (Const (KeyMap.singleton (Key.fromText key) val))
+
+{- | Generic `Json` grammars, following aeson's
+generic encoding with default options.
+
+* A single constructor encodes its contents: a record as an object,
+  a single field as its value, several fields as an array,
+  and no fields as an empty array.
+* A sum of nullary constructors encodes as the constructor name.
+* Any other sum encodes as a tagged object,
+  with a @"tag"@ property of the constructor name,
+  and either the record fields, or a @"contents"@ property,
+  or nothing, for a nullary constructor.
+
+A generic grammar is a `rule` named after its datatype.
+-}
+instance (GHC.Datatype d, GSum f) => GJson (GHC.D1 d f) where
+  gjson = rule (GHC.datatypeName (undefined :: GHC.D1 d f ())) $ dimap GHC.unM1 GHC.M1 $
+    if gconCount @f == 1 then gsingle
+    else if gallNullary @f then gnullaryTag
+    else jsonObject gtagged
+
+class GSum f where
+  gconCount :: Int
+  gallNullary :: Bool
+  gsingle :: JsonVal p => p (f x) (f x)
+  gnullaryTag :: JsonVal p => p (f x) (f x)
+  gtagged :: (JsonVal p, JsonObj p q) => q (f x) (f x)
+
+instance (GSum f, GSum g) => GSum (f GHC.:+: g) where
+  gconCount = gconCount @f + gconCount @g
+  gallNullary = gallNullary @f && gallNullary @g
+  gsingle = sumIso >~ gsingle >+< gsingle
+  gnullaryTag = sumIso >~ gnullaryTag >+< gnullaryTag
+  gtagged = sumIso >~ gtagged >+< gtagged
+
+sumIso :: Iso ((f GHC.:+: g) x) ((f GHC.:+: g) x) (Either (f x) (g x)) (Either (f x) (g x))
+sumIso = iso (\case GHC.L1 a -> Left a; GHC.R1 b -> Right b) (either GHC.L1 GHC.R1)
+
+instance (GHC.Constructor c, GFields f, GContents f, GNullary f)
+  => GSum (GHC.C1 c f) where
+    gconCount = 1
+    gallNullary = isJust (gnullary @f)
+    gsingle = dimap GHC.unM1 GHC.M1 $
+      if GHC.conIsRecord (undefined :: GHC.C1 c f ()) then jsonObject gfields
+      else gcontents
+    gnullaryTag = case gnullary of
+      Nothing -> empty
+      Just v -> dimap (const ()) (const (GHC.M1 v)) (jsonText (gconName @c))
+    gtagged = dimap GHC.unM1 GHC.M1 (tag >* contents)
+      where
+        tag = dimap (const ((), ())) (const ()) $
+          jsonProperty (jsonText (Text.pack "tag")) (jsonText (gconName @c))
+        contents
+          | GHC.conIsRecord (undefined :: GHC.C1 c f ()) = gfields
+          | Just v <- gnullary = dimap (const ()) (const v) oneP
+          | otherwise = dimap ((),) snd $
+              jsonProperty (jsonText (Text.pack "contents")) gcontents
+
+gconName :: forall (c :: GHC.Meta). GHC.Constructor c => Text
+gconName = Text.pack (GHC.conName (undefined :: GHC.C1 c GHC.U1 ()))
+
+-- | Record fields, as the properties of an object.
+class GFields f where
+  gfields :: (JsonVal p, JsonObj p q) => q (f x) (f x)
+instance (GHC.Selector s, Json a) => GFields (GHC.S1 s (GHC.K1 i a)) where
+  gfields = dimap (\(GHC.M1 (GHC.K1 a)) -> ((), a)) (\(_, a) -> GHC.M1 (GHC.K1 a)) $
+    jsonProperty (jsonText key) json
+    where
+      key = Text.pack (GHC.selName (undefined :: GHC.S1 s (GHC.K1 i a) ()))
+instance (GFields f, GFields g) => GFields (f GHC.:*: g) where
+  gfields = productIso >~ gfields >*< gfields
+instance GFields GHC.U1 where
+  gfields = dimap (const ()) (const GHC.U1) oneP
+
+-- | Positional fields, as the elements of an array.
+class GElements f where
+  gelements :: (JsonVal p, JsonArr p q) => q (f x) (f x)
+instance Json a => GElements (GHC.S1 s (GHC.K1 i a)) where
+  gelements = dimap (GHC.unK1 . GHC.unM1) (GHC.M1 . GHC.K1) (jsonElement json)
+instance (GElements f, GElements g) => GElements (f GHC.:*: g) where
+  gelements = productIso >~ gelements >*< gelements
+instance GElements GHC.U1 where
+  gelements = dimap (const ()) (const GHC.U1) oneP
+
+productIso :: Iso ((f GHC.:*: g) x) ((f GHC.:*: g) x) (f x, g x) (f x, g x)
+productIso = iso (\(a GHC.:*: b) -> (a, b)) (uncurry (GHC.:*:))
+
+-- | Positional fields, as a single value or an array.
+class GContents f where
+  gcontents :: JsonVal p => p (f x) (f x)
+instance Json a => GContents (GHC.S1 s (GHC.K1 i a)) where
+  gcontents = dimap (GHC.unK1 . GHC.unM1) (GHC.M1 . GHC.K1) json
+instance (GElements f, GElements g) => GContents (f GHC.:*: g) where
+  gcontents = jsonArray gelements
+instance GContents GHC.U1 where
+  gcontents = jsonArray gelements
+
+class GNullary f where
+  gnullary :: Maybe (f x)
+instance GNullary GHC.U1 where
+  gnullary = Just GHC.U1
+instance GNullary (GHC.S1 s f) where
+  gnullary = Nothing
+instance GNullary (f GHC.:*: g) where
+  gnullary = Nothing
 
 {- | A minimal TypeScript type expression,
 sufficient to describe the JSON values of a `Json` grammar.
@@ -330,6 +449,7 @@ tsGrammor = Grammor . TypeScript . liftBnf0
 
 instance JsonString (Grammor TypeScript) where
   jsonString = tsGrammor TsString
+  jsonText _ = tsGrammor TsString
 instance JsonVal (Grammor TypeScript) where
   jsonObject p = Grammor (TypeScript (liftBnf1 (\(TsProperties t) -> t) (runGrammor p)))
   jsonArray p = Grammor (TypeScript (liftBnf1 (\(TsElements t) -> t) (runGrammor p)))
