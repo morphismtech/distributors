@@ -49,11 +49,11 @@ instance Categorized token
       where
         (n, chart) = prefixGen et word
 instance Categorized token
-  => Matching [token] (Bnf (RegEx token)) where
+  => Matching [token] (Bnf (RegEx token) (RegEx token)) where
     word =~ bnf = word =~ transducer bnf
 instance Categorized token
   => Matching [token] (RegEx token) where
-    word =~ pattern = word =~ liftBnf0 pattern
+    word =~ pattern = word =~ (pure pattern :: Bnf (RegEx token) (RegEx token))
 instance Matching s (APrism s t a b) where
   word =~ pattern = is pattern word
 
@@ -98,7 +98,7 @@ A transducer is a form of finite state machine
 that can be run in various ways like
 `=~`, `expectNext`, `languageSample`, `parseForest` & `unreachableRules`.
 -}
-transducer :: Bnf (RegEx token) -> Transducer token
+transducer :: Bnf (RegEx token) (RegEx token) -> Transducer token
 transducer (Bnf start rules) = Transducer
   { transducerRelations = IntMap.fromList allStates
   , transducerRules = Map.fromList

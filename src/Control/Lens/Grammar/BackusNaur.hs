@@ -16,9 +16,6 @@ module Control.Lens.Grammar.BackusNaur
   ( -- * BackusNaurForm
     BackusNaurForm (..)
   , Bnf (..)
-  , liftBnf0
-  , liftBnf1
-  , liftBnf2
   , diffB
   ) where
 
@@ -85,25 +82,15 @@ by replacing recursive calls with `nonTerminal`s.
 prop> ruleRec label f = rule label (f (nonTerminal label))
 
 -}
-data Bnf rule = Bnf
-  { startBnf :: rule
+data Bnf rule start = Bnf
+  { startBnf :: start
   , rulesBnf :: Set (String, rule)
-  } deriving stock (Eq, Ord, Show, Read)
+  } deriving stock (Eq, Ord, Show, Read, Functor)
 
-{- | Lift a rule to a `Bnf`. -}
-liftBnf0 :: Ord a => a -> Bnf a
-liftBnf0 a = Bnf a mempty
-
-{- | Lift a function of rules to `Bnf`s. -}
-liftBnf1 :: (Coercible a b, Ord b) => (a -> b) -> Bnf a -> Bnf b
-liftBnf1 f (Bnf start rules) = Bnf (f start) (Set.map coerce rules)
-
-{- | Lift a binary function of rules to `Bnf`s. -}
-liftBnf2
-  :: (Coercible a c, Coercible b c, Ord c)
-  => (a -> b -> c) -> Bnf a -> Bnf b -> Bnf c
-liftBnf2 f (Bnf start0 rules0) (Bnf start1 rules1) =
-  Bnf (f start0 start1) (Set.map coerce rules0 <> Set.map coerce rules1)
+instance Ord rule => Applicative (Bnf rule) where
+  pure start = Bnf start mempty
+  liftA2 f (Bnf start0 rules0) (Bnf start1 rules1) =
+    Bnf (f start0 start1) (Set.map coerce rules0 <> Set.map coerce rules1)
 
 {- |
 The [Brzozowski derivative]
@@ -119,7 +106,7 @@ See Might, Darais & Spiewak, [Parsing With Derivatives]
 -}
 diffB
   :: (Categorized token, HasTrie token)
-  => [token] -> Bnf (RegEx token) -> Bnf (RegEx token)
+  => [token] -> Bnf (RegEx token) (RegEx token) -> Bnf (RegEx token) (RegEx token)
 diffB prefix (Bnf start rules) =
   Bnf (foldl' (flip diff1B) start prefix) rules
   where
@@ -146,8 +133,7 @@ diffB prefix (Bnf start rules) =
       RegExam (Alternate y1 y2) -> diff1B x y1 >|< diff1B x y2
 
 -- | Does a pattern match the empty word?
-δ :: (Categorized token, HasTrie token)
-  => Bnf (RegEx token) -> Bool
+δ :: (Categorized token, HasTrie token) => Bnf (RegEx token) (RegEx token) -> Bool
 δ (Bnf start rules) = ν start where
   ν = memo $ \case
     SeqEmpty -> True
@@ -166,8 +152,8 @@ rulesNamed nameX = foldl' (flip inserter) Set.empty where
 
 -- instances
 instance (Ord rule, NonTerminalSymbol rule)
-  => BackusNaurForm (Bnf rule) where
-    rule label (Bnf newRule oldRules) = (nonTerminal label)
+  => BackusNaurForm (Bnf rule rule) where
+    rule label (Bnf newRule oldRules) = (nonTerminal label :: Bnf rule rule)
       {rulesBnf = Set.insert (label, newRule) oldRules}
     ruleRec label f = rule label (f (nonTerminal label))
 instance (forall x. BackusNaurForm (f x))
@@ -177,31 +163,31 @@ instance (forall x. BackusNaurForm (f x))
 instance BackusNaurForm (ReadP a)
 instance BackusNaurForm (ReaderT r m a)
 instance BackusNaurForm (Star f a b)
-instance (Ord rule, TerminalSymbol token rule)
-  => TerminalSymbol token (Bnf rule) where
-  terminal = liftBnf0 . terminal
-instance (Ord rule, NonTerminalSymbol rule)
-  => NonTerminalSymbol (Bnf rule) where
-  nonTerminal = liftBnf0 . nonTerminal
-instance (Ord rule, Tokenized token rule)
-  => Tokenized token (Bnf rule) where
-  anyToken = liftBnf0 anyToken
-  token = liftBnf0 . token
-  oneOf = liftBnf0 . oneOf
-  notOneOf = liftBnf0 . notOneOf
-  asIn = liftBnf0 . asIn
-  notAsIn = liftBnf0 . notAsIn
-instance (Ord rule, TokenAlgebra token rule)
-  => TokenAlgebra token (Bnf rule) where
-  tokenClass = liftBnf0 . tokenClass
-instance (Ord rule, KleeneStarAlgebra rule)
-  => KleeneStarAlgebra (Bnf rule) where
-  starK = liftBnf1 starK
-  plusK = liftBnf1 plusK
-  optK = liftBnf1 optK
-  zeroK = liftBnf0 zeroK
-  (>|<) = liftBnf2 (>|<)
-instance (Ord rule, Monoid rule) => Monoid (Bnf rule) where
-  mempty = liftBnf0 mempty
-instance (Ord rule, Semigroup rule) => Semigroup (Bnf rule) where
-  (<>) = liftBnf2 (<>)
+instance (Ord rule, TerminalSymbol token start)
+  => TerminalSymbol token (Bnf rule start) where
+  terminal = pure . terminal
+instance (Ord rule, NonTerminalSymbol start)
+  => NonTerminalSymbol (Bnf rule start) where
+  nonTerminal = pure . nonTerminal
+instance (Ord rule, Tokenized token start)
+  => Tokenized token (Bnf rule start) where
+  anyToken = pure anyToken
+  token = pure . token
+  oneOf = pure . oneOf
+  notOneOf = pure . notOneOf
+  asIn = pure . asIn
+  notAsIn = pure . notAsIn
+instance (Ord rule, TokenAlgebra token start)
+  => TokenAlgebra token (Bnf rule start) where
+  tokenClass = pure . tokenClass
+instance (Ord rule, KleeneStarAlgebra start)
+  => KleeneStarAlgebra (Bnf rule start) where
+  starK = fmap starK
+  plusK = fmap plusK
+  optK = fmap optK
+  zeroK = pure zeroK
+  (>|<) = liftA2 (>|<)
+instance (Ord rule, Monoid start) => Monoid (Bnf rule start) where
+  mempty = pure mempty
+instance (Ord rule, Semigroup start) => Semigroup (Bnf rule start) where
+  (<>) = liftA2 (<>)
