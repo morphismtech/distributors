@@ -182,46 +182,44 @@ jsonObjectSpec = describe "jsonObject" $ do
 newtype Rest = Rest (Scientific, [Text])
   deriving stock (Eq, Show)
 instance Json Rest where
-  json = dimap (\(Rest p) -> p) Rest $ jsonTuple $
-    (,) <$> lmap fst (jsonElem json) <*> lmap snd (manyP (jsonElem json))
+  json = dimap (\(Rest p) -> p) Rest $
+    jsonTuple (jsonElem json >*< manyP (jsonElem json))
 
 -- | Leading rest strings and a number, @[...string[], number]@.
 newtype Leading = Leading ([Text], Scientific)
   deriving stock (Eq, Show)
 instance Json Leading where
-  json = dimap (\(Leading p) -> p) Leading $ jsonTuple $
-    (,) <$> lmap fst (manyP (jsonElem json)) <*> lmap snd (jsonElem json)
+  json = dimap (\(Leading p) -> p) Leading $
+    jsonTuple (manyP (jsonElem json) >*< jsonElem json)
 
 -- | A number and an optional string, @[number, string?]@.
 newtype Trailing = Trailing (Scientific, Maybe Text)
   deriving stock (Eq, Show)
 instance Json Trailing where
-  json = dimap (\(Trailing p) -> p) Trailing $ jsonTuple $
-    (,) <$> lmap fst (jsonElem json) <*> lmap snd (optionalP (jsonElem json))
+  json = dimap (\(Trailing p) -> p) Trailing $
+    jsonTuple (jsonElem json >*< optionalP (jsonElem json))
 
 -- | An optional string before a number, @[number] | [string, number]@.
 newtype Before = Before (Maybe Text, Scientific)
   deriving stock (Eq, Show)
 instance Json Before where
-  json = dimap (\(Before p) -> p) Before $ jsonTuple $
-    (,) <$> lmap fst (optionalP (jsonElem json)) <*> lmap snd (jsonElem json)
+  json = dimap (\(Before p) -> p) Before $
+    jsonTuple (optionalP (jsonElem json) >*< jsonElem json)
 
 -- | Two rests, @[...(number | string)[]]@.
 newtype Rests = Rests ([Scientific], [Text])
   deriving stock (Eq, Show)
 instance Json Rests where
-  json = dimap (\(Rests p) -> p) Rests $ jsonTuple $
-    (,) <$> lmap fst (manyP (jsonElem json))
-      <*> lmap snd (manyP (jsonElem json))
+  json = dimap (\(Rests p) -> p) Rests $
+    jsonTuple (manyP (jsonElem json) >*< manyP (jsonElem json))
 
 -- | Rest strings and an optional number,
 -- @[...string[]] | [...string[], number]@.
 newtype RestOptional = RestOptional ([Text], Maybe Scientific)
   deriving stock (Eq, Show)
 instance Json RestOptional where
-  json = dimap (\(RestOptional p) -> p) RestOptional $ jsonTuple $
-    (,) <$> lmap fst (manyP (jsonElem json))
-      <*> lmap snd (optionalP (jsonElem json))
+  json = dimap (\(RestOptional p) -> p) RestOptional $
+    jsonTuple (manyP (jsonElem json) >*< optionalP (jsonElem json))
 
 -- | Alternative elements, @[number] | [string]@.
 newtype Alternative = Alternative (Either Scientific Text)
@@ -465,7 +463,7 @@ instance Json Optional where
   json = jsonTyped $ jsonObject $ Optional
     <$> lmap (\(Optional a _) -> a) ("a" !: json)
     <*> lmap (\(Optional _ b) -> b)
-      ("b c" ?: jsonString >+< jsonNumber)
+      ("b c" ?: (jsonString >+< jsonNumber))
 
 jsonOptionalSpec :: Spec
 jsonOptionalSpec = describe "(?:)" $ do
