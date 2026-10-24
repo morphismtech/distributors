@@ -14,23 +14,16 @@ module Control.Lens.Grammar.Json
   , jsonPrint
   , jsonEncode
   , JsonError (..)
-  , JsonErrorKind (..)
+  , JsonErrorSort (..)
   , jsonErrorMessage
     -- * TypeScript
   , jsonType
-  , jsonTypeScript
-  , TsDeclarations (..)
-  , TsType (..)
-  , TsElement (..)
-  , TsProperty (..)
   ) where
 
 import Control.Applicative
 import Control.Lens
 import Control.Lens.Grammar
 import Control.Monad
-import Control.Monad.Trans.Except (ExceptT (..))
-import Control.Monad.Trans.Reader
 import Control.Monad.Trans.State.Strict
 import Data.Aeson.Encoding (Encoding)
 import Data.Aeson.Encoding qualified as Encoding
@@ -41,7 +34,6 @@ import Data.Aeson.KeyMap qualified as KeyMap
 import Data.Aeson.Text (encodeToLazyText)
 import Data.Aeson.Types
   (DotNetTime (..), JSONPathElement (..), Object, Value (..))
-import Data.Bifunctor.Joker
 import Data.ByteString.Lazy qualified as LByteString
 import Data.Char (isAlpha, isAlphaNum, isDigit)
 import Data.Coerce
@@ -135,6 +127,8 @@ import Numeric.Natural (Natural)
 import Text.Read (readMaybe)
 import Text.ParserCombinators.ReadP (readP_to_S)
 
+makePrisms ''Value
+
 -- Json grammars --
 
 {- | `Json` grammars, compatible with @aeson@'s
@@ -148,7 +142,7 @@ are JSON objects rather than arrays of key-value pairs.
 class Json a where
   json :: JsonVal p => p a a
   default json :: (Json (GHC.Generically a), JsonVal p) => p a a
-  json = iso GHC.Generically (\(GHC.Generically a) -> a) >~ json
+  json = iso GHC.Generically coerce >~ json
   jsonList :: JsonVal p => p [a] [a]
   jsonList = jsonArray json
   jsonKeyMap :: (Json v, JsonVal p) => p [(a, v)] [(a, v)]
@@ -176,8 +170,17 @@ class
   jsonDict
     :: (forall q. JsonString q => q a b)
     -> p c d -> p [(a, c)] [(b, d)]
-  jsonTuple :: (forall q. JsonTup q => q a b) -> p a b
-  jsonObject :: (forall q. JsonObj q => q a b) -> p a b
+  jsonTuple :: (forall q. JsonTup p q => q a b) -> p a b
+  jsonObject :: (forall q. JsonObj p q => q a b) -> p a b
+  jsonValue :: p Value Value
+  jsonValue = jsonRule $ foldr1 altP
+    [ _Null >? jsonNull
+    , _Bool >? jsonBool
+    , _Number >? jsonNumber
+    , _String >? jsonString
+    , _Array . iso Vector.toList Vector.fromList >? jsonArray jsonValue
+    , _Object . iso KeyMap.toList KeyMap.fromList >? jsonDict keyText jsonValue
+    ]
   jsonTypeRule :: TypeRep -> p a b -> p a b
   jsonTypeRule = rule . show
 
@@ -193,31 +196,31 @@ class
   jsonString :: p Text Text
 
 {- | `JsonTup` grammars describe the elements of a JSON array.
-As `Distributor`s they have optional elements (`optionalP`),
-rest elements (`manyP`) and alternative elements (`>+<`),
+As `Alternator`s they have optional elements (`optionalP`, `optionP`),
+rest elements (`manyP`, `someP`) and alternatives (`>+<`, `<|>`),
 like TypeScript's variadic tuple types, @[A, B?, ...C[]]@.
+Its elements are `JsonVal` grammars, which determine its type.
 -}
-class Distributor p => JsonTup p where
-  jsonVal :: (forall q. JsonVal q => q a b) -> p a b
+class (JsonVal p, Alternator q) => JsonTup p q | q -> p where
+  jsonElem :: p a b -> q a b
 
 {- | `JsonObj` grammars describe the properties of a JSON object.
 Each key may be read or written at most once.
-An optional property may be missing, like TypeScript's @{k?: T}@.
+A required property, @k !: v@, is like TypeScript's @{k: T}@,
+and an optional property, @k ?: v@, may be missing, like @{k?: T}@.
+Its properties are `JsonVal` grammars, which determine its type.
 -}
-class Monoidal p => JsonObj p where
-  jsonKeyVal :: Text -> (forall q. JsonVal q => q a b) -> p a b
-  jsonOptionalKeyVal
-    :: Text -> (forall q. JsonVal q => q a b) -> p (Maybe a) (Maybe b)
+class (JsonVal p, Monoidal q) => JsonObj p q | q -> p where
+  (!:) :: Text -> p a b -> q a b
+  (?:) :: Text -> p a b -> q (Maybe a) (Maybe b)
+infixr 1 !:, ?:
 
 -- | A `jsonTypeRule` for a `Typeable` type.
 jsonRule :: forall a p. (Typeable a, JsonVal p) => p a a -> p a a
 jsonRule = jsonTypeRule (typeRep (Proxy @a))
 
-jsonKeyValues
-  :: (Json v, JsonVal p)
-  => (forall q. JsonVal q => q a a) -> p [(a, v)] [(a, v)]
-jsonKeyValues key = jsonArray $ jsonTuple $
-  (,) <$> lmap fst (jsonVal key) <*> lmap snd (jsonVal json)
+jsonKeyValues :: (Json v, JsonVal p) => p a a -> p [(a, v)] [(a, v)]
+jsonKeyValues key = jsonArray (jsonTuple (jsonElem key >*< jsonElem json))
 
 jsonKeyText
   :: (Json v, JsonVal p)
@@ -239,16 +242,11 @@ jsonPrint = runJsonPrintor json
 jsonEncode :: Json a => a -> Either JsonError Encoding
 jsonEncode = runJsonPrintor json
 
-
-{- | The TypeScript type of a `Json` grammar, with type aliases for
-its `jsonTypeRule`s, each of which is named uniquely and declared once.
+{- | TypeScript type declarations of a `Json` grammar, with type aliases
+for its `jsonTypeRule`s, each of which is named uniquely and declared once.
 -}
-jsonType :: forall a -> Json a => TsDeclarations
-jsonType a = tsDeclarations (json @a)
-
--- | TypeScript type declarations of a `Json` grammar.
-jsonTypeScript :: forall a -> (Json a, Typeable a) => Text
-jsonTypeScript a = renderTypeScript (show (typeRep (Proxy @a))) (jsonType a)
+jsonType :: forall a -> (Json a, Typeable a) => Text
+jsonType a = renderTypeScript (show (typeRep (Proxy @a))) (json @a)
 
 -- Errors --
 
@@ -261,10 +259,10 @@ data JsonError = JsonError
   { jsonErrorPath :: [JSONPathElement]
   , jsonErrorExpected :: [String]
   , jsonErrorFound :: Maybe Value
-  , jsonErrorKind :: JsonErrorKind
+  , jsonErrorSort :: JsonErrorSort
   } deriving stock (Eq, Show)
 
-data JsonErrorKind
+data JsonErrorSort
   = JsonLiteral
   -- ^ a string literal mismatch; the alternative doesn't apply
   | JsonMismatch
@@ -280,7 +278,7 @@ jsonErrorMessage err = case (jsonErrorFound err, jsonErrorExpected err) of
     "expected " <> alternatives expected <> ", but found " <> render found
   (Nothing, []) -> "cannot print"
   (Nothing, expected)
-    | jsonErrorKind err == JsonMissing ->
+    | jsonErrorSort err == JsonMissing ->
         "cannot print " <> alternatives expected
     | otherwise -> "cannot print as " <> alternatives expected
   where
@@ -311,7 +309,7 @@ jsonAt el = left' (\err -> err {jsonErrorPath = el : jsonErrorPath err})
 jsonRelabel :: String -> JsonError -> JsonError
 jsonRelabel name err
   | null (jsonErrorPath err)
-  , jsonErrorKind err /= JsonMissing = err {jsonErrorExpected = [name]}
+  , jsonErrorSort err /= JsonMissing = err {jsonErrorExpected = [name]}
   | otherwise = err
 
 {- | Combine the failures of alternatives: the deepest failure wins,
@@ -325,10 +323,10 @@ jsonOrElse err1 err2
   , jsonErrorFound err1 == jsonErrorFound err2 = err2
     { jsonErrorExpected =
         nub (jsonErrorExpected err1 <> jsonErrorExpected err2)
-    , jsonErrorKind = max (jsonErrorKind err1) (jsonErrorKind err2)
+    , jsonErrorSort = max (jsonErrorSort err1) (jsonErrorSort err2)
     }
-  | jsonErrorKind err2 == JsonLiteral
-  , jsonErrorKind err1 /= JsonLiteral = err1
+  | jsonErrorSort err2 == JsonLiteral
+  , jsonErrorSort err1 /= JsonLiteral = err1
   | otherwise = err2
   where
     depth1 = length (jsonErrorPath err1)
@@ -392,9 +390,12 @@ orElse p q v = case p v of
 
 {- | `TupParsor` parses the elements of a JSON array from a position,
 in every way it can, so that optional and rest elements backtrack.
+A tuple of fixed length also parses in one way, without backtracking.
 -}
-newtype TupParsor a b = TupParsor
-  {runTupParsor :: Vector Value -> Int -> [Either JsonError (b, Int)]}
+data TupParsor a b = TupParsor
+  { tupParsorFixed :: Maybe (Vector Value -> Int -> Either JsonError (b, Int))
+  , runTupParsor :: Vector Value -> Int -> [Either JsonError (b, Int)]
+  }
 
 {- | `ObjParsor` reads keys of an `Object`, ignoring other keys.
 Its keys are known before parsing, so overlapping keys are found once,
@@ -457,6 +458,7 @@ instance JsonVal JsonParsor where
   jsonNumber = jsonParsor $ \case
     Number n -> Right n
     v -> jsonMismatch "number" v
+  jsonValue = jsonParsor Right
   jsonArray p = jsonParsor $ \case
     Array arr -> zipWithM
       (\i v -> jsonAt (Index i) (runJsonParsor p v)) [0 ..] (Vector.toList arr)
@@ -466,6 +468,9 @@ instance JsonVal JsonParsor where
       (,) <$> runJsonParsor key (String (Key.toText k)) <*> runJsonParsor p v
     v -> jsonMismatch "object" v
   jsonTuple tup = jsonParsor $ \case
+    Array arr | Just fixed <- tupParsorFixed tup -> fixed arr 0 >>= \(b, n) ->
+      if n == Vector.length arr then Right b
+      else jsonMissing (countElements n) (Just (Array arr))
     Array arr ->
       let
         outcomes = runTupParsor tup arr 0
@@ -494,19 +499,46 @@ instance JsonVal JsonParsor where
           Just (Dispatch (Just key) (Map.fromSet (const parse) tags))
         [] -> Nothing
 
-deriving via ReaderT (Vector Value) (StateT Int (ExceptT JsonError []))
-  instance Functor (TupParsor a)
-deriving via ReaderT (Vector Value) (StateT Int (ExceptT JsonError []))
-  instance Applicative (TupParsor a)
-deriving via Joker (ReaderT (Vector Value) (StateT Int (ExceptT JsonError [])))
-  instance Profunctor TupParsor
+instance Functor (TupParsor a) where
+  fmap f (TupParsor fixed general) = TupParsor
+    ((\p arr i -> first' f <$> p arr i) <$> fixed)
+    (\arr i -> map (fmap (first' f)) (general arr i))
+instance Applicative (TupParsor a) where
+  pure b = TupParsor (Just (\_ i -> Right (b, i))) (\_ i -> [Right (b, i)])
+  TupParsor fixed0 general0 <*> TupParsor fixed1 general1 =
+    TupParsor (liftA2 sequenced fixed0 fixed1) backtracking
+    where
+      sequenced p q arr i = do
+        (f, j) <- p arr i
+        (x, k) <- q arr j
+        Right (f x, k)
+      backtracking arr i = general0 arr i >>= \case
+        Left err -> [Left err]
+        Right (f, j) -> map (fmap (first' f)) (general1 arr j)
+instance Profunctor TupParsor where
+  dimap _ g = coerce . fmap g
+instance Choice TupParsor where
+  left' = fmap Left . retag
+  right' = fmap Right . retag
+instance Alternative (TupParsor a) where
+  empty = TupParsor Nothing (\_ _ -> [])
+  p <|> q = TupParsor Nothing $ \arr i ->
+    runTupParsor p arr i <> runTupParsor q arr i
+  many = coerce . manyP
+  some p = (:) <$> p <*> many p
+instance CocartesianChoice TupParsor
+instance Alternator TupParsor where
+  alternate = either (fmap Left . retag) (fmap Right . retag)
+
+retag :: TupParsor a b -> TupParsor x b
+retag = coerce
 instance CocartesianMonoidal TupParsor where
-  zeroP = TupParsor (\_ _ -> [])
-  TupParsor p >+< TupParsor q = TupParsor $ \arr i ->
+  zeroP = empty
+  TupParsor _ p >+< TupParsor _ q = TupParsor Nothing $ \arr i ->
     map (fmap (first' Left)) (p arr i) <> map (fmap (first' Right)) (q arr i)
 -- | `manyP` tries longer repetitions first, never repeating an empty match.
 instance Distributor TupParsor where
-  manyP (TupParsor p) = TupParsor go
+  manyP (TupParsor _ p) = TupParsor Nothing go
     where
       go arr i = concatMap step (p arr i) <> [Right ([], i)]
         where
@@ -514,11 +546,13 @@ instance Distributor TupParsor where
             Left err -> [Left err]
             Right (b, j) | j > i -> map (fmap (first' (b :))) (go arr j)
             Right _ -> []
-instance JsonTup TupParsor where
-  jsonVal p = TupParsor $ \arr i -> pure $ case arr Vector.!? i of
-    Nothing ->
-      jsonMissing ("at least " <> countElements (i + 1)) (Just (Array arr))
-    Just v -> (, i + 1) <$> jsonAt (Index i) (runJsonParsor p v)
+instance JsonTup JsonParsor TupParsor where
+  jsonElem p = TupParsor (Just nextElement) (\arr i -> [nextElement arr i])
+    where
+      nextElement arr i = case arr Vector.!? i of
+        Nothing ->
+          jsonMissing ("at least " <> countElements (i + 1)) (Just (Array arr))
+        Just v -> (, i + 1) <$> jsonAt (Index i) (runJsonParsor p v)
 
 instance Functor (ObjParsor a) where
   fmap f (ObjParsor keys tags p) = ObjParsor keys tags (fmap f . p)
@@ -528,8 +562,8 @@ instance Applicative (ObjParsor a) where
     ObjParsor (keys0 <> keys1) (tags0 <> tags1) (\o -> p0 o <*> p1 o)
 instance Profunctor ObjParsor where
   dimap _ g (ObjParsor keys tags p) = ObjParsor keys tags (fmap g . p)
-instance JsonObj ObjParsor where
-  jsonKeyVal k p = ObjParsor [key] tags $ \o -> case KeyMap.lookup key o of
+instance JsonObj JsonParsor ObjParsor where
+  k !: p = ObjParsor [key] tags $ \o -> case KeyMap.lookup key o of
     Nothing -> jsonMissing ("key " <> show k) (Just (Object o))
     Just v -> jsonAt (Key key) (runJsonParsor p v)
     where
@@ -537,7 +571,7 @@ instance JsonObj ObjParsor where
       tags = case jsonParsorDispatch p of
         Just (Dispatch Nothing table) -> [(key, Map.keysSet table)]
         _ -> []
-  jsonOptionalKeyVal k p = ObjParsor [key] [] $ \o ->
+  k ?: p = ObjParsor [key] [] $ \o ->
     traverse (jsonAt (Key key) . runJsonParsor p) (KeyMap.lookup key o)
     where
       key = Key.fromText k
@@ -565,6 +599,7 @@ class AesonVal val where
   aesonString :: Text -> val
   aesonArray :: [val] -> val
   aesonObject :: [(Key, val)] -> val
+  aesonValue :: Value -> val
 
 instance AesonVal Value where
   aesonNull = Null
@@ -575,6 +610,7 @@ instance AesonVal Value where
   aesonString = String
   aesonArray = Array . Vector.fromList
   aesonObject = Object . KeyMap.fromList
+  aesonValue = id
 
 instance AesonVal Encoding where
   aesonNull = Encoding.null_
@@ -585,12 +621,29 @@ instance AesonVal Encoding where
   aesonString = Encoding.text
   aesonArray = Encoding.list id
   aesonObject = Encoding.pairs . foldMap (uncurry Encoding.pair)
+  aesonValue = Encoding.value
 
 newtype JsonPrintor val a b = JsonPrintor
   {runJsonPrintor :: a -> Either JsonError val}
 
-newtype TupPrintor val a b = TupPrintor
-  {runTupPrintor :: a -> Int -> Either JsonError ([val], Int)}
+newtype TupPrintor val a b = TupPrintor {runTupPrintor :: a -> Elements val}
+
+-- | Printed elements, counted to locate a failure of a later element.
+newtype Elements val = Elements (Either JsonError (Int, DList val))
+instance Semigroup (Elements val) where
+  Elements (Right (count0, elements0)) <> Elements later = Elements $
+    case later of
+      Right (count1, elements1) ->
+        Right (count0 + count1, elements0 <> elements1)
+      Left err -> Left (shiftIndex count0 err)
+  failure <> _ = failure
+instance Monoid (Elements val) where
+  mempty = Elements (Right (0, mempty))
+
+shiftIndex :: Int -> JsonError -> JsonError
+shiftIndex count err = case jsonErrorPath err of
+  Index i : path -> err {jsonErrorPath = Index (i + count) : path}
+  _ -> err
 
 {- | `ObjPrintor` writes keys of an `Object`.
 Its keys are known before printing, so overlapping keys are found once.
@@ -639,6 +692,7 @@ instance AesonVal val => JsonVal (JsonPrintor val) where
   jsonNumber = JsonPrintor (Right . aesonNumber)
   jsonInt = JsonPrintor (Right . aesonInt)
   jsonDouble = JsonPrintor (Right . aesonDouble)
+  jsonValue = JsonPrintor (Right . aesonValue)
   jsonArray (JsonPrintor p) = JsonPrintor $ \as ->
     aesonArray <$> zipWithM (\i a -> jsonAt (Index i) (p a)) [0 ..] as
   jsonDict key (JsonPrintor p) = JsonPrintor (traverse entry >=> printObject)
@@ -650,26 +704,43 @@ instance AesonVal val => JsonVal (JsonPrintor val) where
         String t -> Right (Key.fromText t)
         _ -> jsonMissing "key as a string" Nothing
   jsonTuple tup = JsonPrintor $ \a ->
-    aesonArray . fst <$> runTupPrintor tup a 0
+    case runTupPrintor tup a of
+      Elements printed -> aesonArray . toList . snd <$> printed
   jsonObject obj = JsonPrintor $ case duplicateKey (objPrintorKeys printor) of
     Just key -> \_ -> printDuplicate key
     Nothing -> fmap aesonObject . runObjPrintor printor
     where
       printor = obj @(ObjPrintor val)
 
-deriving via Forget (Ap (StateT Int (Either JsonError)) [val]) a
-  instance Functor (TupPrintor val a)
-deriving via Forget (Ap (StateT Int (Either JsonError)) [val]) a
-  instance Applicative (TupPrintor val a)
-deriving via Forget (Ap (StateT Int (Either JsonError)) [val])
-  instance Profunctor (TupPrintor val)
-deriving via Forget (Ap (StateT Int (Either JsonError)) [val])
+deriving via Forget (Elements val) a instance Functor (TupPrintor val a)
+deriving via Forget (Elements val) a instance Applicative (TupPrintor val a)
+deriving via Forget (Elements val) instance Profunctor (TupPrintor val)
+deriving via Forget (Elements val)
   instance CocartesianMonoidal (TupPrintor val)
-deriving via Forget (Ap (StateT Int (Either JsonError)) [val])
-  instance Distributor (TupPrintor val)
-instance AesonVal val => JsonTup (TupPrintor val) where
-  jsonVal p = TupPrintor $ \a i ->
-    (\printed -> ([printed], i + 1)) <$> jsonAt (Index i) (runJsonPrintor p a)
+deriving via Forget (Elements val) instance Distributor (TupPrintor val)
+instance Choice (TupPrintor val) where
+  left' = alternate . Left
+  right' = alternate . Right
+instance Alternative (TupPrintor val a) where
+  empty = TupPrintor (\_ -> unprintable)
+  p <|> q = TupPrintor $ \a -> case (runTupPrintor p a, runTupPrintor q a) of
+    (Elements (Left err0), Elements (Left err1)) ->
+      Elements (Left (jsonOrElse err0 err1))
+    (Elements (Left _), printed) -> printed
+    (printed, _) -> printed
+instance CocartesianChoice (TupPrintor val)
+instance Alternator (TupPrintor val) where
+  optionP def p = pureP def <|> p
+  alternate = \case
+    Left p -> TupPrintor (either (runTupPrintor p) (\_ -> unprintable))
+    Right p -> TupPrintor (either (\_ -> unprintable) (runTupPrintor p))
+
+unprintable :: Elements val
+unprintable = Elements (jsonUnexpected Nothing)
+
+instance AesonVal val => JsonTup (JsonPrintor val) (TupPrintor val) where
+  jsonElem p = TupPrintor $ \a -> Elements $
+    (\printed -> (1, pure printed)) <$> jsonAt (Index 0) (runJsonPrintor p a)
 
 instance Functor (ObjPrintor val a) where
   fmap _ (ObjPrintor keys p) = ObjPrintor keys p
@@ -679,11 +750,11 @@ instance Applicative (ObjPrintor val a) where
     ObjPrintor (keys0 <> keys1) (\a -> (<>) <$> p0 a <*> p1 a)
 instance Profunctor (ObjPrintor val) where
   dimap f _ (ObjPrintor keys p) = ObjPrintor keys (p . f)
-instance AesonVal val => JsonObj (ObjPrintor val) where
-  jsonKeyVal k p = ObjPrintor [key] (printProperty key p)
+instance AesonVal val => JsonObj (JsonPrintor val) (ObjPrintor val) where
+  k !: p = ObjPrintor [key] (printProperty key p)
     where
       key = Key.fromText k
-  jsonOptionalKeyVal k p =
+  k ?: p =
     ObjPrintor [key] (maybe (Right []) (printProperty key p))
     where
       key = Key.fromText k
@@ -707,26 +778,17 @@ data TsType
   | TsTuple [TsElement] -- ^ @[T, U?, ...V[]]@
   | TsObject [TsProperty] -- ^ @{abc: T, xyz?: U}@
   | TsUnion [TsType] -- ^ @T | U@, or @never@ when empty
-  deriving stock (Eq, Ord, Show, Read)
+  deriving stock (Eq, Ord)
 
 data TsElement
   = TsRequired TsType -- ^ @T@
   | TsOptional TsType -- ^ @T?@
   | TsRest TsType -- ^ @...T[]@
-  deriving stock (Eq, Ord, Show, Read)
-
--- | A TypeScript type, with the type aliases it refers to.
-data TsDeclarations = TsDeclarations
-  { tsRootType :: TsType
-  , tsTypeAliases :: Map String TsType
-  } deriving stock (Eq, Show, Read)
+  deriving stock (Eq, Ord)
 
 -- | A property of a TypeScript object type, @abc: T@ or @abc?: T@.
-data TsProperty = TsProperty
-  { tsPropertyName :: Text
-  , tsPropertyIsOptional :: Bool
-  , tsPropertyType :: TsType
-  } deriving stock (Eq, Ord, Show, Read)
+data TsProperty = TsProperty Text Bool TsType
+  deriving stock (Eq, Ord)
 
 newtype TsGrammor a b = TsGrammor (State TsDefinitions TsType)
 
@@ -743,11 +805,6 @@ data TsDefinitions = TsDefinitions
 
 data TsRuleKey = TsNamedRule String | TsTypedRule TypeRep
   deriving stock (Eq, Ord)
-
-tsDeclarations :: TsGrammor a b -> TsDeclarations
-tsDeclarations (TsGrammor ts) = TsDeclarations root (tsRules definitions)
-  where
-    (root, definitions) = runState ts (TsDefinitions Map.empty Map.empty)
 
 {- | Define a rule once, under the first of its names which isn't taken,
 so that every other occurrence of it, recursive or not, is its name.
@@ -810,7 +867,7 @@ tsObject props
   | length (nub names) == length names = TsObject props
   | otherwise = tsUnion []
   where
-    names = map tsPropertyName props
+    names = [name | TsProperty name _ _ <- props]
 
 {- | Alternative shapes of a TypeScript tuple type,
 so that `>*<` concatenates each pair of shapes and `>+<` unites them.
@@ -904,10 +961,25 @@ deriving via Grammor (Ap (State TsDefinitions) TsShapes)
   instance Profunctor TsTupGrammor
 instance CocartesianMonoidal TsTupGrammor where
   zeroP = TsTupGrammor (pure (TsShapes []))
-  TsTupGrammor s0 >+< TsTupGrammor s1 = TsTupGrammor (liftA2 unite s0 s1)
-    where
-      unite (TsShapes shapes0) (TsShapes shapes1) =
-        TsShapes (shapes0 <> shapes1)
+  (>+<) = tsShapesUnion
+instance Choice TsTupGrammor where
+  left' = coerce
+  right' = coerce
+instance Alternative (TsTupGrammor a) where
+  empty = TsTupGrammor (pure (TsShapes []))
+  (<|>) = tsShapesUnion
+  many = coerce . manyP
+  some p = (:) <$> p <*> many p
+instance CocartesianChoice TsTupGrammor
+instance Alternator TsTupGrammor where
+  alternate = either coerce coerce
+  optionP _ = coerce . optionalP
+
+tsShapesUnion :: TsTupGrammor a b -> TsTupGrammor c d -> TsTupGrammor s t
+tsShapesUnion (TsTupGrammor s0) (TsTupGrammor s1) =
+  TsTupGrammor (liftA2 unite s0 s1)
+  where
+    unite (TsShapes shapes0) (TsShapes shapes1) = TsShapes (shapes0 <> shapes1)
 {- | `optionalP` is an optional element, of a single required element,
 or else an alternative empty shape. `manyP` is a rest element,
 of the union of the elements of its shapes.
@@ -928,8 +1000,8 @@ instance Distributor TsTupGrammor where
         case concatMap (map tsElementType) shapes of
           [] -> [[]]
           ts -> [[TsRest (tsUnion ts)]]
-instance JsonTup TsTupGrammor where
-  jsonVal (TsGrammor t) =
+instance JsonTup TsGrammor TsTupGrammor where
+  jsonElem (TsGrammor t) =
     TsTupGrammor (Ap ((\ty -> TsShapes [[TsRequired ty]]) <$> t))
 
 deriving via Grammor (Ap (State TsDefinitions) [TsProperty]) a
@@ -938,10 +1010,10 @@ deriving via Grammor (Ap (State TsDefinitions) [TsProperty]) a
   instance Applicative (TsObjGrammor a)
 deriving via Grammor (Ap (State TsDefinitions) [TsProperty])
   instance Profunctor TsObjGrammor
-instance JsonObj TsObjGrammor where
-  jsonKeyVal k (TsGrammor t) =
+instance JsonObj TsGrammor TsObjGrammor where
+  k !: TsGrammor t =
     TsObjGrammor (Ap (pure . TsProperty k False <$> t))
-  jsonOptionalKeyVal k (TsGrammor t) =
+  k ?: TsGrammor t =
     TsObjGrammor (Ap (pure . TsProperty k True <$> t))
 
 -- Rendering TypeScript --
@@ -949,10 +1021,12 @@ instance JsonObj TsObjGrammor where
 {- | Render TypeScript type alias declarations, including one named
 @rootName@ for the root type, unless it's already a type alias.
 -}
-renderTypeScript :: String -> TsDeclarations -> Text
-renderTypeScript rootName (TsDeclarations root aliases) =
+renderTypeScript :: String -> TsGrammor a b -> Text
+renderTypeScript rootName (TsGrammor ts) =
   Text.unlines (map declaration (Map.toList declarations))
   where
+    (root, definitions) = runState ts (TsDefinitions Map.empty Map.empty)
+    aliases = tsRules definitions
     declarations = case root of
       TsAlias _ -> aliases
       _ -> Map.insert rootName root aliases
@@ -1028,16 +1102,14 @@ textEnum f as = textual f (\t -> lookup t [(f a, a) | a <- as])
 numeric :: JsonVal p => (a -> Scientific) -> (Scientific -> Maybe a) -> p a a
 numeric f g = prism' f g ?< jsonNumber
 
-tagged :: JsonVal p => Text -> (forall q. JsonVal q => q a b) -> p a b
-tagged k p = jsonObject (jsonKeyVal k p)
+tagged :: JsonVal p => Text -> p a b -> p a b
+tagged k p = jsonObject (k !: p)
 
-field
-  :: JsonObj p
-  => Text -> (forall q. JsonVal q => q a a) -> (s -> a) -> p s a
-field k p f = lmap f (jsonKeyVal k p)
+field :: JsonObj p q => Text -> p a a -> (s -> a) -> q s a
+field k p f = lmap f (k !: p)
 
-tupleElem :: (JsonTup p, Json a) => (s -> a) -> p s a
-tupleElem f = lmap f (jsonVal json)
+tupleElem :: (JsonTup p q, Json a) => (s -> a) -> q s a
+tupleElem f = lmap f (jsonElem json)
 
 boundedScientific :: Scientific -> Maybe Scientific
 boundedScientific s = s <$ guard (abs (base10Exponent s) <= 1024)
@@ -1061,13 +1133,6 @@ jsonRealFloat finite = foldr1 altP
   , only (negate 1/0) >? "-inf"
   , finite
   ]
-
-jsonIntBounded :: forall a p. (Integral a, Bounded a, JsonVal p) => p a a
-jsonIntBounded = prism' fromIntegral narrow ?< jsonInt
-  where
-    narrow i = fromIntegral i <$ guard (lower <= i && i <= upper)
-    lower = fromIntegral (minBound @a) :: Int
-    upper = fromIntegral (maxBound @a) :: Int
 
 jsonRealFrac :: (Fractional a, Real a, JsonVal p) => p a a
 jsonRealFrac = numeric realToFrac (fmap realToFrac . boundedScientific)
@@ -1142,7 +1207,6 @@ realFloatText = textual render parse
 
 -- Json instances
 
-makePrisms ''Value
 makePrisms ''These
 
 -- base
@@ -1188,13 +1252,13 @@ instance Json Int where
   json = jsonRule jsonInt
   jsonKeyMap = jsonKeyText (integralText toBoundedInteger)
 instance Json Int8 where
-  json = jsonRule jsonIntBounded
+  json = jsonRule jsonBounded
   jsonKeyMap = jsonKeyText (integralText toBoundedInteger)
 instance Json Int16 where
-  json = jsonRule jsonIntBounded
+  json = jsonRule jsonBounded
   jsonKeyMap = jsonKeyText (integralText toBoundedInteger)
 instance Json Int32 where
-  json = jsonRule jsonIntBounded
+  json = jsonRule jsonBounded
   jsonKeyMap = jsonKeyText (integralText toBoundedInteger)
 instance Json Int64 where
   json = jsonRule jsonBounded
@@ -1203,10 +1267,10 @@ instance Json Word where
   json = jsonRule jsonBounded
   jsonKeyMap = jsonKeyText (integralText toBoundedInteger)
 instance Json Word8 where
-  json = jsonRule jsonIntBounded
+  json = jsonRule jsonBounded
   jsonKeyMap = jsonKeyText (integralText toBoundedInteger)
 instance Json Word16 where
-  json = jsonRule jsonIntBounded
+  json = jsonRule jsonBounded
   jsonKeyMap = jsonKeyText (integralText toBoundedInteger)
 instance Json Word32 where
   json = jsonRule jsonBounded
@@ -1459,14 +1523,7 @@ instance Json Key where
 instance Json v => Json (KeyMap v) where
   json = iso KeyMap.toList KeyMap.fromList >~ jsonKeyMap @Key
 instance Json Value where
-  json = jsonRule $ foldr1 altP
-    [ _Null >? jsonNull
-    , _Bool >? jsonBool
-    , _Number >? jsonNumber
-    , _String >? jsonString
-    , _Array . iso Vector.toList Vector.fromList >? jsonArray json
-    , _Object . iso KeyMap.toList KeyMap.fromList >? jsonDict keyText json
-    ]
+  json = jsonValue
 instance Json DotNetTime where
   json = jsonRule (textual render parse)
     where
@@ -1619,13 +1676,13 @@ instance (GHC.Constructor c, GFields f, GContents f, GNullary f)
       dimap (const ()) (const (GHC.M1 v)) (fromString (gconName @c))
     gtagged = dimap GHC.unM1 GHC.M1 (jsonObject (tag >* contents))
       where
-        tag :: JsonObj q => q () ()
-        tag = jsonKeyVal "tag" (fromString (gconName @c))
-        contents :: JsonObj q => q (f x) (f x)
+        tag :: JsonObj p q => q () ()
+        tag = "tag" !: fromString (gconName @c)
+        contents :: JsonObj p q => q (f x) (f x)
         contents
           | GHC.conIsRecord (undefined :: GHC.C1 c f ()) = gfields
           | Just v <- gnullary @f = dimap (const ()) (const v) oneP
-          | otherwise = jsonKeyVal "contents" gcontents
+          | otherwise = "contents" !: gcontents
 
 gconName :: forall (c :: GHC.Meta). GHC.Constructor c => String
 gconName = GHC.conName (undefined :: GHC.C1 c GHC.U1 ())
@@ -1634,19 +1691,19 @@ gselName :: forall (s :: GHC.Meta). GHC.Selector s => String
 gselName = GHC.selName (undefined :: GHC.S1 s GHC.U1 ())
 
 class GFields f where
-  gfields :: JsonObj p => p (f x) (f x)
+  gfields :: JsonObj p q => q (f x) (f x)
 instance (GHC.Selector s, Json a) => GFields (GHC.S1 s (GHC.K1 i a)) where
   gfields = dimap (GHC.unK1 . GHC.unM1) (GHC.M1 . GHC.K1) $
-    jsonKeyVal (Text.pack (gselName @s)) json
+    Text.pack (gselName @s) !: json
 instance (GFields f, GFields g) => GFields (f GHC.:*: g) where
   gfields = productIso >~ gfields >*< gfields
 instance GFields GHC.U1 where
   gfields = dimap (const ()) (const GHC.U1) oneP
 
 class GElements f where
-  gelements :: JsonTup p => p (f x) (f x)
+  gelements :: JsonTup p q => q (f x) (f x)
 instance Json a => GElements (GHC.S1 s (GHC.K1 i a)) where
-  gelements = dimap (GHC.unK1 . GHC.unM1) (GHC.M1 . GHC.K1) (jsonVal json)
+  gelements = dimap (GHC.unK1 . GHC.unM1) (GHC.M1 . GHC.K1) (jsonElem json)
 instance (GElements f, GElements g) => GElements (f GHC.:*: g) where
   gelements = productIso >~ gelements >*< gelements
 instance GElements GHC.U1 where

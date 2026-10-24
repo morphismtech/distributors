@@ -55,12 +55,7 @@ main = do
     jsonErrorSpec
     jsonObjectSpec
     jsonTupleSpec
-    jsonTupleTypeSpec
-    jsonOptionalSpec
-    jsonCodecSpec
-    jsonPrintSpec
-    jsonTupleSpec
-    jsonTupleTypeSpec
+    jsonAlternatorSpec
     jsonOptionalSpec
     jsonCodecSpec
     jsonPrintSpec

@@ -9,15 +9,16 @@ module Properties.Json
   , jsonErrorSpec
   , jsonObjectSpec
   , jsonTupleSpec
-  , jsonTupleTypeSpec
+  , jsonAlternatorSpec
   , jsonOptionalSpec
   , jsonCodecSpec
   , jsonPrintSpec
   ) where
 
-import Control.Lens (prism')
+import Control.Applicative ((<|>))
+import Control.Lens (only, prism')
 import Control.Lens.Grammar
-  ( dimap, lmap, manyP, oneP, optionalP, rule
+  ( dimap, lmap, manyP, optionP, optionalP, rule, someP
   , (>*<), (>+<), (>?)
   )
 import Control.Lens.Grammar.Json
@@ -95,9 +96,6 @@ import Test.Hspec
 import Test.QuickCheck hiding (Fixed)
 import Test.QuickCheck.Instances ()
 
-jsonTypeOf :: forall a. Json a => TsType
-jsonTypeOf = tsRootType (jsonType a)
-
 data Point = Point { px :: Scientific, py :: Scientific }
   deriving stock (Show, Generic)
   deriving anyclass (Json, ToJSON, FromJSON)
@@ -162,7 +160,7 @@ newtype Dup = Dup (Int, Int)
   deriving stock Show
 instance Json Dup where
   json = dimap (\(Dup p) -> p) Dup
-    (jsonObject (jsonKeyVal "k" json >*< jsonKeyVal "k" json))
+    (jsonObject (("k" !: json) >*< ("k" !: json)))
 
 jsonObjectSpec :: Spec
 jsonObjectSpec = describe "jsonObject" $ do
@@ -173,7 +171,8 @@ jsonObjectSpec = describe "jsonObject" $ do
     parseError @Dup (object ["k" .= (1 :: Int)]) `shouldBe`
       "Error in $: expected another key \"k\", but found {\"k\":1}"
   it "doesn't type overlapping keys" $
-    tsRootType (jsonType (type Dup)) `shouldBe` TsUnion []
+    declares (type Dup)
+      ["export type Dup = never;", "export type Int = number;"]
   it "ignores extra keys" $
     jsonParse @Point
       (object ["px" .= (1 :: Int), "py" .= (2 :: Int), "pz" .= (3 :: Int)])
@@ -184,42 +183,106 @@ newtype Rest = Rest (Scientific, [Text])
   deriving stock (Eq, Show)
 instance Json Rest where
   json = dimap (\(Rest p) -> p) Rest $ jsonTuple $
-    (,) <$> lmap fst (jsonVal json) <*> lmap snd (manyP (jsonVal json))
+    (,) <$> lmap fst (jsonElem json) <*> lmap snd (manyP (jsonElem json))
 
 -- | Leading rest strings and a number, @[...string[], number]@.
 newtype Leading = Leading ([Text], Scientific)
   deriving stock (Eq, Show)
 instance Json Leading where
   json = dimap (\(Leading p) -> p) Leading $ jsonTuple $
-    (,) <$> lmap fst (manyP (jsonVal json)) <*> lmap snd (jsonVal json)
+    (,) <$> lmap fst (manyP (jsonElem json)) <*> lmap snd (jsonElem json)
 
 -- | A number and an optional string, @[number, string?]@.
 newtype Trailing = Trailing (Scientific, Maybe Text)
   deriving stock (Eq, Show)
 instance Json Trailing where
   json = dimap (\(Trailing p) -> p) Trailing $ jsonTuple $
-    (,) <$> lmap fst (jsonVal json) <*> lmap snd (optionalP (jsonVal json))
+    (,) <$> lmap fst (jsonElem json) <*> lmap snd (optionalP (jsonElem json))
 
 -- | An optional string before a number, @[number] | [string, number]@.
 newtype Before = Before (Maybe Text, Scientific)
   deriving stock (Eq, Show)
 instance Json Before where
   json = dimap (\(Before p) -> p) Before $ jsonTuple $
-    (,) <$> lmap fst (optionalP (jsonVal json)) <*> lmap snd (jsonVal json)
+    (,) <$> lmap fst (optionalP (jsonElem json)) <*> lmap snd (jsonElem json)
 
 -- | Two rests, @[...(number | string)[]]@.
 newtype Rests = Rests ([Scientific], [Text])
   deriving stock (Eq, Show)
 instance Json Rests where
   json = dimap (\(Rests p) -> p) Rests $ jsonTuple $
-    (,) <$> lmap fst (manyP (jsonVal json)) <*> lmap snd (manyP (jsonVal json))
+    (,) <$> lmap fst (manyP (jsonElem json))
+      <*> lmap snd (manyP (jsonElem json))
+
+-- | Rest strings and an optional number,
+-- @[...string[]] | [...string[], number]@.
+newtype RestOptional = RestOptional ([Text], Maybe Scientific)
+  deriving stock (Eq, Show)
+instance Json RestOptional where
+  json = dimap (\(RestOptional p) -> p) RestOptional $ jsonTuple $
+    (,) <$> lmap fst (manyP (jsonElem json))
+      <*> lmap snd (optionalP (jsonElem json))
 
 -- | Alternative elements, @[number] | [string]@.
 newtype Alternative = Alternative (Either Scientific Text)
   deriving stock (Eq, Show)
 instance Json Alternative where
   json = dimap (\(Alternative e) -> e) Alternative $
-    jsonTuple (jsonVal json >+< jsonVal json)
+    jsonTuple (jsonElem json >+< jsonElem json)
+
+-- | A rest element in the middle, @[number, ...string[], boolean]@.
+newtype Middle = Middle (Scientific, [Text], Bool)
+  deriving stock (Eq, Show)
+instance Json Middle where
+  json = dimap
+    (\(Middle (a, b, c)) -> (a, (b, c)))
+    (\(a, (b, c)) -> Middle (a, b, c))
+    (jsonTuple (jsonElem json >*< manyP (jsonElem json) >*< jsonElem json))
+
+-- | At least one element, @[number, ...number[]]@.
+newtype AtLeastOne = AtLeastOne [Scientific]
+  deriving stock (Eq, Show)
+instance Json AtLeastOne where
+  json = dimap (\(AtLeastOne xs) -> xs) AtLeastOne
+    (jsonTuple (someP (jsonElem json)))
+
+-- | Alternative shapes, @[number, number] | [number]@.
+newtype Coord = Coord (Scientific, Scientific)
+  deriving stock (Eq, Show)
+instance Json Coord where
+  json = dimap (\(Coord xy) -> xy) Coord $ jsonTuple $
+    jsonElem json >*< jsonElem json <|> dimap fst (, 0) (jsonElem json)
+
+-- | A defaulted element, @[number, number?]@.
+newtype Defaulted = Defaulted (Scientific, Scientific)
+  deriving stock (Eq, Show)
+instance Json Defaulted where
+  json = dimap (\(Defaulted xy) -> xy) Defaulted $ jsonTuple $
+    jsonElem json >*< optionP (only 0) (jsonElem json)
+
+jsonAlternatorSpec :: Spec
+jsonAlternatorSpec = describe "Alternator jsonTuple" $ do
+  it "has rest elements in the middle" $ do
+    roundTrip (toJSON [toJSON (1 :: Int), "a", "b", toJSON True])
+      (Middle (1, ["a", "b"], True))
+    roundTrip (toJSON [toJSON (1 :: Int), toJSON False]) (Middle (1, [], False))
+    jsonType (type Middle) `shouldBe`
+      "export type Middle = [number, ...string[], boolean];\n"
+  it "has non-empty rest elements" $ do
+    roundTrip (toJSON [1, 2 :: Int]) (AtLeastOne [1, 2])
+    jsonParse @AtLeastOne (toJSON ([] :: [Int])) `shouldSatisfy` isLeft
+    jsonType (type AtLeastOne) `shouldBe`
+      "export type AtLeastOne = [number, ...number[]];\n"
+  it "has alternatives of the same type" $ do
+    roundTrip (toJSON [1, 2 :: Int]) (Coord (1, 2))
+    jsonParse @Coord (toJSON [1 :: Int]) `shouldBe` Right (Coord (1, 0))
+    jsonType (type Coord) `shouldBe`
+      "export type Coord = [number, number] | [number];\n"
+  it "has defaulted elements" $ do
+    roundTrip (toJSON [1 :: Int]) (Defaulted (1, 0))
+    roundTrip (toJSON [1, 2 :: Int]) (Defaulted (1, 2))
+    jsonType (type Defaulted) `shouldBe`
+      "export type Defaulted = [number, number?];\n"
 
 -- | Round trip a `Value` through a `Json` grammar.
 roundTrip :: forall a. (Json a, Eq a, Show a) => Value -> a -> Expectation
@@ -232,35 +295,37 @@ jsonTupleSpec = describe "variadic jsonTuple" $ do
   it "has rest elements" $ do
     roundTrip (toJSON [toJSON (1 :: Int)]) (Rest (1, []))
     roundTrip (toJSON [toJSON (1 :: Int), "a", "b"]) (Rest (1, ["a", "b"]))
-    tsRootType (jsonType (type Rest)) `shouldBe`
-      TsTuple [TsRequired TsNumber, TsRest TsString]
+    jsonType (type Rest) `shouldBe`
+      "export type Rest = [number, ...string[]];\n"
   it "backtracks leading rest elements" $ do
     roundTrip (toJSON [toJSON (1 :: Int)]) (Leading ([], 1))
     roundTrip (toJSON ["a", "b", toJSON (1 :: Int)]) (Leading (["a", "b"], 1))
-    tsRootType (jsonType (type Leading)) `shouldBe`
-      TsTuple [TsRest TsString, TsRequired TsNumber]
+    jsonType (type Leading) `shouldBe`
+      "export type Leading = [...string[], number];\n"
   it "has optional elements" $ do
     roundTrip (toJSON [toJSON (1 :: Int)]) (Trailing (1, Nothing))
     roundTrip (toJSON [toJSON (1 :: Int), "a"]) (Trailing (1, Just "a"))
-    tsRootType (jsonType (type Trailing)) `shouldBe`
-      TsTuple [TsRequired TsNumber, TsOptional TsString]
+    jsonType (type Trailing) `shouldBe`
+      "export type Trailing = [number, string?];\n"
   it "expands optional elements before required elements" $ do
     roundTrip (toJSON [toJSON (1 :: Int)]) (Before (Nothing, 1))
     roundTrip (toJSON ["a", toJSON (1 :: Int)]) (Before (Just "a", 1))
-    tsRootType (jsonType (type Before)) `shouldBe` TsUnion
-      [ TsTuple [TsRequired TsNumber]
-      , TsTuple [TsRequired TsString, TsRequired TsNumber]
-      ]
+    jsonType (type Before) `shouldBe`
+      "export type Before = [number] | [string, number];\n"
   it "merges rest elements" $ do
     roundTrip (toJSON [toJSON (1 :: Int), toJSON (2 :: Int), "a"])
       (Rests ([1, 2], ["a"]))
-    tsRootType (jsonType (type Rests)) `shouldBe`
-      TsTuple [TsRest (TsUnion [TsNumber, TsString])]
+    jsonType (type Rests) `shouldBe`
+      "export type Rests = [...(number | string)[]];\n"
+  it "expands optional elements after rest elements" $ do
+    roundTrip (toJSON ["a", toJSON (1 :: Int)]) (RestOptional (["a"], Just 1))
+    jsonType (type RestOptional) `shouldBe`
+      "export type RestOptional = [...string[]] | [...string[], number];\n"
   it "has alternative elements" $ do
     roundTrip (toJSON [toJSON (1 :: Int)]) (Alternative (Left 1))
     roundTrip (toJSON [String "a"]) (Alternative (Right "a"))
-    tsRootType (jsonType (type Alternative)) `shouldBe` TsUnion
-      [TsTuple [TsRequired TsNumber], TsTuple [TsRequired TsString]]
+    jsonType (type Alternative) `shouldBe`
+      "export type Alternative = [number] | [string];\n"
   it "locates failures in rest elements" $
     parseError @Rest (toJSON [toJSON (1 :: Int), "a", toJSON (2 :: Int)])
       `shouldBe` "Error in $[2]: expected string, but found 2"
@@ -268,148 +333,6 @@ jsonTupleSpec = describe "variadic jsonTuple" $ do
     parseError @Trailing (toJSON [toJSON (1 :: Int), "a", "b"]) `shouldBe`
       "Error in $: expected 2 elements or 1 element, \
       \but found [1,\"a\",\"b\"]"
-
--- | Random tuple grammars, of numbers and strings.
-data TupG = TupNum | TupStr | TupOne | TupSeq TupG TupG | TupAlt TupG TupG
-  | TupOpt TupG | TupMany TupG
-  deriving stock Show
-
--- | A `TupG` promoted to a `Json` instance.
-class TupGrammar (g :: TupG) where
-  tupGrammar :: JsonTup q => q () ()
-instance TupGrammar 'TupNum where
-  tupGrammar = dimap (const 0) (const ()) (jsonVal jsonNumber)
-instance TupGrammar 'TupStr where
-  tupGrammar = dimap (const "") (const ()) (jsonVal jsonString)
-instance TupGrammar 'TupOne where
-  tupGrammar = oneP
-instance (TupGrammar g0, TupGrammar g1) => TupGrammar ('TupSeq g0 g1) where
-  tupGrammar = dimap (const ((), ())) (const ())
-    (tupGrammar @g0 >*< tupGrammar @g1)
-instance (TupGrammar g0, TupGrammar g1) => TupGrammar ('TupAlt g0 g1) where
-  tupGrammar = dimap (const (Left ())) (const ())
-    (tupGrammar @g0 >+< tupGrammar @g1)
-instance TupGrammar g => TupGrammar ('TupOpt g) where
-  tupGrammar = dimap (const Nothing) (const ()) (optionalP (tupGrammar @g))
-instance TupGrammar g => TupGrammar ('TupMany g) where
-  tupGrammar = dimap (const []) (const ()) (manyP (tupGrammar @g))
-
-newtype Tup (g :: TupG) = Tup ()
-  deriving stock Show
-instance TupGrammar g => Json (Tup g) where
-  json = dimap (const ()) Tup (jsonTuple (tupGrammar @g))
-
--- | A random `TupG`, both as a value and as a type.
-data SomeTup = forall g. TupGrammar g => SomeTup TupG (Proxy g)
-instance Show SomeTup where
-  show (SomeTup g _) = show g
-instance Arbitrary SomeTup where
-  arbitrary = sized go
-    where
-      go n
-        | n <= 1 = leaf
-        | otherwise = frequency
-          [ (2, leaf)
-          , (3, sequenced <$> go (n `div` 2) <*> go (n `div` 2))
-          , (2, alternated <$> go (n `div` 2) <*> go (n `div` 2))
-          , (2, optional' <$> go (n - 1))
-          , (1, many' <$> go (n - 1))
-          ]
-      leaf = elements
-        [ SomeTup TupNum (Proxy @'TupNum)
-        , SomeTup TupStr (Proxy @'TupStr)
-        , SomeTup TupOne (Proxy @'TupOne)
-        ]
-      sequenced (SomeTup t0 (_ :: Proxy g0)) (SomeTup t1 (_ :: Proxy g1)) =
-        SomeTup (TupSeq t0 t1) (Proxy @('TupSeq g0 g1))
-      alternated (SomeTup t0 (_ :: Proxy g0)) (SomeTup t1 (_ :: Proxy g1)) =
-        SomeTup (TupAlt t0 t1) (Proxy @('TupAlt g0 g1))
-      optional' (SomeTup t (_ :: Proxy g)) =
-        SomeTup (TupOpt t) (Proxy @('TupOpt g))
-      many' (SomeTup t (_ :: Proxy g)) =
-        SomeTup (TupMany t) (Proxy @('TupMany g))
-
-hasMany :: TupG -> Bool
-hasMany = \case
-  TupMany _ -> True
-  TupSeq g0 g1 -> hasMany g0 || hasMany g1
-  TupAlt g0 g1 -> hasMany g0 || hasMany g1
-  TupOpt g -> hasMany g
-  _ -> False
-
--- | The remainders after a grammar matches a prefix of a sequence.
-tupMatches :: TupG -> [TsType] -> [[TsType]]
-tupMatches g ts = case g of
-  TupNum -> [rest | TsNumber : rest <- [ts]]
-  TupStr -> [rest | TsString : rest <- [ts]]
-  TupOne -> [ts]
-  TupSeq g0 g1 -> concatMap (tupMatches g1) (tupMatches g0 ts)
-  TupAlt g0 g1 -> tupMatches g0 ts <> tupMatches g1 ts
-  TupOpt g0 -> ts : tupMatches g0 ts
-  TupMany g0 -> ts : concat
-    [ tupMatches (TupMany g0) rest
-    | rest <- tupMatches g0 ts, length rest < length ts ]
-
-tupAccepts :: TupG -> [TsType] -> Bool
-tupAccepts g ts = [] `elem` tupMatches g ts
-
--- | Does a TypeScript tuple type accept a sequence of element types?
-tsAccepts :: TsType -> [TsType] -> Bool
-tsAccepts ty ts = case ty of
-  TsUnion alternatives -> any (`tsAccepts` ts) alternatives
-  TsTuple els -> go els ts
-  _ -> False
-  where
-    is t0 t1 = case t0 of
-      TsUnion alternatives -> any (`is` t1) alternatives
-      _ -> t0 == t1
-    go [] rest = null rest
-    go (el : els) rest = case (el, rest) of
-      (TsRequired t, t1 : rest') -> is t t1 && go els rest'
-      (TsRequired _, []) -> False
-      (TsOptional t, _) -> go els rest || go (TsRequired t : els) rest
-      (TsRest t, _) -> go els rest || case rest of
-        t1 : rest' -> is t t1 && go (el : els) rest'
-        [] -> False
-
--- | TypeScript's @checkTupleType@ restrictions on tuple types.
-tsValid :: TsType -> Bool
-tsValid = \case
-  TsUnion alternatives -> all tsValid alternatives
-  TsTuple els -> go False False els
-  _ -> True
-  where
-    go _ _ [] = True
-    go optional rest (el : els) = case el of
-      TsRest _ -> not rest && go optional True els
-      TsOptional _ -> not rest && go True rest els
-      TsRequired _ -> not optional && go optional rest els
-
--- | A JSON array of a sequence of element types.
-tupValue :: [TsType] -> Value
-tupValue = toJSON . map (\case TsNumber -> toJSON (0 :: Int); _ -> String "")
-
-jsonTupleTypeSpec :: Spec
-jsonTupleTypeSpec = describe "variadic jsonTuple types" $ do
-  let
-    sequences = listOf (elements [TsNumber, TsString])
-    -- the reference matcher & optional expansion are exponential
-    small :: Testable prop => prop -> Property
-    small = mapSize (min 12)
-  it "are valid TypeScript" $ property $ small $
-    \(SomeTup _ (_ :: Proxy g)) ->
-      tsValid (tsRootType (jsonType (type (Tup g))))
-  it "parse exactly the sequences the grammar does" $ property $ small $
-    \(SomeTup t (_ :: Proxy g)) -> forAll sequences $ \ts ->
-      tupAccepts t ts
-        === isRight (jsonParse @(Tup g) (tupValue ts))
-  it "accept every sequence the grammar does" $ property $ small $
-    \(SomeTup t (_ :: Proxy g)) -> forAll sequences $ \ts ->
-      tupAccepts t ts ==> tsAccepts (tsRootType (jsonType (type (Tup g)))) ts
-  it "accept exactly the sequences the grammar does, without manyP" $
-    property $ small $ \(SomeTup t (_ :: Proxy g)) ->
-      not (hasMany t) ==> forAll sequences $ \ts ->
-        tupAccepts t ts === tsAccepts (tsRootType (jsonType (type (Tup g)))) ts
 
 -- | A partial grammar, which can't print `Uncovered`.
 data Partial = Covered Scientific | Uncovered
@@ -431,142 +354,93 @@ jsonPrintSpec = describe "jsonPrint errors" $ do
     printError (Dup (1, 2)) `shouldBe`
       Left "Error in $: cannot print key \"k\" twice"
 
--- | A complete type definition, named @start@ with @rules@.
-definesType
-  :: forall a. Json a => String -> [(String, TsType)] -> Expectation
-definesType start rules =
-  jsonType a `shouldBe` TsDeclarations (TsAlias start) (Map.fromList rules)
+-- | TypeScript type declarations, one per line.
+declares :: forall a -> (Json a, Typeable a) => [Text] -> Expectation
+declares a declarations = jsonType a `shouldBe` Text.unlines declarations
 
 jsonTypeSpec :: Spec
 jsonTypeSpec = describe "jsonType" $ do
-  let
-    point = TsObject
-      [TsProperty "px" False TsNumber, TsProperty "py" False TsNumber]
-    tagged tag props = TsObject (TsProperty "tag" False (TsLiteral tag) : props)
-  it "encodes basic types" $ do
-    jsonTypeOf @Bool `shouldBe` TsBoolean
-    jsonTypeOf @Text `shouldBe` TsString
-    jsonTypeOf @Scientific `shouldBe` TsNumber
-  it "encodes containers" $ do
-    jsonTypeOf @(Vector Text) `shouldBe` TsArray TsString
-    jsonTypeOf @(Maybe Text) `shouldBe` TsUnion [TsNull, TsString]
-    jsonTypeOf @(Map Text Scientific) `shouldBe` TsDict TsNumber
-  it "defines a record as an object" $
-    definesType @Point "Point" [("Point", point)]
-  it "defines a single-field constructor as its contents" $
-    definesType @Wrap "Wrap" [("Wrap", TsNumber)]
-  it "defines a positional multi-field constructor as a tuple" $
-    definesType @Pair "Pair"
-      [("Pair", TsTuple [TsRequired TsNumber, TsRequired TsString])]
-  it "defines a nullary single-constructor type as an empty tuple" $
-    definesType @Unit "Unit" [("Unit", TsTuple [])]
-  it "defines an all-nullary sum as a union of string literals" $
-    definesType @Color "Color"
-      [ ("Color"
-        , TsUnion [TsLiteral "Red", TsLiteral "Green", TsLiteral "Blue"])
-      ]
-  it "defines a mixed sum as a discriminated union of objects" $
-    definesType @Shape "Shape"
-      [ ( "Shape"
-        , TsUnion
-          [ tagged "Circle" [TsProperty "contents" False TsNumber]
-          , tagged "Square" [TsProperty "_side" False TsNumber]
-          ]
-        )
-      ]
-  it "defines nested records" $
-    definesType @Profile "Profile"
-      [ ("Profile", TsObject
-          [ TsProperty "name" False TsString
-          , TsProperty "tags" False (TsArray TsString)
-          , TsProperty "nickname" False (TsUnion [TsNull, TsString])
-          ])
-      ]
-  it "defines a recursive type" $
-    definesType @Peano "Peano"
-      [ ( "Peano"
-        , TsUnion
-          [ tagged "Zero" []
-          , tagged "Succ" [TsProperty "contents" False (TsAlias "Peano")]
-          ]
-        )
-      ]
-  it "defines mutually recursive types" $ do
-    let
-      rules =
-        [ ("Forest", TsArray (TsAlias "Branch"))
-        , ("Branch"
-          , TsTuple [TsRequired TsNumber, TsRequired (TsAlias "Forest")])
-        ]
-    definesType @Forest "Forest" rules
-    definesType @Branch "Branch" rules
-  it "defines each instantiation of a parametric type" $
-    definesType @(Box (Box Scientific)) "Box (Box Scientific)"
-      [ ("Box (Box Scientific)", TsAlias "Box Scientific")
-      , ("Box Scientific", TsNumber)
-      ]
-  it "defines recursive non-generic types" $ do
-    definesType @(Tree Scientific) "Tree Scientific"
-      [ ("Tree Scientific"
-        , TsTuple
-          [ TsRequired TsNumber
-          , TsRequired (TsArray (TsAlias "Tree Scientific"))
-          ])
-      ]
-    let
-      fixRules =
-        [ ( "Fix (Either Scientific)"
-          , TsUnion
-            [ TsObject [TsProperty "Left" False TsNumber]
-            , TsObject
-              [ TsProperty "Right" False
-                  (TsAlias "Fix (Either Scientific)")
-              ]
-            ]
-          )
-        ]
-    definesType @(Fix (Either Scientific)) "Fix (Either Scientific)" fixRules
-    definesType @(Mu (Either Scientific)) "Fix (Either Scientific)" fixRules
-    definesType @(Nu (Either Scientific)) "Fix (Either Scientific)" fixRules
-    let value = TsAlias "Value"
-    definesType @Value "Value"
-      [ ("Value", TsUnion
-          [ TsNull, TsBoolean, TsNumber, TsString
-          , TsArray value, TsDict value
-          ])
-      ]
-  it "nests type definitions" $
-    jsonType (type (Vector Point)) `shouldBe`
-      TsDeclarations
-        (TsArray (TsAlias "Point")) (Map.fromList [("Point", point)])
-  it "defines each type once" $
-    Map.size (tsTypeAliases (jsonType (type Twice16))) `shouldBe` 16
-  it "names colliding definitions uniquely" $
-    jsonType (type Collide) `shouldBe` TsDeclarations (TsAlias "Collide")
-      (Map.fromList
-        [ ("Collide", TsObject
-            [ TsProperty "named" False (TsAlias "Point")
-            , TsProperty "typed" False (TsAlias "Properties.Json.Point")
-            ])
-        , ("Point", TsNumber)
-        , ("Properties.Json.Point", point)
-        ])
-  it "renders TypeScript" $ do
-    jsonTypeScript (type Point) `shouldBe`
-      "export type Point = { px: number; py: number };\n"
-    jsonTypeScript Shape `shouldBe` Text.unlines
+  let point = "{ px: number; py: number }"
+  it "declares basic types" $ do
+    declares (type Bool) ["export type Bool = boolean;"]
+    declares (type Text) ["export type Text = string;"]
+    declares (type Scientific) ["export type Scientific = number;"]
+  it "declares containers" $ do
+    declares (type (Vector Text)) ["export type Vector_Text = string[];"]
+    declares (type (Maybe Text)) ["export type Maybe_Text = null | string;"]
+    declares (type (Map Text Scientific))
+      ["export type Map_Text_Scientific = { [key: string]: number };"]
+  it "declares a record as an object" $
+    declares (type Point) ["export type Point = " <> point <> ";"]
+  it "declares a single-field constructor as its contents" $
+    declares (type Wrap) ["export type Wrap = number;"]
+  it "declares a positional multi-field constructor as a tuple" $
+    declares (type Pair) ["export type Pair = [number, string];"]
+  it "declares a nullary single-constructor type as an empty tuple" $
+    declares (type Unit) ["export type Unit = [];"]
+  it "declares an all-nullary sum as a union of string literals" $
+    declares (type Color)
+      ["export type Color = \"Red\" | \"Green\" | \"Blue\";"]
+  it "declares a mixed sum as a discriminated union of objects" $
+    declares (type Shape)
       [ "export type Shape = { tag: \"Circle\"; contents: number } \
-        \| { tag: \"Square\"; _side: number };" ]
-    jsonTypeScript (type (Box (Box Scientific))) `shouldBe` Text.unlines
+        \| { tag: \"Square\"; _side: number };"
+      ]
+  it "declares nested records" $
+    declares (type Profile)
+      [ "export type Profile = \
+        \{ name: string; tags: string[]; nickname: null | string };"
+      ]
+  it "declares a recursive type" $
+    declares (type Peano)
+      [ "export type Peano = { tag: \"Zero\" } \
+        \| { tag: \"Succ\"; contents: Peano };"
+      ]
+  it "declares mutually recursive types" $ do
+    let
+      declarations =
+        [ "export type Branch = [number, Forest];"
+        , "export type Forest = Branch[];"
+        ]
+    declares (type Forest) declarations
+    declares (type Branch) declarations
+  it "declares each instantiation of a parametric type" $
+    declares (type (Box (Box Scientific)))
       [ "export type Box_Box_Scientific = Box_Scientific;"
       , "export type Box_Scientific = number;"
       ]
-    jsonTypeScript (type (Maybe [Text])) `shouldBe`
-      "export type Maybe_List_Text = null | string[];\n"
-    jsonTypeScript (type Optional) `shouldBe`
-      "export type Optional = { a: number; \"b c\"?: string | number };\n"
-    jsonTypeScript (type Trailing) `shouldBe`
-      "export type Trailing = [number, string?];\n"
+  it "declares recursive non-generic types" $ do
+    declares (type (Tree Scientific))
+      ["export type Tree_Scientific = [number, Tree_Scientific[]];"]
+    let
+      declarations =
+        [ "export type Fix_Either_Scientific = { Left: number } \
+          \| { Right: Fix_Either_Scientific };"
+        ]
+    declares (type (Fix (Either Scientific))) declarations
+    declares (type (Mu (Either Scientific))) declarations
+    declares (type (Nu (Either Scientific))) declarations
+    declares (type Value)
+      [ "export type Value = null | boolean | number | string \
+        \| Value[] | { [key: string]: Value };"
+      ]
+  it "nests type declarations" $
+    declares (type (Vector Point))
+      [ "export type Point = " <> point <> ";"
+      , "export type Vector_Point = Point[];"
+      ]
+  it "declares each type once" $
+    length (Text.lines (jsonType (type Twice16))) `shouldBe` 16
+  it "names colliding declarations uniquely" $
+    declares (type Collide)
+      [ "export type Collide = \
+        \{ named: Point; typed: Properties_Json_Point };"
+      , "export type Point = number;"
+      , "export type Properties_Json_Point = " <> point <> ";"
+      ]
+  it "quotes property keys" $
+    declares (type Optional)
+      ["export type Optional = { a: number; \"b c\"?: string | number };"]
 
 -- | Sixteen nested pairs, of exponentially many paths.
 type Twice16 = Twice (Twice (Twice (Twice Twice12)))
@@ -581,20 +455,20 @@ data Collide = Collide {named :: Scientific, typed :: Point}
   deriving stock Show
 instance Json Collide where
   json = jsonRule $ jsonObject $ Collide
-    <$> lmap named (jsonKeyVal "named" (rule "Point" jsonNumber))
-    <*> lmap typed (jsonKeyVal "typed" json)
+    <$> lmap named ("named" !: rule "Point" jsonNumber)
+    <*> lmap typed ("typed" !: json)
 
 -- | An optional property, with a key which isn't an identifier.
 data Optional = Optional Scientific (Maybe (Either Text Scientific))
   deriving stock (Eq, Show)
 instance Json Optional where
   json = jsonRule $ jsonObject $ Optional
-    <$> lmap (\(Optional a _) -> a) (jsonKeyVal "a" json)
+    <$> lmap (\(Optional a _) -> a) ("a" !: json)
     <*> lmap (\(Optional _ b) -> b)
-      (jsonOptionalKeyVal "b c" (jsonString >+< jsonNumber))
+      ("b c" ?: jsonString >+< jsonNumber)
 
 jsonOptionalSpec :: Spec
-jsonOptionalSpec = describe "jsonOptionalKeyVal" $ do
+jsonOptionalSpec = describe "(?:)" $ do
   it "may be missing" $
     roundTrip (object ["a" .= (1 :: Int)]) (Optional 1 Nothing)
   it "may be present" $

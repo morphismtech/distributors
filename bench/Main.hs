@@ -9,10 +9,14 @@ import Data.Aeson
 import Data.Aeson.Encoding (encodingToLazyByteString)
 import Data.Aeson.Types (parseEither)
 import Data.ByteString.Lazy (ByteString)
+import Data.Int (Int8)
 import Data.Map.Strict (Map)
 import Data.Map.Strict qualified as Map
 import Data.Text (Text)
 import Data.Text qualified as Text
+import Data.Time (UTCTime)
+import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
+import Data.Word (Word64)
 import GHC.Generics (Generic)
 import Test.Tasty.Bench
 
@@ -26,6 +30,14 @@ data Person = Person
     deriving anyclass (NFData, Json, ToJSON, FromJSON)
 
 data Shape = Circle Double | Rectangle Double Double | Point
+  deriving stock (Show, Generic)
+  deriving anyclass (NFData, Json, ToJSON, FromJSON)
+
+data Weekday = Monday | Tuesday | Wednesday | Thursday | Friday
+  deriving stock (Show, Generic, Enum, Bounded)
+  deriving anyclass (NFData, Json, ToJSON, FromJSON)
+
+data Rose = Rose Int [Rose]
   deriving stock (Show, Generic)
   deriving anyclass (NFData, Json, ToJSON, FromJSON)
 
@@ -45,8 +57,32 @@ people =
 shapes :: [Shape]
 shapes = take 3000 (cycle [Circle 1.5, Rectangle 2 3, Point])
 
+weekdays :: [Weekday]
+weekdays = take 10000 (cycle [minBound .. maxBound])
+
 ints :: [Int]
 ints = [1 .. 10000]
+
+doubles :: [Double]
+doubles = [fromIntegral i / 7 | i <- [1 .. 10000 :: Int]]
+
+integers :: [Integer]
+integers = [2 ^ (100 :: Int) + i | i <- [1 .. 2000]]
+
+word64s :: [Word64]
+word64s = [maxBound - i | i <- [1 .. 10000]]
+
+int8s :: [Int8]
+int8s = take 10000 (cycle [minBound .. maxBound])
+
+bools :: [Bool]
+bools = take 10000 (cycle [True, False])
+
+maybes :: [Maybe Int]
+maybes = [if even i then Just i else Nothing | i <- [1 .. 10000]]
+
+tuples :: [(Int, Text, Bool)]
+tuples = [(i, Text.pack (show i), even i) | i <- [1 .. 3000]]
 
 texts :: [Text]
 texts =
@@ -54,8 +90,30 @@ texts =
   | i <- [1 .. 1000 :: Int]
   ]
 
+strings :: [String]
+strings = ["string " <> show i | i <- [1 .. 3000 :: Int]]
+
 textMap :: Map Text Int
 textMap = Map.fromList [("key" <> Text.pack (show i), i) | i <- [1 .. 1000]]
+
+intMap :: Map Int Text
+intMap = Map.fromList [(i, Text.pack (show i)) | i <- [1 .. 1000]]
+
+pairMap :: Map (Int, Int) Bool
+pairMap = Map.fromList [((i, i * 2), even i) | i <- [1 .. 1000]]
+
+nested :: [[Int]]
+nested = [[i .. i + 99] | i <- [1 .. 100]]
+
+rose :: Rose
+rose = grow (6 :: Int) 1
+  where
+    grow 0 i = Rose i []
+    grow n i = Rose i [grow (n - 1) (i * 3 + j) | j <- [0 .. 2]]
+
+times :: [UTCTime]
+times =
+  [posixSecondsToUTCTime (fromIntegral i * 1234.5) | i <- [1 .. 1000 :: Int]]
 
 value :: Value
 value = tree (6 :: Int)
@@ -74,10 +132,8 @@ dataset label a = env (pure (encode a, toJSON a)) $ \ ~(bytes, val) ->
   bgroup label
     [ bgroup "encode"
       [ bench "aeson toEncoding" (nf encode a)
-      , bench "aeson toJSON" (nf (encode . toJSON) a)
       , bench "Json jsonEncode"
           (nf (either (const "") encodingToLazyByteString . jsonEncode) a)
-      , bench "Json jsonPrint" (nf (either (const "") encode . jsonPrint) a)
       ]
     , bgroup "toValue"
       [ bench "aeson toJSON" (nf toJSON a)
@@ -111,8 +167,22 @@ main :: IO ()
 main = defaultMain
   [ dataset "records" people
   , dataset "sums" shapes
+  , dataset "enums" weekdays
   , dataset "ints" ints
+  , dataset "doubles" doubles
+  , dataset "integers" integers
+  , dataset "word64s" word64s
+  , dataset "int8s" int8s
+  , dataset "bools" bools
+  , dataset "maybes" maybes
+  , dataset "tuples" tuples
   , dataset "texts" texts
-  , dataset "map" textMap
+  , dataset "strings" strings
+  , dataset "textMap" textMap
+  , dataset "intMap" intMap
+  , dataset "pairMap" pairMap
+  , dataset "nested" nested
+  , dataset "rose" rose
+  , dataset "times" times
   , dataset "value" value
   ]
