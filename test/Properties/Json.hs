@@ -454,7 +454,7 @@ instance (Typeable a, Json a) => Json (Twice a)
 data Collide = Collide {named :: Scientific, typed :: Point}
   deriving stock Show
 instance Json Collide where
-  json = jsonRule $ jsonObject $ Collide
+  json = jsonTyped $ jsonObject $ Collide
     <$> lmap named ("named" !: rule "Point" jsonNumber)
     <*> lmap typed ("typed" !: json)
 
@@ -462,7 +462,7 @@ instance Json Collide where
 data Optional = Optional Scientific (Maybe (Either Text Scientific))
   deriving stock (Eq, Show)
 instance Json Optional where
-  json = jsonRule $ jsonObject $ Optional
+  json = jsonTyped $ jsonObject $ Optional
     <$> lmap (\(Optional a _) -> a) ("a" !: json)
     <*> lmap (\(Optional _ b) -> b)
       ("b c" ?: jsonString >+< jsonNumber)

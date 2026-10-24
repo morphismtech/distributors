@@ -8,7 +8,6 @@ module Control.Lens.Grammar.Json
   , JsonString (..)
   , JsonTup (..)
   , JsonObj (..)
-  , jsonRule
     -- * Aeson
   , jsonParse
   , jsonPrint
@@ -102,10 +101,6 @@ import Data.Time.FromText qualified as TimeText
 import Data.Traversable (for)
 import Data.Tree (Tree (..))
 import Data.Tuple (Solo (MkSolo), getSolo)
-import Data.Typeable
-  ( TypeRep, Typeable, tyConModule, tyConName, typeRep, typeRepArgs
-  , typeRepTyCon
-  )
 import Data.UUID.Types (UUID)
 import Data.UUID.Types qualified as UUID
 import Data.Vector (Vector)
@@ -126,6 +121,7 @@ import Network.URI qualified as URI
 import Numeric.Natural (Natural)
 import Text.Read (readMaybe)
 import Text.ParserCombinators.ReadP (readP_to_S)
+import Type.Reflection
 
 makePrisms ''Value
 
@@ -151,8 +147,8 @@ class Json a where
   jsonKeyListMap = jsonKeyValues jsonList
 
 {- | `JsonVal` grammars describe JSON values.
-A `jsonTypeRule` is a `rule` for a Haskell type,
-named by its `TypeRep`, like a type definition.
+A `jsonTyped` grammar is a `rule` for a Haskell type,
+named by its `Typeable` type, like a type definition.
 -}
 class
   ( CocartesianChoice p
@@ -173,7 +169,7 @@ class
   jsonTuple :: (forall q. JsonTup p q => q a b) -> p a b
   jsonObject :: (forall q. JsonObj p q => q a b) -> p a b
   jsonValue :: p Value Value
-  jsonValue = jsonRule $ foldr1 altP
+  jsonValue = jsonTyped $ foldr1 altP
     [ _Null >? jsonNull
     , _Bool >? jsonBool
     , _Number >? jsonNumber
@@ -181,8 +177,8 @@ class
     , _Array . iso Vector.toList Vector.fromList >? jsonArray jsonValue
     , _Object . iso KeyMap.toList KeyMap.fromList >? jsonDict keyText jsonValue
     ]
-  jsonTypeRule :: TypeRep -> p a b -> p a b
-  jsonTypeRule = rule . show
+  jsonTyped :: forall a. Typeable a => p a a -> p a a
+  jsonTyped = rule (show (typeRep @a))
 
 {- | `JsonString`s have string literals, exactly matching some text.
 They're determined by `Cochoice` partiality.
@@ -215,10 +211,6 @@ class (JsonVal p, Monoidal q) => JsonObj p q | q -> p where
   (?:) :: Text -> p a b -> q (Maybe a) (Maybe b)
 infixr 1 !:, ?:
 
--- | A `jsonTypeRule` for a `Typeable` type.
-jsonRule :: forall a p. (Typeable a, JsonVal p) => p a a -> p a a
-jsonRule = jsonTypeRule (typeRep (Proxy @a))
-
 jsonKeyValues :: (Json v, JsonVal p) => p a a -> p [(a, v)] [(a, v)]
 jsonKeyValues key = jsonArray (jsonTuple (jsonElem key >*< jsonElem json))
 
@@ -243,10 +235,10 @@ jsonEncode :: Json a => a -> Either JsonError Encoding
 jsonEncode = runJsonPrintor json
 
 {- | TypeScript type declarations of a `Json` grammar, with type aliases
-for its `jsonTypeRule`s, each of which is named uniquely and declared once.
+for its `jsonTyped` rules, each of which is named uniquely and declared once.
 -}
 jsonType :: forall a -> (Json a, Typeable a) => Text
-jsonType a = renderTypeScript (show (typeRep (Proxy @a))) (json @a)
+jsonType a = renderTypeScript (show (typeRep @a)) (json @a)
 
 -- Errors --
 
@@ -803,7 +795,7 @@ data TsDefinitions = TsDefinitions
   , tsRules :: Map String TsType
   }
 
-data TsRuleKey = TsNamedRule String | TsTypedRule TypeRep
+data TsRuleKey = TsNamedRule String | TsTypedRule SomeTypeRep
   deriving stock (Eq, Ord)
 
 {- | Define a rule once, under the first of its names which isn't taken,
@@ -835,15 +827,14 @@ freshName taken names = fromMaybe primed (find (`Set.notMember` taken) names)
   where
     primed = until (`Set.notMember` taken) (<> "'") (last names)
 
-qualifiedTypeName :: TypeRep -> String
-qualifiedTypeName rep = case typeRepArgs rep of
-  [] -> constructor
-  args -> unwords (constructor : map typeArgument args)
+qualifiedTypeName :: SomeTypeRep -> String
+qualifiedTypeName (SomeTypeRep rep) =
+  unwords (constructor : map typeArgument args)
   where
-    tyCon = typeRepTyCon rep
+    (tyCon, args) = splitApps rep
     constructor = tyConModule tyCon <> "." <> tyConName tyCon
-    typeArgument arg = case typeRepArgs arg of
-      [] -> qualifiedTypeName arg
+    typeArgument arg@(SomeTypeRep argRep) = case splitApps argRep of
+      (_, []) -> qualifiedTypeName arg
       _ -> "(" <> qualifiedTypeName arg <> ")"
 
 tsType :: TsType -> TsGrammor a b
@@ -950,8 +941,10 @@ instance JsonVal TsGrammor where
   jsonDict _ (TsGrammor t) = TsGrammor (TsDict <$> t)
   jsonTuple tup = TsGrammor (tsTuple <$> getAp (runTsTupGrammor tup))
   jsonObject obj = TsGrammor (tsObject <$> getAp (runTsObjGrammor obj))
-  jsonTypeRule rep =
-    tsDefine (TsTypedRule rep) [show rep, qualifiedTypeName rep]
+  jsonTyped :: forall a. Typeable a => TsGrammor a a -> TsGrammor a a
+  jsonTyped = tsDefine (TsTypedRule rep) [show rep, qualifiedTypeName rep]
+    where
+      rep = SomeTypeRep (typeRep @a)
 
 deriving via Grammor (Ap (State TsDefinitions) TsShapes) a
   instance Functor (TsTupGrammor a)
@@ -1215,13 +1208,13 @@ instance Json Bool where
   jsonKeyMap = jsonKeyText
     (textEnum (\b -> if b then "true" else "false") [False, True])
 instance Json Ordering where
-  json = jsonRule (textEnum (Text.pack . show) [LT, EQ, GT])
+  json = jsonTyped (textEnum (Text.pack . show) [LT, EQ, GT])
 instance Json () where json = jsonTuple (pure ())
 instance Json Void where
   json = zeroP
   jsonKeyMap = jsonKeyText (textual absurd (const Nothing))
 instance Json Char where
-  json = jsonRule charText
+  json = jsonTyped charText
   jsonList = stringText
   jsonKeyMap = jsonKeyText charText
   jsonKeyListMap = jsonKeyText stringText
@@ -1233,10 +1226,11 @@ instance Json a => Json (Maybe a) where
 instance (Json a, Json b) => Json (Either a b) where
   json = tagged "Left" json >+< tagged "Right" json
 instance Json Double where
-  json = jsonRule (jsonRealFloat jsonDouble)
+  json = jsonTyped (jsonRealFloat jsonDouble)
   jsonKeyMap = jsonKeyText realFloatText
 instance Json Float where
-  json = jsonRule (jsonRealFloat (numeric fromFloatDigits (Just . toRealFloat)))
+  json = jsonTyped $
+    jsonRealFloat (numeric fromFloatDigits (Just . toRealFloat))
   jsonKeyMap = jsonKeyText realFloatText
 instance (Integral a, Json a) => Json (Ratio a) where
   json = prism'
@@ -1249,44 +1243,44 @@ instance HasResolution a => Json (Fixed a) where
   json = jsonRealFrac
   jsonKeyMap = jsonKeyText (iso realToFrac realToFrac >~ scientificText)
 instance Json Int where
-  json = jsonRule jsonInt
+  json = jsonTyped jsonInt
   jsonKeyMap = jsonKeyText (integralText toBoundedInteger)
 instance Json Int8 where
-  json = jsonRule jsonBounded
+  json = jsonTyped jsonBounded
   jsonKeyMap = jsonKeyText (integralText toBoundedInteger)
 instance Json Int16 where
-  json = jsonRule jsonBounded
+  json = jsonTyped jsonBounded
   jsonKeyMap = jsonKeyText (integralText toBoundedInteger)
 instance Json Int32 where
-  json = jsonRule jsonBounded
+  json = jsonTyped jsonBounded
   jsonKeyMap = jsonKeyText (integralText toBoundedInteger)
 instance Json Int64 where
-  json = jsonRule jsonBounded
+  json = jsonTyped jsonBounded
   jsonKeyMap = jsonKeyText (integralText toBoundedInteger)
 instance Json Word where
-  json = jsonRule jsonBounded
+  json = jsonTyped jsonBounded
   jsonKeyMap = jsonKeyText (integralText toBoundedInteger)
 instance Json Word8 where
-  json = jsonRule jsonBounded
+  json = jsonTyped jsonBounded
   jsonKeyMap = jsonKeyText (integralText toBoundedInteger)
 instance Json Word16 where
-  json = jsonRule jsonBounded
+  json = jsonTyped jsonBounded
   jsonKeyMap = jsonKeyText (integralText toBoundedInteger)
 instance Json Word32 where
-  json = jsonRule jsonBounded
+  json = jsonTyped jsonBounded
   jsonKeyMap = jsonKeyText (integralText toBoundedInteger)
 instance Json Word64 where
-  json = jsonRule jsonBounded
+  json = jsonTyped jsonBounded
   jsonKeyMap = jsonKeyText (integralText toBoundedInteger)
 instance Json Integer where
-  json = jsonRule (numeric fromInteger integerScientific)
+  json = jsonTyped (numeric fromInteger integerScientific)
   jsonKeyMap = jsonKeyText (integralText integerScientific)
 instance Json Natural where
-  json = jsonRule (numeric fromIntegral naturalScientific)
+  json = jsonTyped (numeric fromIntegral naturalScientific)
   jsonKeyMap = jsonKeyText (integralText naturalScientific)
 instance Json CTime where json = coerced >~ json @Int64
 instance Json Version where
-  json = jsonRule versionText
+  json = jsonTyped versionText
   jsonKeyMap = jsonKeyText versionText
 instance Json a => Json (NonEmpty a) where
   json = prism' toList nonEmpty ?< jsonArray json
@@ -1355,7 +1349,7 @@ a parametric type is its own (possibly recursive) definition.
 instance (GHC.Generic a, GHC.Rep a ~ GHC.D1 d f, GSum f, Typeable a)
   => Json (GHC.Generically a) where
     json = dimap (\(GHC.Generically a) -> a) GHC.Generically $
-      jsonRule @a (dimap (GHC.unM1 . GHC.from) (GHC.to . GHC.M1) gsum)
+      jsonTyped (dimap (GHC.unM1 . GHC.from) (GHC.to . GHC.M1) gsum)
 
 -- tuples
 instance (Json a, Json b) => Json (a, b) where
@@ -1483,7 +1477,7 @@ instance Json a => Json (IntMap a) where
 instance (Ord k, Json k, Json v) => Json (Map k v) where
   json = iso Map.toList Map.fromList >~ jsonKeyMap @k
 instance (Typeable a, Json a) => Json (Tree a) where
-  json = jsonRule
+  json = jsonTyped
     (jsonTuple (Node <$> tupleElem rootLabel <*> tupleElem subForest))
 
 -- dlist
@@ -1525,7 +1519,7 @@ instance Json v => Json (KeyMap v) where
 instance Json Value where
   json = jsonValue
 instance Json DotNetTime where
-  json = jsonRule (textual render parse)
+  json = jsonTyped (textual render parse)
     where
       render (DotNetTime t) = Text.pack
         ( formatTime defaultTimeLocale "/Date(%s" t
@@ -1538,30 +1532,30 @@ instance Json DotNetTime where
 
 -- time
 instance Json Day where
-  json = jsonRule (timeText Encoding.day TimeText.parseDay)
+  json = jsonTyped (timeText Encoding.day TimeText.parseDay)
   jsonKeyMap = jsonKeyText (timeText Encoding.day TimeText.parseDay)
 instance Json Month where
-  json = jsonRule (timeText Encoding.month TimeText.parseMonth)
+  json = jsonTyped (timeText Encoding.month TimeText.parseMonth)
   jsonKeyMap = jsonKeyText (timeText Encoding.month TimeText.parseMonth)
 instance Json Quarter where
-  json = jsonRule (timeText Encoding.quarter TimeText.parseQuarter)
+  json = jsonTyped (timeText Encoding.quarter TimeText.parseQuarter)
   jsonKeyMap = jsonKeyText (timeText Encoding.quarter TimeText.parseQuarter)
 instance Json TimeOfDay where
-  json = jsonRule (timeText Encoding.timeOfDay TimeText.parseTimeOfDay)
+  json = jsonTyped (timeText Encoding.timeOfDay TimeText.parseTimeOfDay)
   jsonKeyMap = jsonKeyText (timeText Encoding.timeOfDay TimeText.parseTimeOfDay)
 instance Json LocalTime where
-  json = jsonRule (timeText Encoding.localTime TimeText.parseLocalTime)
+  json = jsonTyped (timeText Encoding.localTime TimeText.parseLocalTime)
   jsonKeyMap = jsonKeyText (timeText Encoding.localTime TimeText.parseLocalTime)
 instance Json ZonedTime where
-  json = jsonRule (timeText Encoding.zonedTime TimeText.parseZonedTime)
+  json = jsonTyped (timeText Encoding.zonedTime TimeText.parseZonedTime)
   jsonKeyMap = jsonKeyText (timeText Encoding.zonedTime TimeText.parseZonedTime)
 instance Json UTCTime where
-  json = jsonRule (timeText Encoding.utcTime TimeText.parseUTCTime)
+  json = jsonTyped (timeText Encoding.utcTime TimeText.parseUTCTime)
   jsonKeyMap = jsonKeyText (timeText Encoding.utcTime TimeText.parseUTCTime)
-instance Json NominalDiffTime where json = jsonRule jsonRealFrac
-instance Json DiffTime where json = jsonRule jsonRealFrac
+instance Json NominalDiffTime where json = jsonTyped jsonRealFrac
+instance Json DiffTime where json = jsonTyped jsonRealFrac
 instance Json SystemTime where
-  json = jsonRule (numeric render parse)
+  json = jsonTyped (numeric render parse)
     where
       render (MkSystemTime s ns) =
         realToFrac (fromIntegral s + fromIntegral ns / 1000000000 :: Nano)
@@ -1580,25 +1574,25 @@ instance Json CalendarDiffDays where
     <$> field "months" json cdMonths
     <*> field "days" json cdDays
 instance Json DayOfWeek where
-  json = jsonRule dayOfWeekText
+  json = jsonTyped dayOfWeekText
   jsonKeyMap = jsonKeyText dayOfWeekText
 instance Json QuarterOfYear where
-  json = jsonRule quarterOfYearText
+  json = jsonTyped quarterOfYearText
   jsonKeyMap = jsonKeyText quarterOfYearText
 
 -- uuid-types
 instance Json UUID where
-  json = jsonRule uuidText
+  json = jsonTyped uuidText
   jsonKeyMap = jsonKeyText uuidText
 
 -- network-uri
 instance Json URI where
-  json = jsonRule uriText
+  json = jsonTyped uriText
   jsonKeyMap = jsonKeyText uriText
 
 -- data-fix
 instance (Typeable f, Json (f (Fix f))) => Json (Fix f) where
-  json = jsonRule @(Fix f) (iso unFix Fix >~ json)
+  json = jsonTyped (iso unFix Fix >~ json)
 instance (Functor f, Typeable f, Json (f (Fix f))) => Json (Mu f) where
   json = iso (foldMu Fix) (unfoldMu unFix) >~ json @(Fix f)
 instance (Functor f, Typeable f, Json (f (Fix f))) => Json (Nu f) where
