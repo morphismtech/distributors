@@ -24,8 +24,7 @@ module Control.Lens.Grammar.Machine
 import Control.Lens
 import Control.Lens.Extras
 import Control.Lens.Grammar.BackusNaur
-import Control.Lens.Grammar.Boole
-import Control.Lens.Grammar.Kleene
+import Control.Lens.Grammar.RegEx
 import Control.Lens.Grammar.Token
 import Data.Foldable
 import qualified Data.IntMap.Strict as IntMap
@@ -34,6 +33,7 @@ import qualified Data.IntSet as IntSet
 import Data.IntSet (IntSet)
 import qualified Data.Map.Strict as Map
 import Data.Map.Strict (Map)
+import Data.Monoid.Disjunctive
 import qualified Data.Set as Set
 import Data.Set (Set)
 import Data.Tree (Tree (..))
@@ -366,13 +366,13 @@ prefixGen et word = go 0 (initialChart et) word
 {- | What token is expected next?
 The scanner frontier, `expectNext` returns the `TokenClass`
 that can be scanned next after the given input prefix.
-A `falseB` result means the current chart has no scanner transitions,
+A `falseP` result means the current chart has no scanner transitions,
 i.e. the prefix is a dead end for recognition.
 -}
 expectNext
   :: Categorized token
   => Transducer token -> [token] {- ^ prefix -} -> TokenClass token
-expectNext et word = anyB fst (scanClassOptions et n chart)
+expectNext et word = anyP fst (scanClassOptions et n chart)
   where
     (n, chart) = prefixGen et word
 

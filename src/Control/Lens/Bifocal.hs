@@ -37,6 +37,7 @@ import Control.Applicative
 import Control.Lens
 import Control.Lens.Internal.Profunctor
 import Control.Lens.PartialIso
+import Data.Monoid.Disjunctive (Disjunctive)
 import Data.Profunctor
 import Data.Profunctor.Distributor
 import Data.Profunctor.Filtrator
@@ -159,6 +160,9 @@ instance Applicative (Binocular a b s) where
 instance Alternative (Binocular a b s) where
   empty = Binocular (pure empty)
   Binocular x <|> Binocular y = Binocular (liftA2 (<|>) x y)
+  many = lmap repeat . manyP
+  some = lmap repeat . someP
+instance Disjunctive (Binocular a b s t)
 instance Filterable (Binocular a b s) where
   mapMaybe f (Binocular k) = Binocular (mapMaybe f . k)
   catMaybes (Binocular k) = Binocular (catMaybes . k)

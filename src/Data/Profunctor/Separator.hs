@@ -32,6 +32,7 @@ import Control.Lens
 import Control.Lens.PartialIso
 import Control.Lens.Grammar.Symbol
 import Data.Maybe (fromMaybe)
+import Data.Monoid.Disjunctive (orP)
 import Data.Profunctor.Distributor
 import Data.Profunctor.Monoidal
 import GHC.Exts
@@ -190,7 +191,7 @@ _Add = prism' (uncurry Add) (\case Add x y -> Just (x,y); _ -> Nothing)
 _Sub = prism' (uncurry Sub) (\case Sub x y -> Just (x,y); _ -> Nothing)
 exprGrammar :: Grammar Char Expr
 exprGrammar = ruleRec "expr" $ \expr ->
-  let atom = rule "atom" $ nat <|> terminal "(" >* expr *< terminal ")"
+  let atom = rule "atom" $ nat >|< terminal "(" >* expr *< terminal ")"
       nat  = rule "nat"  $ _Nat . iso show read >? someP (asIn @Char DecimalNumber)
   in withOperators
     [ [ Postfix _Fac (terminal "!") ]
@@ -242,13 +243,13 @@ withOperators table p = foldl makeLevel p table
       Prefix pat sym -> (infixes, (pat,sym):pres, posts)
       Postfix pat sym -> (infixes, pres, (pat,sym):posts)
 
-    tagSepP syms = choice [only i >? sym | (i, sym) <- zip [0 :: Int ..] syms]
+    tagSepP syms = orP [only i >? sym | (i, sym) <- zip [0 :: Int ..] syms]
 
     withPreP ops inner =
       difoldr (partialIso fwd bwd) >? manyP (tagSepP (snd <$> ops)) >*< inner
       where
         fns = [withPartialIso pat (,) | (pat, _) <- ops]
-        fwd x = choice
+        fwd x = orP
           [ (\y -> (i,y)) <$> f x | (i, (f,_)) <- zip [0 :: Int ..] fns ]
         bwd (i,y) = case drop i fns of
           (_,g):_ -> g y
@@ -258,7 +259,7 @@ withOperators table p = foldl makeLevel p table
       difoldl (partialIso fwd bwd) >? inner >*< manyP (tagSepP (snd <$> ops))
       where
         fns = [withPartialIso pat (,) | (pat, _) <- ops]
-        fwd x = choice
+        fwd x = orP
           [ (\y -> (y,i)) <$> f x | (i, (f,_)) <- zip [0 :: Int ..] fns ]
         bwd (y,i) = case drop i fns of
           (_,g):_ -> g y
@@ -310,6 +311,6 @@ withOperators table p = foldl makeLevel p table
                   let (r0, rest) = decompose r in (l, (i,r0) : rest)
                 _ ->
                   let (l0, prior) = decompose l in (l0, prior ++ [(i,r)])
-            tryTags y = choice
+            tryTags y = orP
               [ (\(l,r) -> (i,l,r)) <$> f y
               | (i,(_,f,_)) <- zip [0 :: Int ..] fns ]

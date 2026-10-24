@@ -17,8 +17,8 @@ module Properties.Json
 
 import Control.Lens (only, prism')
 import Control.Lens.Grammar
-  ( altP, dimap, lmap, manyP, optionalP, pureP, rule
-  , (>*<), (>+<), (>:<), (>?)
+  ( dimap, lmap, manyP, optionP, optionalP, rule, someP
+  , (>*<), (>+<), (>?), (>|<)
   )
 import Control.Lens.Grammar.Json
 import Data.Aeson
@@ -248,21 +248,21 @@ newtype AtLeastOne = AtLeastOne [Scientific]
   deriving stock (Eq, Show)
 instance Json AtLeastOne where
   json = jsonTyped $ dimap (\(AtLeastOne xs) -> xs) AtLeastOne
-    (jsonTuple (jsonElem json >:< manyP (jsonElem json)))
+    (jsonTuple (someP (jsonElem json)))
 
 -- | Alternative shapes, @[number, number?]@.
 newtype Coord = Coord (Scientific, Scientific)
   deriving stock (Eq, Show)
 instance Json Coord where
-  json = jsonTyped $ dimap (\(Coord xy) -> xy) Coord $ jsonTuple $ altP
-    (jsonElem json >*< jsonElem json) (dimap fst (, 0) (jsonElem json))
+  json = jsonTyped $ dimap (\(Coord xy) -> xy) Coord $ jsonTuple $
+    jsonElem json >*< jsonElem json >|< dimap fst (, 0) (jsonElem json)
 
 -- | A defaulted element, @[number, number?]@.
 newtype Defaulted = Defaulted (Scientific, Scientific)
   deriving stock (Eq, Show)
 instance Json Defaulted where
   json = jsonTyped $ dimap (\(Defaulted xy) -> xy) Defaulted $ jsonTuple $
-    jsonElem json >*< altP (pureP (only 0)) (jsonElem json)
+    jsonElem json >*< optionP (only 0) (jsonElem json)
 
 jsonTupleChoiceSpec :: Spec
 jsonTupleChoiceSpec = describe "jsonTuple choices" $ do

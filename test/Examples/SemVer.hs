@@ -5,7 +5,6 @@ module Examples.SemVer
   , semverExamples
   ) where
 
-import Control.Applicative
 import Control.Lens
 import Control.Lens.Grammar
 import qualified Data.Profunctor.Monadic as P
@@ -44,9 +43,9 @@ semverGrammar = _SemVer
     numberG = iso show read >~ someP (asIn @Char DecimalNumber)
     identifiersG = several1 (sepWith ".") (someP charG)
     charG = asIn LowercaseLetter
-      <|> asIn UppercaseLetter
-      <|> asIn DecimalNumber
-      <|> token '-'
+      >|< asIn UppercaseLetter
+      >|< asIn DecimalNumber
+      >|< token '-'
 
 -- Context-sensitive SemVer to test qualified-do
 semverCtxGrammar :: CtxGrammar Char SemVer
@@ -55,9 +54,9 @@ semverCtxGrammar = _SemVer >? P.do
     numberG = iso show read >~ someP (asIn @Char DecimalNumber)
     identifiersG = several1 (sepWith ".") (someP charG)
     charG = asIn LowercaseLetter
-      <|> asIn UppercaseLetter
-      <|> asIn DecimalNumber
-      <|> token '-'
+      >|< asIn UppercaseLetter
+      >|< asIn DecimalNumber
+      >|< token '-'
   _ <- numberG
   _ <- terminal "." >* numberG
   _ <- terminal "." >* numberG

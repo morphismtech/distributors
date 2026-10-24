@@ -4,7 +4,6 @@ module Examples.Json
   , jsonExamples
   ) where
 
-import Control.Applicative
 import Control.Lens
 import Control.Lens.Grammar
 import qualified Data.Map.Strict as Map
@@ -38,7 +37,7 @@ jsonGrammar = rule "json" elementG
       ws >* valueG json *< ws
 
     -- value = object | array | string | number | "true" | "false" | "null"
-    valueG json = rule "value" $ choice
+    valueG json = rule "value" $ orP
       [ _JNull >? terminal "null"
       , _JBool . only True >? terminal "true"
       , _JBool . only False >? terminal "false"
@@ -49,7 +48,7 @@ jsonGrammar = rule "json" elementG
       ]
 
     -- object = '{' ws '}' | '{' members '}'
-    objectG json = rule "object" $ choice
+    objectG json = rule "object" $ orP
       [ only Map.empty >?
           terminal "{" >* ws >* terminal "}"
       , iso Map.toList Map.fromList >~
@@ -65,7 +64,7 @@ jsonGrammar = rule "json" elementG
       ws >* stringG *< ws *< terminal ":" >*< json
 
     -- array = '[' ws ']' | '[' elements ']'
-    arrayG json = rule "array" $ choice
+    arrayG json = rule "array" $ orP
       [ only [] >? terminal "[" >* ws >* terminal "]"
       , terminal "[" >* elementsG json *< terminal "]"
       ]
@@ -81,10 +80,10 @@ jsonGrammar = rule "json" elementG
     -- character = '0020' . '10FFFF' - '"' - '\' | '\' escape
     characterG = rule "character" $
       tokenClass (oneOf ['\x0020' .. '\x10FFFF'] >&&< notOneOf ['\"','\\'])
-      <|> terminal "\\" >* escapeG
+      >|< terminal "\\" >* escapeG
 
     -- escape = '"' | '\' | '/' | 'b' | 'f' | 'n' | 'r' | 't'
-    escapeG = rule "escape" $ choice
+    escapeG = rule "escape" $ orP
       [ only '"' >? terminal "\""
       , only '\\' >? terminal "\\"
       , only '/' >? terminal "/"

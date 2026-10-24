@@ -16,10 +16,8 @@ module Data.Profunctor.Distributor
   , dialt
     -- * CocartesianChoice
   , CocartesianChoice (..)
-  , choiceP
     -- * Alternator
   , Alternator (..)
-  , choice
   ) where
 
 import Control.Applicative hiding (WrappedArrow)
@@ -33,6 +31,7 @@ import Data.Bifunctor.Joker
 import Data.Bifunctor.Product
 import Data.Functor.Adjunction
 import Data.Functor.Contravariant.Divisible
+import Data.Monoid.Disjunctive
 import Data.Profunctor hiding (WrappedArrow)
 import Data.Profunctor qualified as Pro (WrappedArrow)
 import Data.Profunctor.Cayley
@@ -81,25 +80,25 @@ class Profunctor p => CocartesianMonoidal p where
 
   {- | The zero structure morphism of a `Distributor`.
 
-  `zeroP` has a default for `Alternator`s.
+  `zeroP` has a default for `CocartesianChoice`s.
 
-  prop> zeroP = empty
+  prop> zeroP = falseP
   -}
   zeroP :: p Void Void
   default zeroP :: CocartesianChoice p => p Void Void
-  zeroP = emptyP
+  zeroP = falseP
 
   {- | The sum structure morphism of a `Distributor`.
 
-  `>+<` has a default for `Alternator`s.
+  `>+<` has a default for `CocartesianChoice`s.
 
-  prop> x >+< y = alternate (Left x) <|> alternate (Right y)
+  prop> x >+< y = alternate (Left x) >|< alternate (Right y)
   -}
   (>+<) :: p a b -> p c d -> p (Either a c) (Either b d)
   default (>+<)
-    :: Alternator p
+    :: CocartesianChoice p
     => p a b -> p c d -> p (Either a c) (Either b d)
-  x >+< y = alternate (Left x) <|> alternate (Right y)
+  x >+< y = alternate (Left x) >|< alternate (Right y)
   infixr 3 >+<
 
 class (Monoidal p, CocartesianMonoidal p) => Distributor p where
@@ -218,45 +217,60 @@ dialt f g h p q = dimap f (either g h) (p >+< q)
 -- CocartesianChoice --
 
 {- | `CocartesianChoice` co-extends `Choice` and `CocartesianMonoidal`,
-with an `emptyP` failure and `altP` choice,
-like `Alternative` but without requiring `Monoidal` structure.
--}
-class (CocartesianMonoidal p, Choice p) => CocartesianChoice p where
-  emptyP :: p a b
-  default emptyP :: Alternative (p a) => p a b
-  emptyP = empty
-  altP :: p a b -> p a b -> p a b
-  default altP :: Alternative (p a) => p a b -> p a b -> p a b
-  altP = (<|>)
-
--- | Combines all `CocartesianChoice` choices in the specified list.
-choiceP :: (Foldable f, CocartesianChoice p) => f (p a b) -> p a b
-choiceP = foldl' altP emptyP
-
--- Alternator --
-
-{- | The `Alternator` class co-extends `Choice` and `Distributor`,
-as well as `Alternative`, adding the `alternate` method,
-which is a lax monoidal structure morphism on sums,
-and methods `someP` & `optionP`,
-with these these laws relating them.
+with `Disjunctive` failure `falseP` and choice `>|<`,
+like `Alternative` but without requiring `Monoidal` structure,
+and the `alternate` method, which is a lax monoidal structure morphism
+on sums, with these laws relating them.
 
 prop> left' = alternate . Left
 prop> right' = alternate . Right
-prop> zeroP = empty
-prop> x >+< y = alternate (Left x) <|> alternate (Right y)
-prop> manyP p = optionP _Empty (someP p)
-prop> optionalP p = optionP _Nothing (_Just >? p)
-prop> someP p = p >:< manyP p
+prop> zeroP = falseP
+prop> x >+< y = alternate (Left x) >|< alternate (Right y)
 
 For the case of `Functor`s, the analog of `alternate` can be defined
 without any other constraint, but the case of `Profunctor`s turns
-out to be slighly more complex, necessitating `Alternator`.
+out to be slighly more complex, necessitating `CocartesianChoice`.
 
 >>> :{
 alternateF :: Functor f => Either (f a) (f b) -> f (Either a b)
 alternateF = either (fmap Left) (fmap Right)
 :}
+-}
+class (CocartesianMonoidal p, Choice p, forall x y. Disjunctive (p x y))
+  => CocartesianChoice p where
+
+  {- | The structure morphism for a `CocartesianChoice`,
+  `alternate` has a default for `Choice` & `Cochoice` partial distributors.
+  -}
+  alternate
+    :: Either (p a b) (p c d)
+    -> p (Either a c) (Either b d)
+  default alternate
+    :: Cochoice p
+    => Either (p a b) (p c d)
+    -> p (Either a c) (Either b d)
+  alternate =
+    dimapMaybe (either Just (pure Nothing)) (Just . Left)
+    |||
+    dimapMaybe (either (pure Nothing) Just) (Just . Right)
+
+-- Alternator --
+
+{- | The `Alternator` class co-extends `CocartesianChoice` and `Distributor`,
+as well as `Alternative`, adding methods `someP` & `optionP`,
+with these laws relating them.
+
+prop> manyP p = optionP _Empty (someP p)
+prop> optionalP p = optionP _Nothing (_Just >? p)
+prop> someP p = p >:< manyP p
+
+Its `Alternative` structure agrees with its `Alternator` structure,
+`many` & `some` repeating an input for `manyP` & `someP`.
+
+prop> empty = falseP
+prop> (<|>) = (>|<)
+prop> many = lmap repeat . manyP
+prop> some = lmap repeat . someP
 
 Not all `Distributor`s are `Alternator`s, in particular @(->)@ is
 a `Distributor` but cannot be `Alternative`,
@@ -267,43 +281,16 @@ so @(->)@ isn't an `Alternator`.
 class (Distributor p, CocartesianChoice p, forall x. Alternative (p x))
   => Alternator p where
 
-    {- | The structure morphism for an `Alternator`,
-    `alternate` has a default for `Choice` & `Cochoice` partial distributors.
-    -}
-    alternate
-      :: Either (p a b) (p c d)
-      -> p (Either a c) (Either b d)
-    default alternate
-      :: Cochoice p
-      => Either (p a b) (p c d)
-      -> p (Either a c) (Either b d)
-    alternate =
-      dimapMaybe (either Just (pure Nothing)) (Just . Left)
-      |||
-      dimapMaybe (either (pure Nothing) Just) (Just . Right)
-
     {- | One or more. -}
     someP :: p a b -> p [a] [b]
     someP x = x >:< manyP x
 
     {- | One or zero-with-default. -}
     optionP :: APrism a b () () {- ^ default -} -> p a b -> p a b
-    optionP def p = p <|> pureP def
+    optionP def p = p >|< pureP def
 
--- | Combines all `Alternative` choices in the specified list.
-choice :: (Foldable f, Alternative p) => f (p a) -> p a
-choice = foldl' (<|>) empty
-
-instance Alternative f => CocartesianChoice (Star f)
-instance Alternative f
-  => Alternator (Star f) where
-    alternate = either
-      (\(Star f) -> Star (either (fmap Left . f) (const empty)))
-      (\(Star f) -> Star (either (const empty) (fmap Right . f)))
 instance (Alternator p, Applicative f)
-  => CocartesianChoice (WrappedPafb f p)
-instance (Alternator p, Applicative f)
-  => Alternator (WrappedPafb f p) where
+  => CocartesianChoice (WrappedPafb f p) where
     alternate =
       let
         f = WrapPafb
@@ -318,24 +305,26 @@ instance (Alternator p, Applicative f)
           . unwrapPafb
       in
         either f g
+instance (Alternator p, Applicative f)
+  => Alternator (WrappedPafb f p) where
     someP (WrapPafb x) = WrapPafb (rmap sequenceA (someP x))
     optionP def (WrapPafb x) = WrapPafb (optionP (prism pure pure . def) x)
-instance Alternator p => CocartesianChoice (Coyoneda p)
+instance Alternator p => CocartesianChoice (Coyoneda p) where
+  alternate (Left p) = proreturn (alternate (Left (proextract p)))
+  alternate (Right p) = proreturn (alternate (Right (proextract p)))
 instance Alternator p => Alternator (Coyoneda p) where
-  alternate (Left p) = proreturn (alternate (Left (proextract p)))
-  alternate (Right p) = proreturn (alternate (Right (proextract p)))
   someP = proreturn . someP . proextract
   optionP def = proreturn . optionP def . proextract
-instance Alternator p => CocartesianChoice (Yoneda p)
+instance Alternator p => CocartesianChoice (Yoneda p) where
+  alternate (Left p) = proreturn (alternate (Left (proextract p)))
+  alternate (Right p) = proreturn (alternate (Right (proextract p)))
 instance Alternator p => Alternator (Yoneda p) where
-  alternate (Left p) = proreturn (alternate (Left (proextract p)))
-  alternate (Right p) = proreturn (alternate (Right (proextract p)))
   someP = proreturn . someP . proextract
   optionP def = proreturn . optionP def . proextract
-instance Alternative f => CocartesianChoice (Joker f)
-instance Alternative f => Alternator (Joker f) where
+instance Alternative f => CocartesianChoice (Joker f) where
   alternate (Left (Joker x)) = Joker (Left <$> x)
   alternate (Right (Joker y)) = Joker (Right <$> y)
+instance Alternative f => Alternator (Joker f) where
   someP (Joker x) = Joker (some x)
   optionP def (Joker x) =
     Joker (x <|> withPrism def (\f _ -> pure (f ())))

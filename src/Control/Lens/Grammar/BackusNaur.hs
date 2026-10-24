@@ -23,13 +23,14 @@ module Control.Lens.Grammar.BackusNaur
   ) where
 
 import Control.Lens
-import Control.Lens.Grammar.Kleene
+import Control.Lens.Grammar.RegEx
 import Control.Lens.Grammar.Token
 import Control.Lens.Grammar.Symbol
 import Data.Bifunctor.Joker
 import Data.Coerce
 import Data.Function
 import Data.MemoTrie
+import Data.Monoid.Disjunctive
 import qualified Data.Set as Set
 import Data.Set (Set)
 import Text.ParserCombinators.ReadP (ReadP)
@@ -123,8 +124,8 @@ diffB prefix (Bnf start rules) =
   where
     -- derivative wrt 1 token, memoized
     diff1B = memo2 $ \x -> \case
-      SeqEmpty -> zeroK
-      NonTerminal nameY -> anyK (diff1B x) (rulesNamed nameY rules)
+      SeqEmpty -> falseP
+      NonTerminal nameY -> anyP (diff1B x) (rulesNamed nameY rules)
       Sequence y1 y2 ->
         if δ (Bnf y1 rules) then y1'y2 >|< y1y2' else y1'y2
         where
@@ -134,13 +135,13 @@ diffB prefix (Bnf start rules) =
       KleeneOpt y -> diff1B x y
       KleenePlus y -> diff1B x y <> starK y
       RegExam (OneOf chars) ->
-        if x `elem` chars then mempty else zeroK
+        if x `elem` chars then mempty else falseP
       RegExam (NotOneOf chars (AndAsIn cat)) ->
         if elem x chars || categorize x /= cat
-          then zeroK else mempty
+          then falseP else mempty
       RegExam (NotOneOf chars (AndNotAsIn cats)) ->
         if elem x chars || elem (categorize x) cats
-          then zeroK else mempty
+          then falseP else mempty
       RegExam (Alternate y1 y2) -> diff1B x y1 >|< diff1B x y2
 
 -- | Does a pattern match the empty word?
@@ -195,7 +196,8 @@ instance (Ord rule, KleeneStarAlgebra rule)
   starK = liftBnf1 starK
   plusK = liftBnf1 plusK
   optK = liftBnf1 optK
-  zeroK = liftBnf0 zeroK
+instance (Ord rule, Disjunctive rule) => Disjunctive (Bnf rule) where
+  falseP = liftBnf0 falseP
   (>|<) = liftBnf2 (>|<)
 instance (Ord rule, Monoid rule) => Monoid (Bnf rule) where
   mempty = liftBnf0 mempty

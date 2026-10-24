@@ -27,13 +27,13 @@ import Control.Category
 import Data.Function (fix)
 import Control.Lens
 import Control.Lens.Grammar.BackusNaur
-import Control.Lens.Grammar.Boole
-import Control.Lens.Grammar.Kleene
+import Control.Lens.Grammar.RegEx
 import Control.Lens.Grammar.Symbol
 import Control.Lens.Grammar.Token
 import Control.Lens.PartialIso
 import Control.Monad
 import Control.Monad.Fail.Try
+import Data.Monoid.Disjunctive
 import Data.Profunctor
 import Data.Profunctor.Distributor
 import Data.Profunctor.Filtrator
@@ -119,7 +119,7 @@ data ParsecFailure s = ParsecFailure
   { parsecExpect :: TokenClass (Item s)
     {- ^ Class of expected token `Item`s at the `parsecOffset`.
     `tokenClass`es and `Tokenized` combinators specify expectations.
-    Under `<>`, expectations are combined with disjunction `>||<`.
+    Under `<>`, expectations are combined with disjunction `>|<`.
     In case of a parse failure, contrast with the actual `parsecStream`,
     which is either unexpectedly empty or begins with an unexpected token.
     -}
@@ -144,9 +144,9 @@ deriving stock instance
 deriving stock instance Categorized (Item s) => Eq (ParsecFailure s)
 deriving stock instance Categorized (Item s) => Ord (ParsecFailure s)
 instance Categorized (Item s) => Semigroup (ParsecFailure s) where
-  ParsecFailure e1 l1 <> ParsecFailure e2 l2 = ParsecFailure (e1 >||< e2) (l1 ++ l2)
+  ParsecFailure e1 l1 <> ParsecFailure e2 l2 = ParsecFailure (e1 >|< e2) (l1 ++ l2)
 instance Categorized (Item s) => Monoid (ParsecFailure s) where
-  mempty = ParsecFailure falseB []
+  mempty = ParsecFailure falseP []
 
 -- ParsecState instances
 deriving stock instance Functor (ParsecState s)
@@ -339,8 +339,8 @@ instance Categorized (Item s) => Choice (Parsector s) where
   right' = alternate . Right
 instance Categorized (Item s) => CocartesianMonoidal (Parsector s)
 instance Categorized (Item s) => Distributor (Parsector s)
-instance Categorized (Item s) => CocartesianChoice (Parsector s)
-instance Categorized (Item s) => Alternator (Parsector s) where
+instance Categorized (Item s) => Disjunctive (Parsector s a b)
+instance Categorized (Item s) => CocartesianChoice (Parsector s) where
   alternate (Left p) = Parsector $ \callback query -> callback $
     let
       replyOk = query
@@ -371,6 +371,7 @@ instance Categorized (Item s) => Alternator (Parsector s) where
         _________________ ->
           flip (runParsector p) replyOk $ \reply -> reply
             { parsecResult = fmap Right (parsecResult reply) }
+instance Categorized (Item s) => Alternator (Parsector s) where
   optionP def p = Parsector $ \callback query ->
     case parsecResult query of
       Nothing -> runParsector (p <|> pureP def) callback query

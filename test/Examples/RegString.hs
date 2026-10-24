@@ -8,7 +8,7 @@ regexExamples :: [(RegString, String)]
 regexExamples =
   [ (terminal "abc123etc.", "abc123etc.")
   , (terminal "x" <> terminal "y", "xy")
-  , (zeroK, "[]")
+  , (falseP, "[]")
   , (terminal "xy" >|< terminal "z", "xy|z")
   , (token 'x' >|< token 'y', "[xy]")
   , (optK (terminal "x"), "x?")
@@ -24,12 +24,12 @@ regexExamples =
   , (optK (terminal "abc"), "(abc)?")
   , (optK (terminal "abc") <> nonTerminal "xyz", "(abc)?\\q{xyz}")
 
-  -- Boolean OR (>||<) operations
-  , (tokenClass (oneOf "abc" >||< oneOf "xyz"), "[abcxyz]")
-  , (tokenClass (oneOf "abc" >||< notOneOf "xyz"), "[abc]|[^xyz]")
-  , (tokenClass (notOneOf "abc" >||< oneOf "xyz"), "[^abc]|[xyz]")
-  , (tokenClass (asIn UppercaseLetter >||< asIn LowercaseLetter), "\\p{Lu}|\\p{Ll}")
-  , (tokenClass (oneOf "abc" >||< asIn DecimalNumber), "[abc]|\\p{Nd}")
+  -- Boolean OR (>|<) operations
+  , (tokenClass (oneOf "abc" >|< oneOf "xyz"), "[abcxyz]")
+  , (tokenClass (oneOf "abc" >|< notOneOf "xyz"), "[abc]|[^xyz]")
+  , (tokenClass (notOneOf "abc" >|< oneOf "xyz"), "[^abc]|[xyz]")
+  , (tokenClass (asIn UppercaseLetter >|< asIn LowercaseLetter), "\\p{Lu}|\\p{Ll}")
+  , (tokenClass (oneOf "abc" >|< asIn DecimalNumber), "[abc]|\\p{Nd}")
 
   -- Boolean AND (>&&<) operations
   , (tokenClass (oneOf "abcdef" >&&< oneOf "def123"), "[def]")
@@ -41,20 +41,20 @@ regexExamples =
   , (tokenClass (notAsIn Control >&&< notAsIn Space), "\\P{Zs|Cc}")
   , (tokenClass (oneOf "0123456789xyz" >&&< asIn DecimalNumber), "[0123456789]")
 
-  -- Boolean NOT (notB) operations
-  , (tokenClass (notB (oneOf "abc")), "[^abc]")
-  , (tokenClass (notB (notOneOf "abc")), "[abc]")
-  , (tokenClass (notB (oneOf "abc" >||< oneOf "xyz")), "[^abcxyz]")
-  , (tokenClass (notB (asIn UppercaseLetter)), "\\P{Lu}")
-  , (tokenClass (notB (notAsIn Control)), "\\p{Cc}")
-  , (tokenClass (notB (notOneOf "abc" >&&< asIn LowercaseLetter)), "[abc]|\\P{Ll}")
+  -- Boolean NOT (notP) operations
+  , (tokenClass (notP (oneOf "abc")), "[^abc]")
+  , (tokenClass (notP (notOneOf "abc")), "[abc]")
+  , (tokenClass (notP (oneOf "abc" >|< oneOf "xyz")), "[^abcxyz]")
+  , (tokenClass (notP (asIn UppercaseLetter)), "\\P{Lu}")
+  , (tokenClass (notP (notAsIn Control)), "\\p{Cc}")
+  , (tokenClass (notP (notOneOf "abc" >&&< asIn LowercaseLetter)), "[abc]|\\P{Ll}")
 
-  -- trueB & falseB
-  , (tokenClass trueB, "[^]")
-  , (tokenClass falseB, "[]")
+  -- trueP & falseP
+  , (tokenClass trueP, "[^]")
+  , (tokenClass falseP, "[]")
 
   -- Complex combinations
-  , (tokenClass (notOneOf "abc" >&&< (asIn LowercaseLetter >||< asIn UppercaseLetter)), "[^abc\\p{Ll}]|\\p{Lu}")
-  , (tokenClass ((oneOf "123" >||< asIn DecimalNumber) >&&< notOneOf "789"), "[123]|[^789\\p{Nd}]")
-  , (tokenClass (notB (oneOf "abc" >||< asIn MathSymbol)), "[^abc\\P{Sm}]")
+  , (tokenClass (notOneOf "abc" >&&< (asIn LowercaseLetter >|< asIn UppercaseLetter)), "[^abc\\p{Ll}]|\\p{Lu}")
+  , (tokenClass ((oneOf "123" >|< asIn DecimalNumber) >&&< notOneOf "789"), "[123]|[^789\\p{Nd}]")
+  , (tokenClass (notP (oneOf "abc" >|< asIn MathSymbol)), "[^abc\\P{Sm}]")
   ]

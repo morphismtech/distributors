@@ -192,7 +192,7 @@ class
   jsonTuple :: (forall q. JsonTup p q => q a b) -> p a b
   jsonObject :: (forall q. JsonObj p q => q a b) -> p a b
   jsonValue :: p Value Value
-  jsonValue = jsonTyped $ choiceP
+  jsonValue = jsonTyped $ orP
     [ _Null >? jsonNull
     , _Bool >? jsonBool
     , _Number >? jsonNumber
@@ -215,14 +215,12 @@ class
   jsonString :: p Text Text
 
 {- | `JsonTup` grammars describe the elements of a JSON array.
-As `Distributor`s they have optional elements (`optionalP`)
-and rest elements (`manyP`), and as `CocartesianChoice`s,
-alternatives (`>+<`, `altP`),
+As `Alternator`s they have optional elements (`optionalP`, `optionP`),
+rest elements (`manyP`, `someP`) and alternatives (`>+<`, `>|<`),
 like TypeScript's variadic tuple types, @[A, B?, ...C[]]@.
 Its elements are `JsonVal` grammars, which determine its type.
 -}
-class (JsonVal p, Distributor q, CocartesianChoice q)
-  => JsonTup p q | q -> p where
+class (JsonVal p, Alternator q) => JsonTup p q | q -> p where
   jsonElem :: p a b -> q a b
 
 {- | `JsonObj` grammars describe the properties of a JSON object.
@@ -433,11 +431,12 @@ instance Cochoice JsonParsor where
   unright = mapParsing $ \p v ->
     p v >>= either (\_ -> jsonUnexpected (Just v)) pure
 instance CocartesianMonoidal JsonParsor where
-  zeroP = emptyP
-  p >+< q = altP (Left <$> coerce p) (Right <$> coerce q)
-instance CocartesianChoice JsonParsor where
-  emptyP = jsonParsor (jsonUnexpected . Just)
-  altP p q = case (jsonParsorDispatch p, jsonParsorDispatch q) of
+  zeroP = falseP
+  p >+< q = (Left <$> coerce p) >|< (Right <$> coerce q)
+instance CocartesianChoice JsonParsor
+instance Disjunctive (JsonParsor a b) where
+  falseP = jsonParsor (jsonUnexpected . Just)
+  p >|< q = case (jsonParsorDispatch p, jsonParsorDispatch q) of
     (Just dispatch0, Just dispatch1)
       | dispatchKey dispatch0 == dispatchKey dispatch1 ->
           let
@@ -531,19 +530,15 @@ instance Applicative (TupParsor a) where
 instance Profunctor TupParsor where
   dimap _ g = coerce . fmap g
 instance Choice TupParsor where
-  left' = fmap Left . retag
-  right' = fmap Right . retag
+  left' = alternate . Left
+  right' = alternate . Right
+instance CocartesianMonoidal TupParsor
 instance CocartesianChoice TupParsor where
-  emptyP = TupParsor Nothing (\_ _ -> [])
-  altP p q = TupParsor Nothing $ \arr i ->
+  alternate = either (fmap Left . coerce) (fmap Right . coerce)
+instance Disjunctive (TupParsor a b) where
+  falseP = TupParsor Nothing (\_ _ -> [])
+  p >|< q = TupParsor Nothing $ \arr i ->
     runTupParsor p arr i <> runTupParsor q arr i
-
-retag :: TupParsor a b -> TupParsor x b
-retag = coerce
-instance CocartesianMonoidal TupParsor where
-  zeroP = emptyP
-  TupParsor _ p >+< TupParsor _ q = TupParsor Nothing $ \arr i ->
-    map (fmap (first' Left)) (p arr i) <> map (fmap (first' Right)) (q arr i)
 -- | `manyP` tries longer repetitions first, never repeating an empty match.
 instance Distributor TupParsor where
   manyP (TupParsor _ p) = TupParsor Nothing go
@@ -554,6 +549,12 @@ instance Distributor TupParsor where
             Left err -> [Left err]
             Right (b, j) | j > i -> map (fmap (first' (b :))) (go arr j)
             Right _ -> []
+instance Alternative (TupParsor a) where
+  empty = falseP
+  (<|>) = (>|<)
+  many = lmap repeat . manyP
+  some = lmap repeat . someP
+instance Alternator TupParsor
 instance JsonTup JsonParsor TupParsor where
   jsonElem p = TupParsor (Just nextElement) (\arr i -> [nextElement arr i])
     where
@@ -631,10 +632,55 @@ instance AesonVal Encoding where
   aesonObject = Encoding.pairs . foldMap (uncurry Encoding.pair)
   aesonValue = Encoding.value
 
-newtype JsonPrintor val a b = JsonPrintor
-  {runJsonPrintor :: a -> Either JsonError val}
+{- | `JsonPrintor` prints a value when it's `printorValid`, with
+`printorRender`, which needn't check for failure, and otherwise
+`printorCheck`s it to locate the failure. A `printorTotal` printor
+is valid for every value, so its validity needn't be checked; it's
+determined through `rule`s, assuming those being determined aren't.
+-}
+data JsonPrintor val a b = JsonPrintor
+  { printorTotal :: !(Set RuleKey -> Bool)
+  , printorValid :: !(a -> Bool)
+  , printorRender :: !(a -> val)
+  , printorCheck :: !(a -> Either JsonError val)
+  }
 
-newtype TupPrintor val a b = TupPrintor {runTupPrintor :: a -> Elements val}
+runJsonPrintor :: JsonPrintor val a b -> a -> Either JsonError val
+runJsonPrintor p
+  | printorTotal p Set.empty = Right . printorRender p
+  | otherwise = \a -> if printorValid p a
+      then Right (printorRender p a)
+      else printorCheck p a
+
+-- | A total `JsonPrintor`.
+printing :: (a -> val) -> JsonPrintor val a b
+printing render = JsonPrintor (const True) (const True) render (Right . render)
+
+-- | Validity of all values, unchecked for a total printor.
+validAll
+  :: Foldable f => (Set RuleKey -> Bool) -> (a -> Bool) -> f a -> Bool
+validAll total valid = \as -> isTotal || all valid as
+  where
+    isTotal = total Set.empty
+
+-- | Rendering is only ever done after validation.
+invalid :: a -> b
+invalid _ = error "Control.Lens.Grammar.Json: rendered an invalid value"
+
+-- | A `rule`'s totality, assuming those being determined aren't total.
+ruleTotal :: RuleKey -> (Set RuleKey -> Bool) -> Set RuleKey -> Bool
+ruleTotal key total rules =
+  Set.notMember key rules && total (Set.insert key rules)
+
+{- | `TupPrintor` prints the elements of a JSON array,
+counted to locate a failure of a later element.
+-}
+data TupPrintor val a b = TupPrintor
+  { tupPrintorTotal :: !(Set RuleKey -> Bool)
+  , tupPrintorValid :: !(a -> Bool)
+  , tupPrintorRender :: !(a -> DList val)
+  , tupPrintorCheck :: !(a -> Elements val)
+  }
 
 -- | Printed elements, counted to locate a failure of a later element.
 newtype Elements val = Elements (Either JsonError (Int, DList val))
@@ -658,7 +704,10 @@ Its keys are known before printing, so overlapping keys are found once.
 -}
 data ObjPrintor val a b = ObjPrintor
   { objPrintorKeys :: [Key]
-  , runObjPrintor :: a -> Either JsonError [(Key, val)]
+  , objPrintorTotal :: !(Set RuleKey -> Bool)
+  , objPrintorValid :: !(a -> Bool)
+  , objPrintorRender :: !(a -> DList (Key, val))
+  , objPrintorCheck :: !(a -> Either JsonError [(Key, val)])
   }
 
 printObject :: AesonVal val => [(Key, val)] -> Either JsonError val
@@ -669,110 +718,230 @@ printObject props = case duplicateKey (map fst props) of
 printDuplicate :: Key -> Either JsonError a
 printDuplicate key = jsonMissing ("key " <> showKey key <> " twice") Nothing
 
-deriving via Forget (Either JsonError val) a
-  instance Functor (JsonPrintor val a)
-deriving via Forget (Either JsonError val)
-  instance Profunctor (JsonPrintor val)
-deriving via Forget (Either JsonError val)
-  instance Cochoice (JsonPrintor val)
-deriving via Forget (Either JsonError val)
-  instance CocartesianMonoidal (JsonPrintor val)
+instance Functor (JsonPrintor val a) where
+  fmap _ (JsonPrintor total valid render check) =
+    JsonPrintor total valid render check
+instance Profunctor (JsonPrintor val) where
+  dimap f _ (JsonPrintor total valid render check) =
+    JsonPrintor total (valid . f) (render . f) (check . f)
+instance Cochoice (JsonPrintor val) where
+  unleft (JsonPrintor total valid render check) =
+    JsonPrintor total (valid . Left) (render . Left) (check . Left)
+  unright (JsonPrintor total valid render check) =
+    JsonPrintor total (valid . Right) (render . Right) (check . Right)
+instance CocartesianMonoidal (JsonPrintor val) where
+  zeroP = JsonPrintor (const True) absurd absurd absurd
+  p >+< q = JsonPrintor
+    (\rules -> printorTotal p rules && printorTotal q rules)
+    (either (printorValid p) (printorValid q))
+    (either (printorRender p) (printorRender q))
+    (either (printorCheck p) (printorCheck q))
 instance Choice (JsonPrintor val) where
-  left' (JsonPrintor p) =
-    JsonPrintor (either p (\_ -> jsonUnexpected Nothing))
-  right' (JsonPrintor p) =
-    JsonPrintor (either (\_ -> jsonUnexpected Nothing) p)
-instance CocartesianChoice (JsonPrintor val) where
-  emptyP = JsonPrintor (\_ -> jsonUnexpected Nothing)
-  altP (JsonPrintor p) (JsonPrintor q) = JsonPrintor $ \a -> case p a of
-    Left err1 -> left' (jsonOrElse err1) (q a)
-    success -> success
+  left' p = JsonPrintor (const False)
+    (either (printorValid p) (const False))
+    (either (printorRender p) invalid)
+    (either (printorCheck p) (\_ -> jsonUnexpected Nothing))
+  right' p = JsonPrintor (const False)
+    (either (const False) (printorValid p))
+    (either invalid (printorRender p))
+    (either (\_ -> jsonUnexpected Nothing) (printorCheck p))
+instance CocartesianChoice (JsonPrintor val)
+instance Disjunctive (JsonPrintor val a b) where
+  falseP = JsonPrintor
+    (const False) (const False) invalid (\_ -> jsonUnexpected Nothing)
+  p >|< q = JsonPrintor
+    (\rules -> printorTotal p rules || printorTotal q rules)
+    (\a -> printorValid p a || printorValid q a)
+    (\a -> if printorValid p a then printorRender p a else printorRender q a)
+    (\a -> case printorCheck p a of
+      Left err1 -> left' (jsonOrElse err1) (printorCheck q a)
+      success -> success)
 instance BackusNaurForm (JsonPrintor val a b) where
-  rule name (JsonPrintor p) = JsonPrintor (left' (jsonRelabel name) . p)
+  rule name = ruleP (NamedRule name) name
   ruleRec name f = fix (rule name . f)
+
+-- | A `rule` with a key, labelling its failures with a name.
+ruleP :: RuleKey -> String -> JsonPrintor val a b -> JsonPrintor val a b
+ruleP key name p = p
+  { printorTotal = ruleTotal key (printorTotal p)
+  , printorCheck = left' (jsonRelabel name) . printorCheck p
+  }
+
 instance (AesonVal val, x ~ (), y ~ ()) => IsString (JsonPrintor val x y) where
-  fromString s = JsonPrintor (const (Right (aesonString (Text.pack s))))
+  fromString s = printing (const (aesonString (Text.pack s)))
 instance AesonVal val => JsonStr (JsonPrintor val) where
-  jsonString = JsonPrintor (Right . aesonString)
+  jsonString = printing aesonString
 instance AesonVal val => JsonVal (JsonPrintor val) where
-  jsonNull = JsonPrintor (const (Right aesonNull))
-  jsonBool = JsonPrintor (Right . aesonBool)
-  jsonNumber = JsonPrintor (Right . aesonNumber)
-  jsonInt = JsonPrintor (Right . aesonIntegral Encoding.int)
-  jsonInt8 = JsonPrintor (Right . aesonIntegral Encoding.int8)
-  jsonInt16 = JsonPrintor (Right . aesonIntegral Encoding.int16)
-  jsonInt32 = JsonPrintor (Right . aesonIntegral Encoding.int32)
-  jsonInt64 = JsonPrintor (Right . aesonIntegral Encoding.int64)
-  jsonWord = JsonPrintor (Right . aesonIntegral Encoding.word)
-  jsonWord8 = JsonPrintor (Right . aesonIntegral Encoding.word8)
-  jsonWord16 = JsonPrintor (Right . aesonIntegral Encoding.word16)
-  jsonWord32 = JsonPrintor (Right . aesonIntegral Encoding.word32)
-  jsonWord64 = JsonPrintor (Right . aesonIntegral Encoding.word64)
-  jsonDouble = JsonPrintor (Right . aesonDouble)
-  jsonValue = JsonPrintor (Right . aesonValue)
-  jsonArray (JsonPrintor p) = JsonPrintor $ \as ->
-    aesonArray <$> zipWithM (\i a -> jsonAt (Index i) (p a)) [0 ..] as
-  jsonDict key (JsonPrintor p) = JsonPrintor (traverse entry >=> printObject)
+  jsonNull = printing (const aesonNull)
+  jsonBool = printing aesonBool
+  jsonNumber = printing aesonNumber
+  jsonInt = printing (aesonIntegral Encoding.int)
+  jsonInt8 = printing (aesonIntegral Encoding.int8)
+  jsonInt16 = printing (aesonIntegral Encoding.int16)
+  jsonInt32 = printing (aesonIntegral Encoding.int32)
+  jsonInt64 = printing (aesonIntegral Encoding.int64)
+  jsonWord = printing (aesonIntegral Encoding.word)
+  jsonWord8 = printing (aesonIntegral Encoding.word8)
+  jsonWord16 = printing (aesonIntegral Encoding.word16)
+  jsonWord32 = printing (aesonIntegral Encoding.word32)
+  jsonWord64 = printing (aesonIntegral Encoding.word64)
+  jsonDouble = printing aesonDouble
+  jsonValue = printing aesonValue
+  jsonArray p = JsonPrintor
+    (\rules -> printorTotal p rules)
+    (validAll (printorTotal p) (printorValid p))
+    (aesonArray . map (printorRender p))
+    (\as -> aesonArray <$>
+      zipWithM (\i a -> jsonAt (Index i) (printorCheck p a)) [0 ..] as)
+  jsonDict key p = JsonPrintor (const False) valid render check
     where
+      keyP = key @(JsonPrintor Value)
+      keyText a = case runJsonPrintor keyP a of
+        Right (String t) -> Just (Key.fromText t)
+        _ -> Nothing
+      validValues = validAll (printorTotal p) (printorValid p)
+      valid entries = all (isJust . keyText . fst) entries
+        && validValues (map snd entries)
+        && isNothing
+          (duplicateKey [k | (a, _) <- entries, Just k <- [keyText a]])
+      render entries = aesonObject
+        [(k, printorRender p c) | (a, c) <- entries, Just k <- [keyText a]]
+      check = traverse entry >=> printObject
       entry (a, c) = do
-        k <- printKey a
-        (k,) <$> jsonAt (Key k) (p c)
-      printKey a = runJsonPrintor (key @(JsonPrintor Value)) a >>= \case
-        String t -> Right (Key.fromText t)
-        _ -> jsonMissing "key as a string" Nothing
-  jsonTuple tup = JsonPrintor $ \a ->
-    case runTupPrintor tup a of
-      Elements printed -> aesonArray . toList . snd <$> printed
-  jsonObject obj = JsonPrintor $ case duplicateKey (objPrintorKeys printor) of
-    Just key -> \_ -> printDuplicate key
-    Nothing -> fmap aesonObject . runObjPrintor printor
+        k <- maybe (jsonMissing "key as a string" Nothing) Right (keyText a)
+        (k,) <$> jsonAt (Key k) (printorCheck p c)
+  jsonTuple tup = JsonPrintor
+    (\rules -> tupPrintorTotal tup rules)
+    (tupPrintorValid tup)
+    (aesonArray . toList . tupPrintorRender tup)
+    (\a -> case tupPrintorCheck tup a of
+      Elements printed -> aesonArray . toList . snd <$> printed)
+  jsonObject obj = case duplicateKey (objPrintorKeys printor) of
+    Just key -> JsonPrintor
+      (const False) (const False) invalid (\_ -> printDuplicate key)
+    Nothing -> JsonPrintor
+      (\rules -> objPrintorTotal printor rules)
+      (objPrintorValid printor)
+      (aesonObject . toList . objPrintorRender printor)
+      (fmap aesonObject . objPrintorCheck printor)
     where
       printor = obj @(ObjPrintor val)
+  jsonTyped :: forall a. Typeable a
+    => JsonPrintor val a a -> JsonPrintor val a a
+  jsonTyped = ruleP (TypedRule (SomeTypeRep rep)) (show rep)
+    where
+      rep = typeRep @a
 
-deriving via Forget (Elements val) a instance Functor (TupPrintor val a)
-deriving via Forget (Elements val) a instance Applicative (TupPrintor val a)
-deriving via Forget (Elements val) instance Profunctor (TupPrintor val)
-deriving via Forget (Elements val)
-  instance CocartesianMonoidal (TupPrintor val)
-deriving via Forget (Elements val) instance Distributor (TupPrintor val)
+instance Functor (TupPrintor val a) where
+  fmap _ (TupPrintor total valid render check) =
+    TupPrintor total valid render check
+instance Applicative (TupPrintor val a) where
+  pure _ = TupPrintor (const True) (const True) mempty mempty
+  p <*> q = TupPrintor
+    (\rules -> tupPrintorTotal p rules && tupPrintorTotal q rules)
+    (\a -> tupPrintorValid p a && tupPrintorValid q a)
+    (tupPrintorRender p <> tupPrintorRender q)
+    (tupPrintorCheck p <> tupPrintorCheck q)
+instance Profunctor (TupPrintor val) where
+  dimap f _ (TupPrintor total valid render check) =
+    TupPrintor total (valid . f) (render . f) (check . f)
+instance CocartesianMonoidal (TupPrintor val) where
+  zeroP = TupPrintor (const True) absurd absurd absurd
+  p >+< q = TupPrintor
+    (\rules -> tupPrintorTotal p rules && tupPrintorTotal q rules)
+    (either (tupPrintorValid p) (tupPrintorValid q))
+    (either (tupPrintorRender p) (tupPrintorRender q))
+    (either (tupPrintorCheck p) (tupPrintorCheck q))
+instance Distributor (TupPrintor val) where
+  manyP p = TupPrintor
+    (\rules -> tupPrintorTotal p rules)
+    (validAll (tupPrintorTotal p) (tupPrintorValid p))
+    (foldMap (tupPrintorRender p))
+    (foldMap (tupPrintorCheck p))
+  optionalP p = TupPrintor
+    (\rules -> tupPrintorTotal p rules)
+    (maybe True (tupPrintorValid p))
+    (foldMap (tupPrintorRender p))
+    (foldMap (tupPrintorCheck p))
+-- | `optionP` omits its default.
+instance Alternative (TupPrintor val a) where
+  empty = falseP
+  (<|>) = (>|<)
+  many = lmap repeat . manyP
+  some = lmap repeat . someP
+instance Alternator (TupPrintor val) where
+  optionP def p = pureP def >|< p
 instance Choice (TupPrintor val) where
-  left' (TupPrintor p) = TupPrintor (either p (\_ -> unprintable))
-  right' (TupPrintor p) = TupPrintor (either (\_ -> unprintable) p)
+  left' = alternate . Left
+  right' = alternate . Right
 unprintable :: Elements val
 unprintable = Elements (jsonUnexpected Nothing)
 instance CocartesianChoice (TupPrintor val) where
-  emptyP = TupPrintor (\_ -> unprintable)
-  altP p q = TupPrintor $ \a -> case (runTupPrintor p a, runTupPrintor q a) of
-    (Elements (Left err0), Elements (Left err1)) ->
-      Elements (Left (jsonOrElse err0 err1))
-    (Elements (Left _), printed) -> printed
-    (printed, _) -> printed
+  alternate = \case
+    Left p -> TupPrintor (const False)
+      (either (tupPrintorValid p) (const False))
+      (either (tupPrintorRender p) invalid)
+      (either (tupPrintorCheck p) (\_ -> unprintable))
+    Right p -> TupPrintor (const False)
+      (either (const False) (tupPrintorValid p))
+      (either invalid (tupPrintorRender p))
+      (either (\_ -> unprintable) (tupPrintorCheck p))
+instance Disjunctive (TupPrintor val a b) where
+  falseP = TupPrintor (const False) (const False) invalid (\_ -> unprintable)
+  p >|< q = TupPrintor
+    (\rules -> tupPrintorTotal p rules || tupPrintorTotal q rules)
+    (\a -> tupPrintorValid p a || tupPrintorValid q a)
+    (\a -> if tupPrintorValid p a
+      then tupPrintorRender p a else tupPrintorRender q a)
+    (\a -> case (tupPrintorCheck p a, tupPrintorCheck q a) of
+      (Elements (Left err0), Elements (Left err1)) ->
+        Elements (Left (jsonOrElse err0 err1))
+      (Elements (Left _), printed) -> printed
+      (printed, _) -> printed)
 
 instance AesonVal val => JsonTup (JsonPrintor val) (TupPrintor val) where
-  jsonElem p = TupPrintor $ \a -> Elements $
-    (\printed -> (1, pure printed)) <$> jsonAt (Index 0) (runJsonPrintor p a)
+  jsonElem p = TupPrintor
+    (\rules -> printorTotal p rules)
+    (printorValid p)
+    (DList.singleton . printorRender p)
+    (\a -> Elements $ (\printed -> (1, pure printed))
+      <$> jsonAt (Index 0) (printorCheck p a))
 
 instance Functor (ObjPrintor val a) where
-  fmap _ (ObjPrintor keys p) = ObjPrintor keys p
+  fmap _ (ObjPrintor keys total valid render check) =
+    ObjPrintor keys total valid render check
 instance Applicative (ObjPrintor val a) where
-  pure _ = ObjPrintor [] (\_ -> Right [])
-  ObjPrintor keys0 p0 <*> ObjPrintor keys1 p1 =
-    ObjPrintor (keys0 <> keys1) (\a -> (<>) <$> p0 a <*> p1 a)
+  pure _ = ObjPrintor [] (const True) (const True) mempty (\_ -> Right [])
+  ObjPrintor keys0 total0 valid0 render0 check0
+    <*> ObjPrintor keys1 total1 valid1 render1 check1 = ObjPrintor
+      (keys0 <> keys1)
+      (\rules -> total0 rules && total1 rules)
+      (\a -> valid0 a && valid1 a)
+      (render0 <> render1)
+      (\a -> (<>) <$> check0 a <*> check1 a)
 instance Profunctor (ObjPrintor val) where
-  dimap f _ (ObjPrintor keys p) = ObjPrintor keys (p . f)
+  dimap f _ (ObjPrintor keys total valid render check) =
+    ObjPrintor keys total (valid . f) (render . f) (check . f)
 instance AesonVal val => JsonObj (JsonPrintor val) (ObjPrintor val) where
-  k !: p = ObjPrintor [key] (printProperty key p)
+  k !: p = ObjPrintor [key]
+    (\rules -> printorTotal p rules)
+    (printorValid p)
+    (\a -> DList.singleton (key, printorRender p a))
+    (printProperty key p)
     where
       key = Key.fromText k
-  k ?: p =
-    ObjPrintor [key] (maybe (Right []) (printProperty key p))
+  k ?: p = ObjPrintor [key]
+    (\rules -> printorTotal p rules)
+    (maybe True (printorValid p))
+    (foldMap (\a -> DList.singleton (key, printorRender p a)))
+    (maybe (Right []) (printProperty key p))
     where
       key = Key.fromText k
 
 printProperty
   :: Key -> JsonPrintor val a b -> a -> Either JsonError [(Key, val)]
 printProperty key p a =
-  (\printed -> [(key, printed)]) <$> jsonAt (Key key) (runJsonPrintor p a)
+  (\printed -> [(key, printed)]) <$> jsonAt (Key key) (printorCheck p a)
 
 -- TypeScript interpreters --
 
@@ -812,14 +981,14 @@ newtype TsObjGrammor a b = TsObjGrammor
 unguarded by an array, object or tuple, each noting whether it's been
 unrolled, and updating the named rules & their definitions.
 -}
-type TsDefining = ReaderT (Map TsRuleKey Bool) (State TsDefinitions)
+type TsDefining = ReaderT (Map RuleKey Bool) (State TsDefinitions)
 
 data TsDefinitions = TsDefinitions
-  { tsRuleNames :: Map TsRuleKey String
+  { tsRuleNames :: Map RuleKey String
   , tsRules :: Map String TsType
   }
 
-data TsRuleKey = TsNamedRule String | TsTypedRule SomeTypeRep
+data RuleKey = NamedRule String | TypedRule SomeTypeRep
   deriving stock (Eq, Ord)
 
 {- | Define a rule once, under the first of its names which isn't taken,
@@ -829,7 +998,7 @@ An unguarded occurrence is its least fixpoint instead, unrolled once,
 so that a rule of a rule is the rule, and a rule recurring unguarded
 contributes `never`, since JSON values are finite.
 -}
-tsDefine :: TsRuleKey -> [String] -> TsGrammor a b -> TsGrammor c d
+tsDefine :: RuleKey -> [String] -> TsGrammor a b -> TsGrammor c d
 tsDefine key names (TsGrammor body) = TsGrammor $ do
   unguarded <- ask
   defs <- lift get
@@ -877,10 +1046,6 @@ tsUnion types = case nub (concatMap alternatives types) of
     alternatives = \case
       TsUnion ts -> ts
       t -> [t]
-
-tsAlternatives :: TsGrammor a b -> TsGrammor c d -> TsGrammor s t
-tsAlternatives (TsGrammor t0) (TsGrammor t1) =
-  TsGrammor (liftA2 (\a b -> tsUnion [a, b]) t0 t1)
 
 tsObject :: [TsProperty] -> TsType
 tsObject props
@@ -976,17 +1141,18 @@ deriving via Grammor (TsDefining TsType)
 instance Cochoice TsGrammor where
   unleft = coerce
   unright = coerce
-instance CocartesianMonoidal TsGrammor where
-  zeroP = emptyP
-  (>+<) = tsAlternatives
+instance CocartesianMonoidal TsGrammor
 instance CocartesianChoice TsGrammor where
-  emptyP = tsType (tsUnion [])
-  altP = tsAlternatives
+  alternate = either coerce coerce
+instance Disjunctive (TsGrammor a b) where
+  falseP = tsType (tsUnion [])
+  TsGrammor t0 >|< TsGrammor t1 =
+    TsGrammor (liftA2 (\a b -> tsUnion [a, b]) t0 t1)
 instance BackusNaurForm (TsGrammor a b) where
-  rule name = tsDefine (TsNamedRule name) [name]
+  rule name = tsDefine (NamedRule name) [name]
   ruleRec name f = rule name (f self)
     where
-      self = tsDefine (TsNamedRule name) [name] emptyP
+      self = tsDefine (NamedRule name) [name] falseP
 instance (x ~ (), y ~ ()) => IsString (TsGrammor x y) where
   fromString = tsType . TsLiteral . Text.pack
 instance JsonStr TsGrammor where
@@ -1000,7 +1166,7 @@ instance JsonVal TsGrammor where
   jsonTuple tup = TsGrammor (tsTuple <$> getAp (runTsTupGrammor tup))
   jsonObject obj = TsGrammor (tsObject <$> getAp (runTsObjGrammor obj))
   jsonTyped :: forall a. Typeable a => TsGrammor a a -> TsGrammor a a
-  jsonTyped = tsDefine (TsTypedRule rep) [show rep, qualifiedTypeName rep]
+  jsonTyped = tsDefine (TypedRule rep) [show rep, qualifiedTypeName rep]
     where
       rep = SomeTypeRep (typeRep @a)
 
@@ -1010,21 +1176,17 @@ deriving via Grammor (Ap TsDefining TsShapes) a
   instance Applicative (TsTupGrammor a)
 deriving via Grammor (Ap TsDefining TsShapes)
   instance Profunctor TsTupGrammor
-instance CocartesianMonoidal TsTupGrammor where
-  zeroP = emptyP
-  (>+<) = tsShapesUnion
+instance CocartesianMonoidal TsTupGrammor
 instance Choice TsTupGrammor where
   left' = coerce
   right' = coerce
 instance CocartesianChoice TsTupGrammor where
-  emptyP = TsTupGrammor (pure (Ap []))
-  altP = tsShapesUnion
-
-tsShapesUnion :: TsTupGrammor a b -> TsTupGrammor c d -> TsTupGrammor s t
-tsShapesUnion (TsTupGrammor s0) (TsTupGrammor s1) =
-  TsTupGrammor (liftA2 unite s0 s1)
-  where
-    unite (Ap shapes0) (Ap shapes1) = Ap (shapes0 <> shapes1)
+  alternate = either coerce coerce
+instance Disjunctive (TsTupGrammor a b) where
+  falseP = TsTupGrammor (pure (Ap []))
+  TsTupGrammor s0 >|< TsTupGrammor s1 = TsTupGrammor (liftA2 unite s0 s1)
+    where
+      unite (Ap shapes0) (Ap shapes1) = Ap (shapes0 <> shapes1)
 -- | `manyP` is a rest element, of the union of the elements of its shapes.
 instance Distributor TsTupGrammor where
   manyP (TsTupGrammor s) = TsTupGrammor (rest <$> s)
@@ -1033,6 +1195,12 @@ instance Distributor TsTupGrammor where
         case concatMap (map tsElementType) shapes of
           [] -> [[]]
           ts -> [[TsRest (tsUnion ts)]]
+instance Alternative (TsTupGrammor a) where
+  empty = falseP
+  (<|>) = (>|<)
+  many = lmap repeat . manyP
+  some = lmap repeat . someP
+instance Alternator TsTupGrammor
 instance JsonTup TsGrammor TsTupGrammor where
   jsonElem (TsGrammor t) =
     TsTupGrammor (Ap ((\ty -> Ap [[TsRequired ty]]) <$> tsGuarded t))
@@ -1138,7 +1306,7 @@ jsonBoundedInteger :: (Integral a, Bounded a, JsonVal p) => p a a
 jsonBoundedInteger = prism' fromIntegral toBoundedInteger ?< jsonNumber
 
 jsonRealFloat :: (RealFloat a, JsonVal p) => p a a -> p a a
-jsonRealFloat finite = choiceP
+jsonRealFloat finite = orP
   [ nearly (0/0) isNaN >? jsonNull
   , only (1/0) >? "+inf"
   , only (negate 1/0) >? "-inf"
@@ -1576,7 +1744,7 @@ instance Json b => Json (Tagged a b) where
 
 -- these
 instance (Json a, Json b) => Json (These a b) where
-  json = choiceP
+  json = orP
     [ _These >? jsonObject ("This" !: json >*< "That" !: json)
     , _This >? jsonTag "This" json
     , _That >? jsonTag "That" json

@@ -11,8 +11,8 @@ instance Arbitrary (TokenClass Char) where
   arbitrary = sized go
     where
       go 0 = frequency
-        [ (1, pure falseB)
-        , (1, pure trueB)
+        [ (1, pure falseP)
+        , (1, pure trueP)
         , (4, oneOf <$> (arbitrary :: Gen [Char]))
         , (4, notOneOf <$> (arbitrary :: Gen [Char]))
         , (3, asIn <$> arbitrary)
@@ -20,16 +20,16 @@ instance Arbitrary (TokenClass Char) where
         ]
       go n = frequency
         [ (2, go 0)
-        , (2, (>||<) <$> go (n `div` 2) <*> go (n `div` 2))
+        , (2, (>|<) <$> go (n `div` 2) <*> go (n `div` 2))
         , (2, (>&&<) <$> go (n `div` 2) <*> go (n `div` 2))
-        , (1, notB <$> go (n - 1))
+        , (1, notP <$> go (n - 1))
         ]
 
 instance Arbitrary (RegEx Char) where
   arbitrary = sized go
     where
       go 0 = frequency
-        [ (1, pure (zeroK :: RegEx Char))
+        [ (1, pure (falseP :: RegEx Char))
         , (1, pure (mempty :: RegEx Char))
         , (6, tokenClass <$> (arbitrary :: Gen (TokenClass Char)))
         ]
@@ -53,27 +53,27 @@ kleeneProperties = do
       optK x == (mempty >|< x)
     prop "x >|< x = x" $ \(x :: RegEx Char) ->
       (x >|< x) == x
-    prop "zeroK >|< x = x" $ \(x :: RegEx Char) ->
-      (zeroK >|< x) == x
-    prop "x >|< zeroK = x" $ \(x :: RegEx Char) ->
-      (x >|< zeroK) == x
+    prop "falseP >|< x = x" $ \(x :: RegEx Char) ->
+      (falseP >|< x) == x
+    prop "x >|< falseP = x" $ \(x :: RegEx Char) ->
+      (x >|< falseP) == x
     prop "x >|< mempty = optK x" $ \(x :: RegEx Char) ->
       (x >|< mempty) == optK x
-    prop "zeroK <> x = zeroK" $ \(x :: RegEx Char) ->
-      (zeroK <> x) == zeroK
-    prop "x <> zeroK = zeroK" $ \(x :: RegEx Char) ->
-      (x <> zeroK) == zeroK
+    prop "falseP <> x = falseP" $ \(x :: RegEx Char) ->
+      (falseP <> x) == falseP
+    prop "x <> falseP = falseP" $ \(x :: RegEx Char) ->
+      (x <> falseP) == falseP
     prop "mempty <> x = x" $ \(x :: RegEx Char) ->
       (mempty <> x) == x
     prop "x <> mempty = x" $ \(x :: RegEx Char) ->
       (x <> mempty) == x
   describe "TokenAlgebra" $ do
-    it "zeroK = tokenClass falseB" $
-      (zeroK :: RegEx Char) `shouldBe` tokenClass falseB
-    prop "tokenClass x >|< tokenClass y = tokenClass (x >||< y)" $
+    it "falseP = tokenClass falseP" $
+      (falseP :: RegEx Char) `shouldBe` tokenClass falseP
+    prop "tokenClass x >|< tokenClass y = tokenClass (x >|< y)" $
       \(x :: TokenClass Char) (y :: TokenClass Char) ->
         ((tokenClass x :: RegEx Char) >|< tokenClass y)
-          == tokenClass (x >||< y)
+          == tokenClass (x >|< y)
   describe "TokenAlgebra RegEx" $ do
     it "anyToken = tokenClass anyToken" $
       (anyToken :: RegEx Char) `shouldBe` tokenClass anyToken
@@ -113,25 +113,25 @@ kleeneProperties = do
       for_ cases $ \(word, rex) ->
         (word =~ rex) `shouldBe` (word =~ liftBnf0 rex)
   describe "BooleanAlgebra TokenClass" $ do
-    it "trueB = anyToken" $
-      (trueB :: TokenClass Char) `shouldBe` anyToken
-    it "trueB = notOneOf []" $
-      (trueB :: TokenClass Char) `shouldBe` notOneOf []
-    it "falseB = oneOf []" $
-      (falseB :: TokenClass Char) `shouldBe` oneOf []
-    prop "notB . oneOf = notOneOf" $
+    it "trueP = anyToken" $
+      (trueP :: TokenClass Char) `shouldBe` anyToken
+    it "trueP = notOneOf []" $
+      (trueP :: TokenClass Char) `shouldBe` notOneOf []
+    it "falseP = oneOf []" $
+      (falseP :: TokenClass Char) `shouldBe` oneOf []
+    prop "notP . oneOf = notOneOf" $
       \(cs :: [Char]) ->
-        notB (oneOf cs :: TokenClass Char) == notOneOf cs
-    prop "notB . notOneOf = oneOf" $
+        notP (oneOf cs :: TokenClass Char) == notOneOf cs
+    prop "notP . notOneOf = oneOf" $
       \(cs :: [Char]) ->
-        notB (notOneOf cs :: TokenClass Char) == oneOf cs
-    prop "notB . asIn = notAsIn" $
+        notP (notOneOf cs :: TokenClass Char) == oneOf cs
+    prop "notP . asIn = notAsIn" $
       \(cat :: GeneralCategory) ->
-        notB (asIn cat :: TokenClass Char) == notAsIn cat
-    prop "notB . notAsIn = asIn" $
+        notP (asIn cat :: TokenClass Char) == notAsIn cat
+    prop "notP . notAsIn = asIn" $
       \(cat :: GeneralCategory) ->
-        notB (notAsIn cat :: TokenClass Char) == asIn cat
-    prop "x >||< x = x" $ \(x :: TokenClass Char) ->
-      (x >||< x) == x
+        notP (notAsIn cat :: TokenClass Char) == asIn cat
+    prop "x >|< x = x" $ \(x :: TokenClass Char) ->
+      (x >|< x) == x
     prop "x >&&< x = x" $ \(x :: TokenClass Char) ->
       (x >&&< x) == x

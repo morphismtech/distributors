@@ -44,14 +44,14 @@ import Control.Applicative
 import Control.Lens
 import Control.Lens.PartialIso
 import Control.Lens.Grammar.BackusNaur
-import Control.Lens.Grammar.Boole
-import Control.Lens.Grammar.Kleene
 import Control.Lens.Grammar.Machine
+import Control.Lens.Grammar.RegEx
 import Control.Lens.Grammar.Token
 import Control.Lens.Grammar.Symbol
 import Data.Bifunctor.Joker
 import Data.Maybe hiding (mapMaybe)
 import Data.Monoid
+import Data.Monoid.Disjunctive
 import Data.Profunctor.Distributor
 import Data.Profunctor.Filtrator
 import Data.Profunctor.Monadic
@@ -69,13 +69,13 @@ import Witherable
 import Control.Lens.Cons as X
 import Control.Lens.Empty as X
 import Control.Lens.Grammar.BackusNaur as X
-import Control.Lens.Grammar.Boole as X
-import Control.Lens.Grammar.Kleene as X
 import Control.Lens.Grammar.Machine as X
+import Control.Lens.Grammar.RegEx as X
 import Control.Lens.Grammar.Symbol as X
 import Control.Lens.Grammar.Token as X
 import Control.Lens.PartialIso as X
 import Control.Monad.Fail.Try as X
+import Data.Monoid.Disjunctive as X
 import Data.Profunctor.Distributor as X
 import Data.Profunctor.Filtrator as X
 import Data.Profunctor.Grammar as X
@@ -140,16 +140,15 @@ semverGrammar = _SemVer
     numberG = iso show read >~ someP (asIn @Char DecimalNumber)
     identifiersG = several1 (sepWith ".") (someP charG)
     charG = asIn LowercaseLetter
-      <|> asIn UppercaseLetter
-      <|> asIn DecimalNumber
-      <|> token '-'
+      >|< asIn UppercaseLetter
+      >|< asIn DecimalNumber
+      >|< token '-'
 :}
 
 Instead of using the constructor @SemVer@ with the `Functor` applicator `<$>`,
 we use the optic @_SemVer@ we defined and the `Choice` applicator `>?`;
 although, we could have used the `Profunctor` applicator `>~` instead,
-because @_SemVer@ is an `Control.Lens.Iso.Iso`. A few `Alternative`
-combinators like `<|>` work both `Functor`ially and `Profunctor`ially.
+because @_SemVer@ is an `Control.Lens.Iso.Iso`.
 
 +------------+---------------+
 | Functorial | Profunctorial |
@@ -166,11 +165,11 @@ combinators like `<|>` work both `Functor`ially and `Profunctor`ially.
 +------------+---------------+
 | `<*>`      | `>*<`         |
 +------------+---------------+
-| `empty`    | `empty`       |
+| `empty`    | `falseP`      |
 +------------+---------------+
-| `<|>`      | `<|>`         |
+| `<|>`      | `>|<`         |
 +------------+---------------+
-| `choice`   | `choice`      |
+| `choice`   | `orP`     |
 +------------+---------------+
 | `many`     | `manyP`       |
 +------------+---------------+
@@ -254,7 +253,7 @@ arithGrammar = ruleRec "arith" sumG
     prodG arith = rule "product" $
       chain1 Left _Mul (sepWith "*") (factorG arith)
     factorG arith = rule "factor" $
-      numberG <|> terminal "(" >* arith *< terminal ")"
+      numberG >|< terminal "(" >* arith *< terminal ")"
     numberG = rule "number" $
       _Num . iso show read >? someP (asIn @Char DecimalNumber)
 :}
@@ -382,7 +381,7 @@ restores full lookahead to `Parsector`.
 Since both `Parsor` & `Parsector` are @LL@ parsers they
 diverge if the `CtxGrammar` they're run on is left-recursive.
 
->>> parsecG (rule "foo" (fail "bar") <|> fail "baz") "abc"
+>>> parsecG (rule "foo" (fail "bar") >|< fail "baz") "abc"
 ParsecState {parsecLooked = False, parsecOffset = 0, parsecStream = "abc", parsecFailure = ParsecFailure {parsecExpect = TokenClass (OneOf (fromList "")), parsecLabels = [Node {rootLabel = "foo", subForest = [Node {rootLabel = "bar", subForest = []}]},Node {rootLabel = "baz", subForest = []}]}, parsecResult = Nothing}
 
 >>> parsecG (manyP (token 'a') >*< asIn @Char DecimalNumber) "aaab"
@@ -421,7 +420,7 @@ ab|c
 
 `RegString`s can be generated from `RegGrammar`s with `regstringG`.
 
->>> regstringG (terminal "a" >* terminal "b" <|> terminal "c")
+>>> regstringG (terminal "a" >* terminal "b" >|< terminal "c")
 "ab|c"
 
 `RegString`s are actually stored as an algebraic datatype, `RegEx`.
@@ -470,7 +469,7 @@ character classes.
 The character classes are used for failure, matching no character or string,
 as well as the wildcard, matching any single character.
 
->>> zeroK :: RegString
+>>> falseP :: RegString
 "[]"
 >>> anyToken :: RegString
 "[^]"
@@ -495,9 +494,9 @@ using `BooleanAlgebra` combinators.
 "[abc]"
 >>> tokenClass (notOneOf "#$%" >&&< notAsIn Control) :: RegString
 "[^#$%\\P{Cc}]"
->>> tokenClass (allB notAsIn [MathSymbol, Control]) :: RegString
+>>> tokenClass (allP notAsIn [MathSymbol, Control]) :: RegString
 "\\P{Sm|Cc}"
->>> tokenClass (notB (oneOf "xyz")) :: RegString
+>>> tokenClass (notP (oneOf "xyz")) :: RegString
 "[^xyz]"
 
 Ill-formed `RegString`s normalize to failure.
@@ -508,7 +507,7 @@ Ill-formed `RegString`s normalize to failure.
 newtype RegString = RegString {runRegString :: RegEx Char}
   deriving newtype
     ( Eq, Ord
-    , Semigroup, Monoid, KleeneStarAlgebra
+    , Semigroup, Monoid, Disjunctive, KleeneStarAlgebra
     , Tokenized Char, TokenAlgebra Char
     , TerminalSymbol Char, NonTerminalSymbol
     , Matching String
@@ -553,7 +552,7 @@ But they also support `BackusNaurForm` `rule`s and `ruleRec`s.
 newtype RegBnf = RegBnf {runRegBnf :: Bnf RegString}
   deriving newtype
     ( Eq, Ord
-    , Semigroup, Monoid, KleeneStarAlgebra
+    , Semigroup, Monoid, Disjunctive, KleeneStarAlgebra
     , Tokenized Char, TokenAlgebra Char
     , TerminalSymbol Char, NonTerminalSymbol
     , BackusNaurForm
@@ -600,20 +599,20 @@ regexGrammar = _RegString >~ ruleRec "regex" altG
     seqG rex = rule "sequence" $
       chain Left _Sequence _SeqEmpty noSep (exprG rex)
 
-    exprG rex = rule "expression" $ choice
+    exprG rex = rule "expression" $ orP
       [ _KleeneOpt >? atomG rex *< terminal "?"
       , _KleeneStar >? atomG rex *< terminal "*"
       , _KleenePlus >? atomG rex *< terminal "+"
       , atomG rex
       ]
 
-    atomG rex = rule "atom" $ choice
+    atomG rex = rule "atom" $ orP
       [ _NonTerminal >? terminal "\\q" >* nonterminalG
       , _RegExam >? classG
       , terminal "(" >* rex *< terminal ")"
       ]
 
-    categoryG = rule "category" $ choice
+    categoryG = rule "category" $ orP
       [ _LowercaseLetter >? terminal "Ll"
       , _UppercaseLetter >? terminal "Lu"
       , _TitlecaseLetter >? terminal "Lt"
@@ -646,24 +645,24 @@ regexGrammar = _RegString >~ ruleRec "regex" altG
       , _NotAssigned >? terminal "Cn"
       ]
 
-    classG = rule "class" $ choice
+    classG = rule "class" $ orP
       [ _OneOf >? classOneOfG
       , _NotOneOf >? classNotOneOfG
       ]
 
-    classCatG = rule "class-category" $ choice
+    classCatG = rule "class-category" $ orP
       [ _AndAsIn >? terminal "\\p{" >* categoryG *< terminal "}"
       , _AndNotAsIn >? several1
           (sepWith "|" & beginWith "\\P{" & endWith "}")
           categoryG
       ]
 
-    classOneOfG = rule "class-one-of" $ choice
+    classOneOfG = rule "class-one-of" $ orP
       [ onlyOne charG
       , terminal "[" >* several noSep charG *< terminal "]"
       ]
 
-    classNotOneOfG = rule "class-not-one-of" $ choice
+    classNotOneOfG = rule "class-not-one-of" $ orP
       [ asEmpty >*< classCatG
       , terminal "[^" >* several noSep charG >*<
           optionP (_AndNotAsIn . _Empty) classCatG *< terminal "]"
@@ -676,14 +675,14 @@ nonterminalG = rule "nonterminal" $
 charG :: Grammar Char Char
 charG = rule "char" $
   tokenClass (notOneOf charsReserved >&&< notAsIn Control)
-  <|> terminal "\\" >* charEscapedG
+  >|< terminal "\\" >* charEscapedG
   where
     charEscapedG = rule "char-escaped" $
-      oneOf charsReserved <|> charControlG
+      oneOf charsReserved >|< charControlG
 
     charsReserved = "()*+?[\\]^{|}"
 
-    charControlG = rule "char-control" $ choice
+    charControlG = rule "char-control" $ orP
       [ only '\NUL' >? terminal "NUL"
       , only '\SOH' >? terminal "SOH"
       , only '\STX' >? terminal "STX"
@@ -1024,7 +1023,7 @@ putStringLn = putStrLn . toList
 instance IsList RegString where
   type Item RegString = Char
   fromList
-    = fromMaybe zeroK
+    = fromMaybe falseP
     . listToMaybe
     . mapMaybe prsF
     . readP_to_S (readG regexGrammar)
@@ -1043,7 +1042,7 @@ instance Read RegString where
 instance IsList RegBnf where
   type Item RegBnf = Char
   fromList
-    = fromMaybe zeroK
+    = fromMaybe falseP
     . listToMaybe
     . mapMaybe prsF
     . readP_to_S (readG regbnfGrammar)

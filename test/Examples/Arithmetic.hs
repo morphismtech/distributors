@@ -4,7 +4,6 @@ module Examples.Arithmetic
   , arithExamples
   ) where
 
-import Control.Applicative
 import Control.Lens
 import Control.Lens.Grammar
 import Numeric.Natural
@@ -25,7 +24,7 @@ arithGrammar = ruleRec "arith" sumG
     prodG arith = rule "product" $
       chain1 Left _Mul (sepWith "*") (factorG arith)
     factorG arith = rule "factor" $
-      number <|> terminal "(" >* arith *< terminal ")"
+      number >|< terminal "(" >* arith *< terminal ")"
     number = rule "number" $
       _Num . iso show read >? someP (asIn @Char DecimalNumber)
 

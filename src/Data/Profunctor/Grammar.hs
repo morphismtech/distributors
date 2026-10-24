@@ -26,14 +26,15 @@ import Control.Category
 import Control.Lens
 import Control.Lens.Extras
 import Control.Lens.Grammar.BackusNaur
-import Control.Lens.Grammar.Kleene
 import Control.Lens.Grammar.Machine
+import Control.Lens.Grammar.RegEx
 import Control.Lens.Grammar.Symbol
 import Control.Lens.Grammar.Token
 import Control.Monad
 import Control.Monad.Fail.Try
 import Data.Coerce
 import Data.Monoid
+import Data.Monoid.Disjunctive
 import Data.Profunctor
 import Data.Profunctor.Distributor
 import Data.Profunctor.Filtrator
@@ -108,11 +109,11 @@ instance Filterable f => Filtrator (Parsor s f) where
     )
 instance (Alternative m, Monad m) => CocartesianMonoidal (Parsor s m)
 instance (Alternative m, Monad m) => Distributor (Parsor s m)
-instance (Alternative m, Monad m) => CocartesianChoice (Parsor s m)
 instance (Alternative m, Monad m) => Choice (Parsor s m) where
   left' = alternate . Left
   right' = alternate . Right
-instance (Alternative m, Monad m) => Alternator (Parsor s m) where
+instance (Alternative m, Monad m) => Disjunctive (Parsor s m a b)
+instance (Alternative m, Monad m) => CocartesianChoice (Parsor s m) where
   alternate = \case
     Left (Parsor p) -> Parsor $ \ma s -> case ma of
       Nothing -> fmap (first' Left) (p Nothing s)
@@ -122,6 +123,7 @@ instance (Alternative m, Monad m) => Alternator (Parsor s m) where
       Nothing -> fmap (first' Right) (p Nothing s)
       Just (Right a) -> fmap (first' Right) (p (Just a) s)
       Just (Left _) -> empty
+instance (Alternative m, Monad m) => Alternator (Parsor s m) where
   optionP def p = Parsor $ \ma s -> case ma of
     Nothing -> runParsor (p <|> pureP def) ma s
     Just _ -> runParsor (pureP def <|> p) ma s
@@ -217,13 +219,14 @@ instance Functor f => CocartesianMonoidal (Printor s f) where
   Printor p >+< Printor q = Printor $
     either (fmap (first' Left) . p) (fmap (first' Right) . q)
 instance Applicative f => Distributor (Printor s f)
-instance Alternative f => CocartesianChoice (Printor s f)
-instance Alternative f => Alternator (Printor s f) where
+instance Alternative f => Disjunctive (Printor s f a b)
+instance Alternative f => CocartesianChoice (Printor s f) where
   alternate = \case
     Left (Printor p) -> Printor $
       either (fmap (first' Left) . p) (\_ -> empty)
     Right (Printor p) -> Printor $
       either (\_ -> empty) (fmap (first' Right) . p)
+instance Alternative f => Alternator (Printor s f) where
   optionP def p = pureP def <|> p
 instance Filterable f => Filtrator (Printor s f) where
   filtrate (Printor p) =
@@ -308,20 +311,21 @@ instance Choice (Grammor k) where
 instance Monoid k => Applicative (Grammor k a) where
   pure _ = Grammor mempty
   Grammor rex1 <*> Grammor rex2 = Grammor (rex1 <> rex2)
+instance Disjunctive k => Disjunctive (Grammor k a b) where
+  falseP = Grammor falseP
+  Grammor rex1 >|< Grammor rex2 = Grammor (rex1 >|< rex2)
 instance KleeneStarAlgebra k => Alternative (Grammor k a) where
-  empty = Grammor zeroK
-  Grammor rex1 <|> Grammor rex2 = Grammor (rex1 >|< rex2)
-  many (Grammor rex) = Grammor (starK rex)
-  some (Grammor rex) = Grammor (plusK rex)
-instance KleeneStarAlgebra k => CocartesianMonoidal (Grammor k) where
-  zeroP = Grammor zeroK
-  Grammor rex1 >+< Grammor rex2 = Grammor (rex1 >|< rex2)
-instance KleeneStarAlgebra k => CocartesianChoice (Grammor k)
+  empty = falseP
+  (<|>) = (>|<)
+  many = lmap repeat . manyP
+  some = lmap repeat . someP
+instance KleeneStarAlgebra k => CocartesianMonoidal (Grammor k)
+instance KleeneStarAlgebra k => CocartesianChoice (Grammor k) where
+  alternate = either coerce coerce
 instance KleeneStarAlgebra k => Distributor (Grammor k) where
   manyP (Grammor rex) = Grammor (starK rex)
   optionalP (Grammor rex) = Grammor (optK rex)
 instance KleeneStarAlgebra k => Alternator (Grammor k) where
-  alternate = either coerce coerce
   someP (Grammor rex) = Grammor (plusK rex)
   optionP _ (Grammor rex) = Grammor (optK rex)
 instance Tokenized token k => Tokenized token (Grammor k a b) where

@@ -32,12 +32,11 @@ library
       Control.Lens.Diopter
       Control.Lens.Grammar
       Control.Lens.Grammar.BackusNaur
-      Control.Lens.Grammar.Boole
       Control.Lens.Grammar.Internal.NestedPrismTH
       Control.Lens.Grammar.Internal.Orphanage
       Control.Lens.Grammar.Json
-      Control.Lens.Grammar.Kleene
       Control.Lens.Grammar.Machine
+      Control.Lens.Grammar.RegEx
       Control.Lens.Grammar.Symbol
       Control.Lens.Grammar.Token
       Control.Lens.Grate
@@ -45,6 +44,7 @@ library
       Control.Lens.PartialIso
       Control.Lens.Wither
       Control.Monad.Fail.Try
+      Data.Monoid.Disjunctive
       Data.Profunctor.Distributor
       Data.Profunctor.Filtrator
       Data.Profunctor.Grammar

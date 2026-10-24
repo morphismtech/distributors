@@ -1,6 +1,6 @@
 {- |
-Module      : Control.Lens.Grammar.Kleene
-Description : Kleene star algebras, regular expressions & token classes
+Module      : Control.Lens.Grammar.RegEx
+Description : regular expressions & token classes
 Copyright   : (C) 2026 - Eitan Chatav
 License     : BSD-style (see the file LICENSE)
 Maintainer  : Eitan Chatav <eitan.chatav@gmail.com>
@@ -12,12 +12,9 @@ Regular expressions form a Kleene star algebra. See Kleene,
 (https://www.rand.org/pubs/research_memoranda/RM704.html)
 -}
 
-module Control.Lens.Grammar.Kleene
-  ( -- * KleeneStarAlgebra
-    KleeneStarAlgebra (..)
-  , orK, anyK
-    -- * TokenAlgebra
-  , TokenAlgebra (..)
+module Control.Lens.Grammar.RegEx
+  ( -- * TokenAlgebra
+    TokenAlgebra (..)
     -- * RegEx & TokenClass
   , RegEx (..)
   , TokenClass (..)
@@ -25,8 +22,6 @@ module Control.Lens.Grammar.Kleene
   , CategoryTest (..)
   ) where
 
-import Control.Applicative
-import Control.Lens.Grammar.Boole
 import Control.Lens.Grammar.Symbol
 import Control.Lens.Grammar.Token
 import Control.Monad.Loops
@@ -34,7 +29,7 @@ import Control.Monad.State (StateT, state)
 import Data.Bifunctor.Joker
 import Data.Foldable
 import Data.MemoTrie
-import Data.Monoid
+import Data.Monoid.Disjunctive
 import Data.Profunctor
 import Data.Profunctor.Distributor
 import Data.Set (Set)
@@ -46,53 +41,6 @@ import Test.QuickCheck.Gen (Gen)
 import qualified Test.QuickCheck.Gen as Gen
 import Text.ParserCombinators.ReadP (ReadP)
 import qualified Text.ParserCombinators.ReadP as ReadP
-
-{- | A `KleeneStarAlgebra` is a semiring
-with a generally non-commutative multiplication,
-the `Monoid` concatenation operator `<>` with identity `mempty`;
-and an idempotent addition, the alternation operator `>|<`
-with identity `zeroK`.
-
-prop> x >|< x = x
-prop> zeroK >|< x = x = x >|< zeroK
-prop> zeroK <> x = zeroK = x <> zeroK
-prop> mempty <> x = x = x <> mempty
-
-It also has three unary Kleene quantifier operators;
-
-* `optK`, zero or one,
-
-prop> optK x = mempty >|< x = x >|< mempty
-
-* `plusK`, one or more,
-
-prop> plusK x = x <> starK x = starK x <> x
-
-* and the eponymous `starK`, zero or more.
-
-prop> starK x = optK (plusK x)
-
--}
-class Monoid k => KleeneStarAlgebra k where
-  starK, plusK, optK :: k -> k
-  starK x = optK (plusK x)
-  plusK x = x <> starK x
-  optK x = mempty >|< x
-  infixl 3 >|<
-  (>|<) :: k -> k -> k
-  zeroK :: k
-  default (>|<) :: (k ~ f a, Alternative f) => k -> k -> k
-  default zeroK :: (k ~ f a, Alternative f) => k
-  (>|<) = (<|>)
-  zeroK = empty
-
--- | cumulative alternation
-orK :: (Foldable f, KleeneStarAlgebra k) => f k -> k
-orK = foldl' (>|<) zeroK
-
--- | existential
-anyK :: (Foldable f, KleeneStarAlgebra k) => (a -> k) -> f a -> k
-anyK f = foldl' (\b a -> b >|< f a) zeroK
 
 {- | The `RegEx`pression type forms the prototypical `KleeneStarAlgebra`.
 It is also a `TokenAlgebra` and `tokenClass` acts homomorphically on disjunction.
@@ -140,13 +88,13 @@ data CategoryTest token
 {- | `TokenClass` forms a `Tokenized` `BooleanAlgebra`,
 such that the following invariants hold.
 
-prop> trueB = anyToken
-prop> trueB = notOneOf []
-prop> falseB = oneOf []
-prop> notB . oneOf = notOneOf
-prop> notB . notOneOf = oneOf
-prop> notB . asIn = notAsIn
-prop> notB . notAsIn = asIn
+prop> trueP = anyToken
+prop> trueP = notOneOf []
+prop> falseP = oneOf []
+prop> notP . oneOf = notOneOf
+prop> notP . notOneOf = oneOf
+prop> notP . asIn = notAsIn
+prop> notP . notAsIn = asIn
 
 `TokenClass` is the fixed point algebra of t`RegExam`.
 `TokenClass`es may be understood as normalizations of
@@ -157,17 +105,16 @@ newtype TokenClass token = TokenClass (RegExam token (TokenClass token))
 
 {- | `TokenAlgebra` extends `Tokenized` methods to support
 `BooleanAlgebra` operations within a `tokenClass`.
-When a `TokenAlgebra` is an `Alternative`,
+When a `TokenAlgebra` is an `Disjunctive`,
 then `tokenClass` is expected to act homomorphically on disjunction.
 
-prop> empty = tokenClass falseB
-prop> tokenClass x <|> tokenClass y = tokenClass (x >||< y)
+prop> falseP = tokenClass falseP
+prop> tokenClass x >|< tokenClass y = tokenClass (x >|< y)
 
-Likewise, when a `TokenAlgebra` is a `KleeneStarAlgebra`,
-then `tokenClass` is expected to act homorphically on disjunction.
+Likewise, when a `TokenAlgebra` is `Alternative`,
 
-prop> zeroK = tokenClass falseB
-prop> tokenClass x >|< tokenClass y = tokenClass (x >||< y)
+prop> empty = tokenClass falseP
+prop> tokenClass x <|> tokenClass y = tokenClass (x >|< y)
 
 -}
 class Tokenized token p => TokenAlgebra token p where
@@ -180,11 +127,10 @@ class Tokenized token p => TokenAlgebra token p where
     NotOneOf chars (AndAsIn cat) ->
       satisfy (notOneOf chars >&&< asIn cat)
     NotOneOf chars (AndNotAsIn cats) ->
-      satisfy (notOneOf chars >&&< allB notAsIn cats)
-    Alternate exam1 exam2 -> tokenClass exam1 <|> tokenClass exam2
+      satisfy (notOneOf chars >&&< allP notAsIn cats)
+    Alternate exam1 exam2 -> tokenClass exam1 >|< tokenClass exam2
 
 --instances
-instance (Alternative f, Monoid k) => KleeneStarAlgebra (Ap f k)
 deriving stock instance Generic (RegEx token)
 deriving stock instance Generic (RegExam token alg)
 deriving stock instance Generic1 (RegExam token)
@@ -207,6 +153,7 @@ deriving stock instance
 deriving newtype instance Categorized token => Eq (TokenClass token)
 deriving newtype instance Categorized token => Ord (TokenClass token)
 deriving newtype instance Categorized token => Tokenized token (TokenClass token)
+deriving newtype instance Categorized token => Disjunctive (TokenClass token)
 deriving newtype instance Categorized token => BooleanAlgebra (TokenClass token)
 instance Categorized token
   => TokenAlgebra token (TokenClass token) where
@@ -270,23 +217,13 @@ instance Categorized token => Monoid (RegEx token) where
 instance Categorized token => Semigroup (RegEx token) where
   SeqEmpty <> rex = rex
   rex <> SeqEmpty = rex
-  RegExam exam <> _ | isFailExam exam = zeroK
-  _ <> RegExam exam | isFailExam exam = zeroK
+  RegExam exam <> _ | isFailExam exam = falseP
+  _ <> RegExam exam | isFailExam exam = falseP
   KleeneStar rex0 <> rex1 | rex0 == rex1 = plusK rex0
   rex0 <> KleeneStar rex1 | rex0 == rex1 = plusK rex1
   rex0 <> rex1 = Sequence rex0 rex1
-instance Categorized token => KleeneStarAlgebra (RegEx token) where
-  zeroK = RegExam failExam
-  optK (RegExam exam) | isFailExam exam = mempty
-  optK SeqEmpty = mempty
-  optK (KleenePlus rex) = starK rex
-  optK rex = KleeneOpt rex
-  starK (RegExam exam) | isFailExam exam = mempty
-  starK SeqEmpty = mempty
-  starK rex = KleeneStar rex
-  plusK (RegExam exam) | isFailExam exam = zeroK
-  plusK SeqEmpty = mempty
-  plusK rex = KleenePlus rex
+instance Categorized token => Disjunctive (RegEx token) where
+  falseP = RegExam failExam
   rex0 >|< rex1 | rex0 == rex1 = rex0
   KleenePlus rex >|< SeqEmpty = starK rex
   SeqEmpty >|< KleenePlus rex = starK rex
@@ -299,8 +236,19 @@ instance Categorized token => KleeneStarAlgebra (RegEx token) where
       toTokenClass (RegExam exam) =
         TokenClass <$> traverse toTokenClass exam
       toTokenClass _ = Nothing
-      maybeOr = (>||<) <$> toTokenClass rex0 <*> toTokenClass rex1
+      maybeOr = (>|<) <$> toTokenClass rex0 <*> toTokenClass rex1
   rex0 >|< rex1 = RegExam (Alternate rex0 rex1)
+instance Categorized token => KleeneStarAlgebra (RegEx token) where
+  optK (RegExam exam) | isFailExam exam = mempty
+  optK SeqEmpty = mempty
+  optK (KleenePlus rex) = starK rex
+  optK rex = KleeneOpt rex
+  starK (RegExam exam) | isFailExam exam = mempty
+  starK SeqEmpty = mempty
+  starK rex = KleeneStar rex
+  plusK (RegExam exam) | isFailExam exam = falseP
+  plusK SeqEmpty = mempty
+  plusK rex = KleenePlus rex
 instance Categorized token => Tokenized token (RegExam token alg) where
   anyToken = passExam
   token a = OneOf (Set.singleton a)
@@ -312,22 +260,31 @@ instance Categorized token => Tokenized token (RegExam token alg) where
   asIn cat = NotOneOf Set.empty (AndAsIn cat)
   notAsIn cat = NotOneOf Set.empty (AndNotAsIn (Set.singleton cat))
 instance Categorized token
+  => Disjunctive (RegExam token (TokenClass token)) where
+  falseP = failExam
+  x >|< y | x == y = x
+  x >|< exam | isFailExam exam = x
+  exam >|< y | isFailExam exam = y
+  _ >|< exam | isPassExam exam = passExam
+  exam >|< _ | isPassExam exam = passExam
+  OneOf xs >|< OneOf ys = oneOf (Set.union xs ys)
+  x >|< y = Alternate (TokenClass x) (TokenClass y)
+instance Categorized token
   => BooleanAlgebra (RegExam token (TokenClass token)) where
-  falseB = failExam
-  trueB = passExam
-  notB exam | isFailExam exam = passExam
-  notB exam | isPassExam exam = failExam
-  notB (Alternate (TokenClass x) (TokenClass y)) = notB x >&&< notB y
-  notB (OneOf xs) = notOneOf xs
-  notB (NotOneOf xs (AndAsIn y)) = oneOf xs >||< notAsIn y
-  notB (NotOneOf xs (AndNotAsIn ys)) = oneOf xs >||< anyB asIn ys
+  trueP = passExam
+  notP exam | isFailExam exam = passExam
+  notP exam | isPassExam exam = failExam
+  notP (Alternate (TokenClass x) (TokenClass y)) = notP x >&&< notP y
+  notP (OneOf xs) = notOneOf xs
+  notP (NotOneOf xs (AndAsIn y)) = oneOf xs >|< notAsIn y
+  notP (NotOneOf xs (AndNotAsIn ys)) = oneOf xs >|< anyP asIn ys
   x >&&< y | x == y = x
   _ >&&< exam | isFailExam exam = failExam
   exam >&&< _ | isFailExam exam = failExam
   x >&&< exam | isPassExam exam = x
   exam >&&< z | isPassExam exam = z
-  x >&&< Alternate (TokenClass y) (TokenClass z) = (x >&&< y) >||< (x >&&< z)
-  Alternate (TokenClass x) (TokenClass y) >&&< z = (x >&&< z) >||< (y >&&< z)
+  x >&&< Alternate (TokenClass y) (TokenClass z) = (x >&&< y) >|< (x >&&< z)
+  Alternate (TokenClass x) (TokenClass y) >&&< z = (x >&&< z) >|< (y >&&< z)
   OneOf xs >&&< OneOf ys = OneOf (Set.intersection xs ys)
   OneOf xs >&&< NotOneOf ys (AndAsIn z) = OneOf
     (Set.filter (\x -> categorize x == z) (Set.difference xs ys))
@@ -354,13 +311,6 @@ instance Categorized token
       NotOneOf
         (Set.filter (\x -> categorize x `notElem` yzs) xws)
         (AndNotAsIn yzs)
-  x >||< y | x == y = x
-  x >||< exam | isFailExam exam = x
-  exam >||< y | isFailExam exam = y
-  _ >||< exam | isPassExam exam = passExam
-  exam >||< _ | isPassExam exam = passExam
-  OneOf xs >||< OneOf ys = oneOf (Set.union xs ys)
-  x >||< y = Alternate (TokenClass x) (TokenClass y)
 deriving stock instance
   (Categorized token, Read token, Read alg, Read (Categorize token))
     => Read (RegExam token alg)

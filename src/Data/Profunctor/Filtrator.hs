@@ -14,12 +14,12 @@ module Data.Profunctor.Filtrator
   , mfiltrate
   ) where
 
-import Control.Applicative
 import Control.Arrow
 import Control.Lens.PartialIso
 import Control.Lens.Internal.Profunctor
 import Control.Monad
 import Data.Bifunctor.Joker
+import Data.Monoid.Disjunctive (falseP)
 import Data.Profunctor
 import Data.Profunctor.Distributor
 import Data.Profunctor.Monad
@@ -71,9 +71,9 @@ mfiltrate
   => p (Either a c) (Either b d) -- ^ partition `Either`
   -> (p a b, p c d)
 mfiltrate =
-  (lmap Left >=> either pure (const empty))
+  (lmap Left >=> either pure (const falseP))
   &&&
-  (lmap Right >=> either (const empty) pure)
+  (lmap Right >=> either (const falseP) pure)
 
 instance (Profunctor p, forall x. Functor (p x), Filterable f)
   => Filtrator (WrappedPafb f p) where
