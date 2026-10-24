@@ -118,3 +118,15 @@ tests:
       - megaparsec >= 9.0 && < 10
       - QuickCheck >= 2.14 && < 3
       - quickcheck-instances
+
+benchmarks:
+  json:
+    main: Main.hs
+    source-dirs: bench
+    ghc-options:
+      - -O2
+      - -rtsopts
+    dependencies:
+      - deepseq
+      - distributors
+      - tasty-bench

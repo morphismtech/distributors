@@ -52,6 +52,18 @@ main = do
     describe "meander" meanderProperties
     jsonTypeSpec
     aesonSpec
+    jsonErrorSpec
+    jsonObjectSpec
+    jsonTupleSpec
+    jsonTupleTypeSpec
+    jsonOptionalSpec
+    jsonCodecSpec
+    jsonPrintSpec
+    jsonTupleSpec
+    jsonTupleTypeSpec
+    jsonOptionalSpec
+    jsonCodecSpec
+    jsonPrintSpec
 
 parseForestTests :: Spec
 parseForestTests = do

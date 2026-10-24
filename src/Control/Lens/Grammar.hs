@@ -59,8 +59,6 @@ import Data.Profunctor.Monoidal
 import Data.Profunctor.Grammar
 import Data.Profunctor.Grammar.Parsector
 import Data.Profunctor.Separator
-import Data.Profunctor.Strong
-import qualified Data.Set as Set
 import Data.String
 import GHC.Exts
 import Prelude hiding (filter)
@@ -552,7 +550,7 @@ But they also support `BackusNaurForm` `rule`s and `ruleRec`s.
 {start} = \q{∞-loop}
 {∞-loop} = \q{∞-loop}
 -}
-newtype RegBnf = RegBnf {runRegBnf :: Bnf RegString RegString}
+newtype RegBnf = RegBnf {runRegBnf :: Bnf RegString}
   deriving newtype
     ( Eq, Ord
     , Semigroup, Monoid, KleeneStarAlgebra
@@ -561,7 +559,7 @@ newtype RegBnf = RegBnf {runRegBnf :: Bnf RegString RegString}
     , BackusNaurForm
     )
 instance Matching String RegBnf where
-  word =~ pattern = word =~ (case runRegBnf pattern of Bnf start rules -> Bnf (runRegString start) (Set.map (second' runRegString) rules))
+  word =~ pattern = word =~ liftBnf1 runRegString (runRegBnf pattern)
 
 makeNestedPrisms ''Bnf
 makeNestedPrisms ''RegEx

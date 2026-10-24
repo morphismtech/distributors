@@ -16,6 +16,7 @@ module Data.Profunctor.Distributor
   , dialt
     -- * CocartesianChoice
   , CocartesianChoice (..)
+  , choiceP
     -- * Alternator
   , Alternator (..)
   , choice
@@ -227,6 +228,10 @@ class (CocartesianMonoidal p, Choice p) => CocartesianChoice p where
   altP :: p a b -> p a b -> p a b
   default altP :: Alternative (p a) => p a b -> p a b -> p a b
   altP = (<|>)
+
+-- | Combines all `CocartesianChoice` choices in the specified list.
+choiceP :: (Foldable f, CocartesianChoice p) => f (p a b) -> p a b
+choiceP = foldl' altP emptyP
 
 -- Alternator --
 
