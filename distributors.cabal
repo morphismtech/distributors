@@ -1,6 +1,6 @@
 cabal-version: 2.2
 
--- This file has been generated from package.yaml by hpack version 0.39.6.
+-- This file has been generated from package.yaml by hpack version 0.39.1.
 --
 -- see: https://github.com/sol/hpack
 
@@ -120,6 +120,7 @@ library
     , profunctors >=5.6 && <6
     , random >=1.2 && <2
     , scientific
+    , sop-core
     , strict
     , tagged >=0.8 && <1
     , template-haskell >=2.17 && <3
@@ -222,6 +223,7 @@ test-suite test
     , quickcheck-instances
     , random >=1.2 && <2
     , scientific
+    , sop-core
     , strict
     , tagged >=0.8 && <1
     , template-haskell >=2.17 && <3
@@ -296,8 +298,8 @@ benchmark json
     , bytestring >=0.11 && <1
     , containers >=0.6 && <1
     , contravariant >=1.5 && <2
-    , deepseq
     , data-fix
+    , deepseq
     , distributive >=0.6 && <1
     , distributors
     , dlist
@@ -310,9 +312,10 @@ benchmark json
     , profunctors >=5.6 && <6
     , random >=1.2 && <2
     , scientific
-    , tasty-bench
+    , sop-core
     , strict
     , tagged >=0.8 && <1
+    , tasty-bench
     , template-haskell >=2.17 && <3
     , text ==2.*
     , text-iso8601

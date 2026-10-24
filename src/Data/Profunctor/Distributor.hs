@@ -86,8 +86,8 @@ class Profunctor p => CocartesianMonoidal p where
   prop> zeroP = empty
   -}
   zeroP :: p Void Void
-  default zeroP :: Alternator p => p Void Void
-  zeroP = empty
+  default zeroP :: CocartesianChoice p => p Void Void
+  zeroP = emptyP
 
   {- | The sum structure morphism of a `Distributor`.
 

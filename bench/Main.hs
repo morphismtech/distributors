@@ -1,5 +1,8 @@
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RequiredTypeArguments #-}
+-- | Keep constant benchmarks, like `jsonTypes`, from being shared.
+{-# OPTIONS_GHC -fno-full-laziness #-}
 module Main (main) where
 
 import Control.DeepSeq (NFData)
@@ -40,6 +43,13 @@ data Weekday = Monday | Tuesday | Wednesday | Thursday | Friday
 data Rose = Rose Int [Rose]
   deriving stock (Show, Generic)
   deriving anyclass (NFData, Json, ToJSON, FromJSON)
+
+-- | Twelve nested pairs, each its own type alias.
+type Twice12 = Twice (Twice (Twice (Twice (Twice (Twice (Twice (Twice
+  (Twice (Twice (Twice (Twice Double)))))))))))
+data Twice a = Twice a a
+  deriving stock Generic
+  deriving anyclass Json
 
 people :: [Person]
 people =
@@ -185,4 +195,11 @@ main = defaultMain
   , dataset "rose" rose
   , dataset "times" times
   , dataset "value" value
+  , bgroup "typescript"
+    [ bench "records" (nf (\() -> jsonTypes (type '[Person])) ())
+    , bench "sums" (nf (\() -> jsonTypes [Shape]) ())
+    , bench "rose" (nf (\() -> jsonTypes (type '[Rose])) ())
+    , bench "value" (nf (\() -> jsonTypes [Value]) ())
+    , bench "twice12" (nf (\() -> jsonTypes [Twice12]) ())
+    ]
   ]

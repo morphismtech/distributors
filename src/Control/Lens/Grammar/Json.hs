@@ -4,25 +4,27 @@
 module Control.Lens.Grammar.Json
   ( -- * Json
     Json (..)
-  , JsonVal (..)
-  , JsonString (..)
-  , JsonTup (..)
-  , JsonObj (..)
-    -- * Aeson
   , jsonParse
   , jsonPrint
   , jsonEncode
+  , jsonTypes
+    -- * Grammar
+  , JsonVal (..)
+  , JsonStr (..)
+  , JsonTup (..)
+  , JsonObj (..)
+    -- * Errors
   , JsonError (..)
   , JsonErrorSort (..)
   , jsonErrorMessage
-    -- * TypeScript
-  , jsonType
   ) where
 
 import Control.Applicative
 import Control.Lens
 import Control.Lens.Grammar
 import Control.Monad
+import Control.Monad.Trans.Class (lift)
+import Control.Monad.Trans.Reader (ReaderT, ask, local, runReaderT)
 import Control.Monad.Trans.State.Strict
 import Data.Aeson.Encoding (Encoding)
 import Data.Aeson.Encoding qualified as Encoding
@@ -42,7 +44,7 @@ import Data.DList.DNonEmpty (DNonEmpty)
 import Data.DList.DNonEmpty qualified as DNonEmpty
 import Data.Fix (Fix (..), Mu, Nu, foldMu, foldNu, unfoldMu, unfoldNu)
 import Data.Fixed (Fixed, HasResolution (..), Nano)
-import Data.Foldable (toList)
+import Data.Foldable (toList, traverse_)
 import Data.Function (fix)
 import Data.Functor.Compose (Compose (..))
 import Data.Functor.Product qualified as Functor
@@ -58,7 +60,7 @@ import Data.IntMap (IntMap)
 import Data.IntMap qualified as IntMap
 import Data.IntSet (IntSet)
 import Data.IntSet qualified as IntSet
-import Data.List (find, findIndices, intercalate, nub)
+import Data.List (find, findIndices, intercalate, nub, stripPrefix)
 import Data.List.NonEmpty (NonEmpty, nonEmpty)
 import Data.Map (Map)
 import Data.Map qualified as Map
@@ -74,6 +76,7 @@ import Data.Profunctor
 import Data.Proxy (Proxy (..))
 import Data.Ratio (Ratio, denominator, numerator, (%))
 import Data.Scientific
+import Data.SOP (All, K (..), NP, hcollapse, hcpure)
 import Data.Semigroup qualified as Semigroup
 import Data.Sequence (Seq)
 import Data.Sequence qualified as Seq
@@ -145,6 +148,8 @@ class Json a where
   jsonKeyMap = jsonKeyValues json
   jsonKeyListMap :: (Json v, JsonVal p) => p [([a], v)] [([a], v)]
   jsonKeyListMap = jsonKeyValues jsonList
+jsonKeyValues :: (Json v, JsonVal p) => p a a -> p [(a, v)] [(a, v)]
+jsonKeyValues key = jsonArray (jsonTuple (jsonElem key >*< jsonElem json))
 
 {- | `JsonVal` grammars describe JSON values.
 A `jsonTyped` grammar is a `rule` for a Haskell type,
@@ -152,7 +157,7 @@ named by its `Typeable` type, like a type definition.
 -}
 class
   ( CocartesianChoice p
-  , JsonString p
+  , JsonStr p
   , forall x y. BackusNaurForm (p x y)
   ) => JsonVal p where
   jsonNull :: p () ()
@@ -182,7 +187,7 @@ class
   jsonDouble = prism' fromFloatDigits (Just . toRealFloat) ?< jsonNumber
   jsonArray :: p a b -> p [a] [b]
   jsonDict
-    :: (forall q. JsonString q => q a b)
+    :: (forall q. JsonStr q => q a b)
     -> p c d -> p [(a, c)] [(b, d)]
   jsonTuple :: (forall q. JsonTup p q => q a b) -> p a b
   jsonObject :: (forall q. JsonObj p q => q a b) -> p a b
@@ -198,7 +203,7 @@ class
   jsonTyped :: forall a. Typeable a => p a a -> p a a
   jsonTyped = rule (show (typeRep @a))
 
-{- | `JsonString`s have string literals, exactly matching some text.
+{- | `JsonStr`s have string literals, exactly matching some text.
 They're determined by `Cochoice` partiality.
 
 prop> fromString s = only (Text.pack s) ?< jsonString
@@ -206,16 +211,18 @@ prop> fromString s = only (Text.pack s) ?< jsonString
 class
   ( Choice p, Cochoice p
   , forall x y. (x ~ (), y ~ ()) => IsString (p x y)
-  ) => JsonString p where
+  ) => JsonStr p where
   jsonString :: p Text Text
 
 {- | `JsonTup` grammars describe the elements of a JSON array.
-As `Alternator`s they have optional elements (`optionalP`, `optionP`),
-rest elements (`manyP`, `someP`) and alternatives (`>+<`, `<|>`),
+As `Distributor`s they have optional elements (`optionalP`)
+and rest elements (`manyP`), and as `CocartesianChoice`s,
+alternatives (`>+<`, `altP`),
 like TypeScript's variadic tuple types, @[A, B?, ...C[]]@.
 Its elements are `JsonVal` grammars, which determine its type.
 -}
-class (JsonVal p, Alternator q) => JsonTup p q | q -> p where
+class (JsonVal p, Distributor q, CocartesianChoice q)
+  => JsonTup p q | q -> p where
   jsonElem :: p a b -> q a b
 
 {- | `JsonObj` grammars describe the properties of a JSON object.
@@ -229,10 +236,7 @@ class (JsonVal p, Monoidal q) => JsonObj p q | q -> p where
   (?:) :: Text -> p a b -> q (Maybe a) (Maybe b)
 infixr 7 !:, ?:
 
-jsonKeyValues :: (Json v, JsonVal p) => p a a -> p [(a, v)] [(a, v)]
-jsonKeyValues key = jsonArray (jsonTuple (jsonElem key >*< jsonElem json))
-
-keysCoerced :: Coercible k a => Iso' [(k, v)] [(a, v)]
+keysCoerced :: Coercible k j => Iso' [(k, v)] [(j, v)]
 keysCoerced = iso (map (first' coerce)) (map (first' coerce))
 
 -- Running Json grammars --
@@ -247,11 +251,15 @@ jsonPrint = runJsonPrintor json
 jsonEncode :: Json a => a -> Either JsonError Encoding
 jsonEncode = runJsonPrintor json
 
-{- | TypeScript type declarations of a `Json` grammar, with type aliases
-for its `jsonTyped` rules, each of which is named uniquely and declared once.
+{- | TypeScript type alias declarations of the `jsonTyped` & named rules
+of `Json` grammars, each of which is named uniquely and declared once.
 -}
-jsonType :: forall a -> (Json a, Typeable a) => Text
-jsonType a = renderTypeScript (show (typeRep @a)) (json @a)
+jsonTypes :: forall as -> All Json as => Text
+jsonTypes as = renderTypeScript $ hcollapse
+  (hcpure (Proxy @Json) tsRoot :: NP (K (TsGrammor () ())) as)
+  where
+    tsRoot :: forall a. Json a => K (TsGrammor () ()) a
+    tsRoot = K (coerce (json @a @TsGrammor))
 
 -- Errors --
 
@@ -449,7 +457,7 @@ instance (x ~ (), y ~ ()) => IsString (JsonParsor x y) where
       parse = \case
         String t | t == literal -> Right ()
         v -> Left (JsonError [] [show s] (Just v) JsonLiteral)
-instance JsonString JsonParsor where
+instance JsonStr JsonParsor where
   jsonString = jsonParsor $ \case
     String t -> Right t
     v -> jsonMismatch "string" v
@@ -525,20 +533,15 @@ instance Profunctor TupParsor where
 instance Choice TupParsor where
   left' = fmap Left . retag
   right' = fmap Right . retag
-instance Alternative (TupParsor a) where
-  empty = TupParsor Nothing (\_ _ -> [])
-  p <|> q = TupParsor Nothing $ \arr i ->
+instance CocartesianChoice TupParsor where
+  emptyP = TupParsor Nothing (\_ _ -> [])
+  altP p q = TupParsor Nothing $ \arr i ->
     runTupParsor p arr i <> runTupParsor q arr i
-  many = coerce . manyP
-  some p = (:) <$> p <*> many p
-instance CocartesianChoice TupParsor
-instance Alternator TupParsor where
-  alternate = either (fmap Left . retag) (fmap Right . retag)
 
 retag :: TupParsor a b -> TupParsor x b
 retag = coerce
 instance CocartesianMonoidal TupParsor where
-  zeroP = empty
+  zeroP = emptyP
   TupParsor _ p >+< TupParsor _ q = TupParsor Nothing $ \arr i ->
     map (fmap (first' Left)) (p arr i) <> map (fmap (first' Right)) (q arr i)
 -- | `manyP` tries longer repetitions first, never repeating an empty match.
@@ -689,7 +692,7 @@ instance BackusNaurForm (JsonPrintor val a b) where
   ruleRec name f = fix (rule name . f)
 instance (AesonVal val, x ~ (), y ~ ()) => IsString (JsonPrintor val x y) where
   fromString s = JsonPrintor (const (Right (aesonString (Text.pack s))))
-instance AesonVal val => JsonString (JsonPrintor val) where
+instance AesonVal val => JsonStr (JsonPrintor val) where
   jsonString = JsonPrintor (Right . aesonString)
 instance AesonVal val => JsonVal (JsonPrintor val) where
   jsonNull = JsonPrintor (const (Right aesonNull))
@@ -733,23 +736,17 @@ deriving via Forget (Elements val)
   instance CocartesianMonoidal (TupPrintor val)
 deriving via Forget (Elements val) instance Distributor (TupPrintor val)
 instance Choice (TupPrintor val) where
-  left' = alternate . Left
-  right' = alternate . Right
+  left' (TupPrintor p) = TupPrintor (either p (\_ -> unprintable))
+  right' (TupPrintor p) = TupPrintor (either (\_ -> unprintable) p)
 unprintable :: Elements val
 unprintable = Elements (jsonUnexpected Nothing)
-instance Alternative (TupPrintor val a) where
-  empty = TupPrintor (\_ -> unprintable)
-  p <|> q = TupPrintor $ \a -> case (runTupPrintor p a, runTupPrintor q a) of
+instance CocartesianChoice (TupPrintor val) where
+  emptyP = TupPrintor (\_ -> unprintable)
+  altP p q = TupPrintor $ \a -> case (runTupPrintor p a, runTupPrintor q a) of
     (Elements (Left err0), Elements (Left err1)) ->
       Elements (Left (jsonOrElse err0 err1))
     (Elements (Left _), printed) -> printed
     (printed, _) -> printed
-instance CocartesianChoice (TupPrintor val)
-instance Alternator (TupPrintor val) where
-  optionP def p = pureP def <|> p
-  alternate = \case
-    Left p -> TupPrintor (either (runTupPrintor p) (\_ -> unprintable))
-    Right p -> TupPrintor (either (\_ -> unprintable) (runTupPrintor p))
 
 instance AesonVal val => JsonTup (JsonPrintor val) (TupPrintor val) where
   jsonElem p = TupPrintor $ \a -> Elements $
@@ -803,13 +800,19 @@ data TsElement
 data TsProperty = TsProperty Text Bool TsType
   deriving stock (Eq, Ord)
 
-newtype TsGrammor a b = TsGrammor (State TsDefinitions TsType)
+newtype TsGrammor a b = TsGrammor (TsDefining TsType)
 
 newtype TsTupGrammor a b = TsTupGrammor
-  {runTsTupGrammor :: Ap (State TsDefinitions) TsShapes}
+  {runTsTupGrammor :: Ap TsDefining TsShapes}
 
 newtype TsObjGrammor a b = TsObjGrammor
-  {runTsObjGrammor :: Ap (State TsDefinitions) [TsProperty]}
+  {runTsObjGrammor :: Ap TsDefining [TsProperty]}
+
+{- | Defining TypeScript types, reading the rules being defined which are
+unguarded by an array, object or tuple, each noting whether it's been
+unrolled, and updating the named rules & their definitions.
+-}
+type TsDefining = ReaderT (Map TsRuleKey Bool) (State TsDefinitions)
 
 data TsDefinitions = TsDefinitions
   { tsRuleNames :: Map TsRuleKey String
@@ -822,20 +825,31 @@ data TsRuleKey = TsNamedRule String | TsTypedRule SomeTypeRep
 {- | Define a rule once, under the first of its names which isn't taken,
 so that every other occurrence of it, recursive or not, is its name.
 Its name is reserved, as `never`, while its definition is built.
+An unguarded occurrence is its least fixpoint instead, unrolled once,
+so that a rule of a rule is the rule, and a rule recurring unguarded
+contributes `never`, since JSON values are finite.
 -}
 tsDefine :: TsRuleKey -> [String] -> TsGrammor a b -> TsGrammor c d
 tsDefine key names (TsGrammor body) = TsGrammor $ do
-  TsDefinitions ruleNames rules <- get
-  case Map.lookup key ruleNames of
-    Just name -> pure (TsAlias name)
-    Nothing -> do
-      let name = freshName rules names
-      put (TsDefinitions
-        (Map.insert key name ruleNames) (Map.insert name (tsUnion []) rules))
-      definition <- body
-      modify $ \defs ->
-        defs {tsRules = Map.insert name definition (tsRules defs)}
+  unguarded <- ask
+  defs <- lift get
+  case (Map.lookup key unguarded, Map.lookup key (tsRuleNames defs)) of
+    (Just True, _) -> pure (tsUnion [])
+    (Just False, _) -> local (Map.insert key True) body
+    (Nothing, Just name) -> pure (TsAlias name)
+    (Nothing, Nothing) -> do
+      let name = freshName (tsRules defs) names
+      lift $ put defs
+        { tsRuleNames = Map.insert key name (tsRuleNames defs)
+        , tsRules = Map.insert name (tsUnion []) (tsRules defs)
+        }
+      definition <- local (Map.insert key False) body
+      lift $ modify $ \defined ->
+        defined {tsRules = Map.insert name definition (tsRules defined)}
       pure (TsAlias name)
+
+tsGuarded :: TsDefining a -> TsDefining a
+tsGuarded = local (const Map.empty)
 
 freshName :: Map String a -> [String] -> String
 freshName taken names = fromMaybe primed (find (`Map.notMember` taken) names)
@@ -893,11 +907,45 @@ So, the elements from the first rest element to the last are merged
 into one rest element, and optional elements are expanded into
 alternative shapes wherever they'd be followed by a required or
 rest element, or a rest element precedes them.
+Then, alternative shapes are merged exactly, where they differ by
+one required or optional element's type, into a union, or by one more
+element, into an optional or rest element, so that @[A] | [B]@ is @[A | B]@,
+@[A] | [A, B]@ is @[A, B?]@ & @[] | [A, ...A[]]@ is @[...A[]]@.
 -}
 tsTuple :: TsShapes -> TsType
-tsTuple (Ap shapes) =
-  tsUnion (TsTuple <$> nub (concatMap (expand False . mergeRests) shapes))
+tsTuple (Ap shapes) = tsUnion $ TsTuple <$>
+  merged (nub (concatMap (expand False . mergeRests) shapes))
   where
+    merged alternatives =
+      case [ (i, j, shape)
+           | merge <- [unioned, extended]
+           , (i, a) <- zip [0 :: Int ..] alternatives
+           , (j, b) <- zip [0 ..] alternatives
+           , i /= j
+           , Just shape <- [merge a b]
+           ] of
+        (i, j, shape) : _ -> merged
+          [ if k == min i j then shape else alternative
+          | (k, alternative) <- zip [0 ..] alternatives, k /= max i j ]
+        [] -> alternatives
+    unioned a b = case break (uncurry (/=)) (zip a b) of
+      (same, (x, y) : others)
+        | length a == length b, all (uncurry (==)) others
+        , Just el <- unionedElement x y ->
+            Just (map fst same <> [el] <> map fst others)
+      _ -> Nothing
+    unionedElement x y = case (x, y) of
+      (TsRequired s, TsRequired t) -> Just (TsRequired (tsUnion [s, t]))
+      (TsOptional s, TsOptional t) -> Just (TsOptional (tsUnion [s, t]))
+      _ -> Nothing
+    extended a b
+      | any isRest a = Nothing
+      | otherwise = stripPrefix a b >>= \case
+          [TsRequired t] -> Just (a <> [TsOptional t])
+          [TsOptional _] -> Just b
+          [TsRest _] -> Just b
+          [TsRequired t, TsRest u] | t == u -> Just (a <> [TsRest t])
+          _ -> Nothing
     isRest = \case TsRest _ -> True; _ -> False
     mergeRests els = case findIndices isRest els of
       start : rests@(_ : _) ->
@@ -919,11 +967,11 @@ tsTuple (Ap shapes) =
       TsOptional _ : els -> optionalTail els
       _ -> False
 
-deriving via Grammor (State TsDefinitions TsType) a
+deriving via Grammor (TsDefining TsType) a
   instance Functor (TsGrammor a)
-deriving via Grammor (State TsDefinitions TsType)
+deriving via Grammor (TsDefining TsType)
   instance Profunctor TsGrammor
-deriving via Grammor (State TsDefinitions TsType)
+deriving via Grammor (TsDefining TsType)
   instance Choice TsGrammor
 instance Cochoice TsGrammor where
   unleft = coerce
@@ -938,18 +986,17 @@ instance BackusNaurForm (TsGrammor a b) where
   rule name = tsDefine (TsNamedRule name) [name]
   ruleRec name f = rule name (f self)
     where
-      self = TsGrammor (gets (TsAlias . ruleName))
-      ruleName = Map.findWithDefault name (TsNamedRule name) . tsRuleNames
+      self = tsDefine (TsNamedRule name) [name] emptyP
 instance (x ~ (), y ~ ()) => IsString (TsGrammor x y) where
   fromString = tsType . TsLiteral . Text.pack
-instance JsonString TsGrammor where
+instance JsonStr TsGrammor where
   jsonString = tsType TsString
 instance JsonVal TsGrammor where
   jsonNull = tsType TsNull
   jsonBool = tsType TsBoolean
   jsonNumber = tsType TsNumber
-  jsonArray (TsGrammor t) = TsGrammor (TsArray <$> t)
-  jsonDict _ (TsGrammor t) = TsGrammor (TsDict <$> t)
+  jsonArray (TsGrammor t) = TsGrammor (TsArray <$> tsGuarded t)
+  jsonDict _ (TsGrammor t) = TsGrammor (TsDict <$> tsGuarded t)
   jsonTuple tup = TsGrammor (tsTuple <$> getAp (runTsTupGrammor tup))
   jsonObject obj = TsGrammor (tsObject <$> getAp (runTsObjGrammor obj))
   jsonTyped :: forall a. Typeable a => TsGrammor a a -> TsGrammor a a
@@ -957,47 +1004,29 @@ instance JsonVal TsGrammor where
     where
       rep = SomeTypeRep (typeRep @a)
 
-deriving via Grammor (Ap (State TsDefinitions) TsShapes) a
+deriving via Grammor (Ap TsDefining TsShapes) a
   instance Functor (TsTupGrammor a)
-deriving via Grammor (Ap (State TsDefinitions) TsShapes) a
+deriving via Grammor (Ap TsDefining TsShapes) a
   instance Applicative (TsTupGrammor a)
-deriving via Grammor (Ap (State TsDefinitions) TsShapes)
+deriving via Grammor (Ap TsDefining TsShapes)
   instance Profunctor TsTupGrammor
 instance CocartesianMonoidal TsTupGrammor where
-  zeroP = TsTupGrammor (pure (Ap []))
+  zeroP = emptyP
   (>+<) = tsShapesUnion
 instance Choice TsTupGrammor where
   left' = coerce
   right' = coerce
-instance Alternative (TsTupGrammor a) where
-  empty = TsTupGrammor (pure (Ap []))
-  (<|>) = tsShapesUnion
-  many = coerce . manyP
-  some p = (:) <$> p <*> many p
-instance CocartesianChoice TsTupGrammor
-instance Alternator TsTupGrammor where
-  alternate = either coerce coerce
-  optionP _ = coerce . optionalP
+instance CocartesianChoice TsTupGrammor where
+  emptyP = TsTupGrammor (pure (Ap []))
+  altP = tsShapesUnion
 
 tsShapesUnion :: TsTupGrammor a b -> TsTupGrammor c d -> TsTupGrammor s t
 tsShapesUnion (TsTupGrammor s0) (TsTupGrammor s1) =
   TsTupGrammor (liftA2 unite s0 s1)
   where
     unite (Ap shapes0) (Ap shapes1) = Ap (shapes0 <> shapes1)
-{- | `optionalP` is an optional element, of a single required element,
-or else an alternative empty shape. `manyP` is a rest element,
-of the union of the elements of its shapes.
--}
+-- | `manyP` is a rest element, of the union of the elements of its shapes.
 instance Distributor TsTupGrammor where
-  optionalP (TsTupGrammor s) = TsTupGrammor (optionalShape <$> s)
-    where
-      optionalShape (Ap shapes) =
-        Ap $ case traverse single shapes of
-          Just ts@(_ : _) -> [[TsOptional (tsUnion ts)]]
-          _ -> [] : shapes
-      single = \case
-        [TsRequired t] -> Just t
-        _ -> Nothing
   manyP (TsTupGrammor s) = TsTupGrammor (rest <$> s)
     where
       rest (Ap shapes) = Ap $
@@ -1006,34 +1035,30 @@ instance Distributor TsTupGrammor where
           ts -> [[TsRest (tsUnion ts)]]
 instance JsonTup TsGrammor TsTupGrammor where
   jsonElem (TsGrammor t) =
-    TsTupGrammor (Ap ((\ty -> Ap [[TsRequired ty]]) <$> t))
+    TsTupGrammor (Ap ((\ty -> Ap [[TsRequired ty]]) <$> tsGuarded t))
 
-deriving via Grammor (Ap (State TsDefinitions) [TsProperty]) a
+deriving via Grammor (Ap TsDefining [TsProperty]) a
   instance Functor (TsObjGrammor a)
-deriving via Grammor (Ap (State TsDefinitions) [TsProperty]) a
+deriving via Grammor (Ap TsDefining [TsProperty]) a
   instance Applicative (TsObjGrammor a)
-deriving via Grammor (Ap (State TsDefinitions) [TsProperty])
+deriving via Grammor (Ap TsDefining [TsProperty])
   instance Profunctor TsObjGrammor
 instance JsonObj TsGrammor TsObjGrammor where
   k !: TsGrammor t =
-    TsObjGrammor (Ap (pure . TsProperty k False <$> t))
+    TsObjGrammor (Ap (pure . TsProperty k False <$> tsGuarded t))
   k ?: TsGrammor t =
-    TsObjGrammor (Ap (pure . TsProperty k True <$> t))
+    TsObjGrammor (Ap (pure . TsProperty k True <$> tsGuarded t))
 
 -- Rendering TypeScript --
 
-{- | Render TypeScript type alias declarations, including one named
-@rootName@ for the root type, unless it's already a type alias.
--}
-renderTypeScript :: String -> TsGrammor a b -> Text
-renderTypeScript rootName (TsGrammor ts) =
-  Text.unlines (map declaration (Map.toList declarations))
+-- | Render the TypeScript type alias declarations of rules, sharing them.
+renderTypeScript :: [TsGrammor () ()] -> Text
+renderTypeScript roots =
+  Text.unlines (map declaration (Map.toList (tsRules definitions)))
   where
-    (root, definitions) = runState ts (TsDefinitions Map.empty Map.empty)
-    aliases = tsRules definitions
-    declarations = case root of
-      TsAlias _ -> aliases
-      _ -> Map.insert rootName root aliases
+    definitions = execState
+      (runReaderT (traverse_ (\(TsGrammor ts) -> ts) roots) Map.empty)
+      (TsDefinitions Map.empty Map.empty)
     declaration (name, ty) =
       "export type " <> tsIdentifier name <> " = " <> renderTsType ty <> ";"
 
@@ -1097,10 +1122,10 @@ tsIdentifier name = case Text.uncons ident of
 
 -- Json instance helpers
 
-jsonStringWith :: JsonString p => (a -> Text) -> (Text -> Maybe a) -> p a a
+jsonStringWith :: JsonStr p => (a -> Text) -> (Text -> Maybe a) -> p a a
 jsonStringWith f g = prism' f g ?< jsonString
 
-jsonEnumWith :: JsonString p => (a -> Text) -> [a] -> p a a
+jsonEnumWith :: JsonStr p => (a -> Text) -> [a] -> p a a
 jsonEnumWith f as = jsonStringWith f (\t -> lookup t [(f a, a) | a <- as])
 
 jsonTag :: JsonVal p => Text -> p a b -> p a b
@@ -1125,48 +1150,48 @@ jsonRealFrac =
   prism' realToFrac (fmap realToFrac . boundedScientific) ?< jsonNumber
 
 jsonTimeWith
-  :: JsonString p
+  :: JsonStr p
   => (a -> Encoding.Encoding' Text) -> (Text -> Either String a) -> p a a
 jsonTimeWith f g = jsonStringWith
   ( Text.dropAround (== '"') . Text.decodeLatin1 . LByteString.toStrict
   . Encoding.encodingToLazyByteString . f )
   (either (const Nothing) Just . g)
 
-jsonChar :: JsonString p => p Char Char
+jsonChar :: JsonStr p => p Char Char
 jsonChar = jsonStringWith Text.singleton $ \t -> case Text.uncons t of
   Just (c, rest) | Text.null rest -> Just c
   _ -> Nothing
 
-jsonStr :: JsonString p => p String String
+jsonStr :: JsonStr p => p String String
 jsonStr = iso Text.pack Text.unpack >~ jsonString
 
-jsonKey :: JsonString p => p Key Key
+jsonKey :: JsonStr p => p Key Key
 jsonKey = iso Key.toText Key.fromText >~ jsonString
 
-jsonVersion :: JsonString p => p Version Version
+jsonVersion :: JsonStr p => p Version Version
 jsonVersion = jsonStringWith (Text.pack . showVersion) $ \t ->
   listToMaybe [v | (v, "") <- readP_to_S parseVersion (Text.unpack t)]
 
-jsonUUID :: JsonString p => p UUID UUID
+jsonUUID :: JsonStr p => p UUID UUID
 jsonUUID = jsonStringWith UUID.toText UUID.fromText
 
-jsonURI :: JsonString p => p URI URI
+jsonURI :: JsonStr p => p URI URI
 jsonURI = jsonStringWith
   (\uri -> Text.pack (URI.uriToString id uri ""))
   (URI.parseURI . Text.unpack)
 
-jsonDay :: JsonString p => p DayOfWeek DayOfWeek
+jsonDay :: JsonStr p => p DayOfWeek DayOfWeek
 jsonDay = jsonEnumWith (Text.toLower . Text.pack . show)
   [Monday, Tuesday, Wednesday, Thursday, Friday, Saturday, Sunday]
 
-jsonQuarter :: JsonString p => p QuarterOfYear QuarterOfYear
+jsonQuarter :: JsonStr p => p QuarterOfYear QuarterOfYear
 jsonQuarter = jsonEnumWith (Text.toLower . Text.pack . show) [Q1, Q2, Q3, Q4]
 
 readScientific :: Text -> Maybe Scientific
 readScientific = readMaybe . Text.unpack
 
 -- | `Scientific` map keys, as @aeson@ renders them.
-jsonScientificKey :: JsonString p => p Scientific Scientific
+jsonScientificKey :: JsonStr p => p Scientific Scientific
 jsonScientificKey = jsonStringWith render readScientific
   where
     render s
@@ -1176,11 +1201,11 @@ jsonScientificKey = jsonStringWith render readScientific
         e = base10Exponent s
 
 -- | Integral map keys, as @aeson@ renders them.
-jsonIntKeyWith :: (Show a, JsonString p) => (Scientific -> Maybe a) -> p a a
+jsonIntKeyWith :: (Show a, JsonStr p) => (Scientific -> Maybe a) -> p a a
 jsonIntKeyWith f = jsonStringWith (Text.pack . show) (readScientific >=> f)
 
 -- | `RealFloat` map keys, as @aeson@ renders them.
-jsonRealFloatKey :: (RealFloat a, Show a, JsonString p) => p a a
+jsonRealFloatKey :: (RealFloat a, Show a, JsonStr p) => p a a
 jsonRealFloatKey = jsonStringWith render parse
   where
     render d
