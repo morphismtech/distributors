@@ -102,7 +102,7 @@ instance Applicative (Dioptrice a b s) where
   Dioptrice fx gx <*> Dioptrice fy gy = Dioptrice
     (\s -> fx s :*: fy s)
     (\(h :*: g) -> gx h (gy g))
-instance Distributor (Dioptrice a b) where
+instance CocartesianMonoidal (Dioptrice a b) where
   zeroP = Dioptrice absurd ridiculous
     where
       ridiculous :: V1 b -> x
@@ -110,6 +110,7 @@ instance Distributor (Dioptrice a b) where
   Dioptrice fx gx >+< Dioptrice fy gy = Dioptrice
     (either (L1 . fx) (R1 . fy))
     (\case {L1 h -> Left (gx h); R1 j -> Right (gy j)})
+instance Distributor (Dioptrice a b) where
   optionalP (Dioptrice f g) = Dioptrice
     (Comp1 . fmap f)
     (fmap g . unComp1)

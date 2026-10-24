@@ -178,7 +178,9 @@ instance Cochoice (Binocular a b) where
     = Binocular $ catMaybes
     . fmap (either (const Nothing) Just)
     . k . (. (. Right))
+instance CocartesianMonoidal (Binocular a b)
 instance Distributor (Binocular a b)
+instance CocartesianChoice (Binocular a b)
 instance Alternator (Binocular a b)
 instance Filtrator (Binocular a b)
 

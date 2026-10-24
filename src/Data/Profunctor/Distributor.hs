@@ -9,9 +9,13 @@ Portability : non-portable
 -}
 
 module Data.Profunctor.Distributor
-  ( -- * Distributor
-    Distributor (..)
+  ( -- * CocartesianMonoidal
+    CocartesianMonoidal (..)
+    -- * Distributor
+  , Distributor (..)
   , dialt
+    -- * CocartesianChoice
+  , CocartesianChoice (..)
     -- * Alternator
   , Alternator (..)
   , choice
@@ -72,7 +76,7 @@ distributing an action over
 sum-of-products datatypes.
 
 -}
-class Monoidal p => Distributor p where
+class Profunctor p => CocartesianMonoidal p where
 
   {- | The zero structure morphism of a `Distributor`.
 
@@ -97,6 +101,8 @@ class Monoidal p => Distributor p where
   x >+< y = alternate (Left x) <|> alternate (Right y)
   infixr 3 >+<
 
+class (Monoidal p, CocartesianMonoidal p) => Distributor p where
+
   {- | One or none. -}
   optionalP :: p a b -> p (Maybe a) (Maybe b)
   optionalP p = eotMaybe >~ p >+< oneP
@@ -105,86 +111,122 @@ class Monoidal p => Distributor p where
   manyP :: p a b -> p [a] [b]
   manyP p = eotList >~ p >*< manyP p >+< oneP
 
-instance Distributor (->) where
+instance CocartesianMonoidal (->) where
   zeroP = id
   (>+<) = (+++)
-instance Monoid s => Distributor (Forget s) where
+instance Distributor (->)
+instance CocartesianMonoidal (Forget s) where
   zeroP = Forget absurd
   Forget kL >+< Forget kR = Forget (either kL kR)
-instance Decidable f => Distributor (Clown f) where
+instance Monoid s => Distributor (Forget s)
+instance Decidable f => CocartesianMonoidal (Clown f) where
   zeroP = Clown lost
   Clown x >+< Clown y = Clown (chosen x y)
-instance Alternative f => Distributor (Joker f) where
+instance Decidable f => Distributor (Clown f)
+instance Alternative f => CocartesianMonoidal (Joker f) where
   zeroP = Joker empty
   Joker x >+< Joker y = Joker (Left <$> x <|> Right <$> y)
+instance Alternative f => Distributor (Joker f) where
   optionalP (Joker x) = Joker (optional x)
   manyP (Joker x) = Joker (many x)
-instance (Distributor p, Applicative f)
-  => Distributor (WrappedPafb f p) where
+instance (CocartesianMonoidal p, Applicative f)
+  => CocartesianMonoidal (WrappedPafb f p) where
     zeroP = WrapPafb (rmap pure zeroP)
     WrapPafb x >+< WrapPafb y = WrapPafb $
       dialt id (fmap Left) (fmap Right) x y
+instance (Distributor p, Applicative f)
+  => Distributor (WrappedPafb f p) where
     manyP (WrapPafb x) = WrapPafb (rmap sequenceA (manyP x))
     optionalP (WrapPafb x) = WrapPafb (rmap sequenceA (optionalP x))
-instance Applicative f => Distributor (Star f) where
+instance Functor f => CocartesianMonoidal (Star f) where
   zeroP = Star absurd
   Star f >+< Star g =
     Star (either (fmap Left . f) (fmap Right . g))
+instance Applicative f => Distributor (Star f) where
   optionalP (Star f) = Star (traverse f)
   manyP (Star f) = Star (traverse f)
+deriving via (Star m) instance Monad m => CocartesianMonoidal (Kleisli m)
 deriving via (Star m) instance Monad m => Distributor (Kleisli m)
-instance Adjunction f u => Distributor (Costar f) where
+instance Adjunction f u => CocartesianMonoidal (Costar f) where
   zeroP = Costar unabsurdL
   Costar f >+< Costar g = Costar (bimap f g . cozipL)
-instance (Applicative f, Distributor p)
-  => Distributor (Cayley f p) where
+instance Adjunction f u => Distributor (Costar f)
+instance (Applicative f, CocartesianMonoidal p)
+  => CocartesianMonoidal (Cayley f p) where
     zeroP = Cayley (pure zeroP)
     Cayley x >+< Cayley y = Cayley ((>+<) <$> x <*> y)
+instance (Applicative f, Distributor p)
+  => Distributor (Cayley f p) where
     optionalP (Cayley x) = Cayley (optionalP <$> x)
     manyP (Cayley x) = Cayley (manyP <$> x)
 instance (ArrowZero p, ArrowChoice p)
-  => Distributor (Pro.WrappedArrow p) where
+  => CocartesianMonoidal (Pro.WrappedArrow p) where
     zeroP = zeroArrow
     (>+<) = (+++)
+instance (ArrowZero p, ArrowChoice p)
+  => Distributor (Pro.WrappedArrow p)
+deriving via (Pro.WrappedArrow p)
+  instance (ArrowZero p, ArrowChoice p)
+    => CocartesianMonoidal (Ap.WrappedArrow p)
 deriving via (Pro.WrappedArrow p)
   instance (ArrowZero p, ArrowChoice p)
     => Distributor (Ap.WrappedArrow p)
-instance (Distributor p, Distributor q)
-  => Distributor (Procompose p q) where
+instance (CocartesianMonoidal p, CocartesianMonoidal q)
+  => CocartesianMonoidal (Procompose p q) where
     zeroP = Procompose zeroP zeroP
     Procompose xL yL >+< Procompose xR yR =
       Procompose (xL >+< xR) (yL >+< yR)
+instance (Distributor p, Distributor q)
+  => Distributor (Procompose p q) where
     optionalP (Procompose f g) =
       Procompose (optionalP f) (optionalP g)
     manyP (Procompose f g) =
       Procompose (manyP f) (manyP g)
-instance (Distributor p, Distributor q)
-  => Distributor (Product p q) where
+instance (CocartesianMonoidal p, CocartesianMonoidal q)
+  => CocartesianMonoidal (Product p q) where
     zeroP = Pair zeroP zeroP
     Pair x0 y0 >+< Pair x1 y1 = Pair (x0 >+< x1) (y0 >+< y1)
+instance (Distributor p, Distributor q)
+  => Distributor (Product p q) where
     optionalP (Pair f g) =
       Pair (optionalP f) (optionalP g)
     manyP (Pair f g) =
       Pair (manyP f) (manyP g)
-instance Distributor p => Distributor (Yoneda p) where
+instance CocartesianMonoidal p => CocartesianMonoidal (Yoneda p) where
   zeroP = proreturn zeroP
   ab >+< cd = proreturn (proextract ab >+< proextract cd)
+instance Distributor p => Distributor (Yoneda p) where
   optionalP = proreturn . optionalP . proextract
   manyP = proreturn . manyP . proextract
-instance Distributor p => Distributor (Coyoneda p) where
+instance CocartesianMonoidal p => CocartesianMonoidal (Coyoneda p) where
   zeroP = proreturn zeroP
   ab >+< cd = proreturn (proextract ab >+< proextract cd)
+instance Distributor p => Distributor (Coyoneda p) where
   optionalP = proreturn . optionalP . proextract
   manyP = proreturn . manyP . proextract
 
 {- | `dialt` is a functionalized form of `>+<`. -}
 dialt
-  :: Distributor p
+  :: CocartesianMonoidal p
   => (s -> Either a c)
   -> (b -> t)
   -> (d -> t)
   -> p a b -> p c d -> p s t
 dialt f g h p q = dimap f (either g h) (p >+< q)
+
+-- CocartesianChoice --
+
+{- | `CocartesianChoice` co-extends `Choice` and `CocartesianMonoidal`,
+with an `emptyP` failure and `altP` choice,
+like `Alternative` but without requiring `Monoidal` structure.
+-}
+class (CocartesianMonoidal p, Choice p) => CocartesianChoice p where
+  emptyP :: p a b
+  default emptyP :: Alternative (p a) => p a b
+  emptyP = empty
+  altP :: p a b -> p a b -> p a b
+  default altP :: Alternative (p a) => p a b -> p a b -> p a b
+  altP = (<|>)
 
 -- Alternator --
 
@@ -217,7 +259,7 @@ because there is no general polymorphic function @empty :: a -> b@,
 so @(->)@ isn't an `Alternator`.
 
 -}
-class (Choice p, Distributor p, forall x. Alternative (p x))
+class (Distributor p, CocartesianChoice p, forall x. Alternative (p x))
   => Alternator p where
 
     {- | The structure morphism for an `Alternator`,
@@ -247,11 +289,14 @@ class (Choice p, Distributor p, forall x. Alternative (p x))
 choice :: (Foldable f, Alternative p) => f (p a) -> p a
 choice = foldl' (<|>) empty
 
+instance Alternative f => CocartesianChoice (Star f)
 instance Alternative f
   => Alternator (Star f) where
     alternate = either
       (\(Star f) -> Star (either (fmap Left . f) (const empty)))
       (\(Star f) -> Star (either (const empty) (fmap Right . f)))
+instance (Alternator p, Applicative f)
+  => CocartesianChoice (WrappedPafb f p)
 instance (Alternator p, Applicative f)
   => Alternator (WrappedPafb f p) where
     alternate =
@@ -270,16 +315,19 @@ instance (Alternator p, Applicative f)
         either f g
     someP (WrapPafb x) = WrapPafb (rmap sequenceA (someP x))
     optionP def (WrapPafb x) = WrapPafb (optionP (prism pure pure . def) x)
+instance Alternator p => CocartesianChoice (Coyoneda p)
 instance Alternator p => Alternator (Coyoneda p) where
   alternate (Left p) = proreturn (alternate (Left (proextract p)))
   alternate (Right p) = proreturn (alternate (Right (proextract p)))
   someP = proreturn . someP . proextract
   optionP def = proreturn . optionP def . proextract
+instance Alternator p => CocartesianChoice (Yoneda p)
 instance Alternator p => Alternator (Yoneda p) where
   alternate (Left p) = proreturn (alternate (Left (proextract p)))
   alternate (Right p) = proreturn (alternate (Right (proextract p)))
   someP = proreturn . someP . proextract
   optionP def = proreturn . optionP def . proextract
+instance Alternative f => CocartesianChoice (Joker f)
 instance Alternative f => Alternator (Joker f) where
   alternate (Left (Joker x)) = Joker (Left <$> x)
   alternate (Right (Joker y)) = Joker (Right <$> y)

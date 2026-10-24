@@ -51,6 +51,7 @@ main = do
     describe "Kleene" kleeneProperties
     describe "meander" meanderProperties
     jsonTypeSpec
+    aesonSpec
 
 parseForestTests :: Spec
 parseForestTests = do

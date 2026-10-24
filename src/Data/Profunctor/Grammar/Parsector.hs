@@ -337,7 +337,9 @@ instance Strong (Parsector s) where
 instance Categorized (Item s) => Choice (Parsector s) where
   left' = alternate . Left
   right' = alternate . Right
+instance Categorized (Item s) => CocartesianMonoidal (Parsector s)
 instance Categorized (Item s) => Distributor (Parsector s)
+instance Categorized (Item s) => CocartesianChoice (Parsector s)
 instance Categorized (Item s) => Alternator (Parsector s) where
   alternate (Left p) = Parsector $ \callback query -> callback $
     let

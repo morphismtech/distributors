@@ -106,7 +106,9 @@ instance Filterable f => Filtrator (Parsor s f) where
         (\case{(Right b,t) -> Just (b,t); _ -> Nothing})
         (p (fmap Right ma) s)
     )
+instance (Alternative m, Monad m) => CocartesianMonoidal (Parsor s m)
 instance (Alternative m, Monad m) => Distributor (Parsor s m)
+instance (Alternative m, Monad m) => CocartesianChoice (Parsor s m)
 instance (Alternative m, Monad m) => Choice (Parsor s m) where
   left' = alternate . Left
   right' = alternate . Right
@@ -210,10 +212,12 @@ instance Monad f => Monad (Printor s f a) where
     (b,h) <- runPrintor (f a1) a
     return (b, g . h)
 instance (Alternative f, Monad f) => MonadPlus (Printor s f a)
-instance Applicative f => Distributor (Printor s f) where
+instance Functor f => CocartesianMonoidal (Printor s f) where
   zeroP = Printor absurd
   Printor p >+< Printor q = Printor $
     either (fmap (first' Left) . p) (fmap (first' Right) . q)
+instance Applicative f => Distributor (Printor s f)
+instance Alternative f => CocartesianChoice (Printor s f)
 instance Alternative f => Alternator (Printor s f) where
   alternate = \case
     Left (Printor p) -> Printor $
@@ -309,9 +313,11 @@ instance KleeneStarAlgebra k => Alternative (Grammor k a) where
   Grammor rex1 <|> Grammor rex2 = Grammor (rex1 >|< rex2)
   many (Grammor rex) = Grammor (starK rex)
   some (Grammor rex) = Grammor (plusK rex)
-instance KleeneStarAlgebra k => Distributor (Grammor k) where
+instance KleeneStarAlgebra k => CocartesianMonoidal (Grammor k) where
   zeroP = Grammor zeroK
   Grammor rex1 >+< Grammor rex2 = Grammor (rex1 >|< rex2)
+instance KleeneStarAlgebra k => CocartesianChoice (Grammor k)
+instance KleeneStarAlgebra k => Distributor (Grammor k) where
   manyP (Grammor rex) = Grammor (starK rex)
   optionalP (Grammor rex) = Grammor (optK rex)
 instance KleeneStarAlgebra k => Alternator (Grammor k) where
