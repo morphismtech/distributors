@@ -149,13 +149,15 @@ class Json a where
   jsonList :: JsonVal p => p [a] [a]
   jsonList = jsonArray json
 
-  {- | `Data.Aeson.toJSONKey` -}
-  jsonKeyMap :: (Json v, JsonVal p) => p [(a, v)] [(a, v)]
-  jsonKeyMap = jsonArray (jsonTuple (jsonElem json >*< jsonElem json))
+  {- | `Data.Aeson.toJSONKey`, as the text keys of objects,
+  or else `Nothing` for the keys of arrays of pairs.
+  -}
+  jsonKey :: Maybe (forall q. JsonStr q => q a a)
+  jsonKey = Nothing
 
   {- | `Data.Aeson.toJSONKeyList` -}
-  jsonKeyListMap :: (Json v, JsonVal p) => p [([a], v)] [([a], v)]
-  jsonKeyListMap = jsonArray (jsonTuple (jsonElem jsonList >*< jsonElem json))
+  jsonKeyList :: Maybe (forall q. JsonStr q => q [a] [a])
+  jsonKeyList = Nothing
 
 -- Running Json grammars --
 
@@ -222,6 +224,18 @@ class
   jsonDict
     :: (forall q. JsonStr q => q a b)
     -> p c d -> p [(a, c)] [(b, d)]
+  -- | A `jsonDict` of a `Map`, whose keys are distinct.
+  jsonMap
+    :: Ord b
+    => (forall q. JsonStr q => q a b)
+    -> p c d -> p (Map a c) (Map b d)
+  jsonMap key p = dimap Map.toList Map.fromList (jsonDict key p)
+  -- | A `jsonDict` of a `HashMap`, whose keys are distinct.
+  jsonHashMap
+    :: (Eq b, Hashable b)
+    => (forall q. JsonStr q => q a b)
+    -> p c d -> p (HashMap a c) (HashMap b d)
+  jsonHashMap key p = dimap HashMap.toList HashMap.fromList (jsonDict key p)
   jsonTuple :: (forall q. JsonTup p q => q a b) -> p a b
   jsonObject :: (forall q. JsonObj p q => q a b) -> p a b
   jsonValue :: p Value Value
@@ -231,7 +245,8 @@ class
     , _Number >? jsonNumber
     , _String >? jsonText
     , _Array . iso Vector.toList Vector.fromList >? jsonArray jsonValue
-    , _Object . iso KeyMap.toList KeyMap.fromList >? jsonDict jsonKey jsonValue
+    , _Object . iso KeyMap.toList KeyMap.fromList
+      >? jsonDict jsonKeyText jsonValue
     ]
   jsonTyped :: forall a. Typeable a => p a a -> p a a
   jsonTyped = rule (show (typeRep @a))
@@ -762,11 +777,14 @@ primitive render =
   (printing render) {printorRenderArray = aesonPrimitives render}
 {-# INLINE primitive #-}
 
--- | A partial `JsonPrintor`, rendering what it tries.
+{- | A partial `JsonPrintor`, rendering what it tries,
+or else null, as `jsonPrint` does.
+-}
 trying
-  :: (a -> Maybe val) -> (a -> Either JsonError val) -> JsonPrintor val a b
+  :: AesonVal val
+  => (a -> Maybe val) -> (a -> Either JsonError val) -> JsonPrintor val a b
 trying attempt check = JsonPrintor
-  (const False) attempt (fromMaybe invalid . attempt) check Nothing
+  (const False) attempt (fromMaybe aesonNull . attempt) check Nothing
 
 -- | Try each of the values, rendering them for a total printor.
 tryAll
@@ -777,10 +795,6 @@ tryAll total attempt render = \as -> if isTotal
   else traverse attempt as
   where
     isTotal = total Set.empty
-
--- | Rendering is only ever done for a value that's printable.
-invalid :: a
-invalid = error "Control.Lens.Grammar.Json: rendered an unprintable value"
 
 {- | A `rule`'s totality, assuming those being determined are total,
 by induction on the values printed.
@@ -859,15 +873,15 @@ instance CocartesianMonoidal (JsonPrintor val) where
     (either (printorRender p) (printorRender q))
     (either (printorCheck p) (printorCheck q))
     Nothing
-instance Choice (JsonPrintor val) where
+instance AesonVal val => Choice (JsonPrintor val) where
   left' p = trying
     (either (printorTry p) (const Nothing))
     (either (printorCheck p) (\_ -> jsonUnexpected Nothing))
   right' p = trying
     (either (const Nothing) (printorTry p))
     (either (\_ -> jsonUnexpected Nothing) (printorCheck p))
-instance CocartesianChoice (JsonPrintor val)
-instance DisjunctiveMonoid (JsonPrintor val a b) where
+instance AesonVal val => CocartesianChoice (JsonPrintor val)
+instance AesonVal val => DisjunctiveMonoid (JsonPrintor val a b) where
   falseP = trying (const Nothing) (\_ -> jsonUnexpected Nothing)
   p >|< q = JsonPrintor
     (\rules -> printorTotal p rules || printorTotal q rules)
@@ -938,6 +952,8 @@ instance AesonVal val => JsonVal (JsonPrintor val) where
       entry (a, c) = (k,) <$> jsonAt (Key k) (printorCheck p c)
         where
           k = keyOf a
+  jsonMap key = printDistinct Map.foldrWithKey key
+  jsonHashMap key = printDistinct HashMap.foldrWithKey key
   jsonTuple tup = JsonPrintor
     (\rules -> tupPrintorTotal tup rules)
     (fmap (aesonList id . toList) . tupPrintorTry tup)
@@ -1013,12 +1029,12 @@ instance Choice (TupPrintor val) where
 unprintable :: Elements val
 unprintable = Elements (jsonUnexpected Nothing)
 
--- | A partial `TupPrintor`, rendering what it tries.
+-- | A partial `TupPrintor`, rendering what it tries, or else nothing.
 tupTrying
   :: (a -> Maybe (DList val)) -> (a -> Elements val) -> TupPrintor val a b
 tupTrying attempt =
   TupPrintor (const False) attempt
-    (\a -> DList.apply (fromMaybe invalid (attempt a)))
+    (\a -> DList.apply (fromMaybe mempty (attempt a)))
 
 instance CocartesianChoice (TupPrintor val) where
   alternate = \case
@@ -1087,6 +1103,23 @@ instance AesonVal val => JsonObj (JsonPrintor val) (ObjPrintor val) where
     where
       key = Key.fromText k
       property printed = DList.singleton (key, printed)
+
+-- | Print the properties of a map, whose keys are distinct, as an object.
+printDistinct
+  :: AesonVal val
+  => (forall r. (a -> c -> r -> r) -> r -> m -> r)
+  -> KeyPrintor a b -> JsonPrintor val c d -> JsonPrintor val m n
+printDistinct fold (KeyPrintor keyOf) p = JsonPrintor
+  (\rules -> printorTotal p rules)
+  (fmap aesonObject . fold attempt (Just []))
+  (\m -> aesonObject (fold (\a -> renderProperty (keyOf a) p) [] m))
+  (fmap aesonObject . fold check (Right []))
+  Nothing
+  where
+    attempt a c rest = (:) . (keyOf a,) <$> printorTry p c <*> rest
+    check a c rest = (:) . (k,) <$> jsonAt (Key k) (printorCheck p c) <*> rest
+      where
+        k = keyOf a
 
 renderProperty
   :: Key -> JsonPrintor val a b -> a -> [(Key, val)] -> [(Key, val)]
@@ -1522,8 +1555,8 @@ jsonChar = prism' Text.singleton single ?< jsonText
       Just (c, rest) | Text.null rest -> Just c
       _ -> Nothing
 
-jsonKey :: JsonStr p => p Key Key
-jsonKey = iso Key.toText Key.fromText >~ jsonText
+jsonKeyText :: JsonStr p => p Key Key
+jsonKeyText = iso Key.toText Key.fromText >~ jsonText
 
 jsonVersion :: JsonStr p => p Version Version
 jsonVersion = prism' (Text.pack . showVersion) version ?< jsonText
@@ -1590,8 +1623,14 @@ jsonRealFloatKey = prism' render parse ?< jsonText
       "-inf" -> Just (negate 1/0)
       t -> toRealFloat <$> readScientific t
 
-keysCoerced :: Coercible k j => Iso' [(k, v)] [(j, v)]
-keysCoerced = iso (map (first' coerce)) (map (first' coerce))
+-- | Transform a key, if there's one.
+overKey
+  :: (forall q. JsonStr q => q a a -> q b b)
+  -> Maybe (forall q. JsonStr q => q a a)
+  -> Maybe (forall q. JsonStr q => q b b)
+overKey f = \case
+  Just key -> Just (f key)
+  Nothing -> Nothing
 
 -- Json instances
 
@@ -1600,33 +1639,33 @@ makePrisms ''These
 -- base
 instance Json Bool where
   json = jsonBool
-  jsonKeyMap = jsonDict
-    (jsonEnumWith (\b -> if b then "true" else "false") [False, True]) json
+  jsonKey =
+    Just (jsonEnumWith (\b -> if b then "true" else "false") [False, True])
 instance Json Ordering where
   json = jsonTyped (jsonEnum (Text.pack . show) [LT, EQ, GT])
 instance Json () where json = jsonTuple oneP
 instance Json Void where
   json = zeroP
-  jsonKeyMap = jsonDict (prism' absurd (const Nothing) ?< jsonText) json
+  jsonKey = Just (prism' absurd (const Nothing) ?< jsonText)
 instance Json Char where
   json = jsonTyped jsonChar
   jsonList = jsonString
-  jsonKeyMap = jsonDict jsonChar json
-  jsonKeyListMap = jsonDict jsonString json
+  jsonKey = Just jsonChar
+  jsonKeyList = Just jsonString
 instance Json a => Json [a] where
   json = jsonList
-  jsonKeyMap = jsonKeyListMap @a
+  jsonKey = jsonKeyList @a
 instance Json a => Json (Maybe a) where
   json = eotMaybe . swapped >~ jsonNull >+< json
 instance (Json a, Json b) => Json (Either a b) where
   json = jsonTag "Left" json >+< jsonTag "Right" json
 instance Json Double where
   json = jsonTyped (jsonRealFloat jsonDouble)
-  jsonKeyMap = jsonDict jsonRealFloatKey json
+  jsonKey = Just jsonRealFloatKey
 instance Json Float where
   json = jsonTyped $
     jsonRealFloat (iso fromFloatDigits toRealFloat >~ jsonNumber)
-  jsonKeyMap = jsonDict jsonRealFloatKey json
+  jsonKey = Just jsonRealFloatKey
 instance (Integral a, Json a) => Json (Ratio a) where
   json = prism'
     (\r -> (numerator r, denominator r))
@@ -1634,71 +1673,69 @@ instance (Integral a, Json a) => Json (Ratio a) where
     ?< jsonObject ("numerator" !: json >*< "denominator" !: json)
 instance HasResolution a => Json (Fixed a) where
   json = jsonRealFrac
-  jsonKeyMap = jsonDict (iso realToFrac realToFrac >~ jsonScientificKey) json
+  jsonKey = Just (iso realToFrac realToFrac >~ jsonScientificKey)
 instance Json Int where
   json = jsonTyped jsonInt
-  jsonKeyMap = jsonDict (jsonIntKey _BoundedInteger) json
+  jsonKey = Just (jsonIntKey _BoundedInteger)
 instance Json Int8 where
   json = jsonTyped jsonInt8
-  jsonKeyMap = jsonDict (jsonIntKey _BoundedInteger) json
+  jsonKey = Just (jsonIntKey _BoundedInteger)
 instance Json Int16 where
   json = jsonTyped jsonInt16
-  jsonKeyMap = jsonDict (jsonIntKey _BoundedInteger) json
+  jsonKey = Just (jsonIntKey _BoundedInteger)
 instance Json Int32 where
   json = jsonTyped jsonInt32
-  jsonKeyMap = jsonDict (jsonIntKey _BoundedInteger) json
+  jsonKey = Just (jsonIntKey _BoundedInteger)
 instance Json Int64 where
   json = jsonTyped jsonInt64
-  jsonKeyMap = jsonDict (jsonIntKey _BoundedInteger) json
+  jsonKey = Just (jsonIntKey _BoundedInteger)
 instance Json Word where
   json = jsonTyped jsonWord
-  jsonKeyMap = jsonDict (jsonIntKey _BoundedInteger) json
+  jsonKey = Just (jsonIntKey _BoundedInteger)
 instance Json Word8 where
   json = jsonTyped jsonWord8
-  jsonKeyMap = jsonDict (jsonIntKey _BoundedInteger) json
+  jsonKey = Just (jsonIntKey _BoundedInteger)
 instance Json Word16 where
   json = jsonTyped jsonWord16
-  jsonKeyMap = jsonDict (jsonIntKey _BoundedInteger) json
+  jsonKey = Just (jsonIntKey _BoundedInteger)
 instance Json Word32 where
   json = jsonTyped jsonWord32
-  jsonKeyMap = jsonDict (jsonIntKey _BoundedInteger) json
+  jsonKey = Just (jsonIntKey _BoundedInteger)
 instance Json Word64 where
   json = jsonTyped jsonWord64
-  jsonKeyMap = jsonDict (jsonIntKey _BoundedInteger) json
+  jsonKey = Just (jsonIntKey _BoundedInteger)
 _Integer :: Prism' Scientific Integer
 _Integer = prism' fromInteger $
   boundedScientific >=> either (const Nothing) Just . floatingOrInteger @Double
 instance Json Integer where
   json = jsonTyped (_Integer ?< jsonNumber)
-  jsonKeyMap = jsonDict (jsonIntKey _Integer) json
+  jsonKey = Just (jsonIntKey _Integer)
 _Natural :: Prism' Scientific Natural
 _Natural = prism' fromIntegral $ \s -> do
   i <- preview _Integer s
   fromInteger i <$ guard (i >= 0)
 instance Json Natural where
   json = jsonTyped (_Natural ?< jsonNumber)
-  jsonKeyMap = jsonDict (jsonIntKey _Natural) json
+  jsonKey = Just (jsonIntKey _Natural)
 instance Json CTime where json = coerced >~ json @Int64
 instance Json Version where
   json = jsonTyped jsonVersion
-  jsonKeyMap = jsonDict jsonVersion json
+  jsonKey = Just jsonVersion
 instance Json a => Json (NonEmpty a) where
   json = prism' toList nonEmpty ?< jsonTuple (someP (jsonElem json))
 instance Json a => Json (Solo a) where
   json = iso getSolo MkSolo >~ json @a
   jsonList = iso (map getSolo) (map MkSolo) >~ jsonList @a
-  jsonKeyMap = iso (map (first' getSolo)) (map (first' MkSolo))
-    >~ jsonKeyMap @a
-  jsonKeyListMap = iso (map (first' (map getSolo))) (map (first' (map MkSolo)))
-    >~ jsonKeyListMap @a
+  jsonKey = overKey (iso getSolo MkSolo >~) (jsonKey @a)
+  jsonKeyList = overKey (iso (map getSolo) (map MkSolo) >~) (jsonKeyList @a)
 instance Json a => Json (Identity a) where
   json = coerced >~ json @a
   jsonList = coerced >~ jsonList @a
-  jsonKeyMap = keysCoerced >~ jsonKeyMap @a
-  jsonKeyListMap = keysCoerced >~ jsonKeyListMap @a
+  jsonKey = overKey (coerced >~) (jsonKey @a)
+  jsonKeyList = overKey (coerced >~) (jsonKeyList @a)
 instance Json a => Json (Const a b) where
   json = coerced >~ json @a
-  jsonKeyMap = keysCoerced >~ jsonKeyMap @a
+  jsonKey = overKey (coerced >~) (jsonKey @a)
 instance Json (f (g a)) => Json (Compose f g a) where
   json = coerced >~ json @(f (g a))
 instance (Json (f a), Json (g a)) => Json (Functor.Product f g a) where
@@ -1794,20 +1831,18 @@ instance
 -- text
 instance Json Text where
   json = jsonText
-  jsonKeyMap = jsonDict jsonText json
+  jsonKey = Just jsonText
 instance Json LText.Text where
   json = iso LText.toStrict LText.fromStrict >~ jsonText
-  jsonKeyMap =
-    jsonDict (iso LText.toStrict LText.fromStrict >~ jsonText) json
+  jsonKey = Just (iso LText.toStrict LText.fromStrict >~ jsonText)
 instance Json ShortText where
   json = iso ShortText.toText ShortText.fromText >~ jsonText
-  jsonKeyMap =
-    jsonDict (iso ShortText.toText ShortText.fromText >~ jsonText) json
+  jsonKey = Just (iso ShortText.toText ShortText.fromText >~ jsonText)
 
 -- scientific
 instance Json Scientific where
   json = jsonNumber
-  jsonKeyMap = jsonDict jsonScientificKey json
+  jsonKey = Just jsonScientificKey
 
 -- containers
 instance Json a => Json (Seq a) where
@@ -1819,7 +1854,9 @@ instance Json IntSet where
 instance Json a => Json (IntMap a) where
   json = iso IntMap.toList IntMap.fromList >~ json @[(Int, a)]
 instance (Ord k, Json k, Json v) => Json (Map k v) where
-  json = iso Map.toList Map.fromList >~ jsonKeyMap @k
+  json = case jsonKey @k of
+    Just key -> jsonMap key json
+    Nothing -> iso Map.toList Map.fromList >~ json
 instance (Typeable a, Json a) => Json (Tree a) where
   json = jsonTyped gtuple
 
@@ -1851,14 +1888,16 @@ instance (Prim a, Json a) => Json (PrimArray a) where
 instance (Eq a, Hashable a, Json a) => Json (HashSet a) where
   json = iso HashSet.toList HashSet.fromList >~ jsonArray json
 instance (Eq k, Hashable k, Json k, Json v) => Json (HashMap k v) where
-  json = iso HashMap.toList HashMap.fromList >~ jsonKeyMap @k
+  json = case jsonKey @k of
+    Just key -> jsonHashMap key json
+    Nothing -> iso HashMap.toList HashMap.fromList >~ json
 
 -- aeson
 instance Json Key where
-  json = jsonKey
-  jsonKeyMap = jsonDict jsonKey json
+  json = jsonKeyText
+  jsonKey = Just jsonKeyText
 instance Json v => Json (KeyMap v) where
-  json = iso KeyMap.toList KeyMap.fromList >~ jsonKeyMap @Key
+  json = iso KeyMap.toList KeyMap.fromList >~ jsonDict jsonKeyText json
 instance Json Value where
   json = jsonValue
 instance Json DotNetTime where
@@ -1876,25 +1915,25 @@ instance Json DotNetTime where
 -- time
 instance Json Day where
   json = jsonTyped (jsonEncodedText _Day)
-  jsonKeyMap = jsonDict (jsonEncodedText _Day) json
+  jsonKey = Just (jsonEncodedText _Day)
 instance Json Month where
   json = jsonTyped (jsonEncodedText _Month)
-  jsonKeyMap = jsonDict (jsonEncodedText _Month) json
+  jsonKey = Just (jsonEncodedText _Month)
 instance Json Quarter where
   json = jsonTyped (jsonEncodedText _Quarter)
-  jsonKeyMap = jsonDict (jsonEncodedText _Quarter) json
+  jsonKey = Just (jsonEncodedText _Quarter)
 instance Json TimeOfDay where
   json = jsonTyped (jsonEncodedText _TimeOfDay)
-  jsonKeyMap = jsonDict (jsonEncodedText _TimeOfDay) json
+  jsonKey = Just (jsonEncodedText _TimeOfDay)
 instance Json LocalTime where
   json = jsonTyped (jsonEncodedText _LocalTime)
-  jsonKeyMap = jsonDict (jsonEncodedText _LocalTime) json
+  jsonKey = Just (jsonEncodedText _LocalTime)
 instance Json ZonedTime where
   json = jsonTyped (jsonEncodedText _ZonedTime)
-  jsonKeyMap = jsonDict (jsonEncodedText _ZonedTime) json
+  jsonKey = Just (jsonEncodedText _ZonedTime)
 instance Json UTCTime where
   json = jsonTyped (jsonEncodedText _UTCTime)
-  jsonKeyMap = jsonDict (jsonEncodedText _UTCTime) json
+  jsonKey = Just (jsonEncodedText _UTCTime)
 instance Json NominalDiffTime where json = jsonTyped jsonRealFrac
 instance Json DiffTime where json = jsonTyped jsonRealFrac
 instance Json SystemTime where
@@ -1916,20 +1955,20 @@ instance Json CalendarDiffDays where
     (jsonObject ("months" !: json >*< "days" !: json))
 instance Json DayOfWeek where
   json = jsonTyped (weekdays jsonEnum)
-  jsonKeyMap = jsonDict (weekdays jsonEnumWith) json
+  jsonKey = Just (weekdays jsonEnumWith)
 instance Json QuarterOfYear where
   json = jsonTyped (quarters jsonEnum)
-  jsonKeyMap = jsonDict (quarters jsonEnumWith) json
+  jsonKey = Just (quarters jsonEnumWith)
 
 -- uuid-types
 instance Json UUID where
   json = jsonTyped jsonUUID
-  jsonKeyMap = jsonDict jsonUUID json
+  jsonKey = Just jsonUUID
 
 -- network-uri
 instance Json URI where
   json = jsonTyped jsonURI
-  jsonKeyMap = jsonDict jsonURI json
+  jsonKey = Just jsonURI
 
 -- data-fix
 instance (Typeable f, Json (f (Fix f))) => Json (Fix f) where
@@ -1942,8 +1981,8 @@ instance (Functor f, Typeable f, Json (f (Fix f))) => Json (Nu f) where
 -- jsonTag
 instance Json b => Json (Tagged a b) where
   json = coerced >~ json @b
-  jsonKeyMap = keysCoerced >~ jsonKeyMap @b
-  jsonKeyListMap = keysCoerced >~ jsonKeyListMap @b
+  jsonKey = overKey (coerced >~) (jsonKey @b)
+  jsonKeyList = overKey (coerced >~) (jsonKeyList @b)
 
 -- these
 instance (Json a, Json b) => Json (These a b) where
@@ -2006,7 +2045,7 @@ instance (GHC.Constructor c, GFields f, GContents f, GNullary f)
     gsingle = GHC.M1 #. single .# GHC.unM1
       where
         single
-          | GHC.conIsRecord (undefined :: GHC.C1 c f ()) = jsonObject gfields
+          | gconIsRecord @c = jsonObject gfields
           | otherwise = gcontents
     genum = gnullary @f <&> \v ->
       dimap (const ()) (const (GHC.M1 v)) (fromString (gconName @c))
@@ -2016,15 +2055,18 @@ instance (GHC.Constructor c, GFields f, GContents f, GNullary f)
         tag = "tag" !: fromString (gconName @c)
         contents :: JsonObj p q => q (f x) (f x)
         contents
-          | GHC.conIsRecord (undefined :: GHC.C1 c f ()) = gfields
+          | gconIsRecord @c = gfields
           | Just v <- gnullary @f = dimap (const ()) (const v) oneP
           | otherwise = "contents" !: gcontents
 
 gconName :: forall (c :: GHC.Meta). GHC.Constructor c => String
-gconName = GHC.conName (undefined :: GHC.C1 c GHC.U1 ())
+gconName = GHC.conName (GHC.M1 GHC.U1 :: GHC.C1 c GHC.U1 ())
+
+gconIsRecord :: forall (c :: GHC.Meta). GHC.Constructor c => Bool
+gconIsRecord = GHC.conIsRecord (GHC.M1 GHC.U1 :: GHC.C1 c GHC.U1 ())
 
 gselName :: forall (s :: GHC.Meta). GHC.Selector s => String
-gselName = GHC.selName (undefined :: GHC.S1 s GHC.U1 ())
+gselName = GHC.selName (GHC.M1 GHC.U1 :: GHC.S1 s GHC.U1 ())
 
 class GFields f where
   gfields :: JsonObj p q => q (f x) (f x)
