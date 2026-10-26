@@ -4,8 +4,11 @@ module Control.Lens.Grammar.Json
   ( -- * Json
     Json (..)
   , jsonParse
+  , jsonDecode
   , jsonPrint
+  , jsonPrintError
   , jsonEncode
+  , jsonEncodeError
   , jsonTypes
     -- * Grammar
   , JsonVal (..)
@@ -25,6 +28,7 @@ import Control.Monad
 import Control.Monad.Trans.Class (lift)
 import Control.Monad.Trans.Reader (ReaderT, ask, local, runReaderT)
 import Control.Monad.Trans.State.Strict
+import Data.Aeson qualified as Aeson
 import Data.Aeson.Encoding (Encoding)
 import Data.Aeson.Encoding qualified as Encoding
 import Data.Aeson.Key (Key)
@@ -135,47 +139,48 @@ makePrisms ''Value
 
 -- Json grammars --
 
-{- | `Json` grammars, compatible with @aeson@'s
-@ToJSON@ & @FromJSON@ instances.
-`jsonList` mirrors @aeson@'s @toJSONList@,
-so that `String`s are JSON strings rather than arrays.
-`jsonKeyMap` & `jsonKeyListMap` mirror @aeson@'s
-@toJSONKey@ & @toJSONKeyList@, so that maps with jsonTextWith keys
-are JSON objects rather than arrays of key-value pairs.
--}
 class Json a where
 
   json :: JsonVal p => p a a
   default json :: (Json (GHC.Generically a), JsonVal p) => p a a
   json = iso GHC.Generically coerce >~ json
 
-  {- | `toJSONList` -}
+  {- | `Data.Aeson.toJSONList` -}
   jsonList :: JsonVal p => p [a] [a]
   jsonList = jsonArray json
 
-  {- | `toJSONKey` -}
+  {- | `Data.Aeson.toJSONKey` -}
   jsonKeyMap :: (Json v, JsonVal p) => p [(a, v)] [(a, v)]
   jsonKeyMap = jsonArray (jsonTuple (jsonElem json >*< jsonElem json))
 
-  {- | `toJSONKeyList` -}
+  {- | `Data.Aeson.toJSONKeyList` -}
   jsonKeyListMap :: (Json v, JsonVal p) => p [([a], v)] [([a], v)]
   jsonKeyListMap = jsonArray (jsonTuple (jsonElem jsonList >*< jsonElem json))
 
 -- Running Json grammars --
 
+-- | `Data.Aeson.parseJSON`
 jsonParse :: Json a => Value -> Either JsonError a
 jsonParse = runJsonParsor json
 
-jsonPrint :: Json a => a -> Either JsonError Value
-jsonPrint = runJsonPrintor json
+-- | `Data.Aeson.decode`
+jsonDecode :: Json a => LByteString.ByteString -> Maybe a
+jsonDecode = Aeson.decode >=> either (\_ -> Nothing) Just . jsonParse
 
--- | Print directly to an @aeson@ `Encoding`, like @toEncoding@.
-jsonEncode :: Json a => a -> Either JsonError Encoding
-jsonEncode = runJsonPrintor json
+-- | `Data.Aeson.toJSON`
+jsonPrint :: Json a => a -> Value
+jsonPrint = either (\_ -> Null) id . jsonPrintError
 
-{- | TypeScript type alias declarations of the `jsonTyped` & named rules
-of `Json` grammars, each of which is named uniquely and declared once.
--}
+jsonPrintError :: Json a => a -> Either JsonError Value
+jsonPrintError = runJsonPrintor json
+
+-- | `Data.Aeson.toEncoding`
+jsonEncode :: Json a => a -> Encoding
+jsonEncode = either (\_ -> Encoding.null_) id . jsonEncodeError
+
+jsonEncodeError :: Json a => a -> Either JsonError Encoding
+jsonEncodeError = runJsonPrintor json
+
 jsonTypes :: forall (as :: [Type]) -> All Json as => Text
 jsonTypes as = renderTypeScript $ hcollapse
   (hcpure (Proxy @Json) tsRoot :: NP (K (TsGrammor () ())) as)
@@ -183,10 +188,6 @@ jsonTypes as = renderTypeScript $ hcollapse
     tsRoot :: forall a. Json a => K (TsGrammor () ()) a
     tsRoot = K (coerce (json @a @TsGrammor))
 
-{- | `JsonVal` grammars describe JSON values.
-A `jsonTyped` grammar is a `rule` for a Haskell type,
-named by its `Typeable` type, like a type definition.
--}
 class
   ( CocartesianChoice p
   , JsonStr p
@@ -235,10 +236,8 @@ class
   jsonTyped :: forall a. Typeable a => p a a -> p a a
   jsonTyped = rule (show (typeRep @a))
 
-{- | `JsonStr`s have string literals, exactly matching some text.
-They're determined by `Cochoice` partiality.
-
-prop> fromString s = only (Text.pack s) ?< jsonText
+{- |
+prop> fromString s = only s ?< jsonString
 prop> jsonString = iso Text.pack Text.unpack >~ jsonText
 -}
 class

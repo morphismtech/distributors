@@ -8,7 +8,7 @@ module Main (main) where
 import Control.DeepSeq (NFData)
 import Control.Lens.Grammar.Json
 import Data.Aeson
-  (FromJSON (..), ToJSON (..), Value (..), eitherDecode, encode, object, (.=))
+  (FromJSON (..), ToJSON (..), Value (..), decode, encode, object, (.=))
 import Data.Aeson.Encoding (encodingToLazyByteString)
 import Data.Aeson.Types (parseEither)
 import Data.ByteString.Lazy (ByteString)
@@ -142,20 +142,19 @@ dataset label a = env (pure (encode a, toJSON a)) $ \ ~(bytes, val) ->
   bgroup label
     [ bgroup "encode"
       [ bench "aeson toEncoding" (nf encode a)
-      , bench "Json jsonEncode"
-          (nf (either (const "") encodingToLazyByteString . jsonEncode) a)
+      , bench "Json jsonEncode" (nf (encodingToLazyByteString . jsonEncode) a)
       ]
     , bgroup "toValue"
       [ bench "aeson toJSON" (nf toJSON a)
-      , bench "Json jsonPrint" (nf (either (const Null) id . jsonPrint) a)
+      , bench "Json jsonPrint" (nf jsonPrint a)
       ]
     , bgroup "fromValue"
       [ bench "aeson parseJSON" (nf (fromValueAeson a) val)
       , bench "Json jsonParse" (nf (fromValueJson a) val)
       ]
     , bgroup "decode"
-      [ bench "aeson eitherDecode" (nf (decodeAeson a) bytes)
-      , bench "Json jsonParse" (nf (decodeJson a) bytes)
+      [ bench "aeson decode" (nf (decodeAeson a) bytes)
+      , bench "Json jsonDecode" (nf (decodeJson a) bytes)
       ]
     ]
 
@@ -166,12 +165,10 @@ fromValueJson :: Json a => a -> Value -> Maybe a
 fromValueJson _ = either (const Nothing) Just . jsonParse
 
 decodeAeson :: FromJSON a => a -> ByteString -> Maybe a
-decodeAeson _ = either (const Nothing) Just . eitherDecode
+decodeAeson _ = decode
 
 decodeJson :: Json a => a -> ByteString -> Maybe a
-decodeJson _ bytes = case eitherDecode bytes of
-  Left _ -> Nothing
-  Right val -> either (const Nothing) Just (jsonParse val)
+decodeJson _ = jsonDecode
 
 main :: IO ()
 main = defaultMain

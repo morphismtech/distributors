@@ -290,7 +290,7 @@ jsonTupleChoiceSpec = describe "jsonTuple choices" $ do
 roundTrip :: forall a. (Json a, Eq a, Show a) => Value -> a -> Expectation
 roundTrip value a = do
   jsonParse @a value `shouldBe` Right a
-  jsonPrint a `shouldBe` Right value
+  jsonPrintError a `shouldBe` Right value
 
 jsonTupleSpec :: Spec
 jsonTupleSpec = describe "variadic jsonTuple" $ do
@@ -346,7 +346,7 @@ instance Json Partial where
     prism' Covered (\case Covered n -> Just n; _ -> Nothing) >? json
 
 jsonPrintSpec :: Spec
-jsonPrintSpec = describe "jsonPrint errors" $ do
+jsonPrintSpec = describe "jsonPrintError" $ do
   it "labels failures with rules" $
     printError Uncovered `shouldBe` Left "Error in $: cannot print as Partial"
   it "locates failures" $ do
@@ -525,12 +525,12 @@ jsonCodecSpec = describe "jsonEncode" $ do
   codecCompat @Shape (oneof [Circle <$> arbitrary, Square <$> arbitrary])
   codecCompat @Color arbitraryBoundedEnum
   it "encodes in order" $
-    encodingToLazyByteString <$> jsonEncode (Point 1 2)
+    encodingToLazyByteString <$> jsonEncodeError (Point 1 2)
       `shouldBe` Right "{\"px\":1,\"py\":2}"
 
 codecCompat :: forall a. (Json a, ToJSON a, Show a, Typeable a) => Gen a -> Spec
 codecCompat gen = it (show (typeRep (Proxy @a))) $ forAll gen $ \a ->
-  (decode . encodingToLazyByteString <$> jsonEncode a)
+  (decode . encodingToLazyByteString <$> jsonEncodeError a)
     === Right (Just (toJSON a))
 
 -- | The error message of parsing a `Value`.
@@ -539,7 +539,7 @@ parseError = either errorText show . jsonParse @a
 
 -- | The error message of printing a value.
 printError :: Json a => a -> Either String Value
-printError = either (Left . errorText) Right . jsonPrint
+printError = either (Left . errorText) Right . jsonPrintError
 
 errorText :: JsonError -> String
 errorText err = formatError (jsonErrorPath err) (jsonErrorMessage err)
@@ -633,7 +633,7 @@ aesonEncodeCompat gen = it (show (typeRep (Proxy @a))) $
 encodeCompat :: forall a. (Json a, ToJSON a) => a -> Property
 encodeCompat a =
   let value = toJSON a
-  in jsonPrint a === Right value
+  in jsonPrintError a === Right value
     .&&. fmap toJSON (jsonParse @a value) === Right value
 
 aesonSpec :: Spec
