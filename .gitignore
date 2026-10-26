@@ -16,6 +16,7 @@ cabal.sandbox.config
 *.hp
 *.eventlog
 .stack-work/
+.stack-prof*/
 cabal.project.local
 .DS_Store
 stack.yaml.lock
