@@ -344,6 +344,12 @@ onFailure f = \case
   Left err -> Left (f err)
   success -> success
 
+-- | Map a success strictly, sharing a failure.
+onSuccess :: (a -> b) -> Either JsonError a -> Either JsonError b
+onSuccess f = \case
+  Left err -> Left err
+  Right a -> Right $! f a
+
 {- | A `rule` labels its failures as a whole,
 like @(\<?\>)@ for parser combinators, and encloses its other failures.
 -}
@@ -450,9 +456,9 @@ data ObjParsor a b = ObjParsor
   }
 
 instance Functor (JsonParsor a) where
-  fmap f = mapParsing (fmap (fmap f))
+  fmap f = mapParsing (fmap (onSuccess f))
 instance Profunctor JsonParsor where
-  dimap _ g = mapParsing (fmap (fmap g))
+  dimap _ g = mapParsing (fmap (onSuccess g))
   _ #. p = coerce p
   p .# _ = coerce p
 instance Choice JsonParsor where
@@ -549,15 +555,16 @@ instance JsonVal JsonParsor where
 
 instance Functor (TupParsor a) where
   fmap f (TupParsor fixed general) = TupParsor
-    (fmap (\p arr i -> f <$> p arr i) <$> fixed)
+    (fmap (\p arr i -> onSuccess f (p arr i)) <$> fixed)
     (\arr i -> map (fmap (first' f)) (general arr i))
 instance Applicative (TupParsor a) where
   pure b = TupParsor (Just (0, \_ _ -> Right b)) (\_ i -> [Right (b, i)])
   TupParsor fixed0 general0 <*> TupParsor fixed1 general1 =
     TupParsor (liftA2 sequenced fixed0 fixed1) backtracking
     where
-      sequenced (n0, p) (n1, q) =
-        (n0 + n1, \arr i -> p arr i <*> q arr (i + n0))
+      sequenced (n0, p) (n1, q) = (n0 + n1, \arr i -> case p arr i of
+        Left err -> Left err
+        Right f -> onSuccess f (q arr $! i + n0))
       backtracking arr i = general0 arr i >>= \case
         Left err -> [Left err]
         Right (f, j) -> map (fmap (first' f)) (general1 arr j)
@@ -602,13 +609,15 @@ instance JsonTup JsonParsor TupParsor where
         Just v -> jsonAt (Index i) (runJsonParsor p v)
 
 instance Functor (ObjParsor a) where
-  fmap f (ObjParsor keys tags p) = ObjParsor keys tags (fmap f . p)
+  fmap f (ObjParsor keys tags p) = ObjParsor keys tags (onSuccess f . p)
 instance Applicative (ObjParsor a) where
   pure b = ObjParsor [] [] (\_ -> Right b)
   ObjParsor keys0 tags0 p0 <*> ObjParsor keys1 tags1 p1 =
-    ObjParsor (keys0 <> keys1) (tags0 <> tags1) (\o -> p0 o <*> p1 o)
+    ObjParsor (keys0 <> keys1) (tags0 <> tags1) $ \o -> case p0 o of
+      Left err -> Left err
+      Right f -> onSuccess f (p1 o)
 instance Profunctor ObjParsor where
-  dimap _ g (ObjParsor keys tags p) = ObjParsor keys tags (fmap g . p)
+  dimap _ g (ObjParsor keys tags p) = ObjParsor keys tags (onSuccess g . p)
   _ #. p = coerce p
   p .# _ = coerce p
 instance JsonObj JsonParsor ObjParsor where
