@@ -1074,7 +1074,7 @@ instance AesonVal val => JsonObj (JsonPrintor val) (ObjPrintor val) where
   k !: p = ObjPrintor [key]
     (\rules -> printorTotal p rules)
     (fmap property . printorTry p)
-    (\a rest -> (key, printorRender p a) : rest)
+    (renderProperty key p)
     (printProperty key p)
     where
       key = Key.fromText k
@@ -1082,11 +1082,16 @@ instance AesonVal val => JsonObj (JsonPrintor val) (ObjPrintor val) where
   k ?: p = ObjPrintor [key]
     (\rules -> printorTotal p rules)
     (maybe (Just mempty) (fmap property . printorTry p))
-    (\ma rest -> maybe rest (\a -> (key, printorRender p a) : rest) ma)
+    (\ma rest -> maybe rest (\a -> renderProperty key p a rest) ma)
     (maybe (Right []) (printProperty key p))
     where
       key = Key.fromText k
       property printed = DList.singleton (key, printed)
+
+renderProperty
+  :: Key -> JsonPrintor val a b -> a -> [(Key, val)] -> [(Key, val)]
+renderProperty key p a rest =
+  let printed = printorRender p a in printed `seq` (key, printed) : rest
 
 printProperty
   :: Key -> JsonPrintor val a b -> a -> Either JsonError [(Key, val)]
