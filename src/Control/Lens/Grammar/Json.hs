@@ -216,7 +216,7 @@ class
   jsonWord64 :: p Word64 Word64
   jsonWord64 = jsonBoundedInteger
   jsonDouble :: p Double Double
-  jsonDouble = prism' fromFloatDigits (Just . toRealFloat) ?< jsonNumber
+  jsonDouble = iso fromFloatDigits toRealFloat >~ jsonNumber
   jsonArray :: p a b -> p [a] [b]
   jsonDict
     :: (forall q. JsonStr q => q a b)
@@ -253,7 +253,8 @@ class
   -}
   jsonEncodedText :: APrism Text (Encoding.Encoding' Text) a a -> p a a
   jsonEncodedText encoding = withPrism encoding $ \encode match ->
-    jsonTextWith (encodedText . encode) (either (const Nothing) Just . match)
+    prism' (encodedText . encode) (either (const Nothing) Just . match)
+      ?< jsonText
 
 {- | `JsonTup` grammars describe the elements of a JSON array.
 As `Alternator`s they have optional elements (`optionalP`, `optionP`),
@@ -1431,12 +1432,9 @@ tsIdentifier name = case Text.uncons ident of
 
 -- Json instance helpers
 
-jsonTextWith :: JsonStr p => (a -> Text) -> (Text -> Maybe a) -> p a a
-jsonTextWith f g = prism' f g ?< jsonText
-
 -- | An enumeration of strings, which a map's key may be.
 jsonEnumWith :: JsonStr p => (a -> Text) -> [a] -> p a a
-jsonEnumWith f as = jsonTextWith f (\t -> lookup t [(f a, a) | a <- as])
+jsonEnumWith f as = prism' f (\t -> lookup t [(f a, a) | a <- as]) ?< jsonText
 
 -- | An enumeration of string literals, typed as their union.
 jsonEnum :: (Eq a, JsonVal p) => (a -> Text) -> [a] -> p a a
@@ -1448,8 +1446,11 @@ jsonTag k p = jsonObject (k !: p)
 boundedScientific :: Scientific -> Maybe Scientific
 boundedScientific s = s <$ guard (abs (base10Exponent s) <= 1024)
 
+_BoundedInteger :: (Integral a, Bounded a) => Prism' Scientific a
+_BoundedInteger = prism' fromIntegral toBoundedInteger
+
 jsonBoundedInteger :: (Integral a, Bounded a, JsonVal p) => p a a
-jsonBoundedInteger = prism' fromIntegral toBoundedInteger ?< jsonNumber
+jsonBoundedInteger = _BoundedInteger ?< jsonNumber
 
 jsonRealFloat :: (RealFloat a, JsonVal p) => p a a -> p a a
 jsonRealFloat finite = dimap finiteness (either id id) (finite >+< nonFinite)
@@ -1462,15 +1463,39 @@ jsonRealFloat finite = dimap finiteness (either id id) (finite >+< nonFinite)
       | otherwise = Right (Right ())
     value = either (\_ -> 0/0) (either (\_ -> 1/0) (\_ -> negate 1/0))
 
-jsonRealFrac :: (Fractional a, Real a, JsonVal p) => p a a
-jsonRealFrac =
-  prism' realToFrac (fmap realToFrac . boundedScientific) ?< jsonNumber
+_RealFrac :: (Fractional a, Real a) => Prism' Scientific a
+_RealFrac = prism' realToFrac (fmap realToFrac . boundedScientific)
 
-jsonTimeWith
-  :: JsonStr p
-  => (a -> Encoding.Encoding' Text) -> (Text -> Either String a) -> p a a
-jsonTimeWith f g = jsonEncodedText $
+jsonRealFrac :: (Fractional a, Real a, JsonVal p) => p a a
+jsonRealFrac = _RealFrac ?< jsonNumber
+
+-- | A time, encoded as @aeson@ encodes it.
+encodedTime
+  :: (a -> Encoding.Encoding' Text) -> (Text -> Either String a)
+  -> Prism Text (Encoding.Encoding' Text) a a
+encodedTime f g =
   prism f (\t -> either (\_ -> Left (Encoding.text t)) Right (g t))
+
+_Day :: Prism Text (Encoding.Encoding' Text) Day Day
+_Day = encodedTime Encoding.day TimeText.parseDay
+
+_Month :: Prism Text (Encoding.Encoding' Text) Month Month
+_Month = encodedTime Encoding.month TimeText.parseMonth
+
+_Quarter :: Prism Text (Encoding.Encoding' Text) Quarter Quarter
+_Quarter = encodedTime Encoding.quarter TimeText.parseQuarter
+
+_TimeOfDay :: Prism Text (Encoding.Encoding' Text) TimeOfDay TimeOfDay
+_TimeOfDay = encodedTime Encoding.timeOfDay TimeText.parseTimeOfDay
+
+_LocalTime :: Prism Text (Encoding.Encoding' Text) LocalTime LocalTime
+_LocalTime = encodedTime Encoding.localTime TimeText.parseLocalTime
+
+_ZonedTime :: Prism Text (Encoding.Encoding' Text) ZonedTime ZonedTime
+_ZonedTime = encodedTime Encoding.zonedTime TimeText.parseZonedTime
+
+_UTCTime :: Prism Text (Encoding.Encoding' Text) UTCTime UTCTime
+_UTCTime = encodedTime Encoding.utcTime TimeText.parseUTCTime
 
 -- | The text of an @aeson@ string `Encoding.Encoding'`.
 encodedText :: Encoding.Encoding' Text -> Text
@@ -1478,24 +1503,29 @@ encodedText = Text.dropAround (== '"') . Text.decodeLatin1
   . LByteString.toStrict . Encoding.encodingToLazyByteString
 
 jsonChar :: JsonStr p => p Char Char
-jsonChar = jsonTextWith Text.singleton $ \t -> case Text.uncons t of
-  Just (c, rest) | Text.null rest -> Just c
-  _ -> Nothing
+jsonChar = prism' Text.singleton single ?< jsonText
+  where
+    single t = case Text.uncons t of
+      Just (c, rest) | Text.null rest -> Just c
+      _ -> Nothing
 
 jsonKey :: JsonStr p => p Key Key
 jsonKey = iso Key.toText Key.fromText >~ jsonText
 
 jsonVersion :: JsonStr p => p Version Version
-jsonVersion = jsonTextWith (Text.pack . showVersion) $ \t ->
-  listToMaybe [v | (v, "") <- readP_to_S parseVersion (Text.unpack t)]
+jsonVersion = prism' (Text.pack . showVersion) version ?< jsonText
+  where
+    version t =
+      listToMaybe [v | (v, "") <- readP_to_S parseVersion (Text.unpack t)]
 
 jsonUUID :: JsonStr p => p UUID UUID
-jsonUUID = jsonTextWith UUID.toText UUID.fromText
+jsonUUID = prism' UUID.toText UUID.fromText ?< jsonText
 
 jsonURI :: JsonStr p => p URI URI
-jsonURI = jsonTextWith
+jsonURI = prism'
   (\uri -> Text.pack (URI.uriToString id uri ""))
   (URI.parseURI . Text.unpack)
+  ?< jsonText
 
 -- | Days of the week, named as @aeson@ names them.
 weekdays :: ((DayOfWeek -> Text) -> [DayOfWeek] -> r) -> r
@@ -1520,7 +1550,7 @@ readScientific t
 
 -- | `Scientific` map keys, as @aeson@ renders them.
 jsonScientificKey :: JsonStr p => p Scientific Scientific
-jsonScientificKey = jsonTextWith render readScientific
+jsonScientificKey = prism' render readScientific ?< jsonText
   where
     render s
       | e < 0 || e > 1024 = Text.pack (formatScientific Generic Nothing s)
@@ -1529,12 +1559,14 @@ jsonScientificKey = jsonTextWith render readScientific
         e = base10Exponent s
 
 -- | Integral map keys, as @aeson@ renders them.
-jsonIntKeyWith :: (Show a, JsonStr p) => (Scientific -> Maybe a) -> p a a
-jsonIntKeyWith f = jsonTextWith (Text.pack . show) (readScientific >=> f)
+jsonIntKey :: (Show a, JsonStr p) => APrism' Scientific a -> p a a
+jsonIntKey integral = prism'
+  (Text.pack . show) (readScientific >=> preview (clonePrism integral))
+  ?< jsonText
 
 -- | `RealFloat` map keys, as @aeson@ renders them.
 jsonRealFloatKey :: (RealFloat a, Show a, JsonStr p) => p a a
-jsonRealFloatKey = jsonTextWith render parse
+jsonRealFloatKey = prism' render parse ?< jsonText
   where
     render d
       | isInfinite d = if d > 0 then "+inf" else "-inf"
@@ -1562,7 +1594,7 @@ instance Json Ordering where
 instance Json () where json = jsonTuple oneP
 instance Json Void where
   json = zeroP
-  jsonKeyMap = jsonDict (jsonTextWith absurd (const Nothing)) json
+  jsonKeyMap = jsonDict (prism' absurd (const Nothing) ?< jsonText) json
 instance Json Char where
   json = jsonTyped jsonChar
   jsonList = jsonString
@@ -1580,7 +1612,7 @@ instance Json Double where
   jsonKeyMap = jsonDict jsonRealFloatKey json
 instance Json Float where
   json = jsonTyped $
-    jsonRealFloat (prism' fromFloatDigits (Just . toRealFloat) ?< jsonNumber)
+    jsonRealFloat (iso fromFloatDigits toRealFloat >~ jsonNumber)
   jsonKeyMap = jsonDict jsonRealFloatKey json
 instance (Integral a, Json a) => Json (Ratio a) where
   json = prism'
@@ -1592,47 +1624,47 @@ instance HasResolution a => Json (Fixed a) where
   jsonKeyMap = jsonDict (iso realToFrac realToFrac >~ jsonScientificKey) json
 instance Json Int where
   json = jsonTyped jsonInt
-  jsonKeyMap = jsonDict (jsonIntKeyWith toBoundedInteger) json
+  jsonKeyMap = jsonDict (jsonIntKey _BoundedInteger) json
 instance Json Int8 where
   json = jsonTyped jsonInt8
-  jsonKeyMap = jsonDict (jsonIntKeyWith toBoundedInteger) json
+  jsonKeyMap = jsonDict (jsonIntKey _BoundedInteger) json
 instance Json Int16 where
   json = jsonTyped jsonInt16
-  jsonKeyMap = jsonDict (jsonIntKeyWith toBoundedInteger) json
+  jsonKeyMap = jsonDict (jsonIntKey _BoundedInteger) json
 instance Json Int32 where
   json = jsonTyped jsonInt32
-  jsonKeyMap = jsonDict (jsonIntKeyWith toBoundedInteger) json
+  jsonKeyMap = jsonDict (jsonIntKey _BoundedInteger) json
 instance Json Int64 where
   json = jsonTyped jsonInt64
-  jsonKeyMap = jsonDict (jsonIntKeyWith toBoundedInteger) json
+  jsonKeyMap = jsonDict (jsonIntKey _BoundedInteger) json
 instance Json Word where
   json = jsonTyped jsonWord
-  jsonKeyMap = jsonDict (jsonIntKeyWith toBoundedInteger) json
+  jsonKeyMap = jsonDict (jsonIntKey _BoundedInteger) json
 instance Json Word8 where
   json = jsonTyped jsonWord8
-  jsonKeyMap = jsonDict (jsonIntKeyWith toBoundedInteger) json
+  jsonKeyMap = jsonDict (jsonIntKey _BoundedInteger) json
 instance Json Word16 where
   json = jsonTyped jsonWord16
-  jsonKeyMap = jsonDict (jsonIntKeyWith toBoundedInteger) json
+  jsonKeyMap = jsonDict (jsonIntKey _BoundedInteger) json
 instance Json Word32 where
   json = jsonTyped jsonWord32
-  jsonKeyMap = jsonDict (jsonIntKeyWith toBoundedInteger) json
+  jsonKeyMap = jsonDict (jsonIntKey _BoundedInteger) json
 instance Json Word64 where
   json = jsonTyped jsonWord64
-  jsonKeyMap = jsonDict (jsonIntKeyWith toBoundedInteger) json
-integerScientific :: Scientific -> Maybe Integer
-integerScientific =
+  jsonKeyMap = jsonDict (jsonIntKey _BoundedInteger) json
+_Integer :: Prism' Scientific Integer
+_Integer = prism' fromInteger $
   boundedScientific >=> either (const Nothing) Just . floatingOrInteger @Double
 instance Json Integer where
-  json = jsonTyped (prism' fromInteger integerScientific ?< jsonNumber)
-  jsonKeyMap = jsonDict (jsonIntKeyWith integerScientific) json
-naturalScientific :: Scientific -> Maybe Natural
-naturalScientific s = do
-  i <- integerScientific s
+  json = jsonTyped (_Integer ?< jsonNumber)
+  jsonKeyMap = jsonDict (jsonIntKey _Integer) json
+_Natural :: Prism' Scientific Natural
+_Natural = prism' fromIntegral $ \s -> do
+  i <- preview _Integer s
   fromInteger i <$ guard (i >= 0)
 instance Json Natural where
-  json = jsonTyped (prism' fromIntegral naturalScientific ?< jsonNumber)
-  jsonKeyMap = jsonDict (jsonIntKeyWith naturalScientific) json
+  json = jsonTyped (_Natural ?< jsonNumber)
+  jsonKeyMap = jsonDict (jsonIntKey _Natural) json
 instance Json CTime where json = coerced >~ json @Int64
 instance Json Version where
   json = jsonTyped jsonVersion
@@ -1817,7 +1849,7 @@ instance Json v => Json (KeyMap v) where
 instance Json Value where
   json = jsonValue
 instance Json DotNetTime where
-  json = jsonTyped (jsonTextWith render parse)
+  json = jsonTyped (prism' render parse ?< jsonText)
     where
       render (DotNetTime t) = Text.pack
         ( formatTime defaultTimeLocale "/Date(%s" t
@@ -1830,31 +1862,26 @@ instance Json DotNetTime where
 
 -- time
 instance Json Day where
-  json = jsonTyped (jsonTimeWith Encoding.day TimeText.parseDay)
-  jsonKeyMap = jsonDict (jsonTimeWith Encoding.day TimeText.parseDay) json
+  json = jsonTyped (jsonEncodedText _Day)
+  jsonKeyMap = jsonDict (jsonEncodedText _Day) json
 instance Json Month where
-  json = jsonTyped (jsonTimeWith Encoding.month TimeText.parseMonth)
-  jsonKeyMap = jsonDict (jsonTimeWith Encoding.month TimeText.parseMonth) json
+  json = jsonTyped (jsonEncodedText _Month)
+  jsonKeyMap = jsonDict (jsonEncodedText _Month) json
 instance Json Quarter where
-  json = jsonTyped (jsonTimeWith Encoding.quarter TimeText.parseQuarter)
-  jsonKeyMap =
-    jsonDict (jsonTimeWith Encoding.quarter TimeText.parseQuarter) json
+  json = jsonTyped (jsonEncodedText _Quarter)
+  jsonKeyMap = jsonDict (jsonEncodedText _Quarter) json
 instance Json TimeOfDay where
-  json = jsonTyped (jsonTimeWith Encoding.timeOfDay TimeText.parseTimeOfDay)
-  jsonKeyMap =
-    jsonDict (jsonTimeWith Encoding.timeOfDay TimeText.parseTimeOfDay) json
+  json = jsonTyped (jsonEncodedText _TimeOfDay)
+  jsonKeyMap = jsonDict (jsonEncodedText _TimeOfDay) json
 instance Json LocalTime where
-  json = jsonTyped (jsonTimeWith Encoding.localTime TimeText.parseLocalTime)
-  jsonKeyMap =
-    jsonDict (jsonTimeWith Encoding.localTime TimeText.parseLocalTime) json
+  json = jsonTyped (jsonEncodedText _LocalTime)
+  jsonKeyMap = jsonDict (jsonEncodedText _LocalTime) json
 instance Json ZonedTime where
-  json = jsonTyped (jsonTimeWith Encoding.zonedTime TimeText.parseZonedTime)
-  jsonKeyMap =
-    jsonDict (jsonTimeWith Encoding.zonedTime TimeText.parseZonedTime) json
+  json = jsonTyped (jsonEncodedText _ZonedTime)
+  jsonKeyMap = jsonDict (jsonEncodedText _ZonedTime) json
 instance Json UTCTime where
-  json = jsonTyped (jsonTimeWith Encoding.utcTime TimeText.parseUTCTime)
-  jsonKeyMap =
-    jsonDict (jsonTimeWith Encoding.utcTime TimeText.parseUTCTime) json
+  json = jsonTyped (jsonEncodedText _UTCTime)
+  jsonKeyMap = jsonDict (jsonEncodedText _UTCTime) json
 instance Json NominalDiffTime where json = jsonTyped jsonRealFrac
 instance Json DiffTime where json = jsonTyped jsonRealFrac
 instance Json SystemTime where
