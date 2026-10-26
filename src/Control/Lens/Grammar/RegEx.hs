@@ -153,7 +153,8 @@ deriving stock instance
 deriving newtype instance Categorized token => Eq (TokenClass token)
 deriving newtype instance Categorized token => Ord (TokenClass token)
 deriving newtype instance Categorized token => Tokenized token (TokenClass token)
-deriving newtype instance Categorized token => DisjunctiveMonoid (TokenClass token)
+deriving newtype instance Categorized token
+  => DisjunctiveMonoid (TokenClass token)
 deriving newtype instance Categorized token => BooleanAlgebra (TokenClass token)
 instance Categorized token
   => TokenAlgebra token (TokenClass token) where

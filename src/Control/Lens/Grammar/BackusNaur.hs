@@ -196,7 +196,8 @@ instance (Ord rule, KleeneStarAlgebra rule)
   starK = liftBnf1 starK
   plusK = liftBnf1 plusK
   optK = liftBnf1 optK
-instance (Ord rule, DisjunctiveMonoid rule) => DisjunctiveMonoid (Bnf rule) where
+instance (Ord rule, DisjunctiveMonoid rule)
+  => DisjunctiveMonoid (Bnf rule) where
   falseP = liftBnf0 falseP
   (>|<) = liftBnf2 (>|<)
 instance (Ord rule, Monoid rule) => Monoid (Bnf rule) where

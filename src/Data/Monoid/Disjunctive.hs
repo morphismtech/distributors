@@ -159,7 +159,8 @@ deriving via Generically () instance DisjunctiveMonoid ()
 deriving via Generically () instance BooleanAlgebra ()
 deriving via Generically () instance KleeneStarAlgebra ()
 deriving via Generically (a, b)
-  instance (DisjunctiveMonoid a, DisjunctiveMonoid b) => DisjunctiveMonoid (a, b)
+  instance (DisjunctiveMonoid a, DisjunctiveMonoid b)
+    => DisjunctiveMonoid (a, b)
 deriving via Generically (a, b)
   instance (BooleanAlgebra a, BooleanAlgebra b) => BooleanAlgebra (a, b)
 deriving via Generically (a, b)
@@ -175,7 +176,9 @@ deriving via Generically (a, b, c)
   instance (KleeneStarAlgebra a, KleeneStarAlgebra b, KleeneStarAlgebra c)
     => KleeneStarAlgebra (a, b, c)
 deriving via Generically (a, b, c, d)
-  instance (DisjunctiveMonoid a, DisjunctiveMonoid b, DisjunctiveMonoid c, DisjunctiveMonoid d)
+  instance
+    ( DisjunctiveMonoid a, DisjunctiveMonoid b, DisjunctiveMonoid c
+    , DisjunctiveMonoid d )
     => DisjunctiveMonoid (a, b, c, d)
 deriving via Generically (a, b, c, d)
   instance
@@ -189,8 +192,8 @@ deriving via Generically (a, b, c, d)
     => KleeneStarAlgebra (a, b, c, d)
 deriving via Generically (a, b, c, d, e)
   instance
-    ( DisjunctiveMonoid a, DisjunctiveMonoid b, DisjunctiveMonoid c, DisjunctiveMonoid d
-    , DisjunctiveMonoid e )
+    ( DisjunctiveMonoid a, DisjunctiveMonoid b, DisjunctiveMonoid c
+    , DisjunctiveMonoid d, DisjunctiveMonoid e )
     => DisjunctiveMonoid (a, b, c, d, e)
 deriving via Generically (a, b, c, d, e)
   instance
@@ -378,7 +381,8 @@ instance (DisjunctiveMonoid (p a b), DisjunctiveMonoid (q a b))
 instance Alternative f => DisjunctiveMonoid (Joker f a b) where
   falseP = Joker empty
   Joker x >|< Joker y = Joker (x <|> y)
-instance DisjunctiveMonoid (p a (f b)) => DisjunctiveMonoid (WrappedPafb f p a b) where
+instance DisjunctiveMonoid (p a (f b))
+  => DisjunctiveMonoid (WrappedPafb f p a b) where
   falseP = WrapPafb falseP
   WrapPafb x >|< WrapPafb y = WrapPafb (x >|< y)
 instance (Profunctor p, DisjunctiveMonoid (p a b))

@@ -668,7 +668,7 @@ showKey = show . Key.toText
 
 -- Printing interpreters --
 
--- | @aeson@'s representations of JSON strings, `Value` & `Encoding`.
+-- | @aeson@'s representations of JSON strings, `Value`, `Encoding` & `Key`.
 class AesonStr val where
   aesonText :: Text -> val
   aesonString :: String -> val
@@ -677,6 +677,7 @@ class AesonStr val where
   aesonLiteral = aesonText
   -- | Render an array of a primitive at once, when that's faster.
   aesonPrimitives :: (a -> val) -> Maybe ([a] -> val)
+  aesonPrimitives _ = Nothing
   -- | Render text, or else its @aeson@ string `Encoding.Encoding'`.
   aesonEncodedText :: (Text, Encoding.Encoding' Text) -> val
   aesonEncodedText = aesonText . fst
@@ -684,14 +685,18 @@ class AesonStr val where
 instance AesonStr Value where
   aesonText = String
   aesonString = String . Text.pack
-  aesonPrimitives _ = Nothing
 
-instance AesonStr Encoding where
+instance AesonStr Key where
+  aesonText = Key.fromText
+  aesonString = Key.fromString
+
+instance AesonStr (Encoding.Encoding' a) where
   aesonText = Encoding.text
   aesonString = Encoding.string
   aesonLiteral = Encoding.unsafeToEncoding . Builder.byteString
     . LByteString.toStrict . Encoding.encodingToLazyByteString . Encoding.text
-  aesonPrimitives render = Just (\as -> Encoding.list render as)
+  aesonPrimitives render =
+    Just (retagEncoding . Encoding.list (retagEncoding . render))
   {-# INLINE aesonPrimitives #-}
   aesonEncodedText = retagEncoding . snd
 
@@ -699,40 +704,25 @@ instance AesonStr Encoding where
 retagEncoding :: Encoding.Encoding' a -> Encoding.Encoding' b
 retagEncoding = Encoding.unsafeToEncoding . Encoding.fromEncoding
 
--- | `KeyPrintor` prints the key of an `Object`, which is total.
-newtype KeyPrintor a b = KeyPrintor {runKeyPrintor :: a -> Key}
+{- | `KeyPrintor` prints the key of an `Object`, which is total,
+as a `Key` or as its `Encoding.Encoding'`.
+-}
+newtype KeyPrintor key a b = KeyPrintor {runKeyPrintor :: a -> key}
 
-instance Profunctor KeyPrintor where
+instance Profunctor (KeyPrintor key) where
   dimap f _ (KeyPrintor render) = KeyPrintor (render . f)
-instance Cochoice KeyPrintor where
+instance Cochoice (KeyPrintor key) where
   unleft (KeyPrintor render) = KeyPrintor (render . Left)
   unright (KeyPrintor render) = KeyPrintor (render . Right)
-instance (x ~ (), y ~ ()) => IsString (KeyPrintor x y) where
-  fromString s = KeyPrintor (const key)
+instance (AesonStr key, x ~ (), y ~ ()) => IsString (KeyPrintor key x y) where
+  fromString s = KeyPrintor (const literal)
     where
-      key = Key.fromString s
-instance JsonStr KeyPrintor where
-  jsonText = KeyPrintor Key.fromText
-  jsonString = KeyPrintor Key.fromString
-
--- | `KeyEncodor` encodes the key of an `Object`, which is total.
-newtype KeyEncodor a b =
-  KeyEncodor {runKeyEncodor :: a -> Encoding.Encoding' Key}
-
-instance Profunctor KeyEncodor where
-  dimap f _ (KeyEncodor encode) = KeyEncodor (encode . f)
-instance Cochoice KeyEncodor where
-  unleft (KeyEncodor encode) = KeyEncodor (encode . Left)
-  unright (KeyEncodor encode) = KeyEncodor (encode . Right)
-instance (x ~ (), y ~ ()) => IsString (KeyEncodor x y) where
-  fromString s = KeyEncodor (const (retagEncoding key))
-    where
-      key = aesonLiteral @Encoding (Text.pack s)
-instance JsonStr KeyEncodor where
-  jsonText = KeyEncodor Encoding.text
-  jsonString = KeyEncodor Encoding.string
+      literal = aesonLiteral (Text.pack s)
+instance AesonStr key => JsonStr (KeyPrintor key) where
+  jsonText = KeyPrintor aesonText
+  jsonString = KeyPrintor aesonString
   jsonEncodedText encoding = withPrism encoding $ \encode _ ->
-    KeyEncodor (retagEncoding . snd . encode)
+    KeyPrintor (aesonEncodedText . encode)
 
 -- | @aeson@'s representations of JSON values, `Value` & `Encoding`.
 class AesonStr val => AesonVal val where
@@ -781,7 +771,7 @@ instance AesonVal Encoding where
   aesonMap key fold render = Encoding.pairs . fold property mempty
     where
       property a c rest =
-        let encodedKey = runKeyEncodor key a; printed = render c
+        let encodedKey = runKeyPrintor key a; printed = render c
         in encodedKey `seq` printed `seq`
           Encoding.pair' encodedKey printed <> rest
   aesonValue = Encoding.value
@@ -835,13 +825,6 @@ tryAll total attempt render = \as -> if isTotal
   where
     isTotal = total Set.empty
 
-{- | A `rule`'s totality, assuming those being determined are total,
-by induction on the values printed.
--}
-ruleTotal :: RuleKey -> (Set RuleKey -> Bool) -> Set RuleKey -> Bool
-ruleTotal key total rules =
-  Set.member key rules || total (Set.insert key rules)
-
 {- | `TupPrintor` prints the elements of a JSON array,
 counted to locate a failure of a later element.
 A single element keeps its rendering, so that mapping it composes.
@@ -866,15 +849,12 @@ instance Semigroup (Elements val) where
     case later of
       Right (count1, elements1) ->
         Right (count0 + count1, elements0 <> elements1)
-      Left err -> Left (shiftIndex count0 err)
+      Left err -> Left $ case jsonErrorPath err of
+        Index i : path -> err {jsonErrorPath = Index (i + count0) : path}
+        _ -> err
   failure <> _ = failure
 instance Monoid (Elements val) where
   mempty = Elements (Right (0, mempty))
-
-shiftIndex :: Int -> JsonError -> JsonError
-shiftIndex count err = case jsonErrorPath err of
-  Index i : path -> err {jsonErrorPath = Index (i + count) : path}
-  _ -> err
 
 {- | `ObjPrintor` writes keys of an `Object`.
 Its keys are known before printing, so overlapping keys are found once.
@@ -886,11 +866,6 @@ data ObjPrintor val a b = ObjPrintor
   , objPrintorRender :: !(a -> [(Key, val)] -> [(Key, val)])
   , objPrintorCheck :: !(a -> Either JsonError [(Key, val)])
   }
-
-printObject :: AesonVal val => [(Key, val)] -> Either JsonError val
-printObject props = case duplicateKey (map fst props) of
-  Just key -> printDuplicate key
-  Nothing -> Right (aesonObject props)
 
 printDuplicate :: Key -> Either JsonError a
 printDuplicate key = jsonMissing ("key " <> showKey key <> " twice") Nothing
@@ -941,10 +916,14 @@ instance BackusNaurForm (JsonPrintor val a b) where
   rule name = ruleP (NamedRule name) name
   ruleRec name f = fix (rule name . f)
 
--- | A `rule` with a key, labelling its failures with a name.
+{- | A `rule` with a key, labelling its failures with a name.
+Its totality assumes those being determined are total,
+by induction on the values printed.
+-}
 ruleP :: RuleKey -> String -> JsonPrintor val a b -> JsonPrintor val a b
 ruleP key name p = p
-  { printorTotal = ruleTotal key (printorTotal p)
+  { printorTotal = \rules ->
+      Set.member key rules || printorTotal p (Set.insert key rules)
   , printorCheck = onFailure (jsonRelabel name) . printorCheck p
   }
 
@@ -994,7 +973,10 @@ instance AesonVal val => JsonVal (JsonPrintor val) where
         props <- tryProperties entries
         guard (isNothing (duplicateKey (map fst props)))
         Just (aesonObject props)
-      check = traverse entry >=> printObject
+      check entries = do
+        props <- traverse entry entries
+        maybe (Right (aesonObject props)) printDuplicate
+          (duplicateKey (map fst props))
       entry (a, c) = (k,) <$> jsonAt (Key k) (printorCheck p c)
         where
           k = keyOf a
@@ -1567,80 +1549,13 @@ jsonRealFloat finite = dimap finiteness (either id id) (finite >+< nonFinite)
       | otherwise = Right (Right ())
     value = either (\_ -> 0/0) (either (\_ -> 1/0) (\_ -> negate 1/0))
 
-_RealFrac :: (Fractional a, Real a) => Prism' Scientific a
-_RealFrac = prism' realToFrac (fmap realToFrac . boundedScientific)
-
 jsonRealFrac :: (Fractional a, Real a, JsonVal p) => p a a
-jsonRealFrac = _RealFrac ?< jsonNumber
+jsonRealFrac =
+  prism' realToFrac (fmap realToFrac . boundedScientific) ?< jsonNumber
 
--- | A time, encoded as @aeson@ encodes it.
-encodedTime
-  :: (a -> Encoding.Encoding' Text) -> (Text -> Either String a)
-  -> Prism Text (Text, Encoding.Encoding' Text) a a
-encodedTime f g = prism
-  (\a -> let encoded = f a in (encodedText encoded, encoded))
-  (\t -> either (\_ -> Left (t, Encoding.text t)) Right (g t))
-
-_Day :: Prism Text (Text, Encoding.Encoding' Text) Day Day
-_Day = encodedTime Encoding.day TimeText.parseDay
-
-_Month :: Prism Text (Text, Encoding.Encoding' Text) Month Month
-_Month = encodedTime Encoding.month TimeText.parseMonth
-
-_Quarter :: Prism Text (Text, Encoding.Encoding' Text) Quarter Quarter
-_Quarter = encodedTime Encoding.quarter TimeText.parseQuarter
-
-_TimeOfDay :: Prism Text (Text, Encoding.Encoding' Text) TimeOfDay TimeOfDay
-_TimeOfDay = encodedTime Encoding.timeOfDay TimeText.parseTimeOfDay
-
-_LocalTime :: Prism Text (Text, Encoding.Encoding' Text) LocalTime LocalTime
-_LocalTime = encodedTime Encoding.localTime TimeText.parseLocalTime
-
-_ZonedTime :: Prism Text (Text, Encoding.Encoding' Text) ZonedTime ZonedTime
-_ZonedTime = encodedTime Encoding.zonedTime TimeText.parseZonedTime
-
-_UTCTime :: Prism Text (Text, Encoding.Encoding' Text) UTCTime UTCTime
-_UTCTime = encodedTime Encoding.utcTime TimeText.parseUTCTime
-
--- | The text of an @aeson@ string `Encoding.Encoding'`.
-encodedText :: Encoding.Encoding' Text -> Text
-encodedText = Text.dropAround (== '"') . Text.decodeLatin1
-  . LByteString.toStrict . Encoding.encodingToLazyByteString
-
-jsonChar :: JsonStr p => p Char Char
-jsonChar = prism' Text.singleton single ?< jsonText
-  where
-    single t = case Text.uncons t of
-      Just (c, rest) | Text.null rest -> Just c
-      _ -> Nothing
 
 jsonKeyText :: JsonStr p => p Key Key
 jsonKeyText = iso Key.toText Key.fromText >~ jsonText
-
-jsonVersion :: JsonStr p => p Version Version
-jsonVersion = prism' (Text.pack . showVersion) version ?< jsonText
-  where
-    version t =
-      listToMaybe [v | (v, "") <- readP_to_S parseVersion (Text.unpack t)]
-
-jsonUUID :: JsonStr p => p UUID UUID
-jsonUUID = prism' UUID.toText UUID.fromText ?< jsonText
-
-jsonURI :: JsonStr p => p URI URI
-jsonURI = prism'
-  (\uri -> Text.pack (URI.uriToString id uri ""))
-  (URI.parseURI . Text.unpack)
-  ?< jsonText
-
--- | Days of the week, named as @aeson@ names them.
-weekdays :: ((DayOfWeek -> Text) -> [DayOfWeek] -> r) -> r
-weekdays enumerate = enumerate (Text.toLower . Text.pack . show)
-  [Monday, Tuesday, Wednesday, Thursday, Friday, Saturday, Sunday]
-
--- | Quarters of the year, named as @aeson@ names them.
-quarters :: ((QuarterOfYear -> Text) -> [QuarterOfYear] -> r) -> r
-quarters enumerate =
-  enumerate (Text.toLower . Text.pack . show) [Q1, Q2, Q3, Q4]
 
 -- | Read a `Scientific`, quickly when it's a canonical integer.
 readScientific :: Text -> Maybe Scientific
@@ -1709,6 +1624,14 @@ instance Json () where json = jsonTuple oneP
 instance Json Void where
   json = zeroP
   jsonKey = Just (prism' absurd (const Nothing) ?< jsonText)
+
+jsonChar :: JsonStr p => p Char Char
+jsonChar = prism' Text.singleton single ?< jsonText
+  where
+    single t = case Text.uncons t of
+      Just (c, rest) | Text.null rest -> Just c
+      _ -> Nothing
+
 instance Json Char where
   json = jsonTyped jsonChar
   jsonList = jsonString
@@ -1780,6 +1703,13 @@ instance Json Natural where
   json = jsonTyped (_Natural ?< jsonNumber)
   jsonKey = Just (jsonIntKey _Natural)
 instance Json CTime where json = coerced >~ json @Int64
+
+jsonVersion :: JsonStr p => p Version Version
+jsonVersion = prism' (Text.pack . showVersion) version ?< jsonText
+  where
+    version t =
+      listToMaybe [v | (v, "") <- readP_to_S parseVersion (Text.unpack t)]
+
 instance Json Version where
   json = jsonTyped jsonVersion
   jsonKey = Just jsonVersion
@@ -1839,15 +1769,6 @@ instance Json a => Json (Semigroup.Product a) where
 instance Json Semigroup.All where json = coerced >~ json @Bool
 instance Json Semigroup.Any where json = coerced >~ json @Bool
 instance Json (Proxy a) where json = dimap (const ()) (const Proxy) jsonNull
-{- | The `GHC.Generic` `Json` grammar, defined as a `rule`
-named by its `Typeable` type, so that each instantiation of
-a parametric type is its own (possibly recursive) definition.
--}
-instance (GHC.Generic a, GHC.Rep a ~ GHC.D1 d f, GSum f, Typeable a)
-  => Json (GHC.Generically a) where
-    json = dimap (\(GHC.Generically a) -> a) GHC.Generically $
-      jsonTyped (dimap (GHC.unM1 . GHC.from) (GHC.to . GHC.M1) gsum)
-
 -- tuples
 -- | An element of a tuple, by its projection.
 projectElem :: (Json a, JsonTup p q) => (s -> a) -> q s a
@@ -2110,24 +2031,56 @@ instance Json DotNetTime where
           "/Date(%s%Q)/" (Text.unpack (Text.concat [s, ".", m]))
 
 -- time
+
+-- | A time, encoded as @aeson@ encodes it.
+encodedTime
+  :: (a -> Encoding.Encoding' Text) -> (Text -> Either String a)
+  -> Prism Text (Text, Encoding.Encoding' Text) a a
+encodedTime f g = prism
+  (\a -> let encoded = f a in (encodedText encoded, encoded))
+  (\t -> either (\_ -> Left (t, Encoding.text t)) Right (g t))
+  where
+    encodedText = Text.dropAround (== '"') . Text.decodeLatin1
+      . LByteString.toStrict . Encoding.encodingToLazyByteString
+
+_Day :: Prism Text (Text, Encoding.Encoding' Text) Day Day
+_Day = encodedTime Encoding.day TimeText.parseDay
 instance Json Day where
   json = jsonTyped (jsonEncodedText _Day)
   jsonKey = Just (jsonEncodedText _Day)
+
+_Month :: Prism Text (Text, Encoding.Encoding' Text) Month Month
+_Month = encodedTime Encoding.month TimeText.parseMonth
 instance Json Month where
   json = jsonTyped (jsonEncodedText _Month)
   jsonKey = Just (jsonEncodedText _Month)
+
+_Quarter :: Prism Text (Text, Encoding.Encoding' Text) Quarter Quarter
+_Quarter = encodedTime Encoding.quarter TimeText.parseQuarter
 instance Json Quarter where
   json = jsonTyped (jsonEncodedText _Quarter)
   jsonKey = Just (jsonEncodedText _Quarter)
+
+_TimeOfDay :: Prism Text (Text, Encoding.Encoding' Text) TimeOfDay TimeOfDay
+_TimeOfDay = encodedTime Encoding.timeOfDay TimeText.parseTimeOfDay
 instance Json TimeOfDay where
   json = jsonTyped (jsonEncodedText _TimeOfDay)
   jsonKey = Just (jsonEncodedText _TimeOfDay)
+
+_LocalTime :: Prism Text (Text, Encoding.Encoding' Text) LocalTime LocalTime
+_LocalTime = encodedTime Encoding.localTime TimeText.parseLocalTime
 instance Json LocalTime where
   json = jsonTyped (jsonEncodedText _LocalTime)
   jsonKey = Just (jsonEncodedText _LocalTime)
+
+_ZonedTime :: Prism Text (Text, Encoding.Encoding' Text) ZonedTime ZonedTime
+_ZonedTime = encodedTime Encoding.zonedTime TimeText.parseZonedTime
 instance Json ZonedTime where
   json = jsonTyped (jsonEncodedText _ZonedTime)
   jsonKey = Just (jsonEncodedText _ZonedTime)
+
+_UTCTime :: Prism Text (Text, Encoding.Encoding' Text) UTCTime UTCTime
+_UTCTime = encodedTime Encoding.utcTime TimeText.parseUTCTime
 instance Json UTCTime where
   json = jsonTyped (jsonEncodedText _UTCTime)
   jsonKey = Just (jsonEncodedText _UTCTime)
@@ -2150,19 +2103,42 @@ instance Json CalendarDiffTime where
 instance Json CalendarDiffDays where
   json = dimap (\(CalendarDiffDays m d) -> (m, d)) (uncurry CalendarDiffDays)
     (jsonObject ("months" !: json >*< "days" !: json))
+
+-- | Days of the week, named as @aeson@ names them.
+weekdays :: ((DayOfWeek -> Text) -> [DayOfWeek] -> r) -> r
+weekdays enumerate = enumerate (Text.toLower . Text.pack . show)
+  [Monday, Tuesday, Wednesday, Thursday, Friday, Saturday, Sunday]
+
 instance Json DayOfWeek where
   json = jsonTyped (weekdays jsonEnum)
   jsonKey = Just (weekdays jsonEnumWith)
+
+-- | Quarters of the year, named as @aeson@ names them.
+quarters :: ((QuarterOfYear -> Text) -> [QuarterOfYear] -> r) -> r
+quarters enumerate =
+  enumerate (Text.toLower . Text.pack . show) [Q1, Q2, Q3, Q4]
+
 instance Json QuarterOfYear where
   json = jsonTyped (quarters jsonEnum)
   jsonKey = Just (quarters jsonEnumWith)
 
 -- uuid-types
+
+jsonUUID :: JsonStr p => p UUID UUID
+jsonUUID = prism' UUID.toText UUID.fromText ?< jsonText
+
 instance Json UUID where
   json = jsonTyped jsonUUID
   jsonKey = Just jsonUUID
 
 -- network-uri
+
+jsonURI :: JsonStr p => p URI URI
+jsonURI = prism'
+  (\uri -> Text.pack (URI.uriToString id uri ""))
+  (URI.parseURI . Text.unpack)
+  ?< jsonText
+
 instance Json URI where
   json = jsonTyped jsonURI
   jsonKey = Just jsonURI
@@ -2211,6 +2187,15 @@ instance (Json a, Json b) => Json (Strict.Pair a b) where
   json = iso Strict.toLazy Strict.toStrict >~ json @(a, b)
 
 -- Generics
+
+{- | The `GHC.Generic` `Json` grammar, defined as a `rule`
+named by its `Typeable` type, so that each instantiation of
+a parametric type is its own (possibly recursive) definition.
+-}
+instance (GHC.Generic a, GHC.Rep a ~ GHC.D1 d f, GSum f, Typeable a)
+  => Json (GHC.Generically a) where
+    json = dimap (\(GHC.Generically a) -> a) GHC.Generically $
+      jsonTyped (dimap (GHC.unM1 . GHC.from) (GHC.to . GHC.M1) gsum)
 
 gsum :: forall f p x. (GSum f, JsonVal p) => p (f x) (f x)
 gsum
