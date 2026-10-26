@@ -262,13 +262,14 @@ class
   jsonText :: p Text Text
   jsonString :: p String String
   jsonString = iso Text.pack Text.unpack >~ jsonText
-  {- | A string matched from its `Text`,
-  which is reviewed as an @aeson@ string `Encoding.Encoding'`.
+  {- | A string matched from its `Text`, which is reviewed lazily
+  as both its `Text` & an @aeson@ string `Encoding.Encoding'`,
+  either of which an interpreter uses.
   -}
-  jsonEncodedText :: APrism Text (Encoding.Encoding' Text) a a -> p a a
+  jsonEncodedText
+    :: APrism Text (Text, Encoding.Encoding' Text) a a -> p a a
   jsonEncodedText encoding = withPrism encoding $ \encode match ->
-    prism' (encodedText . encode) (either (const Nothing) Just . match)
-      ?< jsonText
+    prism' (fst . encode) (either (const Nothing) Just . match) ?< jsonText
 
 {- | `JsonTup` grammars describe the elements of a JSON array.
 As `Alternator`s they have optional elements (`optionalP`, `optionP`),
@@ -676,9 +677,9 @@ class AesonStr val where
   aesonLiteral = aesonText
   -- | Render an array of a primitive at once, when that's faster.
   aesonPrimitives :: (a -> val) -> Maybe ([a] -> val)
-  -- | Render an @aeson@ string `Encoding.Encoding'`.
-  aesonEncodedText :: Encoding.Encoding' Text -> val
-  aesonEncodedText = aesonText . encodedText
+  -- | Render text, or else its @aeson@ string `Encoding.Encoding'`.
+  aesonEncodedText :: (Text, Encoding.Encoding' Text) -> val
+  aesonEncodedText = aesonText . fst
 
 instance AesonStr Value where
   aesonText = String
@@ -692,7 +693,11 @@ instance AesonStr Encoding where
     . LByteString.toStrict . Encoding.encodingToLazyByteString . Encoding.text
   aesonPrimitives render = Just (\as -> Encoding.list render as)
   {-# INLINE aesonPrimitives #-}
-  aesonEncodedText = Encoding.unsafeToEncoding . Encoding.fromEncoding
+  aesonEncodedText = retagEncoding . snd
+
+-- | Retag an @aeson@ `Encoding.Encoding'`.
+retagEncoding :: Encoding.Encoding' a -> Encoding.Encoding' b
+retagEncoding = Encoding.unsafeToEncoding . Encoding.fromEncoding
 
 -- | `KeyPrintor` prints the key of an `Object`, which is total.
 newtype KeyPrintor a b = KeyPrintor {runKeyPrintor :: a -> Key}
@@ -710,6 +715,25 @@ instance JsonStr KeyPrintor where
   jsonText = KeyPrintor Key.fromText
   jsonString = KeyPrintor Key.fromString
 
+-- | `KeyEncodor` encodes the key of an `Object`, which is total.
+newtype KeyEncodor a b =
+  KeyEncodor {runKeyEncodor :: a -> Encoding.Encoding' Key}
+
+instance Profunctor KeyEncodor where
+  dimap f _ (KeyEncodor encode) = KeyEncodor (encode . f)
+instance Cochoice KeyEncodor where
+  unleft (KeyEncodor encode) = KeyEncodor (encode . Left)
+  unright (KeyEncodor encode) = KeyEncodor (encode . Right)
+instance (x ~ (), y ~ ()) => IsString (KeyEncodor x y) where
+  fromString s = KeyEncodor (const (retagEncoding key))
+    where
+      key = aesonLiteral @Encoding (Text.pack s)
+instance JsonStr KeyEncodor where
+  jsonText = KeyEncodor Encoding.text
+  jsonString = KeyEncodor Encoding.string
+  jsonEncodedText encoding = withPrism encoding $ \encode _ ->
+    KeyEncodor (retagEncoding . snd . encode)
+
 -- | @aeson@'s representations of JSON values, `Value` & `Encoding`.
 class AesonStr val => AesonVal val where
   aesonNull :: val
@@ -719,6 +743,11 @@ class AesonStr val => AesonVal val where
   aesonDouble :: Double -> val
   aesonList :: (a -> val) -> [a] -> val
   aesonObject :: [(Key, val)] -> val
+  -- | Render an object of distinct keys, folded from a map.
+  aesonMap
+    :: (forall q. JsonStr q => q a b)
+    -> (forall r. (a -> c -> r -> r) -> r -> m -> r)
+    -> (c -> val) -> m -> val
   aesonValue :: Value -> val
 
 instance AesonVal Value where
@@ -735,6 +764,10 @@ instance AesonVal Value where
         MVector.unsafeWrite array i (f a) >> write (i + 1) rest
     write 0 as
   aesonObject = Object . KeyMap.fromList
+  aesonMap key fold render = Object . KeyMap.fromList . fold property []
+    where
+      property a c rest = let printed = render c in
+        printed `seq` (runKeyPrintor key a, printed) : rest
   aesonValue = id
 
 instance AesonVal Encoding where
@@ -745,6 +778,12 @@ instance AesonVal Encoding where
   aesonDouble = Encoding.double
   aesonList = Encoding.list
   aesonObject = Encoding.pairs . foldMap (uncurry Encoding.pair)
+  aesonMap key fold render = Encoding.pairs . fold property mempty
+    where
+      property a c rest =
+        let encodedKey = runKeyEncodor key a; printed = render c
+        in encodedKey `seq` printed `seq`
+          Encoding.pair' encodedKey printed <> rest
   aesonValue = Encoding.value
 
 {- | `JsonPrintor` `printorTry`s to print a value, or else `printorCheck`s it
@@ -1125,14 +1164,16 @@ instance AesonVal val => JsonObj (JsonPrintor val) (ObjPrintor val) where
 printDistinct
   :: AesonVal val
   => (forall r. (a -> c -> r -> r) -> r -> m -> r)
-  -> KeyPrintor a b -> JsonPrintor val c d -> JsonPrintor val m n
-printDistinct fold (KeyPrintor keyOf) p = JsonPrintor
+  -> (forall q. JsonStr q => q a b)
+  -> JsonPrintor val c d -> JsonPrintor val m n
+printDistinct fold key p = JsonPrintor
   (\rules -> printorTotal p rules)
   (fmap aesonObject . fold attempt (Just []))
-  (\m -> aesonObject (fold (\a -> renderProperty (keyOf a) p) [] m))
+  (aesonMap key fold (printorRender p))
   (fmap aesonObject . fold check (Right []))
   Nothing
   where
+    keyOf = runKeyPrintor key
     attempt a c rest = (:) . (keyOf a,) <$> printorTry p c <*> rest
     check a c rest = (:) . (k,) <$> jsonAt (Key k) (printorCheck p c) <*> rest
       where
@@ -1535,29 +1576,30 @@ jsonRealFrac = _RealFrac ?< jsonNumber
 -- | A time, encoded as @aeson@ encodes it.
 encodedTime
   :: (a -> Encoding.Encoding' Text) -> (Text -> Either String a)
-  -> Prism Text (Encoding.Encoding' Text) a a
-encodedTime f g =
-  prism f (\t -> either (\_ -> Left (Encoding.text t)) Right (g t))
+  -> Prism Text (Text, Encoding.Encoding' Text) a a
+encodedTime f g = prism
+  (\a -> let encoded = f a in (encodedText encoded, encoded))
+  (\t -> either (\_ -> Left (t, Encoding.text t)) Right (g t))
 
-_Day :: Prism Text (Encoding.Encoding' Text) Day Day
+_Day :: Prism Text (Text, Encoding.Encoding' Text) Day Day
 _Day = encodedTime Encoding.day TimeText.parseDay
 
-_Month :: Prism Text (Encoding.Encoding' Text) Month Month
+_Month :: Prism Text (Text, Encoding.Encoding' Text) Month Month
 _Month = encodedTime Encoding.month TimeText.parseMonth
 
-_Quarter :: Prism Text (Encoding.Encoding' Text) Quarter Quarter
+_Quarter :: Prism Text (Text, Encoding.Encoding' Text) Quarter Quarter
 _Quarter = encodedTime Encoding.quarter TimeText.parseQuarter
 
-_TimeOfDay :: Prism Text (Encoding.Encoding' Text) TimeOfDay TimeOfDay
+_TimeOfDay :: Prism Text (Text, Encoding.Encoding' Text) TimeOfDay TimeOfDay
 _TimeOfDay = encodedTime Encoding.timeOfDay TimeText.parseTimeOfDay
 
-_LocalTime :: Prism Text (Encoding.Encoding' Text) LocalTime LocalTime
+_LocalTime :: Prism Text (Text, Encoding.Encoding' Text) LocalTime LocalTime
 _LocalTime = encodedTime Encoding.localTime TimeText.parseLocalTime
 
-_ZonedTime :: Prism Text (Encoding.Encoding' Text) ZonedTime ZonedTime
+_ZonedTime :: Prism Text (Text, Encoding.Encoding' Text) ZonedTime ZonedTime
 _ZonedTime = encodedTime Encoding.zonedTime TimeText.parseZonedTime
 
-_UTCTime :: Prism Text (Encoding.Encoding' Text) UTCTime UTCTime
+_UTCTime :: Prism Text (Text, Encoding.Encoding' Text) UTCTime UTCTime
 _UTCTime = encodedTime Encoding.utcTime TimeText.parseUTCTime
 
 -- | The text of an @aeson@ string `Encoding.Encoding'`.
@@ -1623,9 +1665,12 @@ jsonScientificKey = prism' render readScientific ?< jsonText
 
 -- | Integral map keys, as @aeson@ renders them.
 jsonIntKey :: (Show a, JsonStr p) => APrism' Scientific a -> p a a
-jsonIntKey integral = prism'
-  (Text.pack . show) (readScientific >=> preview (clonePrism integral))
-  ?< jsonText
+jsonIntKey integral = jsonEncodedText $ prism shown $ \t ->
+  maybe (Left (t, Encoding.text t)) Right
+    (readScientific t >>= preview (clonePrism integral))
+  where
+    shown a = (Text.pack (show a), Encoding.unsafeToEncoding
+      (Builder.char7 '"' <> Builder.string7 (show a) <> Builder.char7 '"'))
 
 -- | `RealFloat` map keys, as @aeson@ renders them.
 jsonRealFloatKey :: (RealFloat a, Show a, JsonStr p) => p a a
