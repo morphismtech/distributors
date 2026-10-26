@@ -784,6 +784,8 @@ data RuleKey = NamedRule String | TypedRule SomeTypeRep
 to locate the failure. A `printorTotal` printor prints every value,
 so it `printorRender`s it without trying. Totality is determined
 through `rule`s, assuming those being determined are total.
+It's always taken lazily, as @\\rules -> printorTotal p rules@,
+so that building a recursive printor doesn't force itself.
 A primitive `printorRenderArray`s an array of its values at once.
 -}
 data JsonPrintor val a b = JsonPrintor
