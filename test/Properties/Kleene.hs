@@ -21,7 +21,7 @@ instance Arbitrary (TokenClass Char) where
       go n = frequency
         [ (2, go 0)
         , (2, (>|<) <$> go (n `div` 2) <*> go (n `div` 2))
-        , (2, (>&&<) <$> go (n `div` 2) <*> go (n `div` 2))
+        , (2, (>&<) <$> go (n `div` 2) <*> go (n `div` 2))
         , (1, notP <$> go (n - 1))
         ]
 
@@ -133,5 +133,5 @@ kleeneProperties = do
         notP (notAsIn cat :: TokenClass Char) == asIn cat
     prop "x >|< x = x" $ \(x :: TokenClass Char) ->
       (x >|< x) == x
-    prop "x >&&< x = x" $ \(x :: TokenClass Char) ->
-      (x >&&< x) == x
+    prop "x >&< x = x" $ \(x :: TokenClass Char) ->
+      (x >&< x) == x

@@ -217,7 +217,7 @@ dialt f g h p q = dimap f (either g h) (p >+< q)
 -- CocartesianChoice --
 
 {- | `CocartesianChoice` co-extends `Choice` and `CocartesianMonoidal`,
-with `Disjunctive` failure `falseP` and choice `>|<`,
+with `DisjunctiveMonoid` failure `falseP` and choice `>|<`,
 like `Alternative` but without requiring `Monoidal` structure,
 and the `alternate` method, which is a lax monoidal structure morphism
 on sums, with these laws relating them.
@@ -236,7 +236,7 @@ alternateF :: Functor f => Either (f a) (f b) -> f (Either a b)
 alternateF = either (fmap Left) (fmap Right)
 :}
 -}
-class (CocartesianMonoidal p, Choice p, forall x y. Disjunctive (p x y))
+class (CocartesianMonoidal p, Choice p, forall x y. DisjunctiveMonoid (p x y))
   => CocartesianChoice p where
 
   {- | The structure morphism for a `CocartesianChoice`,

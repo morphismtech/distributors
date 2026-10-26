@@ -169,7 +169,7 @@ because @_SemVer@ is an `Control.Lens.Iso.Iso`.
 +------------+---------------+
 | `<|>`      | `>|<`         |
 +------------+---------------+
-| `choice`   | `orP`     |
+| `choice`   | `orP`         |
 +------------+---------------+
 | `many`     | `manyP`       |
 +------------+---------------+
@@ -488,11 +488,11 @@ intersection of character classes as well.
 `RegString`s can combine characters' `tokenClass`es
 using `BooleanAlgebra` combinators.
 
->>> tokenClass (notOneOf "abc" >&&< notOneOf "xyz") :: RegString
+>>> tokenClass (notOneOf "abc" >&< notOneOf "xyz") :: RegString
 "[^abcxyz]"
->>> tokenClass (oneOf "abcxyz" >&&< notOneOf "xyz") :: RegString
+>>> tokenClass (oneOf "abcxyz" >&< notOneOf "xyz") :: RegString
 "[abc]"
->>> tokenClass (notOneOf "#$%" >&&< notAsIn Control) :: RegString
+>>> tokenClass (notOneOf "#$%" >&< notAsIn Control) :: RegString
 "[^#$%\\P{Cc}]"
 >>> tokenClass (allP notAsIn [MathSymbol, Control]) :: RegString
 "\\P{Sm|Cc}"
@@ -507,7 +507,7 @@ Ill-formed `RegString`s normalize to failure.
 newtype RegString = RegString {runRegString :: RegEx Char}
   deriving newtype
     ( Eq, Ord
-    , Semigroup, Monoid, Disjunctive, KleeneStarAlgebra
+    , Semigroup, Monoid, DisjunctiveMonoid, KleeneStarAlgebra
     , Tokenized Char, TokenAlgebra Char
     , TerminalSymbol Char, NonTerminalSymbol
     , Matching String
@@ -552,7 +552,7 @@ But they also support `BackusNaurForm` `rule`s and `ruleRec`s.
 newtype RegBnf = RegBnf {runRegBnf :: Bnf RegString}
   deriving newtype
     ( Eq, Ord
-    , Semigroup, Monoid, Disjunctive, KleeneStarAlgebra
+    , Semigroup, Monoid, DisjunctiveMonoid, KleeneStarAlgebra
     , Tokenized Char, TokenAlgebra Char
     , TerminalSymbol Char, NonTerminalSymbol
     , BackusNaurForm
@@ -674,7 +674,7 @@ nonterminalG = rule "nonterminal" $
 
 charG :: Grammar Char Char
 charG = rule "char" $
-  tokenClass (notOneOf charsReserved >&&< notAsIn Control)
+  tokenClass (notOneOf charsReserved >&< notAsIn Control)
   >|< terminal "\\" >* charEscapedG
   where
     charEscapedG = rule "char-escaped" $

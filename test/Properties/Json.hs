@@ -75,7 +75,7 @@ import Data.Time
 import Data.Time.Calendar.Month (Month)
 import Data.Time.Calendar.Quarter (Quarter, QuarterOfYear)
 import Data.Time.Clock.System (SystemTime)
-import Data.Tree (Tree)
+import Data.Tree (Tree (..))
 import Data.Tuple (Solo)
 import Data.Typeable (Typeable, typeRep)
 import Data.UUID.Types (UUID)
@@ -427,6 +427,17 @@ jsonTypeSpec = describe "jsonTypes" $ do
       [ "export type Value = null | boolean | number | string \
         \| Value[] | { [key: string]: Value };"
       ]
+  it "declares a non-empty list as a tuple with a rest element" $
+    declares (type (Box (NonEmpty Text)))
+      ["export type Box_NonEmpty_Text = [string, ...string[]];"]
+  it "declares an enumeration as a union of string literals" $ do
+    declares Ordering ["export type Ordering = \"LT\" | \"EQ\" | \"GT\";"]
+    declares DayOfWeek
+      [ "export type DayOfWeek = \"monday\" | \"tuesday\" | \"wednesday\" \
+        \| \"thursday\" | \"friday\" | \"saturday\" | \"sunday\";"
+      ]
+    declares QuarterOfYear
+      ["export type QuarterOfYear = \"q1\" | \"q2\" | \"q3\" | \"q4\";"]
   it "declares the rules of types without rules" $
     declares (type (Vector Point)) ["export type Point = " <> point <> ";"]
   it "declares each type once" $
@@ -491,7 +502,7 @@ instance Json Optional where
   json = jsonTyped $ jsonObject $ Optional
     <$> lmap (\(Optional a _) -> a) ("a" !: json)
     <*> lmap (\(Optional _ b) -> b)
-      ("b c" ?: (jsonString >+< jsonNumber))
+      ("b c" ?: (jsonText >+< jsonNumber))
 
 jsonOptionalSpec :: Spec
 jsonOptionalSpec = describe "(?:)" $ do
@@ -533,6 +544,17 @@ printError = either (Left . errorText) Right . jsonPrint
 errorText :: JsonError -> String
 errorText err = formatError (jsonErrorPath err) (jsonErrorMessage err)
 
+-- | The rules within which parsing a value failed.
+parseRules :: forall a. Json a => Value -> [Tree String]
+parseRules = either jsonErrorRules (const []) . jsonParse @a
+
+-- | Alternative rules, which fail alike.
+newtype Ambiguous = Ambiguous Scientific
+instance Json Ambiguous where
+  json = dimap (\(Ambiguous n) -> n) Ambiguous $
+    rule "A" (jsonObject ("x" !: jsonNumber))
+      >|< rule "B" (jsonObject ("x" !: jsonNumber))
+
 jsonErrorSpec :: Spec
 jsonErrorSpec = describe "jsonParse errors" $ do
   it "labels failures with rules" $ do
@@ -553,6 +575,18 @@ jsonErrorSpec = describe "jsonParse errors" $ do
     parseError @Shape (object ["tag" .= ("Triangle" :: Text)]) `shouldBe`
       "Error in $.tag: expected \"Circle\" or \"Square\", \
       \but found \"Triangle\""
+  it "collects the rules which failures are within" $ do
+    let
+      badPoint = object ["px" .= ("a" :: Text), "py" .= (1 :: Int)]
+    parseRules @Point badPoint `shouldBe` [Node "Point" []]
+    parseRules @(Box Point) badPoint
+      `shouldBe` [Node "Box Point" [Node "Point" []]]
+    parseRules @[Point] (toJSON [badPoint]) `shouldBe` [Node "Point" []]
+    parseRules @Point (object ["px" .= (1 :: Int)])
+      `shouldBe` [Node "Point" []]
+    parseRules @Point (toJSON (1 :: Int)) `shouldBe` []
+    parseRules @Ambiguous (object ["x" .= ("s" :: Text)])
+      `shouldBe` [Node "A" [], Node "B" []]
   it "prefers the failure of the alternative that applies" $
     parseError @Shape
       (object ["tag" .= ("Circle" :: Text), "contents" .= ("x" :: Text)])

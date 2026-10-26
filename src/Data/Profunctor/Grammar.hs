@@ -112,7 +112,7 @@ instance (Alternative m, Monad m) => Distributor (Parsor s m)
 instance (Alternative m, Monad m) => Choice (Parsor s m) where
   left' = alternate . Left
   right' = alternate . Right
-instance (Alternative m, Monad m) => Disjunctive (Parsor s m a b)
+instance (Alternative m, Monad m) => DisjunctiveMonoid (Parsor s m a b)
 instance (Alternative m, Monad m) => CocartesianChoice (Parsor s m) where
   alternate = \case
     Left (Parsor p) -> Parsor $ \ma s -> case ma of
@@ -219,7 +219,7 @@ instance Functor f => CocartesianMonoidal (Printor s f) where
   Printor p >+< Printor q = Printor $
     either (fmap (first' Left) . p) (fmap (first' Right) . q)
 instance Applicative f => Distributor (Printor s f)
-instance Alternative f => Disjunctive (Printor s f a b)
+instance Alternative f => DisjunctiveMonoid (Printor s f a b)
 instance Alternative f => CocartesianChoice (Printor s f) where
   alternate = \case
     Left (Printor p) -> Printor $
@@ -311,7 +311,7 @@ instance Choice (Grammor k) where
 instance Monoid k => Applicative (Grammor k a) where
   pure _ = Grammor mempty
   Grammor rex1 <*> Grammor rex2 = Grammor (rex1 <> rex2)
-instance Disjunctive k => Disjunctive (Grammor k a b) where
+instance DisjunctiveMonoid k => DisjunctiveMonoid (Grammor k a b) where
   falseP = Grammor falseP
   Grammor rex1 >|< Grammor rex2 = Grammor (rex1 >|< rex2)
 instance KleeneStarAlgebra k => Alternative (Grammor k a) where

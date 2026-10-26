@@ -79,7 +79,7 @@ jsonGrammar = rule "json" elementG
 
     -- character = '0020' . '10FFFF' - '"' - '\' | '\' escape
     characterG = rule "character" $
-      tokenClass (oneOf ['\x0020' .. '\x10FFFF'] >&&< notOneOf ['\"','\\'])
+      tokenClass (oneOf ['\x0020' .. '\x10FFFF'] >&< notOneOf ['\"','\\'])
       >|< terminal "\\" >* escapeG
 
     -- escape = '"' | '\' | '/' | 'b' | 'f' | 'n' | 'r' | 't'

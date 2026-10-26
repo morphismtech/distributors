@@ -105,7 +105,7 @@ newtype TokenClass token = TokenClass (RegExam token (TokenClass token))
 
 {- | `TokenAlgebra` extends `Tokenized` methods to support
 `BooleanAlgebra` operations within a `tokenClass`.
-When a `TokenAlgebra` is an `Disjunctive`,
+When a `TokenAlgebra` is a `DisjunctiveMonoid`,
 then `tokenClass` is expected to act homomorphically on disjunction.
 
 prop> falseP = tokenClass falseP
@@ -125,9 +125,9 @@ class Tokenized token p => TokenAlgebra token p where
   tokenClass (TokenClass exam) = case exam of
     OneOf chars -> oneOf chars
     NotOneOf chars (AndAsIn cat) ->
-      satisfy (notOneOf chars >&&< asIn cat)
+      satisfy (notOneOf chars >&< asIn cat)
     NotOneOf chars (AndNotAsIn cats) ->
-      satisfy (notOneOf chars >&&< allP notAsIn cats)
+      satisfy (notOneOf chars >&< allP notAsIn cats)
     Alternate exam1 exam2 -> tokenClass exam1 >|< tokenClass exam2
 
 --instances
@@ -153,7 +153,7 @@ deriving stock instance
 deriving newtype instance Categorized token => Eq (TokenClass token)
 deriving newtype instance Categorized token => Ord (TokenClass token)
 deriving newtype instance Categorized token => Tokenized token (TokenClass token)
-deriving newtype instance Categorized token => Disjunctive (TokenClass token)
+deriving newtype instance Categorized token => DisjunctiveMonoid (TokenClass token)
 deriving newtype instance Categorized token => BooleanAlgebra (TokenClass token)
 instance Categorized token
   => TokenAlgebra token (TokenClass token) where
@@ -222,7 +222,7 @@ instance Categorized token => Semigroup (RegEx token) where
   KleeneStar rex0 <> rex1 | rex0 == rex1 = plusK rex0
   rex0 <> KleeneStar rex1 | rex0 == rex1 = plusK rex1
   rex0 <> rex1 = Sequence rex0 rex1
-instance Categorized token => Disjunctive (RegEx token) where
+instance Categorized token => DisjunctiveMonoid (RegEx token) where
   falseP = RegExam failExam
   rex0 >|< rex1 | rex0 == rex1 = rex0
   KleenePlus rex >|< SeqEmpty = starK rex
@@ -260,7 +260,7 @@ instance Categorized token => Tokenized token (RegExam token alg) where
   asIn cat = NotOneOf Set.empty (AndAsIn cat)
   notAsIn cat = NotOneOf Set.empty (AndNotAsIn (Set.singleton cat))
 instance Categorized token
-  => Disjunctive (RegExam token (TokenClass token)) where
+  => DisjunctiveMonoid (RegExam token (TokenClass token)) where
   falseP = failExam
   x >|< y | x == y = x
   x >|< exam | isFailExam exam = x
@@ -274,36 +274,36 @@ instance Categorized token
   trueP = passExam
   notP exam | isFailExam exam = passExam
   notP exam | isPassExam exam = failExam
-  notP (Alternate (TokenClass x) (TokenClass y)) = notP x >&&< notP y
+  notP (Alternate (TokenClass x) (TokenClass y)) = notP x >&< notP y
   notP (OneOf xs) = notOneOf xs
   notP (NotOneOf xs (AndAsIn y)) = oneOf xs >|< notAsIn y
   notP (NotOneOf xs (AndNotAsIn ys)) = oneOf xs >|< anyP asIn ys
-  x >&&< y | x == y = x
-  _ >&&< exam | isFailExam exam = failExam
-  exam >&&< _ | isFailExam exam = failExam
-  x >&&< exam | isPassExam exam = x
-  exam >&&< z | isPassExam exam = z
-  x >&&< Alternate (TokenClass y) (TokenClass z) = (x >&&< y) >|< (x >&&< z)
-  Alternate (TokenClass x) (TokenClass y) >&&< z = (x >&&< z) >|< (y >&&< z)
-  OneOf xs >&&< OneOf ys = OneOf (Set.intersection xs ys)
-  OneOf xs >&&< NotOneOf ys (AndAsIn z) = OneOf
+  x >&< y | x == y = x
+  _ >&< exam | isFailExam exam = failExam
+  exam >&< _ | isFailExam exam = failExam
+  x >&< exam | isPassExam exam = x
+  exam >&< z | isPassExam exam = z
+  x >&< Alternate (TokenClass y) (TokenClass z) = (x >&< y) >|< (x >&< z)
+  Alternate (TokenClass x) (TokenClass y) >&< z = (x >&< z) >|< (y >&< z)
+  OneOf xs >&< OneOf ys = OneOf (Set.intersection xs ys)
+  OneOf xs >&< NotOneOf ys (AndAsIn z) = OneOf
     (Set.filter (\x -> categorize x == z) (Set.difference xs ys))
-  NotOneOf xs (AndAsIn y) >&&< OneOf zs = OneOf
+  NotOneOf xs (AndAsIn y) >&< OneOf zs = OneOf
     (Set.filter (\z -> categorize z == y) (Set.difference zs xs))
-  OneOf xs >&&< NotOneOf ys (AndNotAsIn zs) = OneOf
+  OneOf xs >&< NotOneOf ys (AndNotAsIn zs) = OneOf
     (Set.filter (\x -> categorize x `notElem` zs) (Set.difference xs ys))
-  NotOneOf xs (AndNotAsIn ys) >&&< OneOf zs = OneOf
+  NotOneOf xs (AndNotAsIn ys) >&< OneOf zs = OneOf
     (Set.filter (\z -> categorize z `notElem` ys) (Set.difference zs xs))
-  NotOneOf xs (AndAsIn y) >&&< NotOneOf ws (AndAsIn z) =
+  NotOneOf xs (AndAsIn y) >&< NotOneOf ws (AndAsIn z) =
     if y /= z then failExam else NotOneOf
       (Set.filter (\x -> categorize x == y) (Set.union xs ws)) (AndAsIn y)
-  NotOneOf xs (AndAsIn y) >&&< NotOneOf ws (AndNotAsIn zs) =
+  NotOneOf xs (AndAsIn y) >&< NotOneOf ws (AndNotAsIn zs) =
     if y `elem` zs then failExam else NotOneOf
       (Set.filter (\x -> categorize x == y) (Set.union xs ws)) (AndAsIn y)
-  NotOneOf xs (AndNotAsIn ys) >&&< NotOneOf ws (AndAsIn z) =
+  NotOneOf xs (AndNotAsIn ys) >&< NotOneOf ws (AndAsIn z) =
     if z `elem` ys then failExam else NotOneOf
       (Set.filter (\x -> categorize x == z) (Set.union xs ws)) (AndAsIn z)
-  NotOneOf xs (AndNotAsIn ys) >&&< NotOneOf ws (AndNotAsIn zs) =
+  NotOneOf xs (AndNotAsIn ys) >&< NotOneOf ws (AndNotAsIn zs) =
     let
       xws = Set.union xs ws
       yzs = Set.union ys zs

@@ -339,7 +339,7 @@ instance Categorized (Item s) => Choice (Parsector s) where
   right' = alternate . Right
 instance Categorized (Item s) => CocartesianMonoidal (Parsector s)
 instance Categorized (Item s) => Distributor (Parsector s)
-instance Categorized (Item s) => Disjunctive (Parsector s a b)
+instance Categorized (Item s) => DisjunctiveMonoid (Parsector s a b)
 instance Categorized (Item s) => CocartesianChoice (Parsector s) where
   alternate (Left p) = Parsector $ \callback query -> callback $
     let
