@@ -15,10 +15,10 @@ module Properties.Json
   , jsonPrintSpec
   ) where
 
-import Control.Lens (only, prism')
+import Control.Lens (non, only, prism')
 import Control.Lens.Grammar
   ( dimap, lmap, manyP, optionP, optionalP, rule, someP
-  , (>*<), (>+<), (>?), (>|<)
+  , (*<), (>*<), (>+<), (>?), (>|<), (~<)
   )
 import Control.Lens.Grammar.Json
 import Data.Aeson
@@ -161,8 +161,54 @@ instance Json Dup where
   json = jsonTyped $ dimap (\(Dup p) -> p) Dup
     (jsonObject (("k" !: json) >*< ("k" !: json)))
 
+-- | A limit, @10@ by default, which is missing exactly when it's @10@.
+newtype Limit = Limit Int
+  deriving stock (Eq, Show)
+instance Json Limit where
+  json = jsonTyped $ dimap (\(Limit n) -> n) Limit $
+    jsonObject (non 10 ~< "limit" ?: json)
+
+-- | An identifier and the rest of the properties, booleans.
+newtype Extra = Extra (Int, [(Text, Bool)])
+  deriving stock (Eq, Show)
+instance Json Extra where
+  json = jsonTyped $ dimap (\(Extra p) -> p) Extra $
+    jsonObject ("id" !: json >*< jsonRest jsonText json)
+
+-- | An identifier and no other properties.
+newtype Closed = Closed Int
+  deriving stock (Eq, Show)
+instance Json Closed where
+  json = jsonTyped $ dimap (\(Closed n) -> n) Closed $
+    jsonObject ("id" !: json *< jsonNoRest)
+
 jsonObjectSpec :: Spec
 jsonObjectSpec = describe "jsonObject" $ do
+  it "defaults a missing property" $ do
+    jsonParse @Limit (object []) `shouldBe` Right (Limit 10)
+    jsonPrintError (Limit 10) `shouldBe` Right (object [])
+    jsonPrintError (Limit 3) `shouldBe` Right (object ["limit" .= (3 :: Int)])
+  it "reads & writes the rest of an object" $ do
+    let
+      extra = Extra (1, [("a", True), ("b", False)])
+      value =
+        object ["id" .= (1 :: Int), "a" .= True, "b" .= False]
+    jsonParse @Extra value `shouldBe` Right extra
+    jsonPrintError extra `shouldBe` Right value
+  it "doesn't print the rest over a named key" $
+    printError (Extra (1, [("id", True)])) `shouldBe`
+      Left "Error in $: cannot print key \"id\" twice"
+  it "rejects keys which an object doesn't name" $ do
+    jsonParse @Closed (object ["id" .= (1 :: Int)]) `shouldBe` Right (Closed 1)
+    parseError @Closed (object ["id" .= (1 :: Int), "x" .= True])
+      `shouldBe` "Error in $.x: unexpected true"
+  it "types the rest of an object as an index signature" $ do
+    declares (type Extra)
+      [ "export type Extra = { id: Int; [key: string]: boolean | Int };"
+      , "export type Int = number;"
+      ]
+    declares (type Closed)
+      ["export type Closed = { id: Int };", "export type Int = number;"]
   it "doesn't print overlapping keys" $
     printError (Dup (1, 2)) `shouldBe`
       Left "Error in $: cannot print key \"k\" twice"

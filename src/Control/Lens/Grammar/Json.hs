@@ -15,6 +15,7 @@ module Control.Lens.Grammar.Json
   , JsonStr (..)
   , JsonTup (..)
   , JsonObj (..)
+  , jsonNoRest
     -- * Errors
   , JsonError (..)
   , JsonErrorSort (..)
@@ -284,12 +285,26 @@ class (JsonVal p, Alternator q) => JsonTup p q | q -> p where
 Each key may be read or written at most once.
 A required property, @k !: v@, is like TypeScript's @{k: T}@,
 and an optional property, @k ?: v@, may be missing, like @{k?: T}@.
+A property with a default, like @aeson@'s @.:?@ & @.!=@, is optional
+by the `non` isomorphism, @non 10 ~< "limit" ?: jsonInt@,
+missing exactly when it's the default.
 Its properties are `JsonVal` grammars, which determine its type.
 -}
 class (JsonVal p, Monoidal q) => JsonObj p q | q -> p where
   (!:) :: Text -> p a b -> q a b
   (?:) :: Text -> p a b -> q (Maybe a) (Maybe b)
+  {- | The rest of the properties, those which the object doesn't name,
+  like TypeScript's @{[key: string]: T}@. It names no key of its own,
+  so an object has at most one rest, which printing checks.
+  -}
+  jsonRest
+    :: (forall r. JsonStr r => r a b)
+    -> p c d -> q [(a, c)] [(b, d)]
 infixr 7 !:, ?:
+
+-- | No other properties, rejecting those which the object doesn't name.
+jsonNoRest :: JsonObj p q => q () ()
+jsonNoRest = dimap (const []) (const ()) (jsonRest jsonText zeroP)
 
 -- Errors --
 
@@ -460,14 +475,15 @@ data TupParsor a b = TupParsor
   , runTupParsor :: Vector Value -> Int -> [Either JsonError (b, Int)]
   }
 
-{- | `ObjParsor` reads keys of an `Object`, ignoring other keys.
+{- | `ObjParsor` reads keys of an `Object`, ignoring other keys,
+unless it reads the rest of them, those which the object doesn't name.
 Its keys are known before parsing, so overlapping keys are found once,
 as are its tags, keys which only accept string literals.
 -}
 data ObjParsor a b = ObjParsor
   { objParsorKeys :: [Key]
   , objParsorTags :: [(Key, Set Text)]
-  , runObjParsor :: Object -> Either JsonError b
+  , runObjParsor :: HashSet Key -> Object -> Either JsonError b
   }
 
 instance Functor (JsonParsor a) where
@@ -561,8 +577,9 @@ instance JsonVal JsonParsor where
         Object o -> case overlap of
           Just key ->
             jsonMissing ("another key " <> showKey key) (Just (Object o))
-          Nothing -> runObjParsor obj o
+          Nothing -> runObjParsor obj named o
         v -> jsonMismatch "object" v
+      named = HashSet.fromList (objParsorKeys obj)
       dispatch = case objParsorTags obj of
         (key, tags) : _ ->
           Just (Dispatch (Just key) (Map.fromSet (const parse) tags))
@@ -624,19 +641,22 @@ instance JsonTup JsonParsor TupParsor where
         Just v -> jsonAt (Index i) (runJsonParsor p v)
 
 instance Functor (ObjParsor a) where
-  fmap f (ObjParsor keys tags p) = ObjParsor keys tags (onSuccess f . p)
+  fmap f (ObjParsor keys tags p) =
+    ObjParsor keys tags (\named o -> onSuccess f (p named o))
 instance Applicative (ObjParsor a) where
-  pure b = ObjParsor [] [] (\_ -> Right b)
+  pure b = ObjParsor [] [] (\_ _ -> Right b)
   ObjParsor keys0 tags0 p0 <*> ObjParsor keys1 tags1 p1 =
-    ObjParsor (keys0 <> keys1) (tags0 <> tags1) $ \o -> case p0 o of
-      Left err -> Left err
-      Right f -> onSuccess f (p1 o)
+    ObjParsor (keys0 <> keys1) (tags0 <> tags1) $ \named o ->
+      case p0 named o of
+        Left err -> Left err
+        Right f -> onSuccess f (p1 named o)
 instance Profunctor ObjParsor where
-  dimap _ g (ObjParsor keys tags p) = ObjParsor keys tags (onSuccess g . p)
+  dimap _ g (ObjParsor keys tags p) =
+    ObjParsor keys tags (\named o -> onSuccess g (p named o))
   _ #. p = coerce p
   p .# _ = coerce p
 instance JsonObj JsonParsor ObjParsor where
-  k !: p = ObjParsor [key] tags $ \o -> case KeyMap.lookup key o of
+  k !: p = ObjParsor [key] tags $ \_ o -> case KeyMap.lookup key o of
     Nothing -> jsonMissing ("key " <> show k) (Just (Object o))
     Just v -> jsonAt (Key key) (runJsonParsor p v)
     where
@@ -644,10 +664,14 @@ instance JsonObj JsonParsor ObjParsor where
       tags = case jsonParsorDispatch p of
         Just (Dispatch Nothing table) -> [(key, Map.keysSet table)]
         _ -> []
-  k ?: p = ObjParsor [key] [] $ \o ->
+  k ?: p = ObjParsor [key] [] $ \_ o ->
     traverse (jsonAt (Key key) . runJsonParsor p) (KeyMap.lookup key o)
     where
       key = Key.fromText k
+  jsonRest key p = ObjParsor [] [] $ \named o ->
+    for [kv | kv@(k, _) <- KeyMap.toList o, not (HashSet.member k named)] $
+      \(k, v) -> jsonAt (Key k) $
+        (,) <$> runJsonParsor key (String (Key.toText k)) <*> runJsonParsor p v
 
 duplicateKey :: [Key] -> Maybe Key
 duplicateKey keys
@@ -863,10 +887,12 @@ instance Monoid (Elements val) where
   mempty = Elements (Right (0, mempty))
 
 {- | `ObjPrintor` writes keys of an `Object`.
-Its keys are known before printing, so overlapping keys are found once.
+Its keys are known before printing, so overlapping keys are found once,
+unless it writes the rest of the properties, whose keys are checked.
 -}
 data ObjPrintor val a b = ObjPrintor
   { objPrintorKeys :: [Key]
+  , objPrintorRest :: !Bool
   , objPrintorTotal :: !(Set RuleKey -> Bool)
   , objPrintorTry :: !(a -> Maybe (DList (Key, val)))
   , objPrintorRender :: !(a -> [(Key, val)] -> [(Key, val)])
@@ -997,12 +1023,22 @@ instance AesonVal val => JsonVal (JsonPrintor val) where
     Nothing
   jsonObject obj = case duplicateKey (objPrintorKeys printor) of
     Just key -> trying (const Nothing) (\_ -> printDuplicate key)
-    Nothing -> JsonPrintor
-      (\rules -> objPrintorTotal printor rules)
-      (fmap (aesonObject . toList) . objPrintorTry printor)
-      (\a -> aesonObject (objPrintorRender printor a []))
-      (fmap aesonObject . objPrintorCheck printor)
-      Nothing
+    Nothing
+      | objPrintorRest printor -> trying
+        (\a -> do
+          props <- toList <$> objPrintorTry printor a
+          guard (isNothing (duplicateKey (map fst props)))
+          Just (aesonObject props))
+        (\a -> do
+          props <- objPrintorCheck printor a
+          maybe (Right (aesonObject props)) printDuplicate
+            (duplicateKey (map fst props)))
+      | otherwise -> JsonPrintor
+        (\rules -> objPrintorTotal printor rules)
+        (fmap (aesonObject . toList) . objPrintorTry printor)
+        (\a -> aesonObject (objPrintorRender printor a []))
+        (fmap aesonObject . objPrintorCheck printor)
+        Nothing
     where
       printor = obj @(ObjPrintor val)
   jsonTyped :: forall a. Typeable a
@@ -1110,28 +1146,37 @@ instance AesonVal val => JsonTup (JsonPrintor val) (TupPrintor val) where
     (Just (printorRender p))
 
 instance Functor (ObjPrintor val a) where
-  fmap _ (ObjPrintor keys total attempt render check) =
-    ObjPrintor keys total attempt render check
+  fmap _ (ObjPrintor keys rest total attempt render check) =
+    ObjPrintor keys rest total attempt render check
 instance Applicative (ObjPrintor val a) where
-  pure _ =
-    ObjPrintor [] (const True) (const (Just mempty)) (\_ rest -> rest)
-      (\_ -> Right [])
-  ObjPrintor keys0 total0 try0 render0 check0
-    <*> ObjPrintor keys1 total1 try1 render1 check1 = ObjPrintor
+  pure _ = ObjPrintor [] False
+    (const True) (const (Just mempty)) (\_ rest -> rest) (\_ -> Right [])
+  ObjPrintor keys0 rest0 total0 try0 render0 check0
+    <*> ObjPrintor keys1 rest1 total1 try1 render1 check1 = ObjPrintor
       (keys0 <> keys1)
+      (rest0 || rest1)
       (\rules -> total0 rules && total1 rules)
       (\a -> (<>) <$> try0 a <*> try1 a)
       (\a rest -> render0 a $! render1 a rest)
       (\a -> (<>) <$> check0 a <*> check1 a)
 instance Profunctor (ObjPrintor val) where
-  dimap f _ (ObjPrintor keys total attempt render check) =
-    ObjPrintor keys total
-      (attempt . f) (\a rest -> let b = f a in b `seq` render b rest)
+  dimap f _ (ObjPrintor keys rest total attempt render check) =
+    ObjPrintor keys rest total
+      (attempt . f) (\a props -> let b = f a in b `seq` render b props)
       (check . f)
   _ #. p = coerce p
   p .# _ = coerce p
 instance AesonVal val => JsonObj (JsonPrintor val) (ObjPrintor val) where
-  k !: p = ObjPrintor [key]
+  jsonRest key p = ObjPrintor [] True
+    (\rules -> printorTotal p rules)
+    (fmap DList.fromList . traverse (\(a, c) -> (keyOf a,) <$> printorTry p c))
+    (\entries rest ->
+      foldr (\(a, c) props -> renderProperty (keyOf a) p c props) rest entries)
+    (traverse (\(a, c) -> let k = keyOf a in
+      (k,) <$> jsonAt (Key k) (printorCheck p c)))
+    where
+      keyOf = runKeyPrintor key
+  k !: p = ObjPrintor [key] False
     (\rules -> printorTotal p rules)
     (fmap property . printorTry p)
     (renderProperty key p)
@@ -1139,7 +1184,7 @@ instance AesonVal val => JsonObj (JsonPrintor val) (ObjPrintor val) where
     where
       key = Key.fromText k
       property printed = DList.singleton (key, printed)
-  k ?: p = ObjPrintor [key]
+  k ?: p = ObjPrintor [key] False
     (\rules -> printorTotal p rules)
     (maybe (Just mempty) (fmap property . printorTry p))
     (\ma rest -> maybe rest (\a -> renderProperty key p a rest) ma)
@@ -1182,6 +1227,7 @@ printProperty key p a =
 data TsType
   = TsAlias String -- ^ @T@, a reference to a type alias
   | TsNull -- ^ @null@
+  | TsUndefined -- ^ @undefined@
   | TsBoolean -- ^ @boolean@
   | TsNumber -- ^ @number@
   | TsString -- ^ @string@
@@ -1199,8 +1245,10 @@ data TsElement
   | TsRest TsType -- ^ @...T[]@
   deriving stock (Eq, Ord)
 
--- | A property of a TypeScript object type, @abc: T@ or @abc?: T@.
-data TsProperty = TsProperty Text Bool TsType
+-- | A property of a TypeScript object type.
+data TsProperty
+  = TsProperty Text Bool TsType -- ^ @abc: T@ or @abc?: T@
+  | TsIndex TsType -- ^ @[key: string]: T@, the rest of its properties
   deriving stock (Eq, Ord)
 
 newtype TsGrammor a b = TsGrammor (TsDefining TsType)
@@ -1442,6 +1490,7 @@ instance JsonObj TsGrammor TsObjGrammor where
     TsObjGrammor (Ap (pure . TsProperty k False <$> tsGuarded t))
   k ?: TsGrammor t =
     TsObjGrammor (Ap (pure . TsProperty k True <$> tsGuarded t))
+  jsonRest _ (TsGrammor t) = TsObjGrammor (Ap (pure . TsIndex <$> tsGuarded t))
 
 -- Rendering TypeScript --
 
@@ -1460,6 +1509,7 @@ renderTsType :: TsType -> Text
 renderTsType = \case
   TsAlias name -> tsIdentifier name
   TsNull -> "null"
+  TsUndefined -> "undefined"
   TsBoolean -> "boolean"
   TsNumber -> "number"
   TsString -> "string"
@@ -1467,9 +1517,17 @@ renderTsType = \case
   TsArray t -> renderTsOperand t <> "[]"
   TsDict t -> "{ [key: string]: " <> renderTsType t <> " }"
   TsTuple els -> "[" <> Text.intercalate ", " (map renderTsElement els) <> "]"
-  TsObject [] -> "{}"
-  TsObject props ->
-    "{ " <> Text.intercalate "; " (map renderTsProperty props) <> " }"
+  TsObject props -> case named <> indexSignature of
+    [] -> "{}"
+    rendered -> "{ " <> Text.intercalate "; " rendered <> " }"
+    where
+      named = [renderTsProperty k o t | TsProperty k o t <- props]
+      -- The index type also covers named properties, as TypeScript requires.
+      indexSignature = case tsUnion [t | TsIndex t <- props] of
+        TsUnion [] -> []
+        rest -> ["[key: string]: " <> renderTsType (tsUnion (rest : covered))]
+      covered = [t | TsProperty _ _ t <- props]
+        <> [TsUndefined | or [o | TsProperty _ o _ <- props]]
   TsUnion [] -> "never"
   TsUnion ts -> Text.intercalate " | " (map renderTsType ts)
 
@@ -1484,8 +1542,8 @@ renderTsElement = \case
   TsOptional t -> renderTsOperand t <> "?"
   TsRest t -> "..." <> renderTsOperand t <> "[]"
 
-renderTsProperty :: TsProperty -> Text
-renderTsProperty (TsProperty name isOptional t) =
+renderTsProperty :: Text -> Bool -> TsType -> Text
+renderTsProperty name isOptional t =
   tsPropertyKey name <> (if isOptional then "?: " else ": ") <> renderTsType t
 
 tsPropertyKey :: Text -> Text
