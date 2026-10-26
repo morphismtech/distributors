@@ -248,10 +248,12 @@ class
   jsonText :: p Text Text
   jsonString :: p String String
   jsonString = iso Text.pack Text.unpack >~ jsonText
-  -- | Text rendered by an @aeson@ string `Encoding.Encoding'`.
-  jsonEncodedText
-    :: (a -> Encoding.Encoding' Text) -> (Text -> Maybe a) -> p a a
-  jsonEncodedText f = jsonTextWith (encodedText . f)
+  {- | A string matched from its `Text`,
+  which is reviewed as an @aeson@ string `Encoding.Encoding'`.
+  -}
+  jsonEncodedText :: APrism Text (Encoding.Encoding' Text) a a -> p a a
+  jsonEncodedText encoding = withPrism encoding $ \encode match ->
+    jsonTextWith (encodedText . encode) (either (const Nothing) Just . match)
 
 {- | `JsonTup` grammars describe the elements of a JSON array.
 As `Alternator`s they have optional elements (`optionalP`, `optionP`),
@@ -829,7 +831,7 @@ instance Functor (JsonPrintor val a) where
     JsonPrintor total attempt render check renderArray
 instance Profunctor (JsonPrintor val) where
   dimap f _ (JsonPrintor total attempt render check renderArray) =
-    JsonPrintor total (attempt . f) (render . f) (check . f)
+    JsonPrintor total (attempt . f) (\a -> render $! f a) (check . f)
       (fmap (. map f) renderArray)
   _ #. p = coerce p
   p .# _ = coerce p
@@ -884,7 +886,8 @@ instance (AesonStr val, x ~ (), y ~ ()) => IsString (JsonPrintor val x y) where
 instance AesonStr val => JsonStr (JsonPrintor val) where
   jsonText = primitive aesonText
   jsonString = primitive aesonString
-  jsonEncodedText f _ = primitive (aesonEncodedText . f)
+  jsonEncodedText encoding = withPrism encoding $ \encode _ ->
+    primitive (aesonEncodedText . encode)
 instance AesonVal val => JsonVal (JsonPrintor val) where
   jsonNull = primitive (const aesonNull)
   jsonBool = primitive aesonBool
@@ -958,11 +961,12 @@ instance Applicative (TupPrintor val a) where
   p <*> q = TupPrintor
     (\rules -> tupPrintorTotal p rules && tupPrintorTotal q rules)
     (\a -> (<>) <$> tupPrintorTry p a <*> tupPrintorTry q a)
-    (\a rest -> tupPrintorRender p a (tupPrintorRender q a rest))
+    (\a rest -> tupPrintorRender p a $! tupPrintorRender q a rest)
     (tupPrintorCheck p <> tupPrintorCheck q)
 instance Profunctor (TupPrintor val) where
   dimap f _ (TupPrintor total attempt render check) =
-    TupPrintor total (attempt . f) (\a rest -> render (f a) rest) (check . f)
+    TupPrintor total (attempt . f)
+      (\a rest -> let b = f a in b `seq` render b rest) (check . f)
   _ #. p = coerce p
   p .# _ = coerce p
 instance CocartesianMonoidal (TupPrintor val) where
@@ -979,7 +983,7 @@ instance Distributor (TupPrintor val) where
     (\rules -> tupPrintorTotal p rules)
     (fmap mconcat . tryAll (tupPrintorTotal p) (tupPrintorTry p)
       (\a -> DList.fromList (tupPrintorRender p a [])))
-    (\as rest -> foldr (tupPrintorRender p) rest as)
+    (\as rest -> foldr (\a printed -> tupPrintorRender p a $! printed) rest as)
     (foldMap (tupPrintorCheck p))
   optionalP p = TupPrintor
     (\rules -> tupPrintorTotal p rules)
@@ -1048,12 +1052,13 @@ instance Applicative (ObjPrintor val a) where
       (keys0 <> keys1)
       (\rules -> total0 rules && total1 rules)
       (\a -> (<>) <$> try0 a <*> try1 a)
-      (\a rest -> render0 a (render1 a rest))
+      (\a rest -> render0 a $! render1 a rest)
       (\a -> (<>) <$> check0 a <*> check1 a)
 instance Profunctor (ObjPrintor val) where
   dimap f _ (ObjPrintor keys total attempt render check) =
     ObjPrintor keys total
-      (attempt . f) (\a rest -> render (f a) rest) (check . f)
+      (attempt . f) (\a rest -> let b = f a in b `seq` render b rest)
+      (check . f)
   _ #. p = coerce p
   p .# _ = coerce p
 instance AesonVal val => JsonObj (JsonPrintor val) (ObjPrintor val) where
@@ -1464,7 +1469,8 @@ jsonRealFrac =
 jsonTimeWith
   :: JsonStr p
   => (a -> Encoding.Encoding' Text) -> (Text -> Either String a) -> p a a
-jsonTimeWith f g = jsonEncodedText f (either (const Nothing) Just . g)
+jsonTimeWith f g = jsonEncodedText $
+  prism f (\t -> either (\_ -> Left (Encoding.text t)) Right (g t))
 
 -- | The text of an @aeson@ string `Encoding.Encoding'`.
 encodedText :: Encoding.Encoding' Text -> Text
