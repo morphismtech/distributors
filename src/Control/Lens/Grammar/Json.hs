@@ -1804,46 +1804,181 @@ instance (GHC.Generic a, GHC.Rep a ~ GHC.D1 d f, GSum f, Typeable a)
       jsonTyped (dimap (GHC.unM1 . GHC.from) (GHC.to . GHC.M1) gsum)
 
 -- tuples
+-- | An element of a tuple, by its projection.
+projectElem :: (Json a, JsonTup p q) => (s -> a) -> q s a
+projectElem f = lmap f (jsonElem json)
+
 instance (Json a, Json b) => Json (a, b) where
   json = jsonTuple (jsonElem json >*< jsonElem json)
-instance (Json a, Json b, Json c) => Json (a, b, c) where json = gtuple
+instance (Json a, Json b, Json c) => Json (a, b, c) where
+  json = jsonTuple $ (,,)
+    <$> projectElem (\(a, _, _) -> a)
+    <*> projectElem (\(_, b, _) -> b)
+    <*> projectElem (\(_, _, c) -> c)
 instance (Json a, Json b, Json c, Json d) => Json (a, b, c, d) where
-  json = gtuple
+  json = jsonTuple $ (,,,)
+    <$> projectElem (\(a, _, _, _) -> a)
+    <*> projectElem (\(_, b, _, _) -> b)
+    <*> projectElem (\(_, _, c, _) -> c)
+    <*> projectElem (\(_, _, _, d) -> d)
 instance (Json a, Json b, Json c, Json d, Json e) => Json (a, b, c, d, e) where
-  json = gtuple
-instance (Json a, Json b, Json c, Json d, Json e, Json f)
-  => Json (a, b, c, d, e, f) where json = gtuple
-instance (Json a, Json b, Json c, Json d, Json e, Json f, Json g)
-  => Json (a, b, c, d, e, f, g) where json = gtuple
-instance (Json a, Json b, Json c, Json d, Json e, Json f, Json g, Json h)
-  => Json (a, b, c, d, e, f, g, h) where json = gtuple
+  json = jsonTuple $ (,,,,)
+    <$> projectElem (\(a, _, _, _, _) -> a)
+    <*> projectElem (\(_, b, _, _, _) -> b)
+    <*> projectElem (\(_, _, c, _, _) -> c)
+    <*> projectElem (\(_, _, _, d, _) -> d)
+    <*> projectElem (\(_, _, _, _, e) -> e)
+instance
+  ( Json a, Json b, Json c, Json d, Json e, Json f )
+  => Json (a, b, c, d, e, f) where
+  json = jsonTuple $ (,,,,,)
+    <$> projectElem (\(a, _, _, _, _, _) -> a)
+    <*> projectElem (\(_, b, _, _, _, _) -> b)
+    <*> projectElem (\(_, _, c, _, _, _) -> c)
+    <*> projectElem (\(_, _, _, d, _, _) -> d)
+    <*> projectElem (\(_, _, _, _, e, _) -> e)
+    <*> projectElem (\(_, _, _, _, _, f) -> f)
+instance
+  ( Json a, Json b, Json c, Json d, Json e, Json f, Json g )
+  => Json (a, b, c, d, e, f, g) where
+  json = jsonTuple $ (,,,,,,)
+    <$> projectElem (\(a, _, _, _, _, _, _) -> a)
+    <*> projectElem (\(_, b, _, _, _, _, _) -> b)
+    <*> projectElem (\(_, _, c, _, _, _, _) -> c)
+    <*> projectElem (\(_, _, _, d, _, _, _) -> d)
+    <*> projectElem (\(_, _, _, _, e, _, _) -> e)
+    <*> projectElem (\(_, _, _, _, _, f, _) -> f)
+    <*> projectElem (\(_, _, _, _, _, _, g) -> g)
+instance
+  ( Json a, Json b, Json c, Json d, Json e, Json f, Json g, Json h )
+  => Json (a, b, c, d, e, f, g, h) where
+  json = jsonTuple $ (,,,,,,,)
+    <$> projectElem (\(a, _, _, _, _, _, _, _) -> a)
+    <*> projectElem (\(_, b, _, _, _, _, _, _) -> b)
+    <*> projectElem (\(_, _, c, _, _, _, _, _) -> c)
+    <*> projectElem (\(_, _, _, d, _, _, _, _) -> d)
+    <*> projectElem (\(_, _, _, _, e, _, _, _) -> e)
+    <*> projectElem (\(_, _, _, _, _, f, _, _) -> f)
+    <*> projectElem (\(_, _, _, _, _, _, g, _) -> g)
+    <*> projectElem (\(_, _, _, _, _, _, _, h) -> h)
 instance
   ( Json a, Json b, Json c, Json d, Json e, Json f, Json g, Json h, Json i )
-  => Json (a, b, c, d, e, f, g, h, i) where json = gtuple
+  => Json (a, b, c, d, e, f, g, h, i) where
+  json = jsonTuple $ (,,,,,,,,)
+    <$> projectElem (\(a, _, _, _, _, _, _, _, _) -> a)
+    <*> projectElem (\(_, b, _, _, _, _, _, _, _) -> b)
+    <*> projectElem (\(_, _, c, _, _, _, _, _, _) -> c)
+    <*> projectElem (\(_, _, _, d, _, _, _, _, _) -> d)
+    <*> projectElem (\(_, _, _, _, e, _, _, _, _) -> e)
+    <*> projectElem (\(_, _, _, _, _, f, _, _, _) -> f)
+    <*> projectElem (\(_, _, _, _, _, _, g, _, _) -> g)
+    <*> projectElem (\(_, _, _, _, _, _, _, h, _) -> h)
+    <*> projectElem (\(_, _, _, _, _, _, _, _, i) -> i)
 instance
   ( Json a, Json b, Json c, Json d, Json e, Json f, Json g, Json h, Json i
   , Json j )
-  => Json (a, b, c, d, e, f, g, h, i, j) where json = gtuple
+  => Json (a, b, c, d, e, f, g, h, i, j) where
+  json = jsonTuple $ (,,,,,,,,,)
+    <$> projectElem (\(a, _, _, _, _, _, _, _, _, _) -> a)
+    <*> projectElem (\(_, b, _, _, _, _, _, _, _, _) -> b)
+    <*> projectElem (\(_, _, c, _, _, _, _, _, _, _) -> c)
+    <*> projectElem (\(_, _, _, d, _, _, _, _, _, _) -> d)
+    <*> projectElem (\(_, _, _, _, e, _, _, _, _, _) -> e)
+    <*> projectElem (\(_, _, _, _, _, f, _, _, _, _) -> f)
+    <*> projectElem (\(_, _, _, _, _, _, g, _, _, _) -> g)
+    <*> projectElem (\(_, _, _, _, _, _, _, h, _, _) -> h)
+    <*> projectElem (\(_, _, _, _, _, _, _, _, i, _) -> i)
+    <*> projectElem (\(_, _, _, _, _, _, _, _, _, j) -> j)
 instance
   ( Json a, Json b, Json c, Json d, Json e, Json f, Json g, Json h, Json i
   , Json j, Json k )
-  => Json (a, b, c, d, e, f, g, h, i, j, k) where json = gtuple
+  => Json (a, b, c, d, e, f, g, h, i, j, k) where
+  json = jsonTuple $ (,,,,,,,,,,)
+    <$> projectElem (\(a, _, _, _, _, _, _, _, _, _, _) -> a)
+    <*> projectElem (\(_, b, _, _, _, _, _, _, _, _, _) -> b)
+    <*> projectElem (\(_, _, c, _, _, _, _, _, _, _, _) -> c)
+    <*> projectElem (\(_, _, _, d, _, _, _, _, _, _, _) -> d)
+    <*> projectElem (\(_, _, _, _, e, _, _, _, _, _, _) -> e)
+    <*> projectElem (\(_, _, _, _, _, f, _, _, _, _, _) -> f)
+    <*> projectElem (\(_, _, _, _, _, _, g, _, _, _, _) -> g)
+    <*> projectElem (\(_, _, _, _, _, _, _, h, _, _, _) -> h)
+    <*> projectElem (\(_, _, _, _, _, _, _, _, i, _, _) -> i)
+    <*> projectElem (\(_, _, _, _, _, _, _, _, _, j, _) -> j)
+    <*> projectElem (\(_, _, _, _, _, _, _, _, _, _, k) -> k)
 instance
   ( Json a, Json b, Json c, Json d, Json e, Json f, Json g, Json h, Json i
   , Json j, Json k, Json l )
-  => Json (a, b, c, d, e, f, g, h, i, j, k, l) where json = gtuple
+  => Json (a, b, c, d, e, f, g, h, i, j, k, l) where
+  json = jsonTuple $ (,,,,,,,,,,,)
+    <$> projectElem (\(a, _, _, _, _, _, _, _, _, _, _, _) -> a)
+    <*> projectElem (\(_, b, _, _, _, _, _, _, _, _, _, _) -> b)
+    <*> projectElem (\(_, _, c, _, _, _, _, _, _, _, _, _) -> c)
+    <*> projectElem (\(_, _, _, d, _, _, _, _, _, _, _, _) -> d)
+    <*> projectElem (\(_, _, _, _, e, _, _, _, _, _, _, _) -> e)
+    <*> projectElem (\(_, _, _, _, _, f, _, _, _, _, _, _) -> f)
+    <*> projectElem (\(_, _, _, _, _, _, g, _, _, _, _, _) -> g)
+    <*> projectElem (\(_, _, _, _, _, _, _, h, _, _, _, _) -> h)
+    <*> projectElem (\(_, _, _, _, _, _, _, _, i, _, _, _) -> i)
+    <*> projectElem (\(_, _, _, _, _, _, _, _, _, j, _, _) -> j)
+    <*> projectElem (\(_, _, _, _, _, _, _, _, _, _, k, _) -> k)
+    <*> projectElem (\(_, _, _, _, _, _, _, _, _, _, _, l) -> l)
 instance
   ( Json a, Json b, Json c, Json d, Json e, Json f, Json g, Json h, Json i
   , Json j, Json k, Json l, Json m )
-  => Json (a, b, c, d, e, f, g, h, i, j, k, l, m) where json = gtuple
+  => Json (a, b, c, d, e, f, g, h, i, j, k, l, m) where
+  json = jsonTuple $ (,,,,,,,,,,,,)
+    <$> projectElem (\(a, _, _, _, _, _, _, _, _, _, _, _, _) -> a)
+    <*> projectElem (\(_, b, _, _, _, _, _, _, _, _, _, _, _) -> b)
+    <*> projectElem (\(_, _, c, _, _, _, _, _, _, _, _, _, _) -> c)
+    <*> projectElem (\(_, _, _, d, _, _, _, _, _, _, _, _, _) -> d)
+    <*> projectElem (\(_, _, _, _, e, _, _, _, _, _, _, _, _) -> e)
+    <*> projectElem (\(_, _, _, _, _, f, _, _, _, _, _, _, _) -> f)
+    <*> projectElem (\(_, _, _, _, _, _, g, _, _, _, _, _, _) -> g)
+    <*> projectElem (\(_, _, _, _, _, _, _, h, _, _, _, _, _) -> h)
+    <*> projectElem (\(_, _, _, _, _, _, _, _, i, _, _, _, _) -> i)
+    <*> projectElem (\(_, _, _, _, _, _, _, _, _, j, _, _, _) -> j)
+    <*> projectElem (\(_, _, _, _, _, _, _, _, _, _, k, _, _) -> k)
+    <*> projectElem (\(_, _, _, _, _, _, _, _, _, _, _, l, _) -> l)
+    <*> projectElem (\(_, _, _, _, _, _, _, _, _, _, _, _, m) -> m)
 instance
   ( Json a, Json b, Json c, Json d, Json e, Json f, Json g, Json h, Json i
   , Json j, Json k, Json l, Json m, Json n )
-  => Json (a, b, c, d, e, f, g, h, i, j, k, l, m, n) where json = gtuple
+  => Json (a, b, c, d, e, f, g, h, i, j, k, l, m, n) where
+  json = jsonTuple $ (,,,,,,,,,,,,,)
+    <$> projectElem (\(a, _, _, _, _, _, _, _, _, _, _, _, _, _) -> a)
+    <*> projectElem (\(_, b, _, _, _, _, _, _, _, _, _, _, _, _) -> b)
+    <*> projectElem (\(_, _, c, _, _, _, _, _, _, _, _, _, _, _) -> c)
+    <*> projectElem (\(_, _, _, d, _, _, _, _, _, _, _, _, _, _) -> d)
+    <*> projectElem (\(_, _, _, _, e, _, _, _, _, _, _, _, _, _) -> e)
+    <*> projectElem (\(_, _, _, _, _, f, _, _, _, _, _, _, _, _) -> f)
+    <*> projectElem (\(_, _, _, _, _, _, g, _, _, _, _, _, _, _) -> g)
+    <*> projectElem (\(_, _, _, _, _, _, _, h, _, _, _, _, _, _) -> h)
+    <*> projectElem (\(_, _, _, _, _, _, _, _, i, _, _, _, _, _) -> i)
+    <*> projectElem (\(_, _, _, _, _, _, _, _, _, j, _, _, _, _) -> j)
+    <*> projectElem (\(_, _, _, _, _, _, _, _, _, _, k, _, _, _) -> k)
+    <*> projectElem (\(_, _, _, _, _, _, _, _, _, _, _, l, _, _) -> l)
+    <*> projectElem (\(_, _, _, _, _, _, _, _, _, _, _, _, m, _) -> m)
+    <*> projectElem (\(_, _, _, _, _, _, _, _, _, _, _, _, _, n) -> n)
 instance
   ( Json a, Json b, Json c, Json d, Json e, Json f, Json g, Json h, Json i
   , Json j, Json k, Json l, Json m, Json n, Json o )
-  => Json (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o) where json = gtuple
+  => Json (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o) where
+  json = jsonTuple $ (,,,,,,,,,,,,,,)
+    <$> projectElem (\(a, _, _, _, _, _, _, _, _, _, _, _, _, _, _) -> a)
+    <*> projectElem (\(_, b, _, _, _, _, _, _, _, _, _, _, _, _, _) -> b)
+    <*> projectElem (\(_, _, c, _, _, _, _, _, _, _, _, _, _, _, _) -> c)
+    <*> projectElem (\(_, _, _, d, _, _, _, _, _, _, _, _, _, _, _) -> d)
+    <*> projectElem (\(_, _, _, _, e, _, _, _, _, _, _, _, _, _, _) -> e)
+    <*> projectElem (\(_, _, _, _, _, f, _, _, _, _, _, _, _, _, _) -> f)
+    <*> projectElem (\(_, _, _, _, _, _, g, _, _, _, _, _, _, _, _) -> g)
+    <*> projectElem (\(_, _, _, _, _, _, _, h, _, _, _, _, _, _, _) -> h)
+    <*> projectElem (\(_, _, _, _, _, _, _, _, i, _, _, _, _, _, _) -> i)
+    <*> projectElem (\(_, _, _, _, _, _, _, _, _, j, _, _, _, _, _) -> j)
+    <*> projectElem (\(_, _, _, _, _, _, _, _, _, _, k, _, _, _, _) -> k)
+    <*> projectElem (\(_, _, _, _, _, _, _, _, _, _, _, l, _, _, _) -> l)
+    <*> projectElem (\(_, _, _, _, _, _, _, _, _, _, _, _, m, _, _) -> m)
+    <*> projectElem (\(_, _, _, _, _, _, _, _, _, _, _, _, _, n, _) -> n)
+    <*> projectElem (\(_, _, _, _, _, _, _, _, _, _, _, _, _, _, o) -> o)
 
 -- text
 instance Json Text where
