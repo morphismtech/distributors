@@ -805,13 +805,20 @@ ruleTotal key total rules =
 
 {- | `TupPrintor` prints the elements of a JSON array,
 counted to locate a failure of a later element.
+A single element keeps its rendering, so that mapping it composes.
 -}
 data TupPrintor val a b = TupPrintor
   { tupPrintorTotal :: !(Set RuleKey -> Bool)
   , tupPrintorTry :: !(a -> Maybe (DList val))
   , tupPrintorRender :: !(a -> [val] -> [val])
   , tupPrintorCheck :: !(a -> Elements val)
+  , tupPrintorElement :: !(Maybe (a -> val))
   }
+
+-- | Render a single element, before the rest.
+renderElement :: (a -> val) -> a -> [val] -> [val]
+renderElement render a rest =
+  let printed = render a in printed `seq` printed : rest
 
 -- | Printed elements, counted to locate a failure of a later element.
 newtype Elements val = Elements (Either JsonError (Int, DList val))
@@ -978,24 +985,30 @@ instance AesonVal val => JsonVal (JsonPrintor val) where
       rep = typeRep @a
 
 instance Functor (TupPrintor val a) where
-  fmap _ (TupPrintor total attempt render check) =
-    TupPrintor total attempt render check
+  fmap _ (TupPrintor total attempt render check single) =
+    TupPrintor total attempt render check single
 instance Applicative (TupPrintor val a) where
-  pure _ =
-    TupPrintor (const True) (const (Just mempty)) (\_ rest -> rest) mempty
+  pure _ = TupPrintor
+    (const True) (const (Just mempty)) (\_ rest -> rest) mempty Nothing
   p <*> q = TupPrintor
     (\rules -> tupPrintorTotal p rules && tupPrintorTotal q rules)
     (\a -> (<>) <$> tupPrintorTry p a <*> tupPrintorTry q a)
     (\a rest -> tupPrintorRender p a $! tupPrintorRender q a rest)
     (tupPrintorCheck p <> tupPrintorCheck q)
+    Nothing
 instance Profunctor (TupPrintor val) where
-  dimap f _ (TupPrintor total attempt render check) =
-    TupPrintor total (attempt . f)
-      (\a rest -> let b = f a in b `seq` render b rest) (check . f)
+  dimap f _ p = case tupPrintorElement p of
+    Just single ->
+      let projected a = single $! f a in TupPrintor total
+        (attempt . f) (renderElement projected) (check . f) (Just projected)
+    Nothing -> TupPrintor total (attempt . f)
+      (\a rest -> let b = f a in b `seq` render b rest) (check . f) Nothing
+    where
+      TupPrintor total attempt render check _ = p
   _ #. p = coerce p
   p .# _ = coerce p
 instance CocartesianMonoidal (TupPrintor val) where
-  zeroP = TupPrintor (const True) absurd absurd absurd
+  zeroP = TupPrintor (const True) absurd absurd absurd Nothing
   p >+< q = TupPrintor
     (\rules -> tupPrintorTotal p rules && tupPrintorTotal q rules)
     (either (tupPrintorTry p) (tupPrintorTry q))
@@ -1003,6 +1016,7 @@ instance CocartesianMonoidal (TupPrintor val) where
       Left a -> tupPrintorRender p a rest
       Right b -> tupPrintorRender q b rest)
     (either (tupPrintorCheck p) (tupPrintorCheck q))
+    Nothing
 instance Distributor (TupPrintor val) where
   manyP p = TupPrintor
     (\rules -> tupPrintorTotal p rules)
@@ -1010,11 +1024,13 @@ instance Distributor (TupPrintor val) where
       (\a -> DList.fromList (tupPrintorRender p a [])))
     (\as rest -> foldr (\a printed -> tupPrintorRender p a $! printed) rest as)
     (foldMap (tupPrintorCheck p))
+    Nothing
   optionalP p = TupPrintor
     (\rules -> tupPrintorTotal p rules)
     (maybe (Just mempty) (tupPrintorTry p))
     (\ma rest -> maybe rest (\a -> tupPrintorRender p a rest) ma)
     (foldMap (tupPrintorCheck p))
+    Nothing
 -- | `optionP` omits its default.
 instance Alternative (TupPrintor val a) where
   empty = falseP
@@ -1032,9 +1048,8 @@ unprintable = Elements (jsonUnexpected Nothing)
 -- | A partial `TupPrintor`, rendering what it tries, or else nothing.
 tupTrying
   :: (a -> Maybe (DList val)) -> (a -> Elements val) -> TupPrintor val a b
-tupTrying attempt =
-  TupPrintor (const False) attempt
-    (\a -> DList.apply (fromMaybe mempty (attempt a)))
+tupTrying attempt check = TupPrintor (const False) attempt
+  (\a -> DList.apply (fromMaybe mempty (attempt a))) check Nothing
 
 instance CocartesianChoice (TupPrintor val) where
   alternate = \case
@@ -1056,14 +1071,16 @@ instance DisjunctiveMonoid (TupPrintor val a b) where
         Elements (Left (jsonOrElse err0 err1))
       (Elements (Left _), printed) -> printed
       (printed, _) -> printed)
+    Nothing
 
 instance AesonVal val => JsonTup (JsonPrintor val) (TupPrintor val) where
   jsonElem p = TupPrintor
     (\rules -> printorTotal p rules)
     (fmap DList.singleton . printorTry p)
-    (\a rest -> let printed = printorRender p a in printed `seq` printed : rest)
+    (renderElement (printorRender p))
     (\a -> Elements $ (\printed -> (1, pure printed))
       <$> jsonAt (Index 0) (printorCheck p a))
+    (Just (printorRender p))
 
 instance Functor (ObjPrintor val a) where
   fmap _ (ObjPrintor keys total attempt render check) =
