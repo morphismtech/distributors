@@ -11,9 +11,9 @@ Portability : non-portable
 module Data.Profunctor.Distributor
   ( -- * CocartesianMonoidal
     CocartesianMonoidal (..)
+  , dialt
     -- * Distributor
   , Distributor (..)
-  , dialt
     -- * CocartesianChoice
   , CocartesianChoice (..)
     -- * Alternator
