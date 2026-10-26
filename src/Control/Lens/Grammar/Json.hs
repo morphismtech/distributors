@@ -776,6 +776,10 @@ instance AesonVal Encoding where
           Encoding.pair' encodedKey printed <> rest
   aesonValue = Encoding.value
 
+-- | A `rule`, by its name or by its `jsonTyped` type.
+data RuleKey = NamedRule String | TypedRule SomeTypeRep
+  deriving stock (Eq, Ord)
+
 {- | `JsonPrintor` `printorTry`s to print a value, or else `printorCheck`s it
 to locate the failure. A `printorTotal` printor prints every value,
 so it `printorRender`s it without trying. Totality is determined
@@ -1216,9 +1220,6 @@ data TsDefinitions = TsDefinitions
   , tsRules :: Map String TsType
   }
 
-data RuleKey = NamedRule String | TypedRule SomeTypeRep
-  deriving stock (Eq, Ord)
-
 {- | Define a rule once, under the first of its names which isn't taken,
 so that every other occurrence of it, recursive or not, is its name.
 Its name is reserved, as `never`, while its definition is built.
@@ -1235,7 +1236,7 @@ tsDefine key names (TsGrammor body) = TsGrammor $ do
     (Just False, _) -> local (Map.insert key True) body
     (Nothing, Just name) -> pure (TsAlias name)
     (Nothing, Nothing) -> do
-      let name = freshName (tsRules defs) names
+      let name = freshName (tsRules defs)
       lift $ put defs
         { tsRuleNames = Map.insert key name (tsRuleNames defs)
         , tsRules = Map.insert name (tsUnion []) (tsRules defs)
@@ -1244,24 +1245,13 @@ tsDefine key names (TsGrammor body) = TsGrammor $ do
       lift $ modify $ \defined ->
         defined {tsRules = Map.insert name definition (tsRules defined)}
       pure (TsAlias name)
+  where
+    freshName taken = fromMaybe
+      (until (`Map.notMember` taken) (<> "'") (last names))
+      (find (`Map.notMember` taken) names)
 
 tsGuarded :: TsDefining a -> TsDefining a
 tsGuarded = local (const Map.empty)
-
-freshName :: Map String a -> [String] -> String
-freshName taken names = fromMaybe primed (find (`Map.notMember` taken) names)
-  where
-    primed = until (`Map.notMember` taken) (<> "'") (last names)
-
-qualifiedTypeName :: SomeTypeRep -> String
-qualifiedTypeName (SomeTypeRep rep) =
-  unwords (constructor : map typeArgument args)
-  where
-    (tyCon, args) = splitApps rep
-    constructor = tyConModule tyCon <> "." <> tyConName tyCon
-    typeArgument arg@(SomeTypeRep argRep) = case splitApps argRep of
-      (_, []) -> qualifiedTypeName arg
-      _ -> "(" <> qualifiedTypeName arg <> ")"
 
 tsType :: TsType -> TsGrammor a b
 tsType = TsGrammor . pure
@@ -1274,13 +1264,6 @@ tsUnion types = case nub (concatMap alternatives types) of
     alternatives = \case
       TsUnion ts -> ts
       t -> [t]
-
-tsObject :: [TsProperty] -> TsType
-tsObject props
-  | length (nub names) == length names = TsObject props
-  | otherwise = tsUnion []
-  where
-    names = [name | TsProperty name _ _ <- props]
 
 {- | Alternative shapes of a TypeScript tuple type,
 so that `>*<` concatenates each pair of shapes and `>+<` unites them.
@@ -1392,11 +1375,24 @@ instance JsonVal TsGrammor where
   jsonArray (TsGrammor t) = TsGrammor (TsArray <$> tsGuarded t)
   jsonDict _ (TsGrammor t) = TsGrammor (TsDict <$> tsGuarded t)
   jsonTuple tup = TsGrammor (tsTuple <$> getAp (runTsTupGrammor tup))
-  jsonObject obj = TsGrammor (tsObject <$> getAp (runTsObjGrammor obj))
+  jsonObject obj = TsGrammor (object <$> getAp (runTsObjGrammor obj))
+    where
+      object props
+        | length (nub names) == length names = TsObject props
+        | otherwise = tsUnion []
+        where
+          names = [name | TsProperty name _ _ <- props]
   jsonTyped :: forall a. Typeable a => TsGrammor a a -> TsGrammor a a
-  jsonTyped = tsDefine (TypedRule rep) [show rep, qualifiedTypeName rep]
+  jsonTyped = tsDefine (TypedRule rep) [show rep, qualified rep]
     where
       rep = SomeTypeRep (typeRep @a)
+      qualified (SomeTypeRep r) = unwords (constructor : map typeArgument args)
+        where
+          (tyCon, args) = splitApps r
+          constructor = tyConModule tyCon <> "." <> tyConName tyCon
+          typeArgument arg@(SomeTypeRep argRep) = case splitApps argRep of
+            (_, []) -> qualified arg
+            _ -> "(" <> qualified arg <> ")"
 
 deriving via Grammor (Ap TsDefining TsShapes) a
   instance Functor (TsTupGrammor a)
