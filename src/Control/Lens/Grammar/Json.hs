@@ -249,7 +249,6 @@ class
   ( CocartesianChoice p
   , Filtrator p
   , JsonStr p
-  , forall x y. BackusNaurForm (p x y)
   ) => JsonVal p where
   jsonNull :: p () ()
   jsonBool :: p Bool Bool
@@ -324,7 +323,7 @@ So a type's rule is named by its fully qualified type, such as
 displayed as @Map Text Int@.
 -}
 jsonTyped
-  :: forall a p. (Typeable a, JsonVal p) => p a a -> p a a
+  :: forall a p. (Typeable a, JsonStr p) => p a a -> p a a
 jsonTyped = rule (qualifiedName (SomeTypeRep (typeRep @a)))
 
 -- | A type, `show`n with its type constructors qualified by their modules.
@@ -371,6 +370,7 @@ prop> jsonString = iso Text.pack Text.unpack >~ jsonText
 class
   ( Cochoice p
   , forall x y. (x ~ (), y ~ ()) => IsString (p x y)
+  , forall x y. BackusNaurForm (p x y)
   ) => JsonStr p where
   jsonText :: p Text Text
   jsonString :: p String String
@@ -383,6 +383,12 @@ class
     :: APrism Text (Text, Encoding.Encoding' Text) a a -> p a a
   jsonEncodedText encoding = withPrism encoding $ \encode match ->
     prism' (fst . encode) (either (const Nothing) Just . match) ?< jsonText
+  {- | An enumeration of strings, which a map's key may be,
+  like TypeScript's union of string literals, @"a" | "b"@.
+  -}
+  jsonEnumWith :: (a -> Text) -> [a] -> p a a
+  jsonEnumWith f as =
+    prism' f (\t -> lookup t [(f a, a) | a <- as]) ?< jsonText
 
 {- | `JsonTup` grammars describe the elements of a JSON array.
 As `Alternator`s they have optional elements (`optionalP`, `optionP`),
@@ -884,6 +890,10 @@ instance (AesonStr key, x ~ (), y ~ ()) => IsString (KeyPrintor key x y) where
   fromString s = KeyPrintor (const literal)
     where
       literal = aesonLiteral (Text.pack s)
+-- | A key's `rule` names nothing to print.
+instance BackusNaurForm (KeyPrintor key a b) where
+  rule _ = id
+  ruleRec _ = fix
 instance AesonStr key => JsonStr (KeyPrintor key) where
   jsonText = KeyPrintor aesonText
   jsonString = KeyPrintor aesonString
@@ -1414,7 +1424,8 @@ data TsElement
 -- | A property of a TypeScript object type.
 data TsProperty
   = TsProperty Text Bool TsType -- ^ @abc: T@ or @abc?: T@
-  | TsIndex TsType -- ^ @[key: string]: T@, the rest of its properties
+  | TsIndex TsType TsType
+  -- ^ @[key: string]: T@ or @{[key in K]?: T}@, the rest of its properties
   deriving stock (Eq, Ord)
 
 newtype TsGrammor a b = TsGrammor (TsDefining TsType)
@@ -1585,6 +1596,7 @@ instance (x ~ (), y ~ ()) => IsString (TsGrammor x y) where
   fromString = tsType . TsLiteral . Text.pack
 instance JsonStr TsGrammor where
   jsonText = tsType TsString
+  jsonEnumWith f as = tsType (tsUnion [TsLiteral (f a) | a <- as])
 instance JsonVal TsGrammor where
   jsonNull = tsType TsNull
   jsonBool = tsType TsBoolean
@@ -1654,7 +1666,10 @@ instance DisjunctiveMonoid (TsObjGrammor a b) where
     where
       unite (Ap shapes0) (Ap shapes1) = Ap (shapes0 <> shapes1)
 instance JsonObj TsGrammor TsObjGrammor where
-  jsonDict _ (TsGrammor t) = tsProperty (TsIndex <$> tsGuarded t)
+  jsonDict key (TsGrammor t) =
+    tsProperty (TsIndex <$> tsGuarded k <*> tsGuarded t)
+    where
+      TsGrammor k = key
   k !: TsGrammor t = tsProperty (TsProperty k False <$> tsGuarded t)
   k ?: TsGrammor t = tsProperty (TsProperty k True <$> tsGuarded t)
 
@@ -1686,24 +1701,39 @@ renderTsType = \case
   TsLiteral t -> tsStringLiteral t
   TsArray t -> renderTsOperand t <> "[]"
   TsTuple els -> "[" <> Text.intercalate ", " (map renderTsElement els) <> "]"
-  TsObject props -> case named <> indexSignature of
-    [] -> "{}"
-    rendered -> "{ " <> Text.intercalate "; " rendered <> " }"
-    where
-      named = [renderTsProperty k o t | TsProperty k o t <- props]
-      -- The index type also covers named properties, as TypeScript requires.
-      indexSignature = case tsUnion [t | TsIndex t <- props] of
-        TsUnion [] -> []
-        rest -> ["[key: string]: " <> renderTsType (tsUnion (rest : covered))]
-      covered = [t | TsProperty _ _ t <- props]
-        <> [TsUndefined | or [o | TsProperty _ o _ <- props]]
+  TsObject props -> Text.intercalate " & " (renderTsObject props)
   TsUnion [] -> "never"
   TsUnion ts -> Text.intercalate " | " (map renderTsType ts)
 
 renderTsOperand :: TsType -> Text
 renderTsOperand = \case
   TsUnion ts@(_ : _ : _) -> "(" <> renderTsType (TsUnion ts) <> ")"
+  TsObject props | length (renderTsObject props) > 1 ->
+    "(" <> renderTsType (TsObject props) <> ")"
   t -> renderTsType t
+
+{- | The intersected parts of an object type: its named properties
+& string keys, & a mapped type of each other key's type, which TypeScript
+types apart, like @{ id: T } & { [key in K]?: U }@.
+-}
+renderTsObject :: [TsProperty] -> [Text]
+renderTsObject props = case (named <> indexSignature, keyedTypes) of
+  ([], []) -> ["{}"]
+  ([], _) -> keyedTypes
+  (rendered, _) ->
+    ("{ " <> Text.intercalate "; " rendered <> " }") : keyedTypes
+  where
+    named = [renderTsProperty k o t | TsProperty k o t <- props]
+    -- The index type also covers named properties, as TypeScript requires.
+    indexSignature = case tsUnion [t | TsIndex TsString t <- props] of
+      TsUnion [] -> []
+      rest -> ["[key: string]: " <> renderTsType (tsUnion (rest : covered))]
+    covered = [t | TsProperty _ _ t <- props]
+      <> [TsUndefined | or [o | TsProperty _ o _ <- props]]
+    keyedTypes =
+      [ "{ [key in " <> renderTsType k <> "]?: " <> renderTsType t <> " }"
+      | TsIndex k t <- props, k /= TsString, t /= TsUnion []
+      ]
 
 renderTsElement :: TsElement -> Text
 renderTsElement = \case
@@ -1742,10 +1772,6 @@ tsIdentifier name = case Text.uncons ident of
     spelled = concatMap (\c -> if c == '[' then " List " else [c]) name
 
 -- Json instance helpers
-
--- | An enumeration of strings, which a map's key may be.
-jsonEnumWith :: JsonStr p => (a -> Text) -> [a] -> p a a
-jsonEnumWith f as = prism' f (\t -> lookup t [(f a, a) | a <- as]) ?< jsonText
 
 -- | An enumeration of string literals, typed as their union.
 jsonEnum :: (Eq a, JsonVal p) => (a -> Text) -> [a] -> p a a
@@ -2349,7 +2375,7 @@ weekdays enumerate = enumerate (Text.toLower . Text.pack . show)
 
 instance Json DayOfWeek where
   json = jsonTyped (weekdays jsonEnum)
-  jsonKey = Just (weekdays jsonEnumWith)
+  jsonKey = Just (jsonTyped (weekdays jsonEnumWith))
 
 -- | Quarters of the year, named as @aeson@ names them.
 quarters :: ((QuarterOfYear -> Text) -> [QuarterOfYear] -> r) -> r
@@ -2358,7 +2384,7 @@ quarters enumerate =
 
 instance Json QuarterOfYear where
   json = jsonTyped (quarters jsonEnum)
-  jsonKey = Just (quarters jsonEnumWith)
+  jsonKey = Just (jsonTyped (quarters jsonEnumWith))
 
 -- uuid-types
 

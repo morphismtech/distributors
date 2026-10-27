@@ -199,6 +199,16 @@ instance Json Pet where
     (either Cat Dog)
     (jsonObject ("Cat" !: json >+< "Dog" !: json))
 
+-- | A total, and tallies by answers of the rest of the keys.
+newtype Tally = Tally (Int, [(Bool, Int)])
+  deriving stock (Eq, Show)
+instance Json Tally where
+  json = jsonTyped $ dimap (\(Tally p) -> p) Tally $ jsonObject
+    ( "total" !: json
+    >*< jsonDict (jsonEnumWith (\b -> if b then "yes" else "no") [False, True])
+      json
+    )
+
 -- | An identifier and no other properties.
 newtype Closed = Closed Int
   deriving stock (Eq, Show)
@@ -234,6 +244,26 @@ jsonObjectSpec = describe "jsonObject" $ do
     declares (type Pet)
       [ "export type Int = number;"
       , "export type Pet = { Cat: string } | { Dog: Int };"
+      ]
+  it "types maps of enumerated keys as mapped types" $ do
+    declares (type (Box (Map DayOfWeek Int)))
+      [ "export type Box_Map_DayOfWeek_Int = \
+        \{ [key in DayOfWeek]?: Int };"
+      , "export type DayOfWeek = \"monday\" | \"tuesday\" | \"wednesday\" \
+        \| \"thursday\" | \"friday\" | \"saturday\" | \"sunday\";"
+      , "export type Int = number;"
+      ]
+    declares (type Tally)
+      [ "export type Int = number;"
+      , "export type Tally = \
+        \{ total: Int } & { [key in \"no\" | \"yes\"]?: Int };"
+      ]
+    roundTrip (object ["total" .= (2 :: Int), "yes" .= (2 :: Int)])
+      (Tally (2, [(True, 2)]))
+    declares (type (Box (Map Bool Int)))
+      [ "export type Box_Map_Bool_Int = \
+        \{ [key in \"false\" | \"true\"]?: Int };"
+      , "export type Int = number;"
       ]
   it "types the rest of an object as an index signature" $ do
     declares (type Extra)
