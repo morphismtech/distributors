@@ -173,9 +173,13 @@ class Json a where
 jsonParse :: Json a => Value -> Either JsonError a
 jsonParse = runJsonParsor json
 
--- | `Data.Aeson.decode`
-jsonDecode :: Json a => LByteString.ByteString -> Maybe a
-jsonDecode = Aeson.decode >=> either (\_ -> Nothing) Just . jsonParse
+{- | `Data.Aeson.eitherDecode`, which reads the JSON text by @aeson@,
+failing by its message for text which isn't JSON.
+-}
+jsonDecode :: Json a => LByteString.ByteString -> Either JsonError a
+jsonDecode bytes = case Aeson.eitherDecode bytes of
+  Left syntax -> Left (JsonError [] [] (Just (Left syntax)) JsonMismatch [])
+  Right v -> jsonParse v
 
 -- | `Data.Aeson.toJSON`
 jsonPrint :: Json a => a -> Value
@@ -374,17 +378,18 @@ jsonNoRest = dimap (const []) (const ()) (jsonRest jsonText zeroP)
 
 -- Errors --
 
-{- | A located failure to parse or print a `Value`.
+{- | A located failure to decode, parse or print a `Value`.
 Its path is relative to that `Value`, root first.
 It expected one of the alternatives, none meaning just "unexpected".
-Parsing found a `Value`; printing doesn't show the Haskell value it found.
+Parsing found a `Value`, or decoding found text which isn't JSON,
+by @aeson@'s message; printing doesn't show the Haskell value it found.
 It failed within `rule`s, outermost first, branching where alternatives
 failed alike; a `rule` it failed for as a whole is its expectation instead.
 -}
 data JsonError = JsonError
   { jsonErrorPath :: [JSONPathElement]
   , jsonErrorExpected :: [String]
-  , jsonErrorFound :: Maybe Value
+  , jsonErrorFound :: Maybe (Either String Value)
   , jsonErrorSort :: JsonErrorSort
   , jsonErrorRules :: Forest String
   } deriving stock (Eq, Show)
@@ -400,8 +405,9 @@ data JsonErrorSort
 
 jsonErrorMessage :: JsonError -> String
 jsonErrorMessage err = case (jsonErrorFound err, jsonErrorExpected err) of
-  (Just found, []) -> "unexpected " <> render found
-  (Just found, expected) ->
+  (Just (Left syntax), _) -> syntax
+  (Just (Right found), []) -> "unexpected " <> render found
+  (Just (Right found), expected) ->
     "expected " <> alternatives expected <> ", but found " <> render found
   (Nothing, []) -> "cannot print"
   (Nothing, expected)
@@ -417,15 +423,16 @@ jsonErrorMessage err = case (jsonErrorFound err, jsonErrorExpected err) of
       es -> intercalate ", " (init es) <> " or " <> last es
 
 jsonUnexpected :: Maybe Value -> Either JsonError a
-jsonUnexpected found = Left (JsonError [] [] found JsonMismatch [])
+jsonUnexpected found =
+  Left (JsonError [] [] (Right <$> found) JsonMismatch [])
 
 jsonMismatch :: String -> Value -> Either JsonError a
 jsonMismatch expected found =
-  Left (JsonError [] [expected] (Just found) JsonMismatch [])
+  Left (JsonError [] [expected] (Just (Right found)) JsonMismatch [])
 
 jsonMissing :: String -> Maybe Value -> Either JsonError a
 jsonMissing expected found =
-  Left (JsonError [] [expected] found JsonMissing [])
+  Left (JsonError [] [expected] (Right <$> found) JsonMissing [])
 
 countElements :: Int -> String
 countElements n = show n <> if n == 1 then " element" else " elements"
@@ -513,13 +520,14 @@ mapParsing f parsor = JsonParsor
 dispatching :: Dispatch b -> Value -> Either JsonError b
 dispatching (Dispatch Nothing table) = \case
   v@(String t) | Just p <- Map.lookup t table -> p v
-  v -> Left (JsonError [] (literals table) (Just v) JsonLiteral [])
+  v -> Left (JsonError [] (literals table) (Just (Right v)) JsonLiteral [])
 dispatching (Dispatch (Just key) table) = \case
   v@(Object o) -> case KeyMap.lookup key o of
     Nothing -> jsonMissing ("key " <> showKey key) (Just v)
     Just (String t) | Just p <- Map.lookup t table -> p v
     Just tag ->
-      Left (JsonError [Key key] (literals table) (Just tag) JsonLiteral [])
+      Left $ JsonError [Key key] (literals table) (Just (Right tag))
+        JsonLiteral []
   v -> jsonMismatch "object" v
 
 literals :: Map Text a -> [String]
@@ -594,7 +602,7 @@ instance (x ~ (), y ~ ()) => IsString (JsonParsor x y) where
       literal = Text.pack s
       parse = \case
         String t | t == literal -> Right ()
-        v -> Left (JsonError [] [show s] (Just v) JsonLiteral [])
+        v -> Left (JsonError [] [show s] (Just (Right v)) JsonLiteral [])
 instance JsonStr JsonParsor where
   jsonText = jsonParsor $ \case
     String t -> Right t
@@ -629,13 +637,15 @@ instance JsonVal JsonParsor where
         incomplete = \case
           Left err -> err
           Right (_, n) ->
-            JsonError [] [countElements n] (Just (Array arr)) JsonMissing []
+            JsonError [] [countElements n] (Just (Right (Array arr)))
+              JsonMissing []
       in
         case [b | Right (b, n) <- outcomes, n == Vector.length arr] of
           b : _ -> Right b
           [] -> Left (foldl jsonOrElse unexpected (map incomplete outcomes))
             where
-              unexpected = JsonError [] [] (Just (Array arr)) JsonMismatch []
+              unexpected =
+                JsonError [] [] (Just (Right (Array arr))) JsonMismatch []
     v -> jsonMismatch "array" v
     where
       parsor = tup @TupParsor

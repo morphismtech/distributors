@@ -611,6 +611,9 @@ instance Json Ambiguous where
 
 jsonErrorSpec :: Spec
 jsonErrorSpec = describe "jsonParse errors" $ do
+  it "fails to decode text which isn't JSON, by aeson's message" $
+    either errorText show (jsonDecode @Int "[1,")
+      `shouldBe` "Error in $: Unexpected end-of-input, expecting JSON value"
   it "filters what's parsed" $ do
     jsonParse @Counted (toJSON (1 :: Int)) `shouldBe` Right (Counted 1)
     parseError @Counted (toJSON (-1 :: Int)) `shouldBe`

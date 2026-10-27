@@ -250,7 +250,7 @@ decodeAeson :: FromJSON a => a -> ByteString -> Maybe a
 decodeAeson _ = decode
 
 decodeJson :: Json a => a -> ByteString -> Maybe a
-decodeJson _ = jsonDecode
+decodeJson _ = either (const Nothing) Just . jsonDecode
 
 main :: IO ()
 main = defaultMain
