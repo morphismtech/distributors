@@ -162,13 +162,13 @@ class Json a where
   {- | `Data.Aeson.toJSONKey`, as the text keys of objects,
   or else `Nothing` for the keys of arrays of pairs.
   -}
-  jsonKey :: Maybe (forall q. JsonStr q => q a a)
+  jsonKey :: Maybe (forall k. JsonStr k => k a a)
   jsonKey = Nothing
 
   {- | `Data.Aeson.toJSONKeyList`, keys of lists, like `jsonList`.
   `Char` overrides it, so that a `String` is a key.
   -}
-  jsonKeyList :: Maybe (forall q. JsonStr q => q [a] [a])
+  jsonKeyList :: Maybe (forall k. JsonStr k => k [a] [a])
   jsonKeyList = Nothing
 
   {- | `Data.Aeson.omitField`, whether a record's field of the value
@@ -288,7 +288,7 @@ class
   -}
   jsonMap
     :: Ord b
-    => (forall q. JsonStr q => q a b)
+    => (forall k. JsonStr k => k a b)
     -> p c d -> p (Map a c) (Map b d)
   jsonMap key p = dimap Map.toList Map.fromList (jsonObject (jsonDict key p))
   {- | A `jsonDict` object of a `HashMap`, whose keys can't repeat,
@@ -296,7 +296,7 @@ class
   -}
   jsonHashMap
     :: (Eq b, Hashable b)
-    => (forall q. JsonStr q => q a b)
+    => (forall k. JsonStr k => k a b)
     -> p c d -> p (HashMap a c) (HashMap b d)
   jsonHashMap key p =
     dimap HashMap.toList HashMap.fromList (jsonObject (jsonDict key p))
@@ -901,7 +901,7 @@ class AesonStr val => AesonVal val where
   aesonObject :: [(Key, val)] -> val
   -- | Render an object of distinct keys, folded from a map.
   aesonMap
-    :: (forall q. JsonStr q => q a b)
+    :: (forall k. JsonStr k => k a b)
     -> (forall r. (a -> c -> r -> r) -> r -> m -> r)
     -> (c -> val) -> m -> val
   aesonValue :: Value -> val
@@ -1364,7 +1364,7 @@ instance AesonVal val => JsonObj (JsonPrintor val) (ObjPrintor val) where
 printDistinct
   :: AesonVal val
   => (forall r. (a -> c -> r -> r) -> r -> m -> r)
-  -> (forall q. JsonStr q => q a b)
+  -> (forall k. JsonStr k => k a b)
   -> JsonPrintor val c d -> JsonPrintor val m n
 printDistinct fold key p = JsonPrintor
   (\rules -> printorTotal p rules)
@@ -1827,9 +1827,9 @@ jsonRealFloatKey = prism' render parse ?< jsonText
 
 -- | Transform a key, if there's one.
 overKey
-  :: (forall q. JsonStr q => q a a -> q b b)
-  -> Maybe (forall q. JsonStr q => q a a)
-  -> Maybe (forall q. JsonStr q => q b b)
+  :: (forall k. JsonStr k => k a a -> k b b)
+  -> Maybe (forall k. JsonStr k => k a a)
+  -> Maybe (forall k. JsonStr k => k b b)
 overKey f = \case
   Just key -> Just (f key)
   Nothing -> Nothing
