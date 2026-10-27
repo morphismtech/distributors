@@ -12,6 +12,7 @@ module Control.Lens.Grammar.Json
   , jsonTypes
     -- * Grammar
   , JsonVal (..)
+  , jsonTyped
   , JsonStr (..)
   , JsonTup (..)
   , JsonObj (..)
@@ -39,7 +40,7 @@ import Data.Aeson.KeyMap qualified as KeyMap
 import Data.Aeson.Text (encodeToLazyText)
 import Data.Aeson.Types
   (DotNetTime (..), JSONPathElement (..), Object, Value (..))
-import Data.Char (isAlpha, isAlphaNum, isDigit)
+import Data.Char (isAlpha, isAlphaNum, isDigit, isUpper)
 import Data.ByteString.Builder qualified as Builder
 import Data.ByteString.Lazy qualified as LByteString
 import Data.Coerce
@@ -66,7 +67,8 @@ import Data.IntMap qualified as IntMap
 import Data.IntSet (IntSet)
 import Data.IntSet qualified as IntSet
 import Data.Kind
-import Data.List (find, findIndices, intercalate, nub, stripPrefix)
+import Data.List
+  (find, findIndices, intercalate, isPrefixOf, nub, stripPrefix)
 import Data.List.NonEmpty (NonEmpty, nonEmpty)
 import Data.Map (Map)
 import Data.Map qualified as Map
@@ -249,8 +251,57 @@ class
     , _Object . iso KeyMap.toList KeyMap.fromList
       >? jsonDict jsonKeyText jsonValue
     ]
-  jsonTyped :: forall a. Typeable a => p a a -> p a a
-  jsonTyped = rule (show (typeRep @a))
+
+{- | A `rule` for a Haskell type, like a type definition,
+named by its `Typeable` type, so that each type's rule is its own.
+
+Rule names follow a convention: a module-qualified word, like @M.N.x@,
+names a definition by its qualified name, and displays it unqualified,
+as @x@, in error messages & TypeScript, whenever that's unambiguous.
+So a type's rule is named by its fully qualified type, such as
+@Data.Map.Internal.Map Data.Text.Internal.Text GHC.Types.Int@,
+displayed as @Map Text Int@.
+-}
+jsonTyped
+  :: forall a p. (Typeable a, BackusNaurForm (p a a)) => p a a -> p a a
+jsonTyped = rule (qualifiedName (SomeTypeRep (typeRep @a)))
+
+-- | A type, `show`n with its type constructors qualified by their modules.
+qualifiedName :: SomeTypeRep -> String
+qualifiedName (SomeTypeRep rep) = case (bracketed tyCon, args) of
+  (Just "List", [arg]) -> "[" <> qualifiedName arg <> "]"
+  (Just "Unit", []) -> "()"
+  (Just _, _ : _ : _) ->
+    "(" <> intercalate "," (map qualifiedName args) <> ")"
+  _ -> unwords (qualified : map typeArgument args)
+  where
+    (tyCon, args) = splitApps rep
+    qualified = tyConModule tyCon <> "." <> tyConName tyCon
+    typeArgument arg@(SomeTypeRep argRep) = case splitApps argRep of
+      (argCon, _ : _) | isNothing (bracketed argCon) ->
+        "(" <> qualifiedName arg <> ")"
+      _ -> qualifiedName arg
+    -- The constructors of lists & tuples, which bracket their arguments.
+    bracketed con = case (tyConModule con, tyConName con) of
+      ("GHC.Types", "List") -> Just "List"
+      ("GHC.Tuple", name) | name == "Unit" || "Tuple" `isPrefixOf` name ->
+        Just name
+      _ -> Nothing
+
+{- | A rule name's display, with its module-qualified words unqualified,
+by the naming convention of `jsonTyped`.
+-}
+unqualified :: String -> String
+unqualified = \case
+  [] -> []
+  s@(c : rest)
+    | isUpper c, (_ : _, '.' : after@(_ : _)) <- span identifier s ->
+        unqualified after
+    | identifier c -> let (word, others) = span identifier s in
+        word <> unqualified others
+    | otherwise -> c : unqualified rest
+  where
+    identifier c = isAlphaNum c || c == '_' || c == '\''
 
 {- |
 prop> fromString s = only s ?< jsonString
@@ -516,7 +567,7 @@ instance DisjunctiveMonoid (JsonParsor a b) where
             JsonParsor (Just dispatch) (dispatching dispatch)
     _ -> jsonParsor (orElse (runJsonParsor p) (runJsonParsor q))
 instance BackusNaurForm (JsonParsor a b) where
-  rule name = mapParsing (onFailure (jsonRelabel name) .)
+  rule name = mapParsing (onFailure (jsonRelabel (unqualified name)) .)
   ruleRec name f = fix (rule name . f)
 instance (x ~ (), y ~ ()) => IsString (JsonParsor x y) where
   fromString s = JsonParsor
@@ -800,10 +851,6 @@ instance AesonVal Encoding where
           Encoding.pair' encodedKey printed <> rest
   aesonValue = Encoding.value
 
--- | A `rule`, by its name or by its `jsonTyped` type.
-data RuleKey = NamedRule String | TypedRule SomeTypeRep
-  deriving stock (Eq, Ord)
-
 {- | `JsonPrintor` `printorTry`s to print a value, or else `printorCheck`s it
 to locate the failure. A `printorTotal` printor prints every value,
 so it `printorRender`s it without trying. Totality is determined
@@ -813,7 +860,7 @@ so that building a recursive printor doesn't force itself.
 A primitive `printorRenderArray`s an array of its values at once.
 -}
 data JsonPrintor val a b = JsonPrintor
-  { printorTotal :: !(Set RuleKey -> Bool)
+  { printorTotal :: !(Set String -> Bool)
   , printorTry :: !(a -> Maybe val)
   , printorRender :: !(a -> val)
   , printorCheck :: !(a -> Either JsonError val)
@@ -848,7 +895,7 @@ trying attempt check = JsonPrintor
 -- | Try each of the values, rendering them for a total printor.
 tryAll
   :: Traversable f
-  => (Set RuleKey -> Bool) -> (a -> Maybe b) -> (a -> b) -> f a -> Maybe (f b)
+  => (Set String -> Bool) -> (a -> Maybe b) -> (a -> b) -> f a -> Maybe (f b)
 tryAll total attempt render = \as -> if isTotal
   then Just (fmap render as)
   else traverse attempt as
@@ -860,7 +907,7 @@ counted to locate a failure of a later element.
 A single element keeps its rendering, so that mapping it composes.
 -}
 data TupPrintor val a b = TupPrintor
-  { tupPrintorTotal :: !(Set RuleKey -> Bool)
+  { tupPrintorTotal :: !(Set String -> Bool)
   , tupPrintorTry :: !(a -> Maybe (DList val))
   , tupPrintorRender :: !(a -> [val] -> [val])
   , tupPrintorCheck :: !(a -> Elements val)
@@ -893,7 +940,7 @@ unless it writes the rest of the properties, whose keys are checked.
 data ObjPrintor val a b = ObjPrintor
   { objPrintorKeys :: [Key]
   , objPrintorRest :: !Bool
-  , objPrintorTotal :: !(Set RuleKey -> Bool)
+  , objPrintorTotal :: !(Set String -> Bool)
   , objPrintorTry :: !(a -> Maybe (DList (Key, val)))
   , objPrintorRender :: !(a -> [(Key, val)] -> [(Key, val)])
   , objPrintorCheck :: !(a -> Either JsonError [(Key, val)])
@@ -944,20 +991,17 @@ instance AesonVal val => DisjunctiveMonoid (JsonPrintor val a b) where
       Left err1 -> onFailure (jsonOrElse err1) (printorCheck q a)
       success -> success)
     Nothing
-instance BackusNaurForm (JsonPrintor val a b) where
-  rule name = ruleP (NamedRule name) name
-  ruleRec name f = fix (rule name . f)
-
-{- | A `rule` with a key, labelling its failures with a name.
-Its totality assumes those being determined are total,
+{- | A `rule` labels its failures with its display name.
+Its totality assumes the rules being determined are total,
 by induction on the values printed.
 -}
-ruleP :: RuleKey -> String -> JsonPrintor val a b -> JsonPrintor val a b
-ruleP key name p = p
-  { printorTotal = \rules ->
-      Set.member key rules || printorTotal p (Set.insert key rules)
-  , printorCheck = onFailure (jsonRelabel name) . printorCheck p
-  }
+instance BackusNaurForm (JsonPrintor val a b) where
+  rule name p = p
+    { printorTotal = \rules ->
+        Set.member name rules || printorTotal p (Set.insert name rules)
+    , printorCheck = onFailure (jsonRelabel (unqualified name)) . printorCheck p
+    }
+  ruleRec name f = fix (rule name . f)
 
 instance (AesonStr val, x ~ (), y ~ ()) => IsString (JsonPrintor val x y) where
   fromString s = printing (const literal)
@@ -1041,11 +1085,6 @@ instance AesonVal val => JsonVal (JsonPrintor val) where
         Nothing
     where
       printor = obj @(ObjPrintor val)
-  jsonTyped :: forall a. Typeable a
-    => JsonPrintor val a a -> JsonPrintor val a a
-  jsonTyped = ruleP (TypedRule (SomeTypeRep rep)) (show rep)
-    where
-      rep = typeRep @a
 
 instance Functor (TupPrintor val a) where
   fmap _ (TupPrintor total attempt render check single) =
@@ -1263,22 +1302,22 @@ newtype TsObjGrammor a b = TsObjGrammor
 unguarded by an array, object or tuple, each noting whether it's been
 unrolled, and updating the named rules & their definitions.
 -}
-type TsDefining = ReaderT (Map RuleKey Bool) (State TsDefinitions)
+type TsDefining = ReaderT (Map String Bool) (State TsDefinitions)
 
 data TsDefinitions = TsDefinitions
-  { tsRuleNames :: Map RuleKey String
+  { tsRuleNames :: Map String String
   , tsRules :: Map String TsType
   }
 
-{- | Define a rule once, under the first of its names which isn't taken,
-so that every other occurrence of it, recursive or not, is its name.
-Its name is reserved, as `never`, while its definition is built.
+{- | Define a rule once, under its unqualified name, or else its qualified
+name, if taken, so that every other occurrence of it, recursive or not,
+is its name. Its name is reserved, as `never`, while it's being defined.
 An unguarded occurrence is its least fixpoint instead, unrolled once,
 so that a rule of a rule is the rule, and a rule recurring unguarded
 contributes `never`, since JSON values are finite.
 -}
-tsDefine :: RuleKey -> [String] -> TsGrammor a b -> TsGrammor c d
-tsDefine key names (TsGrammor body) = TsGrammor $ do
+tsDefine :: String -> TsGrammor a b -> TsGrammor c d
+tsDefine key (TsGrammor body) = TsGrammor $ do
   unguarded <- ask
   defs <- lift get
   case (Map.lookup key unguarded, Map.lookup key (tsRuleNames defs)) of
@@ -1297,8 +1336,8 @@ tsDefine key names (TsGrammor body) = TsGrammor $ do
       pure (TsAlias name)
   where
     freshName taken = fromMaybe
-      (until (`Map.notMember` taken) (<> "'") (last names))
-      (find (`Map.notMember` taken) names)
+      (until (`Map.notMember` taken) (<> "'") key)
+      (find (`Map.notMember` taken) [unqualified key, key])
 
 tsGuarded :: TsDefining a -> TsDefining a
 tsGuarded = local (const Map.empty)
@@ -1410,10 +1449,8 @@ instance DisjunctiveMonoid (TsGrammor a b) where
   TsGrammor t0 >|< TsGrammor t1 =
     TsGrammor (liftA2 (\a b -> tsUnion [a, b]) t0 t1)
 instance BackusNaurForm (TsGrammor a b) where
-  rule name = tsDefine (NamedRule name) [name]
-  ruleRec name f = rule name (f self)
-    where
-      self = tsDefine (NamedRule name) [name] falseP
+  rule = tsDefine
+  ruleRec name f = rule name (f (tsDefine name falseP))
 instance (x ~ (), y ~ ()) => IsString (TsGrammor x y) where
   fromString = tsType . TsLiteral . Text.pack
 instance JsonStr TsGrammor where
@@ -1432,17 +1469,6 @@ instance JsonVal TsGrammor where
         | otherwise = tsUnion []
         where
           names = [name | TsProperty name _ _ <- props]
-  jsonTyped :: forall a. Typeable a => TsGrammor a a -> TsGrammor a a
-  jsonTyped = tsDefine (TypedRule rep) [show rep, qualified rep]
-    where
-      rep = SomeTypeRep (typeRep @a)
-      qualified (SomeTypeRep r) = unwords (constructor : map typeArgument args)
-        where
-          (tyCon, args) = splitApps r
-          constructor = tyConModule tyCon <> "." <> tyConName tyCon
-          typeArgument arg@(SomeTypeRep argRep) = case splitApps argRep of
-            (_, []) -> qualified arg
-            _ -> "(" <> qualified arg <> ")"
 
 deriving via Grammor (Ap TsDefining TsShapes) a
   instance Functor (TsTupGrammor a)
