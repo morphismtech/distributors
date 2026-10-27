@@ -389,6 +389,11 @@ class
   jsonEnumWith :: (a -> Text) -> [a] -> p a a
   jsonEnumWith f as =
     prism' f (\t -> lookup t [(f a, a) | a <- as]) ?< jsonText
+  {- | Strings of numbers, like an integral map key's,
+  like TypeScript's template literal type, @\`${number}\`@.
+  -}
+  jsonNumeric :: p a a -> p a a
+  jsonNumeric = id
 
 {- | `JsonTup` grammars describe the elements of a JSON array.
 As `Alternator`s they have optional elements (`optionalP`, `optionP`),
@@ -413,7 +418,8 @@ class (JsonVal p, Monoidal q, CocartesianChoice q)
   (?:) :: Text -> p a b -> q (Maybe a) (Maybe b)
   {- | The properties which aren't named, of any keys, all of a key grammar,
   & their values, all of a value grammar, read as a list of pairs,
-  like TypeScript's index signature, @[key: string]: T@.
+  like TypeScript's index signature, @[key: string]: T@,
+  or, of an enumeration of keys, its mapped type, @{[key in K]?: T}@.
   An object of a `jsonDict` alone, @jsonObject (jsonDict key value)@,
   is a dictionary, @{[key: string]: T}@. With named properties,
   a `jsonDict` reads the rest of the object, those which it doesn't name.
@@ -1408,6 +1414,7 @@ data TsType
   | TsBoolean -- ^ @boolean@
   | TsNumber -- ^ @number@
   | TsString -- ^ @string@
+  | TsNumeric -- ^ @\`${number}\`@
   | TsLiteral Text -- ^ @"abc"@
   | TsArray TsType -- ^ @T[]@
   | TsTuple [TsElement] -- ^ @[T, U?, ...V[]]@
@@ -1424,8 +1431,9 @@ data TsElement
 -- | A property of a TypeScript object type.
 data TsProperty
   = TsProperty Text Bool TsType -- ^ @abc: T@ or @abc?: T@
-  | TsIndex TsType TsType
-  -- ^ @[key: string]: T@ or @{[key in K]?: T}@, the rest of its properties
+  | TsIndex TsType [TsType] TsType
+  {- ^ @[key: string]: T@ or @{[key in K]?: T}@, the rest of its properties,
+  of a key type, & its alternatives, with its aliases resolved -}
   deriving stock (Eq, Ord)
 
 newtype TsGrammor a b = TsGrammor (TsDefining TsType)
@@ -1597,6 +1605,7 @@ instance (x ~ (), y ~ ()) => IsString (TsGrammor x y) where
 instance JsonStr TsGrammor where
   jsonText = tsType TsString
   jsonEnumWith f as = tsType (tsUnion [TsLiteral (f a) | a <- as])
+  jsonNumeric _ = tsType TsNumeric
 instance JsonVal TsGrammor where
   jsonNull = tsType TsNull
   jsonBool = tsType TsBoolean
@@ -1666,12 +1675,24 @@ instance DisjunctiveMonoid (TsObjGrammor a b) where
     where
       unite (Ap shapes0) (Ap shapes1) = Ap (shapes0 <> shapes1)
 instance JsonObj TsGrammor TsObjGrammor where
-  jsonDict key (TsGrammor t) =
-    tsProperty (TsIndex <$> tsGuarded k <*> tsGuarded t)
+  jsonDict key (TsGrammor t) = tsProperty $ do
+    keyType <- tsGuarded k
+    rules <- lift (gets tsRules)
+    TsIndex keyType (tsAlternatives rules keyType) <$> tsGuarded t
     where
       TsGrammor k = key
   k !: TsGrammor t = tsProperty (TsProperty k False <$> tsGuarded t)
   k ?: TsGrammor t = tsProperty (TsProperty k True <$> tsGuarded t)
+
+-- | The alternatives of a type, resolving its aliases.
+tsAlternatives :: Map String TsType -> TsType -> [TsType]
+tsAlternatives rules = go []
+  where
+    go seen = \case
+      TsAlias name | name `notElem` seen, Just t <- Map.lookup name rules ->
+        go (name : seen) t
+      TsUnion ts -> concatMap (go seen) ts
+      t -> [t]
 
 -- | An object type of one property.
 tsProperty :: TsDefining TsProperty -> TsObjGrammor a b
@@ -1698,6 +1719,7 @@ renderTsType = \case
   TsBoolean -> "boolean"
   TsNumber -> "number"
   TsString -> "string"
+  TsNumeric -> "`${number}`"
   TsLiteral t -> tsStringLiteral t
   TsArray t -> renderTsOperand t <> "[]"
   TsTuple els -> "[" <> Text.intercalate ", " (map renderTsElement els) <> "]"
@@ -1713,26 +1735,51 @@ renderTsOperand = \case
   t -> renderTsType t
 
 {- | The intersected parts of an object type: its named properties
-& string keys, & a mapped type of each other key's type, which TypeScript
-types apart, like @{ id: T } & { [key in K]?: U }@.
+& index signatures, of its @string@ or @\`${number}\`@ keys, & a mapped type
+of its literal keys, but those which are named, which TypeScript types
+apart, like @{ id: T } & { [key in Exclude<K, "id">]?: U }@.
 -}
 renderTsObject :: [TsProperty] -> [Text]
-renderTsObject props = case (named <> indexSignature, keyedTypes) of
+renderTsObject props = case (named <> indexSignatures, keyedTypes) of
   ([], []) -> ["{}"]
   ([], _) -> keyedTypes
   (rendered, _) ->
     ("{ " <> Text.intercalate "; " rendered <> " }") : keyedTypes
   where
     named = [renderTsProperty k o t | TsProperty k o t <- props]
-    -- The index type also covers named properties, as TypeScript requires.
-    indexSignature = case tsUnion [t | TsIndex TsString t <- props] of
-      TsUnion [] -> []
-      rest -> ["[key: string]: " <> renderTsType (tsUnion (rest : covered))]
-    covered = [t | TsProperty _ _ t <- props]
-      <> [TsUndefined | or [o | TsProperty _ o _ <- props]]
+    names = [k | TsProperty k _ _ <- props]
+    indexSignatures =
+      [ "[key: " <> renderTsType pattern <> "]: "
+        <> renderTsType (tsUnion (t : covered pattern))
+      | TsIndex _ alternatives t <- props
+      , t /= TsUnion []
+      , pattern <- take 1
+          [p | p <- [TsString, TsNumeric], p `elem` alternatives]
+      ]
+    -- An index type also covers the named properties it matches,
+    -- as TypeScript requires.
+    covered pattern =
+      [t | TsProperty k _ t <- props, matches pattern k]
+      <> [TsUndefined | or [o | TsProperty k o _ <- props, matches pattern k]]
+    matches = \case
+      TsNumeric -> isJust . readScientific
+      _ -> const True
     keyedTypes =
-      [ "{ [key in " <> renderTsType k <> "]?: " <> renderTsType t <> " }"
-      | TsIndex k t <- props, k /= TsString, t /= TsUnion []
+      [ "{ [key in " <> keys <> "]?: " <> renderTsType t <> " }"
+      | TsIndex k alternatives t <- props
+      , t /= TsUnion []
+      , let
+          literalKeys = [TsLiteral l | TsLiteral l <- alternatives]
+          excluded = [l | l@(TsLiteral name) <- literalKeys, name `elem` names]
+          base
+            | length literalKeys == length alternatives = renderTsType k
+            | otherwise = renderTsType (tsUnion literalKeys)
+          keys
+            | null excluded = base
+            | otherwise =
+                "Exclude<" <> base <> ", " <> renderTsType (tsUnion excluded)
+                <> ">"
+      , length excluded < length literalKeys
       ]
 
 renderTsElement :: TsElement -> Text
@@ -1821,7 +1868,7 @@ readScientific t
 
 -- | `Scientific` map keys, as @aeson@ renders them.
 jsonScientificKey :: JsonStr p => p Scientific Scientific
-jsonScientificKey = prism' render readScientific ?< jsonText
+jsonScientificKey = jsonNumeric (prism' render readScientific ?< jsonText)
   where
     render s
       | e < 0 || e > 1024 = Text.pack (formatScientific Generic Nothing s)
@@ -1831,7 +1878,7 @@ jsonScientificKey = prism' render readScientific ?< jsonText
 
 -- | Integral map keys, as @aeson@ renders them.
 jsonIntKey :: (Show a, JsonStr p) => APrism' Scientific a -> p a a
-jsonIntKey integral = jsonEncodedText $ prism shown $ \t ->
+jsonIntKey integral = jsonNumeric $ jsonEncodedText $ prism shown $ \t ->
   maybe (Left (t, Encoding.text t)) Right
     (readScientific t >>= preview (clonePrism integral))
   where

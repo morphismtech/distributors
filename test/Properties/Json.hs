@@ -209,6 +209,24 @@ instance Json Tally where
       json
     )
 
+-- | A tally of the answer "yes", and of the rest of the answers.
+newtype Votes = Votes (Int, [(Bool, Int)])
+  deriving stock (Eq, Show)
+instance Json Votes where
+  json = jsonTyped $ dimap (\(Votes p) -> p) Votes $ jsonObject
+    ( "yes" !: json
+    >*< jsonDict (jsonEnumWith (\b -> if b then "yes" else "no") [False, True])
+      json
+    )
+
+-- | A name, and scores by the numbers of the rest of the keys.
+newtype Scores = Scores (Text, [(Int, Bool)])
+  deriving stock (Eq, Show)
+instance Json Scores where
+  json = jsonTyped $ dimap (\(Scores p) -> p) Scores $ case jsonKey @Int of
+    Just key -> jsonObject ("name" !: json >*< jsonDict key json)
+    Nothing -> error "Int has a key"
+
 -- | An identifier and no other properties.
 newtype Closed = Closed Int
   deriving stock (Eq, Show)
@@ -264,6 +282,22 @@ jsonObjectSpec = describe "jsonObject" $ do
       [ "export type Box_Map_Bool_Int = \
         \{ [key in \"false\" | \"true\"]?: Int };"
       , "export type Int = number;"
+      ]
+  it "excludes named keys from the mapped type of the rest" $ do
+    declares (type Votes)
+      [ "export type Int = number;"
+      , "export type Votes = \
+        \{ yes: Int } & { [key in Exclude<\"no\" | \"yes\", \"yes\">]?: Int };"
+      ]
+    roundTrip (object ["yes" .= (2 :: Int), "no" .= (1 :: Int)])
+      (Votes (2, [(False, 1)]))
+  it "types numeric keys as template literals" $ do
+    declares (type (Box (Map Int Bool)))
+      [ "export type Box_Map_Int_Bool = { [key: `${number}`]: boolean };"
+      ]
+    declares (type Scores)
+      [ "export type Scores = \
+        \{ name: string; [key: `${number}`]: boolean };"
       ]
   it "types the rest of an object as an index signature" $ do
     declares (type Extra)
