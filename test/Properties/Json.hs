@@ -18,10 +18,10 @@ module Properties.Json
   , jsonPrintSpec
   ) where
 
-import Control.Lens (coerced, non, only, prism')
+import Control.Lens (coerced, only, prism')
 import Control.Lens.Grammar
   ( dimap, lmap, manyP, optionP, optionalP, rule, someP
-  , (>*<), (>+<), (>?), (>|<), (>~), (~<)
+  , (>*<), (>+<), (>?), (>|<), (>~)
   )
 import Control.Lens.Grammar.Json
 import Data.Aeson
@@ -174,7 +174,7 @@ newtype Limit = Limit Int
   deriving stock (Eq, Show)
 instance Json Limit where
   json = jsonTyped $ dimap (\(Limit n) -> n) Limit $
-    jsonObject (non 10 ~< "limit" ?: json)
+    jsonObject ("limit" ?: json != 10)
 
 -- | An identifier and the rest of the properties, booleans.
 newtype Extra = Extra (Int, [(Text, Bool)])
@@ -371,8 +371,17 @@ roundTrip value a = do
   jsonParse @a value `shouldBe` Right a
   jsonPrintError a `shouldBe` Right value
 
+-- | An array, as a tuple of a rest element.
+newtype Elements = Elements [Int]
+  deriving stock (Eq, Show)
+instance Json Elements where
+  json = coerced >~ jsonTuple (manyP (jsonElem (json @Int)))
+
 jsonTupleSpec :: Spec
 jsonTupleSpec = describe "variadic jsonTuple" $ do
+  prop "is an array of a rest element" $ \(ns :: [Int]) ->
+    jsonPrint (Elements ns) === jsonPrint ns
+      .&&. jsonParse (jsonPrint ns) === Right (Elements ns)
   it "has rest elements" $ do
     roundTrip (toJSON [toJSON (1 :: Int)]) (Rest (1, []))
     roundTrip (toJSON [toJSON (1 :: Int), "a", "b"]) (Rest (1, ["a", "b"]))

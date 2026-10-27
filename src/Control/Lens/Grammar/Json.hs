@@ -18,6 +18,7 @@ module Control.Lens.Grammar.Json
   , JsonTup (..)
   , JsonObj (..)
   , jsonObjectStrict
+  , (!=)
     -- * Errors
   , JsonError (..)
   , JsonErrorSort (..)
@@ -275,7 +276,13 @@ class
   jsonWord64 = jsonBoundedInteger
   jsonDouble :: p Double Double
   jsonDouble = iso fromFloatDigits toRealFloat >~ jsonNumber
+  {- | A homogeneous JSON array, like TypeScript's @T[]@, which is a tuple
+  of a rest element, though interpreters may define it more efficiently.
+
+  prop> jsonArray p = jsonTuple (manyP (jsonElem p))
+  -}
   jsonArray :: p a b -> p [a] [b]
+  jsonArray p = jsonTuple (manyP (jsonElem p))
   {- | A `jsonDict` object of a `Map`, whose keys can't repeat,
   so that printing needn't check them.
   -}
@@ -390,9 +397,8 @@ class (JsonVal p, Alternator q) => JsonTup p q | q -> p where
 Each key may be read or written at most once.
 A required property, @k !: v@, is like TypeScript's @{k: T}@,
 and an optional property, @k ?: v@, may be missing, like @{k?: T}@.
-A property with a default, like @aeson@'s @.:?@ & @.!=@, is optional
-by the `non` isomorphism, @non 10 ~< "limit" ?: jsonInt@,
-missing exactly when it's the default.
+A property with a default, @"limit" ?: jsonInt != 10@,
+like @aeson@'s @.:?@ & @.!=@, is missing exactly when it's the default.
 Its properties are `JsonVal` grammars, which determine its type.
 -}
 class (JsonVal p, Monoidal q, CocartesianChoice q)
@@ -410,6 +416,15 @@ class (JsonVal p, Monoidal q, CocartesianChoice q)
   -}
   jsonDict :: (forall k. JsonStr k => k a b) -> p c d -> q [(a, c)] [(b, d)]
 infixr 7 !:, ?:
+
+{- | An optional property with a default, missing exactly when it's the
+default, like @aeson@'s @.:?@ & @.!=@, by the `non` isomorphism.
+
+prop> prop != def = non def ~< prop
+-}
+(!=) :: (Eq a, Profunctor q) => q (Maybe a) (Maybe a) -> a -> q a a
+prop != def = non def ~< prop
+infix 6 !=
 
 -- | A `jsonObject` which rejects the properties that it doesn't name.
 jsonObjectStrict :: JsonVal p => (forall q. JsonObj p q => q a b) -> p a b
