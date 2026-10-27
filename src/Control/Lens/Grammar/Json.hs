@@ -10,6 +10,7 @@ module Control.Lens.Grammar.Json
   , jsonEncode
   , jsonEncodeError
   , jsonTypes
+  , ViaJson (..)
     -- * Grammar
   , JsonVal (..), jsonTyped
   , JsonStr (..)
@@ -39,6 +40,7 @@ import Data.Aeson.KeyMap qualified as KeyMap
 import Data.Aeson.Text (encodeToLazyText)
 import Data.Aeson.Types
   (DotNetTime (..), JSONPathElement (..), Object, Value (..))
+import Data.Aeson.Types qualified as Aeson (Parser, parserThrowError)
 import Data.Char (isAlpha, isAlphaNum, isDigit, isUpper)
 import Data.ByteString.Builder qualified as Builder
 import Data.ByteString.Lazy qualified as LByteString
@@ -201,6 +203,33 @@ jsonTypes as = renderTypeScript $ hcollapse
   where
     tsRoot :: forall a. Json a => K (TsGrammor () ()) a
     tsRoot = K (coerce (json @a @TsGrammor))
+
+{- | @aeson@'s instances, derived from a `Json` instance, failing to parse
+at the path of a `JsonError`, by its message.
+
+> data Point = Point {x :: Int, y :: Int}
+>   deriving stock Generic
+>   deriving anyclass Json
+>   deriving (ToJSON, FromJSON) via ViaJson Point
+-}
+newtype ViaJson a = ViaJson a
+
+instance Json a => Aeson.ToJSON (ViaJson a) where
+  toJSON (ViaJson a) = jsonPrint a
+  toEncoding (ViaJson a) = jsonEncode a
+  toJSONList vs = either (\_ -> Null) id
+    (runJsonPrintor (jsonList @a) (coerce vs))
+  toEncodingList vs = either (\_ -> Encoding.null_) id
+    (runJsonPrintor (jsonList @a) (coerce vs))
+instance Json a => Aeson.FromJSON (ViaJson a) where
+  parseJSON = either parseFailure (pure . ViaJson) . jsonParse
+  parseJSONList =
+    either parseFailure (pure . coerce) . runJsonParsor (jsonList @a)
+
+-- | Fail to parse at the path of a `JsonError`, by its message.
+parseFailure :: JsonError -> Aeson.Parser x
+parseFailure err =
+  Aeson.parserThrowError (jsonErrorPath err) (jsonErrorMessage err)
 
 class
   ( CocartesianChoice p

@@ -590,6 +590,14 @@ jsonOptionalSpec = describe "(?:)" $ do
 -- | Encoding agrees with @aeson@.
 jsonCodecSpec :: Spec
 jsonCodecSpec = describe "jsonEncode" $ do
+  it "derives aeson's instances from Json's" $ do
+    let point = Point 1 2
+    toJSON (ViaJson point) `shouldBe` jsonPrint point
+    encodingToLazyByteString (toEncoding (ViaJson point))
+      `shouldBe` encodingToLazyByteString (jsonEncode point)
+    either Left (\(ViaJson p) -> Right (px p))
+      (parseEither parseJSON (object ["px" .= True, "py" .= (2 :: Int)]))
+      `shouldBe` Left "Error in $.px: expected number, but found true"
   codecCompat @Profile (Profile <$> arbitrary <*> arbitrary <*> arbitrary)
   codecCompat @(Map Text [Int]) arbitrary
   codecCompat @(Int, Maybe Bool, Text) arbitrary
