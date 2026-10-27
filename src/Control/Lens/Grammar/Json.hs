@@ -224,16 +224,23 @@ class
   jsonDouble :: p Double Double
   jsonDouble = iso fromFloatDigits toRealFloat >~ jsonNumber
   jsonArray :: p a b -> p [a] [b]
+  {- | An object of properties, by a key grammar for their keys.
+  Its list may repeat a key, which can't be printed.
+  -}
   jsonDict
     :: (forall q. JsonStr q => q a b)
     -> p c d -> p [(a, c)] [(b, d)]
-  -- | A `jsonDict` of a `Map`, whose keys are distinct.
+  {- | A `jsonDict` of a `Map`, whose keys can't repeat,
+  so that printing needn't check them.
+  -}
   jsonMap
     :: Ord b
     => (forall q. JsonStr q => q a b)
     -> p c d -> p (Map a c) (Map b d)
   jsonMap key p = dimap Map.toList Map.fromList (jsonDict key p)
-  -- | A `jsonDict` of a `HashMap`, whose keys are distinct.
+  {- | A `jsonDict` of a `HashMap`, whose keys can't repeat,
+  so that printing needn't check them.
+  -}
   jsonHashMap
     :: (Eq b, Hashable b)
     => (forall q. JsonStr q => q a b)
