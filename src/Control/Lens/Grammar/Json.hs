@@ -15,7 +15,7 @@ module Control.Lens.Grammar.Json
   , JsonStr (..)
   , JsonTup (..)
   , JsonObj (..)
-  , jsonNoRest
+  , jsonObjectStrict
     -- * Errors
   , JsonError (..)
   , JsonErrorSort (..)
@@ -363,18 +363,17 @@ Its properties are `JsonVal` grammars, which determine its type.
 class (JsonVal p, Monoidal q) => JsonObj p q | q -> p where
   (!:) :: Text -> p a b -> q a b
   (?:) :: Text -> p a b -> q (Maybe a) (Maybe b)
-  {- | The rest of the properties, those which the object doesn't name,
-  like TypeScript's @{[key: string]: T}@. It names no key of its own,
-  so an object has at most one rest, which printing checks.
+  {- | The rest of the properties, @key &: value@, those which the object
+  doesn't name, like TypeScript's @{[key: string]: T}@. It names no key
+  of its own, so an object has at most one rest, which printing checks.
   -}
-  jsonRest
-    :: (forall r. JsonStr r => r a b)
-    -> p c d -> q [(a, c)] [(b, d)]
-infixr 7 !:, ?:
+  (&:) :: (forall r. JsonStr r => r a b) -> p c d -> q [(a, c)] [(b, d)]
+infixr 7 !:, ?:, &:
 
--- | No other properties, rejecting those which the object doesn't name.
-jsonNoRest :: JsonObj p q => q () ()
-jsonNoRest = dimap (const []) (const ()) (jsonRest jsonText zeroP)
+-- | A `jsonObject` which rejects the properties that it doesn't name.
+jsonObjectStrict :: JsonVal p => (forall q. JsonObj p q => q a b) -> p a b
+jsonObjectStrict obj =
+  jsonObject (obj *< dimap (const []) (const ()) (jsonText &: zeroP))
 
 -- Errors --
 
@@ -747,7 +746,7 @@ instance JsonObj JsonParsor ObjParsor where
     traverse (jsonAt (Key key) . runJsonParsor p) (KeyMap.lookup key o)
     where
       key = Key.fromText k
-  jsonRest key p = ObjParsor [] [] $ \named o ->
+  key &: p = ObjParsor [] [] $ \named o ->
     for [kv | kv@(k, _) <- KeyMap.toList o, not (HashSet.member k named)] $
       \(k, v) -> jsonAt (Key k) $
         (,) <$> runJsonParsor key (String (Key.toText k)) <*> runJsonParsor p v
@@ -1241,7 +1240,7 @@ instance Profunctor (ObjPrintor val) where
   _ #. p = coerce p
   p .# _ = coerce p
 instance AesonVal val => JsonObj (JsonPrintor val) (ObjPrintor val) where
-  jsonRest key p = ObjPrintor [] True
+  key &: p = ObjPrintor [] True
     (\rules -> printorTotal p rules)
     (fmap DList.fromList . traverse (\(a, c) -> (keyOf a,) <$> printorTry p c))
     (\entries rest ->
@@ -1554,7 +1553,7 @@ instance JsonObj TsGrammor TsObjGrammor where
     TsObjGrammor (Ap (pure . TsProperty k False <$> tsGuarded t))
   k ?: TsGrammor t =
     TsObjGrammor (Ap (pure . TsProperty k True <$> tsGuarded t))
-  jsonRest _ (TsGrammor t) = TsObjGrammor (Ap (pure . TsIndex <$> tsGuarded t))
+  _ &: TsGrammor t = TsObjGrammor (Ap (pure . TsIndex <$> tsGuarded t))
 
 -- Rendering TypeScript --
 

@@ -18,7 +18,7 @@ module Properties.Json
 import Control.Lens (non, only, prism')
 import Control.Lens.Grammar
   ( dimap, lmap, manyP, optionP, optionalP, rule, someP
-  , (*<), (>*<), (>+<), (>?), (>|<), (~<)
+  , (>*<), (>+<), (>?), (>|<), (~<)
   )
 import Control.Lens.Grammar.Json
 import Data.Aeson
@@ -174,7 +174,7 @@ newtype Extra = Extra (Int, [(Text, Bool)])
   deriving stock (Eq, Show)
 instance Json Extra where
   json = jsonTyped $ dimap (\(Extra p) -> p) Extra $
-    jsonObject ("id" !: json >*< jsonRest jsonText json)
+    jsonObject ("id" !: json >*< jsonText &: json)
 
 -- | A count, positive, filtered from numbers.
 newtype Counted = Counted Int
@@ -188,7 +188,7 @@ newtype Closed = Closed Int
   deriving stock (Eq, Show)
 instance Json Closed where
   json = jsonTyped $ dimap (\(Closed n) -> n) Closed $
-    jsonObject ("id" !: json *< jsonNoRest)
+    jsonObjectStrict ("id" !: json)
 
 jsonObjectSpec :: Spec
 jsonObjectSpec = describe "jsonObject" $ do
