@@ -92,6 +92,7 @@ import GHC.Generics (Generic, Generically (..))
 import Network.URI (URI, parseURI)
 import Numeric.Natural (Natural)
 import Test.Hspec
+import Witherable qualified
 import Test.QuickCheck hiding (Fixed)
 import Test.QuickCheck.Instances ()
 
@@ -174,6 +175,13 @@ newtype Extra = Extra (Int, [(Text, Bool)])
 instance Json Extra where
   json = jsonTyped $ dimap (\(Extra p) -> p) Extra $
     jsonObject ("id" !: json >*< jsonRest jsonText json)
+
+-- | A count, positive, filtered from numbers.
+newtype Counted = Counted Int
+  deriving stock (Eq, Show)
+instance Json Counted where
+  json = jsonTyped $ dimap (\(Counted n) -> n) Counted $
+    Witherable.mapMaybe (\n -> if n > 0 then Just n else Nothing) json
 
 -- | An identifier and no other properties.
 newtype Closed = Closed Int
@@ -603,6 +611,10 @@ instance Json Ambiguous where
 
 jsonErrorSpec :: Spec
 jsonErrorSpec = describe "jsonParse errors" $ do
+  it "filters what's parsed" $ do
+    jsonParse @Counted (toJSON (1 :: Int)) `shouldBe` Right (Counted 1)
+    parseError @Counted (toJSON (-1 :: Int)) `shouldBe`
+      "Error in $: expected Counted, but found -1"
   it "labels failures with rules" $ do
     parseError @Int (toJSON (1.5 :: Double)) `shouldBe`
       "Error in $: expected Int, but found 1.5"

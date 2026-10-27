@@ -137,6 +137,7 @@ import Numeric.Natural (Natural)
 import Text.Read (readMaybe)
 import Text.ParserCombinators.ReadP (readP_to_S)
 import Type.Reflection
+import Witherable qualified
 
 makePrisms ''Value
 
@@ -148,7 +149,10 @@ class Json a where
   default json :: (Json (GHC.Generically a), JsonVal p) => p a a
   json = iso GHC.Generically coerce >~ json
 
-  {- | `Data.Aeson.toJSONList` -}
+  {- | `Data.Aeson.toJSONList`, an array of values by default.
+  `Char` overrides it, so that a `String` is a JSON string,
+  as do types wrapping a `Char`, by forwarding it.
+  -}
   jsonList :: JsonVal p => p [a] [a]
   jsonList = jsonArray json
 
@@ -158,7 +162,9 @@ class Json a where
   jsonKey :: Maybe (forall q. JsonStr q => q a a)
   jsonKey = Nothing
 
-  {- | `Data.Aeson.toJSONKeyList` -}
+  {- | `Data.Aeson.toJSONKeyList`, keys of lists, like `jsonList`.
+  `Char` overrides it, so that a `String` is a key.
+  -}
   jsonKeyList :: Maybe (forall q. JsonStr q => q [a] [a])
   jsonKeyList = Nothing
 
@@ -195,6 +201,7 @@ jsonTypes as = renderTypeScript $ hcollapse
 
 class
   ( CocartesianChoice p
+  , Filtrator p
   , JsonStr p
   , forall x y. BackusNaurForm (p x y)
   ) => JsonVal p where
@@ -224,8 +231,10 @@ class
   jsonDouble :: p Double Double
   jsonDouble = iso fromFloatDigits toRealFloat >~ jsonNumber
   jsonArray :: p a b -> p [a] [b]
-  {- | An object of properties, by a key grammar for their keys.
-  Its list may repeat a key, which can't be printed.
+  {- | A JSON object of any keys, all of a key grammar,
+  & their values, all of a value grammar, read as a list of pairs,
+  unlike the named properties of `jsonObject`, like TypeScript's
+  @{[key: string]: T}@. Its list may repeat a key, which can't be printed.
   -}
   jsonDict
     :: (forall q. JsonStr q => q a b)
@@ -546,6 +555,9 @@ data ObjParsor a b = ObjParsor
 
 instance Functor (JsonParsor a) where
   fmap f = mapParsing (fmap (onSuccess f))
+instance Witherable.Filterable (JsonParsor a) where
+  mapMaybe = dimapMaybe Just
+instance Filtrator JsonParsor
 instance Profunctor JsonParsor where
   dimap _ g = mapParsing (fmap (onSuccess g))
   _ #. p = coerce p
@@ -959,6 +971,13 @@ printDuplicate key = jsonMissing ("key " <> showKey key <> " twice") Nothing
 instance Functor (JsonPrintor val a) where
   fmap _ (JsonPrintor total attempt render check renderArray) =
     JsonPrintor total attempt render check renderArray
+{- | A printor's results are phantom, so that `Witherable.mapMaybe`,
+like `fmap`, keeps it, as @mapMaybe = dimapMaybe Just@ would observably,
+but keeping its totality.
+-}
+instance Witherable.Filterable (JsonPrintor val a) where
+  mapMaybe _ = coerce
+instance AesonVal val => Filtrator (JsonPrintor val)
 instance Profunctor (JsonPrintor val) where
   dimap f _ (JsonPrintor total attempt render check renderArray) =
     JsonPrintor total (attempt . f) (\a -> render $! f a) (check . f)
@@ -1448,6 +1467,9 @@ deriving via Grammor (TsDefining TsType)
 instance Cochoice TsGrammor where
   unleft = coerce
   unright = coerce
+instance Witherable.Filterable (TsGrammor a) where
+  mapMaybe = dimapMaybe Just
+instance Filtrator TsGrammor
 instance CocartesianMonoidal TsGrammor
 instance CocartesianChoice TsGrammor where
   alternate = either coerce coerce
