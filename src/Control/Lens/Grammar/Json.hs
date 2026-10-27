@@ -360,7 +360,8 @@ by the `non` isomorphism, @non 10 ~< "limit" ?: jsonInt@,
 missing exactly when it's the default.
 Its properties are `JsonVal` grammars, which determine its type.
 -}
-class (JsonVal p, Monoidal q) => JsonObj p q | q -> p where
+class (JsonVal p, Monoidal q, CocartesianChoice q)
+  => JsonObj p q | q -> p where
   (!:) :: Text -> p a b -> q a b
   (?:) :: Text -> p a b -> q (Maybe a) (Maybe b)
   {- | The rest of the properties, @key &: value@, those which the object
@@ -554,7 +555,7 @@ Its keys are known before parsing, so overlapping keys are found once,
 as are its tags, keys which only accept string literals.
 -}
 data ObjParsor a b = ObjParsor
-  { objParsorKeys :: [Key]
+  { objParsorShapes :: [[Key]]
   , objParsorTags :: [(Key, Set Text)]
   , runObjParsor :: HashSet Key -> Object -> Either JsonError b
   }
@@ -650,14 +651,14 @@ instance JsonVal JsonParsor where
       parsor = tup @TupParsor
   jsonObject obj = JsonParsor dispatch parse
     where
-      overlap = duplicateKey (objParsorKeys obj)
+      overlap = foldr ((<|>) . duplicateKey) Nothing (objParsorShapes obj)
       parse = \case
         Object o -> case overlap of
           Just key ->
             jsonMissing ("another key " <> showKey key) (Just (Object o))
           Nothing -> runObjParsor obj named o
         v -> jsonMismatch "object" v
-      named = HashSet.fromList (objParsorKeys obj)
+      named = HashSet.fromList (concat (objParsorShapes obj))
       dispatch = case objParsorTags obj of
         (key, tags) : _ ->
           Just (Dispatch (Just key) (Map.fromSet (const parse) tags))
@@ -722,9 +723,9 @@ instance Functor (ObjParsor a) where
   fmap f (ObjParsor keys tags p) =
     ObjParsor keys tags (\named o -> onSuccess f (p named o))
 instance Applicative (ObjParsor a) where
-  pure b = ObjParsor [] [] (\_ _ -> Right b)
+  pure b = ObjParsor [[]] [] (\_ _ -> Right b)
   ObjParsor keys0 tags0 p0 <*> ObjParsor keys1 tags1 p1 =
-    ObjParsor (keys0 <> keys1) (tags0 <> tags1) $ \named o ->
+    ObjParsor (liftA2 (<>) keys0 keys1) (tags0 <> tags1) $ \named o ->
       case p0 named o of
         Left err -> Left err
         Right f -> onSuccess f (p1 named o)
@@ -733,8 +734,20 @@ instance Profunctor ObjParsor where
     ObjParsor keys tags (\named o -> onSuccess g (p named o))
   _ #. p = coerce p
   p .# _ = coerce p
+instance Choice ObjParsor where
+  left' = fmap Left . coerce
+  right' = fmap Right . coerce
+instance CocartesianMonoidal ObjParsor
+instance CocartesianChoice ObjParsor where
+  alternate = either (fmap Left . coerce) (fmap Right . coerce)
+instance DisjunctiveMonoid (ObjParsor a b) where
+  falseP = ObjParsor [] [] (\_ o -> jsonUnexpected (Just (Object o)))
+  p >|< q = ObjParsor (objParsorShapes p <> objParsorShapes q) [] $
+    \named o -> case runObjParsor p named o of
+      Left err -> onFailure (jsonOrElse err) (runObjParsor q named o)
+      success -> success
 instance JsonObj JsonParsor ObjParsor where
-  k !: p = ObjParsor [key] tags $ \_ o -> case KeyMap.lookup key o of
+  k !: p = ObjParsor [[key]] tags $ \_ o -> case KeyMap.lookup key o of
     Nothing -> jsonMissing ("key " <> show k) (Just (Object o))
     Just v -> jsonAt (Key key) (runJsonParsor p v)
     where
@@ -742,11 +755,11 @@ instance JsonObj JsonParsor ObjParsor where
       tags = case jsonParsorDispatch p of
         Just (Dispatch Nothing table) -> [(key, Map.keysSet table)]
         _ -> []
-  k ?: p = ObjParsor [key] [] $ \_ o ->
+  k ?: p = ObjParsor [[key]] [] $ \_ o ->
     traverse (jsonAt (Key key) . runJsonParsor p) (KeyMap.lookup key o)
     where
       key = Key.fromText k
-  key &: p = ObjParsor [] [] $ \named o ->
+  key &: p = ObjParsor [[]] [] $ \named o ->
     for [kv | kv@(k, _) <- KeyMap.toList o, not (HashSet.member k named)] $
       \(k, v) -> jsonAt (Key k) $
         (,) <$> runJsonParsor key (String (Key.toText k)) <*> runJsonParsor p v
@@ -965,7 +978,7 @@ Its keys are known before printing, so overlapping keys are found once,
 unless it writes the rest of the properties, whose keys are checked.
 -}
 data ObjPrintor val a b = ObjPrintor
-  { objPrintorKeys :: [Key]
+  { objPrintorShapes :: [[Key]]
   , objPrintorRest :: !Bool
   , objPrintorTotal :: !(Set String -> Bool)
   , objPrintorTry :: !(a -> Maybe (DList (Key, val)))
@@ -1099,7 +1112,8 @@ instance AesonVal val => JsonVal (JsonPrintor val) where
     (\a -> case tupPrintorCheck tup a of
       Elements printed -> aesonList id . toList . snd <$> printed)
     Nothing
-  jsonObject obj = case duplicateKey (objPrintorKeys printor) of
+  jsonObject obj = case
+    foldr ((<|>) . duplicateKey) Nothing (objPrintorShapes printor) of
     Just key -> trying (const Nothing) (\_ -> printDuplicate key)
     Nothing
       | objPrintorRest printor -> trying
@@ -1222,11 +1236,11 @@ instance Functor (ObjPrintor val a) where
   fmap _ (ObjPrintor keys rest total attempt render check) =
     ObjPrintor keys rest total attempt render check
 instance Applicative (ObjPrintor val a) where
-  pure _ = ObjPrintor [] False
+  pure _ = ObjPrintor [[]] False
     (const True) (const (Just mempty)) (\_ rest -> rest) (\_ -> Right [])
   ObjPrintor keys0 rest0 total0 try0 render0 check0
     <*> ObjPrintor keys1 rest1 total1 try1 render1 check1 = ObjPrintor
-      (keys0 <> keys1)
+      (liftA2 (<>) keys0 keys1)
       (rest0 || rest1)
       (\rules -> total0 rules && total1 rules)
       (\a -> (<>) <$> try0 a <*> try1 a)
@@ -1239,8 +1253,54 @@ instance Profunctor (ObjPrintor val) where
       (check . f)
   _ #. p = coerce p
   p .# _ = coerce p
+instance Choice (ObjPrintor val) where
+  left' = alternate . Left
+  right' = alternate . Right
+instance CocartesianMonoidal (ObjPrintor val) where
+  zeroP = ObjPrintor [] False (const True) absurd absurd absurd
+  p >+< q = ObjPrintor
+    (objPrintorShapes p <> objPrintorShapes q)
+    (objPrintorRest p || objPrintorRest q)
+    (\rules -> objPrintorTotal p rules && objPrintorTotal q rules)
+    (either (objPrintorTry p) (objPrintorTry q))
+    (\e props -> case e of
+      Left a -> objPrintorRender p a props
+      Right b -> objPrintorRender q b props)
+    (either (objPrintorCheck p) (objPrintorCheck q))
+instance CocartesianChoice (ObjPrintor val) where
+  alternate = \case
+    Left p -> objTrying p
+      (either (objPrintorTry p) (const Nothing))
+      (either (objPrintorCheck p) (\_ -> jsonUnexpected Nothing))
+    Right p -> objTrying p
+      (either (const Nothing) (objPrintorTry p))
+      (either (\_ -> jsonUnexpected Nothing) (objPrintorCheck p))
+instance DisjunctiveMonoid (ObjPrintor val a b) where
+  falseP = ObjPrintor [] False (const False) (const Nothing)
+    (\_ props -> props) (\_ -> jsonUnexpected Nothing)
+  p >|< q = ObjPrintor
+    (objPrintorShapes p <> objPrintorShapes q)
+    (objPrintorRest p || objPrintorRest q)
+    (\rules -> objPrintorTotal p rules || objPrintorTotal q rules)
+    (\a -> objPrintorTry p a <|> objPrintorTry q a)
+    (\a props -> maybe
+      (objPrintorRender q a props) (`DList.apply` props) (objPrintorTry p a))
+    (\a -> case objPrintorCheck p a of
+      Left err -> onFailure (jsonOrElse err) (objPrintorCheck q a)
+      success -> success)
+
+-- | A partial `ObjPrintor` of another's shapes, rendering what it tries.
+objTrying
+  :: ObjPrintor val x y
+  -> (a -> Maybe (DList (Key, val)))
+  -> (a -> Either JsonError [(Key, val)])
+  -> ObjPrintor val a b
+objTrying p attempt = ObjPrintor (objPrintorShapes p) (objPrintorRest p)
+  (const False) attempt
+  (\a props -> DList.apply (fromMaybe mempty (attempt a)) props)
+
 instance AesonVal val => JsonObj (JsonPrintor val) (ObjPrintor val) where
-  key &: p = ObjPrintor [] True
+  key &: p = ObjPrintor [[]] True
     (\rules -> printorTotal p rules)
     (fmap DList.fromList . traverse (\(a, c) -> (keyOf a,) <$> printorTry p c))
     (\entries rest ->
@@ -1249,7 +1309,7 @@ instance AesonVal val => JsonObj (JsonPrintor val) (ObjPrintor val) where
       (k,) <$> jsonAt (Key k) (printorCheck p c)))
     where
       keyOf = runKeyPrintor key
-  k !: p = ObjPrintor [key] False
+  k !: p = ObjPrintor [[key]] False
     (\rules -> printorTotal p rules)
     (fmap property . printorTry p)
     (renderProperty key p)
@@ -1257,7 +1317,7 @@ instance AesonVal val => JsonObj (JsonPrintor val) (ObjPrintor val) where
     where
       key = Key.fromText k
       property printed = DList.singleton (key, printed)
-  k ?: p = ObjPrintor [key] False
+  k ?: p = ObjPrintor [[key]] False
     (\rules -> printorTotal p rules)
     (maybe (Just mempty) (fmap property . printorTry p))
     (\ma rest -> maybe rest (\a -> renderProperty key p a rest) ma)
@@ -1330,7 +1390,7 @@ newtype TsTupGrammor a b = TsTupGrammor
   {runTsTupGrammor :: Ap TsDefining TsShapes}
 
 newtype TsObjGrammor a b = TsObjGrammor
-  {runTsObjGrammor :: Ap TsDefining [TsProperty]}
+  {runTsObjGrammor :: Ap TsDefining (Ap [] [TsProperty])}
 
 {- | Defining TypeScript types, reading the rules being defined which are
 unguarded by an array, object or tuple, each noting whether it's been
@@ -1499,8 +1559,10 @@ instance JsonVal TsGrammor where
   jsonArray (TsGrammor t) = TsGrammor (TsArray <$> tsGuarded t)
   jsonDict _ (TsGrammor t) = TsGrammor (TsDict <$> tsGuarded t)
   jsonTuple tup = TsGrammor (tsTuple <$> getAp (runTsTupGrammor tup))
-  jsonObject obj = TsGrammor (object <$> getAp (runTsObjGrammor obj))
+  jsonObject obj =
+    TsGrammor (objects <$> getAp (runTsObjGrammor obj))
     where
+      objects (Ap shapes) = tsUnion (map object shapes)
       object props
         | length (nub names) == length names = TsObject props
         | otherwise = tsUnion []
@@ -1542,18 +1604,31 @@ instance JsonTup TsGrammor TsTupGrammor where
   jsonElem (TsGrammor t) =
     TsTupGrammor (Ap ((\ty -> Ap [[TsRequired ty]]) <$> tsGuarded t))
 
-deriving via Grammor (Ap TsDefining [TsProperty]) a
+deriving via Grammor (Ap TsDefining (Ap [] [TsProperty])) a
   instance Functor (TsObjGrammor a)
-deriving via Grammor (Ap TsDefining [TsProperty]) a
+deriving via Grammor (Ap TsDefining (Ap [] [TsProperty])) a
   instance Applicative (TsObjGrammor a)
-deriving via Grammor (Ap TsDefining [TsProperty])
+deriving via Grammor (Ap TsDefining (Ap [] [TsProperty]))
   instance Profunctor TsObjGrammor
+instance Choice TsObjGrammor where
+  left' = coerce
+  right' = coerce
+instance CocartesianMonoidal TsObjGrammor
+instance CocartesianChoice TsObjGrammor where
+  alternate = either coerce coerce
+instance DisjunctiveMonoid (TsObjGrammor a b) where
+  falseP = TsObjGrammor (pure (Ap []))
+  TsObjGrammor s0 >|< TsObjGrammor s1 = TsObjGrammor (liftA2 unite s0 s1)
+    where
+      unite (Ap shapes0) (Ap shapes1) = Ap (shapes0 <> shapes1)
 instance JsonObj TsGrammor TsObjGrammor where
-  k !: TsGrammor t =
-    TsObjGrammor (Ap (pure . TsProperty k False <$> tsGuarded t))
-  k ?: TsGrammor t =
-    TsObjGrammor (Ap (pure . TsProperty k True <$> tsGuarded t))
-  _ &: TsGrammor t = TsObjGrammor (Ap (pure . TsIndex <$> tsGuarded t))
+  k !: TsGrammor t = tsProperty (TsProperty k False <$> tsGuarded t)
+  k ?: TsGrammor t = tsProperty (TsProperty k True <$> tsGuarded t)
+  _ &: TsGrammor t = tsProperty (TsIndex <$> tsGuarded t)
+
+-- | An object type of one property.
+tsProperty :: TsDefining TsProperty -> TsObjGrammor a b
+tsProperty prop = TsObjGrammor (Ap ((\p -> Ap [[p]]) <$> prop))
 
 -- Rendering TypeScript --
 

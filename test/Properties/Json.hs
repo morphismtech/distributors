@@ -183,6 +183,15 @@ instance Json Counted where
   json = jsonTyped $ dimap (\(Counted n) -> n) Counted $
     Witherable.mapMaybe (\n -> if n > 0 then Just n else Nothing) json
 
+-- | A pet, by an object of a single field, named by its constructor.
+data Pet = Cat Text | Dog Int
+  deriving stock (Eq, Show)
+instance Json Pet where
+  json = jsonTyped $ dimap
+    (\case Cat n -> Left n; Dog age -> Right age)
+    (either Cat Dog)
+    (jsonObject ("Cat" !: json >+< "Dog" !: json))
+
 -- | An identifier and no other properties.
 newtype Closed = Closed Int
   deriving stock (Eq, Show)
@@ -210,6 +219,15 @@ jsonObjectSpec = describe "jsonObject" $ do
     jsonParse @Closed (object ["id" .= (1 :: Int)]) `shouldBe` Right (Closed 1)
     parseError @Closed (object ["id" .= (1 :: Int), "x" .= True])
       `shouldBe` "Error in $.x: unexpected true"
+  it "chooses between alternative shapes" $ do
+    jsonParse @Pet (object ["Cat" .= ("tom" :: Text)])
+      `shouldBe` Right (Cat "tom")
+    jsonParse @Pet (object ["Dog" .= (3 :: Int)]) `shouldBe` Right (Dog 3)
+    jsonPrintError (Dog 3) `shouldBe` Right (object ["Dog" .= (3 :: Int)])
+    declares (type Pet)
+      [ "export type Int = number;"
+      , "export type Pet = { Cat: string } | { Dog: Int };"
+      ]
   it "types the rest of an object as an index signature" $ do
     declares (type Extra)
       [ "export type Extra = { id: Int; [key: string]: boolean | Int };"
