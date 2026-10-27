@@ -276,30 +276,23 @@ class
   jsonDouble :: p Double Double
   jsonDouble = iso fromFloatDigits toRealFloat >~ jsonNumber
   jsonArray :: p a b -> p [a] [b]
-  {- | A JSON object of any keys, all of a key grammar,
-  & their values, all of a value grammar, read as a list of pairs,
-  unlike the named properties of `jsonObject`, like TypeScript's
-  @{[key: string]: T}@. Its list may repeat a key, which can't be printed.
-  -}
-  jsonDict
-    :: (forall q. JsonStr q => q a b)
-    -> p c d -> p [(a, c)] [(b, d)]
-  {- | A `jsonDict` of a `Map`, whose keys can't repeat,
+  {- | A `jsonDict` object of a `Map`, whose keys can't repeat,
   so that printing needn't check them.
   -}
   jsonMap
     :: Ord b
     => (forall q. JsonStr q => q a b)
     -> p c d -> p (Map a c) (Map b d)
-  jsonMap key p = dimap Map.toList Map.fromList (jsonDict key p)
-  {- | A `jsonDict` of a `HashMap`, whose keys can't repeat,
+  jsonMap key p = dimap Map.toList Map.fromList (jsonObject (jsonDict key p))
+  {- | A `jsonDict` object of a `HashMap`, whose keys can't repeat,
   so that printing needn't check them.
   -}
   jsonHashMap
     :: (Eq b, Hashable b)
     => (forall q. JsonStr q => q a b)
     -> p c d -> p (HashMap a c) (HashMap b d)
-  jsonHashMap key p = dimap HashMap.toList HashMap.fromList (jsonDict key p)
+  jsonHashMap key p =
+    dimap HashMap.toList HashMap.fromList (jsonObject (jsonDict key p))
   jsonTuple :: (forall q. JsonTup p q => q a b) -> p a b
   jsonObject :: (forall q. JsonObj p q => q a b) -> p a b
   jsonValue :: p Value Value
@@ -310,7 +303,7 @@ class
     , _String >? jsonText
     , _Array . iso Vector.toList Vector.fromList >? jsonArray jsonValue
     , _Object . iso KeyMap.toList KeyMap.fromList
-      >? jsonDict jsonKeyText jsonValue
+      >? jsonObject (jsonDict jsonKeyText jsonValue)
     ]
 
 {- | A `rule` for a Haskell type, like a type definition,
@@ -406,17 +399,22 @@ class (JsonVal p, Monoidal q, CocartesianChoice q)
   => JsonObj p q | q -> p where
   (!:) :: Text -> p a b -> q a b
   (?:) :: Text -> p a b -> q (Maybe a) (Maybe b)
-  {- | The rest of the properties, @key &: value@, those which the object
-  doesn't name, like TypeScript's @{[key: string]: T}@. It names no key
-  of its own, so an object has at most one rest, which printing checks.
+  {- | The properties which aren't named, of any keys, all of a key grammar,
+  & their values, all of a value grammar, read as a list of pairs,
+  like TypeScript's index signature, @[key: string]: T@.
+  An object of a `jsonDict` alone, @jsonObject (jsonDict key value)@,
+  is a dictionary, @{[key: string]: T}@. With named properties,
+  a `jsonDict` reads the rest of the object, those which it doesn't name.
+  It names no key of its own, so an object has at most one `jsonDict`,
+  which printing checks, as it does for a list which repeats a key.
   -}
-  (&:) :: (forall r. JsonStr r => r a b) -> p c d -> q [(a, c)] [(b, d)]
-infixr 7 !:, ?:, &:
+  jsonDict :: (forall k. JsonStr k => k a b) -> p c d -> q [(a, c)] [(b, d)]
+infixr 7 !:, ?:
 
 -- | A `jsonObject` which rejects the properties that it doesn't name.
 jsonObjectStrict :: JsonVal p => (forall q. JsonObj p q => q a b) -> p a b
 jsonObjectStrict obj =
-  jsonObject (obj *< dimap (const []) (const ()) (jsonText &: zeroP))
+  jsonObject (obj *< dimap (const []) (const ()) (jsonDict jsonText zeroP))
 
 -- Errors --
 
@@ -664,10 +662,6 @@ instance JsonVal JsonParsor where
     Array arr -> zipWithM
       (\i v -> jsonAt (Index i) (runJsonParsor p v)) [0 ..] (Vector.toList arr)
     v -> jsonMismatch "array" v
-  jsonDict key p = jsonParsor $ \case
-    Object o -> for (KeyMap.toList o) $ \(k, v) -> jsonAt (Key k) $
-      (,) <$> runJsonParsor key (String (Key.toText k)) <*> runJsonParsor p v
-    v -> jsonMismatch "object" v
   jsonTuple tup = jsonParsor $ \case
     Array arr | Just (n, fixed) <- tupParsorFixed parsor ->
       fixed arr 0 >>= \b ->
@@ -789,6 +783,10 @@ instance DisjunctiveMonoid (ObjParsor a b) where
       Left err -> onFailure (jsonOrElse err) (runObjParsor q named o)
       success -> success
 instance JsonObj JsonParsor ObjParsor where
+  jsonDict key p = ObjParsor [[]] [] $ \named o ->
+    for [kv | kv@(k, _) <- KeyMap.toList o, not (HashSet.member k named)] $
+      \(k, v) -> jsonAt (Key k) $
+        (,) <$> runJsonParsor key (String (Key.toText k)) <*> runJsonParsor p v
   k !: p = ObjParsor [[key]] tags $ \_ o -> case KeyMap.lookup key o of
     Nothing -> jsonMissing ("key " <> show k) (Just (Object o))
     Just v -> jsonAt (Key key) (runJsonParsor p v)
@@ -801,10 +799,6 @@ instance JsonObj JsonParsor ObjParsor where
     traverse (jsonAt (Key key) . runJsonParsor p) (KeyMap.lookup key o)
     where
       key = Key.fromText k
-  key &: p = ObjParsor [[]] [] $ \named o ->
-    for [kv | kv@(k, _) <- KeyMap.toList o, not (HashSet.member k named)] $
-      \(k, v) -> jsonAt (Key k) $
-        (,) <$> runJsonParsor key (String (Key.toText k)) <*> runJsonParsor p v
 
 duplicateKey :: [Key] -> Maybe Key
 duplicateKey keys
@@ -1128,23 +1122,6 @@ instance AesonVal val => JsonVal (JsonPrintor val) where
     Nothing
     where
       render = fromMaybe (aesonList (printorRender p)) (printorRenderArray p)
-  jsonDict key p = trying attempt check
-    where
-      keyOf = runKeyPrintor key
-      property (a, c) = (keyOf a, printorRender p c)
-      tryProperty (a, c) = (keyOf a,) <$> printorTry p c
-      tryProperties = tryAll (printorTotal p) tryProperty property
-      attempt entries = do
-        props <- tryProperties entries
-        guard (isNothing (duplicateKey (map fst props)))
-        Just (aesonObject props)
-      check entries = do
-        props <- traverse entry entries
-        maybe (Right (aesonObject props)) printDuplicate
-          (duplicateKey (map fst props))
-      entry (a, c) = (k,) <$> jsonAt (Key k) (printorCheck p c)
-        where
-          k = keyOf a
   jsonMap key = printDistinct Map.foldrWithKey key
   jsonHashMap key = printDistinct HashMap.foldrWithKey key
   jsonTuple tup = JsonPrintor
@@ -1342,7 +1319,7 @@ objTrying p attempt = ObjPrintor (objPrintorShapes p) (objPrintorRest p)
   (\a props -> DList.apply (fromMaybe mempty (attempt a)) props)
 
 instance AesonVal val => JsonObj (JsonPrintor val) (ObjPrintor val) where
-  key &: p = ObjPrintor [[]] True
+  jsonDict key p = ObjPrintor [[]] True
     (\rules -> printorTotal p rules)
     (fmap DList.fromList . traverse (\(a, c) -> (keyOf a,) <$> printorTry p c))
     (\entries rest ->
@@ -1408,7 +1385,6 @@ data TsType
   | TsString -- ^ @string@
   | TsLiteral Text -- ^ @"abc"@
   | TsArray TsType -- ^ @T[]@
-  | TsDict TsType -- ^ @{[key: string]: T}@
   | TsTuple [TsElement] -- ^ @[T, U?, ...V[]]@
   | TsObject [TsProperty] -- ^ @{abc: T, xyz?: U}@
   | TsUnion [TsType] -- ^ @T | U@, or @never@ when empty
@@ -1599,7 +1575,6 @@ instance JsonVal TsGrammor where
   jsonBool = tsType TsBoolean
   jsonNumber = tsType TsNumber
   jsonArray (TsGrammor t) = TsGrammor (TsArray <$> tsGuarded t)
-  jsonDict _ (TsGrammor t) = TsGrammor (TsDict <$> tsGuarded t)
   jsonTuple tup = TsGrammor (tsTuple <$> getAp (runTsTupGrammor tup))
   jsonObject obj =
     TsGrammor (objects <$> getAp (runTsObjGrammor obj))
@@ -1664,9 +1639,9 @@ instance DisjunctiveMonoid (TsObjGrammor a b) where
     where
       unite (Ap shapes0) (Ap shapes1) = Ap (shapes0 <> shapes1)
 instance JsonObj TsGrammor TsObjGrammor where
+  jsonDict _ (TsGrammor t) = tsProperty (TsIndex <$> tsGuarded t)
   k !: TsGrammor t = tsProperty (TsProperty k False <$> tsGuarded t)
   k ?: TsGrammor t = tsProperty (TsProperty k True <$> tsGuarded t)
-  _ &: TsGrammor t = tsProperty (TsIndex <$> tsGuarded t)
 
 -- | An object type of one property.
 tsProperty :: TsDefining TsProperty -> TsObjGrammor a b
@@ -1695,7 +1670,6 @@ renderTsType = \case
   TsString -> "string"
   TsLiteral t -> tsStringLiteral t
   TsArray t -> renderTsOperand t <> "[]"
-  TsDict t -> "{ [key: string]: " <> renderTsType t <> " }"
   TsTuple els -> "[" <> Text.intercalate ", " (map renderTsElement els) <> "]"
   TsObject props -> case named <> indexSignature of
     [] -> "{}"
@@ -2263,7 +2237,8 @@ instance Json Key where
   json = jsonKeyText
   jsonKey = Just jsonKeyText
 instance Json v => Json (KeyMap v) where
-  json = iso KeyMap.toList KeyMap.fromList >~ jsonDict jsonKeyText json
+  json = iso KeyMap.toList KeyMap.fromList
+    >~ jsonObject (jsonDict jsonKeyText json)
 instance Json Value where
   json = jsonValue
 instance Json DotNetTime where

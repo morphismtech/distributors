@@ -181,7 +181,7 @@ newtype Extra = Extra (Int, [(Text, Bool)])
   deriving stock (Eq, Show)
 instance Json Extra where
   json = jsonTyped $ dimap (\(Extra p) -> p) Extra $
-    jsonObject ("id" !: json >*< jsonText &: json)
+    jsonObject ("id" !: json >*< jsonDict jsonText json)
 
 -- | A count, positive, filtered from numbers.
 newtype Counted = Counted Int
