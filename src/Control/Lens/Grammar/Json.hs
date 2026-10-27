@@ -11,8 +11,7 @@ module Control.Lens.Grammar.Json
   , jsonEncodeError
   , jsonTypes
     -- * Grammar
-  , JsonVal (..)
-  , jsonTyped
+  , JsonVal (..), jsonTyped
   , JsonStr (..)
   , JsonTup (..)
   , JsonObj (..)
@@ -279,7 +278,7 @@ So a type's rule is named by its fully qualified type, such as
 displayed as @Map Text Int@.
 -}
 jsonTyped
-  :: forall a p. (Typeable a, BackusNaurForm (p a a)) => p a a -> p a a
+  :: forall a p. (Typeable a, JsonVal p) => p a a -> p a a
 jsonTyped = rule (qualifiedName (SomeTypeRep (typeRep @a)))
 
 -- | A type, `show`n with its type constructors qualified by their modules.
