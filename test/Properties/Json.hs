@@ -1,3 +1,5 @@
+-- | Test records of sums, for aeson's generic options, have partial fields.
+{-# OPTIONS_GHC -Wno-partial-fields #-}
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RequiredTypeArguments #-}
@@ -8,6 +10,7 @@ module Properties.Json
   , aesonEncodeCompat
   , jsonErrorSpec
   , jsonObjectSpec
+  , jsonOptionsSpec
   , jsonTupleSpec
   , jsonTupleChoiceSpec
   , jsonOptionalSpec
@@ -15,20 +18,23 @@ module Properties.Json
   , jsonPrintSpec
   ) where
 
-import Control.Lens (non, only, prism')
+import Control.Lens (coerced, non, only, prism')
 import Control.Lens.Grammar
   ( dimap, lmap, manyP, optionP, optionalP, rule, someP
-  , (>*<), (>+<), (>?), (>|<), (~<)
+  , (>*<), (>+<), (>?), (>|<), (>~), (~<)
   )
 import Control.Lens.Grammar.Json
 import Data.Aeson
-  ( FromJSON (..), ToJSON (..), Value (String), decode
+  ( FromJSON (..), Options (..), SumEncoding (..), ToJSON (..), Value (String)
+  , camelTo2, decode, defaultOptions, genericToJSON
   , object, (.=)
   )
 import Data.Aeson.Encoding (encodingToLazyByteString)
 import Data.Aeson.Key (Key)
 import Data.Aeson.KeyMap (KeyMap)
-import Data.Aeson.Types (DotNetTime (..), formatError, parseEither)
+import Data.Aeson.Types
+  ( DotNetTime (..), GToJSON', Zero, formatError, parseEither )
+import Data.Char (toLower)
 import Data.DList (DList)
 import Data.DList qualified as DList
 import Data.DList.DNonEmpty (DNonEmpty)
@@ -88,10 +94,11 @@ import Data.Void (Void)
 import Data.Word (Word8, Word16, Word32, Word64)
 import Foreign.C.Types (CTime (..))
 import GHC.Exts qualified as Exts
-import GHC.Generics (Generic, Generically (..))
+import GHC.Generics (Generic, Generically (..), Rep)
 import Network.URI (URI, parseURI)
 import Numeric.Natural (Natural)
 import Test.Hspec
+import Test.Hspec.QuickCheck (prop)
 import Witherable qualified
 import Test.QuickCheck hiding (Fixed)
 import Test.QuickCheck.Instances ()
@@ -464,7 +471,7 @@ jsonTypeSpec = describe "jsonTypes" $ do
   it "declares nested records" $
     declares (type Profile)
       [ "export type Profile = \
-        \{ name: string; tags: string[]; nickname: null | string };"
+        \{ name: string; tags: string[]; nickname?: null | string };"
       ]
   it "declares a recursive type" $
     declares Peano
@@ -964,3 +971,93 @@ genFix = sized $ \n -> if n <= 0
     [ (1, Fix . Left <$> arbitrary)
     , (3, Fix . Right <$> resize (n `div` 2) genFix)
     ]
+
+-- | Constructors of each kind, for @aeson@'s generic options,
+-- whose records' fields are partial.
+data Sample
+  = Nullary
+  | Unary Int
+  | Binary Int Text
+  | Record {recordInt :: Int, recordMaybe :: Maybe Text}
+  | Single {single :: Bool}
+  deriving stock (Eq, Show, Generic)
+instance Arbitrary Sample where
+  arbitrary = oneof
+    [ pure Nullary, Unary <$> arbitrary, Binary <$> arbitrary <*> arbitrary
+    , Record <$> arbitrary <*> arbitrary, Single <$> arbitrary
+    ]
+
+-- | A single constructor of a single field.
+data Lone = Lone {lone :: Int}
+  deriving stock (Eq, Show, Generic)
+instance Arbitrary Lone where arbitrary = Lone <$> arbitrary
+
+-- | An enumeration.
+data Hue = Cyan | Magenta | Yellow
+  deriving stock (Eq, Show, Generic, Enum, Bounded)
+instance Arbitrary Hue where arbitrary = arbitraryBoundedEnum
+
+-- | Options, by a type.
+class Optioned o where options :: Options
+data Defaults
+instance Optioned Defaults where options = defaultOptions
+data Untagged
+instance Optioned Untagged where
+  options = defaultOptions {sumEncoding = UntaggedValue}
+data SingleField
+instance Optioned SingleField where
+  options = defaultOptions {sumEncoding = ObjectWithSingleField}
+data TwoElements
+instance Optioned TwoElements where
+  options = defaultOptions {sumEncoding = TwoElemArray}
+data Tweaked
+instance Optioned Tweaked where
+  options = defaultOptions
+    { fieldLabelModifier = camelTo2 '_'
+    , constructorTagModifier = map toLower
+    , sumEncoding = TaggedObject "kind" "value"
+    , allNullaryToStringTag = False
+    , omitNothingFields = True
+    , unwrapUnaryRecords = True
+    , tagSingleConstructors = True
+    }
+
+-- | A value, by `jsonGeneric` of options.
+newtype By o a = By a
+  deriving stock (Eq, Show)
+instance Optioned o => Json (By o Sample) where
+  json = coerced >~ jsonGeneric @Sample (options @o)
+instance Optioned o => Json (By o Lone) where
+  json = coerced >~ jsonGeneric @Lone (options @o)
+instance Optioned o => Json (By o Hue) where
+  json = coerced >~ jsonGeneric @Hue (options @o)
+
+-- | `jsonGeneric` agrees with @aeson@'s generic instances by options.
+agreesByOptions
+  :: forall o a
+   . ( Optioned o, Json (By o a), Arbitrary a, Eq a, Show a, Generic a
+     , GToJSON' Value Zero (Rep a) )
+  => String -> Spec
+agreesByOptions title = describe title $ do
+  prop "prints as aeson" $ \(a :: a) ->
+    jsonPrint (By @o a) === genericToJSON (options @o) a
+  prop "encodes as aeson" $ \(a :: a) ->
+    decode (encodingToLazyByteString (jsonEncode (By @o a)))
+      === Just (genericToJSON (options @o) a)
+  prop "parses what aeson prints" $ \(a :: a) ->
+    jsonParse (genericToJSON (options @o) a) === Right (By @o a)
+
+jsonOptionsSpec :: Spec
+jsonOptionsSpec = describe "jsonGeneric" $ do
+  agreesByOptions @Defaults @Sample "defaultOptions"
+  agreesByOptions @Untagged @Sample "UntaggedValue"
+  agreesByOptions @SingleField @Sample "ObjectWithSingleField"
+  agreesByOptions @TwoElements @Sample "TwoElemArray"
+  agreesByOptions @Tweaked @Sample "tweaked options"
+  agreesByOptions @Tweaked @Lone "a single field, tweaked"
+  agreesByOptions @Tweaked @Hue "an enumeration, tweaked"
+  agreesByOptions @Defaults @Hue "an enumeration"
+  it "parses an omitted field" $
+    jsonParse @(By Defaults Sample)
+      (object ["tag" .= ("Record" :: Text), "recordInt" .= (1 :: Int)])
+      `shouldBe` Right (By (Record 1 Nothing))

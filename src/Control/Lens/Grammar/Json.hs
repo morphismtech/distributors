@@ -11,6 +11,7 @@ module Control.Lens.Grammar.Json
   , jsonEncodeError
   , jsonTypes
   , ViaJson (..)
+  , jsonGeneric
     -- * Grammar
   , JsonVal (..), jsonTyped
   , JsonStr (..)
@@ -168,6 +169,18 @@ class Json a where
   -}
   jsonKeyList :: Maybe (forall q. JsonStr q => q [a] [a])
   jsonKeyList = Nothing
+
+  {- | `Data.Aeson.omitField`, whether a record's field of the value
+  may be omitted, by `Aeson.omitNothingFields`.
+  -}
+  jsonOmitField :: a -> Bool
+  jsonOmitField _ = False
+
+  {- | `Data.Aeson.omittedField`, the value of a record's field which is
+  omitted, by `Aeson.allowOmittedFields`.
+  -}
+  jsonOmittedField :: Maybe a
+  jsonOmittedField = Nothing
 
 -- Running Json grammars --
 
@@ -1843,7 +1856,10 @@ instance Json Bool where
     Just (jsonEnumWith (\b -> if b then "true" else "false") [False, True])
 instance Json Ordering where
   json = jsonTyped (jsonEnum (Text.pack . show) [LT, EQ, GT])
-instance Json () where json = jsonTuple oneP
+instance Json () where
+  json = jsonTuple oneP
+  jsonOmitField _ = True
+  jsonOmittedField = Just ()
 instance Json Void where
   json = zeroP
   jsonKey = Just (prism' absurd (const Nothing) ?< jsonText)
@@ -1865,6 +1881,8 @@ instance Json a => Json [a] where
   jsonKey = jsonKeyList @a
 instance Json a => Json (Maybe a) where
   json = eotMaybe . swapped >~ jsonNull >+< json
+  jsonOmitField = isNothing
+  jsonOmittedField = Just Nothing
 instance (Json a, Json b) => Json (Either a b) where
   json = jsonTag "Left" json >+< jsonTag "Right" json
 instance Json Double where
@@ -1945,11 +1963,15 @@ instance Json a => Json (Solo a) where
   jsonKeyList = overKey (iso (map getSolo) (map MkSolo) >~) (jsonKeyList @a)
 instance Json a => Json (Identity a) where
   json = coerced >~ json @a
+  jsonOmitField = coerce (jsonOmitField @a)
+  jsonOmittedField = coerce (jsonOmittedField @a)
   jsonList = coerced >~ jsonList @a
   jsonKey = overKey (coerced >~) (jsonKey @a)
   jsonKeyList = overKey (coerced >~) (jsonKeyList @a)
 instance Json a => Json (Const a b) where
   json = coerced >~ json @a
+  jsonOmitField = coerce (jsonOmitField @a)
+  jsonOmittedField = coerce (jsonOmittedField @a)
   jsonKey = overKey (coerced >~) (jsonKey @a)
 instance Json (f (g a)) => Json (Compose f g a) where
   json = coerced >~ json @(f (g a))
@@ -1991,7 +2013,10 @@ instance Json a => Json (Semigroup.Product a) where
   jsonList = coerced >~ jsonList @a
 instance Json Semigroup.All where json = coerced >~ json @Bool
 instance Json Semigroup.Any where json = coerced >~ json @Bool
-instance Json (Proxy a) where json = dimap (const ()) (const Proxy) jsonNull
+instance Json (Proxy a) where
+  json = dimap (const ()) (const Proxy) jsonNull
+  jsonOmitField _ = True
+  jsonOmittedField = Just Proxy
 -- tuples
 -- | An element of a tuple, by its projection.
 projectElem :: (Json a, JsonTup p q) => (s -> a) -> q s a
@@ -2377,6 +2402,8 @@ instance (Functor f, Typeable f, Json (f (Fix f))) => Json (Nu f) where
 -- jsonTag
 instance Json b => Json (Tagged a b) where
   json = coerced >~ json @b
+  jsonOmitField = coerce (jsonOmitField @b)
+  jsonOmittedField = coerce (jsonOmittedField @b)
   jsonKey = overKey (coerced >~) (jsonKey @b)
   jsonKeyList = overKey (coerced >~) (jsonKeyList @b)
 
@@ -2402,6 +2429,8 @@ instance (Json (f a), Json (g a)) => Json (These1 f g a) where
 -- strict
 instance Json a => Json (Strict.Maybe a) where
   json = iso Strict.toLazy Strict.toStrict >~ json @(Maybe a)
+  jsonOmitField = Strict.isNothing
+  jsonOmittedField = Just Strict.Nothing
 instance (Json a, Json b) => Json (Strict.Either a b) where
   json = iso Strict.toLazy Strict.toStrict >~ json @(Either a b)
 instance (Json a, Json b) => Json (Strict.These a b) where
@@ -2411,33 +2440,69 @@ instance (Json a, Json b) => Json (Strict.Pair a b) where
 
 -- Generics
 
-{- | The `GHC.Generic` `Json` grammar, defined as a `rule`
-named by its `Typeable` type, so that each instantiation of
-a parametric type is its own (possibly recursive) definition.
--}
+-- | The `GHC.Generic` `Json` grammar, by @aeson@'s default options.
 instance (GHC.Generic a, GHC.Rep a ~ GHC.D1 d f, GSum f, Typeable a)
   => Json (GHC.Generically a) where
-    json = dimap (\(GHC.Generically a) -> a) GHC.Generically $
-      jsonTyped (dimap (GHC.unM1 . GHC.from) (GHC.to . GHC.M1) gsum)
+    json = dimap (\(GHC.Generically a) -> a) GHC.Generically
+      (jsonGeneric Aeson.defaultOptions)
 
-gsum :: forall f p x. (GSum f, JsonVal p) => p (f x) (f x)
-gsum
-  | gconCount @f == 1 = gsingle
-  | Just names <- genum = names
-  | otherwise = gjsonTag
+{- | The `GHC.Generic` `Json` grammar by @aeson@'s `Aeson.Options`,
+compatible with @aeson@'s generic instances by the same options,
+defined as a `rule` named by its `Typeable` type, so that each
+instantiation of a parametric type is its own (possibly recursive)
+definition.
+-}
+jsonGeneric
+  :: forall a d f p
+   . (GHC.Generic a, GHC.Rep a ~ GHC.D1 d f, GSum f, Typeable a, JsonVal p)
+  => Aeson.Options -> p a a
+jsonGeneric opts =
+  jsonTyped (dimap (GHC.unM1 . GHC.from) (GHC.to . GHC.M1) (gsum opts))
+
+gsum :: forall f p x. (GSum f, JsonVal p) => Aeson.Options -> p (f x) (f x)
+gsum opts
+  | gconCount @f == 1, not (Aeson.tagSingleConstructors opts) = gcons opts
+  | Aeson.allNullaryToStringTag opts, Just names <- genum opts = names
+  | otherwise = case Aeson.sumEncoding opts of
+      Aeson.TaggedObject tagField contentsField ->
+        gtagged opts (Text.pack tagField) (Text.pack contentsField)
+      Aeson.UntaggedValue -> guntagged opts
+      Aeson.ObjectWithSingleField -> gsingleField opts
+      Aeson.TwoElemArray -> gtwoElements opts
+
+-- | An object, rejecting other properties by `Aeson.rejectUnknownFields`.
+gobject
+  :: JsonVal p => Aeson.Options -> (forall q. JsonObj p q => q a b) -> p a b
+gobject opts obj
+  | Aeson.rejectUnknownFields opts = jsonObjectStrict obj
+  | otherwise = jsonObject obj
 
 class GSum f where
   gconCount :: Int
-  gsingle :: JsonVal p => p (f x) (f x)
+  -- | The contents of a constructor, by itself.
+  gcons :: JsonVal p => Aeson.Options -> p (f x) (f x)
   -- | Constructor names, when all constructors are nullary.
-  genum :: JsonVal p => Maybe (p (f x) (f x))
-  gjsonTag :: JsonVal p => p (f x) (f x)
+  genum :: JsonVal p => Aeson.Options -> Maybe (p (f x) (f x))
+  -- | Constructors by `Aeson.TaggedObject`, with tag & contents fields.
+  gtagged :: JsonVal p => Aeson.Options -> Text -> Text -> p (f x) (f x)
+  -- | Constructors by `Aeson.UntaggedValue`.
+  guntagged :: JsonVal p => Aeson.Options -> p (f x) (f x)
+  -- | Constructors by `Aeson.ObjectWithSingleField`.
+  gsingleField :: JsonVal p => Aeson.Options -> p (f x) (f x)
+  -- | Constructors by `Aeson.TwoElemArray`.
+  gtwoElements :: JsonVal p => Aeson.Options -> p (f x) (f x)
 
 instance (GSum f, GSum g) => GSum (f GHC.:+: g) where
   gconCount = gconCount @f + gconCount @g
-  gsingle = sumIso >~ gsingle >+< gsingle
-  genum = liftA2 (\l r -> sumIso >~ l >+< r) genum genum
-  gjsonTag = sumIso >~ gjsonTag >+< gjsonTag
+  gcons opts = sumIso >~ gcons opts >+< gcons opts
+  genum opts =
+    liftA2 (\l r -> sumIso >~ l >+< r) (genum @f opts) (genum @g opts)
+  gtagged opts tagField contentsField = sumIso
+    >~ gtagged opts tagField contentsField
+    >+< gtagged opts tagField contentsField
+  guntagged opts = sumIso >~ guntagged opts >+< guntagged opts
+  gsingleField opts = sumIso >~ gsingleField opts >+< gsingleField opts
+  gtwoElements opts = sumIso >~ gtwoElements opts >+< gtwoElements opts
 
 sumIso :: Iso' ((f GHC.:+: g) x) (Either (f x) (g x))
 sumIso = iso
@@ -2447,22 +2512,39 @@ sumIso = iso
 instance (GHC.Constructor c, GFields f, GContents f, GNullary f)
   => GSum (GHC.C1 c f) where
     gconCount = 1
-    gsingle = GHC.M1 #. single .# GHC.unM1
+    gcons opts = GHC.M1 #. contents .# GHC.unM1
       where
-        single
-          | gconIsRecord @c = jsonObject gfields
+        contents
+          | gconIsRecord @c = case gfield of
+              Just field | Aeson.unwrapUnaryRecords opts -> field
+              _ -> gobject opts (gfields opts)
           | otherwise = gcontents
-    genum = gnullary @f <&> \v ->
-      dimap (const ()) (const (GHC.M1 v)) (fromString (gconName @c))
-    gjsonTag = GHC.M1 #. jsonObject (tag >* contents) .# GHC.unM1
+    genum opts = gnullary @f <&> \v ->
+      dimap (const ()) (const (GHC.M1 v)) (fromString (gconTag @c opts))
+    gtagged opts tagField contentsField =
+      GHC.M1 #. gobject opts (tag >* contents) .# GHC.unM1
       where
         tag :: JsonObj p q => q () ()
-        tag = "tag" !: fromString (gconName @c)
+        tag = tagField !: fromString (gconTag @c opts)
         contents :: JsonObj p q => q (f x) (f x)
         contents
-          | gconIsRecord @c = gfields
+          | gconIsRecord @c = gfields opts
           | Just v <- gnullary @f = dimap (const ()) (const v) oneP
-          | otherwise = "contents" !: gcontents
+          | otherwise = contentsField !: gcontents
+    guntagged opts = case gnullary @f of
+      Just v | not (gconIsRecord @c) ->
+        dimap (const ()) (const (GHC.M1 v)) (fromString (gconTag @c opts))
+      _ -> gcons opts
+    gsingleField opts =
+      jsonObject (Text.pack (gconTag @c opts) !: gcons @(GHC.C1 c f) opts)
+    gtwoElements opts = jsonTuple
+      ( lmap (const ()) (jsonElem (fromString (gconTag @c opts)))
+      *> jsonElem (gcons @(GHC.C1 c f) opts)
+      )
+
+-- | A constructor's tag, by `Aeson.constructorTagModifier`.
+gconTag :: forall (c :: GHC.Meta). GHC.Constructor c => Aeson.Options -> String
+gconTag opts = Aeson.constructorTagModifier opts (gconName @c)
 
 gconName :: forall (c :: GHC.Meta). GHC.Constructor c => String
 gconName = GHC.conName (GHC.M1 GHC.U1 :: GHC.C1 c GHC.U1 ())
@@ -2474,15 +2556,32 @@ gselName :: forall (s :: GHC.Meta). GHC.Selector s => String
 gselName = GHC.selName (GHC.M1 GHC.U1 :: GHC.S1 s GHC.U1 ())
 
 class GFields f where
-  gfields :: JsonObj p q => q (f x) (f x)
+  -- | A record's fields, by `Aeson.fieldLabelModifier`.
+  gfields :: JsonObj p q => Aeson.Options -> q (f x) (f x)
+  -- | A record's field, when it's its only field.
+  gfield :: JsonVal p => Maybe (p (f x) (f x))
 instance (GHC.Selector s, Json a) => GFields (GHC.S1 s (GHC.K1 i a)) where
-  gfields = (GHC.M1 . GHC.K1) #. (Text.pack (gselName @s) !: json)
-    .# GHC.unK1 . GHC.unM1
+  gfields opts = (GHC.M1 . GHC.K1) #. property .# GHC.unK1 . GHC.unM1
+    where
+      key = Text.pack (Aeson.fieldLabelModifier opts (gselName @s))
+      -- An omittable field, by `jsonOmitField` & `jsonOmittedField`.
+      property :: JsonObj p q => q a a
+      property = case jsonOmittedField @a of
+        Just omitted
+          | Aeson.allowOmittedFields opts || Aeson.omitNothingFields opts ->
+              dimap present (fromMaybe omitted) (key ?: json)
+        _ -> key !: json
+      present a
+        | Aeson.omitNothingFields opts && jsonOmitField a = Nothing
+        | otherwise = Just a
+  gfield = Just ((GHC.M1 . GHC.K1) #. json .# GHC.unK1 . GHC.unM1)
 instance (GFields f, GFields g) => GFields (f GHC.:*: g) where
-  gfields = dimap2
-    (\(a GHC.:*: _) -> a) (\(_ GHC.:*: b) -> b) (GHC.:*:) gfields gfields
+  gfields opts = dimap2 (\(a GHC.:*: _) -> a) (\(_ GHC.:*: b) -> b) (GHC.:*:)
+    (gfields opts) (gfields opts)
+  gfield = Nothing
 instance GFields GHC.U1 where
-  gfields = dimap (const ()) (const GHC.U1) oneP
+  gfields _ = dimap (const ()) (const GHC.U1) oneP
+  gfield = Nothing
 
 class GElements f where
   gelements :: JsonTup p q => q (f x) (f x)

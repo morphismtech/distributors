@@ -54,6 +54,7 @@ main = do
     aesonSpec
     jsonErrorSpec
     jsonObjectSpec
+    jsonOptionsSpec
     jsonTupleSpec
     jsonTupleChoiceSpec
     jsonOptionalSpec
