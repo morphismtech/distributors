@@ -103,6 +103,26 @@ import Text.ParserCombinators.ReadPrec (ReadPrec, readP_to_Prec)
 import Text.Read (Read (..))
 import Type.Reflection (Typeable, typeRep)
 
+{-
+class
+  ( Lexical Char p
+  , Alternator p
+  , Filtrator p
+  , forall x y. BackusNaurForm (p x y)
+  , forall x y. (x ~ (), y ~ ()) => IsString (p x y)
+  ) => CharGrammatical p where
+    precP :: Prec -> p a a -> p a a
+
+class Textual a where
+  charGrammar :: CharGrammatical p => p a a
+
+charsErrorShowsPrec :: Textual a => Prec -> a -> Either TextualError ShowS
+charsReadsPrec :: Textual a => Prec -> ReadS a
+charsParsec :: (Textual a, ..) => string -> ParsecState string a
+charsUnparsec :: (Textual a, ) => a -> ParsecString string a
+charsGrammar
+-}
+
 -- Textual --
 
 {- | A grammar of Haskell syntax, of characters.
@@ -256,9 +276,9 @@ charsVia pat (Chars alts) = Chars (map (altVia pat) alts)
 
 -- | A form through a prism, or an isomorphism.
 altVia :: APrism' s a -> Alt a -> Alt s
-altVia pat = \case
+altVia pat = withPrism pat $ \_ match -> \case
   Named name test (CG g) ->
-    Named name (maybe False test . preview (clonePrism pat)) (CG (pat >? g))
+    Named name (either (const False) test . match) (CG (pat >? g))
   Plain leads k -> Plain leads (\ls -> case k ls of CG g -> CG (pat >? g))
   Parsed alt -> Parsed (altVia pat alt)
 
