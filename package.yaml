@@ -131,3 +131,14 @@ benchmarks:
       - deepseq
       - distributors
       - tasty-bench
+  chars:
+    main: Main.hs
+    source-dirs: bench/chars
+    ghc-options:
+      - -O2
+      - -rtsopts
+    dependencies:
+      - containers
+      - deepseq
+      - distributors
+      - tasty-bench

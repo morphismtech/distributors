@@ -28,6 +28,7 @@ module Control.Lens.Grammar.Char
   , Textually (..)
     -- * Grammars
   , CharGrammar
+  , CharGrammatical
   , Chars (..)
   , Alt (..)
   , Lead (..)
@@ -85,6 +86,7 @@ import Data.Function (on)
 import Data.Int (Int8, Int16, Int32, Int64)
 import Data.List (groupBy, sortOn)
 import Data.Foldable (toList)
+import Data.Kind (Constraint)
 import Data.Map.Strict (Map)
 import Data.Map.Strict qualified as Map
 import Data.Maybe
@@ -105,13 +107,16 @@ import Type.Reflection (Typeable, typeRep)
 
 {- | A grammar of Haskell syntax, of characters.
 -}
-type CharGrammar a = forall p.
+type CharGrammar a = forall p. CharGrammatical p => p a a
+
+-- | The interpreters of a `CharGrammar`.
+type CharGrammatical p =
   ( Lexical Char p
   , Alternator p
   , Cochoice p
   , forall x y. BackusNaurForm (p x y)
   , forall x y. (x ~ (), y ~ ()) => IsString (p x y)
-  ) => p a a
+  ) :: Constraint
 
 {- | `Textual` types have grammars of Haskell's `Read` & `Show` syntax.
 
@@ -276,7 +281,8 @@ charsAt d leads = rule name $ charsWith leads forms >|< wrapped
 -- | The forms which start with some `Lead`s, as a grammar.
 charsWith :: Set Lead -> Chars a -> CharGrammar a
 charsWith leads (Chars alts) = orP $
-  [ trie named | Word `Set.member` leads, not (null named) ]
+  [ trie [(name, test, g) | (name, test, CG g) <- named]
+  | Word `Set.member` leads, not (null named) ]
   <> [ g
      | Plain ls k <- unparsed
      , let common = Set.intersection ls leads
@@ -295,7 +301,7 @@ charsWith leads (Chars alts) = orP $
 {- | Factor named forms by their names' characters,
 each branch printing the values of its names.
 -}
-trie :: [(String, a -> Bool, CG a)] -> CharGrammar a
+trie :: CharGrammatical p => [(String, a -> Bool, p a a)] -> p a a
 trie entries = orP (branches <> leaves)
   where
     branches =
@@ -307,7 +313,7 @@ trie entries = orP (branches <> leaves)
       , let prefix = foldr1 common [name | (name, _, _) <- group]
       ]
     named = [entry | entry@(_ : _, _, _) <- entries]
-    leaves = [guarded test g | ("", test, CG g) <- entries]
+    leaves = [guarded test g | ("", test, g) <- entries]
     first (name, _, _) = take 1 name
     common (x : xs) (y : ys) | x == y = x : common xs ys
     common _ _ = []
@@ -1030,7 +1036,7 @@ escapeG = orP
   , prism' EscHex (\case EscHex ds -> Just ds; _ -> Nothing)
       >? "x" >* someP (oneOf ("0123456789abcdefABCDEF" :: String))
   , trie
-      [ (name, (== EscName name), CG (only' (EscName name)))
+      [ (name, (== EscName name), only' (EscName name))
       | name <- asciiNames ]
   ]
   where
@@ -1047,7 +1053,7 @@ data StrItem
 
 -- | A string literal, @"abc"@.
 stringG :: CharGrammar String
-stringG = prism' litString stringOf ?< "\"" >* body Anything
+stringG = prism' litString stringOf ?< "\"" >* stringBody
   where
     stringOf = fmap concat . traverse (\case
       StrChar c -> Just [c]
@@ -1072,57 +1078,63 @@ litString = \case
 data Following = Anything | NotH | NotDigit | NotOctal | NotHex
   deriving stock (Eq, Show, Enum, Bounded)
 
-{- | The rest of a string literal's items, & its closing quote,
-after an escape which may not be followed by some characters,
-since @read@ would continue the escape with them.
+{- | The rest of a string literal's items, & its closing quote.
+After some escapes, some characters may not follow unescaped,
+since @read@ would continue the escape with them,
+so the rest is in one of several states, defined once & shared.
 -}
-body :: Following -> CharGrammar [StrItem]
-body following = rule ("string-" <> show following) $ orP
-  [ _Empty >? "\""
-  , item (\case StrChar c | c `notElem` excluded -> Just c; _ -> Nothing)
-      StrChar
-      >? tokenClass (notOneOf excluded) >*< body Anything
-  , guarded (\case StrChar _ : _ -> False; _ -> True) ("\\" >* escaped)
-  ]
+stringBody :: CharGrammar [StrItem]
+stringBody = anything
   where
-    excluded :: String
-    excluded = "\"\\" <> case following of
-      Anything -> ""
-      NotH -> "H"
-      NotDigit -> "0123456789"
-      NotOctal -> "01234567"
-      NotHex -> "0123456789abcdefABCDEF"
-
--- | An escape sequence, after a backslash, & the rest of a string literal.
-escaped :: CharGrammar [StrItem]
-escaped = orP
-  [ escape (\case EscChar c -> Just c; _ -> Nothing) EscChar
-      >? oneOf ("abfnrtv\\\"'" :: String) >*< body Anything
-  , escape (\case EscCaret c -> Just c; _ -> Nothing) EscCaret
-      >? "^" >* oneOf ("@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_" :: String)
-      >*< body Anything
-  , escape (\case EscDecimal ds -> Just ds; _ -> Nothing) EscDecimal
-      >? someP (oneOf ("0123456789" :: String)) >*< body NotDigit
-  , escape (\case EscOctal ds -> Just ds; _ -> Nothing) EscOctal
-      >? "o" >* someP (oneOf ("01234567" :: String)) >*< body NotOctal
-  , escape (\case EscHex ds -> Just ds; _ -> Nothing) EscHex
-      >? "x" >* someP (oneOf ("0123456789abcdefABCDEF" :: String))
-      >*< body NotHex
-  , item (\case StrEmpty -> Just (); _ -> Nothing) (const StrEmpty)
-      >? "&" >* oneP >*< body Anything
-  , parseOnly $ item (\case StrGap -> Just (); _ -> Nothing) (const StrGap)
-      >? spaces1 " " >* "\\" >* oneP >*< body Anything
-  , trie
+    anything = state Anything
+    notH = state NotH
+    notDigit = state NotDigit
+    notOctal = state NotOctal
+    notHex = state NotHex
+    state following = rule ("string-" <> show following) $ orP
+      [ _Empty >? "\""
+      , item (\case StrChar c | c `notElem` excluded -> Just c; _ -> Nothing)
+          StrChar
+          >? tokenClass (notOneOf excluded) >*< anything
+      , guarded (\case StrChar _ : _ -> False; _ -> True) ("\\" >* escaped)
+      ]
+      where
+        excluded :: String
+        excluded = "\"\\" <> case following of
+          Anything -> ""
+          NotH -> "H"
+          NotDigit -> "0123456789"
+          NotOctal -> "01234567"
+          NotHex -> "0123456789abcdefABCDEF"
+    -- an escape sequence, after a backslash, & the rest of the string
+    escaped = orP
+      [ escape (\case EscChar c -> Just c; _ -> Nothing) EscChar
+          >? oneOf ("abfnrtv\\\"'" :: String) >*< anything
+      , escape (\case EscCaret c -> Just c; _ -> Nothing) EscCaret
+          >? "^" >* oneOf ("@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_" :: String)
+          >*< anything
+      , escape (\case EscDecimal ds -> Just ds; _ -> Nothing) EscDecimal
+          >? someP (oneOf ("0123456789" :: String)) >*< notDigit
+      , escape (\case EscOctal ds -> Just ds; _ -> Nothing) EscOctal
+          >? "o" >* someP (oneOf ("01234567" :: String)) >*< notOctal
+      , escape (\case EscHex ds -> Just ds; _ -> Nothing) EscHex
+          >? "x" >* someP (oneOf ("0123456789abcdefABCDEF" :: String))
+          >*< notHex
+      , item (\case StrEmpty -> Just (); _ -> Nothing) (const StrEmpty)
+          >? "&" >* oneP >*< anything
+      , parseOnly $ item (\case StrGap -> Just (); _ -> Nothing) (const StrGap)
+          >? spaces1 " " >* "\\" >* oneP >*< anything
+      , names
+      ]
+    names = trie
       [ ( name
         , \case StrEscape (EscName n) : _ -> n == name; _ -> False
-        , CG $ prism' (StrEscape (EscName name) :)
+        , prism' (StrEscape (EscName name) :)
             (\case StrEscape (EscName n) : rest | n == name -> Just rest
                    _ -> Nothing)
-            >? body (if name == "SO" then NotH else Anything)
+            >? if name == "SO" then notH else anything
         )
       | name <- asciiNames ]
-  ]
-  where
     escape match build = item (\case StrEscape e -> match e; _ -> Nothing)
       (StrEscape . build)
 
