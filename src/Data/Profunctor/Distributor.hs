@@ -15,7 +15,6 @@ module Data.Profunctor.Distributor
   , Alternator (..)
   ) where
 
-
 import Control.Applicative hiding (WrappedArrow)
 import Control.Applicative qualified as Ap (WrappedArrow)
 import Control.Arrow
