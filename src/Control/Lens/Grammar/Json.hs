@@ -13,11 +13,10 @@ module Control.Lens.Grammar.Json
   , jsonGeneric
   , ViaJson (..)
     -- * Grammar
-  , JsonVal (..), jsonTyped
-  , JsonStr (..)
-  , JsonTup (..)
+  , JsonVal (..), jsonTyped, jsonObjectStrict
   , JsonObj (..)
-  , jsonObjectStrict
+  , JsonTup (..)
+  , JsonStr (..)
   , (!=)
     -- * Errors
   , JsonError (..)
