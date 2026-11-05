@@ -14,9 +14,9 @@ module Control.Lens.Grammar.Json
   , ViaJson (..)
     -- * Grammar
   , JsonVal (..), jsonTyped, jsonObjectStrict
-  , JsonStr (..)
-  , JsonTup (..)
   , JsonObj (..)
+  , JsonTup (..)
+  , JsonStr (..)
   , (!=)
     -- * Errors
   , JsonError (..)
