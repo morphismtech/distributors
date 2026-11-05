@@ -197,7 +197,9 @@ instance AsEmpty s => Matching s (Parsor s [] a b) where
 instance Functor f => Functor (Printor s f a) where
   fmap f = Printor . fmap (fmap (first' f)) . runPrintor
 instance Functor f => Profunctor (Printor s f) where
-  dimap f g = Printor . dimap f (fmap (first' g)) . runPrintor
+  dimap f g (Printor p) = Printor $ \a -> (\(b, q) -> (g b, q)) <$> p (f a)
+  lmap f (Printor p) = Printor (p . f)
+  rmap g (Printor p) = Printor $ \a -> (\(b, q) -> (g b, q)) <$> p a
 instance Applicative f => Applicative (Printor s f a) where
   pure b = Printor (\_ -> pure (b, id))
   Printor f <*> Printor x = Printor $ \c ->
@@ -219,7 +221,16 @@ instance Functor f => CocartesianMonoidal (Printor s f) where
   zeroP = Printor absurd
   Printor p >+< Printor q = Printor $
     either (fmap (first' Left) . p) (fmap (first' Right) . q)
-instance Applicative f => Distributor (Printor s f)
+{- | `manyP` & `optionalP` print their elements in turn,
+rather than through isomorphisms & sums.
+-}
+instance Applicative f => Distributor (Printor s f) where
+  manyP (Printor p) = Printor $ \as ->
+    (\printed -> (map fst printed, \str -> foldr (\(_, q) -> q) str printed))
+    <$> traverse p as
+  optionalP (Printor p) = Printor $ \case
+    Nothing -> pure (Nothing, id)
+    Just a -> (\(b, q) -> (Just b, q)) <$> p a
 instance Alternative f => DisjunctiveMonoid (Printor s f a b)
 instance Alternative f => CocartesianChoice (Printor s f) where
   alternate = \case
@@ -276,19 +287,34 @@ instance
   ( Categorized a, a ~ Item s, IsList s, Cons s s a a
   , Filterable m, Alternative m, Monad m
   ) => Tokenized a (Printor s m a a) where
+  {-# SPECIALISE instance Tokenized Char (Printor String Maybe Char Char) #-}
   anyToken = Printor (\b -> pure (b, cons b))
+  token t = tokenClass (token t)
+  oneOf ts = tokenClass (oneOf ts)
+  notOneOf ts = tokenClass (notOneOf ts)
+  asIn cat = tokenClass (asIn cat)
+  notAsIn cat = tokenClass (notAsIn cat)
 instance
   ( Categorized a, a ~ Item s, IsList s, Cons s s a a
   , Filterable m, Alternative m, Monad m
-  ) => TokenAlgebra a (Printor s m a a)
-instance
-  ( Categorized a, a ~ Item s, IsList s, Cons s s a a
-  , Filterable m, Alternative m, Monad m
-  ) => TerminalSymbol a (Printor s m () ()) where
-instance
-  ( Char ~ Item s, IsList s, Cons s s Char Char
-  , Filterable m, Alternative m, Monad m
-  ) => IsString (Printor s m () ()) where
+  ) => TokenAlgebra a (Printor s m a a) where
+    {-# SPECIALISE instance
+      TokenAlgebra Char (Printor String Maybe Char Char) #-}
+    -- | The test is made once, rather than for each token.
+    tokenClass test = matches `seq` Printor (\b ->
+      if matches b then pure (b, cons b) else empty)
+      where
+        matches :: a -> Bool
+        matches = tokenClass test
+instance (a ~ Item s, Cons s s a a, Applicative m)
+  => TerminalSymbol a (Printor s m () ()) where
+    {-# SPECIALISE instance TerminalSymbol Char (Printor String Maybe () ()) #-}
+    -- | Its tokens are printed together, rather than one at a time.
+    terminal str = Printor (\_ -> pure ((), printed))
+      where
+        printed rest = foldr cons rest str
+instance (Char ~ Item s, Cons s s Char Char, Applicative m)
+  => IsString (Printor s m () ()) where
   fromString = terminal
 instance
   ( Char ~ Item s, IsList s, Cons s s Char Char, AsEmpty s
