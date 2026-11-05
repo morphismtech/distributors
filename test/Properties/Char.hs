@@ -12,7 +12,37 @@ import Control.Lens.Grammar
   , ll1Conflicts, runRegString, unparsecP
   )
 import Control.Lens.Grammar.Char
+import Control.Applicative (ZipList)
+import Data.ByteString qualified as ByteString
+import Data.ByteString.Lazy qualified as LByteString
+import Data.Complex (Complex)
+import Data.Fixed (Centi, Milli, Uni)
+import Data.Functor.Compose (Compose)
+import Data.Functor.Const (Const)
+import Data.Functor.Identity (Identity)
+import Data.Functor.Product qualified as Functor
+import Data.Functor.Sum qualified as Functor
+import Data.HashMap.Strict (HashMap)
+import Data.HashSet (HashSet)
 import Data.Int (Int8, Int64)
+import Data.IntMap (IntMap)
+import Data.IntSet (IntSet)
+import Data.List.NonEmpty (NonEmpty)
+import Data.Map (Map)
+import Data.Monoid qualified as Monoid
+import Data.Ord (Down)
+import Data.Proxy (Proxy)
+import Data.Semigroup qualified as Semigroup
+import Data.Sequence (Seq)
+import Data.Set (Set)
+import Data.Text qualified as Text
+import Data.Text.Lazy qualified as LText
+import Data.Tree (Tree)
+import Data.Vector (Vector)
+import Data.Version (Version)
+import Foreign.C.Types (CChar, CDouble, CFloat, CInt, CSize)
+import System.Exit (ExitCode)
+import System.IO (BufferMode, IOMode, SeekMode)
 import Data.Ratio ((%))
 import Data.Word (Word8)
 import GHC.Generics (Generic)
@@ -158,6 +188,51 @@ textualSpec = describe "Textual" $ do
   compatParenthesized @(Int, Char) "(Int, Char)" (==)
   compatParenthesized @(Bool, (), Maybe Int) "(Bool, (), Maybe Int)" (==)
   compatParenthesized @(Int, Int, Int, Int, Int, Int, Int) "7-tuples" (==)
+  compatParenthesized @(Int, Int, Int, Int, Int, Int, Int, Int, Int, Int)
+    "10-tuples" (==)
+  compat @(Identity Int) "Identity" (==)
+  compat @(Const Int Bool) "Const" (==)
+  compat @(Down Int) "Down" (==)
+  compat @(Compose Maybe [] Int) "Compose" (==)
+  compat @(Proxy Int) "Proxy" (==)
+  compat @(NonEmpty Int) "NonEmpty" (==)
+  compatParenthesized @(Complex Double) "Complex" sameFloat
+  compat @(Tree Int) "Tree" (==)
+  compat @(ZipList Int) "ZipList" (==)
+  compat @Version "Version" (==)
+  compat @ExitCode "ExitCode" (==)
+  compat @IOMode "IOMode" (==)
+  compat @SeekMode "SeekMode" (==)
+  compat @BufferMode "BufferMode" (==)
+  compat @(Monoid.Sum Int) "Sum" (==)
+  compat @(Monoid.Product Int) "Product" (==)
+  compat @(Monoid.First Int) "First" (==)
+  compat @(Monoid.Alt Maybe Int) "Alt" (==)
+  compat @Monoid.Any "Any" (==)
+  compat @(Semigroup.Min Int) "Min" (==)
+  compat @(Semigroup.Arg Int Char) "Arg" (==)
+  compat @(Functor.Product Maybe [] Int) "functor Product" (==)
+  compat @(Functor.Sum Maybe [] Int) "functor Sum" (==)
+  compat @Milli "Milli" (==)
+  compat @Centi "Centi" (==)
+  compat @Uni "Uni" (==)
+  compat @CInt "CInt" (==)
+  compat @CChar "CChar" (==)
+  compat @CSize "CSize" (==)
+  compat @CDouble "CDouble" sameFloat
+  compat @CFloat "CFloat" sameFloat
+  compat @(Map Int Char) "Map" (==)
+  compat @(Set Int) "Set" (==)
+  compat @(IntMap Bool) "IntMap" (==)
+  compat @IntSet "IntSet" (==)
+  compat @(Seq Int) "Seq" (==)
+  compat @(HashMap Int Int) "HashMap" (==)
+  compat @(HashSet Int) "HashSet" (==)
+  compat @Text.Text "Text" (==)
+  compat @LText.Text "lazy Text" (==)
+  compat @ByteString.ByteString "ByteString" (==)
+  compat @LByteString.ByteString "lazy ByteString" (==)
+  compat @(Vector Int) "Vector" (==)
   compat @T "sums of prefix & record constructors" (==)
   describe "infix constructors" $ it "agree with Show & Read" $
     pendingWith "an infix constructor of its own type, like Nil `Cat` 'c',\
@@ -171,7 +246,8 @@ textualSpec = describe "Textual" $ do
       charsRead @Int "0b101" `shouldBe` Just 5
       charsRead @Double "1.5E+2" `shouldBe` Just 150
       charsRead @Rational "-3 % -4" `shouldBe` Just (3 % 4)
-      charsRead @String "\"\\SO\\&H\\1234\\&5\"" `shouldBe` Just "\SO\&H\1234\&5"
+      charsRead @String "\"\\SO\\&H\\1234\\&5\""
+        `shouldBe` Just "\SO\&H\1234\&5"
       charsRead @String "\"a\\   \\b\"" `shouldBe` Just "ab"
     it "separates words as read does" $ do
       charsRead @(Maybe Int) "Just1" `shouldBe` Nothing

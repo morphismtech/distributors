@@ -43,10 +43,48 @@ import Control.Monad
 import Control.Monad.Trans.Class (lift)
 import Control.Monad.Trans.Reader (ReaderT, ask, local, runReaderT)
 import Control.Monad.Trans.State.Strict
+import Control.Applicative (ZipList (..))
+import Data.ByteString qualified as ByteString
+import Data.ByteString.Char8 qualified as Char8
+import Data.ByteString.Lazy qualified as LByteString
+import Data.ByteString.Lazy.Char8 qualified as LChar8
 import Data.Char (chr, isAlpha, isDigit, ord)
+import Data.Complex (Complex)
+import Data.Fixed (Fixed, HasResolution)
+import Data.Functor.Compose (Compose (..))
+import Data.Functor.Product qualified as Functor
+import Data.Functor.Sum qualified as Functor
+import Data.HashMap.Strict (HashMap)
+import Data.HashMap.Strict qualified as HashMap
+import Data.HashSet (HashSet)
+import Data.HashSet qualified as HashSet
+import Data.Hashable (Hashable)
+import Data.IntMap (IntMap)
+import Data.IntMap qualified as IntMap
+import Data.IntSet (IntSet)
+import Data.IntSet qualified as IntSet
+import Data.List.NonEmpty (NonEmpty)
+import Data.Monoid qualified as Monoid
+import Data.Ord (Down (..))
+import Data.Proxy (Proxy)
+import Data.Semigroup qualified as Semigroup
+import Data.Sequence (Seq)
+import Data.Sequence qualified as Seq
+import Data.Text qualified as Text
+import Data.Text.Lazy qualified as LText
+import Data.Text.Short qualified as ShortText
+import Data.Tree (Tree)
+import Data.Tuple (Solo)
+import Data.Vector qualified as Vector
+import Data.Version (Version)
+import Data.Void (Void)
+import Foreign.C.Types
+import System.Exit (ExitCode)
+import System.IO (BufferMode (..), IOMode (..), SeekMode (..))
 import Data.Function (on)
 import Data.Int (Int8, Int16, Int32, Int64)
 import Data.List (groupBy, sortOn)
+import Data.Foldable (toList)
 import Data.Map.Strict (Map)
 import Data.Map.Strict qualified as Map
 import Data.Maybe
@@ -263,7 +301,8 @@ trie entries = orP (branches <> leaves)
     branches =
       [ guarded (\a -> any (\(_, test, _) -> test a) group) $
           terminal prefix
-          >* trie [(drop (length prefix) name, test, g) | (name, test, g) <- group]
+          >* trie
+            [(drop (length prefix) name, test, g) | (name, test, g) <- group]
       | group <- groupBy ((==) `on` first) (sortOn first named)
       , let prefix = foldr1 common [name | (name, _, _) <- group]
       ]
@@ -483,58 +522,97 @@ instance Textual a => Textual [a] where
   charsPrec _ = charsList
 
 instance (Textual a, Textual b) => Textual (a, b) where
-  charsPrec _ = charsTuple $
-    tupleItem @a >*< "," >* spaces "" >* tupleItem @b
+  charsPrec _ = charsTupled
 
 instance (Textual a, Textual b, Textual c) => Textual (a, b, c) where
-  charsPrec _ = charsTuple $
-    iso (\(a, b, c) -> (a, (b, c))) (\(a, (b, c)) -> (a, b, c))
-    >~ tupleItem @a >*< "," >* spaces "" >* tupleItem @b
-    >*< "," >* spaces "" >* tupleItem @c
-
-instance (Textual a, Textual b, Textual c, Textual d)
-  => Textual (a, b, c, d) where
-    charsPrec _ = charsTuple $
-      iso (\(a, b, c, d) -> (a, (b, (c, d))))
-        (\(a, (b, (c, d))) -> (a, b, c, d))
-      >~ tupleItem @a >*< "," >* spaces "" >* tupleItem @b
-      >*< "," >* spaces "" >* tupleItem @c
-      >*< "," >* spaces "" >* tupleItem @d
-
-instance (Textual a, Textual b, Textual c, Textual d, Textual e)
-  => Textual (a, b, c, d, e) where
-    charsPrec _ = charsTuple $
-      iso (\(a, b, c, d, e) -> (a, (b, (c, (d, e)))))
-        (\(a, (b, (c, (d, e)))) -> (a, b, c, d, e))
-      >~ tupleItem @a >*< "," >* spaces "" >* tupleItem @b
-      >*< "," >* spaces "" >* tupleItem @c
-      >*< "," >* spaces "" >* tupleItem @d
-      >*< "," >* spaces "" >* tupleItem @e
-
-instance (Textual a, Textual b, Textual c, Textual d, Textual e, Textual f)
-  => Textual (a, b, c, d, e, f) where
-    charsPrec _ = charsTuple $
-      iso (\(a, b, c, d, e, f) -> (a, (b, (c, (d, (e, f))))))
-        (\(a, (b, (c, (d, (e, f))))) -> (a, b, c, d, e, f))
-      >~ tupleItem @a >*< "," >* spaces "" >* tupleItem @b
-      >*< "," >* spaces "" >* tupleItem @c
-      >*< "," >* spaces "" >* tupleItem @d
-      >*< "," >* spaces "" >* tupleItem @e
-      >*< "," >* spaces "" >* tupleItem @f
+  charsPrec _ = charsTupled
 
 instance
   ( Textual a, Textual b, Textual c, Textual d
-  , Textual e, Textual f, Textual g
+  ) => Textual (a, b, c, d) where
+    charsPrec _ = charsTupled
+
+instance
+  ( Textual a, Textual b, Textual c, Textual d, Textual e
+  ) => Textual (a, b, c, d, e) where
+    charsPrec _ = charsTupled
+
+instance
+  ( Textual a, Textual b, Textual c, Textual d, Textual e, Textual f
+  ) => Textual (a, b, c, d, e, f) where
+    charsPrec _ = charsTupled
+
+instance
+  ( Textual a, Textual b, Textual c, Textual d, Textual e, Textual f
+  , Textual g
   ) => Textual (a, b, c, d, e, f, g) where
-    charsPrec _ = charsTuple $
-      iso (\(a, b, c, d, e, f, g) -> (a, (b, (c, (d, (e, (f, g)))))))
-        (\(a, (b, (c, (d, (e, (f, g)))))) -> (a, b, c, d, e, f, g))
-      >~ tupleItem @a >*< "," >* spaces "" >* tupleItem @b
-      >*< "," >* spaces "" >* tupleItem @c
-      >*< "," >* spaces "" >* tupleItem @d
-      >*< "," >* spaces "" >* tupleItem @e
-      >*< "," >* spaces "" >* tupleItem @f
-      >*< "," >* spaces "" >* tupleItem @g
+    charsPrec _ = charsTupled
+
+instance
+  ( Textual a, Textual b, Textual c, Textual d, Textual e, Textual f
+  , Textual g, Textual h
+  ) => Textual (a, b, c, d, e, f, g, h) where
+    charsPrec _ = charsTupled
+
+instance
+  ( Textual a, Textual b, Textual c, Textual d, Textual e, Textual f
+  , Textual g, Textual h, Textual i
+  ) => Textual (a, b, c, d, e, f, g, h, i) where
+    charsPrec _ = charsTupled
+
+instance
+  ( Textual a, Textual b, Textual c, Textual d, Textual e, Textual f
+  , Textual g, Textual h, Textual i, Textual j
+  ) => Textual (a, b, c, d, e, f, g, h, i, j) where
+    charsPrec _ = charsTupled
+
+instance
+  ( Textual a, Textual b, Textual c, Textual d, Textual e, Textual f
+  , Textual g, Textual h, Textual i, Textual j, Textual k
+  ) => Textual (a, b, c, d, e, f, g, h, i, j, k) where
+    charsPrec _ = charsTupled
+
+instance
+  ( Textual a, Textual b, Textual c, Textual d, Textual e, Textual f
+  , Textual g, Textual h, Textual i, Textual j, Textual k, Textual l
+  ) => Textual (a, b, c, d, e, f, g, h, i, j, k, l) where
+    charsPrec _ = charsTupled
+
+instance
+  ( Textual a, Textual b, Textual c, Textual d, Textual e, Textual f
+  , Textual g, Textual h, Textual i, Textual j, Textual k, Textual l
+  , Textual m
+  ) => Textual (a, b, c, d, e, f, g, h, i, j, k, l, m) where
+    charsPrec _ = charsTupled
+
+instance
+  ( Textual a, Textual b, Textual c, Textual d, Textual e, Textual f
+  , Textual g, Textual h, Textual i, Textual j, Textual k, Textual l
+  , Textual m, Textual n
+  ) => Textual (a, b, c, d, e, f, g, h, i, j, k, l, m, n) where
+    charsPrec _ = charsTupled
+
+instance
+  ( Textual a, Textual b, Textual c, Textual d, Textual e, Textual f
+  , Textual g, Textual h, Textual i, Textual j, Textual k, Textual l
+  , Textual m, Textual n, Textual o
+  ) => Textual (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o) where
+    charsPrec _ = charsTupled
+
+-- | A tuple, by its items.
+charsTupled :: (GHC.Generic a, GTuple (GHC.Rep a)) => Chars a
+charsTupled = charsTuple (iso GHC.from GHC.to >~ gtuple)
+
+-- | The items of a tuple.
+class GTuple f where
+  gtuple :: CharGrammar (f x)
+instance GTuple f => GTuple (GHC.M1 i c f) where
+  gtuple = m1 >~ gtuple
+instance {-# OVERLAPPING #-} Textual a => GTuple (GHC.S1 s (GHC.K1 i a)) where
+  gtuple = iso (GHC.unK1 . GHC.unM1) (GHC.M1 . GHC.K1) >~ tupleItem @a
+instance (GTuple f, GTuple g) => GTuple (f GHC.:*: g) where
+  gtuple = iso (\(a GHC.:*: b) -> (a, b)) (uncurry (GHC.:*:))
+    >~ gtuple @f *< "," *< spaces "" >*< gtuple @g
 
 -- | A tuple of items.
 charsTuple :: CharGrammar a -> Chars a
@@ -543,6 +621,109 @@ charsTuple items = Chars [plain Paren ("(" >* spaces "" >* items *< ")")]
 -- | An item of a tuple.
 tupleItem :: forall a. Textual a => CharGrammar a
 tupleItem = charsAt @a 0 allLeads *< spaces ""
+
+-- | A constructor of one argument, @Identity 1@, applied at precedence 10.
+charsApplied :: forall b a. Textual b => String -> Iso' a b -> Int -> Chars a
+charsApplied name i d =
+  Chars
+    [ Named name (const True) (CG (i >~ after Word " " (charsAt @b 11)))
+    | d <= 10 ]
+
+instance Textual a => Textual (Identity a) where
+  charsPrec = charsApplied "Identity" (iso runIdentity Identity)
+instance (Textual a, Typeable b) => Textual (Const a b) where
+  charsPrec = charsApplied "Const" (iso getConst Const)
+instance Textual a => Textual (Down a) where
+  charsPrec = charsApplied "Down" (iso getDown Down)
+instance (Typeable f, Typeable g, Typeable a, Textual (f (g a)))
+  => Textual (Compose f g a) where
+    charsPrec = charsApplied "Compose" (iso getCompose Compose)
+
+-- | A collection, @fromList [a,b,c]@.
+charsFromList :: Textual b => Iso' a [b] -> Int -> Chars a
+charsFromList = charsApplied "fromList"
+
+instance (Ord k, Textual k, Textual v) => Textual (Map k v) where
+  charsPrec = charsFromList (iso Map.toList Map.fromList)
+instance (Ord a, Textual a) => Textual (Set a) where
+  charsPrec = charsFromList (iso Set.toList Set.fromList)
+instance Textual v => Textual (IntMap v) where
+  charsPrec = charsFromList (iso IntMap.toList IntMap.fromList)
+instance Textual IntSet where
+  charsPrec = charsFromList (iso IntSet.toList IntSet.fromList)
+instance Textual a => Textual (Seq a) where
+  charsPrec = charsFromList (iso toList Seq.fromList)
+instance (Hashable k, Textual k, Textual v) => Textual (HashMap k v) where
+  charsPrec = charsFromList (iso HashMap.toList HashMap.fromList)
+instance (Hashable a, Textual a) => Textual (HashSet a) where
+  charsPrec = charsFromList (iso HashSet.toList HashSet.fromList)
+
+-- | A type by a list, or a string, which it shows as.
+charsAs :: forall b a. Textual b => Iso' a b -> Int -> Chars a
+charsAs i d = charsVia i (charsPrec @b d)
+
+instance Textual Text.Text where charsPrec = charsAs (iso Text.unpack Text.pack)
+instance Textual LText.Text where
+  charsPrec = charsAs (iso LText.unpack LText.pack)
+instance Textual ShortText.ShortText where
+  charsPrec = charsAs (iso ShortText.toString ShortText.fromString)
+instance Textual ByteString.ByteString where
+  charsPrec = charsAs (iso Char8.unpack Char8.pack)
+instance Textual LByteString.ByteString where
+  charsPrec = charsAs (iso LChar8.unpack LChar8.pack)
+instance Textual a => Textual (Vector.Vector a) where
+  charsPrec = charsAs (iso Vector.toList Vector.fromList)
+
+instance Textual Void where charsPrec _ = mempty
+
+instance Textual a => Textual (NonEmpty a)
+instance Textual a => Textual (Complex a)
+instance Textual a => Textual (Solo a)
+instance Typeable a => Textual (Proxy a)
+instance Textual a => Textual (Tree a)
+instance Textual a => Textual (ZipList a)
+instance Textual Version
+instance Textual GeneralCategory
+instance Textual ExitCode
+instance Textual IOMode where charsPrec _ = charsEnumerated [ReadMode ..]
+instance Textual SeekMode where
+  charsPrec _ = charsEnumerated [AbsoluteSeek ..]
+instance Textual BufferMode where
+  charsPrec d = Chars $
+    [ Named "NoBuffering" (\case NoBuffering -> True; _ -> False)
+        (CG (dimap (const ()) (const NoBuffering) oneP))
+    , Named "LineBuffering" (\case LineBuffering -> True; _ -> False)
+        (CG (dimap (const ()) (const LineBuffering) oneP))
+    ] <> [ altVia
+             (prism' BlockBuffering
+               (\case BlockBuffering n -> Just n; _ -> Nothing))
+             alt
+         | Chars alts <- [charsApplied "BlockBuffering" (iso id id) d]
+         , alt <- alts ]
+
+-- | An enumeration, of constructors named as `show` names them.
+charsEnumerated :: (Show a, Eq a) => [a] -> Chars a
+charsEnumerated as = Chars
+  [Named (show a) (== a) (CG (dimap (const ()) (const a) oneP)) | a <- as]
+instance Textual a => Textual (Monoid.Sum a)
+instance Textual a => Textual (Monoid.Product a)
+instance Textual a => Textual (Monoid.Dual a)
+instance Textual a => Textual (Monoid.First a)
+instance Textual a => Textual (Monoid.Last a)
+instance Textual Monoid.All
+instance Textual Monoid.Any
+instance (Typeable f, Typeable a, Textual (f a)) => Textual (Monoid.Alt f a)
+instance (Typeable f, Typeable a, Textual (f a)) => Textual (Monoid.Ap f a)
+instance Textual a => Textual (Semigroup.Min a)
+instance Textual a => Textual (Semigroup.Max a)
+instance Textual a => Textual (Semigroup.First a)
+instance Textual a => Textual (Semigroup.Last a)
+instance Textual a => Textual (Semigroup.WrappedMonoid a)
+instance (Textual a, Textual b) => Textual (Semigroup.Arg a b)
+instance (Typeable f, Typeable g, Typeable a, Textual (f a), Textual (g a))
+  => Textual (Functor.Product f g a)
+instance (Typeable f, Typeable g, Typeable a, Textual (f a), Textual (g a))
+  => Textual (Functor.Sum f g a)
 
 -- Numbers --
 
@@ -558,6 +739,28 @@ instance Textual Word16 where charsPrec = charsIntegral
 instance Textual Word32 where charsPrec = charsIntegral
 instance Textual Word64 where charsPrec = charsIntegral
 instance Textual Natural where charsPrec = charsIntegral
+instance Textual CChar where charsPrec = charsIntegral
+instance Textual CSChar where charsPrec = charsIntegral
+instance Textual CUChar where charsPrec = charsIntegral
+instance Textual CShort where charsPrec = charsIntegral
+instance Textual CUShort where charsPrec = charsIntegral
+instance Textual CInt where charsPrec = charsIntegral
+instance Textual CUInt where charsPrec = charsIntegral
+instance Textual CLong where charsPrec = charsIntegral
+instance Textual CULong where charsPrec = charsIntegral
+instance Textual CLLong where charsPrec = charsIntegral
+instance Textual CULLong where charsPrec = charsIntegral
+instance Textual CPtrdiff where charsPrec = charsIntegral
+instance Textual CSize where charsPrec = charsIntegral
+instance Textual CWchar where charsPrec = charsIntegral
+instance Textual CSigAtomic where charsPrec = charsIntegral
+instance Textual CBool where charsPrec = charsIntegral
+instance Textual CIntPtr where charsPrec = charsIntegral
+instance Textual CUIntPtr where charsPrec = charsIntegral
+instance Textual CIntMax where charsPrec = charsIntegral
+instance Textual CUIntMax where charsPrec = charsIntegral
+instance Textual CFloat where charsPrec = charsRealFloat
+instance Textual CDouble where charsPrec = charsRealFloat
 
 {- | Integral numbers, by their literals, any of which parse,
 & printed as `show` does, parenthesized when negative above precedence 6.
@@ -608,9 +811,23 @@ charsRealFloat d = Chars
     negative = prism' negate $ \a ->
       negate a <$ guard (a < 0 || isNegativeZero a)
     literal :: CharGrammar a
-    literal = iso (floatLiteral . show) floatValue >~ floatG
+    literal = decimalLiteral
     constant :: a -> CharGrammar a
     constant a = dimap (const ()) (const a) oneP
+
+{- | A non-negative decimal literal, of any of @read@'s forms,
+printed as `show` does.
+-}
+decimalLiteral :: (Read a, Show a) => CharGrammar a
+decimalLiteral = iso (floatLiteral . show) floatValue >~ floatG
+
+instance (HasResolution a, Typeable a) => Textual (Fixed a) where
+  charsPrec d = Chars
+    [ plain Word $ prism' id (\a -> a <$ guard (a >= 0)) >? decimalLiteral
+    , (if d <= 6 then id else Parsed) $ plain Symbol $
+        prism' negate (\a -> negate a <$ guard (a < 0))
+        >? "-" >* spaces "" >* decimalLiteral
+    ]
 
 -- | A floating point literal, decimal or an integer literal.
 data FloatLiteral
@@ -626,10 +843,12 @@ floatValue = \case
 
 -- | How `show` prints a non-negative, finite floating point number.
 floatLiteral :: String -> FloatLiteral
-floatLiteral str = FloatDecimal ds (Just fraction) expo
+floatLiteral str = FloatDecimal ds fraction expo
   where
     (ds, rest) = span isDigit str
-    (fraction, rest') = span isDigit (drop 1 rest)
+    (fraction, rest') = case rest of
+      '.' : more -> let (fs, more') = span isDigit more in (Just fs, more')
+      _ -> (Nothing, rest)
     expo = case rest' of
       'e' : '-' : es -> Just (Just '-', es)
       'e' : es -> Just (Nothing, es)
@@ -767,7 +986,8 @@ charItem c
 
 singleEscapes :: [(Char, Char)]
 singleEscapes =
-  [('\a', 'a'), ('\b', 'b'), ('\f', 'f'), ('\n', 'n'), ('\r', 'r'), ('\t', 't'), ('\v', 'v')]
+  [ ('\a', 'a'), ('\b', 'b'), ('\f', 'f'), ('\n', 'n')
+  , ('\r', 'r'), ('\t', 't'), ('\v', 'v') ]
 
 asciiNames :: [String]
 asciiNames =
@@ -781,7 +1001,8 @@ asciiNames =
 -- | The character of an escape, if it's in range.
 escapeValue :: Escape -> Maybe Char
 escapeValue = \case
-  EscChar c -> Just (fromMaybe c (lookup c [(e, c') | (c', e) <- singleEscapes]))
+  EscChar c ->
+    Just (fromMaybe c (lookup c [(e, c') | (c', e) <- singleEscapes]))
   EscCaret c -> Just (chr (ord c - ord '@'))
   EscName name -> case lookup name (zip asciiNames ([0 .. 32] <> [127])) of
     Just n -> Just (chr n)
@@ -808,7 +1029,9 @@ escapeG = orP
       >? "o" >* someP (oneOf ("01234567" :: String))
   , prism' EscHex (\case EscHex ds -> Just ds; _ -> Nothing)
       >? "x" >* someP (oneOf ("0123456789abcdefABCDEF" :: String))
-  , trie [(name, (== EscName name), CG (only' (EscName name))) | name <- asciiNames]
+  , trie
+      [ (name, (== EscName name), CG (only' (EscName name)))
+      | name <- asciiNames ]
   ]
   where
     only' :: e -> CharGrammar e
@@ -904,7 +1127,9 @@ escaped = orP
       (StrEscape . build)
 
 -- | The first item of a list of items, & the rest.
-item :: (StrItem -> Maybe x) -> (x -> StrItem) -> Prism' [StrItem] (x, [StrItem])
+item
+  :: (StrItem -> Maybe x) -> (x -> StrItem)
+  -> Prism' [StrItem] (x, [StrItem])
 item match build = prism' (\(x, rest) -> build x : rest) $ \case
   i : rest | Just x <- match i -> Just (x, rest)
   _ -> Nothing
