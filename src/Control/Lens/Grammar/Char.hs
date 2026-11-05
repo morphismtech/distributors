@@ -1130,7 +1130,7 @@ stringBody = anything
       [ ( name
         , \case StrEscape (EscName n) : _ -> n == name; _ -> False
         , prism' (StrEscape (EscName name) :)
-            (\case StrEscape (EscName n) : rest | n == name -> Just rest
+            (\case StrEscape (EscName n) : items | n == name -> Just items
                    _ -> Nothing)
             >? if name == "SO" then notH else anything
         )
