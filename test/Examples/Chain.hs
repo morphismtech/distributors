@@ -4,7 +4,6 @@ module Examples.Chain
   , chainExamples
   ) where
 
-import Control.Applicative
 import Control.Lens
 import Control.Lens.Grammar
 
@@ -22,9 +21,9 @@ chainGrammar = ruleRec "chain" seqG
     seqG chn = rule "seq" $
       chain Left _Seq _Emp noSep (atomG chn)
     atomG chn = rule "atom" $
-      _Char >? charG <|> terminal "(" >* chn *< terminal ")"
+      _Char >? charG >|< terminal "(" >* chn *< terminal ")"
     charG = notOneOf "()\\"
-      <|> terminal "\\" >* oneOf "()\\"
+      >|< terminal "\\" >* oneOf "()\\"
 
 chainExamples :: [(Chain, String)]
 chainExamples =

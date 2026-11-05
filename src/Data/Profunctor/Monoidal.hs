@@ -17,15 +17,24 @@ module Data.Profunctor.Monoidal
   , dimap2, foreverP, ditraverse
     -- * Monoidal & Choice
   , pureP, asEmpty, (>:<), snocP, replicateP, onlyOne
+    -- * Monoidal & Strong
+  , idP, arrP
     -- * Monoidal, Choice & Strong
   , meander, traverseP, foldP
+    -- * Deriving via Monoidal
+  , Monoidally (..)
   ) where
 
+import Control.Applicative
+import Control.Arrow qualified as Arrow
+import Control.Category qualified as Category
 import Control.Lens
 import Control.Lens.Internal.Context
 import Control.Lens.PartialIso
 import Data.Distributive
+import Data.Monoid.Disjunctive
 import Data.Profunctor
+import Data.Profunctor.Traversing qualified as Traversing
 import Data.Foldable (traverse_)
 import GHC.IsList
 
@@ -236,3 +245,77 @@ instance Applicative (FunList a b) where
     MoreFun a h -> \l ->
       MoreFun a (flip <$> h <*> fromFun l)
 instance Sellable (->) FunList where sell b = MoreFun b (pure id)
+
+{- | The unit map of a `Monoidal` & `Strong` `Profunctor`,
+the strength of `oneP`, which is natural,
+& whose product is the strength.
+It needn't be an identity; @idP = Forget (const mempty)@.
+
+prop> lmap f idP = rmap f idP
+prop> first' p = p >*< idP
+prop> second' p = idP >*< p
+-}
+idP :: (Monoidal p, Strong p) => p a a
+idP = dimap (\a -> ((),a)) (\((),a) -> a) (first' oneP)
+
+{- | Lift a function into a `Monoidal` & `Strong` `Profunctor`,
+like `Control.Arrow.arr`.
+
+prop> arrP f = rmap f idP = lmap f idP
+-}
+arrP :: (Monoidal p, Strong p) => (a -> b) -> p a b
+arrP f = fmap f idP
+
+{- | t'Monoidally' derives instances of a `Monoidal` `Profunctor`,
+via `meander` for `Data.Profunctor.Traversing.Traversing`,
+& via `arrP` & `>*<` for `Control.Arrow.Arrow`,
+given `Control.Category.Category`.
+
+> newtype P a b = P ...
+>   deriving (Traversing, Arrow) via Monoidally P
+-}
+newtype Monoidally p a b = Monoidally {runMonoidally :: p a b}
+deriving newtype instance Functor (p a) => Functor (Monoidally p a)
+deriving newtype instance Applicative (p a)
+  => Applicative (Monoidally p a)
+deriving newtype instance Alternative (p a)
+  => Alternative (Monoidally p a)
+deriving newtype instance DisjunctiveMonoid (p a b)
+  => DisjunctiveMonoid (Monoidally p a b)
+deriving newtype instance Profunctor p => Profunctor (Monoidally p)
+deriving newtype instance Strong p => Strong (Monoidally p)
+deriving newtype instance Costrong p => Costrong (Monoidally p)
+deriving newtype instance Choice p => Choice (Monoidally p)
+deriving newtype instance Cochoice p => Cochoice (Monoidally p)
+deriving newtype instance Category.Category p
+  => Category.Category (Monoidally p)
+instance (Monoidal p, Choice p, Strong p)
+  => Traversing.Traversing (Monoidally p) where
+    wander f (Monoidally p) = Monoidally (meander f p)
+    traverse' = traverseP
+instance (Category.Category p, Monoidal p, Strong p)
+  => Arrow.Arrow (Monoidally p) where
+    arr = arrP
+    first = first'
+    second = second'
+    (***) = (>*<)
+    (&&&) = liftA2 (,)
+instance (Category.Category p, Monoidal p, Strong p, Choice p)
+  => Arrow.ArrowChoice (Monoidally p) where
+    left = left'
+    right = right'
+instance
+  ( Category.Category p, Monoidal p, Strong p
+  , forall x y. DisjunctiveMonoid (p x y)
+  )
+  => Arrow.ArrowZero (Monoidally p) where
+    zeroArrow = falseP
+instance
+  ( Category.Category p, Monoidal p, Strong p
+  , forall x y. DisjunctiveMonoid (p x y)
+  )
+  => Arrow.ArrowPlus (Monoidally p) where
+    (<+>) = (>|<)
+instance (Category.Category p, Monoidal p, Strong p, Costrong p)
+  => Arrow.ArrowLoop (Monoidally p) where
+    loop = unfirst

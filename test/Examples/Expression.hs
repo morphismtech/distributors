@@ -8,7 +8,6 @@ module Examples.Expression
   , leftExamples
   ) where
 
-import Control.Applicative
 import Control.Lens
 import Control.Lens.Grammar
 import Numeric.Natural
@@ -37,7 +36,7 @@ exprGrammar :: Grammar Char Expr
 exprGrammar = ruleRec "expr" $ \expr ->
   let
     atom = rule "atom" $
-      nat <|> terminal "(" >* expr *< terminal ")"
+      nat >|< terminal "(" >* expr *< terminal ")"
     nat = rule "nat" $
       _Nat . iso show read >? someP (asIn @Char DecimalNumber)
   in withOperators
@@ -73,7 +72,7 @@ powGrammar :: Grammar Char Expr
 powGrammar = ruleRec "pow" $ \e ->
   let
     atom = rule "atom" $
-      nat <|> terminal "(" >* e *< terminal ")"
+      nat >|< terminal "(" >* e *< terminal ")"
     nat = rule "nat" $
       _Nat . iso show read >? someP (asIn @Char DecimalNumber)
   in chain1 (\x -> Right x) _Exp (sepWith "^") atom
@@ -93,7 +92,7 @@ leftGrammar :: Grammar Char Expr
 leftGrammar = ruleRec "expr" $ \expr ->
   let
     atom = rule "atom" $
-      nat <|> terminal "(" >* expr *< terminal ")"
+      nat >|< terminal "(" >* expr *< terminal ")"
     nat = rule "nat" $
       _Nat . iso show read >? someP (asIn @Char DecimalNumber)
   in withOperators

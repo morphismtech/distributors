@@ -1,6 +1,6 @@
 cabal-version: 2.2
 
--- This file has been generated from package.yaml by hpack version 0.39.6.
+-- This file has been generated from package.yaml by hpack version 0.39.1.
 --
 -- see: https://github.com/sol/hpack
 
@@ -32,11 +32,11 @@ library
       Control.Lens.Diopter
       Control.Lens.Grammar
       Control.Lens.Grammar.BackusNaur
-      Control.Lens.Grammar.Boole
       Control.Lens.Grammar.Internal.NestedPrismTH
       Control.Lens.Grammar.Internal.Orphanage
-      Control.Lens.Grammar.Kleene
+      Control.Lens.Grammar.Json
       Control.Lens.Grammar.Machine
+      Control.Lens.Grammar.RegEx
       Control.Lens.Grammar.Symbol
       Control.Lens.Grammar.Token
       Control.Lens.Grate
@@ -44,6 +44,7 @@ library
       Control.Lens.PartialIso
       Control.Lens.Wither
       Control.Monad.Fail.Try
+      Data.Monoid.Disjunctive
       Data.Profunctor.Distributor
       Data.Profunctor.Filtrator
       Data.Profunctor.Grammar
@@ -101,22 +102,37 @@ library
       MemoTrie >=0.6 && <1
     , QuickCheck >=2.14 && <3
     , adjunctions >=4.4 && <5
+    , aeson
     , base >=4.15 && <5
     , bifunctors >=5.5 && <6
     , bytestring >=0.11 && <1
     , containers >=0.6 && <1
     , contravariant >=1.5 && <2
+    , data-fix
     , distributive >=0.6 && <1
+    , dlist
+    , hashable
     , lens >=5.0 && <6
     , monad-loops >=0.4.3 && <1
     , mtl >=2.2 && <3
+    , network-uri
+    , primitive
     , profunctors >=5.6 && <6
     , random >=1.2 && <2
+    , scientific
+    , sop-core
+    , strict
     , tagged >=0.8 && <1
     , template-haskell >=2.17 && <3
     , text ==2.*
+    , text-iso8601
+    , text-short
     , th-abstraction >=0.4 && <1
+    , these
+    , time
     , transformers >=0.5 && <1
+    , unordered-containers
+    , uuid-types
     , vector >=0.12 && <1
     , witherable >=0.4 && <1
   default-language: Haskell2010
@@ -134,6 +150,7 @@ test-suite test
       Examples.RegString
       Examples.SemVer
       Examples.SExpr
+      Properties.Json
       Properties.Kleene
       Paths_distributors
   autogen-modules:
@@ -183,26 +200,132 @@ test-suite test
       MemoTrie >=0.6 && <1
     , QuickCheck >=2.14 && <3
     , adjunctions >=4.4 && <5
+    , aeson
     , base >=4.15 && <5
     , bifunctors >=5.5 && <6
     , bytestring >=0.11 && <1
     , containers >=0.6 && <1
     , contravariant >=1.5 && <2
+    , data-fix
     , distributive >=0.6 && <1
     , distributors
+    , dlist
     , doctest >=0.18 && <1
+    , hashable
     , hspec >=2.7 && <3
     , lens >=5.0 && <6
     , megaparsec >=9.0 && <10
     , monad-loops >=0.4.3 && <1
     , mtl >=2.2 && <3
+    , network-uri
+    , primitive
     , profunctors >=5.6 && <6
+    , quickcheck-instances
     , random >=1.2 && <2
+    , scientific
+    , sop-core
+    , strict
     , tagged >=0.8 && <1
     , template-haskell >=2.17 && <3
     , text ==2.*
+    , text-iso8601
+    , text-short
     , th-abstraction >=0.4 && <1
+    , these
+    , time
     , transformers >=0.5 && <1
+    , unordered-containers
+    , uuid-types
+    , vector >=0.12 && <1
+    , witherable >=0.4 && <1
+  default-language: Haskell2010
+
+benchmark json
+  type: exitcode-stdio-1.0
+  main-is: Main.hs
+  other-modules:
+      Paths_distributors
+  autogen-modules:
+      Paths_distributors
+  hs-source-dirs:
+      bench
+  default-extensions:
+      AllowAmbiguousTypes
+      Arrows
+      ConstraintKinds
+      DataKinds
+      DefaultSignatures
+      DeriveFoldable
+      DeriveFunctor
+      DeriveTraversable
+      DeriveGeneric
+      DerivingStrategies
+      DerivingVia
+      EmptyCase
+      FlexibleContexts
+      FlexibleInstances
+      FunctionalDependencies
+      GADTs
+      GeneralizedNewtypeDeriving
+      ImportQualifiedPost
+      ImpredicativeTypes
+      InstanceSigs
+      LambdaCase
+      MagicHash
+      MonoLocalBinds
+      QualifiedDo
+      QuantifiedConstraints
+      RankNTypes
+      RecursiveDo
+      ScopedTypeVariables
+      StandaloneDeriving
+      StandaloneKindSignatures
+      TemplateHaskell
+      TupleSections
+      TypeApplications
+      TypeFamilies
+      TypeOperators
+      UndecidableInstances
+      UndecidableSuperClasses
+  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -O2 -rtsopts
+  build-depends:
+      MemoTrie >=0.6 && <1
+    , QuickCheck >=2.14 && <3
+    , adjunctions >=4.4 && <5
+    , aeson
+    , base >=4.15 && <5
+    , bifunctors >=5.5 && <6
+    , bytestring >=0.11 && <1
+    , containers >=0.6 && <1
+    , contravariant >=1.5 && <2
+    , data-fix
+    , deepseq
+    , distributive >=0.6 && <1
+    , distributors
+    , dlist
+    , hashable
+    , lens >=5.0 && <6
+    , monad-loops >=0.4.3 && <1
+    , mtl >=2.2 && <3
+    , network-uri
+    , primitive
+    , profunctors >=5.6 && <6
+    , random >=1.2 && <2
+    , scientific
+    , sop-core
+    , strict
+    , tagged >=0.8 && <1
+    , tasty-bench
+    , template-haskell >=2.17 && <3
+    , text ==2.*
+    , text-iso8601
+    , text-short
+    , th-abstraction >=0.4 && <1
+    , these
+    , time
+    , transformers >=0.5 && <1
+    , unordered-containers
+    , uuid-types
     , vector >=0.12 && <1
     , witherable >=0.4 && <1
   default-language: Haskell2010
