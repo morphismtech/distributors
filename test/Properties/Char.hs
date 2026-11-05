@@ -8,10 +8,9 @@ module Properties.Char
 
 import Control.Lens.Grammar
   ( LL1Conflict, ParsecState (..), RegBnf (..), RegString (..), conflictRule
-  , liftBnf1
-  , ll1Conflicts, runRegString, unparsecP
+  , liftBnf1, ll1Conflicts
   )
-import Control.Lens.Grammar.Char
+import Control.Lens.Grammar.Char.Redesign
 import Control.Applicative (ZipList)
 import Data.ByteString qualified as ByteString
 import Data.ByteString.Lazy qualified as LByteString
@@ -51,7 +50,6 @@ import Test.Hspec
 import Test.Hspec.QuickCheck (prop)
 import Test.QuickCheck
 import Test.QuickCheck.Instances ()
-import Text.ParserCombinators.ReadPrec (readPrec_to_S)
 import Text.Read (readMaybe)
 
 -- | A sum of prefix & record constructors.
@@ -66,8 +64,8 @@ instance Arbitrary T where
   arbitrary = oneof
     [pure A, B <$> arbitrary <*> arbitrary, R <$> arbitrary <*> arbitrary]
 
--- | Infix constructors, of one fixity.
-data I = Int :+: Int | Bool :* I | I `Cat` Char | Nil
+-- | Infix constructors, of one fixity, with operands of other types.
+data I = Int :+: Int | Bool :* I | Char `Cat` I | Nil
   deriving stock (Eq, Show, Read, Generic)
   deriving anyclass Textual
 infixr 5 :+:, :*, `Cat`
@@ -76,7 +74,7 @@ instance Arbitrary I where
   arbitrary = sized $ \n -> oneof $
     [pure Nil, (:+:) <$> arbitrary <*> arbitrary]
     <> [ (:*) <$> arbitrary <*> resize (n `div` 2) arbitrary | n > 0 ]
-    <> [ Cat <$> resize (n `div` 2) arbitrary <*> arbitrary | n > 0 ]
+    <> [ Cat <$> arbitrary <*> resize (n `div` 2) arbitrary | n > 0 ]
 
 -- | Constructors whose names prefix each other.
 data N = Foo | Foobar | Fo Int
@@ -125,30 +123,39 @@ compatWith
   => String -> (a -> a -> Bool) -> Bool -> Spec
 compatWith name same redundant = describe name $ do
   prop "prints as show does" $ \(a :: a) ->
-    charsShow a === show a
+    charShowsPrec 0 a "" === show a
   prop "prints as showsPrec 11 does" $ \(a :: a) ->
-    charsShowsPrec 11 a "" === showsPrec 11 a ""
+    charShowsPrec 11 a "" === showsPrec 11 a ""
   prop "prints predictively as show does" $ \(a :: a) ->
-    parsecStream (unparsecP (charsAt @a 0 allLeads) a "") === show a
-  prop "parses what show prints" $ \(a :: a) ->
-    maybe False (same a) (charsRead (show a))
+    parsecStream (charUnparsecPrec @a @String 0 a) === show a
+  prop "parses predictively what show prints" $ \(a :: a) ->
+    maybe False (same a) (parsed 0 (show a))
   prop "parses whitespace as read does" $ \(a :: a) ->
     forAll (spaced (show a)) $ \str -> agrees str
   if redundant
     then prop "parses parentheses as read does" $ \(a :: a) ->
       forAll (spaced ("(" <> show a <> ")")) $ \str -> agrees str
     else prop "parses parentheses once required" $ \(a :: a) ->
-      case readPrec_to_S charsReadPrec 11 (showsPrec 11 a "") of
-        [(b, "")] -> same a b
-        _ -> False
+      maybe False (same a) (parsed 11 (showsPrec 11 a ""))
   it "is LL(1)" $
-    map conflictRule (conflicts (charsBnf (type a))) `shouldBe` []
+    map conflictRule (conflicts (charGrammarPrec 0 (type a))) `shouldBe` []
   where
+    {- predictively, by Parsector, & by backtracking, by Parsor,
+    which may consume trailing whitespace in several ways -}
     agrees str = counterexample str $
-      case (readMaybe @a str, charsRead @a str) of
-        (Nothing, Nothing) -> property True
-        (Just x, Just y) -> property (same x y)
-        (x, y) -> counterexample (show (x, y)) False
+      case (readMaybe @a str, parsed 0 str, readsAll str) of
+        (Nothing, Nothing, []) -> property True
+        (Just x, Just y, zs@(_ : _)) -> property (same x y && all (same x) zs)
+        (x, y, z) -> counterexample (show (x, y, z)) False
+    readsAll str =
+      [a | (a, rest) <- charReadsPrec 0 str, all (`elem` blank) rest]
+    blank = " \t\n" :: String
+
+-- | A complete predictive parse, by `Parsector`, at a precedence.
+parsed :: forall a. Textual a => Int -> String -> Maybe a
+parsed d str = case charParsecPrec d str of
+  ParsecState {parsecStream = "", parsecResult = Just a} -> Just a
+  _ -> Nothing
 
 -- | A string with whitespace inserted anywhere.
 spaced :: String -> Gen String
@@ -234,26 +241,25 @@ textualSpec = describe "Textual" $ do
   compat @LByteString.ByteString "lazy ByteString" (==)
   compat @(Vector Int) "Vector" (==)
   compat @T "sums of prefix & record constructors" (==)
-  describe "infix constructors" $ it "agree with Show & Read" $
-    pendingWith "an infix constructor of its own type, like Nil `Cat` 'c',\
-      \ needs its operand & tail factored, & whitespace owned by values"
+  compatParenthesized @I "infix constructors" (==)
   compat @N "constructors prefixing each other" (==)
   compat @Rose "recursive types" (==)
   compat @Op "records with operator fields" sameOp
   describe "examples" $ do
     it "parses read's literals" $ do
-      charsRead @Int "0x1F" `shouldBe` Just 31
-      charsRead @Int "0b101" `shouldBe` Just 5
-      charsRead @Double "1.5E+2" `shouldBe` Just 150
-      charsRead @Rational "-3 % -4" `shouldBe` Just (3 % 4)
-      charsRead @String "\"\\SO\\&H\\1234\\&5\""
+      parsed @Int 0 "0x1F" `shouldBe` Just 31
+      parsed @Int 0 "0b101" `shouldBe` Just 5
+      parsed @Double 0 "1.5E+2" `shouldBe` Just 150
+      parsed @Rational 0 "-3 % -4" `shouldBe` Just (3 % 4)
+      parsed @String 0 "\"\\SO\\&H\\1234\\&5\""
         `shouldBe` Just "\SO\&H\1234\&5"
-      charsRead @String "\"a\\   \\b\"" `shouldBe` Just "ab"
+      parsed @String 0 "\"a\\   \\b\"" `shouldBe` Just "ab"
     it "separates words as read does" $ do
-      charsRead @(Maybe Int) "Just1" `shouldBe` Nothing
-      charsRead @(Maybe Int) "Just(1)" `shouldBe` Just (Just 1)
-      charsRead @(Maybe Int) "Just -1" `shouldBe` Just (Just (-1))
-      charsRead @N "Foob" `shouldBe` Nothing
+      parsed @(Maybe Int) 0 "Just1" `shouldBe` Nothing
+      parsed @(Maybe Int) 0 "Just(1)" `shouldBe` Just (Just 1)
+      parsed @(Maybe Int) 0 "Just -1" `shouldBe` Just (Just (-1))
+      parsed @T 0 "B 1Nothing" `shouldBe` Just (B 1 Nothing)
+      parsed @N 0 "Foob" `shouldBe` Nothing
   where
     sameFloat x y = show x == show y
     sameOp (Op x i) (Op y j) = sameFloat x y && i == j

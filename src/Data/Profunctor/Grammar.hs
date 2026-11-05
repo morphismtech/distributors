@@ -338,6 +338,10 @@ instance Choice (Grammor k) where
 instance Cochoice (Grammor k) where
   unleft = coerce
   unright = coerce
+instance Filterable (Grammor k a) where
+  mapMaybe _ = coerce
+instance Filtrator (Grammor k) where
+  filtrate (Grammor k) = (Grammor k, Grammor k)
 instance (TerminalSymbol Char k, x ~ (), y ~ ())
   => IsString (Grammor k x y) where
     fromString = terminal
