@@ -6,6 +6,8 @@ module Examples.Expression
   , powExamples
   , leftGrammar
   , leftExamples
+  , mixedGrammar
+  , mixedExamples
   ) where
 
 import Control.Lens
@@ -107,4 +109,26 @@ leftExamples =
   , (Div (Div (Nat 8) (Nat 2)) (Nat 2), "8/2/2")
   , (Sub (Add (Nat 1) (Mul (Nat 2) (Nat 3))) (Nat 4), "1+2*3-4")
   , (Mul (Add (Nat 1) (Nat 2)) (Nat 3), "(1+2)*3")
+  ]
+
+-- | A level mixing a left-associative @+@ with a right-associative @-@,
+-- which `withOperators` parses in one pass, an operand & then tagged
+-- @(operator, operand)@ steps folded by each operator's associativity,
+-- so it's LL1 too (@testCfg True@).
+mixedGrammar :: Grammar Char Expr
+mixedGrammar = ruleRec "expr" $ \expr ->
+  let
+    atom = rule "atom" $
+      nat >|< terminal "(" >* expr *< terminal ")"
+    nat = rule "nat" $
+      _Nat . iso show read >? someP (asIn @Char DecimalNumber)
+  in withOperators
+    [ [ Infix LeftAssoc _Add (terminal "+"), Infix RightAssoc _Sub (terminal "-") ]
+    ] atom
+
+mixedExamples :: [(Expr, String)]
+mixedExamples =
+  [ (Nat 7, "7")
+  , (Add (Add (Nat 1) (Nat 2)) (Nat 3), "1+2+3")
+  , (Sub (Nat 3) (Sub (Nat 2) (Nat 1)), "3-2-1")
   ]

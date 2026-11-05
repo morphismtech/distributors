@@ -47,6 +47,7 @@ main = do
     describe "exprGrammar" $ testCfg True exprExamples exprGrammar
     describe "powGrammar" $ testCfg False powExamples powGrammar
     describe "leftGrammar" $ testCfg True leftExamples leftGrammar
+    describe "mixedGrammar" $ testCfg True mixedExamples mixedGrammar
     describe "parseForest" parseForestTests
     describe "Parsector try rollback" tryRollbackTests
     describe "Kleene" kleeneProperties
