@@ -179,6 +179,9 @@ testCfg isLL1 examples grammar = do
     it ("should match " <> expectedString <> " correctly") $ do
       let actualMatch = expectedString =~ regbnfG grammar
       actualMatch `shouldBe` True
+  it ("should " <> (if isLL1 then "" else "not ") <> "be LL(1)") $ do
+    let bnf = liftBnf1 runRegString (runRegBnf (regbnfG grammar))
+    null (ll1Conflicts bnf) `shouldBe` isLL1
   describe "transducerG" $ do
     it "should generate the hundred shorted valid words in a language" $ do
       generated <- generate (take 100 <$> languageSample (transducerG grammar))

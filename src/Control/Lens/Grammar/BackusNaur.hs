@@ -20,6 +20,10 @@ module Control.Lens.Grammar.BackusNaur
   , liftBnf1
   , liftBnf2
   , diffB
+    -- * LL(1)
+  , ll1Conflicts
+  , LL1Conflict (..)
+  , LL1ConflictSort (..)
   ) where
 
 import Control.Lens
@@ -31,6 +35,8 @@ import Data.Coerce
 import Data.Function
 import Data.MemoTrie
 import Data.Monoid.Disjunctive
+import qualified Data.Map.Strict as Map
+import Data.Map.Strict (Map)
 import qualified Data.Set as Set
 import Data.Set (Set)
 import Text.ParserCombinators.ReadP (ReadP)
@@ -157,6 +163,187 @@ diffB prefix (Bnf start rules) =
     RegExam (Alternate y1 y2) -> ν y1 || ν y2
     NonTerminal nameY -> any ν (rulesNamed nameY rules)
     _ -> False
+
+{- | The conflicts which keep a `RegEx`tended `Bnf` from being @LL(1)@,
+that is, from being parsed predictively by one token of lookahead,
+committing to an alternative by its first token, as
+`Data.Profunctor.Grammar.Parsector.Parsector` does.
+An empty list means the grammar is @LL(1)@.
+
+Alternatives are tried in order, so besides the usual conditions,
+that alternatives start with distinct tokens & that repetitions
+& options start with tokens which can't follow them,
+a nullable alternative mustn't precede one which can consume tokens,
+since it would succeed first, without consuming them.
+Left recursion is reported too, since a predictive parser diverges on it.
+
+Token classes are compared by their intersections, `>&<`.
+-}
+ll1Conflicts
+  :: Categorized token => Bnf (RegEx token) -> [LL1Conflict token]
+ll1Conflicts (Bnf start ruleSet) =
+  [ LL1Conflict (Just name) LL1LeftRecursion falseP (NonTerminal name)
+  | name <- Map.keys rules, leftRecursive name
+  ]
+  <> check Nothing start (Follow True Set.empty)
+  <> concat
+    [ check (Just name) body (Map.findWithDefault noFollow name follows)
+    | (name, body) <- Map.toList rules
+    ]
+  where
+    rules = Map.fromListWith (flip (>|<)) (Set.toList ruleSet)
+    noFollow = Follow False Set.empty
+    -- least fixpoints of nullability & first tokens of rules
+    (nulls, firsts) = fixpoint
+      (\(ns, fs) -> (fmap (nullable ns) rules, fmap (first ns fs) rules))
+      (False <$ rules, Set.empty <$ rules)
+    isNullable = nullable nulls
+    firstsOf = first nulls firsts
+    -- least fixpoint of the tokens which may follow each rule
+    follows = fixpoint
+      (\fs -> Map.unionsWith (<>) $
+        followed (Follow True Set.empty) start
+        : [ followed (Map.findWithDefault noFollow name fs) body
+          | (name, body) <- Map.toList rules ])
+      (noFollow <$ rules)
+    followed f = \case
+      Sequence a b -> followed (after b f) a <> followed f b
+      NonTerminal name -> Map.singleton name f
+      KleeneStar a -> followed (Follow False (firstsOf a) <> f) a
+      KleenePlus a -> followed (Follow False (firstsOf a) <> f) a
+      KleeneOpt a -> followed f a
+      RegExam (Alternate a b) ->
+        Map.unionWith (<>) (followed f a) (followed f b)
+      _ -> Map.empty
+    after b f
+      | isNullable b = Follow False (firstsOf b) <> f
+      | otherwise = Follow False (firstsOf b)
+    check name rex f = case rex of
+      Sequence a b -> check name a (after b f) <> check name b f
+      KleeneStar a -> repetition a <> check name a (again a)
+      KleenePlus a -> repetition a <> check name a (again a)
+      KleeneOpt a -> repetition a <> check name a f
+      RegExam (Alternate a b) ->
+        [ conflict LL1FirstFirst overlap
+        | let overlap = overlapping (firstsOf a) (firstsOf b)
+        , overlap /= falseP ]
+        <> [ conflict LL1NullableAlternatives falseP
+           | isNullable a, isNullable b ]
+        <> [ conflict LL1NullableFirst (anyP TokenClass (firstsOf b))
+           | isNullable a, not (isNullable b), not (Set.null (firstsOf b)) ]
+        <> [ conflict LL1FirstFollow overlap
+           | isNullable b, not (isNullable a)
+           , let overlap = overlapping (firstsOf a) (followTokens f)
+           , overlap /= falseP ]
+        <> check name a f <> check name b f
+      _ -> []
+      where
+        conflict sort toks = LL1Conflict name sort toks rex
+        again a = Follow False (firstsOf a) <> f
+        repetition a =
+          [ conflict LL1NullableRepetition falseP | isNullable a ]
+          <> [ conflict LL1FirstFollow overlap
+             | let overlap = overlapping (firstsOf a) (followTokens f)
+             , overlap /= falseP ]
+    -- rules which can call themselves before consuming a token
+    leftRecursive name = name `Set.member` reach Set.empty (leftCalls name)
+    reach seen = \case
+      [] -> seen
+      next : rest
+        | next `Set.member` seen -> reach seen rest
+        | otherwise -> reach (Set.insert next seen) (leftCalls next <> rest)
+    leftCalls name = maybe [] lefts (Map.lookup name rules)
+    lefts = \case
+      Sequence a b -> lefts a <> (if isNullable a then lefts b else [])
+      NonTerminal name -> [name]
+      KleeneStar a -> lefts a
+      KleenePlus a -> lefts a
+      KleeneOpt a -> lefts a
+      RegExam (Alternate a b) -> lefts a <> lefts b
+      _ -> []
+
+nullable :: Map String Bool -> RegEx token -> Bool
+nullable ns = \case
+  SeqEmpty -> True
+  Sequence a b -> nullable ns a && nullable ns b
+  NonTerminal name -> Map.findWithDefault False name ns
+  KleeneStar _ -> True
+  KleeneOpt _ -> True
+  KleenePlus a -> nullable ns a
+  RegExam (Alternate a b) -> nullable ns a || nullable ns b
+  RegExam _ -> False
+
+-- | The first tokens of a `RegEx`, as a set of single token classes.
+first
+  :: Categorized token
+  => Map String Bool -> Map String (Set (RegExam token (TokenClass token)))
+  -> RegEx token -> Set (RegExam token (TokenClass token))
+first ns fs = \case
+  SeqEmpty -> Set.empty
+  Sequence a b
+    | nullable ns a -> first ns fs a <> first ns fs b
+    | otherwise -> first ns fs a
+  NonTerminal name -> Map.findWithDefault Set.empty name fs
+  KleeneStar a -> first ns fs a
+  KleeneOpt a -> first ns fs a
+  KleenePlus a -> first ns fs a
+  RegExam (Alternate a b) -> first ns fs a <> first ns fs b
+  RegExam (OneOf toks) -> Set.map (OneOf . Set.singleton) toks
+  RegExam (NotOneOf toks test) -> Set.singleton (NotOneOf toks test)
+-- | The tokens in both of two sets of first tokens.
+overlapping
+  :: Categorized token
+  => Set (RegExam token (TokenClass token))
+  -> Set (RegExam token (TokenClass token))
+  -> TokenClass token
+overlapping xs ys = TokenClass $ foldl' (>|<) falseP
+  [ common | x <- Set.toList xs, y <- Set.toList ys
+  , let common = x >&< y, common /= falseP ]
+
+fixpoint :: Eq a => (a -> a) -> a -> a
+fixpoint f a = let a' = f a in if a' == a then a else fixpoint f a'
+
+-- | Tokens which may follow, & whether the end of input may.
+data Follow token = Follow Bool (Set (RegExam token (TokenClass token)))
+
+followTokens :: Follow token -> Set (RegExam token (TokenClass token))
+followTokens (Follow _ toks) = toks
+deriving stock instance Categorized token => Eq (Follow token)
+instance Categorized token => Semigroup (Follow token) where
+  Follow end0 tokens0 <> Follow end1 tokens1 =
+    Follow (end0 || end1) (tokens0 <> tokens1)
+
+{- | A conflict keeping a grammar from being @LL(1)@,
+in a rule, or `Nothing` for the start expression,
+of a sort, with the tokens in conflict, at a subexpression.
+-}
+data LL1Conflict token = LL1Conflict
+  { conflictRule :: Maybe String
+  , conflictSort :: LL1ConflictSort
+  , conflictTokens :: TokenClass token
+  , conflictAt :: RegEx token
+  }
+deriving stock instance Categorized token => Eq (LL1Conflict token)
+deriving stock instance
+  (Categorized token, Show token, Show (Categorize token))
+    => Show (LL1Conflict token)
+
+-- | Sorts of `LL1Conflict`s.
+data LL1ConflictSort
+  = LL1FirstFirst
+  -- ^ alternatives which start with the same tokens
+  | LL1FirstFollow
+  -- ^ an option, repetition or nullable alternative which starts
+  -- with tokens which may follow it
+  | LL1NullableAlternatives
+  -- ^ alternatives which both match the empty word
+  | LL1NullableFirst
+  -- ^ a nullable alternative before one which consumes tokens
+  | LL1NullableRepetition
+  -- ^ an option or repetition of a pattern which matches the empty word
+  | LL1LeftRecursion
+  -- ^ a rule which calls itself before consuming a token
+  deriving stock (Eq, Ord, Show, Read, Enum, Bounded)
 
 rulesNamed :: Ord rule => String -> Set (String, rule) -> Set rule
 rulesNamed nameX = foldl' (flip inserter) Set.empty where
