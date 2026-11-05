@@ -123,7 +123,9 @@ mixedGrammar = ruleRec "expr" $ \expr ->
     nat = rule "nat" $
       _Nat . iso show read >? someP (asIn @Char DecimalNumber)
   in withOperators
-    [ [ Infix LeftAssoc _Add (terminal "+"), Infix RightAssoc _Sub (terminal "-") ]
+    [ [ Infix LeftAssoc _Add (terminal "+")
+      , Infix RightAssoc _Sub (terminal "-")
+      ]
     ] atom
 
 mixedExamples :: [(Expr, String)]
