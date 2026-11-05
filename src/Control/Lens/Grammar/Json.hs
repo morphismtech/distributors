@@ -10,8 +10,8 @@ module Control.Lens.Grammar.Json
   , jsonEncode
   , jsonEncodeError
   , jsonTypes
-  , ViaJson (..)
   , jsonGeneric
+  , ViaJson (..)
     -- * Grammar
   , JsonVal (..), jsonTyped
   , JsonStr (..)
@@ -416,15 +416,26 @@ class (JsonVal p, Monoidal q, CocartesianChoice q)
   => JsonObj p q | q -> p where
   (!:) :: Text -> p a b -> q a b
   (?:) :: Text -> p a b -> q (Maybe a) (Maybe b)
-  {- | The properties which aren't named, of any keys, all of a key grammar,
-  & their values, all of a value grammar, read as a list of pairs,
-  like TypeScript's index signature, @[key: string]: T@,
-  or, of an enumeration of keys, its mapped type, @{[key in K]?: T}@.
-  An object of a `jsonDict` alone, @jsonObject (jsonDict key value)@,
-  is a dictionary, @{[key: string]: T}@. With named properties,
-  a `jsonDict` reads the rest of the object, those which it doesn't name.
-  It names no key of its own, so an object has at most one `jsonDict`,
-  which printing checks, as it does for a list which repeats a key.
+  {- | The properties of an object which aren't named by `!:` or `?:`,
+  as a list of key-value pairs, by a grammar of keys & a grammar of values.
+
+  On its own, it's a dictionary.
+
+  > jsonObject (jsonDict jsonText json)
+  > -- {"a": 1, "b": 2}  <->  [("a", 1), ("b", 2)]
+
+  Beside named properties, it's the rest of them.
+
+  > jsonObject ("id" !: json >*< jsonDict jsonText json)
+  > -- {"id": 1, "a": true, "b": false}  <->  (1, [("a", True), ("b", False)])
+
+  Parsing fails unless every remaining property matches both grammars,
+  so a narrower key grammar than `jsonText`, like `jsonEnumWith`,
+  restricts the keys allowed. Printing fails on a key which repeats,
+  or which is also named. An object has at most one `jsonDict`.
+
+  In TypeScript, it's an index signature, @{ [key: string]: T }@,
+  or, of an enumeration of keys, a mapped type, @{ [key in K]?: T }@.
   -}
   jsonDict :: (forall k. JsonStr k => k a b) -> p c d -> q [(a, c)] [(b, d)]
 infixr 7 !:, ?:
