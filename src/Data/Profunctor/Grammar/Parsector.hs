@@ -36,6 +36,7 @@ import Control.Monad.Fail.Try
 import Data.Monoid.Disjunctive
 import Data.Profunctor
 import Data.Profunctor.Distributor
+import Data.Profunctor.Monoidal.Cocartesian
 import Data.Profunctor.Filtrator
 import Data.Profunctor.Monoidal
 import Data.Tree

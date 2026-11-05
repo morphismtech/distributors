@@ -53,6 +53,7 @@ import Data.Maybe hiding (mapMaybe)
 import Data.Monoid
 import Data.Monoid.Disjunctive
 import Data.Profunctor.Distributor
+import Data.Profunctor.Monoidal.Cocartesian
 import Data.Profunctor.Filtrator
 import Data.Profunctor.Monadic
 import Data.Profunctor.Monoidal
@@ -77,6 +78,7 @@ import Control.Lens.PartialIso as X
 import Control.Monad.Fail.Try as X
 import Data.Monoid.Disjunctive as X
 import Data.Profunctor.Distributor as X
+import Data.Profunctor.Monoidal.Cocartesian as X
 import Data.Profunctor.Filtrator as X
 import Data.Profunctor.Grammar as X
 import Data.Profunctor.Grammar.Parsector as X

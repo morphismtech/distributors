@@ -31,6 +31,7 @@ import Data.Void
 import GHC.Generics
 
 import Data.Profunctor.Distributor
+import Data.Profunctor.Monoidal.Cocartesian
 
 {- | A class of `Homogeneous`
 countable sums of countable products.

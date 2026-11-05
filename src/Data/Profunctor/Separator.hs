@@ -34,6 +34,7 @@ import Control.Lens.Grammar.Symbol
 import Data.Maybe (fromMaybe)
 import Data.Monoid.Disjunctive (orP)
 import Data.Profunctor.Distributor
+import Data.Profunctor.Monoidal.Cocartesian
 import Data.Profunctor.Monoidal
 import GHC.Exts
 
