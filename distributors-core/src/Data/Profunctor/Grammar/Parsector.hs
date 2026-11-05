@@ -35,6 +35,7 @@ import Control.Monad
 import Control.Monad.Fail.Try
 import Data.Monoid.Disjunctive
 import Data.Profunctor
+import Data.Profunctor.Unsafe ((#.), (.#))
 import Data.Profunctor.Distributor
 import Data.Profunctor.Monoidal.Cocartesian
 import Data.Profunctor.Filtrator
@@ -187,33 +188,39 @@ instance
   ( Categorized token, Item s ~ token
   , Cons s s token token, Snoc s s token token
   ) => TokenAlgebra token (Parsector s token token) where
-    tokenClass test = Parsector $ \callback query ->
+    -- The test & failures are made once, rather than for each token.
+    tokenClass test = matches `seq` Parsector (\callback query ->
       let
         stream = parsecStream query
         mode = parsecResult query
         offset = parsecOffset query
         replyOk tok str = query
           { parsecLooked = True
-          , parsecFailure  = mempty
+          , parsecFailure  = noFailure
           , parsecStream = str
           , parsecOffset = offset + 1
           , parsecResult = Just tok
           }
         replyErr = query
-          { parsecFailure  = ParsecFailure test []
+          { parsecFailure  = failure
           , parsecResult = Nothing }
       in
         callback $ case mode of
           -- print mode
           Just tok
-            | tokenClass test tok -> replyOk tok (snoc stream tok)
+            | matches tok -> replyOk tok (snoc stream tok)
             | otherwise -> replyErr
           -- parse mode
           Nothing -> case uncons stream of
             Just (tok, rest)
-              | tokenClass test tok -> replyOk tok rest
+              | matches tok -> replyOk tok rest
               | otherwise -> replyErr
-            Nothing -> replyErr
+            Nothing -> replyErr)
+      where
+        matches :: token -> Bool
+        matches = tokenClass test
+        noFailure = mempty
+        failure = ParsecFailure test []
 instance BackusNaurForm (Parsector s a b) where
   -- | Wraps inner `parsecLabels` in a new `Node name` on failure.
   -- Has no effect on success.
@@ -236,7 +243,15 @@ instance Functor (Parsector s a) where
 instance Categorized (Item s) => Applicative (Parsector s a) where
   pure b = Parsector $ \callback query ->
     callback query { parsecResult = Just b }
-  (<*>) = ap
+  (<*>) = liftA2 id
+  -- | Like `>>=`, without a continuation of the first result.
+  liftA2 f p q = Parsector $ \callback query ->
+    flip (runParsector p) query $ \reply ->
+      case parsecResult reply of
+        Nothing -> callback reply { parsecResult = Nothing }
+        Just b ->
+          flip (runParsector q) (bound query reply) $ \qReply ->
+            callback (rebound reply (f b <$> qReply))
 
 instance Categorized (Item s) => Monad (Parsector s a) where
   return = pure
@@ -245,21 +260,32 @@ instance Categorized (Item s) => Monad (Parsector s a) where
       case parsecResult reply of
         Nothing -> callback reply { parsecResult = Nothing }
         Just b ->
-          let
-            hintP  = parsecFailure reply
-            fQuery = reply
-              { parsecLooked = False
-              , parsecFailure  = mempty
-              , parsecResult = parsecResult query
-              }
-          in
-            flip (runParsector (f b)) fQuery $ \fReply -> callback $
-              if parsecLooked fReply
-                then fReply
-                else fReply
-                  { parsecLooked = parsecLooked reply
-                  , parsecFailure  = hintP <> parsecFailure fReply
-                  }
+          flip (runParsector (f b)) (bound query reply) $ \fReply ->
+            callback (rebound reply fReply)
+
+-- | The query of the second of a sequence, after the first's reply.
+bound
+  :: Categorized (Item s)
+  => ParsecState s a -> ParsecState s b -> ParsecState s a
+bound query reply = reply
+  { parsecLooked = False
+  , parsecFailure = mempty
+  , parsecResult = parsecResult query
+  }
+
+{- | The reply of a sequence, from the first's & the second's replies,
+which keeps the first's hints when the second hasn't consumed.
+-}
+rebound
+  :: Categorized (Item s)
+  => ParsecState s b -> ParsecState s c -> ParsecState s c
+rebound reply next
+  | parsecLooked next = next
+  | otherwise = next
+      { parsecLooked = parsecLooked reply
+      , parsecFailure = parsecFailure reply <> parsecFailure next
+      }
+
 instance Categorized (Item s) => Alternative (Parsector s a) where
   -- | Always fails without consuming input; expects nothing.
   empty = Parsector $ \callback query ->
@@ -318,8 +344,13 @@ instance Categorized (Item s) => ArrowChoice (Parsector s) where
   left = left'
   right = right'
 instance Profunctor (Parsector s) where
-  dimap f g (Parsector p) = Parsector $
-    dimap (lmap (fmap g)) (lmap (fmap f)) p
+  dimap f g (Parsector p) = Parsector $ \callback query ->
+    p (callback . fmap g) (fmap f query)
+  lmap f (Parsector p) = Parsector $ \callback query ->
+    p callback (fmap f query)
+  rmap g (Parsector p) = Parsector $ \callback -> p (callback . fmap g)
+  (#.) _ = coerce
+  p .# _ = coerce p
 instance Strong (Parsector s) where
   first' p = Parsector $ \callback reply0 ->
     flip (runParsector p) (fst <$> reply0) $ \reply1 ->
@@ -335,9 +366,20 @@ instance Strong (Parsector s) where
             <$> (fst <$> parsecResult reply0)
             <*> parsecResult reply1
         }
+-- | Like `alternate`, without a sum of branches.
 instance Categorized (Item s) => Choice (Parsector s) where
-  left' = alternate . Left
-  right' = alternate . Right
+  left' (Parsector p) = Parsector $ \callback query ->
+    case parsecResult query of
+      Just (Right _) ->
+        callback query { parsecFailure = mempty, parsecResult = Nothing }
+      result -> p (callback . fmap Left)
+        query { parsecResult = either Just (const Nothing) =<< result }
+  right' (Parsector p) = Parsector $ \callback query ->
+    case parsecResult query of
+      Just (Left _) ->
+        callback query { parsecFailure = mempty, parsecResult = Nothing }
+      result -> p (callback . fmap Right)
+        query { parsecResult = either (const Nothing) Just =<< result }
 instance Categorized (Item s) => CocartesianMonoidal (Parsector s)
 instance Categorized (Item s) => Distributor (Parsector s)
 instance Categorized (Item s) => DisjunctiveMonoid (Parsector s a b)
