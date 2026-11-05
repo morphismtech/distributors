@@ -1086,12 +1086,12 @@ so the rest is in one of several states, defined once & shared.
 stringBody :: CharGrammar [StrItem]
 stringBody = anything
   where
-    anything = state Anything
-    notH = state NotH
-    notDigit = state NotDigit
-    notOctal = state NotOctal
-    notHex = state NotHex
-    state following = rule ("string-" <> show following) $ orP
+    anything = rest Anything
+    notH = rest NotH
+    notDigit = rest NotDigit
+    notOctal = rest NotOctal
+    notHex = rest NotHex
+    rest following = rule ("string-" <> show following) $ orP
       [ _Empty >? "\""
       , item (\case StrChar c | c `notElem` excluded -> Just c; _ -> Nothing)
           StrChar
