@@ -28,6 +28,8 @@ module Control.Lens.Grammar.Char.Redesign
   , charShowsPrec
   , charErrorShowsPrec
   , charReadsPrec
+  , charParsePrec
+  , charUnparsePrec
   , charParsecPrec
   , charUnparsecPrec
   , charGrammarPrec
@@ -330,8 +332,23 @@ charErrorShowsPrec d a =
     Nothing -> Left (TextualError (parsecFailure (charUnparsecPrec d a)))
 
 -- | `readsPrec`, by `Parsor`.
-charReadsPrec :: forall a. Textual a => Prec -> ReadS a
-charReadsPrec d = parseP (runPreced (grammarAt @a d) 0)
+charReadsPrec :: Textual a => Prec -> ReadS a
+charReadsPrec = charParsePrec
+
+{- | Parse, by `Parsor`, returning the rest of the input.
+Its input is a `String`, since `Parsor` has `IsString` instances
+for both @Parsor s m () ()@ & @Parsor s m s s@,
+which overlap for an unknown input type. -}
+charParsePrec
+  :: forall a m. (Textual a, Alternative m, Monad m, Filterable m)
+  => Prec -> String -> m (a, String)
+charParsePrec d = parseP (runPreced (grammarAt @a d) 0)
+
+-- | Print, by `Parsor`, after an input.
+charUnparsePrec
+  :: forall a m. (Textual a, Alternative m, Monad m, Filterable m)
+  => Prec -> a -> String -> m String
+charUnparsePrec d = unparseP (runPreced (grammarAt @a d) 0)
 
 -- | Parse predictively, by `Parsector`.
 charParsecPrec

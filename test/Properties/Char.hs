@@ -128,6 +128,8 @@ compatWith name same redundant = describe name $ do
     charShowsPrec 11 a "" === showsPrec 11 a ""
   prop "prints predictively as show does" $ \(a :: a) ->
     parsecStream (charUnparsecPrec @a @String 0 a) === show a
+  prop "prints by backtracking as show does" $ \(a :: a) ->
+    charUnparsePrec @a @Maybe 0 a "" === Just (show a)
   prop "parses predictively what show prints" $ \(a :: a) ->
     maybe False (same a) (parsed 0 (show a))
   prop "parses whitespace as read does" $ \(a :: a) ->
