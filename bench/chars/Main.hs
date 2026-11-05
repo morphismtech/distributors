@@ -2,7 +2,8 @@
 module Main (main) where
 
 import Control.DeepSeq (NFData)
-import Control.Lens.Grammar.Char
+import Control.Lens.Grammar (ParsecState (..))
+import Control.Lens.Grammar.Char.Redesign
 import Data.Map.Strict (Map)
 import Data.Map.Strict qualified as Map
 import GHC.Generics (Generic)
@@ -90,25 +91,37 @@ dataset label a = env agreed $ \str ->
   bgroup label
     [ bgroup "show"
       [ bench "Show show" (nf show a)
-      , bench "Textual charsShow" (nf charsShow a)
+      , bench "Textual charShowsPrec" (nf charShow a)
       ]
     , bgroup "read"
       [ bench "Read read" (nf (readAs a) str)
-      , bench "Textual charsRead" (nf (charsReadAs a) str)
+      , bench "Textual charParsecPrec" (nf (charsReadAs a) str)
+      , bench "Textual charReadsPrec" (nf (charReadsAs a) str)
       ]
     ]
   where
     agreed
-      | charsShow a /= show a = disagree "charsShow"
-      | charsRead (show a) /= Just a = disagree "charsRead"
+      | charShow a /= show a = disagree "charShowsPrec"
+      | charsReadAs a (show a) /= Just a = disagree "charParsecPrec"
+      | charReadsAs a (show a) /= Just a = disagree "charReadsPrec"
       | otherwise = pure (show a)
     disagree run = fail (label <> ": " <> run <> " disagrees with Show & Read")
 
 readAs :: Read a => a -> String -> Maybe a
 readAs _ = readMaybe
 
+charShow :: Textual a => a -> String
+charShow a = charShowsPrec 0 a ""
+
 charsReadAs :: Textual a => a -> String -> Maybe a
-charsReadAs _ = charsRead
+charsReadAs _ str = case charParsecPrec 0 str of
+  ParsecState {parsecStream = "", parsecResult = Just a} -> Just a
+  _ -> Nothing
+
+charReadsAs :: Textual a => a -> String -> Maybe a
+charReadsAs _ str = case [a | (a, "") <- charReadsPrec 0 str] of
+  a : _ -> Just a
+  [] -> Nothing
 
 main :: IO ()
 main = defaultMain
