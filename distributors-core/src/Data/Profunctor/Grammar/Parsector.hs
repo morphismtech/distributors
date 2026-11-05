@@ -188,6 +188,7 @@ instance
   ( Categorized token, Item s ~ token
   , Cons s s token token, Snoc s s token token
   ) => TokenAlgebra token (Parsector s token token) where
+    {-# SPECIALISE instance TokenAlgebra Char (Parsector String Char Char) #-}
     -- The test & failures are made once, rather than for each token.
     tokenClass test = matches `seq` Parsector (\callback query ->
       let
@@ -238,6 +239,7 @@ instance
   ( Categorized token, Item s ~ token
   , Cons s s token token, Snoc s s token token
   ) => TerminalSymbol token (Parsector s () ()) where
+    {-# SPECIALISE instance TerminalSymbol Char (Parsector String () ()) #-}
     {- | Like @only str ?< tokens str@, checking its tokens in one loop,
     failing without consuming at the first token, and committed after.
     -}
