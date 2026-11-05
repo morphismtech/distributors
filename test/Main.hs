@@ -24,6 +24,7 @@ import Examples.LenVec
 import Examples.RegString
 import Examples.SemVer
 import Examples.SExpr
+import Properties.Char
 import Properties.Json
 import Properties.Kleene
 
@@ -50,6 +51,7 @@ main = do
     describe "Parsector try rollback" tryRollbackTests
     describe "Kleene" kleeneProperties
     describe "meander" meanderProperties
+    textualSpec
     jsonTypeSpec
     aesonSpec
     jsonErrorSpec

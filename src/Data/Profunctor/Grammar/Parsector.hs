@@ -231,6 +231,12 @@ instance
   ( Categorized token, Item s ~ token
   , Cons s s token token, Snoc s s token token
   ) => TerminalSymbol token (Parsector s () ())
+instance
+  ( Item s ~ Char
+  , Cons s s Char Char, Snoc s s Char Char
+  , x ~ (), y ~ ()
+  ) => IsString (Parsector s x y) where
+  fromString = terminal
 instance Functor (Parsector s a) where
   fmap = rmap
 instance Categorized (Item s) => Applicative (Parsector s a) where

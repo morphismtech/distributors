@@ -309,6 +309,12 @@ instance Bifunctor (Grammor k) where bimap _ _ = coerce
 instance Choice (Grammor k) where
   left' = coerce
   right' = coerce
+instance Cochoice (Grammor k) where
+  unleft = coerce
+  unright = coerce
+instance (TerminalSymbol Char k, x ~ (), y ~ ())
+  => IsString (Grammor k x y) where
+    fromString = terminal
 instance Monoid k => Applicative (Grammor k a) where
   pure _ = Grammor mempty
   Grammor rex1 <*> Grammor rex2 = Grammor (rex1 <> rex2)
