@@ -10,7 +10,7 @@ import Control.Lens.Grammar
   ( LL1Conflict, ParsecState (..), RegBnf (..), RegString (..), conflictRule
   , liftBnf1, ll1Conflicts
   )
-import Control.Lens.Grammar.Char.Redesign
+import Control.Lens.Grammar.Char
 import Control.Applicative (ZipList)
 import Data.ByteString qualified as ByteString
 import Data.ByteString.Lazy qualified as LByteString

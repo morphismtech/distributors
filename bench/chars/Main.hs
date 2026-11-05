@@ -3,7 +3,7 @@ module Main (main) where
 
 import Control.DeepSeq (NFData)
 import Control.Lens.Grammar (ParsecState (..))
-import Control.Lens.Grammar.Char.Redesign
+import Control.Lens.Grammar.Char
 import Data.Map.Strict (Map)
 import Data.Map.Strict qualified as Map
 import GHC.Generics (Generic)

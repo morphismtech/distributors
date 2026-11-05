@@ -10,41 +10,53 @@ Stability   : provisional
 Portability : non-portable
 
 `Textual` types have @LL(1)@ grammars of Haskell's `Read` & `Show` syntax,
-which print as `show` does & parse what `read` does.
+which print as `show` does & parse what `read` does, written against an
+interface, `CharGrammatical`, separate from their interpreters, which run
+through `Parsector`, `Parsor`, `Printor` & `Grammor`, reading the
+precedence of their context.
 
-The one exception is redundant parentheses around a value which
-starts with a parenthesis itself, a tuple or an infix constructor,
-like @((1,2))@, which `read` accepts but no @LL(k)@ grammar can.
+The exception is redundant parentheses around a value whose own form
+starts with a parenthesis, like @((1,2))@, which `read` accepts.
+
+Textual grammars are written with lexemes, which end by consuming
+the whitespace after them, & check that what follows can't continue
+them, as @read@'s lexer would, so that @Just1@ isn't @Just 1@.
+Parentheses are written with `charGroup`, the generator of Dyck words,
+& sub-terms with `charAt`, which adds the parentheses that their context
+requires or allows, analysing the sub-term's grammar to keep it @LL(1)@.
 -}
 
 module Control.Lens.Grammar.Char
   ( -- * Textual
     Textual (..)
-  , charsShow
-  , charsShowsPrec
-  , charsRead
-  , charsReadPrec
-  , charsBnf
   , Textually (..)
-    -- * Grammars
-  , CharGrammar
-  , CharGrammatical
-  , Chars (..)
-  , Alt (..)
-  , Lead (..)
-  , charsAt
-  , charsWith
-  , allLeads
-  , leadsAt
+    -- * Runners
+  , charShowsPrec
+  , charErrorShowsPrec
+  , charReadsPrec
+  , charParsePrec
+  , charUnparsePrec
+  , charParsecPrec
+  , charUnparsecPrec
+  , charGrammarPrec
+  , TextualError (..)
+    -- * CharGrammatical
+  , CharGrammatical (..)
+  , Prec
+  , CharName (..)
+  , charPrec
+  , charTerm
+  , charOperandTerm
+  , charPunct
   ) where
 
+import Control.Applicative (ZipList (..))
 import Control.Lens hiding (Empty)
 import Control.Lens.Grammar
 import Control.Monad
 import Control.Monad.Trans.Class (lift)
 import Control.Monad.Trans.Reader (ReaderT, ask, local, runReaderT)
 import Control.Monad.Trans.State.Strict
-import Control.Applicative (ZipList (..))
 import Data.ByteString qualified as ByteString
 import Data.ByteString.Char8 qualified as Char8
 import Data.ByteString.Lazy qualified as LByteString
@@ -52,6 +64,8 @@ import Data.ByteString.Lazy.Char8 qualified as LChar8
 import Data.Char (chr, isAlpha, isDigit, ord)
 import Data.Complex (Complex)
 import Data.Fixed (Fixed, HasResolution)
+import Data.Foldable (toList)
+import Data.Function (on)
 import Data.Functor.Compose (Compose (..))
 import Data.Functor.Product qualified as Functor
 import Data.Functor.Sum qualified as Functor
@@ -60,17 +74,28 @@ import Data.HashMap.Strict qualified as HashMap
 import Data.HashSet (HashSet)
 import Data.HashSet qualified as HashSet
 import Data.Hashable (Hashable)
+import Data.Int (Int8, Int16, Int32, Int64)
 import Data.IntMap (IntMap)
 import Data.IntMap qualified as IntMap
 import Data.IntSet (IntSet)
 import Data.IntSet qualified as IntSet
+import Data.Kind (Constraint)
+import Data.List (groupBy, sortOn)
 import Data.List.NonEmpty (NonEmpty)
+import Data.Map.Strict (Map)
+import Data.Map.Strict qualified as Map
+import Data.Maybe hiding (mapMaybe)
 import Data.Monoid qualified as Monoid
 import Data.Ord (Down (..))
+import Data.Profunctor
 import Data.Proxy (Proxy)
+import Data.Ratio (Ratio, denominator, numerator, (%))
 import Data.Semigroup qualified as Semigroup
 import Data.Sequence (Seq)
 import Data.Sequence qualified as Seq
+import Data.Set (Set)
+import Data.Set qualified as Set
+import Data.String (IsString (..))
 import Data.Text qualified as Text
 import Data.Text.Lazy qualified as LText
 import Data.Text.Short qualified as ShortText
@@ -79,27 +104,14 @@ import Data.Tuple (Solo)
 import Data.Vector qualified as Vector
 import Data.Version (Version)
 import Data.Void (Void)
-import Foreign.C.Types
-import System.Exit (ExitCode)
-import System.IO (BufferMode (..), IOMode (..), SeekMode (..))
-import Data.Function (on)
-import Data.Int (Int8, Int16, Int32, Int64)
-import Data.List (groupBy, sortOn)
-import Data.Foldable (toList)
-import Data.Kind (Constraint)
-import Data.Map.Strict (Map)
-import Data.Map.Strict qualified as Map
-import Data.Maybe
-import Data.Ratio (Ratio, denominator, numerator, (%))
-import Data.Profunctor
-import Data.Set (Set)
-import Data.Set qualified as Set
-import Data.String (IsString (..))
 import Data.Word (Word8, Word16, Word32, Word64)
+import Foreign.C.Types
+import GHC.Exts (Item)
 import GHC.Generics qualified as GHC
 import Numeric.Natural (Natural)
-import Text.ParserCombinators.ReadP qualified as ReadP
-import Text.ParserCombinators.ReadPrec (ReadPrec, readP_to_Prec)
+import System.Exit (ExitCode)
+import System.IO (BufferMode (..), IOMode (..), SeekMode (..))
+import Text.ParserCombinators.ReadPrec (Prec, readS_to_Prec)
 import Text.Read (Read (..))
 import Type.Reflection (Typeable, typeRep)
 
@@ -111,217 +123,135 @@ class
   , forall x y. BackusNaurForm (p x y)
   , forall x y. (x ~ (), y ~ ()) => IsString (p x y)
   ) => CharGrammatical p where
-    precP :: Prec -> p a a -> p a a
+    charPrec :: Prec -> p a a -> p a a
 
-class Textual a where
-  charGrammar :: CharGrammatical p => p a a
+class Textual a where charGrammar :: CharGrammatical p => p a a
 
-charsErrorShowsPrec :: Textual a => Prec -> a -> Either TextualError ShowS
-charsReadsPrec :: Textual a => Prec -> ReadS a
-charsParsec :: (Textual a, ..) => string -> ParsecState string a
-charsUnparsec :: (Textual a, ) => a -> ParsecString string a
-charsGrammar
+charErrorShowsPrec :: Textual a => Prec -> a -> Either TextualError ShowS
+charReadsPrec :: Textual a => Prec -> ReadS a
+charParsecPrec :: (Textual a, ..) => Prec -> string -> ParsecState string a
+charUnparsecPrec :: (Textual a, ..) => Prec -> a -> ParsecString string a
+charGrammarPrec :: Prec -> forall a. (a :: Type) -> Textual a => RegBnf a
+charParsePrec :: (Textual a, ..) => Prec -> string -> m (a, string)
+charUnparsePrec :: (Textual a, ..) => Prec -> a -> string -> m string
+
+-- Interpreters should run through Parsector, Parsor, Printor & Grammor;
+-- to exercise these types in order to improve their performance.
+-- Instances should maintain the LL(1) invariant - unless that's incompatible with precision/parens...
 -}
 
--- Textual --
+-- CharGrammatical --
 
-{- | A grammar of Haskell syntax, of characters.
--}
-type CharGrammar a = forall p. CharGrammatical p => p a a
-
--- | The interpreters of a `CharGrammar`.
-type CharGrammatical p =
+-- | The base classes of a `CharGrammatical` interpreter.
+type CharSyntactic p =
   ( Lexical Char p
   , Alternator p
-  , Cochoice p
+  , Filtrator p
   , forall x y. BackusNaurForm (p x y)
   , forall x y. (x ~ (), y ~ ()) => IsString (p x y)
   ) :: Constraint
 
-{- | `Textual` types have grammars of Haskell's `Read` & `Show` syntax.
-
-The forms of a type at a precedence, `charsPrec`, are like `showsPrec`
-& `Text.Read.readPrec`: those which may appear unparenthesized
-in a context of that precedence.
-Redundant parentheses, & those required at a higher precedence,
-are added by `charsAt`.
+{- | The sorts of lexemes, which end differently: a word mayn't be followed
+by a character of a word, nor an operator by a character of an operator,
+since @read@'s lexer would continue them.
 -}
-class Typeable a => Textual a where
-  charsPrec :: Int -> Chars a
-  default charsPrec :: (GHC.Generic a, GTextual (GHC.Rep a)) => Int -> Chars a
-  charsPrec d = charsVia (iso GHC.from GHC.to) (Chars (gchars d))
-  {- | The forms of a list, like `showList` & `Text.Read.readListPrec`,
-  by default in brackets, @[a,b,c]@. -}
-  charsList :: Chars [a]
-  charsList = charsBrackets
-
--- | `show`, by a `Textual` grammar.
-charsShow :: Textual a => a -> String
-charsShow a = charsShowsPrec 0 a ""
-
--- | `showsPrec`, by a `Textual` grammar.
-charsShowsPrec :: forall a. Textual a => Int -> a -> ShowS
-charsShowsPrec d a = fromMaybe (error "charsShowsPrec: unprintable") $
-  printP (charsAt @a d allLeads) a
-
--- | `Text.Read.readMaybe`, by a `Textual` grammar, parsed predictively.
-charsRead :: forall a. Textual a => String -> Maybe a
-charsRead str =
-  case parsecP (spaces "" >* charsAt @a 0 allLeads *< spaces "") str of
-    ParsecState {parsecStream = "", parsecResult = Just a} -> Just a
-    _ -> Nothing
-
--- | `Text.Read.readPrec`, by a `Textual` grammar, parsed predictively.
-charsReadPrec :: forall a. Textual a => ReadPrec a
-charsReadPrec = readP_to_Prec $ \d -> do
-  str <- ReadP.look
-  let parsed = parsecP (spaces "" >* charsAt @a d allLeads) str
-  case parsecResult parsed of
-    Nothing -> ReadP.pfail
-    Just a -> a <$ replicateM_ (fromIntegral (parsecOffset parsed)) ReadP.get
-
--- | The `RegBnf` of a `Textual` type's grammar.
-charsBnf :: forall a -> Textual a => RegBnf
-charsBnf a = definingG (spaces "" >* charsAt @a 0 allLeads *< spaces "")
-
-{- | `Show` & `Read` instances, derived from a `Textual` instance.
-
-> data Point = Point {x :: Int, y :: Int}
->   deriving stock Generic
->   deriving anyclass Textual
->   deriving (Show, Read) via Textually Point
--}
-newtype Textually a = Textually a
-
-instance Textual a => Show (Textually a) where
-  showsPrec d (Textually a) = charsShowsPrec d a
-  showList as = charsShowsPrec 0 (map (\(Textually a) -> a) as)
-instance Textual a => Read (Textually a) where
-  readPrec = Textually <$> charsReadPrec
-  readListPrec = map Textually <$> charsReadPrec
-
--- Grammars --
-
--- | A `CharGrammar`, as a value.
-newtype CG a = CG (CharGrammar a)
-
-{- | The first character of a form, by which spacing is decided,
-since @read@'s lexer would merge a word with a following word,
-or a symbol with a following symbol.
--}
-data Lead
-  = Word -- ^ a letter, digit or underscore
-  | Symbol -- ^ an operator character, like @-@ or @:@
-  | Paren -- ^ an opening parenthesis
-  | Punct -- ^ any other punctuation, like @[@ or @"@
+data Lexeme = Word | Operator
   deriving stock (Eq, Ord, Show, Read, Enum, Bounded)
 
--- | A form of a type's syntax.
-data Alt a
-  = Named String (a -> Bool) (CG a)
-  {- ^ a constructor name, followed by a grammar, of values passing a test;
-  named forms are factored by their names' characters,
-  so that they're @LL(1)@ even when one name prefixes another -}
-  | Plain (Set Lead) (Set Lead -> CG a)
-  {- ^ a grammar, starting with characters of some `Lead`s,
-  restricted to some of them -}
-  | Parsed (Alt a)
-  -- ^ a form which parses, but doesn't print
-
--- | A form starting with a character of a `Lead`.
-plain :: Lead -> CharGrammar a -> Alt a
-plain lead g = Plain (Set.singleton lead) (const (CG g))
-
--- | The forms of a type's syntax.
-newtype Chars a = Chars [Alt a]
-  deriving newtype (Semigroup, Monoid)
-
--- | Every `Lead`.
-allLeads :: Set Lead
-allLeads = Set.fromList [minBound .. maxBound]
-
--- | The `Lead`s of some forms.
-leadsOf :: Chars a -> Set Lead
-leadsOf (Chars alts) = Set.unions (map leadOf alts)
-  where
-    leadOf = \case
-      Named {} -> Set.singleton Word
-      Plain leads _ -> leads
-      Parsed alt -> leadOf alt
-
-{- | Whether some values of a `Textual` type are parenthesized
-at a precedence, since fewer of its forms print there than at 0.
+{- | A constructor's name, with the precedences at which its form
+is shown & read, the values it shows, & its form after its name.
 -}
-parenthesizedAt :: forall a. Textual a => Int -> Bool
-parenthesizedAt d = printed (charsPrec @a d) < printed (charsPrec @a 0)
-  where
-    printed (Chars alts) = length [() | alt <- alts, notParsed alt]
-    notParsed = \case Parsed _ -> False; _ -> True
+data CharName p a = CharName
+  { charName :: String
+  , charShown :: Prec
+  , charRead :: Prec
+  , charShows :: a -> Bool
+  , charForm :: p a a
+  }
 
-{- | The `Lead`s of a `Textual` type's operand at a precedence,
-parenthesized only if some of its values must be, since a redundant
-parenthesis would conflict with the parentheses of other operands.
+{- | `CharGrammatical` interpreters of Haskell's `Read` & `Show` syntax.
+
+Forms have precedences, like `Text.Read.prec` & `showParen`,
+& sub-terms have the precedences of their contexts,
+like `Text.Read.step` & `Text.Read.reset`.
+
+prop> charPrec n = charPrecs n n
 -}
-operandLeads :: forall a. Textual a => Int -> Set Lead
-operandLeads d = leadsOf (charsPrec @a d)
-  <> Set.fromList [Paren | parenthesizedAt @a d]
+class CharSyntactic p => CharGrammatical p where
 
--- | The `Lead`s of a `Textual` type's grammar at a precedence.
-leadsAt :: forall a. Textual a => Int -> Set Lead
-leadsAt d = Set.insert Paren (leadsOf (charsPrec @a d))
+  {- | A form, shown in contexts of precedence up to its first,
+  & read in contexts of precedence up to its second, so that @-1@ is
+  shown as @(-1)@ as an argument, but is read either way. -}
+  charPrecs :: Prec {- ^ shown -} -> Prec {- ^ read -} -> p a a -> p a a
 
--- | Forms through a prism, or an isomorphism.
-charsVia :: APrism' s a -> Chars a -> Chars s
-charsVia pat (Chars alts) = Chars (map (altVia pat) alts)
+  {- | A sub-term in a context of a precedence, parenthesized when its form
+  requires it, & optionally otherwise, unless that would be ambiguous,
+  because one of its forms starts with a parenthesis itself.
+  Its grammar is polymorphic, so that it can be analysed,
+  & its rule is named by its type.
+  -}
+  charAt
+    :: Typeable a
+    => Prec -> (forall q. CharGrammatical q => q a a) -> p a a
 
--- | A form through a prism, or an isomorphism.
-altVia :: APrism' s a -> Alt a -> Alt s
-altVia pat = withPrism pat $ \_ match -> \case
-  Named name test (CG g) ->
-    Named name (either (const False) test . match) (CG (pat >? g))
-  Plain leads k -> Plain leads (\ls -> case k ls of CG g -> CG (pat >? g))
-  Parsed alt -> Parsed (altVia pat alt)
+  {- | A sub-term leading a form, like the left operand of an infix
+  constructor, parenthesized only when its form requires it, since an
+  optional parenthesis would be ambiguous with those of other forms.
+  -}
+  charOperand
+    :: Typeable a
+    => Prec -> (forall q. CharGrammatical q => q a a) -> p a a
 
-{- | A `Textual` type's grammar at a precedence, of its forms which start
-with some `Lead`s, with parentheses around any of its forms,
-unless one of its own forms starts with a parenthesis.
--}
-charsAt :: forall a. Textual a => Int -> Set Lead -> CharGrammar a
-charsAt d leads = rule name $ charsWith leads forms >|< wrapped
-  where
-    forms = charsPrec @a d
-    wrapped
-      | Paren `Set.notMember` leads || Paren `Set.member` leadsOf forms = falseP
-      | otherwise =
-          "(" >* spaces "" >* charsAt @a 0 allLeads *< spaces "" *< ")"
-    name = show (typeRep @a)
-      <> (if d == 0 then "" else "@" <> show d)
-      <> concat ['-' : show lead | lead <- Set.toList (allLeads Set.\\ leads)]
+  {- | Parentheses around a grammar, the generator of Dyck words,
+  which distributes over alternatives,
 
--- | The forms which start with some `Lead`s, as a grammar.
-charsWith :: Set Lead -> Chars a -> CharGrammar a
-charsWith leads (Chars alts) = orP $
-  [ trie [(name, test, g) | (name, test, CG g) <- named]
-  | Word `Set.member` leads, not (null named) ]
-  <> [ g
-     | Plain ls k <- unparsed
-     , let common = Set.intersection ls leads
-     , not (Set.null common)
-     , CG g <- [k common] ]
-  where
-    unparsed = map unparse alts
-    named = [(name, test, g) | Named name test g <- unparsed]
-    unparse = \case
-      Parsed alt -> case unparse alt of
-        Named name _ g -> Named name (const False) g
-        Plain ls k -> Plain ls (\l -> case k l of CG g -> CG (parseOnly g))
-        Parsed alt' -> alt'
-      alt -> alt
+  prop> charGroup (p >+< q) = charGroup p >+< charGroup q
+  -}
+  charGroup :: p a a -> p a a
+  charGroup p = charPunct "(" >* p *< charPunct ")"
+
+  {- | A word, like a constructor's name, which mayn't be followed by
+  a character of a word, & then any whitespace. -}
+  charWord :: String -> p () ()
+
+  {- | An operator, like an infix constructor's name, which mayn't be
+  followed by a character of an operator, & then any whitespace. -}
+  charOperator :: String -> p () ()
+
+  -- | A lexeme, like a literal or punctuation, & then any whitespace.
+  charLexeme :: p a a -> p a a
+
+  -- | A space, as `show` prints one, which isn't parsed.
+  charSpace :: p () ()
+
+  {- | Constructors by name, factored by their names' characters,
+  so that they're @LL(1)@ when one name prefixes another. -}
+  charNamed :: [CharName p a] -> p a a
+  charNamed names = trie
+    [ (charName n, charShows n, charWord "" >* charPrecs s r (charForm n))
+    | n@CharName {charShown = s, charRead = r} <- names ]
+
+-- | A `Textual` type's grammar as a sub-term, `charAt` a precedence.
+charTerm :: forall a p. (Textual a, CharGrammatical p) => Prec -> p a a
+charTerm d = charAt d (charGrammar @a)
+
+-- | A `Textual` type's grammar as a leading sub-term, `charOperand`.
+charOperandTerm
+  :: forall a p. (Textual a, CharGrammatical p) => Prec -> p a a
+charOperandTerm d = charOperand d (charGrammar @a)
+
+-- | A form shown & read at a precedence.
+charPrec :: CharGrammatical p => Prec -> p a a -> p a a
+charPrec n = charPrecs n n
+
+-- | Punctuation, like a comma or a bracket.
+charPunct :: CharGrammatical p => String -> p () ()
+charPunct str = charLexeme (terminal str)
 
 {- | Factor named forms by their names' characters,
 each branch printing the values of its names.
 -}
-trie :: CharGrammatical p => [(String, a -> Bool, p a a)] -> p a a
+trie :: CharSyntactic p => [(String, a -> Bool, p a a)] -> p a a
 trie entries = orP (branches <> leaves)
   where
     branches =
@@ -347,43 +277,393 @@ parseOnly :: Choice p => p a a -> p a a
 parseOnly = guarded (const False)
 
 -- | A whitespace character, as @read@'s lexer has them.
-spaceG :: CharGrammar Char
+spaceG :: CharSyntactic p => p Char Char
 spaceG = tokenClass (oneOf ("\t\n\v\f\r" :: String) >|< asIn Space)
 
--- | Optional whitespace, printed as given.
-spaces :: String -> CharGrammar ()
-spaces printed = dimap (const printed) (const ()) (manyP spaceG)
+-- | Whitespace, which isn't printed.
+spaces :: CharSyntactic p => p () ()
+spaces = dimap (const "") (const ()) (manyP spaceG)
 
--- | Required whitespace, printed as given.
-spaces1 :: String -> CharGrammar ()
-spaces1 printed = dimap (const printed) (const ()) (someP spaceG)
+-- | The characters which continue a lexeme of a sort.
+continuing :: Lexeme -> TokenClass Char
+continuing = \case
+  Word -> oneOf ("_'" :: String) >|< anyP asIn
+    [ UppercaseLetter, LowercaseLetter, TitlecaseLetter, ModifierLetter
+    , OtherLetter, DecimalNumber ]
+  Operator -> oneOf ("!#$%&*+./<=>?@\\^|-~:" :: String) >|< anyP asIn
+    [MathSymbol, CurrencySymbol, ModifierSymbol, OtherSymbol]
 
-{- | A grammar after a token of a `Lead`, separated by whitespace,
-printed as given, which is required where @read@'s lexer would otherwise
-merge the tokens.
+-- Textual --
+
+{- | `Textual` types have grammars of Haskell's `Read` & `Show` syntax.
+
+> data Point = Point {x :: Int, y :: Int}
+>   deriving stock Generic
+>   deriving anyclass Textual
+>   deriving (Show, Read) via Textually Point
 -}
-after :: Lead -> String -> (Set Lead -> CharGrammar a) -> CharGrammar a
-after lead printed g = case lead of
-  Word -> spaces1 printed >* g allLeads >|< g (Set.delete Word allLeads)
-  Symbol -> spaces1 printed >* g allLeads >|< g (Set.delete Symbol allLeads)
-  _ -> spaces printed >* g allLeads
+class Typeable a => Textual a where
+  charGrammar :: CharGrammatical p => p a a
+  default charGrammar
+    :: (GHC.Generic a, GTextual (GHC.Rep a), CharGrammatical p) => p a a
+  charGrammar = iso GHC.from GHC.to >~ charForms gforms
+  {- | The grammar of a list, like `showList` & `Text.Read.readListPrec`,
+  by default in brackets, @[a,b,c]@. -}
+  charListGrammar :: CharGrammatical p => p [a] [a]
+  charListGrammar = charBrackets
+
+-- | Named & other forms.
+charForms :: CharGrammatical p => [Either (CharName p a) (p a a)] -> p a a
+charForms forms = orP $
+  [charNamed names | not (null names)] <> [g | Right g <- forms]
+  where
+    names = [n | Left n <- forms]
 
 -- | A list in brackets, @[a,b,c]@.
-charsBrackets :: forall a. Textual a => Chars [a]
-charsBrackets = Chars [plain Punct list]
+charBrackets :: forall a p. (Textual a, CharGrammatical p) => p [a] [a]
+charBrackets = charPunct "[" >*
+  ( _Empty >? charPunct "]"
+  >|< _Cons >? charTerm @a 0
+    >*< manyP (charPunct "," >* charTerm @a 0)
+    *< charPunct "]"
+  )
+
+-- | An error printing a value, at a rule.
+newtype TextualError = TextualError (ParsecFailure String)
+  deriving stock (Eq, Show)
+
+-- | A `Textual` type's grammar at a precedence, after leading whitespace.
+grammarAt :: forall a p. (Textual a, CharGrammatical p) => Prec -> p a a
+grammarAt d = spaces >* charTerm @a d
+
+-- | `showsPrec`, by `Printor`.
+charShowsPrec :: Textual a => Prec -> a -> ShowS
+charShowsPrec d a = either (error . show) id (charErrorShowsPrec d a)
+
+{- | `showsPrec`, by `Printor`, or the failure to print, by `Parsector`,
+which only a lawless grammar fails to do. -}
+charErrorShowsPrec
+  :: forall a. Textual a => Prec -> a -> Either TextualError ShowS
+charErrorShowsPrec d a =
+  case printP (runPreced (grammarAt @a d) 0) a of
+    Just printed -> Right printed
+    Nothing -> Left (TextualError (parsecFailure (charUnparsecPrec d a)))
+
+-- | `readsPrec`, by `Parsor`.
+charReadsPrec :: Textual a => Prec -> ReadS a
+charReadsPrec = charParsePrec
+
+{- | Parse, by `Parsor`, returning the rest of the input.
+Its input is a `String`, since `Parsor` has `IsString` instances
+for both @Parsor s m () ()@ & @Parsor s m s s@,
+which overlap for an unknown input type. -}
+charParsePrec
+  :: forall a m. (Textual a, Alternative m, Monad m, Filterable m)
+  => Prec -> String -> m (a, String)
+charParsePrec d = parseP (runPreced (grammarAt @a d) 0)
+
+-- | Print, by `Parsor`, after an input.
+charUnparsePrec
+  :: forall a m. (Textual a, Alternative m, Monad m, Filterable m)
+  => Prec -> a -> String -> m String
+charUnparsePrec d = unparseP (runPreced (grammarAt @a d) 0)
+
+-- | Parse predictively, by `Parsector`.
+charParsecPrec
+  :: forall a string. (Textual a, Cons string string Char Char)
+  => (Snoc string string Char Char, Item string ~ Char)
+  => Prec -> string -> ParsecState string a
+charParsecPrec d = parsecP (runPreced (grammarAt @a d) 0)
+
+-- | Print predictively, by `Parsector`.
+charUnparsecPrec
+  :: forall a string. (Textual a, Cons string string Char Char)
+  => (Snoc string string Char Char, Item string ~ Char, AsEmpty string)
+  => Prec -> a -> ParsecState string a
+charUnparsecPrec d a = unparsecP (runPreced (grammarAt @a d) 0) a Empty
+
+-- | The `RegBnf` of a `Textual` type's grammar at a precedence, by `Grammor`.
+charGrammarPrec :: Prec -> forall a -> Textual a => RegBnf
+charGrammarPrec d a = definingG (runPreced (grammarAt @a d) 0)
+
+{- | `Show` & `Read` instances, derived from a `Textual` instance.
+
+> data Point = Point {x :: Int, y :: Int}
+>   deriving stock Generic
+>   deriving anyclass Textual
+>   deriving (Show, Read) via Textually Point
+-}
+newtype Textually a = Textually a
+
+instance Textual a => Show (Textually a) where
+  showsPrec d (Textually a) = charShowsPrec d a
+  showList as = charShowsPrec 0 (map (\(Textually a) -> a) as)
+instance Textual a => Read (Textually a) where
+  readPrec = readS_to_Prec (\d -> map (first' Textually) . charReadsPrec d)
+  readListPrec = readS_to_Prec $ \d ->
+    map (first' (map Textually)) . charReadsPrec d
+
+-- Interpreters --
+
+{- | An interpreter of a `CharGrammatical` grammar, reading the precedence
+of its context, through a base interpreter, like `Parsector`.
+-}
+newtype Preced q a b = Preced {runPreced :: Prec -> q a b}
+
+{- | Base interpreters which can end a lexeme, checking the next character
+without consuming it, then skipping whitespace, & print what they don't parse.
+-}
+class CharPeek q where
+  {- | Fail, without consuming, if the next character is of a class,
+  & otherwise skip whitespace, which isn't printed. -}
+  endLexeme :: TokenClass Char -> q () ()
+  -- | Print a string, but parse nothing.
+  printOnly :: String -> q () ()
+
+-- | A whitespace character, as @read@'s lexer has them.
+spaceClass :: TokenClass Char
+spaceClass = oneOf ("\t\n\v\f\r" :: String) >|< asIn Space
+
+instance
+  ( Item s ~ Char, Cons s s Char Char, Snoc s s Char Char
+  ) => CharPeek (Parsector s) where
+    endLexeme cls = Parsector $ \callback query -> callback $
+      case parsecResult query of
+        Just () -> query
+        Nothing -> case uncons (parsecStream query) of
+          Just (c, _) | continues c -> query
+            { parsecFailure = ParsecFailure (notP cls) []
+            , parsecResult = Nothing
+            }
+          _ -> skip query (parsecStream query)
+      where
+        continues = tokenClass cls
+        isSpace = tokenClass spaceClass
+        skip query str = case uncons str of
+          Just (c, rest) | isSpace c -> skip query
+            { parsecLooked = True
+            , parsecFailure = mempty
+            , parsecStream = rest
+            , parsecOffset = parsecOffset query + 1
+            } rest
+          _ -> query {parsecResult = Just ()}
+    printOnly str = Parsector $ \callback query -> callback $
+      case parsecResult query of
+        Nothing -> query {parsecResult = Just ()}
+        Just () -> query
+          { parsecStream = foldl' snoc (parsecStream query) str
+          , parsecOffset = parsecOffset query + fromIntegral (length str)
+          }
+instance
+  ( Item s ~ Char, Cons s s Char Char, Snoc s s Char Char, Alternative m
+  ) => CharPeek (Parsor s m) where
+    endLexeme cls = Parsor $ \mode str -> case mode of
+      Nothing -> case uncons str of
+        Just (c, _) | tokenClass cls c -> empty
+        _ -> pure ((), skip str)
+      Just () -> pure ((), str)
+      where
+        isSpace = tokenClass spaceClass
+        skip str = case uncons str of
+          Just (c, rest) | isSpace c -> skip rest
+          _ -> str
+    printOnly printed = Parsor $ \mode str -> case mode of
+      Nothing -> pure ((), str)
+      Just () -> pure ((), foldl' snoc str printed)
+instance (Item s ~ Char, Cons s s Char Char, Applicative m)
+  => CharPeek (Printor s m) where
+    endLexeme _ = Printor (\_ -> pure ((), id))
+    printOnly printed =
+      Printor (\_ -> pure ((), \str -> foldr cons str printed))
+instance (KleeneStarAlgebra k, TokenAlgebra Char k) => CharPeek (Grammor k) where
+  endLexeme _ = Grammor (starK (tokenClass spaceClass))
+  printOnly _ = Grammor mempty
+
+instance Profunctor q => Profunctor (Preced q) where
+  dimap f g (Preced p) = Preced (dimap f g . p)
+instance Functor (q a) => Functor (Preced q a) where
+  fmap f (Preced p) = Preced (fmap f . p)
+instance Applicative (q a) => Applicative (Preced q a) where
+  pure b = Preced (const (pure b))
+  liftA2 f (Preced p) (Preced q) = Preced (\d -> liftA2 f (p d) (q d))
+instance Alternative (q a) => Alternative (Preced q a) where
+  empty = Preced (const empty)
+  Preced p <|> Preced q = Preced (\d -> p d <|> q d)
+  many (Preced p) = Preced (many . p)
+  some (Preced p) = Preced (some . p)
+instance Choice q => Choice (Preced q) where
+  left' (Preced p) = Preced (left' . p)
+  right' (Preced p) = Preced (right' . p)
+instance Cochoice q => Cochoice (Preced q) where
+  unleft (Preced p) = Preced (unleft . p)
+  unright (Preced p) = Preced (unright . p)
+instance Filterable (q a) => Filterable (Preced q a) where
+  mapMaybe f (Preced p) = Preced (mapMaybe f . p)
+instance Filtrator q => Filtrator (Preced q) where
+  filtrate (Preced p) =
+    (Preced (fst . filtrate . p), Preced (snd . filtrate . p))
+instance DisjunctiveMonoid (q a b) => DisjunctiveMonoid (Preced q a b) where
+  falseP = Preced (const falseP)
+  Preced p >|< Preced q = Preced (\d -> p d >|< q d)
+instance CocartesianMonoidal q => CocartesianMonoidal (Preced q) where
+  zeroP = Preced (const zeroP)
+  Preced p >+< Preced q = Preced (\d -> p d >+< q d)
+instance CocartesianChoice q => CocartesianChoice (Preced q) where
+  alternate = \case
+    Left (Preced p) -> Preced (alternate . Left . p)
+    Right (Preced p) -> Preced (alternate . Right . p)
+instance Distributor q => Distributor (Preced q) where
+  manyP (Preced p) = Preced (manyP . p)
+  optionalP (Preced p) = Preced (optionalP . p)
+instance Alternator q => Alternator (Preced q) where
+  someP (Preced p) = Preced (someP . p)
+  optionP def (Preced p) = Preced (optionP def . p)
+instance Tokenized Char (q a b) => Tokenized Char (Preced q a b) where
+  anyToken = Preced (const anyToken)
+  token c = Preced (const (token c))
+  oneOf cs = Preced (const (oneOf cs))
+  notOneOf cs = Preced (const (notOneOf cs))
+  asIn cat = Preced (const (asIn cat))
+  notAsIn cat = Preced (const (notAsIn cat))
+instance TokenAlgebra Char (q a b) => TokenAlgebra Char (Preced q a b) where
+  tokenClass cls = Preced (const (tokenClass cls))
+instance TerminalSymbol Char (q a b) => TerminalSymbol Char (Preced q a b) where
+  terminal str = Preced (const (terminal str))
+instance (x ~ (), y ~ (), IsString (q () ())) => IsString (Preced q x y) where
+  fromString str = Preced (const (fromString str))
+-- | Rules are named by the precedence of their contexts.
+instance BackusNaurForm (q a b) => BackusNaurForm (Preced q a b) where
+  rule name (Preced p) = Preced (\d -> rule (precName name d) (p d))
+  ruleRec name f = Preced $ \d ->
+    ruleRec (precName name d) (\q -> runPreced (f (Preced (const q))) d)
+
+-- | A rule's name in a context of a precedence.
+precName :: String -> Prec -> String
+precName name d = if d == 0 then name else name <> "@" <> show d
+
+instance (CharSyntactic q, CharPeek q) => CharGrammatical (Preced q) where
+  charPrecs shown readAt (Preced p) = Preced $ \d ->
+    if d <= shown then p d else if d <= readAt then parseOnly (p d) else falseP
+  charAt d g = Preced $ \_ -> subterm False d g
+  charOperand d g = Preced $ \_ -> subterm True d g
+  charWord name = Preced $ \_ -> terminal name >* endLexeme (continuing Word)
+  charOperator name =
+    Preced $ \_ -> terminal name >* endLexeme (continuing Operator)
+  charLexeme (Preced p) = Preced $ \d -> p d *< endLexeme falseP
+  charSpace = Preced (const (printOnly " "))
+  charNamed names = Preced $ \d -> trie
+    [ (charName n, if d <= s then charShows n else const False, end >* form d)
+    | n@CharName {charShown = s, charRead = r} <- names, d <= r
+    , let Preced form = charForm n ]
+    where
+      end = endLexeme (continuing Word)
+
+{- | A sub-term at a precedence, through a base interpreter, with the
+parentheses its context requires or allows, decided by its `Shape`.
+-}
+subterm
+  :: forall a q. (Typeable a, CharSyntactic q, CharPeek q)
+  => Bool -> Prec -> (forall p. CharGrammatical p => p a a) -> q a a
+subterm operand d g =
+  rule (precName (show (typeRep @a)) d) $ runPreced g d >|< wrapper
   where
-    list :: CharGrammar [a]
-    list = "[" >* spaces "" >*
-      ( _Empty >? "]"
-      >|< _Cons >? listItem >*< manyP ("," >* spaces "" >* listItem) *< "]"
-      )
-    listItem :: CharGrammar a
-    listItem = charsAt @a 0 allLeads *< spaces ""
+    wrapper
+      | parenthesized operand d (shapeOf @a g) =
+          runPreced (charGroup (charAt @_ @a 0 g)) 0
+      | otherwise = falseP
+
+-- Shapes --
+
+{- | The shape of a form: the precedences it's shown & read at,
+& whether it starts with a parenthesis. -}
+data FormShape = FormShape Prec Prec Bool
+
+{- | The shape of a grammar's forms, or `Nothing` if it's transparent,
+like whitespace, so that a sequence has the shape of its first opaque part,
+with the names of the rules being analysed, to stop at recursion.
+-}
+newtype Shape = Shape (Set String -> Maybe [FormShape])
+
+-- | The shapes of a grammar's forms.
+shapeOf
+  :: forall a. Typeable a
+  => (forall p. CharGrammatical p => p a a) -> [FormShape]
+shapeOf g = case g @(Grammor Shape) of
+  Grammor (Shape shape) -> fromMaybe [] (shape (Set.singleton name))
+  where
+    name = show (typeRep @a)
+
+{- | Whether a sub-term is offered parentheses at a precedence:
+when some form requires them, or, unless it's an operand, when no form
+read at that precedence starts with a parenthesis.
+-}
+parenthesized :: Bool -> Prec -> [FormShape] -> Bool
+parenthesized operand d forms = required || not (operand || ambiguous)
+  where
+    required = or [shown < d | FormShape shown _ _ <- forms]
+    ambiguous = or [grouped | FormShape _ readAt grouped <- forms, d <= readAt]
+
+-- | An atomic form.
+atom :: Bool -> Maybe [FormShape]
+atom grouped = Just [FormShape 11 11 grouped]
+
+instance Semigroup Shape where
+  Shape x <> Shape y = Shape (\names -> maybe (y names) Just (x names))
+instance Monoid Shape where
+  mempty = Shape (const Nothing)
+instance DisjunctiveMonoid Shape where
+  falseP = Shape (const (Just []))
+  Shape x >|< Shape y = Shape $ \names -> case (x names, y names) of
+    (Nothing, b) -> b
+    (a, Nothing) -> a
+    (Just a, Just b) -> Just (a <> b)
+instance KleeneStarAlgebra Shape where
+  starK = id
+  plusK = id
+  optK = id
+instance Tokenized Char Shape where
+  anyToken = Shape (const (atom True))
+  token c = Shape (const (atom (c == '(')))
+  oneOf cs = Shape (const (atom ('(' `elem` cs)))
+  notOneOf cs = Shape (const (atom ('(' `notElem` cs)))
+  asIn _ = Shape (const (atom False))
+  notAsIn _ = Shape (const (atom True))
+instance TokenAlgebra Char Shape where
+  tokenClass cls = Shape (const (atom (tokenClass cls '(')))
+instance TerminalSymbol Char Shape where
+  terminal = \case
+    [] -> mempty
+    c : _ -> Shape (const (atom (c == '(')))
+instance BackusNaurForm Shape where
+  rule name (Shape x) = Shape $ \names ->
+    if Set.member name names then atom False else x (Set.insert name names)
+  ruleRec name f = rule name (f (Shape (const (atom False))))
+instance CharGrammatical (Grammor Shape) where
+  charPrecs shown readAt (Grammor (Shape x)) = Grammor $ Shape $
+    fmap (map (\(FormShape _ _ grouped) -> FormShape shown readAt grouped)) . x
+  charAt d g = Grammor (Shape (const (atom (shapedAt False d g))))
+  charOperand d g = Grammor (Shape (const (atom (shapedAt True d g))))
+  charGroup _ = Grammor (Shape (const (atom True)))
+  charWord _ = Grammor (Shape (const (atom False)))
+  charOperator _ = Grammor (Shape (const (atom False)))
+  charLexeme = id
+  charSpace = Grammor mempty
+  charNamed names = Grammor $ Shape $ const $ Just
+    [FormShape s r False | CharName {charShown = s, charRead = r} <- names]
+
+-- | Whether a sub-term at a precedence may start with a parenthesis.
+shapedAt
+  :: forall a. Typeable a
+  => Bool -> Prec -> (forall p. CharGrammatical p => p a a) -> Bool
+shapedAt operand d g = parenthesized operand d forms
+  || or [grouped | FormShape _ readAt grouped <- forms, d <= readAt]
+  where
+    forms = shapeOf @a g
 
 -- Generating Bnfs --
 
 {- | Defining rules once by name, so that rules which recur through
-`Textual` instances, rather than `ruleRec`, are defined finitely.
+`Textual` instances are defined finitely.
 -}
 newtype Defining = Defining
   (ReaderT (Set String) (State (Map String RegString)) RegString)
@@ -429,43 +709,44 @@ instance BackusNaurForm Defining where
 -- Generics --
 
 class GTextual f where
-  gchars :: Int -> [Alt (f x)]
+  gforms :: CharGrammatical p => [Either (CharName p (f x)) (p (f x) (f x))]
 instance GTextual GHC.V1 where
-  gchars _ = []
+  gforms = []
 instance GTextual f => GTextual (GHC.D1 c f) where
-  gchars d = map (altVia m1) (gchars d)
+  gforms = map (formVia m1) gforms
 instance (GTextual f, GTextual g) => GTextual (f GHC.:+: g) where
-  gchars d = map (altVia l1) (gchars @f d) <> map (altVia r1) (gchars @g d)
+  gforms = map (formVia l1) (gforms @f) <> map (formVia r1) (gforms @g)
     where
       l1 = prism' GHC.L1 (\case GHC.L1 a -> Just a; _ -> Nothing)
       r1 = prism' GHC.R1 (\case GHC.R1 a -> Just a; _ -> Nothing)
 instance (GHC.Constructor c, GArgs f, GFields f, GInfix f)
   => GTextual (GHC.C1 c f) where
-    gchars d = map (altVia m1) forms
+    gforms = map (formVia m1) forms
       where
-        name = GHC.conName (GHC.M1 GHC.U1 :: GHC.C1 c GHC.U1 ())
-        operator = isOperator name
-        forms = case GHC.conFixity (GHC.M1 GHC.U1 :: GHC.C1 c GHC.U1 ()) of
-          GHC.Infix _ fixity
-            | d <= fixity -> ginfix @f fixity name
-            | otherwise -> []
+        meta = GHC.M1 GHC.U1 :: GHC.C1 c GHC.U1 ()
+        name = GHC.conName meta
+        forms = case GHC.conFixity meta of
+          GHC.Infix _ fixity -> [Right (ginfix @f fixity name)]
           GHC.Prefix
-            | GHC.conIsRecord (GHC.M1 GHC.U1 :: GHC.C1 c GHC.U1 ()) ->
-                [ (if d <= 10 then id else Parsed) $ named $
-                    spaces " " >* "{" >* spaces "" >* gfields @f
-                    *< spaces "" *< "}"
-                | d <= 11 ]
-            | gnullary @f -> [named (gargs @f Word)]
-            | d <= 10 -> [named (gargs @f Word)]
-            | otherwise -> []
-        named :: CharGrammar (f x) -> Alt (f x)
-        named g
-          | operator = plain Paren $ parenthesized name >* g
-          | otherwise = Named name (const True) (CG g)
+            | GHC.conIsRecord meta -> [named 10 11 (charSpace >* gfields @f)]
+            | gnullary @f -> [named 11 11 (gargs @f)]
+            | otherwise -> [named 10 10 (gargs @f)]
+        named shown readAt g
+          | isOperator name = Right $ charPrecs shown readAt $
+              charGroup (charOperator name) >* g
+          | otherwise = Left (CharName name shown readAt (const True) g)
 
--- | An operator's name in parentheses, @(:+)@.
-parenthesized :: String -> CharGrammar ()
-parenthesized name = "(" >* spaces "" >* terminal name *< spaces "" *< ")"
+-- | A form through a prism, or an isomorphism.
+formVia
+  :: Choice p
+  => APrism' s a -> Either (CharName p a) (p a a)
+  -> Either (CharName p s) (p s s)
+formVia pat = withPrism pat $ \_ match -> \case
+  Left n -> Left n
+    { charShows = either (const False) (charShows n) . match
+    , charForm = pat >? charForm n
+    }
+  Right g -> Right (pat >? g)
 
 m1 :: Iso' (GHC.M1 i c f x) (f x)
 m1 = iso GHC.unM1 GHC.M1
@@ -475,63 +756,73 @@ isOperator = \case
   c : _ -> not (isAlpha c || c == '_')
   [] -> False
 
--- | The arguments of a prefix constructor, after a token of a `Lead`.
+-- | The arguments of a prefix constructor.
 class GArgs f where
-  gargs :: Lead -> CharGrammar (f x)
+  gargs :: CharGrammatical p => p (f x) (f x)
   gnullary :: Bool
   gnullary = False
 instance GArgs GHC.U1 where
-  gargs _ = dimap (const ()) (const GHC.U1) oneP
+  gargs = dimap (const ()) (const GHC.U1) oneP
   gnullary = True
 instance Textual a => GArgs (GHC.S1 s (GHC.K1 i a)) where
-  gargs lead = iso (GHC.unK1 . GHC.unM1) (GHC.M1 . GHC.K1)
-    >~ after lead " " (charsAt @a 11)
+  gargs = iso (GHC.unK1 . GHC.unM1) (GHC.M1 . GHC.K1)
+    >~ charSpace >* charTerm @a 11
 instance (GArgs f, GArgs g) => GArgs (f GHC.:*: g) where
-  gargs lead = iso (\(a GHC.:*: b) -> (a, b)) (uncurry (GHC.:*:))
-    >~ gargs @f lead >*< gargs @g Word
+  gargs = iso (\(a GHC.:*: b) -> (a, b)) (uncurry (GHC.:*:))
+    >~ gargs @f >*< gargs @g
 
 -- | The fields of a record constructor.
 class GFields f where
-  gfields :: CharGrammar (f x)
+  gfields :: CharGrammatical p => p (f x) (f x)
 instance GFields GHC.U1 where
-  gfields = dimap (const ()) (const GHC.U1) oneP
+  gfields = charPunct "{" >* dimap (const ()) (const GHC.U1) oneP
+    *< charPunct "}"
 instance (GHC.Selector s, Textual a) => GFields (GHC.S1 s (GHC.K1 i a)) where
-  gfields = iso (GHC.unK1 . GHC.unM1) (GHC.M1 . GHC.K1)
-    >~ field *< spaces " " *< "=" >* after Symbol " " (charsAt @a 0)
-    where
-      name = GHC.selName (GHC.M1 GHC.U1 :: GHC.S1 s GHC.U1 ())
-      field :: CharGrammar ()
-      field
-        | isOperator name = parenthesized name
-        | otherwise = terminal name
-instance (GFields f, GFields g) => GFields (f GHC.:*: g) where
-  gfields = iso (\(a GHC.:*: b) -> (a, b)) (uncurry (GHC.:*:))
-    >~ gfields @f *< spaces "" *< "," *< spaces " " >*< gfields @g
+  gfields = charPunct "{" >* gfield @s @a *< charPunct "}"
+instance (GFieldList f, GFieldList g) => GFields (f GHC.:*: g) where
+  gfields = charPunct "{" >* gfieldList @(f GHC.:*: g) *< charPunct "}"
+
+-- | The fields of a record constructor, between its braces.
+class GFieldList f where
+  gfieldList :: CharGrammatical p => p (f x) (f x)
+instance (GHC.Selector s, Textual a)
+  => GFieldList (GHC.S1 s (GHC.K1 i a)) where
+    gfieldList = gfield @s @a
+instance (GFieldList f, GFieldList g) => GFieldList (f GHC.:*: g) where
+  gfieldList = iso (\(a GHC.:*: b) -> (a, b)) (uncurry (GHC.:*:))
+    >~ gfieldList @f *< charPunct "," *< charSpace >*< gfieldList @g
+
+-- | A field of a record, @f = 1@.
+gfield
+  :: forall s a i x p. (GHC.Selector s, Textual a, CharGrammatical p)
+  => p (GHC.S1 s (GHC.K1 i a) x) (GHC.S1 s (GHC.K1 i a) x)
+gfield = iso (GHC.unK1 . GHC.unM1) (GHC.M1 . GHC.K1)
+  >~ fieldName *< charSpace *< charOperator "=" *< charSpace
+  >* charTerm @a 0
+  where
+    name = GHC.selName (GHC.M1 GHC.U1 :: GHC.S1 s GHC.U1 ())
+    fieldName
+      | isOperator name = charGroup (charOperator name)
+      | otherwise = charWord name
 
 -- | The operands of an infix constructor.
 class GInfix f where
-  ginfix :: Int -> String -> [Alt (f x)]
-  ginfix _ _ = []
+  ginfix :: CharGrammatical p => Prec -> String -> p (f x) (f x)
+  ginfix _ _ = falseP
 instance GInfix GHC.U1
 instance GInfix (GHC.S1 s f)
 instance (Textual a, Textual b)
   => GInfix (GHC.S1 s (GHC.K1 i a) GHC.:*: GHC.S1 t (GHC.K1 j b)) where
-    ginfix fixity name =
-      [ Plain (operandLeads @a (fixity + 1)) $ \leads -> CG $ pair
-          >~ charsAt @a (fixity + 1) leads
-          *< spaces " " *< opG >*< after opLead " " (charsAt @b (fixity + 1))
-      ]
+    ginfix fixity name = charPrec fixity $ pair
+      >~ charOperandTerm @a (fixity + 1)
+      *< charSpace *< infixed *< charSpace >*< charTerm @b (fixity + 1)
       where
         pair = iso
           (\(GHC.M1 (GHC.K1 a) GHC.:*: GHC.M1 (GHC.K1 b)) -> (a, b))
           (\(a, b) -> GHC.M1 (GHC.K1 a) GHC.:*: GHC.M1 (GHC.K1 b))
-        opG :: CharGrammar ()
-        opG
-          | isOperator name = terminal name
-          | otherwise = "`" >* spaces "" >* terminal name *< spaces "" *< "`"
-        opLead
-          | isOperator name = Symbol
-          | otherwise = Punct
+        infixed
+          | isOperator name = charOperator name
+          | otherwise = charPunct "`" >* charWord name *< charPunct "`"
 instance {-# OVERLAPPABLE #-} GInfix (f GHC.:*: g)
 
 -- Instances --
@@ -542,165 +833,140 @@ instance Textual a => Textual (Maybe a)
 instance (Textual a, Textual b) => Textual (Either a b)
 
 instance Textual () where
-  charsPrec _ = Chars [plain Paren ("(" >* spaces "" >* ")")]
+  charGrammar = charGroup oneP
 
 instance Textual a => Textual [a] where
-  charsPrec _ = charsList
+  charGrammar = charListGrammar
+
+-- | A tuple, by its items.
+charTupled
+  :: (GHC.Generic a, GTuple (GHC.Rep a), CharGrammatical p) => p a a
+charTupled = charGroup (iso GHC.from GHC.to >~ gtuple)
+
+-- | The items of a tuple.
+class GTuple f where
+  gtuple :: CharGrammatical p => p (f x) (f x)
+instance GTuple f => GTuple (GHC.M1 i c f) where
+  gtuple = m1 >~ gtuple
+instance {-# OVERLAPPING #-} Textual a => GTuple (GHC.S1 s (GHC.K1 i a)) where
+  gtuple = iso (GHC.unK1 . GHC.unM1) (GHC.M1 . GHC.K1)
+    >~ charTerm @a 0
+instance (GTuple f, GTuple g) => GTuple (f GHC.:*: g) where
+  gtuple = iso (\(a GHC.:*: b) -> (a, b)) (uncurry (GHC.:*:))
+    >~ gtuple @f *< charPunct "," >*< gtuple @g
 
 instance (Textual a, Textual b) => Textual (a, b) where
-  charsPrec _ = charsTupled
-
+  charGrammar = charTupled
 instance (Textual a, Textual b, Textual c) => Textual (a, b, c) where
-  charsPrec _ = charsTupled
-
-instance
-  ( Textual a, Textual b, Textual c, Textual d
-  ) => Textual (a, b, c, d) where
-    charsPrec _ = charsTupled
-
-instance
-  ( Textual a, Textual b, Textual c, Textual d, Textual e
-  ) => Textual (a, b, c, d, e) where
-    charsPrec _ = charsTupled
-
-instance
-  ( Textual a, Textual b, Textual c, Textual d, Textual e, Textual f
-  ) => Textual (a, b, c, d, e, f) where
-    charsPrec _ = charsTupled
-
+  charGrammar = charTupled
+instance (Textual a, Textual b, Textual c, Textual d)
+  => Textual (a, b, c, d) where
+    charGrammar = charTupled
+instance (Textual a, Textual b, Textual c, Textual d, Textual e)
+  => Textual (a, b, c, d, e) where
+    charGrammar = charTupled
+instance (Textual a, Textual b, Textual c, Textual d, Textual e, Textual f)
+  => Textual (a, b, c, d, e, f) where
+    charGrammar = charTupled
 instance
   ( Textual a, Textual b, Textual c, Textual d, Textual e, Textual f
   , Textual g
   ) => Textual (a, b, c, d, e, f, g) where
-    charsPrec _ = charsTupled
-
+    charGrammar = charTupled
 instance
   ( Textual a, Textual b, Textual c, Textual d, Textual e, Textual f
   , Textual g, Textual h
   ) => Textual (a, b, c, d, e, f, g, h) where
-    charsPrec _ = charsTupled
-
+    charGrammar = charTupled
 instance
   ( Textual a, Textual b, Textual c, Textual d, Textual e, Textual f
   , Textual g, Textual h, Textual i
   ) => Textual (a, b, c, d, e, f, g, h, i) where
-    charsPrec _ = charsTupled
-
+    charGrammar = charTupled
 instance
   ( Textual a, Textual b, Textual c, Textual d, Textual e, Textual f
   , Textual g, Textual h, Textual i, Textual j
   ) => Textual (a, b, c, d, e, f, g, h, i, j) where
-    charsPrec _ = charsTupled
-
+    charGrammar = charTupled
 instance
   ( Textual a, Textual b, Textual c, Textual d, Textual e, Textual f
   , Textual g, Textual h, Textual i, Textual j, Textual k
   ) => Textual (a, b, c, d, e, f, g, h, i, j, k) where
-    charsPrec _ = charsTupled
-
+    charGrammar = charTupled
 instance
   ( Textual a, Textual b, Textual c, Textual d, Textual e, Textual f
   , Textual g, Textual h, Textual i, Textual j, Textual k, Textual l
   ) => Textual (a, b, c, d, e, f, g, h, i, j, k, l) where
-    charsPrec _ = charsTupled
-
+    charGrammar = charTupled
 instance
   ( Textual a, Textual b, Textual c, Textual d, Textual e, Textual f
   , Textual g, Textual h, Textual i, Textual j, Textual k, Textual l
   , Textual m
   ) => Textual (a, b, c, d, e, f, g, h, i, j, k, l, m) where
-    charsPrec _ = charsTupled
-
+    charGrammar = charTupled
 instance
   ( Textual a, Textual b, Textual c, Textual d, Textual e, Textual f
   , Textual g, Textual h, Textual i, Textual j, Textual k, Textual l
   , Textual m, Textual n
   ) => Textual (a, b, c, d, e, f, g, h, i, j, k, l, m, n) where
-    charsPrec _ = charsTupled
-
+    charGrammar = charTupled
 instance
   ( Textual a, Textual b, Textual c, Textual d, Textual e, Textual f
   , Textual g, Textual h, Textual i, Textual j, Textual k, Textual l
   , Textual m, Textual n, Textual o
   ) => Textual (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o) where
-    charsPrec _ = charsTupled
+    charGrammar = charTupled
 
--- | A tuple, by its items.
-charsTupled :: (GHC.Generic a, GTuple (GHC.Rep a)) => Chars a
-charsTupled = charsTuple (iso GHC.from GHC.to >~ gtuple)
-
--- | The items of a tuple.
-class GTuple f where
-  gtuple :: CharGrammar (f x)
-instance GTuple f => GTuple (GHC.M1 i c f) where
-  gtuple = m1 >~ gtuple
-instance {-# OVERLAPPING #-} Textual a => GTuple (GHC.S1 s (GHC.K1 i a)) where
-  gtuple = iso (GHC.unK1 . GHC.unM1) (GHC.M1 . GHC.K1) >~ tupleItem @a
-instance (GTuple f, GTuple g) => GTuple (f GHC.:*: g) where
-  gtuple = iso (\(a GHC.:*: b) -> (a, b)) (uncurry (GHC.:*:))
-    >~ gtuple @f *< "," *< spaces "" >*< gtuple @g
-
--- | A tuple of items.
-charsTuple :: CharGrammar a -> Chars a
-charsTuple items = Chars [plain Paren ("(" >* spaces "" >* items *< ")")]
-
--- | An item of a tuple.
-tupleItem :: forall a. Textual a => CharGrammar a
-tupleItem = charsAt @a 0 allLeads *< spaces ""
-
--- | A constructor of one argument, @Identity 1@, applied at precedence 10.
-charsApplied :: forall b a. Textual b => String -> Iso' a b -> Int -> Chars a
-charsApplied name i d =
-  Chars
-    [ Named name (const True) (CG (i >~ after Word " " (charsAt @b 11)))
-    | d <= 10 ]
+-- | A constructor of one argument, @Identity 1@.
+charApplied
+  :: forall b a p. (Textual b, CharGrammatical p)
+  => String -> Iso' a b -> p a a
+charApplied name i = charNamed
+  [CharName name 10 10 (const True) (i >~ charSpace >* charTerm @b 11)]
 
 instance Textual a => Textual (Identity a) where
-  charsPrec = charsApplied "Identity" (iso runIdentity Identity)
+  charGrammar = charApplied "Identity" (iso runIdentity Identity)
 instance (Textual a, Typeable b) => Textual (Const a b) where
-  charsPrec = charsApplied "Const" (iso getConst Const)
+  charGrammar = charApplied "Const" (iso getConst Const)
 instance Textual a => Textual (Down a) where
-  charsPrec = charsApplied "Down" (iso getDown Down)
+  charGrammar = charApplied "Down" (iso getDown Down)
 instance (Typeable f, Typeable g, Typeable a, Textual (f (g a)))
   => Textual (Compose f g a) where
-    charsPrec = charsApplied "Compose" (iso getCompose Compose)
+    charGrammar = charApplied "Compose" (iso getCompose Compose)
 
 -- | A collection, @fromList [a,b,c]@.
-charsFromList :: Textual b => Iso' a [b] -> Int -> Chars a
-charsFromList = charsApplied "fromList"
+charFromList :: (Textual b, CharGrammatical p) => Iso' a [b] -> p a a
+charFromList = charApplied "fromList"
 
 instance (Ord k, Textual k, Textual v) => Textual (Map k v) where
-  charsPrec = charsFromList (iso Map.toList Map.fromList)
+  charGrammar = charFromList (iso Map.toList Map.fromList)
 instance (Ord a, Textual a) => Textual (Set a) where
-  charsPrec = charsFromList (iso Set.toList Set.fromList)
+  charGrammar = charFromList (iso Set.toList Set.fromList)
 instance Textual v => Textual (IntMap v) where
-  charsPrec = charsFromList (iso IntMap.toList IntMap.fromList)
+  charGrammar = charFromList (iso IntMap.toList IntMap.fromList)
 instance Textual IntSet where
-  charsPrec = charsFromList (iso IntSet.toList IntSet.fromList)
+  charGrammar = charFromList (iso IntSet.toList IntSet.fromList)
 instance Textual a => Textual (Seq a) where
-  charsPrec = charsFromList (iso toList Seq.fromList)
+  charGrammar = charFromList (iso toList Seq.fromList)
 instance (Hashable k, Textual k, Textual v) => Textual (HashMap k v) where
-  charsPrec = charsFromList (iso HashMap.toList HashMap.fromList)
+  charGrammar = charFromList (iso HashMap.toList HashMap.fromList)
 instance (Hashable a, Textual a) => Textual (HashSet a) where
-  charsPrec = charsFromList (iso HashSet.toList HashSet.fromList)
+  charGrammar = charFromList (iso HashSet.toList HashSet.fromList)
 
--- | A type by a list, or a string, which it shows as.
-charsAs :: forall b a. Textual b => Iso' a b -> Int -> Chars a
-charsAs i d = charsVia i (charsPrec @b d)
-
-instance Textual Text.Text where charsPrec = charsAs (iso Text.unpack Text.pack)
+instance Textual Text.Text where
+  charGrammar = iso Text.unpack Text.pack >~ charGrammar
 instance Textual LText.Text where
-  charsPrec = charsAs (iso LText.unpack LText.pack)
+  charGrammar = iso LText.unpack LText.pack >~ charGrammar
 instance Textual ShortText.ShortText where
-  charsPrec = charsAs (iso ShortText.toString ShortText.fromString)
+  charGrammar = iso ShortText.toString ShortText.fromString >~ charGrammar
 instance Textual ByteString.ByteString where
-  charsPrec = charsAs (iso Char8.unpack Char8.pack)
+  charGrammar = iso Char8.unpack Char8.pack >~ charGrammar
 instance Textual LByteString.ByteString where
-  charsPrec = charsAs (iso LChar8.unpack LChar8.pack)
+  charGrammar = iso LChar8.unpack LChar8.pack >~ charGrammar
 instance Textual a => Textual (Vector.Vector a) where
-  charsPrec = charsAs (iso Vector.toList Vector.fromList)
+  charGrammar = iso Vector.toList Vector.fromList >~ charGrammar
 
-instance Textual Void where charsPrec _ = mempty
+instance Textual Void where charGrammar = falseP
 
 instance Textual a => Textual (NonEmpty a)
 instance Textual a => Textual (Complex a)
@@ -711,26 +977,19 @@ instance Textual a => Textual (ZipList a)
 instance Textual Version
 instance Textual GeneralCategory
 instance Textual ExitCode
-instance Textual IOMode where charsPrec _ = charsEnumerated [ReadMode ..]
-instance Textual SeekMode where
-  charsPrec _ = charsEnumerated [AbsoluteSeek ..]
+instance Textual IOMode where charGrammar = charEnumerated [ReadMode ..]
+instance Textual SeekMode where charGrammar = charEnumerated [AbsoluteSeek ..]
 instance Textual BufferMode where
-  charsPrec d = Chars $
-    [ Named "NoBuffering" (\case NoBuffering -> True; _ -> False)
-        (CG (dimap (const ()) (const NoBuffering) oneP))
-    , Named "LineBuffering" (\case LineBuffering -> True; _ -> False)
-        (CG (dimap (const ()) (const LineBuffering) oneP))
-    ] <> [ altVia
-             (prism' BlockBuffering
-               (\case BlockBuffering n -> Just n; _ -> Nothing))
-             alt
-         | Chars alts <- [charsApplied "BlockBuffering" (iso id id) d]
-         , alt <- alts ]
-
--- | An enumeration, of constructors named as `show` names them.
-charsEnumerated :: (Show a, Eq a) => [a] -> Chars a
-charsEnumerated as = Chars
-  [Named (show a) (== a) (CG (dimap (const ()) (const a) oneP)) | a <- as]
+  charGrammar = charNamed
+    [ CharName "NoBuffering" 11 11 (\case NoBuffering -> True; _ -> False)
+        (dimap (const ()) (const NoBuffering) oneP)
+    , CharName "LineBuffering" 11 11 (\case LineBuffering -> True; _ -> False)
+        (dimap (const ()) (const LineBuffering) oneP)
+    , CharName "BlockBuffering" 10 10
+        (\case BlockBuffering _ -> True; _ -> False)
+        ( prism' BlockBuffering (\case BlockBuffering n -> Just n; _ -> Nothing)
+          >? charSpace >* charTerm @(Maybe Int) 11 )
+    ]
 instance Textual a => Textual (Monoid.Sum a)
 instance Textual a => Textual (Monoid.Product a)
 instance Textual a => Textual (Monoid.Dual a)
@@ -751,52 +1010,58 @@ instance (Typeable f, Typeable g, Typeable a, Textual (f a), Textual (g a))
 instance (Typeable f, Typeable g, Typeable a, Textual (f a), Textual (g a))
   => Textual (Functor.Sum f g a)
 
+-- | An enumeration, of constructors named as `show` names them.
+charEnumerated :: (Show a, Eq a, CharGrammatical p) => [a] -> p a a
+charEnumerated as = charNamed
+  [CharName (show a) 11 11 (== a) (dimap (const ()) (const a) oneP) | a <- as]
+
 -- Numbers --
 
-instance Textual Integer where charsPrec = charsIntegral
-instance Textual Int where charsPrec = charsIntegral
-instance Textual Int8 where charsPrec = charsIntegral
-instance Textual Int16 where charsPrec = charsIntegral
-instance Textual Int32 where charsPrec = charsIntegral
-instance Textual Int64 where charsPrec = charsIntegral
-instance Textual Word where charsPrec = charsIntegral
-instance Textual Word8 where charsPrec = charsIntegral
-instance Textual Word16 where charsPrec = charsIntegral
-instance Textual Word32 where charsPrec = charsIntegral
-instance Textual Word64 where charsPrec = charsIntegral
-instance Textual Natural where charsPrec = charsIntegral
-instance Textual CChar where charsPrec = charsIntegral
-instance Textual CSChar where charsPrec = charsIntegral
-instance Textual CUChar where charsPrec = charsIntegral
-instance Textual CShort where charsPrec = charsIntegral
-instance Textual CUShort where charsPrec = charsIntegral
-instance Textual CInt where charsPrec = charsIntegral
-instance Textual CUInt where charsPrec = charsIntegral
-instance Textual CLong where charsPrec = charsIntegral
-instance Textual CULong where charsPrec = charsIntegral
-instance Textual CLLong where charsPrec = charsIntegral
-instance Textual CULLong where charsPrec = charsIntegral
-instance Textual CPtrdiff where charsPrec = charsIntegral
-instance Textual CSize where charsPrec = charsIntegral
-instance Textual CWchar where charsPrec = charsIntegral
-instance Textual CSigAtomic where charsPrec = charsIntegral
-instance Textual CBool where charsPrec = charsIntegral
-instance Textual CIntPtr where charsPrec = charsIntegral
-instance Textual CUIntPtr where charsPrec = charsIntegral
-instance Textual CIntMax where charsPrec = charsIntegral
-instance Textual CUIntMax where charsPrec = charsIntegral
-instance Textual CFloat where charsPrec = charsRealFloat
-instance Textual CDouble where charsPrec = charsRealFloat
+instance Textual Integer where charGrammar = charIntegral
+instance Textual Int where charGrammar = charIntegral
+instance Textual Int8 where charGrammar = charIntegral
+instance Textual Int16 where charGrammar = charIntegral
+instance Textual Int32 where charGrammar = charIntegral
+instance Textual Int64 where charGrammar = charIntegral
+instance Textual Word where charGrammar = charIntegral
+instance Textual Word8 where charGrammar = charIntegral
+instance Textual Word16 where charGrammar = charIntegral
+instance Textual Word32 where charGrammar = charIntegral
+instance Textual Word64 where charGrammar = charIntegral
+instance Textual Natural where charGrammar = charIntegral
+instance Textual CChar where charGrammar = charIntegral
+instance Textual CSChar where charGrammar = charIntegral
+instance Textual CUChar where charGrammar = charIntegral
+instance Textual CShort where charGrammar = charIntegral
+instance Textual CUShort where charGrammar = charIntegral
+instance Textual CInt where charGrammar = charIntegral
+instance Textual CUInt where charGrammar = charIntegral
+instance Textual CLong where charGrammar = charIntegral
+instance Textual CULong where charGrammar = charIntegral
+instance Textual CLLong where charGrammar = charIntegral
+instance Textual CULLong where charGrammar = charIntegral
+instance Textual CPtrdiff where charGrammar = charIntegral
+instance Textual CSize where charGrammar = charIntegral
+instance Textual CWchar where charGrammar = charIntegral
+instance Textual CSigAtomic where charGrammar = charIntegral
+instance Textual CBool where charGrammar = charIntegral
+instance Textual CIntPtr where charGrammar = charIntegral
+instance Textual CUIntPtr where charGrammar = charIntegral
+instance Textual CIntMax where charGrammar = charIntegral
+instance Textual CUIntMax where charGrammar = charIntegral
+instance Textual CFloat where charGrammar = charRealFloat
+instance Textual CDouble where charGrammar = charRealFloat
+instance Textual Double where charGrammar = charRealFloat
+instance Textual Float where charGrammar = charRealFloat
 
 {- | Integral numbers, by their literals, any of which parse,
-& printed as `show` does, parenthesized when negative above precedence 6.
+printed as `show` does, parenthesized when negative above precedence 6.
 Like @read@, a negative literal parses at any precedence.
 -}
-charsIntegral :: Integral a => Int -> Chars a
-charsIntegral d = Chars
-  [ plain Word $ nonNegative >? integerG
-  , (if d <= 6 then id else Parsed) $ plain Symbol $
-      negative >? "-" >* spaces "" >* integerG
+charIntegral :: (Integral a, CharGrammatical p) => p a a
+charIntegral = orP
+  [ nonNegative >? charLexeme integerG
+  , charPrecs 6 11 $ negative >? charOperator "-" >* charLexeme integerG
   ]
   where
     nonNegative = prism' fromInteger $ \a ->
@@ -807,53 +1072,55 @@ charsIntegral d = Chars
 {- | A non-negative integer literal, decimal, hexadecimal, octal or binary,
 printed in decimal.
 -}
-integerG :: CharGrammar Integer
+integerG :: CharSyntactic p => p Integer Integer
 integerG = iso (Decimal . show) numeralValue >~ numeralG
-
-instance Textual Double where charsPrec = charsRealFloat
-instance Textual Float where charsPrec = charsRealFloat
 
 {- | Floating point numbers, by their literals, any of which parse,
 @Infinity@ & @NaN@, & printed as `show` does,
 parenthesized when negative above precedence 6.
 -}
-charsRealFloat :: forall a. (RealFloat a, Read a, Show a) => Int -> Chars a
-charsRealFloat d = Chars
-  [ plain Word $ nonNegative >? literal
-  , Named "Infinity" (\a -> isInfinite a && a > 0) (CG (constant (1 / 0)))
-  , Named "NaN" isNaN (CG (constant (0 / 0)))
-  , (if d <= 6 then id else Parsed) $ plain Symbol $
-      negative >? "-" >* spaces "" >* orP
-        [ literal
-        , charsWith (Set.singleton Word) $ Chars
-          [ Named "Infinity" isInfinite (CG (constant (1 / 0)))
-          , Named "NaN" isNaN (CG (constant (0 / 0)))
-          ]
-        ]
+charRealFloat
+  :: forall a p. (RealFloat a, Read a, Show a, CharGrammatical p) => p a a
+charRealFloat = orP
+  [ nonNegative >? charLexeme decimalLiteral
+  , charNamed
+    [ CharName "Infinity" 11 11 (\a -> isInfinite a && a > 0) (constant (1 / 0))
+    , CharName "NaN" 11 11 isNaN (constant (0 / 0))
+    ]
+  , charPrecs 6 11 $ negative >? charOperator "-" >* orP
+    [ charLexeme decimalLiteral
+    , charNamed
+      [ CharName "Infinity" 11 11 isInfinite (constant (1 / 0))
+      , CharName "NaN" 11 11 isNaN (constant (0 / 0))
+      ]
+    ]
   ]
   where
     nonNegative = prism' id $ \a ->
       a <$ guard (not (isNaN a || isInfinite a || a < 0 || isNegativeZero a))
     negative = prism' negate $ \a ->
       negate a <$ guard (a < 0 || isNegativeZero a)
-    literal :: CharGrammar a
-    literal = decimalLiteral
-    constant :: a -> CharGrammar a
+    constant :: a -> p a a
     constant a = dimap (const ()) (const a) oneP
 
 {- | A non-negative decimal literal, of any of @read@'s forms,
 printed as `show` does.
 -}
-decimalLiteral :: (Read a, Show a) => CharGrammar a
+decimalLiteral :: (Read a, Show a, CharSyntactic p) => p a a
 decimalLiteral = iso (floatLiteral . show) floatValue >~ floatG
 
 instance (HasResolution a, Typeable a) => Textual (Fixed a) where
-  charsPrec d = Chars
-    [ plain Word $ prism' id (\a -> a <$ guard (a >= 0)) >? decimalLiteral
-    , (if d <= 6 then id else Parsed) $ plain Symbol $
-        prism' negate (\a -> negate a <$ guard (a < 0))
-        >? "-" >* spaces "" >* decimalLiteral
+  charGrammar = orP
+    [ prism' id (\a -> a <$ guard (a >= 0)) >? charLexeme decimalLiteral
+    , charPrecs 6 11 $ prism' negate (\a -> negate a <$ guard (a < 0))
+      >? charOperator "-" >* charLexeme decimalLiteral
     ]
+
+instance (Integral a, Textual a) => Textual (Ratio a) where
+  charGrammar = charPrec 7 $
+    iso (\r -> (numerator r, denominator r)) (uncurry (%))
+    >~ charOperandTerm @a 8
+    *< charSpace *< charOperator "%" *< charSpace >*< charTerm @a 8
 
 -- | A floating point literal, decimal or an integer literal.
 data FloatLiteral
@@ -880,7 +1147,7 @@ floatLiteral str = FloatDecimal ds fraction expo
       'e' : es -> Just (Nothing, es)
       _ -> Nothing
 
-floatG :: CharGrammar FloatLiteral
+floatG :: CharSyntactic p => p FloatLiteral FloatLiteral
 floatG = zero >|< decimal
   >? (oneOf ("123456789" :: String) >:< manyP digit) >*< fractionG >*< exponentG
   where
@@ -907,14 +1174,6 @@ floatG = zero >|< decimal
       >* optionalP (oneOf ("+-" :: String)) >*< someP digit
     digit = oneOf ("0123456789" :: String)
 
-instance (Integral a, Textual a) => Textual (Ratio a) where
-  charsPrec d = Chars
-    [ Plain (operandLeads @a 8) $ \leads -> CG $
-        iso (\r -> (numerator r, denominator r)) (uncurry (%))
-        >~ charsAt @a 8 leads
-        *< spaces " " *< "%" >*< after Symbol " " (charsAt @a 8)
-    | d <= 7 ]
-
 -- | The forms of an integer literal.
 data Numeral
   = Decimal String
@@ -935,7 +1194,7 @@ numeralValue = \case
       | c >= 'a' = toInteger (ord c - ord 'a' + 10)
       | otherwise = toInteger (ord c - ord 'A' + 10)
 
-numeralG :: CharGrammar Numeral
+numeralG :: CharSyntactic p => p Numeral Numeral
 numeralG = zero >|< decimal >? oneOf ("123456789" :: String) >:< manyP digit
   where
     zero = guarded startsWithZero ("0" >* afterZero)
@@ -950,7 +1209,7 @@ numeralG = zero >|< decimal >? oneOf ("123456789" :: String) >:< manyP digit
     digit = oneOf ("0123456789" :: String)
 
 -- | A hexadecimal, octal or binary literal, after its @0@.
-basedG :: CharGrammar Numeral
+basedG :: CharSyntactic p => p Numeral Numeral
 basedG = orP
   [ prism' (uncurry Hexadecimal)
       (\case Hexadecimal x ds -> Just (x, ds); _ -> Nothing)
@@ -965,11 +1224,11 @@ basedG = orP
 -- Characters & strings --
 
 instance Textual Char where
-  charsPrec _ = Chars [plain Punct ("'" >* charG *< "'")]
-  charsList = Chars [plain Punct stringG] <> charsBrackets
+  charGrammar = charLexeme ("'" >* charG *< "'")
+  charListGrammar = charLexeme stringG >|< charBrackets
 
 -- | A character literal's character, which may be escaped.
-charG :: CharGrammar Char
+charG :: CharSyntactic p => p Char Char
 charG = prism' litChar charOf ?< itemG
   where
     litChar c
@@ -1043,7 +1302,7 @@ escapeValue = \case
       | otherwise = Nothing
 
 -- | An escape sequence, after a backslash, in a character literal.
-escapeG :: CharGrammar Escape
+escapeG :: CharSyntactic p => p Escape Escape
 escapeG = orP
   [ prism' EscChar (\case EscChar c -> Just c; _ -> Nothing)
       >? oneOf ("abfnrtv\\\"'" :: String)
@@ -1056,12 +1315,9 @@ escapeG = orP
   , prism' EscHex (\case EscHex ds -> Just ds; _ -> Nothing)
       >? "x" >* someP (oneOf ("0123456789abcdefABCDEF" :: String))
   , trie
-      [ (name, (== EscName name), only' (EscName name))
+      [ (name, (== EscName name), dimap (const ()) (const (EscName name)) oneP)
       | name <- asciiNames ]
   ]
-  where
-    only' :: e -> CharGrammar e
-    only' e = dimap (const ()) (const e) oneP
 
 -- | An item of a string literal.
 data StrItem
@@ -1072,7 +1328,7 @@ data StrItem
   deriving stock (Eq, Show)
 
 -- | A string literal, @"abc"@.
-stringG :: CharGrammar String
+stringG :: CharSyntactic p => p String String
 stringG = prism' litString stringOf ?< "\"" >* stringBody
   where
     stringOf = fmap concat . traverse (\case
@@ -1103,7 +1359,7 @@ After some escapes, some characters may not follow unescaped,
 since @read@ would continue the escape with them,
 so the rest is in one of several states, defined once & shared.
 -}
-stringBody :: CharGrammar [StrItem]
+stringBody :: CharSyntactic p => p [StrItem] [StrItem]
 stringBody = anything
   where
     anything = rest Anything
@@ -1143,7 +1399,8 @@ stringBody = anything
       , item (\case StrEmpty -> Just (); _ -> Nothing) (const StrEmpty)
           >? "&" >* oneP >*< anything
       , parseOnly $ item (\case StrGap -> Just (); _ -> Nothing) (const StrGap)
-          >? spaces1 " " >* "\\" >* oneP >*< anything
+          >? dimap (const " ") (const ()) (someP spaceG) >* "\\" >* oneP
+          >*< anything
       , names
       ]
     names = trie
