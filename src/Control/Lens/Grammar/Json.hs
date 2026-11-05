@@ -6,9 +6,9 @@ module Control.Lens.Grammar.Json
   , jsonParse
   , jsonDecode
   , jsonPrint
-  , jsonPrintError
+  , jsonErrorPrint
   , jsonEncode
-  , jsonEncodeError
+  , jsonErrorEncode
   , jsonTypes
   , jsonGeneric
   , ViaJson (..)
@@ -199,17 +199,17 @@ jsonDecode bytes = case Aeson.eitherDecode bytes of
 
 -- | `Data.Aeson.toJSON`
 jsonPrint :: Json a => a -> Value
-jsonPrint = either (\_ -> Null) id . jsonPrintError
+jsonPrint = either (\_ -> Null) id . jsonErrorPrint
 
-jsonPrintError :: Json a => a -> Either JsonError Value
-jsonPrintError = runJsonPrintor json
+jsonErrorPrint :: Json a => a -> Either JsonError Value
+jsonErrorPrint = runJsonPrintor json
 
 -- | `Data.Aeson.toEncoding`
 jsonEncode :: Json a => a -> Encoding
-jsonEncode = either (\_ -> Encoding.null_) id . jsonEncodeError
+jsonEncode = either (\_ -> Encoding.null_) id . jsonErrorEncode
 
-jsonEncodeError :: Json a => a -> Either JsonError Encoding
-jsonEncodeError = runJsonPrintor json
+jsonErrorEncode :: Json a => a -> Either JsonError Encoding
+jsonErrorEncode = runJsonPrintor json
 
 jsonTypes :: forall (as :: [Type]) -> All Json as => Text
 jsonTypes as = renderTypeScript $ hcollapse

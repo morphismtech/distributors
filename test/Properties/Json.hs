@@ -238,15 +238,15 @@ jsonObjectSpec :: Spec
 jsonObjectSpec = describe "jsonObject" $ do
   it "defaults a missing property" $ do
     jsonParse @Limit (object []) `shouldBe` Right (Limit 10)
-    jsonPrintError (Limit 10) `shouldBe` Right (object [])
-    jsonPrintError (Limit 3) `shouldBe` Right (object ["limit" .= (3 :: Int)])
+    jsonErrorPrint (Limit 10) `shouldBe` Right (object [])
+    jsonErrorPrint (Limit 3) `shouldBe` Right (object ["limit" .= (3 :: Int)])
   it "reads & writes the rest of an object" $ do
     let
       extra = Extra (1, [("a", True), ("b", False)])
       value =
         object ["id" .= (1 :: Int), "a" .= True, "b" .= False]
     jsonParse @Extra value `shouldBe` Right extra
-    jsonPrintError extra `shouldBe` Right value
+    jsonErrorPrint extra `shouldBe` Right value
   it "doesn't print the rest over a named key" $
     printError (Extra (1, [("id", True)])) `shouldBe`
       Left "Error in $: cannot print key \"id\" twice"
@@ -258,7 +258,7 @@ jsonObjectSpec = describe "jsonObject" $ do
     jsonParse @Pet (object ["Cat" .= ("tom" :: Text)])
       `shouldBe` Right (Cat "tom")
     jsonParse @Pet (object ["Dog" .= (3 :: Int)]) `shouldBe` Right (Dog 3)
-    jsonPrintError (Dog 3) `shouldBe` Right (object ["Dog" .= (3 :: Int)])
+    jsonErrorPrint (Dog 3) `shouldBe` Right (object ["Dog" .= (3 :: Int)])
     declares (type Pet)
       [ "export type Int = number;"
       , "export type Pet = { Cat: string } | { Dog: Int };"
@@ -433,7 +433,7 @@ jsonTupleChoiceSpec = describe "jsonTuple choices" $ do
 roundTrip :: forall a. (Json a, Eq a, Show a) => Value -> a -> Expectation
 roundTrip value a = do
   jsonParse @a value `shouldBe` Right a
-  jsonPrintError a `shouldBe` Right value
+  jsonErrorPrint a `shouldBe` Right value
 
 -- | An array, as a tuple of a rest element.
 newtype Elements = Elements [Int]
@@ -498,7 +498,7 @@ instance Json Partial where
     prism' Covered (\case Covered n -> Just n; _ -> Nothing) >? json
 
 jsonPrintSpec :: Spec
-jsonPrintSpec = describe "jsonPrintError" $ do
+jsonPrintSpec = describe "jsonErrorPrint" $ do
   it "labels failures with rules" $
     printError Uncovered `shouldBe` Left "Error in $: cannot print as Partial"
   it "locates failures" $ do
@@ -685,12 +685,12 @@ jsonCodecSpec = describe "jsonEncode" $ do
   codecCompat @Shape (oneof [Circle <$> arbitrary, Square <$> arbitrary])
   codecCompat @Color arbitraryBoundedEnum
   it "encodes in order" $
-    encodingToLazyByteString <$> jsonEncodeError (Point 1 2)
+    encodingToLazyByteString <$> jsonErrorEncode (Point 1 2)
       `shouldBe` Right "{\"px\":1,\"py\":2}"
 
 codecCompat :: forall a. (Json a, ToJSON a, Show a, Typeable a) => Gen a -> Spec
 codecCompat gen = it (show (typeRep (Proxy @a))) $ forAll gen $ \a ->
-  (decode . encodingToLazyByteString <$> jsonEncodeError a)
+  (decode . encodingToLazyByteString <$> jsonErrorEncode a)
     === Right (Just (toJSON a))
 
 -- | The error message of parsing a `Value`.
@@ -699,7 +699,7 @@ parseError = either errorText show . jsonParse @a
 
 -- | The error message of printing a value.
 printError :: Json a => a -> Either String Value
-printError = either (Left . errorText) Right . jsonPrintError
+printError = either (Left . errorText) Right . jsonErrorPrint
 
 errorText :: JsonError -> String
 errorText err = formatError (jsonErrorPath err) (jsonErrorMessage err)
@@ -800,7 +800,7 @@ aesonEncodeCompat gen = it (show (typeRep (Proxy @a))) $
 encodeCompat :: forall a. (Json a, ToJSON a) => a -> Property
 encodeCompat a =
   let value = toJSON a
-  in jsonPrintError a === Right value
+  in jsonErrorPrint a === Right value
     .&&. fmap toJSON (jsonParse @a value) === Right value
 
 aesonSpec :: Spec
