@@ -237,7 +237,34 @@ instance BackusNaurForm (Parsector s a b) where
 instance
   ( Categorized token, Item s ~ token
   , Cons s s token token, Snoc s s token token
-  ) => TerminalSymbol token (Parsector s () ())
+  ) => TerminalSymbol token (Parsector s () ()) where
+    {- | Like @only str ?< tokens str@, checking its tokens in one loop,
+    failing without consuming at the first token, and committed after.
+    -}
+    terminal str = Parsector $ \callback query -> callback $
+      case str of
+        [] -> query {parsecResult = Just ()}
+        _ -> go str query
+      where
+        go [] state = state {parsecResult = Just ()}
+        go (tok : rest) state =
+          let
+            next str' = state
+              { parsecLooked = True
+              , parsecFailure = mempty
+              , parsecStream = str'
+              , parsecOffset = parsecOffset state + 1
+              }
+            failure = state
+              { parsecFailure = ParsecFailure (token tok) []
+              , parsecResult = Nothing
+              }
+          in
+            case parsecResult state of
+              Just () -> go rest (next (snoc (parsecStream state) tok))
+              Nothing -> case uncons (parsecStream state) of
+                Just (tok', str') | tok' == tok -> go rest (next str')
+                _ -> failure
 instance
   ( Item s ~ Char
   , Cons s s Char Char, Snoc s s Char Char
@@ -387,7 +414,57 @@ instance Categorized (Item s) => Choice (Parsector s) where
       result -> p (callback . fmap Right)
         query { parsecResult = either (const Nothing) Just =<< result }
 instance Categorized (Item s) => CocartesianMonoidal (Parsector s)
-instance Categorized (Item s) => Distributor (Parsector s)
+instance Categorized (Item s) => Distributor (Parsector s) where
+  {- | Like @eotList >~ p >*< manyP p >+< oneP@, in one loop,
+  with its hints: a failure of @p@ without consuming ends the list,
+  merging its expectations with those of the last element.
+  -}
+  manyP (Parsector p) = Parsector $ \callback query ->
+    let
+      -- the first element is tried on the query itself
+      parsedFirst reply = case parsecResult reply of
+        Just b -> parsedRest [b] reply
+        Nothing
+          | parsecLooked reply -> callback reply {parsecResult = Nothing}
+          | otherwise -> callback query
+              { parsecResult = Just []
+              , parsecFailure = parsecFailure reply <> parsecFailure query
+              }
+      -- the rest are tried after the reply to the last
+      parsedRest bs reply = p
+        (\next -> case parsecResult next of
+          Just b -> parsedRest (b : bs) next
+          Nothing -> ended False bs reply next)
+        (afresh reply) {parsecResult = Nothing}
+      printedFirst as reply = case parsecResult reply of
+        Just b -> printedRest [b] as reply
+        Nothing -> callback reply {parsecResult = Nothing}
+      printedRest bs as reply = case as of
+        [] -> callback reply {parsecResult = Just (reverse bs)}
+        a : as' -> p
+          (\next -> case parsecResult next of
+            Just b -> printedRest (b : bs) as' next
+            Nothing -> ended True bs reply next)
+          (afresh reply) {parsecResult = Just a}
+      {- an element failed after the last one's reply, ending a parsed list,
+      or failing a printed one, unless it was committed -}
+      ended printing bs reply next
+        | parsecLooked next = callback next {parsecResult = Nothing}
+        | printing = callback next
+            { parsecLooked = parsecLooked reply
+            , parsecFailure = parsecFailure reply <> parsecFailure next
+            , parsecResult = Nothing
+            }
+        | otherwise = callback reply
+            { parsecFailure = parsecFailure reply <> parsecFailure next
+            , parsecResult = Just (reverse bs)
+            }
+      afresh reply = reply {parsecLooked = False, parsecFailure = mempty}
+    in
+      case parsecResult query of
+        Nothing -> p parsedFirst query {parsecResult = Nothing}
+        Just [] -> callback query {parsecResult = Just []}
+        Just (a : as) -> p (printedFirst as) query {parsecResult = Just a}
 instance Categorized (Item s) => DisjunctiveMonoid (Parsector s a b)
 instance Categorized (Item s) => CocartesianChoice (Parsector s) where
   alternate (Left p) = Parsector $ \callback query -> callback $
