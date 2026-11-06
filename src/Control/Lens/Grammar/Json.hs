@@ -135,7 +135,6 @@ import GHC.Generics qualified as GHC
 import Network.URI (URI)
 import Network.URI qualified as URI
 import Numeric.Natural (Natural)
-import Text.Read (readMaybe)
 import Text.ParserCombinators.ReadP (readP_to_S)
 import Type.Reflection
 import Witherable qualified
@@ -1892,8 +1891,9 @@ tsIdentifier name = case Text.uncons ident of
 jsonEnum :: (Eq a, JsonVal p) => (a -> Text) -> [a] -> p a a
 jsonEnum f as = orP [only a >? fromString (Text.unpack (f a)) | a <- as]
 
+-- | An object of a single property, as @aeson@ requires of sums' tags.
 jsonTag :: JsonVal p => Text -> p a b -> p a b
-jsonTag k p = jsonObject (k !: p)
+jsonTag k p = jsonObjectStrict (k !: p)
 
 boundedScientific :: Scientific -> Maybe Scientific
 boundedScientific s = s <$ guard (abs (base10Exponent s) <= 1024)
@@ -1928,7 +1928,8 @@ readScientific :: Text -> Maybe Scientific
 readScientific t
   | canonical, Right (i, _) <- TextRead.signed TextRead.decimal t =
       Just (fromInteger i)
-  | otherwise = readMaybe (Text.unpack t)
+  | otherwise =
+      listToMaybe [s | (s, "") <- readP_to_S scientificP (Text.unpack t)]
   where
     digits = fromMaybe t (Text.stripPrefix "-" t)
     canonical = not (Text.null digits) && Text.all isDigit digits
@@ -2541,7 +2542,7 @@ instance Json b => Json (Tagged a b) where
 -- these
 instance (Json a, Json b) => Json (These a b) where
   json = orP
-    [ _These >? jsonObject ("This" !: json >*< "That" !: json)
+    [ _These >? jsonObjectStrict ("This" !: json >*< "That" !: json)
     , _This >? jsonTag "This" json
     , _That >? jsonTag "That" json
     ]
@@ -2667,7 +2668,7 @@ instance (GHC.Constructor c, GFields f, GContents f, GNullary f)
         dimap (const ()) (const (GHC.M1 v)) (fromString (gconTag @c opts))
       _ -> gcons opts
     gsingleField opts =
-      jsonObject (Text.pack (gconTag @c opts) !: gcons @(GHC.C1 c f) opts)
+      jsonTag (Text.pack (gconTag @c opts)) (gcons @(GHC.C1 c f) opts)
     gtwoElements opts = jsonTuple
       ( lmap (const ()) (jsonElem (fromString (gconTag @c opts)))
       *> jsonElem (gcons @(GHC.C1 c f) opts)
