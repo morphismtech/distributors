@@ -1,5 +1,104 @@
 {-# LANGUAGE OverloadedStrings, RequiredTypeArguments #-}
 
+{- |
+Module      : Control.Lens.Grammar.Json
+Description : JSON grammars, compatible with aeson & typed in TypeScript
+Copyright   : (C) 2026 - Eitan Chatav
+License     : BSD-style (see the file LICENSE)
+Maintainer  : Eitan Chatav <eitan.chatav@gmail.com>
+Stability   : provisional
+Portability : non-portable
+
+A `Json` grammar of a type parses, prints & encodes its JSON,
+compatibly with @aeson@, & types it in TypeScript, all at once.
+
+= Deriving
+
+A `GHC.Generic` type derives its grammar, by @aeson@'s default options.
+
+>>> :{
+data Person = Person {name :: Text, age :: Int, email :: Maybe Text}
+  deriving stock (Show, Generic)
+  deriving anyclass Json
+:}
+
+>>> LByteString.putStrLn (encodingToLazyByteString (jsonEncode (Person "Ada" 36 Nothing)))
+{"name":"Ada","age":36,"email":null}
+>>> jsonDecode @Person "{\"name\":\"Ada\",\"age\":36}"
+Right (Person {name = "Ada", age = 36, email = Nothing})
+
+Failures are located, & name what they expected.
+
+>>> either explain show (jsonDecode @Person "{\"name\":\"Ada\",\"age\":\"36\"}")
+"Error in $.age: expected Int, but found \"36\""
+
+= @aeson@
+
+`ViaJson` derives @aeson@'s instances, & `jsonGeneric` takes
+@aeson@'s `Aeson.Options`.
+
+>>> :{
+data Pet = Cat | Dog
+  deriving stock (Show, Generic)
+  deriving (Aeson.ToJSON, Aeson.FromJSON) via ViaJson Pet
+instance Json Pet where
+  json = jsonGeneric Aeson.defaultOptions {Aeson.constructorTagModifier = map toLower}
+:}
+
+>>> Aeson.encode [Cat, Dog]
+"[\"cat\",\"dog\"]"
+
+= Grammars
+
+A grammar is written once, with the combinators of `JsonVal`,
+`JsonObj`, `JsonTup` & `JsonStr`, & `jsonTyped` names its type.
+
+>>> :{
+data Point = Point Double Double
+  deriving stock Show
+instance Json Point where
+  json = jsonTyped $ iso (\(Point x y) -> (x, y)) (uncurry Point)
+    >~ jsonObject ("x" !: json >*< "y" ?: json != 0)
+:}
+
+>>> jsonDecode @Point "{\"x\":1}"
+Right (Point 1.0 0.0)
+>>> jsonPrint (Point 1 0)
+Object (fromList [("x",Number 1.0)])
+
+A tuple is an array of elements, & a sum is the alternative grammars
+of its constructors, here tagged by string literals.
+
+>>> :{
+data Shape = Circle Double | Rectangle Double Double
+  deriving stock Show
+_Circle :: Prism' Shape Double
+_Circle = prism' Circle (\case Circle r -> Just r; _ -> Nothing)
+_Rectangle :: Prism' Shape (Double, Double)
+_Rectangle = prism' (uncurry Rectangle) (\case Rectangle w h -> Just (w, h); _ -> Nothing)
+instance Json Shape where
+  json = jsonTyped $ orP
+    [ _Circle >? jsonObject ("kind" !: "circle" >* "radius" !: json)
+    , _Rectangle >? jsonObject ("kind" !: "rectangle" >* "size" !: jsonTuple (jsonElem json >*< jsonElem json))
+    ]
+:}
+
+>>> LByteString.putStrLn (encodingToLazyByteString (jsonEncode [Circle 1, Rectangle 2 3]))
+[{"kind":"circle","radius":1.0},{"kind":"rectangle","size":[2.0,3.0]}]
+
+= Types
+
+`jsonTsDeclarations` declares the TypeScript types of types' JSON,
+which "Control.Lens.Grammar.TypeScript" prints, & `jsonType` types it.
+
+>>> mapM_ putStr (tsPrint (jsonTsDeclarations (type '[Person, Point, Shape])))
+export type Double = number | null | "+inf" | "-inf";
+export type Int = number;
+export type Person = { name: string; age: Int; email?: null | string };
+export type Point = { x: Double; y?: Double };
+export type Shape = { kind: "circle"; radius: Double } | { kind: "rectangle"; size: [Double, Double] };
+-}
+
 module Control.Lens.Grammar.Json
   ( -- * Json
     Json (..)
@@ -9,7 +108,6 @@ module Control.Lens.Grammar.Json
   , jsonErrorPrint
   , jsonEncode
   , jsonErrorEncode
-  , jsonTypes
   , jsonGeneric
   , ViaJson (..)
     -- * Grammar
@@ -17,6 +115,12 @@ module Control.Lens.Grammar.Json
   , JsonObj (..), (!=)
   , JsonTup (..)
   , JsonStr (..)
+    -- * Types
+  , JsonType (..)
+  , JsonElement (..)
+  , JsonProperty (..)
+  , jsonType
+  , jsonTsDeclarations
     -- * Errors
   , JsonError (..)
   , JsonErrorSort (..)
@@ -51,7 +155,7 @@ import Data.DList.DNonEmpty (DNonEmpty)
 import Data.DList.DNonEmpty qualified as DNonEmpty
 import Data.Fix (Fix (..), Mu, Nu, foldMu, foldNu, unfoldMu, unfoldNu)
 import Data.Fixed (Fixed, HasResolution (..), Nano)
-import Data.Foldable (toList, traverse_)
+import Data.Foldable (toList)
 import Data.Function (fix)
 import Data.Functor.Compose (Compose (..))
 import Data.Functor.Product qualified as Functor
@@ -69,7 +173,7 @@ import Data.IntSet (IntSet)
 import Data.IntSet qualified as IntSet
 import Data.Kind
 import Data.List
-  (find, findIndices, intercalate, isPrefixOf, nub, stripPrefix)
+  (find, findIndices, intercalate, isPrefixOf, nub, sortOn, stripPrefix)
 import Data.List.NonEmpty (NonEmpty, nonEmpty)
 import Data.Map (Map)
 import Data.Map qualified as Map
@@ -130,6 +234,7 @@ import Data.Void (Void, absurd)
 import Data.Word (Word8, Word16, Word32, Word64)
 import Foreign.C.Types (CTime (..))
 import Foreign.Storable (Storable)
+import Control.Lens.Grammar.TypeScript
 import GHC.Exts qualified as Exts
 import GHC.Generics qualified as GHC
 import Network.URI (URI)
@@ -139,12 +244,29 @@ import Text.ParserCombinators.ReadP (readP_to_S)
 import Type.Reflection
 import Witherable qualified
 
+-- $setup
+-- >>> :set -XDeriveAnyClass -XDerivingStrategies -XDerivingVia
+-- >>> :set -XOverloadedStrings -XRequiredTypeArguments -XTypeApplications
+-- >>> import Data.Char (toLower)
+-- >>> import Data.Text (Text)
+-- >>> import GHC.Generics (Generic)
+-- >>> import Data.Aeson.Encoding (encodingToLazyByteString)
+-- >>> import Data.ByteString.Lazy.Char8 qualified as LByteString
+-- >>> import Data.Aeson.Types (formatError)
+-- >>> let explain err = formatError (jsonErrorPath err) (jsonErrorMessage err)
+
 makePrisms ''Value
 
 -- Json grammars --
 
+{- | A type with a JSON grammar, like @aeson@'s `Aeson.ToJSON`
+& `Aeson.FromJSON` together, which every `JsonVal` interprets.
+Its methods default to @aeson@'s defaults, & `json` to the
+`GHC.Generic` grammar, by @aeson@'s default options.
+-}
 class Json a where
 
+  -- | `Aeson.toJSON` & `Aeson.parseJSON`, as one grammar.
   json :: JsonVal p => p a a
   default json :: (Json (GHC.Generically a), JsonVal p) => p a a
   json = iso GHC.Generically coerce >~ json
@@ -198,6 +320,12 @@ jsonDecode bytes = case Aeson.eitherDecode bytes of
 jsonPrint :: Json a => a -> Value
 jsonPrint = either (\_ -> Null) id . jsonErrorPrint
 
+{- | `jsonPrint`, failing where the grammar doesn't print a value,
+like a key which repeats.
+
+>>> jsonErrorPrint (1 :: Int)
+Right (Number 1.0)
+-}
 jsonErrorPrint :: Json a => a -> Either JsonError Value
 jsonErrorPrint = runJsonPrintor json
 
@@ -205,75 +333,9 @@ jsonErrorPrint = runJsonPrintor json
 jsonEncode :: Json a => a -> Encoding
 jsonEncode = either (\_ -> Encoding.null_) id . jsonErrorEncode
 
+-- | `jsonEncode`, failing where the grammar doesn't print a value.
 jsonErrorEncode :: Json a => a -> Either JsonError Encoding
 jsonErrorEncode = runJsonPrintor json
-
-{- |
-
->>> :set -XDeriveAnyClass -XDerivingStrategies -XRequiredTypeArguments
->>> import Data.Map (Map)
->>> import Data.Text (Text)
->>> import Data.Text.IO qualified as Text
->>> import GHC.Generics (Generic)
-
->>> :{
-data Suit = Hearts | Diamonds | Clubs | Spades
-  deriving stock Generic
-  deriving anyclass Json
-:}
-
->>> Text.putStr (jsonTypes [Suit])
-export type Suit = "Hearts" | "Diamonds" | "Clubs" | "Spades";
-
->>> :{
-data Point = Point {x :: Double, y :: Double}
-  deriving stock Generic
-  deriving anyclass Json
-:}
-
->>> Text.putStr (jsonTypes (type '[Point]))
-export type Double = number | null | "+inf" | "-inf";
-export type Point = { x: Double; y: Double };
-
->>> :{
-data Shape = Circle Point Double | Polygon {vertices :: [Point]}
-  deriving stock Generic
-  deriving anyclass Json
-:}
-
->>> Text.putStr (jsonTypes [Shape])
-export type Double = number | null | "+inf" | "-inf";
-export type Point = { x: Double; y: Double };
-export type Shape = { tag: "Circle"; contents: [Point, Double] } | { tag: "Polygon"; vertices: Point[] };
-
->>> :{
-data User = User {name :: Text, email :: Maybe Text, scores :: Map Int Double}
-  deriving stock Generic
-  deriving anyclass Json
-:}
-
->>> Text.putStr (jsonTypes (type '[User]))
-export type Double = number | null | "+inf" | "-inf";
-export type User = { name: string; email?: null | string; scores: { [key: `${number}`]: Double } };
-
->>> :{
-data Tree a = Leaf | Node (Tree a) a (Tree a)
-  deriving stock Generic
-  deriving anyclass Json
-:}
-
->>> Text.putStr (jsonTypes [Tree Text, Tree Suit])
-export type Suit = "Hearts" | "Diamonds" | "Clubs" | "Spades";
-export type Tree_Suit = { tag: "Leaf" } | { tag: "Node"; contents: [Tree_Suit, Suit, Tree_Suit] };
-export type Tree_Text = { tag: "Leaf" } | { tag: "Node"; contents: [Tree_Text, string, Tree_Text] };
-
--}
-jsonTypes :: forall (as :: [Type]) -> All Json as => Text
-jsonTypes as = renderTypeScript $ hcollapse
-  (hcpure (Proxy @Json) tsRoot :: NP (K (TsGrammor () ())) as)
-  where
-    tsRoot :: forall a. Json a => K (TsGrammor () ()) a
-    tsRoot = K (coerce (json @a @TsGrammor))
 
 {- | @aeson@'s instances, derived from a `Json` instance, failing to parse
 at the path of a `JsonError`, by its message.
@@ -302,6 +364,12 @@ parseFailure :: JsonError -> Aeson.Parser x
 parseFailure err =
   Aeson.parserThrowError (jsonErrorPath err) (jsonErrorMessage err)
 
+{- | `JsonVal` grammars describe JSON values: @null@, booleans, numbers,
+strings, by `JsonStr`, arrays & objects, by `JsonTup` & `JsonObj`.
+As `CocartesianChoice`s & `Filtrator`s, they have alternatives
+(`>+<`, `>|<`) & partial isomorphisms (`>?`, `?<`).
+Its numbers are bounded, & its integers integral, as @aeson@'s are.
+-}
 class
   ( CocartesianChoice p
   , Filtrator p
@@ -335,7 +403,7 @@ class
   {- | A homogeneous JSON array, like TypeScript's @T[]@, which is a tuple
   of a rest element, though interpreters may define it more efficiently.
 
-  prop> jsonArray p = jsonTuple (manyP (jsonElem p))
+  @jsonArray p = jsonTuple (manyP (jsonElem p))@
   -}
   jsonArray :: p a b -> p [a] [b]
   jsonArray p = jsonTuple (manyP (jsonElem p))
@@ -425,8 +493,9 @@ unqualified = \case
     identifier c = isAlphaNum c || c == '_' || c == '\''
 
 {- |
-prop> fromString s = only s ?< jsonString
-prop> jsonString = iso Text.pack Text.unpack >~ jsonText
+@fromString s = only s ?< jsonString@
+
+@jsonString = iso Text.pack Text.unpack >~ jsonText@
 -}
 class
   ( Cochoice p
@@ -519,6 +588,7 @@ data JsonError = JsonError
   , jsonErrorRules :: Forest String
   } deriving stock (Eq, Show)
 
+-- | How a `JsonError` failed, so that alternatives report the closest.
 data JsonErrorSort
   = JsonLiteral
   -- ^ a string literal mismatch; the alternative doesn't apply
@@ -528,6 +598,11 @@ data JsonErrorSort
   -- ^ the value was rejected for what it contains, lacks or repeats
   deriving stock (Eq, Ord, Show)
 
+{- | A `JsonError`'s message, without its path, as @aeson@ words it.
+
+>>> either jsonErrorMessage show (jsonParse @Bool (Aeson.String "yes"))
+"expected boolean, but found \"yes\""
+-}
 jsonErrorMessage :: JsonError -> String
 jsonErrorMessage err = case (jsonErrorFound err, jsonErrorExpected err) of
   (Just (Left syntax), _) -> syntax
@@ -1489,414 +1564,278 @@ printProperty
 printProperty key p a =
   (\printed -> [(key, printed)]) <$> jsonAt (Key key) (printorCheck p a)
 
--- TypeScript interpreters --
+-- Types of JSON --
 
-data TsType
-  = TsAlias String -- ^ @T@, a reference to a type alias, by its identifier
-  | TsNull -- ^ @null@
-  | TsUndefined -- ^ @undefined@
-  | TsBoolean -- ^ @boolean@
-  | TsNumber -- ^ @number@
-  | TsString -- ^ @string@
-  | TsNumeric -- ^ @\`${number}\`@
-  | TsLiteral Text -- ^ @"abc"@
-  | TsArray TsType -- ^ @T[]@
-  | TsTuple [TsElement] -- ^ @[T, U?, ...V[]]@
-  | TsObject [TsProperty] -- ^ @{abc: T, xyz?: U}@
-  | TsUnion [TsType] -- ^ @T | U@, or @never@ when empty
-  deriving stock (Eq, Ord)
-
-data TsElement
-  = TsRequired TsType -- ^ @T@
-  | TsOptional TsType -- ^ @T?@
-  | TsRest TsType -- ^ @...T[]@
-  deriving stock (Eq, Ord)
-
--- | A property of a TypeScript object type.
-data TsProperty
-  = TsProperty Text Bool TsType -- ^ @abc: T@ or @abc?: T@
-  | TsIndex TsType [TsType] TsType
-  {- ^ @[key: string]: T@ or @{[key in K]?: T}@, the rest of its properties,
-  of a key type, & its alternatives, with its aliases resolved -}
-  deriving stock (Eq, Ord)
-
-newtype TsGrammor a b = TsGrammor (TsDefining TsType)
-
-newtype TsTupGrammor a b = TsTupGrammor
-  {runTsTupGrammor :: Ap TsDefining TsShapes}
-
-newtype TsObjGrammor a b = TsObjGrammor
-  {runTsObjGrammor :: Ap TsDefining (Ap [] [TsProperty])}
-
-{- | Defining TypeScript types, reading the rules being defined which are
-unguarded by an array, object or tuple, each noting whether it's been
-unrolled, and updating the named rules & their definitions.
+{- | The type of JSON values, which a grammar describes,
+of rules by their names, in a `Bnf`, as `jsonType` describes them.
+It's the union of its alternatives, so that `mempty` is the type of
+no values.
 -}
-type TsDefining = ReaderT (Map String Bool) (State TsDefinitions)
+data JsonType
+  = JsonRule String -- ^ the type of a rule, by its name
+  | JsonNull -- ^ @null@
+  | JsonBoolean -- ^ @true@ or @false@
+  | JsonNumber -- ^ numbers
+  | JsonString -- ^ strings
+  | JsonNumeric -- ^ strings of numbers
+  | JsonStringLiteral Text -- ^ a string
+  | JsonArray JsonType -- ^ arrays of a type
+  | JsonTuple [JsonElement] -- ^ arrays of elements, in order
+  | JsonObject [JsonProperty] -- ^ objects of properties
+  | JsonUnion [JsonType] -- ^ values of any of some types
+  deriving stock (Eq, Ord, Show, Read)
 
-data TsDefinitions = TsDefinitions
-  { tsRuleNames :: Map String String
-  , tsRules :: Map String TsType
-  }
+-- | An element of a `JsonTuple`.
+data JsonElement
+  = JsonRequired JsonType -- ^ an element
+  | JsonOptional JsonType -- ^ an element, or none
+  | JsonRest JsonType -- ^ any elements
+  deriving stock (Eq, Ord, Show, Read)
 
-{- | Define a rule once, under its unqualified name, or else its qualified
-name, or else its numbered qualified name, if taken, as TypeScript
-identifiers, so that every other occurrence of it, recursive or not,
-is its name. Its name is reserved, as `never`, while it's being defined.
-An unguarded occurrence is its least fixpoint instead, unrolled once,
-so that a rule of a rule is the rule, and a rule recurring unguarded
-contributes `never`, since JSON values are finite.
--}
-tsDefine :: String -> TsGrammor a b -> TsGrammor c d
-tsDefine key (TsGrammor body) = TsGrammor $ do
-  unguarded <- ask
-  defs <- lift get
-  case (Map.lookup key unguarded, Map.lookup key (tsRuleNames defs)) of
-    (Just True, _) -> pure (tsUnion [])
-    (Just False, _) -> local (Map.insert key True) body
-    (Nothing, Just name) -> pure (TsAlias name)
-    (Nothing, Nothing) -> do
-      let name = freshName (tsRules defs)
-      lift $ put defs
-        { tsRuleNames = Map.insert key name (tsRuleNames defs)
-        , tsRules = Map.insert name (tsUnion []) (tsRules defs)
-        }
-      definition <- local (Map.insert key False) body
-      lift $ modify $ \defined ->
-        defined {tsRules = Map.insert name definition (tsRules defined)}
-      pure (TsAlias name)
-  where
-    freshName taken = fromMaybe qualified (find free candidates)
-      where
-        free name = Map.notMember name taken && name `notElem` tsReserved
-    candidates = Text.unpack (tsIdentifier (unqualified key)) : qualified
-      : [qualified <> "_" <> show n | n <- [2 :: Int ..]]
-    qualified = Text.unpack (tsIdentifier key)
+-- | A property of a `JsonObject`.
+data JsonProperty
+  = JsonProperty Text Bool JsonType
+  -- ^ a property, by its key, which is optional or not
+  | JsonDict JsonType JsonType
+  -- ^ the rest of the properties, by the types of their keys & values
+  deriving stock (Eq, Ord, Show, Read)
 
--- | Global type names the rendered TypeScript refers to.
-tsReserved :: [String]
-tsReserved = ["Exclude"]
+instance Semigroup JsonType where
+  a <> b = jsonUnion [a, b]
+instance Monoid JsonType where
+  mempty = JsonUnion []
 
-tsGuarded :: TsDefining a -> TsDefining a
-tsGuarded = local (const Map.empty)
-
-tsType :: TsType -> TsGrammor a b
-tsType = TsGrammor . pure
-
-tsUnion :: [TsType] -> TsType
-tsUnion types = case nub (concatMap alternatives types) of
+-- | A union, of the alternatives of some types.
+jsonUnion :: [JsonType] -> JsonType
+jsonUnion types = case nub (concatMap flatten types) of
   [t] -> t
-  ts -> TsUnion ts
+  ts -> JsonUnion ts
   where
-    alternatives = \case
-      TsUnion ts -> ts
+    flatten = \case
+      JsonUnion ts -> ts
       t -> [t]
 
-{- | Alternative shapes of a TypeScript tuple type,
-so that `>*<` concatenates each pair of shapes and `>+<` unites them.
--}
-type TsShapes = Ap [] [TsElement]
+{- | The type of the JSON of a type, by its rules, which are named
+by their qualified names.
 
-tsElementType :: TsElement -> TsType
-tsElementType = \case
-  TsRequired t -> t
-  TsOptional t -> t
-  TsRest t -> t
-
-{- | The union of tuple types of some shapes. TypeScript requires that
-a tuple type has at most one rest element, no optional element after
-a rest element, and no required element after an optional element.
-So, the elements from the first rest element to the last are merged
-into one rest element, and optional elements are expanded into
-alternative shapes wherever they'd be followed by a required or
-rest element, or a rest element precedes them.
-Then, alternative shapes are merged exactly, where they differ by
-one required or optional element's type, into a union, or by one more
-element, into an optional or rest element, so that @[A] | [B]@ is @[A | B]@,
-@[A] | [A, B]@ is @[A, B?]@ & @[] | [A, ...A[]]@ is @[...A[]]@.
+>>> jsonType (type Bool)
+Bnf {startBnf = JsonBoolean, rulesBnf = fromList []}
+>>> jsonType (Maybe Ordering)
+Bnf {startBnf = JsonUnion [JsonNull,JsonRule "GHC.Types.Ordering"], rulesBnf = fromList [("GHC.Types.Ordering",JsonUnion [JsonStringLiteral "LT",JsonStringLiteral "EQ",JsonStringLiteral "GT"])]}
 -}
-tsTuple :: TsShapes -> TsType
-tsTuple (Ap shapes) = tsUnion $ TsTuple <$>
-  merged (nub (concatMap (expand False . mergeRests) shapes))
+jsonType :: forall a -> Json a => Bnf JsonType
+jsonType a = Bnf start (Set.fromList (Map.toList rules))
   where
-    merged alternatives =
-      case [ (i, j, shape)
-           | merge <- [unioned, extended]
-           , (i, a) <- zip [0 :: Int ..] alternatives
-           , (j, b) <- zip [0 ..] alternatives
-           , i /= j
-           , Just shape <- [merge a b]
-           ] of
-        (i, j, shape) : _ -> merged
-          [ if k == min i j then shape else alternative
-          | (k, alternative) <- zip [0 ..] alternatives, k /= max i j ]
-        [] -> alternatives
-    unioned a b = case break (uncurry (/=)) (zip a b) of
-      (same, (x, y) : others)
-        | length a == length b, all (uncurry (==)) others
-        , Just el <- unionedElement x y ->
-            Just (map fst same <> [el] <> map fst others)
-      _ -> Nothing
-    unionedElement x y = case (x, y) of
-      (TsRequired s, TsRequired t) -> Just (TsRequired (tsUnion [s, t]))
-      (TsOptional s, TsOptional t) -> Just (TsOptional (tsUnion [s, t]))
-      _ -> Nothing
-    extended a b
-      | any isRest a = Nothing
-      | otherwise = stripPrefix a b >>= \case
-          [TsRequired t] -> Just (a <> [TsOptional t])
-          [TsOptional _] -> Just b
-          [TsRest _] -> Just b
-          [TsRequired t, TsRest u] | t == u -> Just (a <> [TsRest t])
-          _ -> Nothing
-    isRest = \case TsRest _ -> True; _ -> False
-    mergeRests els = case findIndices isRest els of
-      start : rests@(_ : _) ->
-        let
-          (before, others) = splitAt start els
-          (middle, after) = splitAt (last rests - start + 1) others
-        in
-          before <> [TsRest (tsUnion (map tsElementType middle))] <> after
-      _ -> els
-    expand _ [] = [[]]
-    expand restBefore (el : els) = case el of
-      TsOptional t | restBefore || not (optionalTail els) ->
-        expand restBefore els <> map (TsRequired t :) (expand restBefore els)
-      TsRest _ -> map (el :) (expand True els)
-      _ -> map (el :) (expand restBefore els)
-    optionalTail = \case
-      [] -> True
-      [TsRest _] -> True
-      TsOptional _ : els -> optionalTail els
-      _ -> False
+    JsonTypor typed = json @a @JsonTypor
+    (start, rules) = runState (runReaderT typed Map.empty) Map.empty
 
-deriving via Grammor (TsDefining TsType) a
-  instance Functor (TsGrammor a)
-deriving via Grammor (TsDefining TsType)
-  instance Profunctor TsGrammor
-deriving via Grammor (TsDefining TsType)
-  instance Choice TsGrammor
-instance Cochoice TsGrammor where
+{- | Type the JSON of types, in TypeScript, as a declaration of each rule
+of their types, named by its unqualified name, or else its qualified name.
+
+>>> :set -XDeriveAnyClass -XDerivingStrategies
+>>> import GHC.Generics (Generic)
+>>> :{
+data Shape = Circle Double | Square {side :: Double}
+  deriving stock Generic
+  deriving anyclass Json
+:}
+
+>>> mapM_ putStr (tsPrint (jsonTsDeclarations [Shape]))
+export type Double = number | null | "+inf" | "-inf";
+export type Shape = { tag: "Circle"; contents: Double } | { tag: "Square"; side: Double };
+-}
+jsonTsDeclarations :: forall (as :: [Type]) -> All Json as => [TsDeclaration]
+jsonTsDeclarations as = tsDeclarations $ hcollapse
+  (hcpure (Proxy @Json) root :: NP (K (Bnf JsonType)) as)
+  where
+    root :: forall a. Json a => K (Bnf JsonType) a
+    root = K (jsonType (type a))
+
+{- | `JsonTypor` types the JSON of a grammar, reading the rules being typed
+which are unguarded by an array, object or tuple, each noting whether it's
+been unrolled, & updating the rules & their types.
+-}
+newtype JsonTypor a b = JsonTypor (Typing JsonType)
+
+-- | Alternative shapes of tuples, which `>*<` concatenates.
+newtype TupTypor a b = TupTypor
+  {runTupTypor :: Ap Typing (Ap [] [JsonElement])}
+
+-- | Alternative shapes of objects, which `>*<` concatenates.
+newtype ObjTypor a b = ObjTypor
+  {runObjTypor :: Ap Typing (Ap [] [JsonProperty])}
+
+type Typing = ReaderT (Map String Bool) (State (Map String JsonType))
+
+{- | Type a rule once, so that every other occurrence of it, recursive or
+not, is a `JsonRule`. Its type is reserved, as `mempty`, while it's typed.
+An unguarded occurrence is its least fixpoint instead, unrolled once,
+so that a rule of a rule is the rule, & a rule recurring unguarded
+contributes `mempty`, since JSON values are finite.
+-}
+typeRule :: String -> JsonTypor a b -> JsonTypor c d
+typeRule key (JsonTypor body) = JsonTypor $ do
+  unguarded <- ask
+  typed <- lift get
+  case (Map.lookup key unguarded, Map.member key typed) of
+    (Just True, _) -> pure mempty
+    (Just False, _) -> local (Map.insert key True) body
+    (Nothing, True) -> pure (JsonRule key)
+    (Nothing, False) -> do
+      lift (modify (Map.insert key mempty))
+      ruleType <- local (Map.insert key False) body
+      lift (modify (Map.insert key ruleType))
+      pure (JsonRule key)
+
+guarded :: Typing a -> Typing a
+guarded = local (const Map.empty)
+
+typing :: JsonType -> JsonTypor a b
+typing = JsonTypor . pure
+
+deriving via Grammor (Typing JsonType) a
+  instance Functor (JsonTypor a)
+deriving via Grammor (Typing JsonType)
+  instance Profunctor JsonTypor
+deriving via Grammor (Typing JsonType)
+  instance Choice JsonTypor
+instance Cochoice JsonTypor where
   unleft = coerce
   unright = coerce
-instance Witherable.Filterable (TsGrammor a) where
+instance Witherable.Filterable (JsonTypor a) where
   mapMaybe = dimapMaybe Just
-instance Filtrator TsGrammor
-instance CocartesianMonoidal TsGrammor
-instance CocartesianChoice TsGrammor where
+instance Filtrator JsonTypor
+instance CocartesianMonoidal JsonTypor
+instance CocartesianChoice JsonTypor where
   alternate = either coerce coerce
-instance DisjunctiveMonoid (TsGrammor a b) where
-  falseP = tsType (tsUnion [])
-  TsGrammor t0 >|< TsGrammor t1 =
-    TsGrammor (liftA2 (\a b -> tsUnion [a, b]) t0 t1)
-instance BackusNaurForm (TsGrammor a b) where
-  rule = tsDefine
-  ruleRec name f = rule name (f (tsDefine name falseP))
-instance (x ~ (), y ~ ()) => IsString (TsGrammor x y) where
-  fromString = tsType . TsLiteral . Text.pack
-instance JsonStr TsGrammor where
-  jsonText = tsType TsString
-  jsonEnumWith f as = tsType (tsUnion [TsLiteral (f a) | a <- as])
-  jsonNumeric _ = tsType TsNumeric
-instance JsonVal TsGrammor where
-  jsonNull = tsType TsNull
-  jsonBool = tsType TsBoolean
-  jsonNumber = tsType TsNumber
-  jsonArray (TsGrammor t) = TsGrammor (TsArray <$> tsGuarded t)
-  jsonTuple tup = TsGrammor (tsTuple <$> getAp (runTsTupGrammor tup))
-  jsonObject obj =
-    TsGrammor (objects <$> getAp (runTsObjGrammor obj))
+instance DisjunctiveMonoid (JsonTypor a b) where
+  falseP = typing mempty
+  JsonTypor t0 >|< JsonTypor t1 = JsonTypor (liftA2 (<>) t0 t1)
+instance BackusNaurForm (JsonTypor a b) where
+  rule = typeRule
+  ruleRec name f = rule name (f (typeRule name falseP))
+instance (x ~ (), y ~ ()) => IsString (JsonTypor x y) where
+  fromString = typing . JsonStringLiteral . Text.pack
+instance JsonStr JsonTypor where
+  jsonText = typing JsonString
+  jsonEnumWith f as = typing (jsonUnion [JsonStringLiteral (f a) | a <- as])
+  jsonNumeric _ = typing JsonNumeric
+instance JsonVal JsonTypor where
+  jsonNull = typing JsonNull
+  jsonBool = typing JsonBoolean
+  jsonNumber = typing JsonNumber
+  jsonArray (JsonTypor t) = JsonTypor (JsonArray <$> guarded t)
+  jsonTuple tup = JsonTypor (tuples <$> getAp (runTupTypor tup))
     where
-      objects (Ap shapes) = tsUnion (map object shapes)
+      tuples (Ap shapes) = jsonUnion (map JsonTuple shapes)
+  jsonObject obj = JsonTypor (objects <$> getAp (runObjTypor obj))
+    where
+      objects (Ap shapes) = jsonUnion (map object shapes)
       object props
-        | length (nub names) == length names = TsObject props
-        | otherwise = tsUnion []
+        | length (nub keys) == length keys = JsonObject props
+        | otherwise = mempty
         where
-          names = [name | TsProperty name _ _ <- props]
+          keys = [key | JsonProperty key _ _ <- props]
 
-deriving via Grammor (Ap TsDefining TsShapes) a
-  instance Functor (TsTupGrammor a)
-deriving via Grammor (Ap TsDefining TsShapes) a
-  instance Applicative (TsTupGrammor a)
-deriving via Grammor (Ap TsDefining TsShapes)
-  instance Profunctor TsTupGrammor
-instance CocartesianMonoidal TsTupGrammor
-instance Choice TsTupGrammor where
+deriving via Grammor (Ap Typing (Ap [] [JsonElement])) a
+  instance Functor (TupTypor a)
+deriving via Grammor (Ap Typing (Ap [] [JsonElement])) a
+  instance Applicative (TupTypor a)
+deriving via Grammor (Ap Typing (Ap [] [JsonElement]))
+  instance Profunctor TupTypor
+instance CocartesianMonoidal TupTypor
+instance Choice TupTypor where
   left' = coerce
   right' = coerce
-instance CocartesianChoice TsTupGrammor where
+instance CocartesianChoice TupTypor where
   alternate = either coerce coerce
-instance DisjunctiveMonoid (TsTupGrammor a b) where
-  falseP = TsTupGrammor (pure (Ap []))
-  TsTupGrammor s0 >|< TsTupGrammor s1 = TsTupGrammor (liftA2 unite s0 s1)
+instance DisjunctiveMonoid (TupTypor a b) where
+  falseP = TupTypor (pure (Ap []))
+  TupTypor s0 >|< TupTypor s1 = TupTypor (liftA2 unite s0 s1)
     where
       unite (Ap shapes0) (Ap shapes1) = Ap (shapes0 <> shapes1)
 -- | `manyP` is a rest element, of the union of the elements of its shapes.
-instance Distributor TsTupGrammor where
-  manyP (TsTupGrammor s) = TsTupGrammor (rest <$> s)
+instance Distributor TupTypor where
+  manyP (TupTypor s) = TupTypor (rest <$> s)
     where
       rest (Ap shapes) = Ap $
-        case concatMap (map tsElementType) shapes of
+        case concatMap (map elementType) shapes of
           [] -> [[]]
-          ts -> [[TsRest (tsUnion ts)]]
-instance Alternative (TsTupGrammor a) where
+          ts -> [[JsonRest (jsonUnion ts)]]
+instance Alternative (TupTypor a) where
   empty = falseP
   (<|>) = (>|<)
   many = lmap repeat . manyP
   some = lmap repeat . someP
-instance Alternator TsTupGrammor
-instance JsonTup TsGrammor TsTupGrammor where
-  jsonElem (TsGrammor t) =
-    TsTupGrammor (Ap ((\ty -> Ap [[TsRequired ty]]) <$> tsGuarded t))
+instance Alternator TupTypor
+instance JsonTup JsonTypor TupTypor where
+  jsonElem (JsonTypor t) =
+    TupTypor (Ap ((\ty -> Ap [[JsonRequired ty]]) <$> guarded t))
 
-deriving via Grammor (Ap TsDefining (Ap [] [TsProperty])) a
-  instance Functor (TsObjGrammor a)
-deriving via Grammor (Ap TsDefining (Ap [] [TsProperty])) a
-  instance Applicative (TsObjGrammor a)
-deriving via Grammor (Ap TsDefining (Ap [] [TsProperty]))
-  instance Profunctor TsObjGrammor
-instance Choice TsObjGrammor where
+deriving via Grammor (Ap Typing (Ap [] [JsonProperty])) a
+  instance Functor (ObjTypor a)
+deriving via Grammor (Ap Typing (Ap [] [JsonProperty])) a
+  instance Applicative (ObjTypor a)
+deriving via Grammor (Ap Typing (Ap [] [JsonProperty]))
+  instance Profunctor ObjTypor
+instance Choice ObjTypor where
   left' = coerce
   right' = coerce
-instance CocartesianMonoidal TsObjGrammor
-instance CocartesianChoice TsObjGrammor where
+instance CocartesianMonoidal ObjTypor
+instance CocartesianChoice ObjTypor where
   alternate = either coerce coerce
-instance DisjunctiveMonoid (TsObjGrammor a b) where
-  falseP = TsObjGrammor (pure (Ap []))
-  TsObjGrammor s0 >|< TsObjGrammor s1 = TsObjGrammor (liftA2 unite s0 s1)
+instance DisjunctiveMonoid (ObjTypor a b) where
+  falseP = ObjTypor (pure (Ap []))
+  ObjTypor s0 >|< ObjTypor s1 = ObjTypor (liftA2 unite s0 s1)
     where
       unite (Ap shapes0) (Ap shapes1) = Ap (shapes0 <> shapes1)
-instance JsonObj TsGrammor TsObjGrammor where
-  jsonDict key (TsGrammor t) = tsProperty $ do
-    keyType <- tsGuarded k
-    rules <- lift (gets tsRules)
-    TsIndex keyType (tsAlternatives rules keyType) <$> tsGuarded t
-    where
-      TsGrammor k = key
-  k !: TsGrammor t = tsProperty (TsProperty k False <$> tsGuarded t)
-  k ?: TsGrammor t = tsProperty (TsProperty k True <$> tsGuarded t)
-
--- | The alternatives of a type, resolving its aliases.
-tsAlternatives :: Map String TsType -> TsType -> [TsType]
-tsAlternatives rules = go []
-  where
-    go seen = \case
-      TsAlias name | name `notElem` seen, Just t <- Map.lookup name rules ->
-        go (name : seen) t
-      TsUnion ts -> concatMap (go seen) ts
-      t -> [t]
+instance JsonObj JsonTypor ObjTypor where
+  jsonDict (JsonTypor k) (JsonTypor t) =
+    typedProperty (JsonDict <$> guarded k <*> guarded t)
+  k !: JsonTypor t = typedProperty (JsonProperty k False <$> guarded t)
+  k ?: JsonTypor t = typedProperty (JsonProperty k True <$> guarded t)
 
 -- | An object type of one property.
-tsProperty :: TsDefining TsProperty -> TsObjGrammor a b
-tsProperty prop = TsObjGrammor (Ap ((\p -> Ap [[p]]) <$> prop))
+typedProperty :: Typing JsonProperty -> ObjTypor a b
+typedProperty prop = ObjTypor (Ap ((\p -> Ap [[p]]) <$> prop))
 
--- Rendering TypeScript --
+elementType :: JsonElement -> JsonType
+elementType = \case
+  JsonRequired t -> t
+  JsonOptional t -> t
+  JsonRest t -> t
 
--- | Render the TypeScript type alias declarations of rules, sharing them.
-renderTypeScript :: [TsGrammor () ()] -> Text
-renderTypeScript roots =
-  Text.unlines (map declaration (Map.toList (tsRules definitions)))
-  where
-    definitions = execState
-      (runReaderT (traverse_ (\(TsGrammor ts) -> ts) roots) Map.empty)
-      (TsDefinitions Map.empty Map.empty)
-    declaration (name, ty) =
-      "export type " <> Text.pack name <> " = " <> renderTsType ty <> ";"
+-- TypeScript --
 
-renderTsType :: TsType -> Text
-renderTsType = \case
-  TsAlias name -> Text.pack name
-  TsNull -> "null"
-  TsUndefined -> "undefined"
-  TsBoolean -> "boolean"
-  TsNumber -> "number"
-  TsString -> "string"
-  TsNumeric -> "`${number}`"
-  TsLiteral t -> tsStringLiteral t
-  TsArray t -> renderTsOperand t <> "[]"
-  TsTuple els -> "[" <> Text.intercalate ", " (map renderTsElement els) <> "]"
-  TsObject props -> Text.intercalate " & " (renderTsObject props)
-  TsUnion [] -> "never"
-  TsUnion ts -> Text.intercalate " | " (map renderTsType ts)
-
-renderTsOperand :: TsType -> Text
-renderTsOperand = \case
-  TsUnion ts@(_ : _ : _) -> "(" <> renderTsType (TsUnion ts) <> ")"
-  TsObject props | length (renderTsObject props) > 1 ->
-    "(" <> renderTsType (TsObject props) <> ")"
-  t -> renderTsType t
-
-{- | The intersected parts of an object type: its named properties
-& index signatures, of its @string@ or @\`${number}\`@ keys, & a mapped type
-of its literal keys, but those which are named, which TypeScript types
-apart, like @{ id: T } & { [key in Exclude<K, "id">]?: U }@.
+{- | TypeScript declarations of the rules of some types, named by their
+unqualified names, or else their qualified names, or else their numbered
+qualified names, as TypeScript identifiers, in order of their names.
 -}
-renderTsObject :: [TsProperty] -> [Text]
-renderTsObject props = case (named <> indexSignatures, keyedTypes) of
-  ([], []) -> ["{}"]
-  ([], _) -> keyedTypes
-  (rendered, _) ->
-    ("{ " <> Text.intercalate "; " rendered <> " }") : keyedTypes
+tsDeclarations :: [Bnf JsonType] -> [TsDeclaration]
+tsDeclarations bnfs =
+  [ TypeAliasDeclaration True identifier (tsType rules names ruleType)
+  | (identifier, ruleType) <- sortOn fst
+      [(names Map.! key, ruleType) | (key, ruleType) <- Map.toList rules]
+  ]
   where
-    named = [renderTsProperty k o t | TsProperty k o t <- props]
-    names = [k | TsProperty k _ _ <- props]
-    indexSignatures =
-      [ "[key: " <> renderTsType pattern <> "]: "
-        <> renderTsType (tsUnion (t : covered pattern))
-      | TsIndex _ alternatives t <- props
-      , t /= TsUnion []
-      , pattern <- take 1
-          [p | p <- [TsString, TsNumeric], p `elem` alternatives]
-      ]
-    -- An index type also covers the named properties it matches,
-    -- as TypeScript requires.
-    covered pattern =
-      [t | TsProperty k _ t <- props, matches pattern k]
-      <> [TsUndefined | or [o | TsProperty k o _ <- props, matches pattern k]]
-    matches = \case
-      TsNumeric -> isJust . readScientific
-      _ -> const True
-    keyedTypes =
-      [ "{ [key in " <> keys <> "]?: " <> renderTsType t <> " }"
-      | TsIndex k alternatives t <- props
-      , t /= TsUnion []
-      , let
-          literalKeys = [TsLiteral l | TsLiteral l <- alternatives]
-          excluded = [l | l@(TsLiteral name) <- literalKeys, name `elem` names]
-          base
-            | length literalKeys == length alternatives = renderTsType k
-            | otherwise = renderTsType (tsUnion literalKeys)
-          keys
-            | null excluded = base
-            | otherwise =
-                "Exclude<" <> base <> ", " <> renderTsType (tsUnion excluded)
-                <> ">"
-      , length excluded < length literalKeys
-      ]
+    rules = Map.fromList (concatMap (Set.toList . rulesBnf) bnfs)
+    names = foldl' name Map.empty (Map.keys rules)
+    name named key = Map.insert key fresh named
+      where
+        taken = Map.elems named
+        fresh = fromMaybe qualified $ find
+          (\candidate -> candidate `notElem` taken
+            && candidate `notElem` tsReserved)
+          ( tsIdentifier (unqualified key) : qualified
+          : [qualified <> "_" <> Text.pack (show n) | n <- [2 :: Int ..]] )
+        qualified = tsIdentifier key
 
-renderTsElement :: TsElement -> Text
-renderTsElement = \case
-  TsRequired t -> renderTsType t
-  TsOptional t -> renderTsOperand t <> "?"
-  TsRest t -> "..." <> renderTsOperand t <> "[]"
-
-renderTsProperty :: Text -> Bool -> TsType -> Text
-renderTsProperty name isOptional t =
-  tsPropertyKey name <> (if isOptional then "?: " else ": ") <> renderTsType t
-
-tsPropertyKey :: Text -> Text
-tsPropertyKey name
-  | isIdentifier name = name
-  | otherwise = tsStringLiteral name
-  where
-    isIdentifier t = case Text.uncons t of
-      Just (c, rest) -> identifierStart c && Text.all identifierChar rest
-      Nothing -> False
-    identifierStart c = isAlpha c || c == '_' || c == '$'
-    identifierChar c = isAlphaNum c || c == '_' || c == '$'
-
-tsStringLiteral :: Text -> Text
-tsStringLiteral = LText.toStrict . encodeToLazyText . String
+-- | Names of types which TypeScript reserves.
+tsReserved :: [Text]
+tsReserved =
+  [ "any", "bigint", "boolean", "false", "never", "null", "number"
+  , "object", "string", "symbol", "true", "undefined", "unknown", "void"
+  ]
 
 -- | A TypeScript identifier for a rule name, like @Box_List_Int@.
 tsIdentifier :: String -> Text
@@ -1909,6 +1848,196 @@ tsIdentifier name = case Text.uncons ident of
       [part | part <- Text.split (not . isAlphaNum) (Text.pack spelled)
       , not (Text.null part)]
     spelled = concatMap (\c -> if c == '[' then " List " else [c]) name
+
+{- | The TypeScript type of a JSON type, by its rules & their names,
+parenthesized as TypeScript parses it.
+-}
+tsType :: Map String JsonType -> Map String Text -> JsonType -> TypeNode
+tsType rules names = typeNode
+  where
+    typeNode = \case
+      JsonRule key -> TypeReference (names Map.! key) []
+      JsonNull -> LiteralType NullLiteral
+      JsonBoolean -> KeywordType BooleanKeyword
+      JsonNumber -> KeywordType NumberKeyword
+      JsonString -> KeywordType StringKeyword
+      JsonNumeric -> numeric
+      JsonStringLiteral text -> LiteralType (TextLiteral text)
+      JsonArray t -> ArrayType (operand (typeNode t))
+      t@(JsonTuple _) -> typeNode (JsonUnion [t])
+      JsonObject props -> object props
+      JsonUnion ts -> union $ case break isTuple ts of
+        (before, _ : _) ->
+          map typeNode before
+          <> map tuple (tsTuples [els | JsonTuple els <- ts])
+          <> [typeNode t | t <- drop (length before) ts, not (isTuple t)]
+        _ -> map typeNode ts
+    isTuple = \case JsonTuple _ -> True; _ -> False
+    numeric = TemplateLiteralType "" [(KeywordType NumberKeyword, "")]
+    tuple els = TupleType $ els <&> \case
+      JsonRequired t -> typeNode t
+      JsonOptional t -> OptionalType (operand (typeNode t))
+      JsonRest t -> RestType (ArrayType (operand (typeNode t)))
+    -- The intersected parts of an object type: its named properties
+    -- & index signatures, of its string or numeric keys, & a mapped type
+    -- of its literal keys, but those which are named, which TypeScript
+    -- types apart, like @{ id: T } & { [key in K as …]?: U }@.
+    object props = case (named <> indexSignatures, mappedTypes) of
+      ([], []) -> TypeLiteral []
+      ([], [objectPart]) -> objectPart
+      ([], objectParts) -> IntersectionType objectParts
+      (members, objectParts) -> case TypeLiteral members : objectParts of
+        [objectPart] -> objectPart
+        allObjectParts -> IntersectionType allObjectParts
+      where
+        named =
+          [ PropertySignature (propertyName key) isOptional (typeNode t)
+          | JsonProperty key isOptional t <- props ]
+        keys = [key | JsonProperty key _ _ <- props]
+        dicts =
+          [ (keyType, typeAlternatives rules keyType, t)
+          | JsonDict keyType t <- props, t /= mempty ]
+        indexSignatures =
+          [ IndexSignature "key" (typeNode pattern) $ union
+              (typeNode t : covered pattern)
+          | (_, keyAlternatives, t) <- dicts
+          , pattern <- take 1
+              [p | p <- [JsonString, JsonNumeric], p `elem` keyAlternatives]
+          ]
+        -- An index type also covers the named properties it matches,
+        -- as TypeScript requires.
+        covered pattern =
+          [typeNode t | JsonProperty key _ t <- props, matches pattern key]
+          <> [ KeywordType UndefinedKeyword
+             | or [o | JsonProperty key o _ <- props, matches pattern key] ]
+        matches = \case
+          JsonNumeric -> isJust . readScientific
+          _ -> const True
+        mappedTypes =
+          [ MappedType "key" base exclusion True (typeNode t)
+          | (keyType, keyAlternatives, t) <- dicts
+          , let
+              literalKeys = [l | JsonStringLiteral l <- keyAlternatives]
+              excluded = [l | l <- literalKeys, l `elem` keys]
+              base
+                | length literalKeys == length keyAlternatives = typeNode keyType
+                | otherwise = union (map (LiteralType . TextLiteral) literalKeys)
+              exclusion
+                | null excluded = Nothing
+                | otherwise = Just $ ConditionalType
+                    (TypeReference "key" [])
+                    (union (map (LiteralType . TextLiteral) excluded))
+                    (KeywordType NeverKeyword)
+                    (TypeReference "key" [])
+          , length excluded < length literalKeys
+          ]
+    propertyName key
+      | isIdentifier key = PropertyIdentifier key
+      | otherwise = PropertyString key
+    isIdentifier key = case Text.uncons key of
+      Just (c, rest) -> identifierStart c && Text.all identifierChar rest
+      Nothing -> False
+    identifierStart c = isAlpha c || c == '_' || c == '$'
+    identifierChar c = isAlphaNum c || c == '_' || c == '$'
+
+-- | A union of types, flattened, or else its only type, or else @never@.
+union :: [TypeNode] -> TypeNode
+union nodes = case nub (concatMap flatten nodes) of
+  [] -> KeywordType NeverKeyword
+  [node] -> node
+  alts -> UnionType (map member alts)
+  where
+    flatten = \case
+      UnionType alts -> alts
+      KeywordType NeverKeyword -> []
+      node -> [node]
+    member = \case
+      node@(ConditionalType {}) -> ParenthesizedType node
+      node -> node
+
+-- | A type, parenthesized as an operand of an array or element type.
+operand :: TypeNode -> TypeNode
+operand = \case
+  node@(UnionType _) -> ParenthesizedType node
+  node@(IntersectionType _) -> ParenthesizedType node
+  node@(ConditionalType {}) -> ParenthesizedType node
+  node -> node
+
+-- | The alternatives of a type, resolving its rules.
+typeAlternatives :: Map String JsonType -> JsonType -> [JsonType]
+typeAlternatives rules = go []
+  where
+    go seen = \case
+      JsonRule key | key `notElem` seen, Just t <- Map.lookup key rules ->
+        go (key : seen) t
+      JsonUnion ts -> concatMap (go seen) ts
+      t -> [t]
+
+{- | Tuples of some shapes, as TypeScript types them. TypeScript requires
+that a tuple type has at most one rest element, no optional element after
+a rest element, & no required element after an optional element.
+So, the elements from the first rest element to the last are merged
+into one rest element, & optional elements are expanded into
+alternative shapes wherever they'd be followed by a required or
+rest element, or a rest element precedes them.
+Then, alternative shapes are merged exactly, where they differ by
+one required or optional element's type, into a union, or by one more
+element, into an optional or rest element, so that @[A] | [B]@ is @[A | B]@,
+@[A] | [A, B]@ is @[A, B?]@ & @[] | [A, ...A[]]@ is @[...A[]]@.
+-}
+tsTuples :: [[JsonElement]] -> [[JsonElement]]
+tsTuples shapes = merged (nub (concatMap (expand False . mergeRests) shapes))
+  where
+    merged alts =
+      case [ (i, j, shape)
+           | merge <- [unioned, extended]
+           , (i, a) <- zip [0 :: Int ..] alts
+           , (j, b) <- zip [0 ..] alts
+           , i /= j
+           , Just shape <- [merge a b]
+           ] of
+        (i, j, shape) : _ -> merged
+          [ if k == min i j then shape else alt
+          | (k, alt) <- zip [0 ..] alts, k /= max i j ]
+        [] -> alts
+    unioned a b = case break (uncurry (/=)) (zip a b) of
+      (same, (x, y) : others)
+        | length a == length b, all (uncurry (==)) others
+        , Just el <- unionedElement x y ->
+            Just (map fst same <> [el] <> map fst others)
+      _ -> Nothing
+    unionedElement x y = case (x, y) of
+      (JsonRequired s, JsonRequired t) -> Just (JsonRequired (s <> t))
+      (JsonOptional s, JsonOptional t) -> Just (JsonOptional (s <> t))
+      _ -> Nothing
+    extended a b
+      | any isRest a = Nothing
+      | otherwise = stripPrefix a b >>= \case
+          [JsonRequired t] -> Just (a <> [JsonOptional t])
+          [JsonOptional _] -> Just b
+          [JsonRest _] -> Just b
+          [JsonRequired t, JsonRest u] | t == u -> Just (a <> [JsonRest t])
+          _ -> Nothing
+    isRest = \case JsonRest _ -> True; _ -> False
+    mergeRests els = case findIndices isRest els of
+      start : rests@(_ : _) ->
+        let
+          (before, others) = splitAt start els
+          (middle, after) = splitAt (last rests - start + 1) others
+        in
+          before <> [JsonRest (jsonUnion (map elementType middle))] <> after
+      _ -> els
+    expand _ [] = [[]]
+    expand restBefore (el : els) = case el of
+      JsonOptional t | restBefore || not (optionalTail els) ->
+        expand restBefore els <> map (JsonRequired t :) (expand restBefore els)
+      JsonRest _ -> map (el :) (expand True els)
+      _ -> map (el :) (expand restBefore els)
+    optionalTail = \case
+      [] -> True
+      [JsonRest _] -> True
+      JsonOptional _ : els -> optionalTail els
+      _ -> False
 
 -- Json instance helpers
 

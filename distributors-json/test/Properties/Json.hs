@@ -24,6 +24,9 @@ import Control.Lens.Grammar
   , (>*<), (>+<), (>?), (>|<), (>~)
   )
 import Control.Lens.Grammar.Json
+import Data.Kind (Type)
+import Data.SOP (All)
+import Control.Lens.Grammar.TypeScript (tsParse, tsPrint)
 import Data.Aeson
   ( FromJSON (..), Options (..), SumEncoding (..), ToJSON (..), Value (String)
   , camelTo2, decode, defaultOptions, genericToJSON
@@ -286,8 +289,8 @@ jsonObjectSpec = describe "jsonObject" $ do
   it "excludes named keys from the mapped type of the rest" $ do
     declares (type Votes)
       [ "export type Int = number;"
-      , "export type Votes = \
-        \{ yes: Int } & { [key in Exclude<\"no\" | \"yes\", \"yes\">]?: Int };"
+      , "export type Votes = { yes: Int } & \
+        \{ [key in \"no\" | \"yes\" as key extends \"yes\" ? never : key]?: Int };"
       ]
     roundTrip (object ["yes" .= (2 :: Int), "no" .= (1 :: Int)])
       (Votes (2, [(False, 1)]))
@@ -510,12 +513,18 @@ jsonPrintSpec = describe "jsonErrorPrint" $ do
     printError (Dup (1, 2)) `shouldBe`
       Left "Error in $: cannot print key \"k\" twice"
 
--- | TypeScript type declarations, one per line.
+{- | TypeScript type declarations, one per line,
+which parse as the declarations which print them.
+-}
 declares :: forall a -> Json a => [Text] -> Expectation
-declares a declarations = jsonTypes [a] `shouldBe` Text.unlines declarations
+declares a declarations = do
+  tsTypes [a] `shouldBe` Text.unlines declarations
+  (tsPrint parsed >>= tsParse) `shouldBe` Just parsed
+  where
+    parsed = jsonTsDeclarations [a]
 
 jsonTypeSpec :: Spec
-jsonTypeSpec = describe "jsonTypes" $ do
+jsonTypeSpec = describe "jsonTsDeclarations" $ do
   let point = "{ px: number; py: number }"
   it "declares nothing for types without rules" $ do
     declares Bool []
@@ -593,7 +602,7 @@ jsonTypeSpec = describe "jsonTypes" $ do
   it "declares the rules of types without rules" $
     declares (type (Vector Point)) ["export type Point = " <> point <> ";"]
   it "declares each type once" $
-    length (Text.lines (jsonTypes [Twice16])) `shouldBe` 16
+    length (Text.lines (tsTypes [Twice16])) `shouldBe` 16
   it "names colliding declarations uniquely" $
     declares (type Collide)
       [ "export type Collide = \
@@ -604,19 +613,18 @@ jsonTypeSpec = describe "jsonTypes" $ do
   it "names declarations by distinct TypeScript identifiers" $ do
     let pair = "Properties_Json_GHC_Types_Int_Data_Text_Internal_Text"
     declares (type Sanitized)
-      [ "export type Int = number;"
-      , "export type Int_Text = \
+      [ "export type Exclude = number;"
+      , "export type Int = number;"
+      , "export type Int_Text = [Int, string];"
+      , "export type " <> pair <> " = \
         \{ tag: \"L\"; contents: Int } | { tag: \"R\"; contents: string };"
-      , "export type Properties_Json_Exclude = number;"
-      , "export type " <> pair <> " = [Int, string];"
-      , "export type Sanitized = \
-        \[Int_Text, " <> pair <> ", Properties_Json_Exclude];"
+      , "export type Sanitized = [" <> pair <> ", Int_Text, Exclude];"
       ]
   it "quotes property keys" $
     declares (type Optional)
       ["export type Optional = { a: number; \"b c\"?: string | number };"]
   it "declares types sharing their type aliases" $
-    jsonTypes (type [Point, Box Point]) `shouldBe` Text.unlines
+    tsTypes (type [Point, Box Point]) `shouldBe` Text.unlines
       [ "export type Box_Point = Point;"
       , "export type Point = " <> point <> ";"
       ]
@@ -658,7 +666,9 @@ instance Json Collide where
     <$> lmap named ("named" !: rule "Point" jsonNumber)
     <*> lmap typed ("typed" !: json)
 
--- | Types named by the same identifier, @Int_Text@, & one named @Exclude@.
+{- | Types named by the same identifier, @Int_Text@, & one named @Exclude@,
+which TypeScript declares globally, but which declarations needn't use.
+-}
 data Sanitized = Sanitized (Int :+: Text) (Int :*: Text) Exclude
   deriving stock (Show, Generic)
   deriving anyclass Json
@@ -1159,3 +1169,7 @@ jsonOptionsSpec = describe "jsonGeneric" $ do
     jsonParse @(By Defaults Sample)
       (object ["tag" .= ("Record" :: Text), "recordInt" .= (1 :: Int)])
       `shouldBe` Right (By (Record 1 Nothing))
+
+-- | The TypeScript declarations of types, as text.
+tsTypes :: forall (as :: [Type]) -> All Json as => Text.Text
+tsTypes as = maybe "" Text.pack (tsPrint (jsonTsDeclarations as))

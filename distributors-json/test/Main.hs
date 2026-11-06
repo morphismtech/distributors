@@ -34,6 +34,7 @@ doctests = do
   let
     modulePaths =
       [ "src/Control/Lens/Grammar/Json.hs"
+      , "src/Control/Lens/Grammar/TypeScript.hs"
       ]
     packageEnvFlags = case ghcEnvironment of
       Just "-" -> []

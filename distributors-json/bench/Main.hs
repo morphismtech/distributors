@@ -1,7 +1,7 @@
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RequiredTypeArguments #-}
--- | Keep constant benchmarks, like `jsonTypes`, from being shared.
+-- | Keep constant benchmarks, like `tsTypes`, from being shared.
 {-# OPTIONS_GHC -fno-full-laziness #-}
 -- | A sum of records, like `Variant`, has partial fields.
 {-# OPTIONS_GHC -Wno-partial-fields #-}
@@ -9,6 +9,9 @@ module Main (main) where
 
 import Control.DeepSeq (NFData)
 import Control.Lens.Grammar.Json
+import Data.Kind (Type)
+import Data.SOP (All)
+import Control.Lens.Grammar.TypeScript (tsPrint)
 import Data.Aeson
   ( FromJSON (..), ToJSON (..), Value (..), decode, defaultOptions, encode
   , genericToEncoding, object, (.=)
@@ -281,10 +284,14 @@ main = defaultMain
   , dataset "hashMap" hashMap
   , dataset "value" value
   , bgroup "typescript"
-    [ bench "records" (nf (\() -> jsonTypes (type '[Person])) ())
-    , bench "sums" (nf (\() -> jsonTypes [Shape]) ())
-    , bench "rose" (nf (\() -> jsonTypes (type '[Rose])) ())
-    , bench "value" (nf (\() -> jsonTypes [Value]) ())
-    , bench "twice12" (nf (\() -> jsonTypes [Twice12]) ())
+    [ bench "records" (nf (\() -> tsTypes (type '[Person])) ())
+    , bench "sums" (nf (\() -> tsTypes [Shape]) ())
+    , bench "rose" (nf (\() -> tsTypes (type '[Rose])) ())
+    , bench "value" (nf (\() -> tsTypes [Value]) ())
+    , bench "twice12" (nf (\() -> tsTypes [Twice12]) ())
     ]
   ]
+
+-- | The TypeScript declarations of types, as text.
+tsTypes :: forall (as :: [Type]) -> All Json as => Text.Text
+tsTypes as = maybe "" Text.pack (tsPrint (jsonTsDeclarations as))
