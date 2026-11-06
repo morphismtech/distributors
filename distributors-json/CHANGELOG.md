@@ -9,6 +9,8 @@
 - `Control.Lens.Grammar.TypeScript` parses & prints TypeScript type
   declarations, by `tsTokenGrammar` & `tsGrammar`, after the TypeScript
   compiler's scanner & syntax.
+- `tsTokensGrammar` scans tokens without their trivia, so that `tsGrammar`
+  parses by Parsector, locating failures.
 - Mapped types exclude named keys by `as`, rather than the global `Exclude`.
 - Single-key objects, like `Either`'s, & numeric keys parse as `aeson` does.
 - `jsonObjectStrict` is a `JsonVal` method.

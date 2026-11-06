@@ -1660,7 +1660,7 @@ jsonTsPut as handle = case (parsecResult printed, parsecResult source) of
   _ -> hPutStr handle (parsecStream source)
   where
     printed = unparsecG tsGrammar (jsonTsDeclarations as) []
-    source = unparsecG (manyP tsTokenGrammar) (parsecStream printed) ""
+    source = unparsecG tsTokensGrammar (parsecStream printed) ""
     unprinted layer stage = ioError $ userError $
       "jsonTsPut: cannot print " <> layer <> " at "
       <> show (parsecOffset stage) <> ", expecting "

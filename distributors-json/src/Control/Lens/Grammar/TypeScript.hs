@@ -14,19 +14,22 @@ in two layers: a `tsTokenGrammar` of its tokens, by their `TsTokenCategory`s,
 & a `tsGrammar` of its syntax, of those tokens, by the compiler's
 names of its nodes, so that they parse & print together.
 
-Each layer interprets as any grammar does: here, the declarations print
-as tokens, by `unparsecG`, which print as characters, & parse back,
-by `parsecG` & `parseG`, since `tsTokenGrammar` is @LL(1)@
-but `tsGrammar` isn't.
+Both layers are @LL(1)@, since `tsTokensGrammar` scans tokens without
+their trivia, so that `parsecG` parses & `unparsecG` prints each layer,
+locating failures. Here, a declaration prints as tokens, & as characters,
+& parses back.
 
 >>> :set -XOverloadedStrings
 >>> let point = TypeLiteral [PropertySignature (PropertyIdentifier "x") False (KeywordType NumberKeyword)]
 >>> let printed = unparsecG tsGrammar [TypeAliasDeclaration True "Point" point] ([] :: [TsToken])
->>> let source = parsecStream (unparsecG (manyP tsTokenGrammar) (parsecStream printed) ("" :: String))
+>>> let source = parsecStream (unparsecG tsTokensGrammar (parsecStream printed) ("" :: String))
 >>> putStr source
 export type Point = { x: number };
->>> [parsed | Just scanned <- [parsecResult (parsecG (manyP tsTokenGrammar) source)], (parsed, []) <- parseG tsGrammar scanned]
-[[TypeAliasDeclaration True "Point" (TypeLiteral [PropertySignature (PropertyIdentifier "x") False (KeywordType NumberKeyword)])]]
+>>> parsecResult (parsecG tsGrammar (concat (parsecResult (parsecG tsTokensGrammar source))))
+Just [TypeAliasDeclaration True "Point" (TypeLiteral [PropertySignature (PropertyIdentifier "x") False (KeywordType NumberKeyword)])]
+>>> let scanned = concat (parsecResult (parsecG tsTokensGrammar "type A = { a: number; b: };"))
+>>> parsecOffset (parsecG tsGrammar scanned)
+10
 -}
 
 module Control.Lens.Grammar.TypeScript
@@ -41,6 +44,7 @@ module Control.Lens.Grammar.TypeScript
   , TsToken (..)
   , TsTokenCategory (..)
   , tsTokenGrammar
+  , tsTokensGrammar
   ) where
 
 import Control.Lens
@@ -202,7 +206,8 @@ symbol kind = TsToken kind (fromMaybe "" (kindText kind))
 
 {- | A token, scanned from its characters. Its trivia are tokens,
 as the scanner of the TypeScript compiler scans without skipping them,
-so that @`manyP` tsTokenGrammar@ scans a file.
+so that @`manyP` tsTokenGrammar@ scans a file, or `tsTokensGrammar`
+scans it without its trivia.
 
 Unlike the compiler's scanner, which rescans a @}@ as a template's
 middle or tail, by the context of its parser, `tsTokenGrammar` is regular,
@@ -258,6 +263,17 @@ tsTokenGrammar = orP
       , terminal "\\" >* oneOf @Char ("`$\\" :: String)
       ]
 
+{- | Tokens, scanned from their characters without their trivia,
+as the TypeScript compiler's scanner skips trivia, & printed with them,
+as `tsGrammar` prints them, so that `tsGrammar` parses by @LL(1)@.
+-}
+tsTokensGrammar :: RegGrammar Char [TsToken]
+tsTokensGrammar = rmap
+  (\scanned -> [t | t <- scanned, tokenCategory t `notElem` trivial])
+  (manyP tsTokenGrammar)
+  where
+    trivial = [WhitespaceTrivia, NewLineTrivia]
+
 -- | A token of a kind, by its text.
 kindOf :: TsTokenCategory -> Prism' TsToken String
 kindOf kind = prism'
@@ -308,9 +324,9 @@ _HexCode = prism'
 
 {- | Type declarations, of tokens, by the TypeScript compiler's syntax.
 
-Trivia, whitespace & newlines, are parsed between tokens, & printed
-conventionally. Each run of trivia is the trivia of exactly one token,
-either before or after it, so that it parses only one way.
+Trivia, whitespace & newlines, are printed conventionally, between tokens,
+& parsed only by `parseG`, from tokens with trivia, since `parsecG`
+parses tokens without them, which `tsTokensGrammar` scans.
 -}
 tsGrammar :: Grammar TsToken [TsDeclaration]
 tsGrammar = rule "declarations" $
@@ -362,56 +378,66 @@ tsGrammar = rule "declarations" $
           , _TextLiteral >? textOf StringLiteral
           ]
       , _NoSubstitution >? textOf NoSubstitutionTemplateLiteral
-      , _TemplateLiteralType >? textOf TemplateHead *< trivia [] >*<
-          (_Snoc >? manyP (templateSpan TemplateMiddle (trivia []))
-            >*< templateSpan TemplateTail oneP)
+      , _TemplateLiteralType >? textOf TemplateHead *< tight
+          >*< templateSpans ty
       , _TypeReference >? identifier >*< orP
-          [ only [] >? oneP
-          , tokenOf tight LessThanToken tight
-              >* several1 (sepBy comma) ty
-              *< tokenOf tight GreaterThanToken oneP
+          [ several1 (sepBy comma)
+              { beginBy = tokenOf tight LessThanToken tight
+              , endBy = tokenOf tight GreaterThanToken oneP
+              } ty
+          , only [] >? oneP
           ]
-      , _TupleType >? orP
-          [ only [] >? tokenOf oneP OpenBracketToken oneP
-              >* tokenOf tight CloseBracketToken oneP
-          , tokenOf oneP OpenBracketToken tight
-              >* several1 (sepBy comma) (tupleElement ty)
+      , _TupleType >? tokenOf oneP OpenBracketToken oneP >* orP
+          [ only [] >? tokenOf tight CloseBracketToken oneP
+          , tight >* several1 (sepBy comma) (tupleElement ty)
               *< tokenOf tight CloseBracketToken oneP
           ]
       , _ParenthesizedType >? tokenOf oneP OpenParenToken tight
           >* ty *< tokenOf tight CloseParenToken oneP
-      , _TypeLiteral >? orP
-          [ only [] >? tokenOf oneP OpenBraceToken oneP
-              >* tokenOf tight CloseBraceToken oneP
-          , tokenOf oneP OpenBraceToken space
-              >* several1 (sepBy semicolon) (member ty)
-              *< optionalSemicolon
-              *< tokenOf space CloseBraceToken oneP
+      , _Braced >? tokenOf oneP OpenBraceToken oneP >* orP
+          [ only (TypeLiteral []) >? tokenOf tight CloseBraceToken oneP
+          , _Bracketed >? tokenOf space OpenBracketToken tight >* identifier
+              >*< (mappedRest ty >+< indexRest ty)
+          , _PropertyFirst >? space >* property ty >*< members ty
           ]
-      , _MappedType >? tokenOf oneP OpenBraceToken space
-          >* tokenOf oneP OpenBracketToken tight >* identifier
-          >*< tokenOf space InKeyword space >* ty
-          >*< optionalP (tokenOf space AsKeyword space >* ty)
-          >*< tokenOf tight CloseBracketToken oneP >* question
-          >*< tokenOf tight ColonToken space >* ty
-          *< tokenOf space CloseBraceToken oneP
       ]
-      where
-        templateSpan kind after =
-          ty >*< trivia [] >* textOf kind *< after
+    -- The rest of a mapped type, after its type parameter's name.
+    mappedRest ty = tokenOf space InKeyword space >* ty
+      >*< optionalP (tokenOf space AsKeyword space >* ty)
+      >*< tokenOf tight CloseBracketToken oneP >* question
+      >*< tokenOf tight ColonToken space >* ty
+      *< tokenOf space CloseBraceToken oneP
+    -- The rest of a type literal, after its first index signature's name.
+    indexRest ty = tokenOf tight ColonToken space >* ty
+      >*< tokenOf tight CloseBracketToken oneP
+      >* tokenOf tight ColonToken space >* ty
+      >*< members ty
+    -- The members after a type literal's first, & its closing brace.
+    members ty = ruleRec "members" $ \rest -> orP
+      [ only [] >? tokenOf space CloseBraceToken oneP
+      , tokenOf tight SemicolonToken space >* orP
+          [ only [] >? tokenOf tight CloseBraceToken oneP
+          , member ty >:< rest
+          ]
+      ]
+    -- A template's spans, each a type & its middle's or tail's literal.
+    templateSpans ty = ruleRec "spans" $ \rest -> _Spans >? ty
+      >*< (tight >* textOf TemplateMiddle *< tight >*< rest
+        >+< tight >* textOf TemplateTail)
     tupleElement ty = rule "element" $ orP
       [ _RestType >? tokenOf oneP DotDotDotToken tight >* ty
-      , _OptionalType >? ty *< tokenOf tight QuestionToken oneP
-      , ty
+      , _Optional >~ ty >*< question
       ]
     member ty = rule "member" $ orP
-      [ _PropertySignature >? propertyName >*< question
-          >*< tokenOf tight ColonToken space >* ty
+      [ _PropertySignature >? property ty
       , _IndexSignature >? tokenOf oneP OpenBracketToken tight >* identifier
-          >*< tokenOf tight ColonToken space >* ty
-          >*< tokenOf tight CloseBracketToken oneP
-          >* tokenOf tight ColonToken space >* ty
+          >*< indexSignature ty
       ]
+    property ty = propertyName >*< question
+      >*< tokenOf tight ColonToken space >* ty
+    indexSignature ty = tokenOf tight ColonToken space >* ty
+      >*< tokenOf tight CloseBracketToken oneP
+      >* tokenOf tight ColonToken space >* ty
     propertyName = orP
       [ _PropertyIdentifier >? identifier
       , _PropertyIdentifier >? orP
@@ -423,9 +449,6 @@ tsGrammar = rule "declarations" $
       , only False >? oneP
       ]
     comma = tokenOf tight CommaToken space
-    semicolon = tokenOf tight SemicolonToken space
-    optionalSemicolon = dimap (const Nothing) (const ())
-      (optionalP (tokenOf tight SemicolonToken oneP))
     identifier = textOf Identifier
     space = trivia [TsToken WhitespaceTrivia " "]
     newline = trivia [TsToken NewLineTrivia "\n"]
@@ -458,6 +481,65 @@ _Several nodes = iso
   (\case
     (node, []) -> node
     (first, others) -> review nodes (first : others))
+
+-- | A type literal or a mapped type, which are braced.
+_Braced :: Prism' TypeNode TypeNode
+_Braced = prism' id $ \case
+  node@(TypeLiteral _) -> Just node
+  node@(MappedType {}) -> Just node
+  _ -> Nothing
+
+-- | A tuple's element, or else an optional element's type.
+_Optional :: Iso' TypeNode (TypeNode, Bool)
+_Optional = iso
+  (\case OptionalType node -> (node, True); node -> (node, False))
+  (\case (node, True) -> OptionalType node; (node, False) -> node)
+
+{- | A mapped type, or a type literal whose first member is an index
+signature, by its type parameter's or index's name, & the rest of it.
+-}
+_Bracketed :: Prism' TypeNode
+  ( Text
+  , Either
+      (TypeNode, (Maybe TypeNode, (Bool, TypeNode)))
+      (TypeNode, (TypeNode, [TypeElement]))
+  )
+_Bracketed = prism' bracketed $ \case
+  MappedType name constraint nameType optional node ->
+    Just (name, Left (constraint, (nameType, (optional, node))))
+  TypeLiteral (IndexSignature name key node : others) ->
+    Just (name, Right (key, (node, others)))
+  _ -> Nothing
+  where
+    bracketed = \case
+      (name, Left (constraint, (nameType, (optional, node)))) ->
+        MappedType name constraint nameType optional node
+      (name, Right (key, (node, others))) ->
+        TypeLiteral (IndexSignature name key node : others)
+
+-- | A type literal whose first member is a property signature.
+_PropertyFirst
+  :: Prism' TypeNode ((PropertyName, (Bool, TypeNode)), [TypeElement])
+_PropertyFirst = prism'
+  (\((name, (optional, node)), others) ->
+    TypeLiteral (PropertySignature name optional node : others))
+  (\case
+    TypeLiteral (PropertySignature name optional node : others) ->
+      Just ((name, (optional, node)), others)
+    _ -> Nothing)
+
+-- | A template's spans, by the first's type & its middle or tail.
+_Spans
+  :: Prism' [(TypeNode, Text)]
+      (TypeNode, Either (Text, [(TypeNode, Text)]) Text)
+_Spans = prism'
+  (\case
+    (node, Left (middle, others)) -> (node, middle) : others
+    (node, Right tail') -> [(node, tail')])
+  (\case
+    [(node, tail')] -> Just (node, Right tail')
+    (node, middle) : others@(_ : _) -> Just (node, Left (middle, others))
+    [] -> Nothing)
 
 -- | A type of any arrays of its element type.
 _Arrays :: Iso' TypeNode (TypeNode, [()])

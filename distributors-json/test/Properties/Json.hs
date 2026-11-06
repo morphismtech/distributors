@@ -20,7 +20,7 @@ module Properties.Json
 
 import Control.Lens (coerced, only, prism')
 import Control.Lens.Grammar
-  ( ParsecState (..), dimap, lmap, manyP, optionP, optionalP, parseG
+  ( ParsecState (..), dimap, lmap, manyP, optionP, optionalP
   , parsecG, rule, someP, unparsecG
   , (>*<), (>+<), (>?), (>|<), (>~)
   )
@@ -520,14 +520,10 @@ which parse as the declarations which print them.
 declares :: forall a -> Json a => [Text] -> Expectation
 declares a declarations = do
   tsTypes [a] `shouldBe` Text.unlines declarations
-  take 1
-    [ reparsed
-    | Just scanned <- [parsecResult (parsecG (manyP tsTokenGrammar) source)]
-    , (reparsed, []) <- parseG tsGrammar scanned
-    ] `shouldBe` [declared]
+  parsecResult (parsecG tsGrammar scanned) `shouldBe` Just declared
   where
     declared = jsonTsDeclarations [a]
-    source = tsSource declared
+    scanned = concat (parsecResult (parsecG tsTokensGrammar (tsSource declared)))
 
 jsonTypeSpec :: Spec
 jsonTypeSpec = describe "jsonTsDeclarations" $ do
@@ -1182,5 +1178,5 @@ tsTypes as = Text.pack (tsSource (jsonTsDeclarations as))
 
 -- | Print declarations as tokens, & tokens as characters, by Parsector.
 tsSource :: [TsDeclaration] -> String
-tsSource declarations = parsecStream $ unparsecG (manyP tsTokenGrammar)
+tsSource declarations = parsecStream $ unparsecG tsTokensGrammar
   (parsecStream (unparsecG tsGrammar declarations [])) ""
