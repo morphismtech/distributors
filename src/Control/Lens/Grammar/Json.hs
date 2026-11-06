@@ -13,7 +13,7 @@ module Control.Lens.Grammar.Json
   , jsonGeneric
   , ViaJson (..)
     -- * Grammar
-  , JsonVal (..), jsonTyped, jsonObjectStrict
+  , JsonVal (..), jsonTyped
   , JsonObj (..), (!=)
   , JsonTup (..)
   , JsonStr (..)
@@ -358,6 +358,10 @@ class
     dimap HashMap.toList HashMap.fromList (jsonObject (jsonDict key p))
   jsonTuple :: (forall q. JsonTup p q => q a b) -> p a b
   jsonObject :: (forall q. JsonObj p q => q a b) -> p a b
+  -- | A `jsonObject` which rejects the properties that it doesn't name.
+  jsonObjectStrict :: (forall q. JsonObj p q => q a b) -> p a b
+  jsonObjectStrict obj =
+    jsonObject (obj *< dimap (const []) (const ()) (jsonDict jsonText zeroP))
   jsonValue :: p Value Value
   jsonValue = jsonTyped $ orP
     [ _Null >? jsonNull
@@ -496,11 +500,6 @@ class (JsonVal p, Monoidal q, CocartesianChoice q)
   -}
   jsonDict :: (forall k. JsonStr k => k a b) -> p c d -> q [(a, c)] [(b, d)]
 infixr 7 !:, ?:
-
--- | A `jsonObject` which rejects the properties that it doesn't name.
-jsonObjectStrict :: JsonVal p => (forall q. JsonObj p q => q a b) -> p a b
-jsonObjectStrict obj =
-  jsonObject (obj *< dimap (const []) (const ()) (jsonDict jsonText zeroP))
 
 -- Errors --
 
@@ -678,11 +677,13 @@ data TupParsor a b = TupParsor
 {- | `ObjParsor` reads keys of an `Object`, ignoring other keys,
 unless it reads the rest of them, those which the object doesn't name.
 Its keys are known before parsing, so overlapping keys are found once,
-as are its tags, keys which only accept string literals.
+as are its tags, keys which only accept string literals,
+& whether its keys are all required, so that it has all of a shape's keys.
 -}
 data ObjParsor a b = ObjParsor
   { objParsorShapes :: [[Key]]
   , objParsorTags :: [(Key, Set Text)]
+  , objParsorRequired :: Bool
   , runObjParsor :: HashSet Key -> Object -> Either JsonError b
   }
 
@@ -771,20 +772,40 @@ instance JsonVal JsonParsor where
     v -> jsonMismatch "array" v
     where
       parsor = tup @TupParsor
-  jsonObject obj = JsonParsor dispatch parse
-    where
-      overlap = foldr ((<|>) . duplicateKey) Nothing (objParsorShapes obj)
-      parse = \case
-        Object o -> case overlap of
-          Just key ->
-            jsonMissing ("another key " <> showKey key) (Just (Object o))
-          Nothing -> runObjParsor obj named o
-        v -> jsonMismatch "object" v
-      named = HashSet.fromList (concat (objParsorShapes obj))
-      dispatch = case objParsorTags obj of
-        (key, tags) : _ ->
-          Just (Dispatch (Just key) (Map.fromSet (const parse) tags))
-        [] -> Nothing
+  jsonObject obj = objectParsor False obj
+  jsonObjectStrict obj = objectParsor True obj
+
+{- | Parse an `Object` by its properties, and, if it's rejecting,
+reject the first property which isn't named, as `jsonObjectStrict`'s
+default would, but without parsing the rest of the properties.
+-}
+objectParsor :: Bool -> ObjParsor a b -> JsonParsor a b
+objectParsor rejecting obj = JsonParsor dispatch parse
+  where
+    overlap = foldr ((<|>) . duplicateKey) Nothing (objParsorShapes obj)
+    parse = \case
+      Object o -> case overlap of
+        Just key ->
+          jsonMissing ("another key " <> showKey key) (Just (Object o))
+        Nothing -> case runObjParsor obj named o of
+          Right _
+            | rejecting
+            , exactSize /= Just (KeyMap.size o)
+            , Just (k, v) <- find (not . (`HashSet.member` named) . fst)
+                (KeyMap.toList o) ->
+                jsonAt (Key k) (jsonUnexpected (Just v))
+          result -> result
+      v -> jsonMismatch "object" v
+    named = HashSet.fromList (concat (objParsorShapes obj))
+    -- The size of an object having only the keys of its parsed shape,
+    -- when its keys are all required & its shapes are the same size.
+    exactSize = case nub (map length (objParsorShapes obj)) of
+      [size] | objParsorRequired obj -> Just size
+      _ -> Nothing
+    dispatch = case objParsorTags obj of
+      (key, tags) : _ ->
+        Just (Dispatch (Just key) (Map.fromSet (const parse) tags))
+      [] -> Nothing
 
 instance Functor (TupParsor a) where
   fmap f (TupParsor fixed general) = TupParsor
@@ -842,18 +863,19 @@ instance JsonTup JsonParsor TupParsor where
         Just v -> jsonAt (Index i) (runJsonParsor p v)
 
 instance Functor (ObjParsor a) where
-  fmap f (ObjParsor keys tags p) =
-    ObjParsor keys tags (\named o -> onSuccess f (p named o))
+  fmap f (ObjParsor keys tags required p) =
+    ObjParsor keys tags required (\named o -> onSuccess f (p named o))
 instance Applicative (ObjParsor a) where
-  pure b = ObjParsor [[]] [] (\_ _ -> Right b)
-  ObjParsor keys0 tags0 p0 <*> ObjParsor keys1 tags1 p1 =
-    ObjParsor (liftA2 (<>) keys0 keys1) (tags0 <> tags1) $ \named o ->
+  pure b = ObjParsor [[]] [] True (\_ _ -> Right b)
+  ObjParsor keys0 tags0 required0 p0 <*> ObjParsor keys1 tags1 required1 p1 =
+    ObjParsor (liftA2 (<>) keys0 keys1) (tags0 <> tags1)
+      (required0 && required1) $ \named o ->
       case p0 named o of
         Left err -> Left err
         Right f -> onSuccess f (p1 named o)
 instance Profunctor ObjParsor where
-  dimap _ g (ObjParsor keys tags p) =
-    ObjParsor keys tags (\named o -> onSuccess g (p named o))
+  dimap _ g (ObjParsor keys tags required p) =
+    ObjParsor keys tags required (\named o -> onSuccess g (p named o))
   _ #. p = coerce p
   p .# _ = coerce p
 instance Choice ObjParsor where
@@ -863,17 +885,18 @@ instance CocartesianMonoidal ObjParsor
 instance CocartesianChoice ObjParsor where
   alternate = either (fmap Left . coerce) (fmap Right . coerce)
 instance DisjunctiveMonoid (ObjParsor a b) where
-  falseP = ObjParsor [] [] (\_ o -> jsonUnexpected (Just (Object o)))
-  p >|< q = ObjParsor (objParsorShapes p <> objParsorShapes q) [] $
+  falseP = ObjParsor [] [] True (\_ o -> jsonUnexpected (Just (Object o)))
+  p >|< q = ObjParsor (objParsorShapes p <> objParsorShapes q) []
+    (objParsorRequired p && objParsorRequired q) $
     \named o -> case runObjParsor p named o of
       Left err -> onFailure (jsonOrElse err) (runObjParsor q named o)
       success -> success
 instance JsonObj JsonParsor ObjParsor where
-  jsonDict key p = ObjParsor [[]] [] $ \named o ->
+  jsonDict key p = ObjParsor [[]] [] False $ \named o ->
     for [kv | kv@(k, _) <- KeyMap.toList o, not (HashSet.member k named)] $
       \(k, v) -> jsonAt (Key k) $
         (,) <$> runJsonParsor key (String (Key.toText k)) <*> runJsonParsor p v
-  k !: p = ObjParsor [[key]] tags $ \_ o -> case KeyMap.lookup key o of
+  k !: p = ObjParsor [[key]] tags True $ \_ o -> case KeyMap.lookup key o of
     Nothing -> jsonMissing ("key " <> show k) (Just (Object o))
     Just v -> jsonAt (Key key) (runJsonParsor p v)
     where
@@ -881,7 +904,7 @@ instance JsonObj JsonParsor ObjParsor where
       tags = case jsonParsorDispatch p of
         Just (Dispatch Nothing table) -> [(key, Map.keysSet table)]
         _ -> []
-  k ?: p = ObjParsor [[key]] [] $ \_ o ->
+  k ?: p = ObjParsor [[key]] [] False $ \_ o ->
     traverse (jsonAt (Key key) . runJsonParsor p) (KeyMap.lookup key o)
     where
       key = Key.fromText k
@@ -1242,6 +1265,8 @@ instance AesonVal val => JsonVal (JsonPrintor val) where
         Nothing
     where
       printor = obj @(ObjPrintor val)
+  -- | The properties which a strict object rejects are never printed.
+  jsonObjectStrict obj = jsonObject obj
 
 instance Functor (TupPrintor val a) where
   fmap _ (TupPrintor total attempt render check single) =
