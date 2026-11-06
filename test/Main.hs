@@ -25,6 +25,7 @@ import Examples.RegString
 import Examples.SemVer
 import Examples.SExpr
 import Properties.Char
+import Properties.Filtrator
 import Properties.Json
 import Properties.Kleene
 
@@ -53,6 +54,7 @@ main = do
     describe "Kleene" kleeneProperties
     describe "meander" meanderProperties
     textualSpec
+    filtratorSpec
     jsonTypeSpec
     aesonSpec
     jsonErrorSpec

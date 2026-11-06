@@ -32,8 +32,19 @@ as well as `Filterable`, adding the `filtrate` method,
 which is an oplax monoidal structure morphism dual to
 `>+<`.
 
+For printers & backtracking parsers, like
+`Data.Profunctor.Grammar.Printor` & `Data.Profunctor.Grammar.Parsor`,
+`filtrate` & `>+<` are inverses, up to failures,
+
 prop> filtrate . uncurry (>+<) = id
 prop> uncurry (>+<) . filtrate = id
+
+but not for predictive parsers, like
+`Data.Profunctor.Grammar.Parsector.Parsector`, which commit once they
+consume, since a projection of `filtrate` consumes its input before it
+rejects the other summand. So for them, the first law holds only for
+the successes of summands which start with distinct tokens,
+and the second fails.
 -}
 class (Cochoice p, forall x. Filterable (p x))
   => Filtrator p where
