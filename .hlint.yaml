@@ -93,3 +93,7 @@
 
 # Some modules name variables `pattern`.
 - arguments: [-XNoPatternSynonyms]
+
+# Printor matches its pairs strictly, for speed.
+- ignore: {name: "Use first", within: Data.Profunctor.Grammar}
+- ignore: {name: "Use snd", within: Data.Profunctor.Grammar}
