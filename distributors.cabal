@@ -29,6 +29,7 @@ source-repository head
 library
   exposed-modules:
       Control.Lens.Bifocal
+      Control.Lens.Comonocle
       Control.Lens.Diopter
       Control.Lens.Grammar
       Control.Lens.Grammar.BackusNaur

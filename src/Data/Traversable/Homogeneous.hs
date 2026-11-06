@@ -11,11 +11,16 @@ Portability : non-portable
 module Data.Traversable.Homogeneous
   ( -- * Homogeneous
     Homogeneous (..)
+    -- * Enumerable
+  , Enumerable (..)
+  , casesP
+  , enumP
   ) where
 
 import Control.Applicative
 import Control.Lens hiding (chosen)
 import Control.Lens.PartialIso
+import Data.Bits ((.&.), shiftR, xor)
 import Data.Complex
 import Data.Functor.Compose
 import qualified Data.Functor.Product as Functor
@@ -141,3 +146,112 @@ instance Homogeneous Complex where
   homogeneously p = dimap2 realPart imagPart (:+) p p
 instance Homogeneous Tree where
   homogeneously p = dimap2 rootLabel subForest Node p (manyP (homogeneously p))
+instance (Enum e, Bounded e) => Homogeneous ((,) e) where
+  homogeneously = casesP . const
+
+{- | A class of `Enumerable` countable sums of single values,
+@t a ≅ (e, a)@ for some enumerable tag type @e@,
+which is to say `Homogeneous` functors without products.
+
+`enumerately` needs only `CocartesianMonoidal` structure,
+as `Data.Profunctor.Monoidal.ditraverse` needs only
+`Data.Profunctor.Monoidal.Monoidal` structure.
+
+prop> homogeneously = enumerately
+
+Any user-defined enumerable algebraic datatype has
+a default instance for `Enumerable`, by deriving `Generic1`.
+-}
+class Homogeneous t => Enumerable t where
+  enumerately :: CocartesianMonoidal p => p a b -> p (t a) (t b)
+  default enumerately
+    :: (Generic1 t, Enumerable (Rep1 t), CocartesianMonoidal p)
+    => p a b -> p (t a) (t b)
+  enumerately = dimap from1 to1 . enumerately
+instance Enumerable Par1 where
+  enumerately = dimap unPar1 Par1
+instance Enumerable Identity where
+  enumerately = dimap runIdentity Identity
+instance Enumerable Monoid.Dual where
+  enumerately = dimap Monoid.getDual Monoid.Dual
+instance Enumerable Monoid.Product where
+  enumerately = dimap Monoid.getProduct Monoid.Product
+instance Enumerable Monoid.Sum where
+  enumerately = dimap Monoid.getSum Monoid.Sum
+instance Enumerable (Tagged s) where
+  enumerately = dimap unTagged Tagged
+instance (Enumerable s, Enumerable t)
+  => Enumerable (s :.: t) where
+    enumerately
+      = dimap unComp1 Comp1
+      . enumerately . enumerately
+instance (Enumerable s, Enumerable t)
+  => Enumerable (Compose s t) where
+    enumerately
+      = dimap getCompose Compose
+      . enumerately . enumerately
+instance Enumerable V1 where
+  enumerately _ = dimap (\case) (\case) zeroP
+instance Enumerable (K1 i Void) where
+  enumerately _ = dimap unK1 K1 zeroP
+instance Enumerable (Const Void) where
+  enumerately _ = dimap getConst Const zeroP
+instance (Enumerable s, Enumerable t)
+  => Enumerable (s :+: t) where
+    enumerately p = dialt
+      (\case {L1 s -> Left s; R1 t -> Right t})
+      L1
+      R1
+      (enumerately p)
+      (enumerately p)
+instance (Enumerable s, Enumerable t)
+  => Enumerable (Functor.Sum s t) where
+    enumerately p = dialt
+      (\case {Functor.InL s -> Left s; Functor.InR t -> Right t})
+      Functor.InL
+      Functor.InR
+      (enumerately p)
+      (enumerately p)
+instance Enumerable t
+  => Enumerable (M1 i c t) where
+    enumerately = dimap unM1 M1 . enumerately
+instance Enumerable f => Enumerable (Rec1 f) where
+  enumerately = dimap unRec1 Rec1 . enumerately
+instance (Enum e, Bounded e) => Enumerable ((,) e) where
+  enumerately = casesP . const
+
+{- | `casesP` sums a `CocartesianMonoidal` over the tags
+of a `Bounded` `Enum`, a dependent form of `enumerately`.
+Tags are split by binary search on `fromEnum`.
+`Bounded` types are inhabited, by `minBound`,
+so no `zeroP` and no unreachable case is needed.
+
+prop> enumerately = casesP . const
+-}
+casesP
+  :: forall e p a b. (Enum e, Bounded e, CocartesianMonoidal p)
+  => (e -> p a b) -> p (e, a) (e, b)
+casesP p = go (fromEnum (minBound @e)) (fromEnum (maxBound @e))
+  where
+    go :: Int -> Int -> p (e, a) (e, b)
+    go lo hi
+      | lo >= hi = dimap snd (toEnum lo,) (p (toEnum lo))
+      | otherwise = dialt
+          (\ea@(e, _) -> if fromEnum e <= mid then Left ea else Right ea)
+          id
+          id
+          (go lo mid)
+          (go (mid + 1) hi)
+      where
+        -- floor average without overflow, Hacker's Delight §2-5
+        mid = (lo .&. hi) + ((lo `xor` hi) `shiftR` 1)
+
+{- | `enumP` sums a `CocartesianMonoidal` of nullary patterns
+over the values of a `Bounded` `Enum`.
+
+prop> enumP p = dimap (,()) fst (casesP p)
+-}
+enumP
+  :: (Enum e, Bounded e, CocartesianMonoidal p)
+  => (e -> p () ()) -> p e e
+enumP p = dimap (,()) fst (casesP p)

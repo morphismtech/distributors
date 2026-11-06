@@ -96,9 +96,9 @@ instance Decidable f => CocartesianMonoidal (Clown f) where
 instance Alternative f => CocartesianMonoidal (Joker f) where
   zeroP = Joker empty
   Joker x >+< Joker y = Joker (Left <$> x <|> Right <$> y)
-instance (CocartesianMonoidal p, Applicative f)
+instance (CocartesianMonoidal p, Functor f)
   => CocartesianMonoidal (WrappedPafb f p) where
-    zeroP = WrapPafb (rmap pure zeroP)
+    zeroP = WrapPafb (rmap absurd zeroP)
     WrapPafb x >+< WrapPafb y = WrapPafb $
       dialt id (fmap Left) (fmap Right) x y
 instance Functor f => CocartesianMonoidal (Star f) where
