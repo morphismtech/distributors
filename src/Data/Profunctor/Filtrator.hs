@@ -29,29 +29,38 @@ import Witherable
 
 {- | The `Filtrator` class extends `Cochoice`,
 as well as `Filterable`, adding the `filtrate` method,
-which is an oplax monoidal structure morphism dual to
-`>+<`.
+which projects a profunctor of sums onto its summands.
 
-For printers & backtracking parsers, like
-`Data.Profunctor.Grammar.Printor` & `Data.Profunctor.Grammar.Parsor`,
-`filtrate` & `>+<` are inverses, up to failures,
+For a `Data.Profunctor.Monoidal.Cocartesian.CocartesianChoice`,
+`filtrate` is a retraction of `Data.Profunctor.Monoidal.Cocartesian.alternate`,
+projecting a summand back out of its injection,
 
-prop> filtrate . uncurry (>+<) = id
-prop> uncurry (>+<) . filtrate = id
+prop> fst (filtrate (alternate (Left p))) = p
+prop> snd (filtrate (alternate (Right p))) = p
 
-but not for predictive parsers, like
-`Data.Profunctor.Grammar.Parsector.Parsector`, which commit once they
-consume, since a projection of `filtrate` consumes its input before it
-rejects the other summand. So for them, the first law holds only for
-the successes of summands which start with distinct tokens,
-and the second fails.
+that is, since `unleft` is @fst . filtrate@ & `left'` is @alternate . Left@,
+
+prop> unleft . left' = id
+prop> unright . right' = id
+
+`filtrate` isn't a retraction of
+`Data.Profunctor.Monoidal.Cocartesian.>+<` in general, though,
+since it tries its summands in turn, & the second summand
+of a left-biased or predictive one,
+like `Data.Profunctor.Grammar.Parsor` @s@ `Maybe`
+or `Data.Profunctor.Grammar.Parsector.Parsector`,
+is lost where the first applies. Nor is it a retraction of
+`filtrate`, since a profunctor of sums may cross summands,
+as @rmap (either Right Left)@ does.
 -}
 class (Cochoice p, forall x. Filterable (p x))
   => Filtrator p where
 
     {- |
-    prop> unleft = fst . filtrate = lmap Left . mapMaybe (either Just (const Nothing))
-    prop> unright = snd . filtrate = lmap Right . mapMaybe (either (const Nothing) Just)
+    prop> unleft = fst . filtrate
+    prop> unleft = lmap Left . mapMaybe (either Just (const Nothing))
+    prop> unright = snd . filtrate
+    prop> unright = lmap Right . mapMaybe (either (const Nothing) Just)
 
     `filtrate` is a distant relative to `Data.Either.partitionEithers`.
     `filtrate` can be given a default value for `Monadic`
