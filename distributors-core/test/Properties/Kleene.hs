@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 module Properties.Kleene (kleeneProperties) where
 
@@ -6,6 +7,15 @@ import Data.Foldable (for_)
 import Test.Hspec
 import Test.Hspec.QuickCheck (prop)
 import Test.QuickCheck
+
+#if !MIN_VERSION_QuickCheck(2,17,0)
+import Data.Char (GeneralCategory)
+
+-- | QuickCheck 2.17's instance, for earlier versions.
+instance Arbitrary GeneralCategory where
+  arbitrary = arbitraryBoundedEnum
+  shrink = shrinkBoundedEnum
+#endif
 
 instance Arbitrary (TokenClass Char) where
   arbitrary = sized go

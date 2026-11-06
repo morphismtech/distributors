@@ -57,7 +57,7 @@ import Data.List.NonEmpty (NonEmpty)
 import Data.Map (Map)
 import Data.Map qualified as Map
 import Data.Monoid qualified as Monoid
-import Data.Ord (Down)
+import Data.Ord (Down (..))
 import Data.Primitive.Array (Array)
 import Data.Primitive.PrimArray (PrimArray)
 import Data.Primitive.SmallArray (SmallArray)
@@ -867,8 +867,8 @@ aesonSpec = describe "Json agrees with aeson" $ do
   aesonCompat @(Compose Maybe [] Int) arbitrary
   aesonCompat @(Functor.Product Maybe [] Int) arbitrary
   aesonCompat @(Functor.Sum Maybe [] Int) arbitrary
-  aesonCompat @(Down Int) arbitrary
-  aesonCompat @[Down Char] arbitrary
+  aesonCompat @(Down Int) (Down <$> arbitrary)
+  aesonCompat @[Down Char] (map Down <$> arbitrary)
   aesonCompat @(Monoid.Dual Int) arbitrary
   aesonCompat @(Monoid.First Int) arbitrary
   aesonCompat @(Monoid.Last Int) arbitrary
