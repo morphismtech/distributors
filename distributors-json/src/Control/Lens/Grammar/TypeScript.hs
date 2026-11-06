@@ -10,7 +10,7 @@ Stability   : provisional
 Portability : non-portable
 
 The type declarations of TypeScript, like the TypeScript compiler,
-in two layers: a `tsTokenGrammar` of its tokens, by their `SyntaxKind`s,
+in two layers: a `tsTokenGrammar` of its tokens, by their `TsTokenCategory`s,
 & a `tsGrammar` of its syntax, of those tokens, by the compiler's
 names of its nodes, so that they parse & print together.
 
@@ -33,7 +33,7 @@ module Control.Lens.Grammar.TypeScript
   , tsGrammar
     -- * Tokens
   , TsToken (..)
-  , SyntaxKind (..)
+  , TsTokenCategory (..)
   , tsTokenGrammar
     -- * Text
   , tsPrint
@@ -56,7 +56,7 @@ data TsDeclaration = TypeAliasDeclaration Bool Text TypeNode
 
 -- | A type, by the TypeScript compiler's name of its node.
 data TypeNode
-  = KeywordType SyntaxKind -- ^ @number@, @string@, @never@, …
+  = KeywordType TsTokenCategory -- ^ @number@, @string@, @never@, …
   | LiteralType Literal -- ^ @null@, @true@ or @"abc"@
   | TypeReference Text [TypeNode] -- ^ @T@ or @T\<U, V>@
   | ArrayType TypeNode -- ^ @T[]@
@@ -98,21 +98,21 @@ data Literal
 
 -- Tokens --
 
-{- | A token, of a `SyntaxKind` & its text, as the scanner of
+{- | A token, of a `TsTokenCategory` & its text, as the scanner of
 the TypeScript compiler scans it, with its trivia: its text is
 an identifier's name, a string's value or a template's literal.
 -}
 data TsToken = TsToken
-  { tokenKind :: SyntaxKind
+  { tokenCategory :: TsTokenCategory
   , tokenText :: Text
   } deriving stock (Eq, Ord, Show, Read)
 
 instance Categorized TsToken where
-  type Categorize TsToken = SyntaxKind
-  categorize = tokenKind
+  type Categorize TsToken = TsTokenCategory
+  categorize = tokenCategory
 
 -- | The kinds of `TsToken`s, by the TypeScript compiler's names.
-data SyntaxKind
+data TsTokenCategory
   = WhitespaceTrivia
   | NewLineTrivia
   | Identifier
@@ -166,11 +166,11 @@ makeNestedPrisms ''TypeElement
 makeNestedPrisms ''PropertyName
 makeNestedPrisms ''Literal
 
--- | The text of a punctuation or keyword `SyntaxKind`.
-kindText :: SyntaxKind -> Maybe Text
+-- | The text of a punctuation or keyword `TsTokenCategory`.
+kindText :: TsTokenCategory -> Maybe Text
 kindText = flip lookup ((CloseBraceToken, "}") : punctuation <> keywords)
 
-punctuation :: [(SyntaxKind, Text)]
+punctuation :: [(TsTokenCategory, Text)]
 punctuation =
   [ (OpenBraceToken, "{"), (OpenParenToken, "("), (CloseParenToken, ")")
   , (OpenBracketToken, "["), (CloseBracketToken, "]")
@@ -180,7 +180,7 @@ punctuation =
   , (AmpersandToken, "&")
   ]
 
-keywords :: [(SyntaxKind, Text)]
+keywords :: [(TsTokenCategory, Text)]
 keywords =
   [ (AnyKeyword, "any"), (AsKeyword, "as"), (BigIntKeyword, "bigint")
   , (BooleanKeyword, "boolean"), (ExportKeyword, "export")
@@ -193,8 +193,8 @@ keywords =
   , (VoidKeyword, "void")
   ]
 
--- | The token of a punctuation or keyword `SyntaxKind`.
-symbol :: SyntaxKind -> TsToken
+-- | The token of a punctuation or keyword `TsTokenCategory`.
+symbol :: TsTokenCategory -> TsToken
 symbol kind = TsToken kind (fromMaybe "" (kindText kind))
 
 {- | A token, scanned from its characters. Its trivia are tokens,
@@ -256,7 +256,7 @@ tsTokenGrammar = orP
       ]
 
 -- | A token of a kind, by its text.
-kindOf :: SyntaxKind -> Prism' TsToken String
+kindOf :: TsTokenCategory -> Prism' TsToken String
 kindOf kind = prism'
   (TsToken kind . Text.pack)
   (\(TsToken kind' text) ->
@@ -275,7 +275,7 @@ _Word = prism' word $ \(TsToken kind text) ->
         text = Text.pack chars
 
 -- | A template without substitutions, or a template's head.
-_Template :: Prism' TsToken (String, SyntaxKind)
+_Template :: Prism' TsToken (String, TsTokenCategory)
 _Template = prism'
   (\(chars, kind) -> TsToken kind (Text.pack chars))
   (\(TsToken kind text) ->
@@ -283,7 +283,7 @@ _Template = prism'
       then Just (Text.unpack text, kind) else Nothing)
 
 -- | A @}@, or a template's middle or tail, of an empty literal.
-_Closing :: Prism' TsToken SyntaxKind
+_Closing :: Prism' TsToken TsTokenCategory
 _Closing = prism'
   (\kind -> TsToken kind (if kind == CloseBraceToken then "}" else ""))
   (\case
@@ -438,11 +438,11 @@ trivia printed = dimap (const printed) (const ())
 -- | A punctuation or keyword token, between trivia, or `oneP`.
 tokenOf
   :: (Lexical TsToken p, Alternator p)
-  => p () () -> SyntaxKind -> p () () -> p () ()
+  => p () () -> TsTokenCategory -> p () () -> p () ()
 tokenOf before kind after = before >* terminal [symbol kind] *< after
 
 -- | The text of a token of a kind.
-textOf :: (Lexical TsToken p, Alternator p) => SyntaxKind -> p Text Text
+textOf :: (Lexical TsToken p, Alternator p) => TsTokenCategory -> p Text Text
 textOf kind = iso (TsToken kind) tokenText >~ asIn @TsToken kind
 
 -- | A list of at least two, or else its only one.

@@ -31,13 +31,13 @@ jobs:
 
       - name: Check generated .cabal files match package.yaml
         run: |
-          curl -sSL https://github.com/sol/hpack/releases/download/0.38.1/hpack_linux.gz \
+          curl -sSL https://github.com/sol/hpack/releases/download/0.39.1/hpack_linux.gz \
             | gunzip > hpack
           chmod +x hpack
           for package in distributors-core distributors-json; do
             (cd "$package" && ../hpack --force)
           done
-          git diff --exit-code -- '*.cabal'
+          git diff --exit-code -I 'by hpack version' -- '*.cabal'
 
   stack:
     runs-on: ubuntu-latest
