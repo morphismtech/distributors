@@ -601,6 +601,17 @@ jsonTypeSpec = describe "jsonTypes" $ do
       , "export type Point = number;"
       , "export type Properties_Json_Point = " <> point <> ";"
       ]
+  it "names declarations by distinct TypeScript identifiers" $ do
+    let pair = "Properties_Json_GHC_Types_Int_Data_Text_Internal_Text"
+    declares (type Sanitized)
+      [ "export type Int = number;"
+      , "export type Int_Text = \
+        \{ tag: \"L\"; contents: Int } | { tag: \"R\"; contents: string };"
+      , "export type Properties_Json_Exclude = number;"
+      , "export type " <> pair <> " = [Int, string];"
+      , "export type Sanitized = \
+        \[Int_Text, " <> pair <> ", Properties_Json_Exclude];"
+      ]
   it "quotes property keys" $
     declares (type Optional)
       ["export type Optional = { a: number; \"b c\"?: string | number };"]
@@ -646,6 +657,20 @@ instance Json Collide where
   json = jsonTyped $ jsonObject $ Collide
     <$> lmap named ("named" !: rule "Point" jsonNumber)
     <*> lmap typed ("typed" !: json)
+
+-- | Types named by the same identifier, @Int_Text@, & one named @Exclude@.
+data Sanitized = Sanitized (Int :+: Text) (Int :*: Text) Exclude
+  deriving stock (Show, Generic)
+  deriving anyclass Json
+data a :+: b = L a | R b
+  deriving stock (Show, Generic)
+instance (Typeable a, Typeable b, Json a, Json b) => Json (a :+: b)
+data a :*: b = a :*: b
+  deriving stock (Show, Generic)
+instance (Typeable a, Typeable b, Json a, Json b) => Json (a :*: b)
+newtype Exclude = Exclude Scientific
+  deriving stock (Show, Generic)
+  deriving anyclass Json
 
 -- | An optional property, with a key which isn't an identifier.
 data Optional = Optional Scientific (Maybe (Either Text Scientific))

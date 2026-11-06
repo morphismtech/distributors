@@ -1468,7 +1468,7 @@ printProperty key p a =
 -- TypeScript interpreters --
 
 data TsType
-  = TsAlias String -- ^ @T@, a reference to a type alias
+  = TsAlias String -- ^ @T@, a reference to a type alias, by its identifier
   | TsNull -- ^ @null@
   | TsUndefined -- ^ @undefined@
   | TsBoolean -- ^ @boolean@
@@ -1516,7 +1516,8 @@ data TsDefinitions = TsDefinitions
   }
 
 {- | Define a rule once, under its unqualified name, or else its qualified
-name, if taken, so that every other occurrence of it, recursive or not,
+name, or else its numbered qualified name, if taken, as TypeScript
+identifiers, so that every other occurrence of it, recursive or not,
 is its name. Its name is reserved, as `never`, while it's being defined.
 An unguarded occurrence is its least fixpoint instead, unrolled once,
 so that a rule of a rule is the rule, and a rule recurring unguarded
@@ -1541,9 +1542,16 @@ tsDefine key (TsGrammor body) = TsGrammor $ do
         defined {tsRules = Map.insert name definition (tsRules defined)}
       pure (TsAlias name)
   where
-    freshName taken = fromMaybe
-      (until (`Map.notMember` taken) (<> "'") key)
-      (find (`Map.notMember` taken) [unqualified key, key])
+    freshName taken = fromMaybe qualified (find free candidates)
+      where
+        free name = Map.notMember name taken && name `notElem` tsReserved
+    candidates = Text.unpack (tsIdentifier (unqualified key)) : qualified
+      : [qualified <> "_" <> show n | n <- [2 :: Int ..]]
+    qualified = Text.unpack (tsIdentifier key)
+
+-- | Global type names the rendered TypeScript refers to.
+tsReserved :: [String]
+tsReserved = ["Exclude"]
 
 tsGuarded :: TsDefining a -> TsDefining a
 tsGuarded = local (const Map.empty)
@@ -1769,11 +1777,11 @@ renderTypeScript roots =
       (runReaderT (traverse_ (\(TsGrammor ts) -> ts) roots) Map.empty)
       (TsDefinitions Map.empty Map.empty)
     declaration (name, ty) =
-      "export type " <> tsIdentifier name <> " = " <> renderTsType ty <> ";"
+      "export type " <> Text.pack name <> " = " <> renderTsType ty <> ";"
 
 renderTsType :: TsType -> Text
 renderTsType = \case
-  TsAlias name -> tsIdentifier name
+  TsAlias name -> Text.pack name
   TsNull -> "null"
   TsUndefined -> "undefined"
   TsBoolean -> "boolean"
