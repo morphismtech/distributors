@@ -4,7 +4,8 @@
 
 - Split out of `distributors` as its own package.
 - `jsonType` types a type's JSON as a `Bnf` of `JsonType`s,
-  & `jsonTsDeclarations` declares them in TypeScript, replacing `jsonTypes`.
+  `jsonTsDeclarations` declares them in TypeScript, & `jsonTsPut` puts
+  those declarations to a handle, replacing `jsonTypes`.
 - `Control.Lens.Grammar.TypeScript` parses & prints TypeScript type
   declarations, by `tsTokenGrammar` & `tsGrammar`, after the TypeScript
   compiler's scanner & syntax.

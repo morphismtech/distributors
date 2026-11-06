@@ -13,7 +13,7 @@ data Person = Person {name :: Text, age :: Int, email :: Maybe Text}
 ```haskell
 >>> jsonDecode @Person "{\"name\":\"Ada\",\"age\":36}"
 Right (Person {name = "Ada", age = 36, email = Nothing})
->>> mapM_ putStr (tsPrint (jsonTsDeclarations (type '[Person])))
+>>> jsonTsPut (type '[Person]) stdout
 export type Int = number;
 export type Person = { name: string; age: Int; email?: null | string };
 ```

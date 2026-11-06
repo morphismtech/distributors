@@ -88,10 +88,11 @@ instance Json Shape where
 
 = Types
 
-`jsonTsDeclarations` declares the TypeScript types of types' JSON,
-which "Control.Lens.Grammar.TypeScript" prints, & `jsonType` types it.
+`jsonTsPut` puts the TypeScript declarations of types' JSON,
+which `jsonTsDeclarations` declares, by "Control.Lens.Grammar.TypeScript",
+& `jsonType` types.
 
->>> mapM_ putStr (tsPrint (jsonTsDeclarations (type '[Person, Point, Shape])))
+>>> jsonTsPut (type '[Person, Point, Shape]) stdout
 export type Double = number | null | "+inf" | "-inf";
 export type Int = number;
 export type Person = { name: string; age: Int; email?: null | string };
@@ -121,6 +122,7 @@ module Control.Lens.Grammar.Json
   , JsonProperty (..)
   , jsonType
   , jsonTsDeclarations
+  , jsonTsPut
     -- * Errors
   , JsonError (..)
   , JsonErrorSort (..)
@@ -240,6 +242,7 @@ import GHC.Generics qualified as GHC
 import Network.URI (URI)
 import Network.URI qualified as URI
 import Numeric.Natural (Natural)
+import System.IO (Handle, hPutStr)
 import Text.ParserCombinators.ReadP (readP_to_S)
 import Type.Reflection
 import Witherable qualified
@@ -253,6 +256,7 @@ import Witherable qualified
 -- >>> import Data.Aeson.Encoding (encodingToLazyByteString)
 -- >>> import Data.ByteString.Lazy.Char8 qualified as LByteString
 -- >>> import Data.Aeson.Types (formatError)
+-- >>> import System.IO (stdout)
 -- >>> let explain err = formatError (jsonErrorPath err) (jsonErrorMessage err)
 
 makePrisms ''Value
@@ -1650,6 +1654,17 @@ jsonTsDeclarations as = tsDeclarations $ hcollapse
   where
     root :: forall a. Json a => K (Bnf JsonType) a
     root = K (jsonType (type a))
+
+{- | Put the TypeScript declarations of the JSON of types to a handle,
+like a @.ts@ file.
+
+>>> jsonTsPut (type '[Maybe Ordering]) stdout
+export type Ordering = "LT" | "EQ" | "GT";
+-}
+jsonTsPut :: forall (as :: [Type]) -> All Json as => Handle -> IO ()
+jsonTsPut as handle = case tsPrint (jsonTsDeclarations as) of
+  Just declarations -> hPutStr handle declarations
+  Nothing -> ioError (userError "jsonTsPut: unprintable declarations")
 
 {- | `JsonTypor` types the JSON of a grammar, reading the rules being typed
 which are unguarded by an array, object or tuple, each noting whether it's
