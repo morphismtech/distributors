@@ -25,6 +25,7 @@ module Control.Lens.Grammar.Json
 
 import Control.Applicative
 import Control.Lens
+import Control.Lens.Comonocle
 import Control.Lens.Grammar
 import Control.Monad
 import Control.Monad.Trans.Class (lift)
@@ -447,9 +448,10 @@ class
   {- | An enumeration of strings, which a map's key may be,
   like TypeScript's union of string literals, @"a" | "b"@.
   -}
-  jsonEnumWith :: (a -> Text) -> [a] -> p a a
-  jsonEnumWith f as =
-    prism' f (\t -> lookup t [(f a, a) | a <- as]) ?< jsonText
+  jsonEnumWith :: (a -> Text) -> AComonocle a a () () -> p a a
+  jsonEnumWith f com =
+    prism' f (\t -> lookup t [(f a, a) | a <- enumerateComonocle com [()]])
+      ?< jsonText
   {- | Strings of numbers, like an integral map key's,
   like TypeScript's template literal type, @\`${number}\`@.
   -}
@@ -1696,7 +1698,8 @@ instance (x ~ (), y ~ ()) => IsString (TsGrammor x y) where
   fromString = tsType . TsLiteral . Text.pack
 instance JsonStr TsGrammor where
   jsonText = tsType TsString
-  jsonEnumWith f as = tsType (tsUnion [TsLiteral (f a) | a <- as])
+  jsonEnumWith f com =
+    tsType (tsUnion [TsLiteral (f a) | a <- enumerateComonocle com [()]])
   jsonNumeric _ = tsType TsNumeric
 instance JsonVal TsGrammor where
   jsonNull = tsType TsNull
@@ -1913,8 +1916,9 @@ tsIdentifier name = case Text.uncons ident of
 -- Json instance helpers
 
 -- | An enumeration of string literals, typed as their union.
-jsonEnum :: (Eq a, JsonVal p) => (a -> Text) -> [a] -> p a a
-jsonEnum f as = orP [only a >? fromString (Text.unpack (f a)) | a <- as]
+jsonEnum :: JsonVal p => (a -> Text) -> AComonocle a a () () -> p a a
+jsonEnum f com = casesComonocle com $ \inj ->
+  let a = inj () in rmap (const a) (fromString (Text.unpack (f a)))
 
 -- | An object of a single property, as @aeson@ requires of sums' tags.
 jsonTag :: JsonVal p => Text -> p a b -> p a b
@@ -2009,9 +2013,9 @@ makePrisms ''These
 instance Json Bool where
   json = jsonBool
   jsonKey =
-    Just (jsonEnumWith (\b -> if b then "true" else "false") [False, True])
+    Just (jsonEnumWith (\b -> if b then "true" else "false") enumed)
 instance Json Ordering where
-  json = jsonTyped (jsonEnum (Text.pack . show) [LT, EQ, GT])
+  json = jsonTyped (jsonEnum (Text.pack . show) enumed)
 instance Json () where
   json = jsonTuple oneP
   jsonOmitField _ = True
@@ -2510,18 +2514,18 @@ instance Json CalendarDiffDays where
     (jsonObject ("months" !: json >*< "days" !: json))
 
 -- | Days of the week, named as @aeson@ names them.
-weekdays :: ((DayOfWeek -> Text) -> [DayOfWeek] -> r) -> r
-weekdays enumerate = enumerate (Text.toLower . Text.pack . show)
-  [Monday, Tuesday, Wednesday, Thursday, Friday, Saturday, Sunday]
+weekdays :: ((DayOfWeek -> Text) -> AComonocle DayOfWeek DayOfWeek () () -> r) -> r
+weekdays enumerate = enumerate (Text.toLower . Text.pack . show) genericEnumed
 
 instance Json DayOfWeek where
   json = jsonTyped (weekdays jsonEnum)
   jsonKey = Just (jsonTyped (weekdays jsonEnumWith))
 
 -- | Quarters of the year, named as @aeson@ names them.
-quarters :: ((QuarterOfYear -> Text) -> [QuarterOfYear] -> r) -> r
-quarters enumerate =
-  enumerate (Text.toLower . Text.pack . show) [Q1, Q2, Q3, Q4]
+quarters
+  :: ((QuarterOfYear -> Text) -> AComonocle QuarterOfYear QuarterOfYear () () -> r)
+  -> r
+quarters enumerate = enumerate (Text.toLower . Text.pack . show) enumed
 
 instance Json QuarterOfYear where
   json = jsonTyped (quarters jsonEnum)

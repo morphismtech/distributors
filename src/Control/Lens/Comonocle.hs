@@ -24,16 +24,21 @@ module Control.Lens.Comonocle
   , withComonocle
   , cloneComonocle
   , mapComonocle
+  , casesComonocle
+  , enumerateComonocle
   , enumerated
   , cased
   , enumed
+  , genericEnumed
+  , GEnumed
     -- * Comonocular
   , Comonocular (..)
   , runComonocular
   ) where
 
-import Control.Lens
+import Control.Lens hiding (from, to)
 import Control.Lens.Internal.Profunctor
+import Data.Bifunctor.Joker
 import Data.Profunctor.Monoidal.Cocartesian
 import Data.Traversable.Homogeneous
 import Data.Void
@@ -92,6 +97,24 @@ mapComonocle
   => AComonocle s t a b -> p a b -> p s t
 mapComonocle com = withComonocle com $ \f g -> dimap f g . enumerately
 
+{- | Dependent action of `AComonocle` on `CocartesianMonoidal` `Profunctor`s,
+in which each summand sees its own injection.
+
+prop> mapComonocle com p = casesComonocle com (\inj -> rmap inj p)
+-}
+casesComonocle
+  :: CocartesianMonoidal p
+  => AComonocle s t a b -> ((b -> t) -> p a t) -> p s t
+casesComonocle com k = runCases (mapComonocle com (Cases k)) id
+
+{- | Every @t@, of some foci @b@.
+
+>>> enumerateComonocle enumed [()] :: [Ordering]
+[LT,EQ,GT]
+-}
+enumerateComonocle :: AComonocle s t a b -> [b] -> [t]
+enumerateComonocle com bs = runJoker (mapComonocle com (Joker bs))
+
 {- | Build a `Comonocle` from an `Enumerable` homogeneous sum.
 
 prop> enumerated = comonocle id id
@@ -112,6 +135,40 @@ prop> mapComonocle enumed = enumP . const
 -}
 enumed :: (Enum e, Bounded e) => Comonocle e e () ()
 enumed = dimap (,()) (fmap fst) . cased
+
+{- | A sum of nullary constructors is a homogeneous sum of units,
+whether or not it is `Bounded` or its `Enum` is lawful.
+
+prop> enumerateComonocle genericEnumed [()] = [minBound .. maxBound]
+-}
+genericEnumed :: (Generic s, GEnumed (Rep s)) => Comonocle s s () ()
+genericEnumed = dimap from (fmap to) . unwrapPafb . genumed . WrapPafb
+
+{- | `GEnumed` generic representations are sums of nullary constructors. -}
+class GEnumed r where
+  genumed :: CocartesianMonoidal p => p () () -> p (r x) (r x)
+instance GEnumed V1 where
+  genumed _ = dimap (\case) (\case) zeroP
+instance GEnumed U1 where
+  genumed = dimap (const ()) (const U1)
+instance GEnumed r => GEnumed (M1 i c r) where
+  genumed = dimap unM1 M1 . genumed
+instance (GEnumed r, GEnumed q) => GEnumed (r :+: q) where
+  genumed p = dialt
+    (\case {L1 r -> Left r; R1 q -> Right q})
+    L1
+    R1
+    (genumed p)
+    (genumed p)
+
+{- | `Cases` passes each summand its injection. -}
+newtype Cases t p a b = Cases {runCases :: (b -> t) -> p a t}
+instance Profunctor p => Profunctor (Cases t p) where
+  dimap f g (Cases k) = Cases (\inj -> lmap f (k (inj . g)))
+instance CocartesianMonoidal p => CocartesianMonoidal (Cases t p) where
+  zeroP = Cases (\_ -> rmap absurd zeroP)
+  Cases kL >+< Cases kR = Cases $ \inj ->
+    dialt id id id (kL (inj . Left)) (kR (inj . Right))
 
 {- | `Comonocular` provides efficient access
 to the pair of functions that make up a `Comonocle`.
