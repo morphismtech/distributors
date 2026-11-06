@@ -209,6 +209,66 @@ jsonEncode = either (\_ -> Encoding.null_) id . jsonErrorEncode
 jsonErrorEncode :: Json a => a -> Either JsonError Encoding
 jsonErrorEncode = runJsonPrintor json
 
+{- |
+
+>>> :set -XDeriveAnyClass -XDerivingStrategies -XRequiredTypeArguments
+>>> import Data.Map (Map)
+>>> import Data.Text (Text)
+>>> import Data.Text.IO qualified as Text
+>>> import GHC.Generics (Generic)
+
+>>> :{
+data Suit = Hearts | Diamonds | Clubs | Spades
+  deriving stock Generic
+  deriving anyclass Json
+:}
+
+>>> Text.putStr (jsonTypes [Suit])
+export type Suit = "Hearts" | "Diamonds" | "Clubs" | "Spades";
+
+>>> :{
+data Point = Point {x :: Double, y :: Double}
+  deriving stock Generic
+  deriving anyclass Json
+:}
+
+>>> Text.putStr (jsonTypes (type '[Point]))
+export type Double = number | null | "+inf" | "-inf";
+export type Point = { x: Double; y: Double };
+
+>>> :{
+data Shape = Circle Point Double | Polygon {vertices :: [Point]}
+  deriving stock Generic
+  deriving anyclass Json
+:}
+
+>>> Text.putStr (jsonTypes [Shape])
+export type Double = number | null | "+inf" | "-inf";
+export type Point = { x: Double; y: Double };
+export type Shape = { tag: "Circle"; contents: [Point, Double] } | { tag: "Polygon"; vertices: Point[] };
+
+>>> :{
+data User = User {name :: Text, email :: Maybe Text, scores :: Map Int Double}
+  deriving stock Generic
+  deriving anyclass Json
+:}
+
+>>> Text.putStr (jsonTypes (type '[User]))
+export type Double = number | null | "+inf" | "-inf";
+export type User = { name: string; email?: null | string; scores: { [key: `${number}`]: Double } };
+
+>>> :{
+data Tree a = Leaf | Node (Tree a) a (Tree a)
+  deriving stock Generic
+  deriving anyclass Json
+:}
+
+>>> Text.putStr (jsonTypes [Tree Text, Tree Suit])
+export type Suit = "Hearts" | "Diamonds" | "Clubs" | "Spades";
+export type Tree_Suit = { tag: "Leaf" } | { tag: "Node"; contents: [Tree_Suit, Suit, Tree_Suit] };
+export type Tree_Text = { tag: "Leaf" } | { tag: "Node"; contents: [Tree_Text, string, Tree_Text] };
+
+-}
 jsonTypes :: forall (as :: [Type]) -> All Json as => Text
 jsonTypes as = renderTypeScript $ hcollapse
   (hcpure (Proxy @Json) tsRoot :: NP (K (TsGrammor () ())) as)
