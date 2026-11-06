@@ -32,6 +32,7 @@ module Control.Lens.PartialIso
   , (>?<)
   , (>~)
   , (~<)
+  , (!=)
   , coPrism
     -- * Patterns
   , satisfied
@@ -235,6 +236,21 @@ infixl 2 >~
 (~<) :: Profunctor p => AnIso b a t s -> p a b -> p s t
 (~<) pattern = withIso pattern (flip dimap)
 infixl 2 ~<
+
+{- | An optional value,
+missing exactly when it's the default,
+like `Data.Aeson.!=`,
+by the `non` isomorphism.
+
+prop> optP != def = non def ~< optP
+-}
+(!=)
+  :: (Eq a, Profunctor q)
+  => q (Maybe a) (Maybe a) -- ^ optional
+  -> a -- ^ default
+  -> q a a
+prop != def = non def ~< prop
+infix 6 !=
 
 {- | Action of a `coPrism`
 on the composition of a `Profunctor` and `Filterable`.

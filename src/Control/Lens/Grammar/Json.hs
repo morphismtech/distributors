@@ -14,10 +14,9 @@ module Control.Lens.Grammar.Json
   , ViaJson (..)
     -- * Grammar
   , JsonVal (..), jsonTyped, jsonObjectStrict
-  , JsonObj (..)
+  , JsonObj (..), (!=)
   , JsonTup (..)
   , JsonStr (..)
-  , (!=)
     -- * Errors
   , JsonError (..)
   , JsonErrorSort (..)
@@ -438,15 +437,6 @@ class (JsonVal p, Monoidal q, CocartesianChoice q)
   -}
   jsonDict :: (forall k. JsonStr k => k a b) -> p c d -> q [(a, c)] [(b, d)]
 infixr 7 !:, ?:
-
-{- | An optional property with a default, missing exactly when it's the
-default, like @aeson@'s @.:?@ & @.!=@, by the `non` isomorphism.
-
-prop> prop != def = non def ~< prop
--}
-(!=) :: (Eq a, Profunctor q) => q (Maybe a) (Maybe a) -> a -> q a a
-prop != def = non def ~< prop
-infix 6 !=
 
 -- | A `jsonObject` which rejects the properties that it doesn't name.
 jsonObjectStrict :: JsonVal p => (forall q. JsonObj p q => q a b) -> p a b
