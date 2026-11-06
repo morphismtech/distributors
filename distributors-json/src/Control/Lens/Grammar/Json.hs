@@ -818,7 +818,7 @@ instance JsonStr JsonParsor where
   jsonText = jsonParsor $ \case
     String t -> Right t
     v -> jsonMismatch "string" v
-  -- | Literal alternatives, dispatched by their string.
+  -- | TsLiteral alternatives, dispatched by their string.
   jsonEnumWith indexOf table = orP
     [ dimap indexOf (const a) (only i >? fromString (Text.unpack literal))
     | (i, (literal, a)) <- zip [0 ..] table
@@ -1886,7 +1886,7 @@ tsIdentifier name = case Text.uncons ident of
 {- | The TypeScript type of a JSON type, by its rules & their names,
 parenthesized as TypeScript parses it.
 -}
-tsType :: Map String JsonType -> Map String Text -> JsonType -> TypeNode
+tsType :: Map String JsonType -> Map String Text -> JsonType -> TsType
 tsType rules names = typeNode
   where
     typeNode = \case
@@ -1917,10 +1917,10 @@ tsType rules names = typeNode
     -- of its literal keys, but those which are named, which TypeScript
     -- types apart, like @{ id: T } & { [key in K as …]?: U }@.
     object props = case (named <> indexSignatures, mappedTypes) of
-      ([], []) -> TypeLiteral []
+      ([], []) -> ObjectType []
       ([], [objectPart]) -> objectPart
       ([], objectParts) -> IntersectionType objectParts
-      (members, objectParts) -> case TypeLiteral members : objectParts of
+      (members, objectParts) -> case ObjectType members : objectParts of
         [objectPart] -> objectPart
         allObjectParts -> IntersectionType allObjectParts
       where
@@ -1975,7 +1975,7 @@ tsType rules names = typeNode
     identifierChar c = isAlphaNum c || c == '_' || c == '$'
 
 -- | A union of types, flattened, or else its only type, or else @never@.
-union :: [TypeNode] -> TypeNode
+union :: [TsType] -> TsType
 union nodes = case nub (concatMap flatten nodes) of
   [] -> KeywordType NeverKeyword
   [node] -> node
@@ -1990,7 +1990,7 @@ union nodes = case nub (concatMap flatten nodes) of
       node -> node
 
 -- | A type, parenthesized as an operand of an array or element type.
-operand :: TypeNode -> TypeNode
+operand :: TsType -> TsType
 operand = \case
   node@(UnionType _) -> ParenthesizedType node
   node@(IntersectionType _) -> ParenthesizedType node

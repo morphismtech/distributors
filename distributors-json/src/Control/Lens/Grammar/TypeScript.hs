@@ -20,13 +20,13 @@ locating failures. Here, a declaration prints as tokens, & as characters,
 & parses back.
 
 >>> :set -XOverloadedStrings
->>> let point = TypeLiteral [PropertySignature (PropertyIdentifier "x") False (KeywordType NumberKeyword)]
+>>> let point = ObjectType [PropertySignature (PropertyIdentifier "x") False (KeywordType NumberKeyword)]
 >>> let printed = unparsecG tsGrammar [TypeAliasDeclaration True "Point" point] ([] :: [TsToken])
 >>> let source = parsecStream (unparsecG tsTokensGrammar (parsecStream printed) ("" :: String))
 >>> putStr source
 export type Point = { x: number };
 >>> parsecResult (parsecG tsGrammar (concat (parsecResult (parsecG tsTokensGrammar source))))
-Just [TypeAliasDeclaration True "Point" (TypeLiteral [PropertySignature (PropertyIdentifier "x") False (KeywordType NumberKeyword)])]
+Just [TypeAliasDeclaration True "Point" (ObjectType [PropertySignature (PropertyIdentifier "x") False (KeywordType NumberKeyword)])]
 >>> let scanned = concat (parsecResult (parsecG tsTokensGrammar "type A = { a: number; b: };"))
 >>> parsecOffset (parsecG tsGrammar scanned)
 10
@@ -35,10 +35,10 @@ Just [TypeAliasDeclaration True "Point" (TypeLiteral [PropertySignature (Propert
 module Control.Lens.Grammar.TypeScript
   ( -- * Syntax
     TsDeclaration (..)
-  , TypeNode (..)
-  , TypeElement (..)
-  , PropertyName (..)
-  , Literal (..)
+  , TsType (..)
+  , TsProperty (..)
+  , TsPropertyName (..)
+  , TsLiteral (..)
   , tsGrammar
     -- * Tokens
   , TsToken (..)
@@ -58,45 +58,45 @@ import Numeric (readHex, showHex)
 -- Syntax --
 
 -- | A type alias, @export type T = U;@, exported or not.
-data TsDeclaration = TypeAliasDeclaration Bool Text TypeNode
+data TsDeclaration = TypeAliasDeclaration Bool Text TsType
   deriving stock (Eq, Ord, Show, Read)
 
 -- | A type, by the TypeScript compiler's name of its node.
-data TypeNode
+data TsType
   = KeywordType TsTokenCategory -- ^ @number@, @string@, @never@, …
-  | LiteralType Literal -- ^ @null@, @true@ or @"abc"@
-  | TypeReference Text [TypeNode] -- ^ @T@ or @T\<U, V>@
-  | ArrayType TypeNode -- ^ @T[]@
-  | TupleType [TypeNode] -- ^ @[T, U]@
-  | OptionalType TypeNode -- ^ @T?@, an element of a tuple
-  | RestType TypeNode -- ^ @...T@, an element of a tuple
-  | UnionType [TypeNode] -- ^ @T | U@
-  | IntersectionType [TypeNode] -- ^ @T & U@
-  | ParenthesizedType TypeNode -- ^ @(T)@
-  | TypeLiteral [TypeElement] -- ^ @{ x: T; y?: U }@
-  | MappedType Text TypeNode (Maybe TypeNode) Bool TypeNode
+  | LiteralType TsLiteral -- ^ @null@, @true@ or @"abc"@
+  | TypeReference Text [TsType] -- ^ @T@ or @T\<U, V>@
+  | ArrayType TsType -- ^ @T[]@
+  | TupleType [TsType] -- ^ @[T, U]@
+  | OptionalType TsType -- ^ @T?@, an element of a tuple
+  | RestType TsType -- ^ @...T@, an element of a tuple
+  | UnionType [TsType] -- ^ @T | U@
+  | IntersectionType [TsType] -- ^ @T & U@
+  | ParenthesizedType TsType -- ^ @(T)@
+  | ObjectType [TsProperty] -- ^ @{ x: T; y?: U }@
+  | MappedType Text TsType (Maybe TsType) Bool TsType
   -- ^ @{ [k in K as L]?: T }@, with a name type & an optional token or not
-  | ConditionalType TypeNode TypeNode TypeNode TypeNode
+  | ConditionalType TsType TsType TsType TsType
   -- ^ @T extends U ? V : W@
-  | TemplateLiteralType Text [(TypeNode, Text)]
+  | TemplateLiteralType Text [(TsType, Text)]
   -- ^ @\`a${T}b\`@, by its head & its spans' types & literals
   deriving stock (Eq, Ord, Show, Read)
 
--- | A member of a `TypeLiteral`.
-data TypeElement
-  = PropertySignature PropertyName Bool TypeNode
+-- | A member of an `ObjectType`.
+data TsProperty
+  = PropertySignature TsPropertyName Bool TsType
   -- ^ @x: T@ or @x?: T@
-  | IndexSignature Text TypeNode TypeNode -- ^ @[k: K]: T@
+  | IndexSignature Text TsType TsType -- ^ @[k: K]: T@
   deriving stock (Eq, Ord, Show, Read)
 
 -- | The name of a `PropertySignature`.
-data PropertyName
+data TsPropertyName
   = PropertyIdentifier Text -- ^ @x@
   | PropertyString Text -- ^ @"x y"@
   deriving stock (Eq, Ord, Show, Read)
 
 -- | A literal of a `LiteralType`.
-data Literal
+data TsLiteral
   = NullLiteral -- ^ @null@
   | TrueLiteral -- ^ @true@
   | FalseLiteral -- ^ @false@
@@ -168,10 +168,10 @@ data TsTokenCategory
   deriving stock (Eq, Ord, Show, Read, Enum, Bounded)
 
 makeNestedPrisms ''TsDeclaration
-makeNestedPrisms ''TypeNode
-makeNestedPrisms ''TypeElement
-makeNestedPrisms ''PropertyName
-makeNestedPrisms ''Literal
+makeNestedPrisms ''TsType
+makeNestedPrisms ''TsProperty
+makeNestedPrisms ''TsPropertyName
+makeNestedPrisms ''TsLiteral
 
 -- | The text of a punctuation or keyword `TsTokenCategory`.
 kindText :: TsTokenCategory -> Maybe Text
@@ -395,7 +395,7 @@ tsGrammar = rule "declarations" $
       , _ParenthesizedType >? tokenOf oneP OpenParenToken tight
           >* ty *< tokenOf tight CloseParenToken oneP
       , _Braced >? tokenOf oneP OpenBraceToken oneP >* orP
-          [ only (TypeLiteral []) >? tokenOf tight CloseBraceToken oneP
+          [ only (ObjectType []) >? tokenOf tight CloseBraceToken oneP
           , _Bracketed >? tokenOf space OpenBracketToken tight >* identifier
               >*< (mappedRest ty >+< indexRest ty)
           , _PropertyFirst >? space >* property ty >*< members ty
@@ -473,7 +473,7 @@ textOf kind = iso (TsToken kind) tokenText >~ asIn @TsToken kind
 
 -- | A list of at least two, or else its only one.
 _Several
-  :: Prism' TypeNode [TypeNode] -> Iso' TypeNode (TypeNode, [TypeNode])
+  :: Prism' TsType [TsType] -> Iso' TsType (TsType, [TsType])
 _Several nodes = iso
   (\node -> case node ^? nodes of
     Just (first : others@(_ : _)) -> (first, others)
@@ -483,14 +483,14 @@ _Several nodes = iso
     (first, others) -> review nodes (first : others))
 
 -- | A type literal or a mapped type, which are braced.
-_Braced :: Prism' TypeNode TypeNode
+_Braced :: Prism' TsType TsType
 _Braced = prism' id $ \case
-  node@(TypeLiteral _) -> Just node
+  node@(ObjectType _) -> Just node
   node@(MappedType {}) -> Just node
   _ -> Nothing
 
 -- | A tuple's element, or else an optional element's type.
-_Optional :: Iso' TypeNode (TypeNode, Bool)
+_Optional :: Iso' TsType (TsType, Bool)
 _Optional = iso
   (\case OptionalType node -> (node, True); node -> (node, False))
   (\case (node, True) -> OptionalType node; (node, False) -> node)
@@ -498,16 +498,16 @@ _Optional = iso
 {- | A mapped type, or a type literal whose first member is an index
 signature, by its type parameter's or index's name, & the rest of it.
 -}
-_Bracketed :: Prism' TypeNode
+_Bracketed :: Prism' TsType
   ( Text
   , Either
-      (TypeNode, (Maybe TypeNode, (Bool, TypeNode)))
-      (TypeNode, (TypeNode, [TypeElement]))
+      (TsType, (Maybe TsType, (Bool, TsType)))
+      (TsType, (TsType, [TsProperty]))
   )
 _Bracketed = prism' bracketed $ \case
   MappedType name constraint nameType optional node ->
     Just (name, Left (constraint, (nameType, (optional, node))))
-  TypeLiteral (IndexSignature name key node : others) ->
+  ObjectType (IndexSignature name key node : others) ->
     Just (name, Right (key, (node, others)))
   _ -> Nothing
   where
@@ -515,23 +515,23 @@ _Bracketed = prism' bracketed $ \case
       (name, Left (constraint, (nameType, (optional, node)))) ->
         MappedType name constraint nameType optional node
       (name, Right (key, (node, others))) ->
-        TypeLiteral (IndexSignature name key node : others)
+        ObjectType (IndexSignature name key node : others)
 
 -- | A type literal whose first member is a property signature.
 _PropertyFirst
-  :: Prism' TypeNode ((PropertyName, (Bool, TypeNode)), [TypeElement])
+  :: Prism' TsType ((TsPropertyName, (Bool, TsType)), [TsProperty])
 _PropertyFirst = prism'
   (\((name, (optional, node)), others) ->
-    TypeLiteral (PropertySignature name optional node : others))
+    ObjectType (PropertySignature name optional node : others))
   (\case
-    TypeLiteral (PropertySignature name optional node : others) ->
+    ObjectType (PropertySignature name optional node : others) ->
       Just ((name, (optional, node)), others)
     _ -> Nothing)
 
 -- | A template's spans, by the first's type & its middle or tail.
 _Spans
-  :: Prism' [(TypeNode, Text)]
-      (TypeNode, Either (Text, [(TypeNode, Text)]) Text)
+  :: Prism' [(TsType, Text)]
+      (TsType, Either (Text, [(TsType, Text)]) Text)
 _Spans = prism'
   (\case
     (node, Left (middle, others)) -> (node, middle) : others
@@ -542,7 +542,7 @@ _Spans = prism'
     [] -> Nothing)
 
 -- | A type of any arrays of its element type.
-_Arrays :: Iso' TypeNode (TypeNode, [()])
+_Arrays :: Iso' TsType (TsType, [()])
 _Arrays = iso arrays (uncurry (foldr (const ArrayType)))
   where
     arrays = \case
@@ -551,7 +551,7 @@ _Arrays = iso arrays (uncurry (foldr (const ArrayType)))
 
 -- | A conditional type, or else its check type.
 _Conditional
-  :: Iso' TypeNode (TypeNode, Maybe (TypeNode, (TypeNode, TypeNode)))
+  :: Iso' TsType (TsType, Maybe (TsType, (TsType, TsType)))
 _Conditional = iso
   (\case
     ConditionalType check extends true false ->
@@ -563,7 +563,7 @@ _Conditional = iso
       ConditionalType check extends true false)
 
 -- | A template literal type without substitutions.
-_NoSubstitution :: Prism' TypeNode Text
+_NoSubstitution :: Prism' TsType Text
 _NoSubstitution = prism' (`TemplateLiteralType` []) $ \case
   TemplateLiteralType text [] -> Just text
   _ -> Nothing
