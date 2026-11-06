@@ -1,5 +1,13 @@
 # Changelog for `distributors`
 
+## Unreleased
+
+### Breaking Changes
+
+- `Operator`'s `Infix`, `Prefix` & `Postfix` take `APrism`s, rather than
+  `APartialIso`s, so that `withOperators` builds every operator it parses,
+  rather than failing by `error`, or dropping prefix & postfix operators.
+
 ## 0.6.0.0 - 2026-04-24
 
 ### New Module

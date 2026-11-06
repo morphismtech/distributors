@@ -31,7 +31,6 @@ module Data.Profunctor.Separator
 import Control.Lens
 import Control.Lens.PartialIso
 import Control.Lens.Grammar.Symbol
-import Data.Maybe (fromMaybe)
 import Data.Monoid.Disjunctive (orP)
 import Data.Profunctor.Distributor
 import Data.Profunctor.Monoidal.Cocartesian
@@ -139,15 +138,15 @@ intercalateP n (SepBy beg end comma) p =
 data Operator p a b where
   Infix
     :: Assoc -- ^ `NonAssoc`, `LeftAssoc`, `RightAssoc`
-    -> APartialIso a b (a,a) (b,b) -- ^ binary constructor pattern
+    -> APrism a b (a,a) (b,b) -- ^ binary constructor pattern
     -> p () () -- ^ operator symbol
     -> Operator p a b
   Prefix
-    :: APartialIso a b a b -- ^ unary endopattern
+    :: APrism a b a b -- ^ unary constructor pattern
     -> p () () -- ^ operator symbol
     -> Operator p a b
   Postfix
-    :: APartialIso a b a b -- ^ unary endopattern
+    :: APrism a b a b -- ^ unary constructor pattern
     -> p () () -- ^ operator symbol
     -> Operator p a b
 
@@ -249,21 +248,21 @@ withOperators table p = foldl makeLevel p table
     withPreP ops inner =
       difoldr (partialIso fwd bwd) >? manyP (tagSepP (snd <$> ops)) >*< inner
       where
-        fns = [withPartialIso pat (,) | (pat, _) <- ops]
+        fns = [patternFns pat | (pat, _) <- ops]
         fwd x = orP
           [ (\y -> (i,y)) <$> f x | (i, (f,_)) <- zip [0 :: Int ..] fns ]
         bwd (i,y) = case drop i fns of
-          (_,g):_ -> g y
+          (_,g):_ -> Just (g y)
           [] -> Nothing
 
     withPostP ops inner =
       difoldl (partialIso fwd bwd) >? inner >*< manyP (tagSepP (snd <$> ops))
       where
-        fns = [withPartialIso pat (,) | (pat, _) <- ops]
+        fns = [patternFns pat | (pat, _) <- ops]
         fwd x = orP
           [ (\y -> (y,i)) <$> f x | (i, (f,_)) <- zip [0 :: Int ..] fns ]
         bwd (y,i) = case drop i fns of
-          (_,g):_ -> g y
+          (_,g):_ -> Just (g y)
           [] -> Nothing
 
     {- | Parse one operand, then zero or more @(operator, operand)@ steps,
@@ -288,11 +287,10 @@ withOperators table p = foldl makeLevel p table
       prism (uncurry go) (Right . fwd) >? term >*< manyP (tagSepP syms >*< term)
       where
         syms = [sym | (_,_,sym) <- infixes]
-        fns = [(assoc,f,g) | (assoc,pat,_) <- infixes, let (f,g) = withPartialIso pat (,)]
+        fns = [(assoc,f,g) | (assoc,pat,_) <- infixes, let (f,g) = patternFns pat]
 
         assocOf i = let (assoc,_,_) = fns !! i in assoc
-        applyTag i (l,r) = let (_,_,g) = fns !! i in
-          fromMaybe (error "withOperators: impossible operator pattern") (g (l,r))
+        applyTag i (l,r) = let (_,_,g) = fns !! i in g (l,r)
 
         -- fold a shared seed together with a left-to-right list of tagged
         -- steps, dispatching on each step's `Assoc`iativity in turn
@@ -315,3 +313,7 @@ withOperators table p = foldl makeLevel p table
             tryTags y = orP
               [ (\(l,r) -> (i,l,r)) <$> f y
               | (i,(_,f,_)) <- zip [0 :: Int ..] fns ]
+
+    -- an operator's constructor pattern, matching partially & building totally
+    patternFns pat = withPrism pat $ \construct match ->
+      (either (const Nothing) Just . match, construct)
