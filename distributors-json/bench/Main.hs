@@ -11,7 +11,8 @@ import Control.DeepSeq (NFData)
 import Control.Lens.Grammar.Json
 import Data.Kind (Type)
 import Data.SOP (All)
-import Control.Lens.Grammar.TypeScript (tsPrint)
+import Control.Lens.Grammar (ParsecState (..), manyP, unparsecG)
+import Control.Lens.Grammar.TypeScript
 import Data.Aeson
   ( FromJSON (..), ToJSON (..), Value (..), decode, defaultOptions, encode
   , genericToEncoding, object, (.=)
@@ -294,4 +295,9 @@ main = defaultMain
 
 -- | The TypeScript declarations of types, as text.
 tsTypes :: forall (as :: [Type]) -> All Json as => Text.Text
-tsTypes as = maybe "" Text.pack (tsPrint (jsonTsDeclarations as))
+tsTypes as = Text.pack (tsSource (jsonTsDeclarations as))
+
+-- | Print declarations as tokens, & tokens as characters, by Parsector.
+tsSource :: [TsDeclaration] -> String
+tsSource declarations = parsecStream $ unparsecG (manyP tsTokenGrammar)
+  (parsecStream (unparsecG tsGrammar declarations [])) ""

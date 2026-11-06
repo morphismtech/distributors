@@ -14,13 +14,19 @@ in two layers: a `tsTokenGrammar` of its tokens, by their `TsTokenCategory`s,
 & a `tsGrammar` of its syntax, of those tokens, by the compiler's
 names of its nodes, so that they parse & print together.
 
+Each layer interprets as any grammar does: here, the declarations print
+as tokens, by `unparsecG`, which print as characters, & parse back,
+by `parsecG` & `parseG`, since `tsTokenGrammar` is @LL(1)@
+but `tsGrammar` isn't.
+
 >>> :set -XOverloadedStrings
 >>> let point = TypeLiteral [PropertySignature (PropertyIdentifier "x") False (KeywordType NumberKeyword)]
->>> mapM_ putStr (tsPrint [TypeAliasDeclaration True "Point" point])
+>>> let printed = unparsecG tsGrammar [TypeAliasDeclaration True "Point" point] ([] :: [TsToken])
+>>> let source = parsecStream (unparsecG (manyP tsTokenGrammar) (parsecStream printed) ("" :: String))
+>>> putStr source
 export type Point = { x: number };
-
->>> tsParse "type Pair = [string, number?];"
-Just [TypeAliasDeclaration False "Pair" (TupleType [KeywordType StringKeyword,OptionalType (KeywordType NumberKeyword)])]
+>>> [parsed | Just scanned <- [parsecResult (parsecG (manyP tsTokenGrammar) source)], (parsed, []) <- parseG tsGrammar scanned]
+[[TypeAliasDeclaration True "Point" (TypeLiteral [PropertySignature (PropertyIdentifier "x") False (KeywordType NumberKeyword)])]]
 -}
 
 module Control.Lens.Grammar.TypeScript
@@ -35,9 +41,6 @@ module Control.Lens.Grammar.TypeScript
   , TsToken (..)
   , TsTokenCategory (..)
   , tsTokenGrammar
-    -- * Text
-  , tsPrint
-  , tsParse
   ) where
 
 import Control.Lens
@@ -482,24 +485,3 @@ _NoSubstitution :: Prism' TypeNode Text
 _NoSubstitution = prism' (`TemplateLiteralType` []) $ \case
   TemplateLiteralType text [] -> Just text
   _ -> Nothing
-
--- Text --
-
-{- | Print type declarations, by `tsGrammar` & `tsTokenGrammar`,
-or `Nothing` for syntax that they don't print, like an unparenthesized
-union type within an array type.
--}
-tsPrint :: [TsDeclaration] -> Maybe String
-tsPrint declarations = do
-  printed <- ($ []) <$> printG tsGrammar declarations
-  ($ "") <$> printG (manyP tsTokenGrammar) printed
-
--- | Parse type declarations, by `tsTokenGrammar` & `tsGrammar`.
-tsParse :: String -> Maybe [TsDeclaration]
-tsParse source = do
-  let scanned = parsecG (manyP tsTokenGrammar) source
-  scannedTokens <- parsecResult scanned
-  if null (parsecStream scanned)
-    then listToMaybe
-      [parsed | (parsed, []) <- parseG tsGrammar scannedTokens]
-    else Nothing

@@ -20,13 +20,14 @@ module Properties.Json
 
 import Control.Lens (coerced, only, prism')
 import Control.Lens.Grammar
-  ( dimap, lmap, manyP, optionP, optionalP, rule, someP
+  ( ParsecState (..), dimap, lmap, manyP, optionP, optionalP, parseG
+  , parsecG, rule, someP, unparsecG
   , (>*<), (>+<), (>?), (>|<), (>~)
   )
 import Control.Lens.Grammar.Json
 import Data.Kind (Type)
 import Data.SOP (All)
-import Control.Lens.Grammar.TypeScript (tsParse, tsPrint)
+import Control.Lens.Grammar.TypeScript
 import Data.Aeson
   ( FromJSON (..), Options (..), SumEncoding (..), ToJSON (..), Value (String)
   , camelTo2, decode, defaultOptions, genericToJSON
@@ -519,9 +520,14 @@ which parse as the declarations which print them.
 declares :: forall a -> Json a => [Text] -> Expectation
 declares a declarations = do
   tsTypes [a] `shouldBe` Text.unlines declarations
-  (tsPrint parsed >>= tsParse) `shouldBe` Just parsed
+  take 1
+    [ reparsed
+    | Just scanned <- [parsecResult (parsecG (manyP tsTokenGrammar) source)]
+    , (reparsed, []) <- parseG tsGrammar scanned
+    ] `shouldBe` [declared]
   where
-    parsed = jsonTsDeclarations [a]
+    declared = jsonTsDeclarations [a]
+    source = tsSource declared
 
 jsonTypeSpec :: Spec
 jsonTypeSpec = describe "jsonTsDeclarations" $ do
@@ -1172,4 +1178,9 @@ jsonOptionsSpec = describe "jsonGeneric" $ do
 
 -- | The TypeScript declarations of types, as text.
 tsTypes :: forall (as :: [Type]) -> All Json as => Text.Text
-tsTypes as = maybe "" Text.pack (tsPrint (jsonTsDeclarations as))
+tsTypes as = Text.pack (tsSource (jsonTsDeclarations as))
+
+-- | Print declarations as tokens, & tokens as characters, by Parsector.
+tsSource :: [TsDeclaration] -> String
+tsSource declarations = parsecStream $ unparsecG (manyP tsTokenGrammar)
+  (parsecStream (unparsecG tsGrammar declarations [])) ""

@@ -1634,19 +1634,11 @@ jsonType a = Bnf start (Set.fromList (Map.toList rules))
     (start, rules) = runState (runReaderT typed Map.empty) Map.empty
 
 {- | Type the JSON of types, in TypeScript, as a declaration of each rule
-of their types, named by its unqualified name, or else its qualified name.
+of their types, named by its unqualified name, or else its qualified name,
+which `jsonTsPut` puts.
 
->>> :set -XDeriveAnyClass -XDerivingStrategies
->>> import GHC.Generics (Generic)
->>> :{
-data Shape = Circle Double | Square {side :: Double}
-  deriving stock Generic
-  deriving anyclass Json
-:}
-
->>> mapM_ putStr (tsPrint (jsonTsDeclarations [Shape]))
-export type Double = number | null | "+inf" | "-inf";
-export type Shape = { tag: "Circle"; contents: Double } | { tag: "Square"; side: Double };
+>>> jsonTsDeclarations (type '[Maybe Ordering])
+[TypeAliasDeclaration True "Ordering" (UnionType [LiteralType (TextLiteral "LT"),LiteralType (TextLiteral "EQ"),LiteralType (TextLiteral "GT")])]
 -}
 jsonTsDeclarations :: forall (as :: [Type]) -> All Json as => [TsDeclaration]
 jsonTsDeclarations as = tsDeclarations $ hcollapse
@@ -1662,9 +1654,17 @@ like a @.ts@ file.
 export type Ordering = "LT" | "EQ" | "GT";
 -}
 jsonTsPut :: forall (as :: [Type]) -> All Json as => Handle -> IO ()
-jsonTsPut as handle = case tsPrint (jsonTsDeclarations as) of
-  Just declarations -> hPutStr handle declarations
-  Nothing -> ioError (userError "jsonTsPut: unprintable declarations")
+jsonTsPut as handle = case (parsecResult printed, parsecResult source) of
+  (Nothing, _) -> unprinted "tokens" printed
+  (_, Nothing) -> unprinted "characters" source
+  _ -> hPutStr handle (parsecStream source)
+  where
+    printed = unparsecG tsGrammar (jsonTsDeclarations as) []
+    source = unparsecG (manyP tsTokenGrammar) (parsecStream printed) ""
+    unprinted layer stage = ioError $ userError $
+      "jsonTsPut: cannot print " <> layer <> " at "
+      <> show (parsecOffset stage) <> ", expecting "
+      <> show (parsecExpect (parsecFailure stage))
 
 {- | `JsonTypor` types the JSON of a grammar, reading the rules being typed
 which are unguarded by an array, object or tuple, each noting whether it's
