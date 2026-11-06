@@ -1,3 +1,4 @@
 resolver: nightly-2026-09-27
 packages:
-- .
+- distributors-core
+- distributors-json

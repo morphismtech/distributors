@@ -1,0 +1,123 @@
+name: distributors-json
+version: 0.1.0.0
+github: "morphismtech/distributors"
+license: BSD-3-Clause
+author: "Eitan Chatav"
+maintainer: "eitan.chatav@gmail.com"
+copyright: "2026 Eitan Chatav"
+
+extra-source-files:
+- README.md
+extra-doc-files:
+- CHANGELOG.md
+
+category: JSON, Profunctors, Parsing
+synopsis: JSON grammars, compatible with aeson & typed in TypeScript
+description:
+  One grammar per type parses, prints & encodes JSON compatibly
+  with @aeson@, & declares its TypeScript types.
+  See "Control.Lens.Grammar.Json".
+
+dependencies:
+- base >= 4.15 && < 5
+- aeson >= 2.2 && < 3
+- bytestring >= 0.11 && < 1
+- containers >= 0.6 && < 1
+- data-fix >= 0.3 && < 1
+- distributors >= 0.6 && < 0.7
+- dlist >= 1.0 && < 2
+- hashable >= 1.4 && < 2
+- lens >= 5.0 && < 6
+- network-uri >= 2.6 && < 3
+- primitive >= 0.8 && < 1
+- profunctors >= 5.6 && < 6
+- scientific >= 0.3 && < 1
+- sop-core >= 0.5 && < 1
+- strict >= 0.5 && < 1
+- tagged >= 0.8 && < 1
+- text >= 2 && < 3
+- text-iso8601 >= 0.1 && < 1
+- text-short >= 0.1 && < 1
+- these >= 1.2 && < 2
+- time >= 1.12 && < 2
+- transformers >= 0.5 && < 1
+- unordered-containers >= 0.2 && < 1
+- uuid-types >= 1.0 && < 2
+- vector >= 0.12 && < 1
+- witherable >= 0.4 && < 1
+
+ghc-options:
+- -Wall
+- -Wcompat
+- -Widentities
+- -Wincomplete-record-updates
+- -Wincomplete-uni-patterns
+- -Wmissing-export-lists
+- -Wmissing-home-modules
+- -Wpartial-fields
+- -Wredundant-constraints
+
+library:
+  source-dirs: src
+
+default-extensions:
+- AllowAmbiguousTypes
+- Arrows
+- ConstraintKinds
+- DataKinds
+- DefaultSignatures
+- DeriveFoldable
+- DeriveFunctor
+- DeriveTraversable
+- DeriveGeneric
+- DerivingStrategies
+- DerivingVia
+- EmptyCase
+- FlexibleContexts
+- FlexibleInstances
+- FunctionalDependencies
+- GADTs
+- GeneralizedNewtypeDeriving
+- ImportQualifiedPost
+- ImpredicativeTypes
+- InstanceSigs
+- LambdaCase
+- MagicHash
+- MonoLocalBinds
+- QualifiedDo
+- QuantifiedConstraints
+- RankNTypes
+- RecursiveDo
+- ScopedTypeVariables
+- StandaloneDeriving
+- StandaloneKindSignatures
+- TemplateHaskell
+- TupleSections
+- TypeApplications
+- TypeFamilies
+- TypeOperators
+- UndecidableInstances
+- UndecidableSuperClasses
+
+tests:
+  test:
+    main: Main.hs
+    source-dirs: test
+    dependencies:
+      - distributors-json
+      - doctest >= 0.18 && < 1
+      - hspec >= 2.7 && < 3
+      - QuickCheck >= 2.14 && < 3
+      - quickcheck-instances >= 0.3 && < 1
+
+benchmarks:
+  json:
+    main: Main.hs
+    source-dirs: bench
+    ghc-options:
+      - -O2
+      - -rtsopts
+    dependencies:
+      - deepseq >= 1.4 && < 2
+      - distributors-json
+      - tasty-bench >= 0.3 && < 1

@@ -4,11 +4,11 @@ cabal-version: 2.2
 --
 -- see: https://github.com/sol/hpack
 
-name:           distributors
-version:        0.6.0.0
-synopsis:       Unifying Parsers, Printers & Grammars
-description:    Distributors provides mathematically inspired abstractions for coders to write parsers that can also be inverted to printers.
-category:       Profunctors, Optics, Parsing
+name:           distributors-json
+version:        0.1.0.0
+synopsis:       JSON grammars, compatible with aeson & typed in TypeScript
+description:    One grammar per type parses, prints & encodes JSON compatibly with @aeson@, & declares its TypeScript types. See "Control.Lens.Grammar.Json".
+category:       JSON, Profunctors, Parsing
 homepage:       https://github.com/morphismtech/distributors#readme
 bug-reports:    https://github.com/morphismtech/distributors/issues
 author:         Eitan Chatav
@@ -28,36 +28,11 @@ source-repository head
 
 library
   exposed-modules:
-      Control.Lens.Bifocal
-      Control.Lens.Diopter
-      Control.Lens.Grammar
-      Control.Lens.Grammar.BackusNaur
-      Control.Lens.Grammar.Internal.NestedPrismTH
-      Control.Lens.Grammar.Internal.Orphanage
       Control.Lens.Grammar.Json
-      Control.Lens.Grammar.Machine
-      Control.Lens.Grammar.RegEx
-      Control.Lens.Grammar.Symbol
-      Control.Lens.Grammar.Token
-      Control.Lens.Grate
-      Control.Lens.Monocle
-      Control.Lens.PartialIso
-      Control.Lens.Wither
-      Control.Monad.Fail.Try
-      Data.Monoid.Disjunctive
-      Data.Profunctor.Distributor
-      Data.Profunctor.Filtrator
-      Data.Profunctor.Grammar
-      Data.Profunctor.Grammar.Parsector
-      Data.Profunctor.Monadic
-      Data.Profunctor.Monoidal
-      Data.Profunctor.Monoidal.Cocartesian
-      Data.Profunctor.Separator
-      Data.Traversable.Homogeneous
   other-modules:
-      Paths_distributors
+      Paths_distributors_json
   autogen-modules:
-      Paths_distributors
+      Paths_distributors_json
   hs-source-dirs:
       src
   default-extensions:
@@ -100,40 +75,30 @@ library
       UndecidableSuperClasses
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints
   build-depends:
-      MemoTrie >=0.6 && <1
-    , QuickCheck >=2.14 && <3
-    , adjunctions >=4.4 && <5
-    , aeson
+      aeson >=2.2 && <3
     , base >=4.15 && <5
-    , bifunctors >=5.5 && <6
     , bytestring >=0.11 && <1
     , containers >=0.6 && <1
-    , contravariant >=1.5 && <2
-    , data-fix
-    , distributive >=0.6 && <1
-    , dlist
-    , hashable
+    , data-fix >=0.3 && <1
+    , distributors ==0.6.*
+    , dlist >=1.0 && <2
+    , hashable >=1.4 && <2
     , lens >=5.0 && <6
-    , monad-loops >=0.4.3 && <1
-    , mtl >=2.2 && <3
-    , network-uri
-    , primitive
+    , network-uri >=2.6 && <3
+    , primitive >=0.8 && <1
     , profunctors >=5.6 && <6
-    , random >=1.2 && <2
-    , scientific
-    , sop-core
-    , strict
+    , scientific >=0.3 && <1
+    , sop-core >=0.5 && <1
+    , strict >=0.5 && <1
     , tagged >=0.8 && <1
-    , template-haskell >=2.17 && <3
     , text ==2.*
-    , text-iso8601
-    , text-short
-    , th-abstraction >=0.4 && <1
-    , these
-    , time
+    , text-iso8601 >=0.1 && <1
+    , text-short >=0.1 && <1
+    , these >=1.2 && <2
+    , time >=1.12 && <2
     , transformers >=0.5 && <1
-    , unordered-containers
-    , uuid-types
+    , unordered-containers >=0.2 && <1
+    , uuid-types >=1.0 && <2
     , vector >=0.12 && <1
     , witherable >=0.4 && <1
   default-language: Haskell2010
@@ -142,20 +107,10 @@ test-suite test
   type: exitcode-stdio-1.0
   main-is: Main.hs
   other-modules:
-      Examples.Arithmetic
-      Examples.Chain
-      Examples.Expression
-      Examples.Json
-      Examples.Lambda
-      Examples.LenVec
-      Examples.RegString
-      Examples.SemVer
-      Examples.SExpr
       Properties.Json
-      Properties.Kleene
-      Paths_distributors
+      Paths_distributors_json
   autogen-modules:
-      Paths_distributors
+      Paths_distributors_json
   hs-source-dirs:
       test
   default-extensions:
@@ -198,45 +153,35 @@ test-suite test
       UndecidableSuperClasses
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints
   build-depends:
-      MemoTrie >=0.6 && <1
-    , QuickCheck >=2.14 && <3
-    , adjunctions >=4.4 && <5
-    , aeson
+      QuickCheck >=2.14 && <3
+    , aeson >=2.2 && <3
     , base >=4.15 && <5
-    , bifunctors >=5.5 && <6
     , bytestring >=0.11 && <1
     , containers >=0.6 && <1
-    , contravariant >=1.5 && <2
-    , data-fix
-    , distributive >=0.6 && <1
-    , distributors
-    , dlist
+    , data-fix >=0.3 && <1
+    , distributors ==0.6.*
+    , distributors-json
+    , dlist >=1.0 && <2
     , doctest >=0.18 && <1
-    , hashable
+    , hashable >=1.4 && <2
     , hspec >=2.7 && <3
     , lens >=5.0 && <6
-    , megaparsec >=9.0 && <10
-    , monad-loops >=0.4.3 && <1
-    , mtl >=2.2 && <3
-    , network-uri
-    , primitive
+    , network-uri >=2.6 && <3
+    , primitive >=0.8 && <1
     , profunctors >=5.6 && <6
-    , quickcheck-instances
-    , random >=1.2 && <2
-    , scientific
-    , sop-core
-    , strict
+    , quickcheck-instances >=0.3 && <1
+    , scientific >=0.3 && <1
+    , sop-core >=0.5 && <1
+    , strict >=0.5 && <1
     , tagged >=0.8 && <1
-    , template-haskell >=2.17 && <3
     , text ==2.*
-    , text-iso8601
-    , text-short
-    , th-abstraction >=0.4 && <1
-    , these
-    , time
+    , text-iso8601 >=0.1 && <1
+    , text-short >=0.1 && <1
+    , these >=1.2 && <2
+    , time >=1.12 && <2
     , transformers >=0.5 && <1
-    , unordered-containers
-    , uuid-types
+    , unordered-containers >=0.2 && <1
+    , uuid-types >=1.0 && <2
     , vector >=0.12 && <1
     , witherable >=0.4 && <1
   default-language: Haskell2010
@@ -245,9 +190,9 @@ benchmark json
   type: exitcode-stdio-1.0
   main-is: Main.hs
   other-modules:
-      Paths_distributors
+      Paths_distributors_json
   autogen-modules:
-      Paths_distributors
+      Paths_distributors_json
   hs-source-dirs:
       bench
   default-extensions:
@@ -290,43 +235,33 @@ benchmark json
       UndecidableSuperClasses
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -O2 -rtsopts
   build-depends:
-      MemoTrie >=0.6 && <1
-    , QuickCheck >=2.14 && <3
-    , adjunctions >=4.4 && <5
-    , aeson
+      aeson >=2.2 && <3
     , base >=4.15 && <5
-    , bifunctors >=5.5 && <6
     , bytestring >=0.11 && <1
     , containers >=0.6 && <1
-    , contravariant >=1.5 && <2
-    , data-fix
-    , deepseq
-    , distributive >=0.6 && <1
-    , distributors
-    , dlist
-    , hashable
+    , data-fix >=0.3 && <1
+    , deepseq >=1.4 && <2
+    , distributors ==0.6.*
+    , distributors-json
+    , dlist >=1.0 && <2
+    , hashable >=1.4 && <2
     , lens >=5.0 && <6
-    , monad-loops >=0.4.3 && <1
-    , mtl >=2.2 && <3
-    , network-uri
-    , primitive
+    , network-uri >=2.6 && <3
+    , primitive >=0.8 && <1
     , profunctors >=5.6 && <6
-    , random >=1.2 && <2
-    , scientific
-    , sop-core
-    , strict
+    , scientific >=0.3 && <1
+    , sop-core >=0.5 && <1
+    , strict >=0.5 && <1
     , tagged >=0.8 && <1
-    , tasty-bench
-    , template-haskell >=2.17 && <3
+    , tasty-bench >=0.3 && <1
     , text ==2.*
-    , text-iso8601
-    , text-short
-    , th-abstraction >=0.4 && <1
-    , these
-    , time
+    , text-iso8601 >=0.1 && <1
+    , text-short >=0.1 && <1
+    , these >=1.2 && <2
+    , time >=1.12 && <2
     , transformers >=0.5 && <1
-    , unordered-containers
-    , uuid-types
+    , unordered-containers >=0.2 && <1
+    , uuid-types >=1.0 && <2
     , vector >=0.12 && <1
     , witherable >=0.4 && <1
   default-language: Haskell2010
