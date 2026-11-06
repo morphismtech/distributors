@@ -209,7 +209,7 @@ newtype Tally = Tally (Int, [(Bool, Int)])
 instance Json Tally where
   json = jsonTyped $ dimap (\(Tally p) -> p) Tally $ jsonObject
     ( "total" !: json
-    >*< jsonDict (jsonEnumWith (\b -> if b then "yes" else "no") [False, True])
+    >*< jsonDict (jsonEnumWith fromEnum [("no", False), ("yes", True)])
       json
     )
 
@@ -219,7 +219,7 @@ newtype Votes = Votes (Int, [(Bool, Int)])
 instance Json Votes where
   json = jsonTyped $ dimap (\(Votes p) -> p) Votes $ jsonObject
     ( "yes" !: json
-    >*< jsonDict (jsonEnumWith (\b -> if b then "yes" else "no") [False, True])
+    >*< jsonDict (jsonEnumWith fromEnum [("no", False), ("yes", True)])
       json
     )
 

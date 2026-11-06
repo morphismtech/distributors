@@ -174,6 +174,7 @@ import Data.IntMap qualified as IntMap
 import Data.IntSet (IntSet)
 import Data.IntSet qualified as IntSet
 import Data.Kind
+import Data.Type.Bool (type (&&))
 import Data.List
   (find, findIndices, intercalate, isPrefixOf, nub, sortOn, stripPrefix)
 import Data.List.NonEmpty (NonEmpty, nonEmpty)
@@ -183,7 +184,7 @@ import Data.Maybe
 import Data.Monoid (Ap (..))
 import Data.Monoid qualified as Monoid
 import Data.Ord (Down (..))
-import Data.Primitive.Array (Array)
+import Data.Primitive.Array (Array, arrayFromList, indexArray)
 import Data.Primitive.PrimArray (PrimArray)
 import Data.Primitive.SmallArray (SmallArray)
 import Data.Primitive.Types (Prim)
@@ -518,11 +519,15 @@ class
   jsonEncodedText encoding = withPrism encoding $ \encode match ->
     prism' (fst . encode) (either (const Nothing) Just . match) ?< jsonText
   {- | An enumeration of strings, which a map's key may be,
-  like TypeScript's union of string literals, @"a" | "b"@.
+  like TypeScript's union of string literals, @"a" | "b"@,
+  by a table of strings & their values, & the index of each value in it,
+  so that printing needn't search it.
   -}
-  jsonEnumWith :: (a -> Text) -> [a] -> p a a
-  jsonEnumWith f as =
-    prism' f (\t -> lookup t [(f a, a) | a <- as]) ?< jsonText
+  jsonEnumWith :: (a -> Int) -> [(Text, a)] -> p a a
+  jsonEnumWith indexOf table =
+    prism' (indexArray names . indexOf) (`lookup` table) ?< jsonText
+    where
+      names = arrayFromList (map fst table)
   {- | Strings of numbers, like an integral map key's,
   like TypeScript's template literal type, @\`${number}\`@.
   -}
@@ -813,6 +818,11 @@ instance JsonStr JsonParsor where
   jsonText = jsonParsor $ \case
     String t -> Right t
     v -> jsonMismatch "string" v
+  -- | Literal alternatives, dispatched by their string.
+  jsonEnumWith indexOf table = orP
+    [ dimap indexOf (const a) (only i >? fromString (Text.unpack literal))
+    | (i, (literal, a)) <- zip [0 ..] table
+    ]
 instance JsonVal JsonParsor where
   jsonNull = jsonParsor $ \case
     Null -> Right ()
@@ -1066,6 +1076,10 @@ instance AesonStr key => JsonStr (KeyPrintor key) where
   jsonString = KeyPrintor aesonString
   jsonEncodedText encoding = withPrism encoding $ \encode _ ->
     KeyPrintor (aesonEncodedText . encode)
+  -- | Literals rendered once, & printed by their index.
+  jsonEnumWith indexOf table = KeyPrintor (indexArray rendered . indexOf)
+    where
+      rendered = arrayFromList [aesonLiteral literal | (literal, _) <- table]
 
 -- | @aeson@'s representations of JSON values, `Value` & `Encoding`.
 class AesonStr val => AesonVal val where
@@ -1287,6 +1301,10 @@ instance AesonStr val => JsonStr (JsonPrintor val) where
   jsonString = primitive aesonString
   jsonEncodedText encoding = withPrism encoding $ \encode _ ->
     primitive (aesonEncodedText . encode)
+  -- | Literals rendered once, & printed by their index.
+  jsonEnumWith indexOf table = printing (indexArray rendered . indexOf)
+    where
+      rendered = arrayFromList [aesonLiteral literal | (literal, _) <- table]
 instance AesonVal val => JsonVal (JsonPrintor val) where
   jsonNull = primitive (const aesonNull)
   jsonBool = primitive aesonBool
@@ -1733,7 +1751,8 @@ instance (x ~ (), y ~ ()) => IsString (JsonTypor x y) where
   fromString = typing . JsonStringLiteral . Text.pack
 instance JsonStr JsonTypor where
   jsonText = typing JsonString
-  jsonEnumWith f as = typing (jsonUnion [JsonStringLiteral (f a) | a <- as])
+  jsonEnumWith _ table =
+    typing (jsonUnion [JsonStringLiteral literal | (literal, _) <- table])
   jsonNumeric _ = typing JsonNumeric
 instance JsonVal JsonTypor where
   jsonNull = typing JsonNull
@@ -2056,9 +2075,11 @@ tsTuples shapes = merged (nub (concatMap (expand False . mergeRests) shapes))
 
 -- Json instance helpers
 
--- | An enumeration of string literals, typed as their union.
-jsonEnum :: (Eq a, JsonVal p) => (a -> Text) -> [a] -> p a a
-jsonEnum f as = orP [only a >? fromString (Text.unpack (f a)) | a <- as]
+-- | An enumeration of a bounded `Enum`, by the names of its values.
+enumerated :: (Bounded a, Enum a, JsonStr p) => (a -> Text) -> p a a
+enumerated name = jsonEnumWith
+  (\a -> fromEnum a - fromEnum (minBound `asTypeOf` a))
+  [(name a, a) | a <- [minBound .. maxBound]]
 
 -- | An object of a single property, as @aeson@ requires of sums' tags.
 jsonTag :: JsonVal p => Text -> p a b -> p a b
@@ -2152,10 +2173,9 @@ makePrisms ''These
 -- base
 instance Json Bool where
   json = jsonBool
-  jsonKey =
-    Just (jsonEnumWith (\b -> if b then "true" else "false") [False, True])
+  jsonKey = Just (enumerated (\b -> if b then "true" else "false"))
 instance Json Ordering where
-  json = jsonTyped (jsonEnum (Text.pack . show) [LT, EQ, GT])
+  json = jsonTyped (enumerated (Text.pack . show))
 instance Json () where
   json = jsonTuple oneP
   jsonOmitField _ = True
@@ -2654,22 +2674,23 @@ instance Json CalendarDiffDays where
     (jsonObject ("months" !: json >*< "days" !: json))
 
 -- | Days of the week, named as @aeson@ names them.
-weekdays :: ((DayOfWeek -> Text) -> [DayOfWeek] -> r) -> r
-weekdays enumerate = enumerate (Text.toLower . Text.pack . show)
-  [Monday, Tuesday, Wednesday, Thursday, Friday, Saturday, Sunday]
+weekdays :: JsonStr p => p DayOfWeek DayOfWeek
+weekdays = jsonEnumWith (\day -> fromEnum day - 1)
+  [ (Text.toLower (Text.pack (show day)), day)
+  | day <- [Monday, Tuesday, Wednesday, Thursday, Friday, Saturday, Sunday]
+  ]
 
 instance Json DayOfWeek where
-  json = jsonTyped (weekdays jsonEnum)
-  jsonKey = Just (jsonTyped (weekdays jsonEnumWith))
+  json = jsonTyped weekdays
+  jsonKey = Just (jsonTyped weekdays)
 
 -- | Quarters of the year, named as @aeson@ names them.
-quarters :: ((QuarterOfYear -> Text) -> [QuarterOfYear] -> r) -> r
-quarters enumerate =
-  enumerate (Text.toLower . Text.pack . show) [Q1, Q2, Q3, Q4]
+quarters :: JsonStr p => p QuarterOfYear QuarterOfYear
+quarters = enumerated (Text.toLower . Text.pack . show)
 
 instance Json QuarterOfYear where
-  json = jsonTyped (quarters jsonEnum)
-  jsonKey = Just (jsonTyped (quarters jsonEnumWith))
+  json = jsonTyped quarters
+  jsonKey = Just (jsonTyped quarters)
 
 -- uuid-types
 
@@ -2742,8 +2763,10 @@ instance (Json a, Json b) => Json (Strict.Pair a b) where
 -- Generics
 
 -- | The `GHC.Generic` `Json` grammar, by @aeson@'s default options.
-instance (GHC.Generic a, GHC.Rep a ~ GHC.D1 d f, GSum f, Typeable a)
-  => Json (GHC.Generically a) where
+instance
+  ( GHC.Generic a, GHC.Rep a ~ GHC.D1 d f, GSum f, Typeable a
+  , EnumTag (AllNullary f) a
+  ) => Json (GHC.Generically a) where
     json = dimap (\(GHC.Generically a) -> a) GHC.Generically
       (jsonGeneric Aeson.defaultOptions)
 
@@ -2755,10 +2778,32 @@ definition.
 -}
 jsonGeneric
   :: forall a d f p
-   . (GHC.Generic a, GHC.Rep a ~ GHC.D1 d f, GSum f, Typeable a, JsonVal p)
+   . ( GHC.Generic a, GHC.Rep a ~ GHC.D1 d f, GSum f, Typeable a
+     , EnumTag (AllNullary f) a, JsonVal p )
   => Aeson.Options -> p a a
-jsonGeneric opts =
-  jsonTyped (dimap (GHC.unM1 . GHC.from) (GHC.to . GHC.M1) (gsum opts))
+jsonGeneric opts = jsonTyped $ case (enumIndex @(AllNullary f) @a, gtable @f opts) of
+  (Just indexOf, Just table)
+    | Aeson.allNullaryToStringTag opts
+    , gconCount @f > 1 || Aeson.tagSingleConstructors opts ->
+        jsonEnumWith indexOf [(tag, GHC.to (GHC.M1 v)) | (tag, v) <- table]
+  _ -> dimap (GHC.unM1 . GHC.from) (GHC.to . GHC.M1) (gsum opts)
+
+-- | Whether a `GHC.Generic` representation's constructors are all nullary.
+type AllNullary :: (Type -> Type) -> Bool
+type family AllNullary f where
+  AllNullary (f GHC.:+: g) = AllNullary f && AllNullary g
+  AllNullary (GHC.C1 c GHC.U1) = 'True
+  AllNullary f = 'False
+
+{- | The index of an enumeration's constructor, by `Exts.dataToTag#`,
+which only enumerations need, since newtypes have no `Exts.DataToTag`.
+-}
+class EnumTag (enum :: Bool) a where
+  enumIndex :: Maybe (a -> Int)
+instance Exts.DataToTag a => EnumTag 'True a where
+  enumIndex = Just (\a -> Exts.I# (Exts.dataToTag# a))
+instance EnumTag 'False a where
+  enumIndex = Nothing
 
 gsum :: forall f p x. (GSum f, JsonVal p) => Aeson.Options -> p (f x) (f x)
 gsum opts
@@ -2784,6 +2829,8 @@ class GSum f where
   gcons :: JsonVal p => Aeson.Options -> p (f x) (f x)
   -- | Constructor names, when all constructors are nullary.
   genum :: JsonVal p => Aeson.Options -> Maybe (p (f x) (f x))
+  -- | Constructors, by their names, when all constructors are nullary.
+  gtable :: Aeson.Options -> Maybe [(Text, f x)]
   -- | Constructors by `Aeson.TaggedObject`, with tag & contents fields.
   gtagged :: JsonVal p => Aeson.Options -> Text -> Text -> p (f x) (f x)
   -- | Constructors by `Aeson.UntaggedValue`.
@@ -2798,6 +2845,9 @@ instance (GSum f, GSum g) => GSum (f GHC.:+: g) where
   gcons opts = sumIso >~ gcons opts >+< gcons opts
   genum opts =
     liftA2 (\l r -> sumIso >~ l >+< r) (genum @f opts) (genum @g opts)
+  gtable opts = liftA2
+    (\l r -> map (fmap GHC.L1) l <> map (fmap GHC.R1) r)
+    (gtable @f opts) (gtable @g opts)
   gtagged opts tagField contentsField = sumIso
     >~ gtagged opts tagField contentsField
     >+< gtagged opts tagField contentsField
@@ -2822,6 +2872,8 @@ instance (GHC.Constructor c, GFields f, GContents f, GNullary f)
           | otherwise = gcontents
     genum opts = gnullary @f <&> \v ->
       dimap (const ()) (const (GHC.M1 v)) (fromString (gconTag @c opts))
+    gtable opts =
+      gnullary @f <&> \v -> [(Text.pack (gconTag @c opts), GHC.M1 v)]
     gtagged opts tagField contentsField =
       GHC.M1 #. gobject opts (tag >* contents) .# GHC.unM1
       where
