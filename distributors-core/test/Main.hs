@@ -24,6 +24,7 @@ import Examples.LenVec
 import Examples.RegString
 import Examples.SemVer
 import Examples.SExpr
+import Properties.Homogeneous
 import Properties.Kleene
 
 main :: IO ()
@@ -48,6 +49,7 @@ main = do
     describe "parseForest" parseForestTests
     describe "Parsector try rollback" tryRollbackTests
     describe "Kleene" kleeneProperties
+    describe "Homogeneous" homogeneousProperties
     describe "meander" meanderProperties
 
 parseForestTests :: Spec

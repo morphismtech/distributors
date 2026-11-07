@@ -135,6 +135,7 @@ test-suite test
       Examples.RegString
       Examples.SemVer
       Examples.SExpr
+      Properties.Homogeneous
       Properties.Kleene
       Paths_distributors
   autogen-modules:
