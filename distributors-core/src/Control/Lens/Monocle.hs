@@ -50,7 +50,7 @@ import Data.Profunctor.Monoidal
 import Data.Profunctor.Monoidal.Cocartesian
 import Data.Traversable.Homogeneous
 import Data.Void (Void, absurd)
-import GHC.Generics (Par1 (..), V1, (:+:) (..))
+import GHC.Generics (Par1 (..), V1, (:+:) (..), (:*:) (..))
 import Numeric.Natural (Natural)
 
 -- $setup
@@ -229,7 +229,7 @@ Numbering diverges past a summand of infinitely many copies.
 -}
 indexComonocle :: AComonocle s t a b -> IndexedLens Natural s t a b
 indexComonocle mon = withComonocle mon $ \split merge ->
-  ilens (\s -> let as = split s in (indexEnumerable as, extractEnumerable as))
+  ilens (\s -> let as = split s in (fromEnumerable as, extractEnumerable as))
     (\s b -> merge (b <$ split s))
 
 {- | Zip two sources of `AComonocle`, when they hold the same copy,
@@ -242,8 +242,9 @@ Nothing
 -}
 zipWithComonocle
   :: AComonocle s t a b -> (a -> a -> b) -> s -> s -> Maybe t
-zipWithComonocle mon f =
-  runZipping (mapComonocle mon (Zipping (\a0 a1 -> Just (f a0 a1))))
+zipWithComonocle mon f s0 s1 = runZipporah
+  (mapComonocle mon (Zipporah (\(Par1 a0 :*: Par1 a1) -> Just (f a0 a1))))
+  (Par1 s0 :*: Par1 s1)
 
 {- | The `Comonocle` of an `Enumerable` sum's copy.
 

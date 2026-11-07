@@ -11,17 +11,22 @@ Portability : non-portable
 module Data.Traversable.Homogeneous
   ( -- * Homogeneous
     Homogeneous (..)
+  , zipHomogeneous
   , zipWithHomogeneous
   , zipWithHomogeneous3
+  , zipWithHomogeneousM
+  , transposeHomogeneous
     -- * Enumerable
   , Enumerable (..)
   , extractEnumerable
-  , indexEnumerable
-  , Bool1 (..), bool1
-    -- * Counting & Zipping
-  , Counting (..)
-  , Zipping (..)
-  , MultiZipping (..)
+  , fromEnumerable
+  , toEnumerable
+  , succEnumerable
+  , predEnumerable
+  , enumerateFrom
+    -- * Indexing & Zipporah
+  , Indexing (..)
+  , Zipporah (..)
   ) where
 
 import Control.Applicative
@@ -29,7 +34,6 @@ import Control.Lens hiding (chosen)
 import Control.Lens.PartialIso
 import Control.Monad ((>=>))
 import Control.Monad.Trans.Identity (IdentityT (..))
-import Data.Bool
 import Data.Complex
 import Data.Functor.Compose
 import qualified Data.Functor.Product as Functor
@@ -38,7 +42,7 @@ import qualified Data.Monoid as Monoid
 import Data.Ord (Down (..))
 import qualified Data.Semigroup as Semigroup
 import Data.Monoid.Disjunctive
-import Data.Profunctor (Cochoice (..), Forget (..))
+import Data.Profunctor (Cochoice (..), Forget (..), Star (..))
 import Data.Profunctor.Monoidal
 import Data.Proxy
 import Data.Sequence (Seq)
@@ -51,6 +55,7 @@ import Numeric.Natural (Natural)
 import Witherable (Filterable (..))
 
 import Data.Profunctor.Distributor
+import Data.Profunctor.Monadic (Monadic)
 import Data.Profunctor.Monoidal.Cocartesian
 
 {- | A class of `Homogeneous`
@@ -262,9 +267,9 @@ instance Enumerable f => Enumerable (Rec1 f) where
 numbered by its tag's `fromEnum`, from `minBound`,
 & summed in a balanced tree, built lazily.
 
->>> map indexEnumerable [(False, 'a'), (True, 'b')]
+>>> map fromEnumerable [(False, 'a'), (True, 'b')]
 [0,1]
->>> map indexEnumerable [(LT, 'a'), (EQ, 'b'), (GT, 'c')]
+>>> map fromEnumerable [(LT, 'a'), (EQ, 'b'), (GT, 'c')]
 [0,1,2]
 >>> zipWithHomogeneous (+) (True, 1) (True, 2 :: Int)
 Just (True,3)
@@ -272,7 +277,7 @@ Just (True,3)
 Nothing
 
 Reaching a copy takes time logarithmic in the number of tags,
-but counting them, as `indexEnumerable` does, takes time linear in it,
+but counting them, as `fromEnumerable` does, takes time linear in it,
 so it never ends for @Int@, & tags whose `fromEnum` fails, like large
 @Word@s, aren't enumerable.
 -}
@@ -294,10 +299,77 @@ instance (Enum e, Bounded e) => Enumerable ((,) e) where
 extractEnumerable :: Enumerable f => f a -> a
 extractEnumerable = runForget (enumerably (Forget id))
 
--- | Which copy an `Enumerable` sum holds, numbered from 0, left to right.
-indexEnumerable :: Enumerable f => f a -> Natural
-indexEnumerable =
-  case enumerably (Counting 1 (const 0)) of Counting _ which -> which
+{- | Which copy an `Enumerable` sum holds, numbered from 0, left to right,
+like `fromEnum`.
+
+>>> fromEnumerable (GT, 'x')
+2
+-}
+fromEnumerable :: Enumerable f => f a -> Natural
+fromEnumerable =
+  case enumerably (pure ()) of Indexing _ which _ -> which
+
+{- | The copy of an `Enumerable` sum at an index, if there is one,
+like `toEnum`, the inverse of `fromEnumerable`.
+
+>>> toEnumerable 'x' 1 :: Maybe (Ordering, Char)
+Just (EQ,'x')
+>>> toEnumerable 'x' 3 :: Maybe (Ordering, Char)
+Nothing
+-}
+toEnumerable :: Enumerable f => a -> Natural -> Maybe (f a)
+toEnumerable a copy =
+  case enumerably (pure a) of Indexing _ _ select -> select copy
+
+{- | The next copy of an `Enumerable` sum, if there is one, like `succ`.
+
+>>> succEnumerable (EQ, 'x')
+Just (GT,'x')
+>>> succEnumerable (GT, 'x')
+Nothing
+-}
+succEnumerable :: Enumerable f => f a -> Maybe (f a)
+succEnumerable x = case enumerably (pure (extractEnumerable x)) of
+  Indexing _ which select -> select (which x + 1)
+
+{- | The previous copy of an `Enumerable` sum, if there is one, like `pred`.
+
+>>> predEnumerable (EQ, 'x')
+Just (LT,'x')
+>>> predEnumerable (LT, 'x')
+Nothing
+-}
+predEnumerable :: Enumerable f => f a -> Maybe (f a)
+predEnumerable x = case enumerably (pure (extractEnumerable x)) of
+  Indexing _ which select -> case which x of
+    0 -> Nothing
+    copy -> select (copy - 1)
+
+{- | The copies of an `Enumerable` sum from one onward, like `enumFrom`.
+
+>>> enumerateFrom (EQ, 'x')
+[(EQ,'x'),(GT,'x')]
+-}
+enumerateFrom :: Enumerable f => f a -> [f a]
+enumerateFrom x = case enumerably (pure (extractEnumerable x)) of
+  Indexing _ which select ->
+    let go copy = maybe [] (: go (copy + 1)) (select copy) in go (which x)
+
+{- | Zip `Homogeneous` structures in the positions of a `Traversable`,
+by a function of their elements at each position, when they have the
+same shape, or else `empty`.
+
+>>> zipHomogeneous (Just . sum) [[1, 2], [3, 4], [5, 6 :: Int]]
+Just [9,12]
+>>> zipHomogeneous (Just . sum) [[1, 2], [3 :: Int]]
+Nothing
+>>> zipHomogeneous id [[1, 2], [3, 4 :: Int]]
+[[1,2],[1,4],[3,2],[3,4]]
+-}
+zipHomogeneous
+  :: (Homogeneous t, Traversable f, Alternative g)
+  => (f a -> g b) -> f (t a) -> g (t b)
+zipHomogeneous f = runZipporah (homogeneously (Zipporah f))
 
 {- | Zip two `Homogeneous` structures, when they have the same shape.
 
@@ -308,8 +380,8 @@ Nothing
 -}
 zipWithHomogeneous
   :: Homogeneous t => (a -> a -> b) -> t a -> t a -> Maybe (t b)
-zipWithHomogeneous f =
-  runZipping (homogeneously (Zipping (\a0 a1 -> Just (f a0 a1))))
+zipWithHomogeneous f x y =
+  zipHomogeneous (\(Par1 a :*: Par1 b) -> Just (f a b)) (Par1 x :*: Par1 y)
 
 {- | Zip three `Homogeneous` structures, when they have the same shape.
 
@@ -321,109 +393,129 @@ Nothing
 zipWithHomogeneous3
   :: Homogeneous t
   => (a -> a -> a -> b) -> t a -> t a -> t a -> Maybe (t b)
-zipWithHomogeneous3 f x y z = runMultiZipping
-  (homogeneously (MultiZipping
-    (\(Par1 a :*: Par1 b :*: Par1 c) -> Just (f a b c))))
+zipWithHomogeneous3 f x y z = zipHomogeneous
+  (\(Par1 a :*: Par1 b :*: Par1 c) -> Just (f a b c))
   (Par1 x :*: Par1 y :*: Par1 z)
 
-{- | `Counting` counts the index of an `Enumerable`. -}
-data Counting s t = Counting Natural (s -> Natural)
-instance Profunctor Counting where
-  dimap f _ (Counting count which) = Counting count (which . f)
-instance Functor (Counting s) where
-  fmap _ (Counting count which) = Counting count which
-instance Contravariant (Counting s) where
-  contramap _ (Counting count which) = Counting count which
-instance Applicative (Counting s) where
-  pure _ = Counting 1 (const 0)
-  Counting count0 which0 <*> Counting count1 which1 = Counting
+{- | Zip two `Homogeneous` structures by an action, when they have the same
+shape. The actions of the positions which match run, even when the shapes
+differ elsewhere.
+
+>>> zipWithHomogeneousM (\a b -> ([a + b], a * b)) [1, 2] [3, 4 :: Int]
+([4,6],Just [3,8])
+>>> zipWithHomogeneousM (\a b -> ([a + b], a * b)) [1, 2] [3 :: Int]
+([4],Nothing)
+-}
+zipWithHomogeneousM
+  :: (Homogeneous t, Applicative m)
+  => (a -> a -> m b) -> t a -> t a -> m (Maybe (t b))
+zipWithHomogeneousM f x y = runStar
+  (runZipporah (homogeneously (Zipporah (Star
+    (\(Par1 a :*: Par1 b) -> Just <$> f a b)))))
+  (Par1 x :*: Par1 y)
+
+{- | Transpose `Homogeneous` structures in the positions of a `Traversable`,
+when they have the same shape. Without any structures, a sum's first copy
+repeats, so that a list is infinite.
+
+>>> transposeHomogeneous [[1, 2, 3], [4, 5, 6 :: Int]]
+Just [[1,4],[2,5],[3,6]]
+>>> transposeHomogeneous [[1, 2], [3 :: Int]]
+Nothing
+-}
+transposeHomogeneous
+  :: (Homogeneous t, Traversable f) => f (t a) -> Maybe (t (f a))
+transposeHomogeneous = zipHomogeneous Just
+
+
+{- | `Indexing` numbers the copies of a sum of products, from 0,
+left to right, & products row by row, both ways:
+how many copies there are, which copy a source is, & the copy at an index.
+-}
+data Indexing s t = Indexing Natural (s -> Natural) (Natural -> Maybe t)
+instance Profunctor Indexing where
+  dimap f g (Indexing count which select) =
+    Indexing count (which . f) (fmap g . select)
+instance Functor (Indexing s) where
+  fmap = rmap
+instance Applicative (Indexing s) where
+  pure t = Indexing 1 (const 0) (\i -> if i == 0 then Just t else Nothing)
+  Indexing count0 which0 select0 <*> Indexing count1 which1 select1 = Indexing
     (count0 * count1)
     (\s -> which0 s * count1 + which1 s)
-instance CocartesianMonoidal Counting where
-  zeroP = Counting 0 absurd
-  Counting count0 which0 >+< Counting count1 which1 = Counting
+    (\i -> if count1 == 0 then Nothing
+      else select0 (i `div` count1) <*> select1 (i `mod` count1))
+instance CocartesianMonoidal Indexing where
+  zeroP = Indexing 0 absurd (const Nothing)
+  Indexing count0 which0 select0 >+< Indexing count1 which1 select1 = Indexing
     (count0 + count1)
     (either which0 ((count0 +) . which1))
-instance Cochoice Counting where
-  unleft (Counting count which) = Counting count (which . Left)
-  unright (Counting count which) = Counting count (which . Right)
+    (\i -> if i < count0 then Left <$> select0 i
+      else Right <$> select1 (i - count0))
+instance Cochoice Indexing where
+  unleft (Indexing count which select) = Indexing count
+    (which . Left) (select >=> either Just (const Nothing))
+  unright (Indexing count which select) = Indexing count
+    (which . Right) (select >=> either (const Nothing) Just)
 
--- | `Zipping` zips two sources, when they have the same shape.
-newtype Zipping s t = Zipping {runZipping :: s -> s -> Maybe t}
-instance Profunctor Zipping where
-  dimap f g (Zipping z) = Zipping (\s0 s1 -> g <$> z (f s0) (f s1))
-instance Functor (Zipping s) where
-  fmap = rmap
-instance Applicative (Zipping s) where
-  pure t = Zipping (\_ _ -> Just t)
-  Zipping zf <*> Zipping zx = Zipping (\s0 s1 -> zf s0 s1 <*> zx s0 s1)
-instance Alternative (Zipping s) where
-  empty = Zipping (\_ _ -> Nothing)
-  Zipping z0 <|> Zipping z1 = Zipping (\s0 s1 -> z0 s0 s1 <|> z1 s0 s1)
-instance Monad (Zipping s) where
-  Zipping z >>= f = Zipping (\s0 s1 -> z s0 s1 >>= \t -> runZipping (f t) s0 s1)
-instance Filterable (Zipping s) where
-  mapMaybe f (Zipping z) = Zipping (\s0 s1 -> z s0 s1 >>= f)
-instance DisjunctiveMonoid (Zipping s t)
-instance Choice Zipping where
-  left' (Zipping z) = Zipping $ \s0 s1 -> case (s0, s1) of
-    (Left a0, Left a1) -> Left <$> z a0 a1
-    _ -> Nothing
-  right' (Zipping z) = Zipping $ \s0 s1 -> case (s0, s1) of
-    (Right a0, Right a1) -> Right <$> z a0 a1
-    _ -> Nothing
-instance Cochoice Zipping where
-  unleft (Zipping z) = Zipping $ \a0 a1 ->
-    z (Left a0) (Left a1) >>= either Just (const Nothing)
-  unright (Zipping z) = Zipping $ \a0 a1 ->
-    z (Right a0) (Right a1) >>= either (const Nothing) Just
-instance CocartesianMonoidal Zipping where
-  zeroP = Zipping absurd
-  Zipping z0 >+< Zipping z1 = Zipping $ \case
-    Left s0 -> either (fmap Left . z0 s0) (const Nothing)
-    Right s1 -> either (const Nothing) (fmap Right . z1 s1)
-instance CocartesianChoice Zipping
-instance Distributor Zipping
-instance Alternator Zipping
 
-{- | `MultiZipping` zips sources in the positions of a `Traversable`,
-like `Complex` of 2, when they have the same shape, as `Zipping` zips two.
-With no sources, a sum is its first copy.
+{- | `Zipporah` is a profunctor @p@ between functors, like `Data.Bifunctor.Biff`,
+but lifting @p@'s instances through @g@, & splitting sums by @f@,
+which fail in @g@ unless every position of @f@ holds the same copy.
 -}
-newtype MultiZipping f s t = MultiZipping {runMultiZipping :: f s -> Maybe t}
-instance Functor f => Profunctor (MultiZipping f) where
-  dimap f g (MultiZipping z) = MultiZipping (fmap g . z . fmap f)
-instance Functor (MultiZipping f s) where
-  fmap g (MultiZipping z) = MultiZipping (fmap g . z)
-instance Applicative (MultiZipping f s) where
-  pure t = MultiZipping (\_ -> Just t)
-  MultiZipping zf <*> MultiZipping zx = MultiZipping (\ss -> zf ss <*> zx ss)
-instance Alternative (MultiZipping f s) where
-  empty = MultiZipping (\_ -> Nothing)
-  MultiZipping z0 <|> MultiZipping z1 = MultiZipping (\ss -> z0 ss <|> z1 ss)
-instance Monad (MultiZipping f s) where
-  MultiZipping z >>= k =
-    MultiZipping (\ss -> z ss >>= \t -> runMultiZipping (k t) ss)
-instance Filterable (MultiZipping f s) where
-  mapMaybe f (MultiZipping z) = MultiZipping (z >=> f)
-instance DisjunctiveMonoid (MultiZipping f s t) where
+newtype Zipporah p f g a b = Zipporah {runZipporah :: p (f a) (g b)}
+instance (Profunctor p, Functor f, Functor g)
+  => Profunctor (Zipporah p f g) where
+    dimap h k (Zipporah x) = Zipporah (dimap (fmap h) (fmap k) x)
+instance (Profunctor p, Functor g) => Functor (Zipporah p f g a) where
+  fmap k (Zipporah x) = Zipporah (rmap (fmap k) x)
+instance (Monoidal p, Applicative g) => Applicative (Zipporah p f g a) where
+  pure b = Zipporah (pure (pure b))
+  Zipporah x <*> Zipporah y = Zipporah (liftA2 (<*>) x y)
+instance (Monoidal p, Alternative g) => Alternative (Zipporah p f g a) where
+  empty = Zipporah (pure empty)
+  Zipporah x <|> Zipporah y = Zipporah (liftA2 (<|>) x y)
+instance Monadic p => Monad (Zipporah p f Maybe a) where
+  Zipporah x >>= k = Zipporah (x >>= maybe (pure Nothing) (runZipporah . k))
+instance (Profunctor p, Filterable g) => Filterable (Zipporah p f g a) where
+  mapMaybe h (Zipporah x) = Zipporah (rmap (mapMaybe h) x)
+instance (Monoidal p, Alternative g) => DisjunctiveMonoid (Zipporah p f g a b) where
   falseP = empty
   (>|<) = (<|>)
-instance Traversable f => Choice (MultiZipping f) where
-  left' (MultiZipping z) = MultiZipping $ \ss ->
-    Left <$> (traverse (either Just (const Nothing)) ss >>= z)
-  right' (MultiZipping z) = MultiZipping $ \ss ->
-    Right <$> (traverse (either (const Nothing) Just) ss >>= z)
-instance Functor f => Cochoice (MultiZipping f) where
-  unleft (MultiZipping z) = MultiZipping $ \ss ->
-    z (Left <$> ss) >>= either Just (const Nothing)
-  unright (MultiZipping z) = MultiZipping $ \ss ->
-    z (Right <$> ss) >>= either (const Nothing) Just
-instance Traversable f => CocartesianMonoidal (MultiZipping f) where
-  zeroP = empty
-  MultiZipping z0 >+< MultiZipping z1 = MultiZipping $ \ss ->
-    Left <$> (traverse (either Just (const Nothing)) ss >>= z0)
-    <|> Right <$> (traverse (either (const Nothing) Just) ss >>= z1)
-instance Traversable f => CocartesianChoice (MultiZipping f)
-instance Traversable f => Distributor (MultiZipping f)
-instance Traversable f => Alternator (MultiZipping f)
+instance (Choice p, Traversable f, Alternative g) => Choice (Zipporah p f g) where
+  left' (Zipporah x) = Zipporah (leftCopies x)
+  right' (Zipporah x) = Zipporah (rightCopies x)
+instance (Profunctor p, Functor f, Filterable g) => Cochoice (Zipporah p f g) where
+  unleft (Zipporah x) =
+    Zipporah (dimap (fmap Left) (mapMaybe (either Just (const Nothing))) x)
+  unright (Zipporah x) =
+    Zipporah (dimap (fmap Right) (mapMaybe (either (const Nothing) Just)) x)
+instance (Choice p, Monoidal p, Traversable f, Alternative g)
+  => CocartesianMonoidal (Zipporah p f g) where
+    zeroP = empty
+    Zipporah x >+< Zipporah y = Zipporah (liftA2 (<|>) (leftCopies x) (rightCopies y))
+instance (Choice p, Monoidal p, Traversable f, Alternative g)
+  => CocartesianChoice (Zipporah p f g) where
+    alternate = Zipporah . either leftCopies rightCopies . bimap runZipporah runZipporah
+instance (Choice p, Monoidal p, Traversable f, Alternative g)
+  => Distributor (Zipporah p f g)
+instance (Choice p, Monoidal p, Traversable f, Alternative g)
+  => Alternator (Zipporah p f g)
+
+-- Sources which all hold the left copy of a sum, or else fail.
+leftCopies
+  :: (Choice p, Traversable f, Alternative g)
+  => p (f a) (g b) -> p (f (Either a c)) (g (Either b d))
+leftCopies = dimap
+  (\ss -> maybe (Right ()) Left (traverse (either Just (const Nothing)) ss))
+  (either (fmap Left) (const empty))
+  . left'
+
+-- Sources which all hold the right copy of a sum, or else fail.
+rightCopies
+  :: (Choice p, Traversable f, Alternative g)
+  => p (f c) (g d) -> p (f (Either a c)) (g (Either b d))
+rightCopies = dimap
+  (\ss -> maybe (Right ()) Left (traverse (either (const Nothing) Just) ss))
+  (either (fmap Right) (const empty))
+  . left'
