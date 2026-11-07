@@ -528,11 +528,6 @@ class
     prism' (indexArray names . indexOf) (`lookup` table) ?< jsonText
     where
       names = arrayFromList (map fst table)
-  {- | Strings of numbers, like an integral map key's,
-  like TypeScript's template literal type, @\`${number}\`@.
-  -}
-  jsonNumberKey :: p a a -> p a a
-  jsonNumberKey = id
 
 {- | `JsonTup` grammars describe the elements of a JSON array.
 As `Alternator`s they have optional elements (`optionalP`, `optionP`),
@@ -1599,7 +1594,6 @@ data JsonType
   | JsonBoolean -- ^ @true@ or @false@
   | JsonNumber -- ^ numbers
   | JsonString -- ^ strings
-  | JsonNumberKey JsonType -- ^ the strings of a type which are numbers, as keys
   | JsonStringLiteral Text -- ^ a string
   | JsonSubtype JsonType -- ^ some values of a type
   | JsonArray JsonElements -- ^ arrays of elements
@@ -1815,11 +1809,6 @@ instance JsonStr JsonTypor where
   jsonText = typing JsonString
   jsonEnumWith _ table =
     typing (jsonUnion [JsonStringLiteral literal | (literal, _) <- table])
-  jsonNumberKey (JsonTypor t) = JsonTypor (numberKey <$> t)
-    where
-      numberKey = \case
-        JsonUnion [] -> falseP
-        ty -> JsonNumberKey ty
 instance JsonVal JsonTypor where
   jsonNull = typing JsonNull
   jsonBool = typing JsonBoolean
@@ -1979,7 +1968,6 @@ tsType rules names = typeNode
       JsonBoolean -> KeywordType BooleanKeyword
       JsonNumber -> KeywordType NumberKeyword
       JsonString -> KeywordType StringKeyword
-      JsonNumberKey t -> numberKey t
       JsonStringLiteral text -> LiteralType (TextLiteral text)
       JsonSubtype t -> typeNode t
       t@(JsonArray _) -> typeNode (JsonUnion [t])
@@ -1992,14 +1980,6 @@ tsType rules names = typeNode
           <> [typeNode t | t <- drop (length before) ts, not (isTuple t)]
         _ -> map typeNode ts
     isTuple = \case JsonArray _ -> True; _ -> False
-    numberKey t
-      | JsonString `elem` alternatives = union
-          [ if alt == JsonString then numberKeyString else typeNode alt
-          | alt <- alternatives ]
-      | otherwise = typeNode t
-      where
-        alternatives = typeAlternatives rules t
-    numberKeyString = TemplateLiteralType "" [(KeywordType NumberKeyword, "")]
     tuple = \case
       [RestElement t] -> ArrayType (operand (typeNode t))
       els -> TupleType $ els <&> \case
@@ -2007,7 +1987,7 @@ tsType rules names = typeNode
         OptionalElement t -> OptionalType (operand (typeNode t))
         RestElement t -> RestType (ArrayType (operand (typeNode t)))
     -- The intersected parts of an object type: its named properties
-    -- & index signatures, of its string or number keys, & a mapped type
+    -- & index signature, of its string keys, & a mapped type
     -- of its literal keys, but those which are named, which TypeScript
     -- types apart, like @{ id: T } & { [key in K as …]?: U }@.
     object props = case (named <> indexSignatures, mappedTypes) of
@@ -2026,22 +2006,14 @@ tsType rules names = typeNode
           [ (keyType, typeAlternatives rules keyType, t)
           | JsonDict keyType t <- props, t /= falseP ]
         indexSignatures =
-          [ IndexSignature [] "key" (typeNode pattern) $ union
-              (typeNode t : covered pattern)
-          | (_, keyAlternatives, t) <- dicts
-          , pattern <- take 1
-              [ p | p <- [JsonString, JsonNumberKey JsonString]
-              , p `elem` keyAlternatives ]
-          ]
-        -- An index type also covers the named properties it matches,
+          [ IndexSignature [] "key" (KeywordType StringKeyword) $ union
+              (typeNode t : covered)
+          | (_, keyAlternatives, t) <- dicts, JsonString `elem` keyAlternatives ]
+        -- An index type also covers the named properties,
         -- as TypeScript requires.
-        covered pattern =
-          [typeNode t | JsonProperty key _ t <- props, matches pattern key]
-          <> [ KeywordType UndefinedKeyword
-             | or [o | JsonProperty key o _ <- props, matches pattern key] ]
-        matches = \case
-          JsonNumberKey _ -> isJust . readScientific
-          _ -> const True
+        covered =
+          [typeNode t | JsonProperty _ _ t <- props]
+          <> [KeywordType UndefinedKeyword | or [o | JsonProperty _ o _ <- props]]
         mappedTypes =
           [ MappedType Nothing "key" base exclusion (Just QuestionToken) (typeNode t)
           | (keyType, keyAlternatives, t) <- dicts
@@ -2101,9 +2073,6 @@ typeAlternatives rules = go []
         go (key : seen) t
       JsonUnion ts -> concatMap (go seen) ts
       JsonSubtype t -> go seen t
-      JsonNumberKey t ->
-        [ if alt == JsonString then JsonNumberKey JsonString else alt
-        | alt <- go seen t ]
       t -> [t]
 
 {- | Tuples of some shapes, as TypeScript types them. TypeScript requires
@@ -2226,7 +2195,7 @@ readScientific t
 
 -- | `Scientific` map keys, as @aeson@ renders them.
 jsonScientificKey :: JsonStr p => p Scientific Scientific
-jsonScientificKey = jsonNumberKey (prism' render readScientific ?< jsonText)
+jsonScientificKey = prism' render readScientific ?< jsonText
   where
     render s
       | e < 0 || e > 1024 = Text.pack (formatScientific Generic Nothing s)
@@ -2236,7 +2205,7 @@ jsonScientificKey = jsonNumberKey (prism' render readScientific ?< jsonText)
 
 -- | Integral map keys, as @aeson@ renders them.
 jsonIntKey :: (Show a, JsonStr p) => APrism' Scientific a -> p a a
-jsonIntKey integral = jsonNumberKey $ jsonEncodedText $ prism shown $ \t ->
+jsonIntKey integral = jsonEncodedText $ prism shown $ \t ->
   maybe (Left (t, Encoding.text t)) Right
     (readScientific t >>= preview (clonePrism integral))
   where

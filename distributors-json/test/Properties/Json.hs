@@ -298,13 +298,13 @@ jsonObjectSpec = describe "jsonObject" $ do
       ]
     roundTrip (object ["yes" .= (2 :: Int), "no" .= (1 :: Int)])
       (Votes (2, [(False, 1)]))
-  it "types number keys as template literals" $ do
+  it "types number keys as strings" $ do
     declares (type (Box (Map Int Bool)))
-      [ "export type Box_Map_Int_Bool = { [key: `${number}`]: boolean };"
+      [ "export type Box_Map_Int_Bool = { [key: string]: boolean };"
       ]
     declares (type Scores)
       [ "export type Scores = \
-        \{ name: string; [key: `${number}`]: boolean };"
+        \{ name: string; [key: string]: boolean | string };"
       ]
   it "types the rest of an object as an index signature" $ do
     declares (type Extra)
