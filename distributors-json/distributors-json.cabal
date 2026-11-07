@@ -19,6 +19,8 @@ license-file:   LICENSE
 build-type:     Simple
 extra-source-files:
     README.md
+    test/Properties/fixture.d.ts
+    test/Properties/fixture.golden.d.ts
 extra-doc-files:
     CHANGELOG.md
 
@@ -109,6 +111,7 @@ test-suite test
   main-is: Main.hs
   other-modules:
       Properties.Json
+      Properties.TypeScript
       Paths_distributors_json
   autogen-modules:
       Paths_distributors_json

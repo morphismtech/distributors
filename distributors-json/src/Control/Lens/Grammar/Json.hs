@@ -1675,10 +1675,12 @@ jsonTsPut :: forall (as :: [Type]) -> All Json as => Handle -> IO ()
 jsonTsPut as handle = case (parsecResult printed, parsecResult source) of
   (Nothing, _) -> unprinted "tokens" printed
   (_, Nothing) -> unprinted "characters" source
-  _ -> hPutStr handle (parsecStream source)
+  _ -> hPutStr handle (toList (parsecStream source))
   where
-    printed = unparsecG tsGrammar (jsonTsDeclarations as) []
-    source = unparsecG tsTokensGrammar (parsecStream printed) ""
+    -- Printed into sequences, which grow at their ends in constant time.
+    printed = unparsecG tsGrammar (jsonTsDeclarations as) (Seq.empty @TsToken)
+    source =
+      unparsecG tsTokensGrammar (toList (parsecStream printed)) (Seq.empty @Char)
     unprinted layer stage = ioError $ userError $
       "jsonTsPut: cannot print " <> layer <> " at "
       <> show (parsecOffset stage) <> ", expecting "

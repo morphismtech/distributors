@@ -693,6 +693,10 @@ compiler's syntax, printed one per line, indented within blocks, & with
 object types on one line. Trivia print conventionally, & parse only
 from tokens with trivia, by `parseG`, since `tsTokensGrammar` scans
 without them. Its @;@s print, & parse if they're there.
+
+Printing a file, of many tokens, is linear into a stream which grows
+at its end in constant time, like a `Data.Sequence.Seq`, rather than
+a list.
 -}
 tsGrammar :: CtxGrammar TsToken [TsDeclaration]
 tsGrammar = manyP (declaration 0 *< newline)
@@ -876,7 +880,7 @@ specifier = _TsImportSpecifier >? typeOnly
 braced :: TsGrammatical p => p a a -> p [a] [a]
 braced item = tokenOf oneP OpenBraceToken oneP >* orP
   [ _Empty >? tokenOf oneP CloseBraceToken oneP
-  , space >* commas1 item *< optionalToken CommaToken
+  , space >* commas1 item
       *< tokenOf space CloseBraceToken oneP
   ]
 
@@ -888,7 +892,8 @@ variable = _TsVariableDeclaration >? identifier
 -- | @extends@ or @implements@ & its heritage, or nothing for none.
 heritageClause :: TsGrammatical p => TsTokenCategory -> p [TsHeritage] [TsHeritage]
 heritageClause keyword = orP
-  [ several1 (sepBy comma) {beginBy = tokenOf space keyword space} heritage
+  [ _Cons >? tokenOf space keyword space >* heritage
+      >*< manyP (try (comma >* heritage))
   , _Empty >? oneP
   ]
 
@@ -996,7 +1001,7 @@ signature = _TsSignature >? typeParameters >*< parameters
 
 parameters :: TsGrammatical p => p [TsParameter] [TsParameter]
 parameters = tokenOf oneP OpenParenToken oneP
-  >* commas parameter *< optionalToken CommaToken
+  >* commas parameter
   *< tokenOf oneP CloseParenToken oneP
 
 parameter :: TsGrammatical p => p TsParameter TsParameter
@@ -1056,10 +1061,10 @@ typeArguments = angled typeNode
 -- | @\<a, b>@, or nothing for none.
 angled :: TsGrammatical p => p a a -> p [a] [a]
 angled item = orP
-  [ several1 (sepBy comma)
-      { beginBy = tokenOf oneP LessThanToken oneP
-      , endBy = tokenOf oneP GreaterThanToken oneP
-      } item
+  [ _Cons >? tokenOf oneP LessThanToken oneP >* item
+      >*< manyP (try (comma >* item))
+      *< optionalToken CommaToken
+      *< tokenOf oneP GreaterThanToken oneP
   , _Empty >? oneP
   ]
 
@@ -1077,7 +1082,7 @@ returnType = orP
 
 -- | An asserting type predicate.
 _AssertsPredicate :: Prism' TsType (Text, Maybe TsType)
-_AssertsPredicate = prism' (\(name, t) -> TypePredicate True name t) $ \case
+_AssertsPredicate = prism' (uncurry (TypePredicate True)) $ \case
   TypePredicate True name t -> Just (name, t)
   _ -> Nothing
 
@@ -1192,7 +1197,7 @@ primaryType ty = rule "primary" $ orP
   , _ReferenceType >? entityName >*< typeArguments
   , _TupleType >? tokenOf oneP OpenBracketToken oneP >* orP
       [ _Empty >? tokenOf oneP CloseBracketToken oneP
-      , commas1 tupleElement *< optionalToken CommaToken
+      , commas1 tupleElement
           *< tokenOf oneP CloseBracketToken oneP
       ]
   , _ParenthesizedType >? tokenOf oneP OpenParenToken oneP
@@ -1298,11 +1303,13 @@ entityName =
 
 -- | Comma separated items.
 commas :: TsGrammatical p => p a a -> p [a] [a]
-commas = several (sepBy comma)
+commas item = orP [commas1 item, _Empty >? oneP]
 
 -- | At least one comma separated item.
+-- | At least one comma separated item, & a trailing comma, if it's there.
 commas1 :: TsGrammatical p => p a a -> p [a] [a]
-commas1 = several1 (sepBy comma)
+commas1 item = _Cons >? item >*< manyP (try (comma >* item))
+  *< optionalToken CommaToken
 
 comma :: TsGrammatical p => p () ()
 comma = tokenOf oneP CommaToken space

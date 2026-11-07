@@ -8,6 +8,7 @@ import Test.DocTest
 import Test.Hspec
 
 import Properties.Json
+import Properties.TypeScript
 
 main :: IO ()
 main = do
@@ -26,6 +27,7 @@ main = do
     jsonOptionalSpec
     jsonCodecSpec
     jsonPrintSpec
+    typeScriptSpec
 
 doctests :: IO ()
 doctests = do

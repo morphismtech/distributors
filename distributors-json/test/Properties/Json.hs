@@ -28,6 +28,8 @@ import Control.Lens.Grammar.Json
 import Data.Kind (Type)
 import Data.SOP (All)
 import Control.Lens.Grammar.TypeScript
+import Data.Foldable (toList)
+import Data.Sequence qualified as Seq
 import Data.Aeson
   ( FromJSON (..), Options (..), SumEncoding (..), ToJSON (..), Value (String)
   , camelTo2, decode, defaultOptions, genericToJSON
@@ -1178,5 +1180,6 @@ tsTypes as = Text.pack (tsSource (jsonTsDeclarations as))
 
 -- | Print declarations as tokens, & tokens as characters, by Parsector.
 tsSource :: [TsDeclaration] -> String
-tsSource declarations = parsecStream $ unparsecG tsTokensGrammar
-  (parsecStream (unparsecG tsGrammar declarations [])) ""
+tsSource declarations = toList $ parsecStream $ unparsecG tsTokensGrammar
+  (toList (parsecStream (unparsecG tsGrammar declarations (Seq.empty @TsToken))))
+  (Seq.empty @Char)

@@ -13,6 +13,8 @@ import Data.Kind (Type)
 import Data.SOP (All)
 import Control.Lens.Grammar (ParsecState (..), unparsecG)
 import Control.Lens.Grammar.TypeScript
+import Data.Foldable (toList)
+import Data.Sequence qualified as Seq
 import Data.Aeson
   ( FromJSON (..), ToJSON (..), Value (..), decode, defaultOptions, encode
   , genericToEncoding, object, (.=)
@@ -299,5 +301,6 @@ tsTypes as = Text.pack (tsSource (jsonTsDeclarations as))
 
 -- | Print declarations as tokens, & tokens as characters, by Parsector.
 tsSource :: [TsDeclaration] -> String
-tsSource declarations = parsecStream $ unparsecG tsTokensGrammar
-  (parsecStream (unparsecG tsGrammar declarations [])) ""
+tsSource declarations = toList $ parsecStream $ unparsecG tsTokensGrammar
+  (toList (parsecStream (unparsecG tsGrammar declarations (Seq.empty @TsToken))))
+  (Seq.empty @Char)
