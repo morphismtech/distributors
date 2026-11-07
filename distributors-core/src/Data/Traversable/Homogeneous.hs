@@ -64,14 +64,14 @@ countable sums of countable products.
 class Traversable t => Homogeneous t where
   {- | Sequences actions `homogeneously`.
 
-  @prop> homogeneously @Maybe = optionalP@
-  @prop> homogeneously @[] = manyP@
+  > prop> homogeneously @Maybe = optionalP
+  > prop> homogeneously @[] = manyP
 
   Any `Traversable` & `Data.Distributive.Distributive` countable product
   can be given a default implementation for the `homogeneously` method
   with `ditraverse`.
 
-  @prop> homogeneously = ditraverse@
+  > prop> homogeneously = ditraverse
 
   And any user-defined homogeneous algebraic datatype has
   a default instance for `Homogeneous`, by deriving `Generic1`.
@@ -186,12 +186,12 @@ instance Homogeneous Tree where
 {- | A class of `Enumerable` countable sums of single copies,
 which are `Homogeneous`, & sequenced by sums alone.
 
-@prop> enumerably @Identity = dimap runIdentity Identity@
+> prop> enumerably @Identity = dimap runIdentity Identity
 
 Every `Enumerable` is sequenced `enumerably` as it's sequenced
 `homogeneously`, by a `Distributor`.
 
-@prop> enumerably = homogeneously@
+> prop> enumerably = homogeneously
 
 And any user-defined enumerable algebraic datatype has
 a default instance for `Enumerable`, by deriving `Generic1`.

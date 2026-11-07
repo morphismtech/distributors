@@ -56,10 +56,10 @@ Laws:
 >>> let runit = dimap (\(a,()) -> a) (\a -> (a,()))
 >>> let assoc = dimap (\(a,(b,c)) -> ((a,b),c)) (\((a,b),c) -> (a,(b,c)))
 
-@prop> oneP >*< p = lunit p@
-@prop> p >*< oneP = runit p@
-@prop> p >*< q >*< r = assoc ((p >*< q) >*< r)@
-@prop> dimap (f >*< g) (h >*< i) (p >*< q) = dimap f h p >*< dimap g i q@
+> prop> oneP >*< p = lunit p
+> prop> p >*< oneP = runit p
+> prop> p >*< q >*< r = assoc ((p >*< q) >*< r)
+> prop> dimap (f >*< g) (h >*< i) (p >*< q) = dimap f h p >*< dimap g i q
 
 -}
 type Monoidal p = (Profunctor p, forall x. Applicative (p x))
@@ -76,7 +76,7 @@ infixr 5 >*<
 {- | `>*` sequences actions, discarding the value of the first argument;
 analagous to `*>`, extending it to `Monoidal`.
 
-@prop> oneP >* p = p@
+> prop> oneP >* p = p
 
 -}
 (>*) :: Monoidal p => p () c -> p a b -> p a b
@@ -86,7 +86,7 @@ infixl 6 >*
 {- | `*<` sequences actions, discarding the value of the second argument;
 analagous to `<*`, extending it to `Monoidal`.
 
-@prop> p *< oneP = p@
+> prop> p *< oneP = p
 
 -}
 (*<) :: Monoidal p => p a b -> p () c -> p a b
@@ -179,8 +179,8 @@ traversalP :: (forall p. (Monoidal p, Choice p, Strong p) => p a b -> p s t) -> 
 traversalP f = runStar . f . Star
 :}
 
-@prop> traversalP . meander = id@
-@prop> meander . traversalP = id@
+> prop> traversalP . meander = id
+> prop> meander . traversalP = id
 
 See Pickering, Gibbons & Wu,
 [Profunctor Optics - Modular Data Accessors](https://arxiv.org/abs/1703.10857)
@@ -208,7 +208,7 @@ traverseP = meander traverse
 However, a `Profunctor` which is also `Contravariant` in its last argument
 is /constant/ over or /phantom/ in its last argument.
 
-@prop> foldMap f = getConst . runStar (foldP (Star (Const . f)))@
+> prop> foldMap f = getConst . runStar (foldP (Star (Const . f)))
 -}
 foldP
   :: (Foldable f, Monoidal p, Choice p, Strong p, forall x. (Contravariant (p x)))
@@ -258,9 +258,9 @@ the strength of `oneP`, which is natural,
 & whose product is the strength.
 It needn't be an identity; @idP = Forget (const mempty)@.
 
-@prop> lmap f idP = rmap f idP@
-@prop> first' p = p >*< idP@
-@prop> second' p = idP >*< p@
+> prop> lmap f idP = rmap f idP
+> prop> first' p = p >*< idP
+> prop> second' p = idP >*< p
 -}
 idP :: (Monoidal p, Strong p) => p a a
 idP = dimap (\a -> ((),a)) (\((),a) -> a) (first' oneP)
@@ -268,7 +268,7 @@ idP = dimap (\a -> ((),a)) (\((),a) -> a) (first' oneP)
 {- | Lift a function into a `Monoidal` & `Strong` `Profunctor`,
 like `Control.Arrow.arr`.
 
-@prop> arrP f = rmap f idP = lmap f idP@
+> prop> arrP f = rmap f idP = lmap f idP
 -}
 arrP :: (Monoidal p, Strong p) => (a -> b) -> p a b
 arrP f = fmap f idP

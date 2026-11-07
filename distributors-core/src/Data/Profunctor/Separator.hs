@@ -82,7 +82,7 @@ endWith :: TerminalSymbol c p => [c] -> SepBy p -> SepBy p
 endWith str separator = separator {endBy = terminal str}
 
 {- |
-@prop> several noSep = manyP@
+> prop> several noSep = manyP
 -}
 several
   :: (IsList s, IsList t, Distributor p)
@@ -91,7 +91,7 @@ several (SepBy beg end sep) p = iso toList fromList . eotList >~
   beg >* (p >*< manyP (sep >* p) >+< oneP) *< end
 
 {- |
-@prop> several1 noSep = someP@
+> prop> several1 noSep = someP
 -}
 several1
   :: (IsList s, IsList t, Distributor p, Choice p)

@@ -117,8 +117,8 @@ crossMonocle x y p =
 {- | Build a `Monocle` from a `Traversable` & `Distributive`,
 homogeneous, countable product.
 
-@prop> traverse = ditraversed@
-@prop> cotraversed = ditraversed@
+> prop> traverse = ditraversed
+> prop> cotraversed = ditraversed
 -}
 ditraversed :: (Traversable g, Distributive g) => Monocle (g a) (g b) a b
 ditraversed = unwrapPafb . ditraverse . WrapPafb

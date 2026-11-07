@@ -39,7 +39,7 @@ import Text.ParserCombinators.ReadP (ReadP)
 `rule` abstraction and general recursion with `ruleRec`,
 related by this invariant.
 
-@prop> rule label bnf = ruleRec label (\_ -> bnf)@
+> prop> rule label bnf = ruleRec label (\_ -> bnf)
 
 The `BackusNaurForm` interface is reminiscent of
 two distinct notions of "trace".
@@ -52,8 +52,8 @@ in the form of `Data.Profunctor.unfirst` @=@ `Control.Arrow.loop`
 or equivalently the fixpoint function `fix`,
 determining default methods for a `BackusNaurForm`.
 
-@prop> rule _ = id@
-@prop> ruleRec _ = fix@
+> prop> rule _ = id
+> prop> ruleRec _ = fix
 
 The `BackusNaurForm` interface permits overloading these methods,
 and tracing them with a label.
@@ -81,7 +81,7 @@ and a set of named rules. When a `Bnf` supports `NonTerminalSymbol`s,
 then it supports the `BackusNaurForm` interface
 by replacing recursive calls with `nonTerminal`s.
 
-@prop> ruleRec label f = rule label (f (nonTerminal label))@
+> prop> ruleRec label f = rule label (f (nonTerminal label))
 
 -}
 data Bnf rule = Bnf
@@ -109,7 +109,7 @@ The [Brzozowski derivative]
 (https://dl.acm.org/doi/pdf/10.1145/321239.321249) of a
 `RegEx`tended `Bnf`, with memoization.
 
-@prop> word =~ diffB prefix pattern = prefix <> word =~ pattern@
+> prop> word =~ diffB prefix pattern = prefix <> word =~ pattern
 
 Unfortunately, despite elegance & optimization, Brzozowski's
 pattern matching algorithm is worst case exponential in grammar size.
