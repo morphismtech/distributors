@@ -1,0 +1,1014 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="annot"><span class="hs-comment">{- |
+Module      : Control.Lens.Grammar.Internal.NestedPrismTH
+Description : nested pair prisms
+Copyright   : (C) 2026 - Eitan Chatav
+License     : BSD-style (see the file LICENSE)
+Maintainer  : Eitan Chatav &lt;eitan.chatav@gmail.com&gt;
+Stability   : provisional
+Portability : non-portable
+
+Code is duplicated from `Control.Lens.Internal.PrismTH`,
+with small tweaks to support nested pairs.
+-}</span></span><span>
+</span><span id="line-13"></span><span>
+</span><span id="line-14"></span><span class="hs-keyword">module</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html"><span class="hs-identifier">Control.Lens.Grammar.Internal.NestedPrismTH</span></a></span><span>
+</span><span id="line-15"></span><span>  </span><span class="hs-special">(</span><span> </span><span class="annot"><span class="hs-comment">-- * Nested prisms</span></span><span>
+</span><span id="line-16"></span><span>    </span><span class="annot"><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#makeNestedPrisms"><span class="hs-identifier">makeNestedPrisms</span></a></span><span>
+</span><span id="line-17"></span><span>  </span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-18"></span><span>
+</span><span id="line-19"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Applicative</span></span><span>
+</span><span id="line-20"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Lens.Getter</span></span><span>
+</span><span id="line-21"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Lens.Internal.TH</span></span><span>
+</span><span id="line-22"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Lens.Lens</span></span><span>
+</span><span id="line-23"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Monad</span></span><span>
+</span><span id="line-24"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Char</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">isUpper</span></span><span class="hs-special">)</span><span>
+</span><span id="line-25"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.List</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">List</span></span><span>
+</span><span id="line-26"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Set.Lens</span></span><span>
+</span><span id="line-27"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Traversable</span></span><span>
+</span><span id="line-28"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Language.Haskell.TH</span></span><span>
+</span><span id="line-29"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Language.Haskell.TH.Datatype</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">D</span></span><span>
+</span><span id="line-30"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Language.Haskell.TH.Lens</span></span><span>
+</span><span id="line-31"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.Map</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">Map</span></span><span>
+</span><span id="line-32"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.Set</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">Set</span></span><span>
+</span><span id="line-33"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Set</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Set</span></span><span class="hs-special">)</span><span>
+</span><span id="line-34"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Prelude</span></span><span>
+</span><span id="line-35"></span><span>
+</span><span id="line-36"></span><span class="hs-comment">-- | Similar to `Control.Lens.Internal.PrismTH.makePrisms`,</span><span>
+</span><span id="line-37"></span><span class="hs-comment">-- `makeNestedPrisms` generates a `Control.Lens.Prism.Prism`</span><span>
+</span><span id="line-38"></span><span class="hs-comment">-- for each constructor of a data type.</span><span>
+</span><span id="line-39"></span><span class="hs-comment">-- `Control.Lens.Iso.Iso`s are generated when possible.</span><span>
+</span><span id="line-40"></span><span class="hs-comment">-- `Control.Lens.Review.Review`s are generated for constructors</span><span>
+</span><span id="line-41"></span><span class="hs-comment">-- with existentially quantified constructors and GADTs.</span><span>
+</span><span id="line-42"></span><span class="hs-comment">-- The difference in `makeNestedPrisms`</span><span>
+</span><span id="line-43"></span><span class="hs-comment">-- is that constructors with @n &gt; 2@ arguments</span><span>
+</span><span id="line-44"></span><span class="hs-comment">-- will use right-nested pairs, rather than a flat @n@-tuple.</span><span>
+</span><span id="line-45"></span><span class="hs-comment">-- This makes them suitable for pattern bonding,</span><span>
+</span><span id="line-46"></span><span class="hs-comment">-- by use of the applicator `Control.Lens.PartialIso.&gt;?`</span><span>
+</span><span id="line-47"></span><span class="hs-comment">-- to `Data.Profunctor.Monoidal.Monoidal` idiom notation</span><span>
+</span><span id="line-48"></span><span class="hs-comment">-- with `Data.Profunctor.Monoidal.&gt;*&lt;`,</span><span>
+</span><span id="line-49"></span><span class="hs-comment">-- or to `Data.Profunctor.Monadic.Monadic` qualified do-notation.</span><span>
+</span><span id="line-50"></span><span class="hs-comment">--</span><span>
+</span><span id="line-51"></span><span class="hs-comment">-- /e.g./</span><span>
+</span><span id="line-52"></span><span class="hs-comment">--</span><span>
+</span><span id="line-53"></span><span class="hs-comment">-- @</span><span>
+</span><span id="line-54"></span><span class="hs-comment">-- data FooBar a</span><span>
+</span><span id="line-55"></span><span class="hs-comment">--   = Foo a</span><span>
+</span><span id="line-56"></span><span class="hs-comment">--   | Bar Int</span><span>
+</span><span id="line-57"></span><span class="hs-comment">--   | Baz Int Char</span><span>
+</span><span id="line-58"></span><span class="hs-comment">--   | Buzz Double String Bool</span><span>
+</span><span id="line-59"></span><span class="hs-comment">--   | Boop</span><span>
+</span><span id="line-60"></span><span class="hs-comment">-- makeNestedPrisms ''FooBar</span><span>
+</span><span id="line-61"></span><span class="hs-comment">-- @</span><span>
+</span><span id="line-62"></span><span class="hs-comment">--</span><span>
+</span><span id="line-63"></span><span class="hs-comment">-- will create</span><span>
+</span><span id="line-64"></span><span class="hs-comment">--</span><span>
+</span><span id="line-65"></span><span class="hs-comment">-- @</span><span>
+</span><span id="line-66"></span><span class="hs-comment">-- _Foo :: Prism (FooBar a) (FooBar b) a b</span><span>
+</span><span id="line-67"></span><span class="hs-comment">-- _Bar :: Prism' (FooBar a) Int</span><span>
+</span><span id="line-68"></span><span class="hs-comment">-- _Baz :: Prism' (FooBar a) (Int, Char)</span><span>
+</span><span id="line-69"></span><span class="hs-comment">-- _Buzz :: Prism' (FooBar a) (Double, (String, Bool))</span><span>
+</span><span id="line-70"></span><span class="hs-comment">-- _Boop :: Prism' (FooBar a) ()</span><span>
+</span><span id="line-71"></span><span class="hs-comment">-- @</span><span>
+</span><span id="line-72"></span><span class="annot"><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#makeNestedPrisms"><span class="hs-identifier hs-type">makeNestedPrisms</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Name</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">DecsQ</span></span><span>
+</span><span id="line-73"></span><span id="makeNestedPrisms"><span class="annot"><span class="annottext">makeNestedPrisms :: Name -&gt; DecsQ
+</span><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#makeNestedPrisms"><span class="hs-identifier hs-var hs-var">makeNestedPrisms</span></a></span></span><span> </span><span id="local-6989586621679394990"><span class="annot"><span class="annottext">Name
+</span><a href="#local-6989586621679394990"><span class="hs-identifier hs-var">typeName</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-74"></span><span>  </span><span class="hs-keyword">do</span><span> </span><span id="local-6989586621679394991"><span class="annot"><a href="#local-6989586621679394991"><span class="hs-identifier hs-var">info</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Name -&gt; Q DatatypeInfo
+</span><span class="hs-identifier hs-var">D.reifyDatatype</span></span><span> </span><span class="annot"><span class="annottext">Name
+</span><a href="#local-6989586621679394990"><span class="hs-identifier hs-var">typeName</span></a></span><span>
+</span><span id="line-75"></span><span>     </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679394993"><span class="annot"><a href="#local-6989586621679394993"><span class="hs-identifier hs-var hs-var">cons</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">DatatypeInfo -&gt; [ConstructorInfo]
+</span><span class="hs-identifier hs-var">D.datatypeCons</span></span><span> </span><span class="annot"><span class="annottext">DatatypeInfo
+</span><a href="#local-6989586621679394991"><span class="hs-identifier hs-var">info</span></a></span><span>
+</span><span id="line-76"></span><span>     </span><span class="annot"><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#makeConsPrisms"><span class="hs-identifier hs-type">makeConsPrisms</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">datatypeTypeKinded</span></span><span> </span><span class="annot"><a href="#local-6989586621679394991"><span class="hs-identifier hs-type">info</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">map</span></span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#normalizeCon"><span class="hs-identifier hs-type">normalizeCon</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679394993"><span class="hs-identifier hs-type">cons</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-77"></span><span>
+</span><span id="line-78"></span><span class="hs-comment">-- Generate prisms for the given type, and normalized constructors.</span><span>
+</span><span id="line-79"></span><span class="hs-comment">-- This function dispatches between Iso generation, and normal top-level</span><span>
+</span><span id="line-80"></span><span class="annot"><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#makeConsPrisms"><span class="hs-identifier hs-type">makeConsPrisms</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Type</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#NCon"><span class="hs-identifier hs-type">NCon</span></a></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">DecsQ</span></span><span>
+</span><span id="line-81"></span><span class="hs-comment">-- special case: single constructor -&gt; make iso</span><span>
+</span><span id="line-82"></span><span id="makeConsPrisms"><span class="annot"><span class="annottext">makeConsPrisms :: Type -&gt; [NCon] -&gt; DecsQ
+</span><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#makeConsPrisms"><span class="hs-identifier hs-var hs-var">makeConsPrisms</span></a></span></span><span> </span><span id="local-6989586621679394998"><span class="annot"><span class="annottext">Type
+</span><a href="#local-6989586621679394998"><span class="hs-identifier hs-var">t</span></a></span></span><span> </span><span class="hs-special">[</span><span id="local-6989586621679394999"><span class="annot"><span class="annottext">con :: NCon
+</span><a href="#local-6989586621679394999"><span class="hs-identifier hs-var">con</span></a></span></span><span class="hs-glyph">@</span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#NCon"><span class="hs-identifier hs-type">NCon</span></a></span><span> </span><span class="annot"><span class="annottext">Name
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span> </span><span class="annot"><span class="annottext">[Type]
+</span><span class="hs-identifier">_</span></span><span class="hs-special">)</span><span class="hs-special">]</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Type -&gt; NCon -&gt; DecsQ
+</span><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#makeConIso"><span class="hs-identifier hs-var">makeConIso</span></a></span><span> </span><span class="annot"><span class="annottext">Type
+</span><a href="#local-6989586621679394998"><span class="hs-identifier hs-var">t</span></a></span><span> </span><span class="annot"><span class="annottext">NCon
+</span><a href="#local-6989586621679394999"><span class="hs-identifier hs-var">con</span></a></span><span>
+</span><span id="line-83"></span><span class="hs-comment">-- top-level definitions</span><span>
+</span><span id="line-84"></span><span class="annot"><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#makeConsPrisms"><span class="hs-identifier hs-var">makeConsPrisms</span></a></span><span> </span><span id="local-6989586621679395002"><span class="annot"><span class="annottext">Type
+</span><a href="#local-6989586621679395002"><span class="hs-identifier hs-var">t</span></a></span></span><span> </span><span id="local-6989586621679395003"><span class="annot"><span class="annottext">[NCon]
+</span><a href="#local-6989586621679395003"><span class="hs-identifier hs-var">cons</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-85"></span><span>  </span><span class="annot"><span class="annottext">([[Dec]] -&gt; [Dec]) -&gt; Q [[Dec]] -&gt; DecsQ
+forall a b. (a -&gt; b) -&gt; Q a -&gt; Q b
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">fmap</span></span><span> </span><span class="annot"><span class="annottext">[[Dec]] -&gt; [Dec]
+forall (t :: * -&gt; *) a. Foldable t =&gt; t [a] -&gt; [a]
+</span><span class="hs-identifier hs-var">concat</span></span><span> </span><span class="annot"><span class="annottext">(Q [[Dec]] -&gt; DecsQ) -&gt; Q [[Dec]] -&gt; DecsQ
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">[NCon] -&gt; (NCon -&gt; DecsQ) -&gt; Q [[Dec]]
+forall (t :: * -&gt; *) (f :: * -&gt; *) a b.
+(Traversable t, Applicative f) =&gt;
+t a -&gt; (a -&gt; f b) -&gt; f (t b)
+</span><span class="hs-identifier hs-var">for</span></span><span> </span><span class="annot"><span class="annottext">[NCon]
+</span><a href="#local-6989586621679395003"><span class="hs-identifier hs-var">cons</span></a></span><span> </span><span class="annot"><span class="annottext">((NCon -&gt; DecsQ) -&gt; Q [[Dec]]) -&gt; (NCon -&gt; DecsQ) -&gt; Q [[Dec]]
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679395006"><span class="annot"><span class="annottext">NCon
+</span><a href="#local-6989586621679395006"><span class="hs-identifier hs-var">con</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-86"></span><span>    </span><span class="hs-keyword">do</span><span> </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679395007"><span class="annot"><span class="annottext">conName :: Name
+</span><a href="#local-6989586621679395007"><span class="hs-identifier hs-var hs-var hs-var">conName</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Getting Name NCon Name -&gt; NCon -&gt; Name
+forall s (m :: * -&gt; *) a. MonadReader s m =&gt; Getting a s a -&gt; m a
+</span><span class="hs-identifier hs-var">view</span></span><span> </span><span class="annot"><span class="annottext">Getting Name NCon Name
+Lens' NCon Name
+</span><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#nconName"><span class="hs-identifier hs-var">nconName</span></a></span><span> </span><span class="annot"><span class="annottext">NCon
+</span><a href="#local-6989586621679395006"><span class="hs-identifier hs-var">con</span></a></span><span>
+</span><span id="line-87"></span><span>       </span><span id="local-6989586621679395010"><span class="annot"><a href="#local-6989586621679395010"><span class="hs-identifier hs-var">stab</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Type -&gt; [NCon] -&gt; NCon -&gt; Q Stab
+</span><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#computeOpticType"><span class="hs-identifier hs-var">computeOpticType</span></a></span><span> </span><span class="annot"><span class="annottext">Type
+</span><a href="#local-6989586621679395002"><span class="hs-identifier hs-var">t</span></a></span><span> </span><span class="annot"><span class="annottext">[NCon]
+</span><a href="#local-6989586621679395003"><span class="hs-identifier hs-var">cons</span></a></span><span> </span><span class="annot"><span class="annottext">NCon
+</span><a href="#local-6989586621679395006"><span class="hs-identifier hs-var">con</span></a></span><span>
+</span><span id="line-88"></span><span>       </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679395012"><span class="annot"><a href="#local-6989586621679395012"><span class="hs-identifier hs-var hs-var">n</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Name -&gt; Name
+</span><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#prismName"><span class="hs-identifier hs-var">prismName</span></a></span><span> </span><span class="annot"><span class="annottext">Name
+</span><a href="#local-6989586621679395007"><span class="hs-identifier hs-var">conName</span></a></span><span>
+</span><span id="line-89"></span><span>       </span><span class="annot"><span class="hs-identifier hs-type">sequenceA</span></span><span>
+</span><span id="line-90"></span><span>         </span><span class="hs-special">(</span><span> </span><span class="hs-special">[</span><span> </span><span class="annot"><span class="hs-identifier hs-type">sigD</span></span><span> </span><span class="annot"><a href="#local-6989586621679395012"><span class="hs-identifier hs-type">n</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">return</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">quantifyType</span></span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#stabToType"><span class="hs-identifier hs-type">stabToType</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Set.empty</span></span><span> </span><span class="annot"><a href="#local-6989586621679395010"><span class="hs-identifier hs-type">stab</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-91"></span><span>           </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">valD</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">varP</span></span><span> </span><span class="annot"><a href="#local-6989586621679395012"><span class="hs-identifier hs-type">n</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">normalB</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#makeConOpticExp"><span class="hs-identifier hs-type">makeConOpticExp</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679395010"><span class="hs-identifier hs-type">stab</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679395003"><span class="hs-identifier hs-type">cons</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679395006"><span class="hs-identifier hs-type">con</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span>
+</span><span id="line-92"></span><span>           </span><span class="hs-special">]</span><span>
+</span><span id="line-93"></span><span>           </span><span class="annot"><span class="hs-operator hs-type">++</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">inlinePragma</span></span><span> </span><span class="annot"><a href="#local-6989586621679395012"><span class="hs-identifier hs-type">n</span></a></span><span>
+</span><span id="line-94"></span><span>         </span><span class="hs-special">)</span><span>
+</span><span id="line-95"></span><span>
+</span><span id="line-96"></span><span class="hs-keyword">data</span><span> </span><span id="OpticType"><span class="annot"><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#OpticType"><span class="hs-identifier hs-var">OpticType</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="PrismType"><span class="annot"><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#PrismType"><span class="hs-identifier hs-var">PrismType</span></a></span></span><span> </span><span class="hs-glyph">|</span><span> </span><span id="ReviewType"><span class="annot"><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#ReviewType"><span class="hs-identifier hs-var">ReviewType</span></a></span></span><span>
+</span><span id="line-97"></span><span>
+</span><span id="line-98"></span><span class="hs-keyword">data</span><span> </span><span id="Stab"><span class="annot"><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#Stab"><span class="hs-identifier hs-var">Stab</span></a></span></span><span>  </span><span class="hs-glyph">=</span><span> </span><span id="Stab"><span class="annot"><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#Stab"><span class="hs-identifier hs-var">Stab</span></a></span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Cxt</span></span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#OpticType"><span class="hs-identifier hs-type">OpticType</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Type</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Type</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Type</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Type</span></span><span>
+</span><span id="line-99"></span><span>
+</span><span id="line-100"></span><span class="annot"><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#stabSimple"><span class="hs-identifier hs-type">stabSimple</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#Stab"><span class="hs-identifier hs-type">Stab</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Bool</span></span><span>
+</span><span id="line-101"></span><span id="stabSimple"><span class="annot"><span class="annottext">stabSimple :: Stab -&gt; Bool
+</span><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#stabSimple"><span class="hs-identifier hs-var hs-var">stabSimple</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#Stab"><span class="hs-identifier hs-type">Stab</span></a></span><span> </span><span class="annot"><span class="annottext">[Type]
+</span><span class="hs-identifier">_</span></span><span> </span><span class="annot"><span class="annottext">OpticType
+</span><span class="hs-identifier">_</span></span><span> </span><span id="local-6989586621679395025"><span class="annot"><span class="annottext">Type
+</span><a href="#local-6989586621679395025"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span id="local-6989586621679395026"><span class="annot"><span class="annottext">Type
+</span><a href="#local-6989586621679395026"><span class="hs-identifier hs-var">t</span></a></span></span><span> </span><span id="local-6989586621679395027"><span class="annot"><span class="annottext">Type
+</span><a href="#local-6989586621679395027"><span class="hs-identifier hs-var">a</span></a></span></span><span> </span><span id="local-6989586621679395028"><span class="annot"><span class="annottext">Type
+</span><a href="#local-6989586621679395028"><span class="hs-identifier hs-var">b</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Type
+</span><a href="#local-6989586621679395025"><span class="hs-identifier hs-var">s</span></a></span><span> </span><span class="annot"><span class="annottext">Type -&gt; Type -&gt; Bool
+forall a. Eq a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">==</span></span><span> </span><span class="annot"><span class="annottext">Type
+</span><a href="#local-6989586621679395026"><span class="hs-identifier hs-var">t</span></a></span><span> </span><span class="annot"><span class="annottext">Bool -&gt; Bool -&gt; Bool
+</span><span class="hs-operator hs-var">&amp;&amp;</span></span><span> </span><span class="annot"><span class="annottext">Type
+</span><a href="#local-6989586621679395027"><span class="hs-identifier hs-var">a</span></a></span><span> </span><span class="annot"><span class="annottext">Type -&gt; Type -&gt; Bool
+forall a. Eq a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">==</span></span><span> </span><span class="annot"><span class="annottext">Type
+</span><a href="#local-6989586621679395028"><span class="hs-identifier hs-var">b</span></a></span><span>
+</span><span id="line-102"></span><span>
+</span><span id="line-103"></span><span class="annot"><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#stabToType"><span class="hs-identifier hs-type">stabToType</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Set</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Name</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#Stab"><span class="hs-identifier hs-type">Stab</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Type</span></span><span>
+</span><span id="line-104"></span><span id="stabToType"><span class="annot"><span class="annottext">stabToType :: Set Name -&gt; Stab -&gt; Type
+</span><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#stabToType"><span class="hs-identifier hs-var hs-var">stabToType</span></a></span></span><span> </span><span id="local-6989586621679395030"><span class="annot"><span class="annottext">Set Name
+</span><a href="#local-6989586621679395030"><span class="hs-identifier hs-var">clsTVBNames</span></a></span></span><span> </span><span id="local-6989586621679395031"><span class="annot"><span class="annottext">stab :: Stab
+</span><a href="#local-6989586621679395031"><span class="hs-identifier hs-var">stab</span></a></span></span><span class="hs-glyph">@</span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#Stab"><span class="hs-identifier hs-type">Stab</span></a></span><span> </span><span id="local-6989586621679395032"><span class="annot"><span class="annottext">[Type]
+</span><a href="#local-6989586621679395032"><span class="hs-identifier hs-var">cx</span></a></span></span><span> </span><span id="local-6989586621679395033"><span class="annot"><span class="annottext">OpticType
+</span><a href="#local-6989586621679395033"><span class="hs-identifier hs-var">ty</span></a></span></span><span> </span><span id="local-6989586621679395034"><span class="annot"><span class="annottext">Type
+</span><a href="#local-6989586621679395034"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span id="local-6989586621679395035"><span class="annot"><span class="annottext">Type
+</span><a href="#local-6989586621679395035"><span class="hs-identifier hs-var">t</span></a></span></span><span> </span><span id="local-6989586621679395036"><span class="annot"><span class="annottext">Type
+</span><a href="#local-6989586621679395036"><span class="hs-identifier hs-var">a</span></a></span></span><span> </span><span id="local-6989586621679395037"><span class="annot"><span class="annottext">Type
+</span><a href="#local-6989586621679395037"><span class="hs-identifier hs-var">b</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-105"></span><span>  </span><span class="annot"><span class="annottext">Set Name -&gt; [Type] -&gt; Type -&gt; Type
+</span><span class="hs-identifier hs-var">quantifyType'</span></span><span> </span><span class="annot"><span class="annottext">Set Name
+</span><a href="#local-6989586621679395030"><span class="hs-identifier hs-var">clsTVBNames</span></a></span><span> </span><span class="annot"><span class="annottext">[Type]
+</span><a href="#local-6989586621679395032"><span class="hs-identifier hs-var">cx</span></a></span><span> </span><span class="annot"><span class="annottext">Type
+</span><a href="#local-6989586621679395039"><span class="hs-identifier hs-var">stabTy</span></a></span><span>
+</span><span id="line-106"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-107"></span><span>  </span><span id="local-6989586621679395039"><span class="annot"><span class="annottext">stabTy :: Type
+</span><a href="#local-6989586621679395039"><span class="hs-identifier hs-var hs-var">stabTy</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-108"></span><span>    </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">OpticType
+</span><a href="#local-6989586621679395033"><span class="hs-identifier hs-var">ty</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-109"></span><span>      </span><span class="annot"><span class="annottext">OpticType
+</span><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#PrismType"><span class="hs-identifier hs-var">PrismType</span></a></span><span>  </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">Stab -&gt; Bool
+</span><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#stabSimple"><span class="hs-identifier hs-var">stabSimple</span></a></span><span> </span><span class="annot"><span class="annottext">Stab
+</span><a href="#local-6989586621679395031"><span class="hs-identifier hs-var">stab</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Name
+</span><span class="hs-identifier hs-var">prism'TypeName</span></span><span>  </span><span class="annot"><span class="annottext">Name -&gt; [Type] -&gt; Type
+</span><span class="hs-operator hs-var">`conAppsT`</span></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">Type
+</span><a href="#local-6989586621679395035"><span class="hs-identifier hs-var">t</span></a></span><span class="hs-special">,</span><span class="annot"><span class="annottext">Type
+</span><a href="#local-6989586621679395037"><span class="hs-identifier hs-var">b</span></a></span><span class="hs-special">]</span><span>
+</span><span id="line-110"></span><span>                 </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><span class="hs-identifier hs-var">otherwise</span></span><span>       </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Name
+</span><span class="hs-identifier hs-var">prismTypeName</span></span><span>   </span><span class="annot"><span class="annottext">Name -&gt; [Type] -&gt; Type
+</span><span class="hs-operator hs-var">`conAppsT`</span></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">Type
+</span><a href="#local-6989586621679395034"><span class="hs-identifier hs-var">s</span></a></span><span class="hs-special">,</span><span class="annot"><span class="annottext">Type
+</span><a href="#local-6989586621679395035"><span class="hs-identifier hs-var">t</span></a></span><span class="hs-special">,</span><span class="annot"><span class="annottext">Type
+</span><a href="#local-6989586621679395036"><span class="hs-identifier hs-var">a</span></a></span><span class="hs-special">,</span><span class="annot"><span class="annottext">Type
+</span><a href="#local-6989586621679395037"><span class="hs-identifier hs-var">b</span></a></span><span class="hs-special">]</span><span>
+</span><span id="line-111"></span><span>      </span><span class="annot"><span class="annottext">OpticType
+</span><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#ReviewType"><span class="hs-identifier hs-var">ReviewType</span></a></span><span>                   </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Name
+</span><span class="hs-identifier hs-var">reviewTypeName</span></span><span>  </span><span class="annot"><span class="annottext">Name -&gt; [Type] -&gt; Type
+</span><span class="hs-operator hs-var">`conAppsT`</span></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">Type
+</span><a href="#local-6989586621679395035"><span class="hs-identifier hs-var">t</span></a></span><span class="hs-special">,</span><span class="annot"><span class="annottext">Type
+</span><a href="#local-6989586621679395037"><span class="hs-identifier hs-var">b</span></a></span><span class="hs-special">]</span><span>
+</span><span id="line-112"></span><span>
+</span><span id="line-113"></span><span class="annot"><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#stabType"><span class="hs-identifier hs-type">stabType</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#Stab"><span class="hs-identifier hs-type">Stab</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#OpticType"><span class="hs-identifier hs-type">OpticType</span></a></span><span>
+</span><span id="line-114"></span><span id="stabType"><span class="annot"><span class="annottext">stabType :: Stab -&gt; OpticType
+</span><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#stabType"><span class="hs-identifier hs-var hs-var">stabType</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#Stab"><span class="hs-identifier hs-type">Stab</span></a></span><span> </span><span class="annot"><span class="annottext">[Type]
+</span><span class="hs-identifier">_</span></span><span> </span><span id="local-6989586621679395045"><span class="annot"><span class="annottext">OpticType
+</span><a href="#local-6989586621679395045"><span class="hs-identifier hs-var">o</span></a></span></span><span> </span><span class="annot"><span class="annottext">Type
+</span><span class="hs-identifier">_</span></span><span> </span><span class="annot"><span class="annottext">Type
+</span><span class="hs-identifier">_</span></span><span> </span><span class="annot"><span class="annottext">Type
+</span><span class="hs-identifier">_</span></span><span> </span><span class="annot"><span class="annottext">Type
+</span><span class="hs-identifier">_</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">OpticType
+</span><a href="#local-6989586621679395045"><span class="hs-identifier hs-var">o</span></a></span><span>
+</span><span id="line-115"></span><span>
+</span><span id="line-116"></span><span class="annot"><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#computeOpticType"><span class="hs-identifier hs-type">computeOpticType</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Type</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#NCon"><span class="hs-identifier hs-type">NCon</span></a></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#NCon"><span class="hs-identifier hs-type">NCon</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Q</span></span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#Stab"><span class="hs-identifier hs-type">Stab</span></a></span><span>
+</span><span id="line-117"></span><span id="computeOpticType"><span class="annot"><span class="annottext">computeOpticType :: Type -&gt; [NCon] -&gt; NCon -&gt; Q Stab
+</span><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#computeOpticType"><span class="hs-identifier hs-var hs-var">computeOpticType</span></a></span></span><span> </span><span id="local-6989586621679395046"><span class="annot"><span class="annottext">Type
+</span><a href="#local-6989586621679395046"><span class="hs-identifier hs-var">t</span></a></span></span><span> </span><span id="local-6989586621679395047"><span class="annot"><span class="annottext">[NCon]
+</span><a href="#local-6989586621679395047"><span class="hs-identifier hs-var">cons</span></a></span></span><span> </span><span id="local-6989586621679395048"><span class="annot"><span class="annottext">NCon
+</span><a href="#local-6989586621679395048"><span class="hs-identifier hs-var">con</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-118"></span><span>  </span><span class="hs-keyword">do</span><span> </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679395049"><span class="annot"><span class="annottext">cons' :: [NCon]
+</span><a href="#local-6989586621679395049"><span class="hs-identifier hs-var hs-var">cons'</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">NCon -&gt; [NCon] -&gt; [NCon]
+forall a. Eq a =&gt; a -&gt; [a] -&gt; [a]
+</span><span class="hs-identifier hs-var">List.delete</span></span><span> </span><span class="annot"><span class="annottext">NCon
+</span><a href="#local-6989586621679395048"><span class="hs-identifier hs-var">con</span></a></span><span> </span><span class="annot"><span class="annottext">[NCon]
+</span><a href="#local-6989586621679395047"><span class="hs-identifier hs-var">cons</span></a></span><span>
+</span><span id="line-119"></span><span>     </span><span class="hs-keyword">if</span><span> </span><span class="annot"><span class="annottext">[Name] -&gt; Bool
+forall a. [a] -&gt; Bool
+forall (t :: * -&gt; *) a. Foldable t =&gt; t a -&gt; Bool
+</span><span class="hs-identifier hs-var">null</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">NCon -&gt; [Name]
+</span><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#_nconVars"><span class="hs-identifier hs-var">_nconVars</span></a></span><span> </span><span class="annot"><span class="annottext">NCon
+</span><a href="#local-6989586621679395048"><span class="hs-identifier hs-var">con</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-120"></span><span>         </span><span class="hs-keyword">then</span><span> </span><span class="annot"><span class="annottext">Type -&gt; [Type] -&gt; [NCon] -&gt; NCon -&gt; Q Stab
+</span><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#computePrismType"><span class="hs-identifier hs-var">computePrismType</span></a></span><span> </span><span class="annot"><span class="annottext">Type
+</span><a href="#local-6989586621679395046"><span class="hs-identifier hs-var">t</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Getting [Type] NCon [Type] -&gt; NCon -&gt; [Type]
+forall s (m :: * -&gt; *) a. MonadReader s m =&gt; Getting a s a -&gt; m a
+</span><span class="hs-identifier hs-var">view</span></span><span> </span><span class="annot"><span class="annottext">Getting [Type] NCon [Type]
+Lens' NCon [Type]
+</span><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#nconCxt"><span class="hs-identifier hs-var">nconCxt</span></a></span><span> </span><span class="annot"><span class="annottext">NCon
+</span><a href="#local-6989586621679395048"><span class="hs-identifier hs-var">con</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">[NCon]
+</span><a href="#local-6989586621679395049"><span class="hs-identifier hs-var">cons'</span></a></span><span> </span><span class="annot"><span class="annottext">NCon
+</span><a href="#local-6989586621679395048"><span class="hs-identifier hs-var">con</span></a></span><span>
+</span><span id="line-121"></span><span>         </span><span class="hs-keyword">else</span><span> </span><span class="annot"><span class="annottext">Type -&gt; [Type] -&gt; [Type] -&gt; Q Stab
+</span><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#computeReviewType"><span class="hs-identifier hs-var">computeReviewType</span></a></span><span> </span><span class="annot"><span class="annottext">Type
+</span><a href="#local-6989586621679395046"><span class="hs-identifier hs-var">t</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Getting [Type] NCon [Type] -&gt; NCon -&gt; [Type]
+forall s (m :: * -&gt; *) a. MonadReader s m =&gt; Getting a s a -&gt; m a
+</span><span class="hs-identifier hs-var">view</span></span><span> </span><span class="annot"><span class="annottext">Getting [Type] NCon [Type]
+Lens' NCon [Type]
+</span><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#nconCxt"><span class="hs-identifier hs-var">nconCxt</span></a></span><span> </span><span class="annot"><span class="annottext">NCon
+</span><a href="#local-6989586621679395048"><span class="hs-identifier hs-var">con</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Getting [Type] NCon [Type] -&gt; NCon -&gt; [Type]
+forall s (m :: * -&gt; *) a. MonadReader s m =&gt; Getting a s a -&gt; m a
+</span><span class="hs-identifier hs-var">view</span></span><span> </span><span class="annot"><span class="annottext">Getting [Type] NCon [Type]
+Lens' NCon [Type]
+</span><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#nconTypes"><span class="hs-identifier hs-var">nconTypes</span></a></span><span> </span><span class="annot"><span class="annottext">NCon
+</span><a href="#local-6989586621679395048"><span class="hs-identifier hs-var">con</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-122"></span><span>
+</span><span id="line-123"></span><span class="annot"><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#computeReviewType"><span class="hs-identifier hs-type">computeReviewType</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Type</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Cxt</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">Type</span></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Q</span></span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#Stab"><span class="hs-identifier hs-type">Stab</span></a></span><span>
+</span><span id="line-124"></span><span id="computeReviewType"><span class="annot"><span class="annottext">computeReviewType :: Type -&gt; [Type] -&gt; [Type] -&gt; Q Stab
+</span><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#computeReviewType"><span class="hs-identifier hs-var hs-var">computeReviewType</span></a></span></span><span> </span><span id="local-6989586621679395057"><span class="annot"><span class="annottext">Type
+</span><a href="#local-6989586621679395057"><span class="hs-identifier hs-var">s'</span></a></span></span><span> </span><span id="local-6989586621679395058"><span class="annot"><span class="annottext">[Type]
+</span><a href="#local-6989586621679395058"><span class="hs-identifier hs-var">cx</span></a></span></span><span> </span><span id="local-6989586621679395059"><span class="annot"><span class="annottext">[Type]
+</span><a href="#local-6989586621679395059"><span class="hs-identifier hs-var">tys</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-125"></span><span>  </span><span class="hs-keyword">do</span><span> </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679395060"><span class="annot"><span class="annottext">t :: Type
+</span><a href="#local-6989586621679395060"><span class="hs-identifier hs-var hs-var hs-var">t</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Type
+</span><a href="#local-6989586621679395057"><span class="hs-identifier hs-var">s'</span></a></span><span>
+</span><span id="line-126"></span><span>     </span><span id="local-6989586621679395061"><span class="annot"><a href="#local-6989586621679395061"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">(Name -&gt; Type) -&gt; Q Name -&gt; Q Type
+forall a b. (a -&gt; b) -&gt; Q a -&gt; Q b
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">fmap</span></span><span> </span><span class="annot"><span class="annottext">Name -&gt; Type
+</span><span class="hs-identifier hs-var">VarT</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">String -&gt; Q Name
+forall (m :: * -&gt; *). Quote m =&gt; String -&gt; m Name
+</span><span class="hs-identifier hs-var">newName</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;s&quot;</span></span><span class="hs-special">)</span><span>
+</span><span id="line-127"></span><span>     </span><span id="local-6989586621679395063"><span class="annot"><a href="#local-6989586621679395063"><span class="hs-identifier hs-var">a</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="hs-identifier hs-type">fmap</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">VarT</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">newName</span></span><span> </span><span class="annot"><span class="hs-string">&quot;a&quot;</span></span><span class="hs-special">)</span><span>
+</span><span id="line-128"></span><span>     </span><span id="local-6989586621679395064"><span class="annot"><a href="#local-6989586621679395064"><span class="hs-identifier hs-var">b</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#toNestedPairT"><span class="hs-identifier hs-type">toNestedPairT</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">map</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">return</span></span><span> </span><span class="annot"><a href="#local-6989586621679395059"><span class="hs-identifier hs-type">tys</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-129"></span><span>     </span><span class="annot"><span class="hs-identifier hs-type">return</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#Stab"><span class="hs-identifier hs-type">Stab</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679395058"><span class="hs-identifier hs-type">cx</span></a></span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#ReviewType"><span class="hs-identifier hs-type">ReviewType</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679395061"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679395060"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679395063"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679395064"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-130"></span><span>
+</span><span id="line-131"></span><span class="hs-comment">-- Compute the full type-changing Prism type given an outer type,</span><span>
+</span><span id="line-132"></span><span class="hs-comment">-- list of constructors, and target constructor name. Additionally</span><span>
+</span><span id="line-133"></span><span class="hs-comment">-- return 'True' if the resulting type is a &quot;simple&quot; prism.</span><span>
+</span><span id="line-134"></span><span class="annot"><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#computePrismType"><span class="hs-identifier hs-type">computePrismType</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Type</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Cxt</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#NCon"><span class="hs-identifier hs-type">NCon</span></a></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#NCon"><span class="hs-identifier hs-type">NCon</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Q</span></span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#Stab"><span class="hs-identifier hs-type">Stab</span></a></span><span>
+</span><span id="line-135"></span><span id="computePrismType"><span class="annot"><span class="annottext">computePrismType :: Type -&gt; [Type] -&gt; [NCon] -&gt; NCon -&gt; Q Stab
+</span><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#computePrismType"><span class="hs-identifier hs-var hs-var">computePrismType</span></a></span></span><span> </span><span id="local-6989586621679395066"><span class="annot"><span class="annottext">Type
+</span><a href="#local-6989586621679395066"><span class="hs-identifier hs-var">t</span></a></span></span><span> </span><span id="local-6989586621679395067"><span class="annot"><span class="annottext">[Type]
+</span><a href="#local-6989586621679395067"><span class="hs-identifier hs-var">cx</span></a></span></span><span> </span><span id="local-6989586621679395068"><span class="annot"><span class="annottext">[NCon]
+</span><a href="#local-6989586621679395068"><span class="hs-identifier hs-var">cons</span></a></span></span><span> </span><span id="local-6989586621679395069"><span class="annot"><span class="annottext">NCon
+</span><a href="#local-6989586621679395069"><span class="hs-identifier hs-var">con</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-136"></span><span>  </span><span class="hs-keyword">do</span><span> </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679395070"><span class="annot"><span class="annottext">ts :: [Type]
+</span><a href="#local-6989586621679395070"><span class="hs-identifier hs-var hs-var hs-var">ts</span></a></span></span><span>      </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Getting [Type] NCon [Type] -&gt; NCon -&gt; [Type]
+forall s (m :: * -&gt; *) a. MonadReader s m =&gt; Getting a s a -&gt; m a
+</span><span class="hs-identifier hs-var">view</span></span><span> </span><span class="annot"><span class="annottext">Getting [Type] NCon [Type]
+Lens' NCon [Type]
+</span><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#nconTypes"><span class="hs-identifier hs-var">nconTypes</span></a></span><span> </span><span class="annot"><span class="annottext">NCon
+</span><a href="#local-6989586621679395069"><span class="hs-identifier hs-var">con</span></a></span><span>
+</span><span id="line-137"></span><span>         </span><span id="local-6989586621679395071"><span class="annot"><span class="annottext">unbound :: Set Name
+</span><a href="#local-6989586621679395071"><span class="hs-identifier hs-var hs-var hs-var">unbound</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Getting (Set Name) Type Name -&gt; Type -&gt; Set Name
+forall a s. Getting (Set a) s a -&gt; s -&gt; Set a
+</span><span class="hs-identifier hs-var">setOf</span></span><span> </span><span class="annot"><span class="annottext">Getting (Set Name) Type Name
+forall t. HasTypeVars t =&gt; Traversal' t Name
+Traversal' Type Name
+</span><span class="hs-identifier hs-var">typeVars</span></span><span> </span><span class="annot"><span class="annottext">Type
+</span><a href="#local-6989586621679395066"><span class="hs-identifier hs-var">t</span></a></span><span> </span><span class="annot"><span class="annottext">Set Name -&gt; Set Name -&gt; Set Name
+forall a. Ord a =&gt; Set a -&gt; Set a -&gt; Set a
+</span><span class="hs-operator hs-var">Set.\\</span></span><span> </span><span class="annot"><span class="annottext">Getting (Set Name) [NCon] Name -&gt; [NCon] -&gt; Set Name
+forall a s. Getting (Set a) s a -&gt; s -&gt; Set a
+</span><span class="hs-identifier hs-var">setOf</span></span><span> </span><span class="annot"><span class="annottext">Getting (Set Name) [NCon] Name
+forall t. HasTypeVars t =&gt; Traversal' t Name
+Traversal' [NCon] Name
+</span><span class="hs-identifier hs-var">typeVars</span></span><span> </span><span class="annot"><span class="annottext">[NCon]
+</span><a href="#local-6989586621679395068"><span class="hs-identifier hs-var">cons</span></a></span><span>
+</span><span id="line-138"></span><span>     </span><span id="local-6989586621679395075"><span class="annot"><a href="#local-6989586621679395075"><span class="hs-identifier hs-var">sub</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Map Name (Q Name) -&gt; Q (Map Name Name)
+forall (t :: * -&gt; *) (f :: * -&gt; *) a.
+(Traversable t, Applicative f) =&gt;
+t (f a) -&gt; f (t a)
+forall (f :: * -&gt; *) a.
+Applicative f =&gt;
+Map Name (f a) -&gt; f (Map Name a)
+</span><span class="hs-identifier hs-var">sequenceA</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(Name -&gt; Q Name) -&gt; Set Name -&gt; Map Name (Q Name)
+forall k a. (k -&gt; a) -&gt; Set k -&gt; Map k a
+</span><span class="hs-identifier hs-var">Map.fromSet</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">String -&gt; Q Name
+forall (m :: * -&gt; *). Quote m =&gt; String -&gt; m Name
+</span><span class="hs-identifier hs-var">newName</span></span><span> </span><span class="annot"><span class="annottext">(String -&gt; Q Name) -&gt; (Name -&gt; String) -&gt; Name -&gt; Q Name
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Name -&gt; String
+</span><span class="hs-identifier hs-var">nameBase</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Set Name
+</span><a href="#local-6989586621679395071"><span class="hs-identifier hs-var">unbound</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-139"></span><span>     </span><span id="local-6989586621679395079"><span class="annot"><a href="#local-6989586621679395079"><span class="hs-identifier hs-var">b</span></a></span></span><span>   </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#toNestedPairT"><span class="hs-identifier hs-type">toNestedPairT</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">map</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">return</span></span><span> </span><span class="annot"><a href="#local-6989586621679395070"><span class="hs-identifier hs-type">ts</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-140"></span><span>     </span><span id="local-6989586621679395080"><span class="annot"><a href="#local-6989586621679395080"><span class="hs-identifier hs-var">a</span></a></span></span><span>   </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#toNestedPairT"><span class="hs-identifier hs-type">toNestedPairT</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">map</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">return</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">substTypeVars</span></span><span> </span><span class="annot"><a href="#local-6989586621679395075"><span class="hs-identifier hs-type">sub</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679395070"><span class="hs-identifier hs-type">ts</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-141"></span><span>     </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679395082"><span class="annot"><a href="#local-6989586621679395082"><span class="hs-identifier hs-var hs-var">s</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Map Name Name -&gt; Type -&gt; Type
+forall t. HasTypeVars t =&gt; Map Name Name -&gt; t -&gt; t
+</span><span class="hs-identifier hs-var">substTypeVars</span></span><span> </span><span class="annot"><span class="annottext">Map Name Name
+</span><a href="#local-6989586621679395075"><span class="hs-identifier hs-var">sub</span></a></span><span> </span><span class="annot"><span class="annottext">Type
+</span><a href="#local-6989586621679395066"><span class="hs-identifier hs-var">t</span></a></span><span>
+</span><span id="line-142"></span><span>     </span><span class="annot"><span class="hs-identifier hs-type">return</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#Stab"><span class="hs-identifier hs-type">Stab</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679395067"><span class="hs-identifier hs-type">cx</span></a></span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#PrismType"><span class="hs-identifier hs-type">PrismType</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679395082"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679395066"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679395080"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679395079"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-143"></span><span>
+</span><span id="line-144"></span><span class="annot"><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#computeIsoType"><span class="hs-identifier hs-type">computeIsoType</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Type</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">Type</span></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">TypeQ</span></span><span>
+</span><span id="line-145"></span><span id="computeIsoType"><span class="annot"><span class="annottext">computeIsoType :: Type -&gt; [Type] -&gt; Q Type
+</span><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#computeIsoType"><span class="hs-identifier hs-var hs-var">computeIsoType</span></a></span></span><span> </span><span id="local-6989586621679395084"><span class="annot"><span class="annottext">Type
+</span><a href="#local-6989586621679395084"><span class="hs-identifier hs-var">t'</span></a></span></span><span> </span><span id="local-6989586621679395085"><span class="annot"><span class="annottext">[Type]
+</span><a href="#local-6989586621679395085"><span class="hs-identifier hs-var">fields</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-146"></span><span>  </span><span class="hs-keyword">do</span><span> </span><span id="local-6989586621679395086"><span class="annot"><a href="#local-6989586621679395086"><span class="hs-identifier hs-var">sub</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Map Name (Q Name) -&gt; Q (Map Name Name)
+forall (t :: * -&gt; *) (f :: * -&gt; *) a.
+(Traversable t, Applicative f) =&gt;
+t (f a) -&gt; f (t a)
+forall (f :: * -&gt; *) a.
+Applicative f =&gt;
+Map Name (f a) -&gt; f (Map Name a)
+</span><span class="hs-identifier hs-var">sequenceA</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(Name -&gt; Q Name) -&gt; Set Name -&gt; Map Name (Q Name)
+forall k a. (k -&gt; a) -&gt; Set k -&gt; Map k a
+</span><span class="hs-identifier hs-var">Map.fromSet</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">String -&gt; Q Name
+forall (m :: * -&gt; *). Quote m =&gt; String -&gt; m Name
+</span><span class="hs-identifier hs-var">newName</span></span><span> </span><span class="annot"><span class="annottext">(String -&gt; Q Name) -&gt; (Name -&gt; String) -&gt; Name -&gt; Q Name
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Name -&gt; String
+</span><span class="hs-identifier hs-var">nameBase</span></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Getting (Set Name) Type Name -&gt; Type -&gt; Set Name
+forall a s. Getting (Set a) s a -&gt; s -&gt; Set a
+</span><span class="hs-identifier hs-var">setOf</span></span><span> </span><span class="annot"><span class="annottext">Getting (Set Name) Type Name
+forall t. HasTypeVars t =&gt; Traversal' t Name
+Traversal' Type Name
+</span><span class="hs-identifier hs-var">typeVars</span></span><span> </span><span class="annot"><span class="annottext">Type
+</span><a href="#local-6989586621679395084"><span class="hs-identifier hs-var">t'</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-147"></span><span>     </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679395087"><span class="annot"><a href="#local-6989586621679395087"><span class="hs-identifier hs-var hs-var">t</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Type -&gt; Q Type
+forall a. a -&gt; Q a
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span>                    </span><span class="annot"><span class="annottext">Type
+</span><a href="#local-6989586621679395084"><span class="hs-identifier hs-var">t'</span></a></span><span>
+</span><span id="line-148"></span><span>         </span><span id="local-6989586621679395088"><span class="annot"><a href="#local-6989586621679395088"><span class="hs-identifier hs-var hs-var">s</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Type -&gt; Q Type
+forall a. a -&gt; Q a
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Map Name Name -&gt; Type -&gt; Type
+forall t. HasTypeVars t =&gt; Map Name Name -&gt; t -&gt; t
+</span><span class="hs-identifier hs-var">substTypeVars</span></span><span> </span><span class="annot"><span class="annottext">Map Name Name
+</span><a href="#local-6989586621679395086"><span class="hs-identifier hs-var">sub</span></a></span><span> </span><span class="annot"><span class="annottext">Type
+</span><a href="#local-6989586621679395084"><span class="hs-identifier hs-var">t'</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-149"></span><span>         </span><span id="local-6989586621679395089"><span class="annot"><a href="#local-6989586621679395089"><span class="hs-identifier hs-var hs-var">b</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[Q Type] -&gt; Q Type
+</span><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#toNestedPairT"><span class="hs-identifier hs-var">toNestedPairT</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(Type -&gt; Q Type) -&gt; [Type] -&gt; [Q Type]
+forall a b. (a -&gt; b) -&gt; [a] -&gt; [b]
+</span><span class="hs-identifier hs-var">map</span></span><span> </span><span class="annot"><span class="annottext">Type -&gt; Q Type
+forall a. a -&gt; Q a
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span>                    </span><span class="annot"><span class="annottext">[Type]
+</span><a href="#local-6989586621679395085"><span class="hs-identifier hs-var">fields</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-150"></span><span>         </span><span id="local-6989586621679395090"><span class="annot"><a href="#local-6989586621679395090"><span class="hs-identifier hs-var hs-var">a</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[Q Type] -&gt; Q Type
+</span><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#toNestedPairT"><span class="hs-identifier hs-var">toNestedPairT</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(Type -&gt; Q Type) -&gt; [Type] -&gt; [Q Type]
+forall a b. (a -&gt; b) -&gt; [a] -&gt; [b]
+</span><span class="hs-identifier hs-var">map</span></span><span> </span><span class="annot"><span class="annottext">Type -&gt; Q Type
+forall a. a -&gt; Q a
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Map Name Name -&gt; [Type] -&gt; [Type]
+forall t. HasTypeVars t =&gt; Map Name Name -&gt; t -&gt; t
+</span><span class="hs-identifier hs-var">substTypeVars</span></span><span> </span><span class="annot"><span class="annottext">Map Name Name
+</span><a href="#local-6989586621679395086"><span class="hs-identifier hs-var">sub</span></a></span><span> </span><span class="annot"><span class="annottext">[Type]
+</span><a href="#local-6989586621679395085"><span class="hs-identifier hs-var">fields</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-151"></span><span>         </span><span id="local-6989586621679395091"><span class="annot"><a href="#local-6989586621679395091"><span class="hs-identifier hs-var hs-var">ty</span></a></span></span><span> </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">Map Name Name -&gt; Bool
+forall k a. Map k a -&gt; Bool
+</span><span class="hs-identifier hs-var">Map.null</span></span><span> </span><span class="annot"><span class="annottext">Map Name Name
+</span><a href="#local-6989586621679395086"><span class="hs-identifier hs-var">sub</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Q Type -&gt; [Q Type] -&gt; Q Type
+</span><span class="hs-identifier hs-var">appsT</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Name -&gt; Q Type
+forall (m :: * -&gt; *). Quote m =&gt; Name -&gt; m Type
+</span><span class="hs-identifier hs-var">conT</span></span><span> </span><span class="annot"><span class="annottext">Name
+</span><span class="hs-identifier hs-var">iso'TypeName</span></span><span class="hs-special">)</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">Q Type
+</span><a href="#local-6989586621679395087"><span class="hs-identifier hs-var">t</span></a></span><span class="hs-special">,</span><span class="annot"><span class="annottext">Q Type
+</span><a href="#local-6989586621679395089"><span class="hs-identifier hs-var">b</span></a></span><span class="hs-special">]</span><span>
+</span><span id="line-152"></span><span>            </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><span class="hs-identifier hs-var">otherwise</span></span><span>    </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Q Type -&gt; [Q Type] -&gt; Q Type
+</span><span class="hs-identifier hs-var">appsT</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Name -&gt; Q Type
+forall (m :: * -&gt; *). Quote m =&gt; Name -&gt; m Type
+</span><span class="hs-identifier hs-var">conT</span></span><span> </span><span class="annot"><span class="annottext">Name
+</span><span class="hs-identifier hs-var">isoTypeName</span></span><span class="hs-special">)</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">Q Type
+</span><a href="#local-6989586621679395088"><span class="hs-identifier hs-var">s</span></a></span><span class="hs-special">,</span><span class="annot"><span class="annottext">Q Type
+</span><a href="#local-6989586621679395087"><span class="hs-identifier hs-var">t</span></a></span><span class="hs-special">,</span><span class="annot"><span class="annottext">Q Type
+</span><a href="#local-6989586621679395090"><span class="hs-identifier hs-var">a</span></a></span><span class="hs-special">,</span><span class="annot"><span class="annottext">Q Type
+</span><a href="#local-6989586621679395089"><span class="hs-identifier hs-var">b</span></a></span><span class="hs-special">]</span><span>
+</span><span id="line-153"></span><span>     </span><span class="annot"><span class="hs-identifier hs-type">quantifyType</span></span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span> </span><span class="annot"><span class="hs-operator hs-type">&lt;$&gt;</span></span><span> </span><span class="annot"><a href="#local-6989586621679395091"><span class="hs-identifier hs-type">ty</span></a></span><span>
+</span><span id="line-154"></span><span>
+</span><span id="line-155"></span><span class="hs-comment">-- Construct either a Review or Prism as appropriate</span><span>
+</span><span id="line-156"></span><span class="annot"><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#makeConOpticExp"><span class="hs-identifier hs-type">makeConOpticExp</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#Stab"><span class="hs-identifier hs-type">Stab</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#NCon"><span class="hs-identifier hs-type">NCon</span></a></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#NCon"><span class="hs-identifier hs-type">NCon</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ExpQ</span></span><span>
+</span><span id="line-157"></span><span id="makeConOpticExp"><span class="annot"><span class="annottext">makeConOpticExp :: Stab -&gt; [NCon] -&gt; NCon -&gt; Q Exp
+</span><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#makeConOpticExp"><span class="hs-identifier hs-var hs-var">makeConOpticExp</span></a></span></span><span> </span><span id="local-6989586621679395097"><span class="annot"><span class="annottext">Stab
+</span><a href="#local-6989586621679395097"><span class="hs-identifier hs-var">stab</span></a></span></span><span> </span><span id="local-6989586621679395098"><span class="annot"><span class="annottext">[NCon]
+</span><a href="#local-6989586621679395098"><span class="hs-identifier hs-var">cons</span></a></span></span><span> </span><span id="local-6989586621679395099"><span class="annot"><span class="annottext">NCon
+</span><a href="#local-6989586621679395099"><span class="hs-identifier hs-var">con</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-158"></span><span>  </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">Stab -&gt; OpticType
+</span><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#stabType"><span class="hs-identifier hs-var">stabType</span></a></span><span> </span><span class="annot"><span class="annottext">Stab
+</span><a href="#local-6989586621679395097"><span class="hs-identifier hs-var">stab</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-159"></span><span>    </span><span class="annot"><span class="annottext">OpticType
+</span><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#PrismType"><span class="hs-identifier hs-var">PrismType</span></a></span><span>  </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Stab -&gt; [NCon] -&gt; NCon -&gt; Q Exp
+</span><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#makeConPrismExp"><span class="hs-identifier hs-var">makeConPrismExp</span></a></span><span> </span><span class="annot"><span class="annottext">Stab
+</span><a href="#local-6989586621679395097"><span class="hs-identifier hs-var">stab</span></a></span><span> </span><span class="annot"><span class="annottext">[NCon]
+</span><a href="#local-6989586621679395098"><span class="hs-identifier hs-var">cons</span></a></span><span> </span><span class="annot"><span class="annottext">NCon
+</span><a href="#local-6989586621679395099"><span class="hs-identifier hs-var">con</span></a></span><span>
+</span><span id="line-160"></span><span>    </span><span class="annot"><span class="annottext">OpticType
+</span><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#ReviewType"><span class="hs-identifier hs-var">ReviewType</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">NCon -&gt; Q Exp
+</span><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#makeConReviewExp"><span class="hs-identifier hs-var">makeConReviewExp</span></a></span><span> </span><span class="annot"><span class="annottext">NCon
+</span><a href="#local-6989586621679395099"><span class="hs-identifier hs-var">con</span></a></span><span>
+</span><span id="line-161"></span><span>
+</span><span id="line-162"></span><span class="hs-comment">-- Construct an iso declaration</span><span>
+</span><span id="line-163"></span><span class="annot"><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#makeConIso"><span class="hs-identifier hs-type">makeConIso</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Type</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#NCon"><span class="hs-identifier hs-type">NCon</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">DecsQ</span></span><span>
+</span><span id="line-164"></span><span id="makeConIso"><span class="annot"><span class="annottext">makeConIso :: Type -&gt; NCon -&gt; DecsQ
+</span><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#makeConIso"><span class="hs-identifier hs-var hs-var">makeConIso</span></a></span></span><span> </span><span id="local-6989586621679395102"><span class="annot"><span class="annottext">Type
+</span><a href="#local-6989586621679395102"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span id="local-6989586621679395103"><span class="annot"><span class="annottext">NCon
+</span><a href="#local-6989586621679395103"><span class="hs-identifier hs-var">con</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-165"></span><span>  </span><span class="hs-keyword">do</span><span> </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679395104"><span class="annot"><span class="annottext">ty :: Q Type
+</span><a href="#local-6989586621679395104"><span class="hs-identifier hs-var hs-var">ty</span></a></span></span><span>      </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Type -&gt; [Type] -&gt; Q Type
+</span><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#computeIsoType"><span class="hs-identifier hs-var">computeIsoType</span></a></span><span> </span><span class="annot"><span class="annottext">Type
+</span><a href="#local-6989586621679395102"><span class="hs-identifier hs-var">s</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Getting [Type] NCon [Type] -&gt; NCon -&gt; [Type]
+forall s (m :: * -&gt; *) a. MonadReader s m =&gt; Getting a s a -&gt; m a
+</span><span class="hs-identifier hs-var">view</span></span><span> </span><span class="annot"><span class="annottext">Getting [Type] NCon [Type]
+Lens' NCon [Type]
+</span><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#nconTypes"><span class="hs-identifier hs-var">nconTypes</span></a></span><span> </span><span class="annot"><span class="annottext">NCon
+</span><a href="#local-6989586621679395103"><span class="hs-identifier hs-var">con</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-166"></span><span>         </span><span id="local-6989586621679395105"><span class="annot"><span class="annottext">defName :: Name
+</span><a href="#local-6989586621679395105"><span class="hs-identifier hs-var hs-var">defName</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Name -&gt; Name
+</span><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#prismName"><span class="hs-identifier hs-var">prismName</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Getting Name NCon Name -&gt; NCon -&gt; Name
+forall s (m :: * -&gt; *) a. MonadReader s m =&gt; Getting a s a -&gt; m a
+</span><span class="hs-identifier hs-var">view</span></span><span> </span><span class="annot"><span class="annottext">Getting Name NCon Name
+Lens' NCon Name
+</span><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#nconName"><span class="hs-identifier hs-var">nconName</span></a></span><span> </span><span class="annot"><span class="annottext">NCon
+</span><a href="#local-6989586621679395103"><span class="hs-identifier hs-var">con</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-167"></span><span>     </span><span class="annot"><span class="annottext">[Q Dec] -&gt; DecsQ
+forall (t :: * -&gt; *) (f :: * -&gt; *) a.
+(Traversable t, Applicative f) =&gt;
+t (f a) -&gt; f (t a)
+forall (f :: * -&gt; *) a. Applicative f =&gt; [f a] -&gt; f [a]
+</span><span class="hs-identifier hs-var">sequenceA</span></span><span>
+</span><span id="line-168"></span><span>       </span><span class="hs-special">(</span><span> </span><span class="hs-special">[</span><span> </span><span class="annot"><span class="annottext">Name -&gt; Q Type -&gt; Q Dec
+forall (m :: * -&gt; *). Quote m =&gt; Name -&gt; m Type -&gt; m Dec
+</span><span class="hs-identifier hs-var">sigD</span></span><span>       </span><span class="annot"><span class="annottext">Name
+</span><a href="#local-6989586621679395105"><span class="hs-identifier hs-var">defName</span></a></span><span>  </span><span class="annot"><span class="annottext">Q Type
+</span><a href="#local-6989586621679395104"><span class="hs-identifier hs-var">ty</span></a></span><span>
+</span><span id="line-169"></span><span>         </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Q Pat -&gt; Q Body -&gt; [Q Dec] -&gt; Q Dec
+forall (m :: * -&gt; *).
+Quote m =&gt;
+m Pat -&gt; m Body -&gt; [m Dec] -&gt; m Dec
+</span><span class="hs-identifier hs-var">valD</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Name -&gt; Q Pat
+forall (m :: * -&gt; *). Quote m =&gt; Name -&gt; m Pat
+</span><span class="hs-identifier hs-var">varP</span></span><span> </span><span class="annot"><span class="annottext">Name
+</span><a href="#local-6989586621679395105"><span class="hs-identifier hs-var">defName</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Q Exp -&gt; Q Body
+forall (m :: * -&gt; *). Quote m =&gt; m Exp -&gt; m Body
+</span><span class="hs-identifier hs-var">normalB</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">NCon -&gt; Q Exp
+</span><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#makeConIsoExp"><span class="hs-identifier hs-var">makeConIsoExp</span></a></span><span> </span><span class="annot"><span class="annottext">NCon
+</span><a href="#local-6989586621679395103"><span class="hs-identifier hs-var">con</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span>
+</span><span id="line-170"></span><span>         </span><span class="hs-special">]</span><span> </span><span class="annot"><span class="annottext">[Q Dec] -&gt; [Q Dec] -&gt; [Q Dec]
+forall a. [a] -&gt; [a] -&gt; [a]
+</span><span class="hs-operator hs-var">++</span></span><span>
+</span><span id="line-171"></span><span>         </span><span class="annot"><span class="annottext">Name -&gt; [Q Dec]
+</span><span class="hs-identifier hs-var">inlinePragma</span></span><span> </span><span class="annot"><span class="annottext">Name
+</span><a href="#local-6989586621679395105"><span class="hs-identifier hs-var">defName</span></a></span><span>
+</span><span id="line-172"></span><span>       </span><span class="hs-special">)</span><span>
+</span><span id="line-173"></span><span>
+</span><span id="line-174"></span><span class="hs-comment">-- Construct prism expression</span><span>
+</span><span id="line-175"></span><span class="hs-comment">--</span><span>
+</span><span id="line-176"></span><span class="hs-comment">-- prism &lt;&lt;reviewer&gt;&gt; &lt;&lt;remitter&gt;&gt;</span><span>
+</span><span id="line-177"></span><span class="annot"><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#makeConPrismExp"><span class="hs-identifier hs-type">makeConPrismExp</span></a></span><span> </span><span class="hs-glyph">::</span><span>
+</span><span id="line-178"></span><span>  </span><span class="annot"><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#Stab"><span class="hs-identifier hs-type">Stab</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-179"></span><span>  </span><span class="hs-special">[</span><span class="annot"><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#NCon"><span class="hs-identifier hs-type">NCon</span></a></span><span class="hs-special">]</span><span> </span><span class="annot"><span class="hs-comment">{- ^ constructors       -}</span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-180"></span><span>  </span><span class="annot"><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#NCon"><span class="hs-identifier hs-type">NCon</span></a></span><span>   </span><span class="annot"><span class="hs-comment">{- ^ target constructor -}</span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-181"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">ExpQ</span></span><span>
+</span><span id="line-182"></span><span id="makeConPrismExp"><span class="annot"><span class="annottext">makeConPrismExp :: Stab -&gt; [NCon] -&gt; NCon -&gt; Q Exp
+</span><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#makeConPrismExp"><span class="hs-identifier hs-var hs-var">makeConPrismExp</span></a></span></span><span> </span><span id="local-6989586621679395107"><span class="annot"><span class="annottext">Stab
+</span><a href="#local-6989586621679395107"><span class="hs-identifier hs-var">stab</span></a></span></span><span> </span><span id="local-6989586621679395108"><span class="annot"><span class="annottext">[NCon]
+</span><a href="#local-6989586621679395108"><span class="hs-identifier hs-var">cons</span></a></span></span><span> </span><span id="local-6989586621679395109"><span class="annot"><span class="annottext">NCon
+</span><a href="#local-6989586621679395109"><span class="hs-identifier hs-var">con</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[Q Exp] -&gt; Q Exp
+forall (m :: * -&gt; *). Quote m =&gt; [m Exp] -&gt; m Exp
+</span><span class="hs-identifier hs-var">appsE</span></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">Name -&gt; Q Exp
+forall (m :: * -&gt; *). Quote m =&gt; Name -&gt; m Exp
+</span><span class="hs-identifier hs-var">varE</span></span><span> </span><span class="annot"><span class="annottext">Name
+</span><span class="hs-identifier hs-var">prismValName</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Q Exp
+</span><a href="#local-6989586621679395112"><span class="hs-identifier hs-var">reviewer</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Q Exp
+</span><a href="#local-6989586621679395113"><span class="hs-identifier hs-var">remitter</span></a></span><span class="hs-special">]</span><span>
+</span><span id="line-183"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-184"></span><span>  </span><span id="local-6989586621679395114"><span class="annot"><span class="annottext">ts :: [Type]
+</span><a href="#local-6989586621679395114"><span class="hs-identifier hs-var hs-var">ts</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Getting [Type] NCon [Type] -&gt; NCon -&gt; [Type]
+forall s (m :: * -&gt; *) a. MonadReader s m =&gt; Getting a s a -&gt; m a
+</span><span class="hs-identifier hs-var">view</span></span><span> </span><span class="annot"><span class="annottext">Getting [Type] NCon [Type]
+Lens' NCon [Type]
+</span><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#nconTypes"><span class="hs-identifier hs-var">nconTypes</span></a></span><span> </span><span class="annot"><span class="annottext">NCon
+</span><a href="#local-6989586621679395109"><span class="hs-identifier hs-var">con</span></a></span><span>
+</span><span id="line-185"></span><span>  </span><span id="local-6989586621679395115"><span class="annot"><span class="annottext">fields :: Int
+</span><a href="#local-6989586621679395115"><span class="hs-identifier hs-var hs-var">fields</span></a></span></span><span>  </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[Type] -&gt; Int
+forall a. [a] -&gt; Int
+forall (t :: * -&gt; *) a. Foldable t =&gt; t a -&gt; Int
+</span><span class="hs-identifier hs-var">length</span></span><span> </span><span class="annot"><span class="annottext">[Type]
+</span><a href="#local-6989586621679395114"><span class="hs-identifier hs-var">ts</span></a></span><span>
+</span><span id="line-186"></span><span>  </span><span id="local-6989586621679395117"><span class="annot"><span class="annottext">conName :: Name
+</span><a href="#local-6989586621679395117"><span class="hs-identifier hs-var hs-var">conName</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Getting Name NCon Name -&gt; NCon -&gt; Name
+forall s (m :: * -&gt; *) a. MonadReader s m =&gt; Getting a s a -&gt; m a
+</span><span class="hs-identifier hs-var">view</span></span><span> </span><span class="annot"><span class="annottext">Getting Name NCon Name
+Lens' NCon Name
+</span><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#nconName"><span class="hs-identifier hs-var">nconName</span></a></span><span> </span><span class="annot"><span class="annottext">NCon
+</span><a href="#local-6989586621679395109"><span class="hs-identifier hs-var">con</span></a></span><span>
+</span><span id="line-187"></span><span>  </span><span id="local-6989586621679395112"><span class="annot"><span class="annottext">reviewer :: Q Exp
+</span><a href="#local-6989586621679395112"><span class="hs-identifier hs-var hs-var">reviewer</span></a></span></span><span>                   </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Name -&gt; Int -&gt; Q Exp
+</span><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#makeReviewer"><span class="hs-identifier hs-var">makeReviewer</span></a></span><span>       </span><span class="annot"><span class="annottext">Name
+</span><a href="#local-6989586621679395117"><span class="hs-identifier hs-var">conName</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679395115"><span class="hs-identifier hs-var">fields</span></a></span><span>
+</span><span id="line-188"></span><span>  </span><span id="local-6989586621679395113"><span class="annot"><span class="annottext">remitter :: Q Exp
+</span><a href="#local-6989586621679395113"><span class="hs-identifier hs-var hs-var">remitter</span></a></span></span><span> </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">Stab -&gt; Bool
+</span><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#stabSimple"><span class="hs-identifier hs-var">stabSimple</span></a></span><span> </span><span class="annot"><span class="annottext">Stab
+</span><a href="#local-6989586621679395107"><span class="hs-identifier hs-var">stab</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Name -&gt; Int -&gt; Int -&gt; Q Exp
+</span><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#makeSimpleRemitter"><span class="hs-identifier hs-var">makeSimpleRemitter</span></a></span><span> </span><span class="annot"><span class="annottext">Name
+</span><a href="#local-6989586621679395117"><span class="hs-identifier hs-var">conName</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">[NCon] -&gt; Int
+forall a. [a] -&gt; Int
+forall (t :: * -&gt; *) a. Foldable t =&gt; t a -&gt; Int
+</span><span class="hs-identifier hs-var">length</span></span><span> </span><span class="annot"><span class="annottext">[NCon]
+</span><a href="#local-6989586621679395108"><span class="hs-identifier hs-var">cons</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679395115"><span class="hs-identifier hs-var">fields</span></a></span><span>
+</span><span id="line-189"></span><span>           </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><span class="hs-identifier hs-var">otherwise</span></span><span>       </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[NCon] -&gt; Name -&gt; Q Exp
+</span><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#makeFullRemitter"><span class="hs-identifier hs-var">makeFullRemitter</span></a></span><span> </span><span class="annot"><span class="annottext">[NCon]
+</span><a href="#local-6989586621679395108"><span class="hs-identifier hs-var">cons</span></a></span><span> </span><span class="annot"><span class="annottext">Name
+</span><a href="#local-6989586621679395117"><span class="hs-identifier hs-var">conName</span></a></span><span>
+</span><span id="line-190"></span><span>
+</span><span id="line-191"></span><span class="hs-comment">-- Construct an Iso expression</span><span>
+</span><span id="line-192"></span><span class="hs-comment">--</span><span>
+</span><span id="line-193"></span><span class="hs-comment">-- iso &lt;&lt;reviewer&gt;&gt; &lt;&lt;remitter&gt;&gt;</span><span>
+</span><span id="line-194"></span><span class="annot"><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#makeConIsoExp"><span class="hs-identifier hs-type">makeConIsoExp</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#NCon"><span class="hs-identifier hs-type">NCon</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ExpQ</span></span><span>
+</span><span id="line-195"></span><span id="makeConIsoExp"><span class="annot"><span class="annottext">makeConIsoExp :: NCon -&gt; Q Exp
+</span><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#makeConIsoExp"><span class="hs-identifier hs-var hs-var">makeConIsoExp</span></a></span></span><span> </span><span id="local-6989586621679395121"><span class="annot"><span class="annottext">NCon
+</span><a href="#local-6989586621679395121"><span class="hs-identifier hs-var">con</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[Q Exp] -&gt; Q Exp
+forall (m :: * -&gt; *). Quote m =&gt; [m Exp] -&gt; m Exp
+</span><span class="hs-identifier hs-var">appsE</span></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">Name -&gt; Q Exp
+forall (m :: * -&gt; *). Quote m =&gt; Name -&gt; m Exp
+</span><span class="hs-identifier hs-var">varE</span></span><span> </span><span class="annot"><span class="annottext">Name
+</span><span class="hs-identifier hs-var">isoValName</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Q Exp
+</span><a href="#local-6989586621679395123"><span class="hs-identifier hs-var">remitter</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Q Exp
+</span><a href="#local-6989586621679395124"><span class="hs-identifier hs-var">reviewer</span></a></span><span class="hs-special">]</span><span>
+</span><span id="line-196"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-197"></span><span>  </span><span id="local-6989586621679395125"><span class="annot"><span class="annottext">conName :: Name
+</span><a href="#local-6989586621679395125"><span class="hs-identifier hs-var hs-var">conName</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Getting Name NCon Name -&gt; NCon -&gt; Name
+forall s (m :: * -&gt; *) a. MonadReader s m =&gt; Getting a s a -&gt; m a
+</span><span class="hs-identifier hs-var">view</span></span><span> </span><span class="annot"><span class="annottext">Getting Name NCon Name
+Lens' NCon Name
+</span><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#nconName"><span class="hs-identifier hs-var">nconName</span></a></span><span> </span><span class="annot"><span class="annottext">NCon
+</span><a href="#local-6989586621679395121"><span class="hs-identifier hs-var">con</span></a></span><span>
+</span><span id="line-198"></span><span>  </span><span id="local-6989586621679395126"><span class="annot"><span class="annottext">fields :: Int
+</span><a href="#local-6989586621679395126"><span class="hs-identifier hs-var hs-var">fields</span></a></span></span><span>  </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[Type] -&gt; Int
+forall a. [a] -&gt; Int
+forall (t :: * -&gt; *) a. Foldable t =&gt; t a -&gt; Int
+</span><span class="hs-identifier hs-var">length</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Getting [Type] NCon [Type] -&gt; NCon -&gt; [Type]
+forall s (m :: * -&gt; *) a. MonadReader s m =&gt; Getting a s a -&gt; m a
+</span><span class="hs-identifier hs-var">view</span></span><span> </span><span class="annot"><span class="annottext">Getting [Type] NCon [Type]
+Lens' NCon [Type]
+</span><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#nconTypes"><span class="hs-identifier hs-var">nconTypes</span></a></span><span> </span><span class="annot"><span class="annottext">NCon
+</span><a href="#local-6989586621679395121"><span class="hs-identifier hs-var">con</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-199"></span><span>  </span><span id="local-6989586621679395124"><span class="annot"><span class="annottext">reviewer :: Q Exp
+</span><a href="#local-6989586621679395124"><span class="hs-identifier hs-var hs-var">reviewer</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Name -&gt; Int -&gt; Q Exp
+</span><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#makeReviewer"><span class="hs-identifier hs-var">makeReviewer</span></a></span><span>    </span><span class="annot"><span class="annottext">Name
+</span><a href="#local-6989586621679395125"><span class="hs-identifier hs-var">conName</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679395126"><span class="hs-identifier hs-var">fields</span></a></span><span>
+</span><span id="line-200"></span><span>  </span><span id="local-6989586621679395123"><span class="annot"><span class="annottext">remitter :: Q Exp
+</span><a href="#local-6989586621679395123"><span class="hs-identifier hs-var hs-var">remitter</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Name -&gt; Int -&gt; Q Exp
+</span><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#makeIsoRemitter"><span class="hs-identifier hs-var">makeIsoRemitter</span></a></span><span> </span><span class="annot"><span class="annottext">Name
+</span><a href="#local-6989586621679395125"><span class="hs-identifier hs-var">conName</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679395126"><span class="hs-identifier hs-var">fields</span></a></span><span>
+</span><span id="line-201"></span><span>
+</span><span id="line-202"></span><span class="hs-comment">-- Construct a Review expression</span><span>
+</span><span id="line-203"></span><span class="hs-comment">--</span><span>
+</span><span id="line-204"></span><span class="hs-comment">-- unto (\(x,y,z) -&gt; Con x y z)</span><span>
+</span><span id="line-205"></span><span class="annot"><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#makeConReviewExp"><span class="hs-identifier hs-type">makeConReviewExp</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#NCon"><span class="hs-identifier hs-type">NCon</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ExpQ</span></span><span>
+</span><span id="line-206"></span><span id="makeConReviewExp"><span class="annot"><span class="annottext">makeConReviewExp :: NCon -&gt; Q Exp
+</span><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#makeConReviewExp"><span class="hs-identifier hs-var hs-var">makeConReviewExp</span></a></span></span><span> </span><span id="local-6989586621679395128"><span class="annot"><span class="annottext">NCon
+</span><a href="#local-6989586621679395128"><span class="hs-identifier hs-var">con</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Q Exp -&gt; Q Exp -&gt; Q Exp
+forall (m :: * -&gt; *). Quote m =&gt; m Exp -&gt; m Exp -&gt; m Exp
+</span><span class="hs-identifier hs-var">appE</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Name -&gt; Q Exp
+forall (m :: * -&gt; *). Quote m =&gt; Name -&gt; m Exp
+</span><span class="hs-identifier hs-var">varE</span></span><span> </span><span class="annot"><span class="annottext">Name
+</span><span class="hs-identifier hs-var">untoValName</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Q Exp
+</span><a href="#local-6989586621679395130"><span class="hs-identifier hs-var">reviewer</span></a></span><span>
+</span><span id="line-207"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-208"></span><span>  </span><span id="local-6989586621679395131"><span class="annot"><span class="annottext">conName :: Name
+</span><a href="#local-6989586621679395131"><span class="hs-identifier hs-var hs-var">conName</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Getting Name NCon Name -&gt; NCon -&gt; Name
+forall s (m :: * -&gt; *) a. MonadReader s m =&gt; Getting a s a -&gt; m a
+</span><span class="hs-identifier hs-var">view</span></span><span> </span><span class="annot"><span class="annottext">Getting Name NCon Name
+Lens' NCon Name
+</span><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#nconName"><span class="hs-identifier hs-var">nconName</span></a></span><span> </span><span class="annot"><span class="annottext">NCon
+</span><a href="#local-6989586621679395128"><span class="hs-identifier hs-var">con</span></a></span><span>
+</span><span id="line-209"></span><span>  </span><span id="local-6989586621679395132"><span class="annot"><span class="annottext">fields :: Int
+</span><a href="#local-6989586621679395132"><span class="hs-identifier hs-var hs-var">fields</span></a></span></span><span>  </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[Type] -&gt; Int
+forall a. [a] -&gt; Int
+forall (t :: * -&gt; *) a. Foldable t =&gt; t a -&gt; Int
+</span><span class="hs-identifier hs-var">length</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Getting [Type] NCon [Type] -&gt; NCon -&gt; [Type]
+forall s (m :: * -&gt; *) a. MonadReader s m =&gt; Getting a s a -&gt; m a
+</span><span class="hs-identifier hs-var">view</span></span><span> </span><span class="annot"><span class="annottext">Getting [Type] NCon [Type]
+Lens' NCon [Type]
+</span><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#nconTypes"><span class="hs-identifier hs-var">nconTypes</span></a></span><span> </span><span class="annot"><span class="annottext">NCon
+</span><a href="#local-6989586621679395128"><span class="hs-identifier hs-var">con</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-210"></span><span>  </span><span id="local-6989586621679395130"><span class="annot"><span class="annottext">reviewer :: Q Exp
+</span><a href="#local-6989586621679395130"><span class="hs-identifier hs-var hs-var">reviewer</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Name -&gt; Int -&gt; Q Exp
+</span><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#makeReviewer"><span class="hs-identifier hs-var">makeReviewer</span></a></span><span> </span><span class="annot"><span class="annottext">Name
+</span><a href="#local-6989586621679395131"><span class="hs-identifier hs-var">conName</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679395132"><span class="hs-identifier hs-var">fields</span></a></span><span>
+</span><span id="line-211"></span><span>
+</span><span id="line-212"></span><span class="hs-comment">------------------------------------------------------------------------</span><span>
+</span><span id="line-213"></span><span class="hs-comment">-- Prism and Iso component builders</span><span>
+</span><span id="line-214"></span><span class="hs-comment">------------------------------------------------------------------------</span><span>
+</span><span id="line-215"></span><span>
+</span><span id="line-216"></span><span class="hs-comment">-- Construct the review portion of a prism.</span><span>
+</span><span id="line-217"></span><span class="hs-comment">--</span><span>
+</span><span id="line-218"></span><span class="hs-comment">-- (\(x,y,z) -&gt; Con x y z) :: b -&gt; t</span><span>
+</span><span id="line-219"></span><span class="annot"><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#makeReviewer"><span class="hs-identifier hs-type">makeReviewer</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Name</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ExpQ</span></span><span>
+</span><span id="line-220"></span><span id="makeReviewer"><span class="annot"><span class="annottext">makeReviewer :: Name -&gt; Int -&gt; Q Exp
+</span><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#makeReviewer"><span class="hs-identifier hs-var hs-var">makeReviewer</span></a></span></span><span> </span><span id="local-6989586621679395133"><span class="annot"><span class="annottext">Name
+</span><a href="#local-6989586621679395133"><span class="hs-identifier hs-var">conName</span></a></span></span><span> </span><span id="local-6989586621679395134"><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679395134"><span class="hs-identifier hs-var">fields</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-221"></span><span>  </span><span class="hs-keyword">do</span><span> </span><span id="local-6989586621679395135"><span class="annot"><a href="#local-6989586621679395135"><span class="hs-identifier hs-var">xs</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">String -&gt; Int -&gt; Q [Name]
+</span><span class="hs-identifier hs-var">newNames</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;x&quot;</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679395134"><span class="hs-identifier hs-var">fields</span></a></span><span>
+</span><span id="line-222"></span><span>     </span><span class="annot"><span class="hs-identifier hs-type">lam1E</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#toNestedPairP"><span class="hs-identifier hs-type">toNestedPairP</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">map</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">varP</span></span><span> </span><span class="annot"><a href="#local-6989586621679395135"><span class="hs-identifier hs-type">xs</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-223"></span><span>           </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">conE</span></span><span> </span><span class="annot"><a href="#local-6989586621679395133"><span class="hs-identifier hs-type">conName</span></a></span><span> </span><span class="annot"><span class="hs-operator hs-type">`appsE1`</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">map</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">varE</span></span><span> </span><span class="annot"><a href="#local-6989586621679395135"><span class="hs-identifier hs-type">xs</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-224"></span><span>
+</span><span id="line-225"></span><span class="hs-comment">-- Construct the remit portion of a prism.</span><span>
+</span><span id="line-226"></span><span class="hs-comment">-- Pattern match only target constructor, no type changing</span><span>
+</span><span id="line-227"></span><span class="hs-comment">--</span><span>
+</span><span id="line-228"></span><span class="hs-comment">-- (\x -&gt; case s of</span><span>
+</span><span id="line-229"></span><span class="hs-comment">--          Con x y z -&gt; Right (x,y,z)</span><span>
+</span><span id="line-230"></span><span class="hs-comment">--          _         -&gt; Left x</span><span>
+</span><span id="line-231"></span><span class="hs-comment">-- ) :: s -&gt; Either s a</span><span>
+</span><span id="line-232"></span><span class="annot"><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#makeSimpleRemitter"><span class="hs-identifier hs-type">makeSimpleRemitter</span></a></span><span> </span><span class="hs-glyph">::</span><span>
+</span><span id="line-233"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">Name</span></span><span> </span><span class="hs-comment">{- The name of the constructor on which this prism focuses -}</span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-234"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span>  </span><span class="hs-comment">{- The number of constructors the parent data type has     -}</span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-235"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span>  </span><span class="hs-comment">{- The number of fields the constructor has                -}</span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-236"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">ExpQ</span></span><span>
+</span><span id="line-237"></span><span id="makeSimpleRemitter"><span class="annot"><span class="annottext">makeSimpleRemitter :: Name -&gt; Int -&gt; Int -&gt; Q Exp
+</span><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#makeSimpleRemitter"><span class="hs-identifier hs-var hs-var">makeSimpleRemitter</span></a></span></span><span> </span><span id="local-6989586621679395140"><span class="annot"><span class="annottext">Name
+</span><a href="#local-6989586621679395140"><span class="hs-identifier hs-var">conName</span></a></span></span><span> </span><span id="local-6989586621679395141"><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679395141"><span class="hs-identifier hs-var">numCons</span></a></span></span><span> </span><span id="local-6989586621679395142"><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679395142"><span class="hs-identifier hs-var">fields</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-238"></span><span>  </span><span class="hs-keyword">do</span><span> </span><span id="local-6989586621679395143"><span class="annot"><a href="#local-6989586621679395143"><span class="hs-identifier hs-var">x</span></a></span></span><span>  </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">String -&gt; Q Name
+forall (m :: * -&gt; *). Quote m =&gt; String -&gt; m Name
+</span><span class="hs-identifier hs-var">newName</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;x&quot;</span></span><span>
+</span><span id="line-239"></span><span>     </span><span id="local-6989586621679395144"><span class="annot"><a href="#local-6989586621679395144"><span class="hs-identifier hs-var">xs</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="hs-identifier hs-type">newNames</span></span><span> </span><span class="annot"><span class="hs-string">&quot;y&quot;</span></span><span> </span><span class="annot"><a href="#local-6989586621679395142"><span class="hs-identifier hs-type">fields</span></a></span><span>
+</span><span id="line-240"></span><span>     </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679395145"><span class="annot"><a href="#local-6989586621679395145"><span class="hs-identifier hs-var hs-var">matches</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-241"></span><span>           </span><span class="hs-special">[</span><span> </span><span class="annot"><span class="annottext">Q Pat -&gt; Q Body -&gt; [Q Dec] -&gt; Q Match
+forall (m :: * -&gt; *).
+Quote m =&gt;
+m Pat -&gt; m Body -&gt; [m Dec] -&gt; m Match
+</span><span class="hs-identifier hs-var">match</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Name -&gt; [Q Pat] -&gt; Q Pat
+forall (m :: * -&gt; *). Quote m =&gt; Name -&gt; [m Pat] -&gt; m Pat
+</span><span class="hs-identifier hs-var">conP</span></span><span> </span><span class="annot"><span class="annottext">Name
+</span><a href="#local-6989586621679395140"><span class="hs-identifier hs-var">conName</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(Name -&gt; Q Pat) -&gt; [Name] -&gt; [Q Pat]
+forall a b. (a -&gt; b) -&gt; [a] -&gt; [b]
+</span><span class="hs-identifier hs-var">map</span></span><span> </span><span class="annot"><span class="annottext">Name -&gt; Q Pat
+forall (m :: * -&gt; *). Quote m =&gt; Name -&gt; m Pat
+</span><span class="hs-identifier hs-var">varP</span></span><span> </span><span class="annot"><span class="annottext">[Name]
+</span><a href="#local-6989586621679395144"><span class="hs-identifier hs-var">xs</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-242"></span><span>                   </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Q Exp -&gt; Q Body
+forall (m :: * -&gt; *). Quote m =&gt; m Exp -&gt; m Body
+</span><span class="hs-identifier hs-var">normalB</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Q Exp -&gt; Q Exp -&gt; Q Exp
+forall (m :: * -&gt; *). Quote m =&gt; m Exp -&gt; m Exp -&gt; m Exp
+</span><span class="hs-identifier hs-var">appE</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Name -&gt; Q Exp
+forall (m :: * -&gt; *). Quote m =&gt; Name -&gt; m Exp
+</span><span class="hs-identifier hs-var">conE</span></span><span> </span><span class="annot"><span class="annottext">Name
+</span><span class="hs-identifier hs-var">rightDataName</span></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">[Q Exp] -&gt; Q Exp
+</span><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#toNestedPairE"><span class="hs-identifier hs-var">toNestedPairE</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(Name -&gt; Q Exp) -&gt; [Name] -&gt; [Q Exp]
+forall a b. (a -&gt; b) -&gt; [a] -&gt; [b]
+</span><span class="hs-identifier hs-var">map</span></span><span> </span><span class="annot"><span class="annottext">Name -&gt; Q Exp
+forall (m :: * -&gt; *). Quote m =&gt; Name -&gt; m Exp
+</span><span class="hs-identifier hs-var">varE</span></span><span> </span><span class="annot"><span class="annottext">[Name]
+</span><a href="#local-6989586621679395144"><span class="hs-identifier hs-var">xs</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-243"></span><span>                   </span><span class="hs-special">[</span><span class="hs-special">]</span><span>
+</span><span id="line-244"></span><span>           </span><span class="hs-special">]</span><span> </span><span class="annot"><span class="annottext">[Q Match] -&gt; [Q Match] -&gt; [Q Match]
+forall a. [a] -&gt; [a] -&gt; [a]
+</span><span class="hs-operator hs-var">++</span></span><span>
+</span><span id="line-245"></span><span>           </span><span class="hs-special">[</span><span> </span><span class="annot"><span class="annottext">Q Pat -&gt; Q Body -&gt; [Q Dec] -&gt; Q Match
+forall (m :: * -&gt; *).
+Quote m =&gt;
+m Pat -&gt; m Body -&gt; [m Dec] -&gt; m Match
+</span><span class="hs-identifier hs-var">match</span></span><span> </span><span class="annot"><span class="annottext">Q Pat
+forall (m :: * -&gt; *). Quote m =&gt; m Pat
+</span><span class="hs-identifier hs-var">wildP</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Q Exp -&gt; Q Body
+forall (m :: * -&gt; *). Quote m =&gt; m Exp -&gt; m Body
+</span><span class="hs-identifier hs-var">normalB</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Q Exp -&gt; Q Exp -&gt; Q Exp
+forall (m :: * -&gt; *). Quote m =&gt; m Exp -&gt; m Exp -&gt; m Exp
+</span><span class="hs-identifier hs-var">appE</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Name -&gt; Q Exp
+forall (m :: * -&gt; *). Quote m =&gt; Name -&gt; m Exp
+</span><span class="hs-identifier hs-var">conE</span></span><span> </span><span class="annot"><span class="annottext">Name
+</span><span class="hs-identifier hs-var">leftDataName</span></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Name -&gt; Q Exp
+forall (m :: * -&gt; *). Quote m =&gt; Name -&gt; m Exp
+</span><span class="hs-identifier hs-var">varE</span></span><span> </span><span class="annot"><span class="annottext">Name
+</span><a href="#local-6989586621679395143"><span class="hs-identifier hs-var">x</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span>
+</span><span id="line-246"></span><span>           </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679395141"><span class="hs-identifier hs-var">numCons</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Bool
+forall a. Ord a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">&gt;</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">1</span></span><span> </span><span class="hs-comment">-- Only generate a catch-all case if there is at least</span><span>
+</span><span id="line-247"></span><span>                         </span><span class="hs-comment">-- one constructor besides the one being focused on.</span><span>
+</span><span id="line-248"></span><span>           </span><span class="hs-special">]</span><span>
+</span><span id="line-249"></span><span>     </span><span class="annot"><span class="hs-identifier hs-type">lam1E</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">varP</span></span><span> </span><span class="annot"><a href="#local-6989586621679395143"><span class="hs-identifier hs-type">x</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">caseE</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">varE</span></span><span> </span><span class="annot"><a href="#local-6989586621679395143"><span class="hs-identifier hs-type">x</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621679395145"><span class="hs-identifier hs-type">matches</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-250"></span><span>
+</span><span id="line-251"></span><span class="hs-comment">-- Pattern match all constructors to enable type-changing</span><span>
+</span><span id="line-252"></span><span class="hs-comment">--</span><span>
+</span><span id="line-253"></span><span class="hs-comment">-- (\x -&gt; case s of</span><span>
+</span><span id="line-254"></span><span class="hs-comment">--          Con x y z -&gt; Right (x,y,z)</span><span>
+</span><span id="line-255"></span><span class="hs-comment">--          Other_n w   -&gt; Left (Other_n w)</span><span>
+</span><span id="line-256"></span><span class="hs-comment">-- ) :: s -&gt; Either t a</span><span>
+</span><span id="line-257"></span><span class="annot"><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#makeFullRemitter"><span class="hs-identifier hs-type">makeFullRemitter</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#NCon"><span class="hs-identifier hs-type">NCon</span></a></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Name</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ExpQ</span></span><span>
+</span><span id="line-258"></span><span id="makeFullRemitter"><span class="annot"><span class="annottext">makeFullRemitter :: [NCon] -&gt; Name -&gt; Q Exp
+</span><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#makeFullRemitter"><span class="hs-identifier hs-var hs-var">makeFullRemitter</span></a></span></span><span> </span><span id="local-6989586621679395151"><span class="annot"><span class="annottext">[NCon]
+</span><a href="#local-6989586621679395151"><span class="hs-identifier hs-var">cons</span></a></span></span><span> </span><span id="local-6989586621679395152"><span class="annot"><span class="annottext">Name
+</span><a href="#local-6989586621679395152"><span class="hs-identifier hs-var">target</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-259"></span><span>  </span><span class="hs-keyword">do</span><span> </span><span id="local-6989586621679395153"><span class="annot"><a href="#local-6989586621679395153"><span class="hs-identifier hs-var">x</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">String -&gt; Q Name
+forall (m :: * -&gt; *). Quote m =&gt; String -&gt; m Name
+</span><span class="hs-identifier hs-var">newName</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;x&quot;</span></span><span>
+</span><span id="line-260"></span><span>     </span><span class="annot"><span class="hs-identifier hs-type">lam1E</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">varP</span></span><span> </span><span class="annot"><a href="#local-6989586621679395153"><span class="hs-identifier hs-type">x</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">caseE</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">varE</span></span><span> </span><span class="annot"><a href="#local-6989586621679395153"><span class="hs-identifier hs-type">x</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">map</span></span><span> </span><span class="annot"><a href="#local-6989586621679395154"><span class="hs-identifier hs-type">mkMatch</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679395151"><span class="hs-identifier hs-type">cons</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-261"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-262"></span><span>  </span><span id="local-6989586621679395154"><span class="annot"><span class="annottext">mkMatch :: NCon -&gt; Q Match
+</span><a href="#local-6989586621679395154"><span class="hs-identifier hs-var hs-var">mkMatch</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#NCon"><span class="hs-identifier hs-type">NCon</span></a></span><span> </span><span id="local-6989586621679395155"><span class="annot"><span class="annottext">Name
+</span><a href="#local-6989586621679395155"><span class="hs-identifier hs-var">conName</span></a></span></span><span> </span><span class="annot"><span class="annottext">[Name]
+</span><span class="hs-identifier">_</span></span><span> </span><span class="annot"><span class="annottext">[Type]
+</span><span class="hs-identifier">_</span></span><span> </span><span id="local-6989586621679395156"><span class="annot"><span class="annottext">[Type]
+</span><a href="#local-6989586621679395156"><span class="hs-identifier hs-var">n</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-263"></span><span>    </span><span class="hs-keyword">do</span><span> </span><span id="local-6989586621679395157"><span class="annot"><a href="#local-6989586621679395157"><span class="hs-identifier hs-var">xs</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">String -&gt; Int -&gt; Q [Name]
+</span><span class="hs-identifier hs-var">newNames</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;y&quot;</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">[Type] -&gt; Int
+forall a. [a] -&gt; Int
+forall (t :: * -&gt; *) a. Foldable t =&gt; t a -&gt; Int
+</span><span class="hs-identifier hs-var">length</span></span><span> </span><span class="annot"><span class="annottext">[Type]
+</span><a href="#local-6989586621679395156"><span class="hs-identifier hs-var">n</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-264"></span><span>       </span><span class="annot"><span class="hs-identifier hs-type">match</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">conP</span></span><span> </span><span class="annot"><a href="#local-6989586621679395155"><span class="hs-identifier hs-type">conName</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">map</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">varP</span></span><span> </span><span class="annot"><a href="#local-6989586621679395157"><span class="hs-identifier hs-type">xs</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-265"></span><span>             </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">normalB</span></span><span>
+</span><span id="line-266"></span><span>               </span><span class="hs-special">(</span><span class="hs-keyword">if</span><span> </span><span class="annot"><a href="#local-6989586621679395155"><span class="hs-identifier hs-type">conName</span></a></span><span> </span><span class="annot"><span class="hs-operator hs-type">==</span></span><span> </span><span class="annot"><a href="#local-6989586621679395152"><span class="hs-identifier hs-type">target</span></a></span><span>
+</span><span id="line-267"></span><span>                  </span><span class="hs-keyword">then</span><span> </span><span class="annot"><span class="hs-identifier hs-type">appE</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">conE</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">rightDataName</span></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#toNestedPairE"><span class="hs-identifier hs-type">toNestedPairE</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">map</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">varE</span></span><span> </span><span class="annot"><a href="#local-6989586621679395157"><span class="hs-identifier hs-type">xs</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-268"></span><span>                  </span><span class="hs-keyword">else</span><span> </span><span class="annot"><span class="hs-identifier hs-type">appE</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">conE</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">leftDataName</span></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">conE</span></span><span> </span><span class="annot"><a href="#local-6989586621679395155"><span class="hs-identifier hs-type">conName</span></a></span><span> </span><span class="annot"><span class="hs-operator hs-type">`appsE1`</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">map</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">varE</span></span><span> </span><span class="annot"><a href="#local-6989586621679395157"><span class="hs-identifier hs-type">xs</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-269"></span><span>             </span><span class="hs-special">[</span><span class="hs-special">]</span><span>
+</span><span id="line-270"></span><span>
+</span><span id="line-271"></span><span class="hs-comment">-- Construct the remitter suitable for use in an 'Iso'</span><span>
+</span><span id="line-272"></span><span class="hs-comment">--</span><span>
+</span><span id="line-273"></span><span class="hs-comment">-- (\(Con x y z) -&gt; (x,y,z)) :: s -&gt; a</span><span>
+</span><span id="line-274"></span><span class="annot"><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#makeIsoRemitter"><span class="hs-identifier hs-type">makeIsoRemitter</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Name</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ExpQ</span></span><span>
+</span><span id="line-275"></span><span id="makeIsoRemitter"><span class="annot"><span class="annottext">makeIsoRemitter :: Name -&gt; Int -&gt; Q Exp
+</span><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#makeIsoRemitter"><span class="hs-identifier hs-var hs-var">makeIsoRemitter</span></a></span></span><span> </span><span id="local-6989586621679395158"><span class="annot"><span class="annottext">Name
+</span><a href="#local-6989586621679395158"><span class="hs-identifier hs-var">conName</span></a></span></span><span> </span><span id="local-6989586621679395159"><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679395159"><span class="hs-identifier hs-var">fields</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-276"></span><span>  </span><span class="hs-keyword">do</span><span> </span><span id="local-6989586621679395160"><span class="annot"><a href="#local-6989586621679395160"><span class="hs-identifier hs-var">xs</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">String -&gt; Int -&gt; Q [Name]
+</span><span class="hs-identifier hs-var">newNames</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;x&quot;</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679395159"><span class="hs-identifier hs-var">fields</span></a></span><span>
+</span><span id="line-277"></span><span>     </span><span class="annot"><span class="hs-identifier hs-type">lam1E</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">conP</span></span><span> </span><span class="annot"><a href="#local-6989586621679395158"><span class="hs-identifier hs-type">conName</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">map</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">varP</span></span><span> </span><span class="annot"><a href="#local-6989586621679395160"><span class="hs-identifier hs-type">xs</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-278"></span><span>           </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#toNestedPairE"><span class="hs-identifier hs-type">toNestedPairE</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">map</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">varE</span></span><span> </span><span class="annot"><a href="#local-6989586621679395160"><span class="hs-identifier hs-type">xs</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-279"></span><span>
+</span><span id="line-280"></span><span class="hs-comment">------------------------------------------------------------------------</span><span>
+</span><span id="line-281"></span><span class="hs-comment">-- Utilities</span><span>
+</span><span id="line-282"></span><span class="hs-comment">------------------------------------------------------------------------</span><span>
+</span><span id="line-283"></span><span>
+</span><span id="line-284"></span><span class="hs-comment">-- Normalized constructor</span><span>
+</span><span id="line-285"></span><span class="hs-keyword">data</span><span> </span><span id="NCon"><span class="annot"><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#NCon"><span class="hs-identifier hs-var">NCon</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="NCon"><span class="annot"><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#NCon"><span class="hs-identifier hs-var">NCon</span></a></span></span><span>
+</span><span id="line-286"></span><span>  </span><span class="hs-special">{</span><span> </span><span id="_nconName"><span class="annot"><span class="annottext">NCon -&gt; Name
+</span><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#_nconName"><span class="hs-identifier hs-var hs-var">_nconName</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Name</span></span><span>
+</span><span id="line-287"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="_nconVars"><span class="annot"><span class="annottext">NCon -&gt; [Name]
+</span><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#_nconVars"><span class="hs-identifier hs-var hs-var">_nconVars</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">Name</span></span><span class="hs-special">]</span><span>
+</span><span id="line-288"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="_nconCxt"><span class="annot"><span class="annottext">NCon -&gt; [Type]
+</span><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#_nconCxt"><span class="hs-identifier hs-var hs-var">_nconCxt</span></a></span></span><span>  </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Cxt</span></span><span>
+</span><span id="line-289"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="_nconTypes"><span class="annot"><span class="annottext">NCon -&gt; [Type]
+</span><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#_nconTypes"><span class="hs-identifier hs-var hs-var">_nconTypes</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">Type</span></span><span class="hs-special">]</span><span>
+</span><span id="line-290"></span><span>  </span><span class="hs-special">}</span><span>
+</span><span id="line-291"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="hs-special">(</span><span id="local-6989586621679395165"><span id="local-6989586621679395172"><span class="annot"><span class="annottext">NCon -&gt; NCon -&gt; Bool
+(NCon -&gt; NCon -&gt; Bool) -&gt; (NCon -&gt; NCon -&gt; Bool) -&gt; Eq NCon
+forall a. (a -&gt; a -&gt; Bool) -&gt; (a -&gt; a -&gt; Bool) -&gt; Eq a
+$c== :: NCon -&gt; NCon -&gt; Bool
+== :: NCon -&gt; NCon -&gt; Bool
+$c/= :: NCon -&gt; NCon -&gt; Bool
+/= :: NCon -&gt; NCon -&gt; Bool
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-292"></span><span class="hs-keyword">instance</span><span> </span><span class="annot"><span class="hs-identifier hs-type">HasTypeVars</span></span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#NCon"><span class="hs-identifier hs-type">NCon</span></a></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-293"></span><span>  </span><span id="local-6989586621679395188"><span class="annot"><span class="annottext">typeVarsEx :: Set Name -&gt; Traversal' NCon Name
+</span><a href="#local-6989586621679395188"><span class="hs-identifier hs-var hs-var hs-var">typeVarsEx</span></a></span></span><span> </span><span id="local-6989586621679395190"><span class="annot"><span class="annottext">Set Name
+</span><a href="#local-6989586621679395190"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span id="local-6989586621679395191"><span class="annot"><span class="annottext">Name -&gt; f Name
+</span><a href="#local-6989586621679395191"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#NCon"><span class="hs-identifier hs-type">NCon</span></a></span><span> </span><span id="local-6989586621679395192"><span class="annot"><span class="annottext">Name
+</span><a href="#local-6989586621679395192"><span class="hs-identifier hs-var">x</span></a></span></span><span> </span><span id="local-6989586621679395193"><span class="annot"><span class="annottext">[Name]
+</span><a href="#local-6989586621679395193"><span class="hs-identifier hs-var">vars</span></a></span></span><span> </span><span id="local-6989586621679395194"><span class="annot"><span class="annottext">[Type]
+</span><a href="#local-6989586621679395194"><span class="hs-identifier hs-var">y</span></a></span></span><span> </span><span id="local-6989586621679395195"><span class="annot"><span class="annottext">[Type]
+</span><a href="#local-6989586621679395195"><span class="hs-identifier hs-var">z</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Name -&gt; [Name] -&gt; [Type] -&gt; [Type] -&gt; NCon
+</span><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#NCon"><span class="hs-identifier hs-var">NCon</span></a></span><span> </span><span class="annot"><span class="annottext">Name
+</span><a href="#local-6989586621679395192"><span class="hs-identifier hs-var">x</span></a></span><span> </span><span class="annot"><span class="annottext">[Name]
+</span><a href="#local-6989586621679395193"><span class="hs-identifier hs-var">vars</span></a></span><span> </span><span class="annot"><span class="annottext">([Type] -&gt; [Type] -&gt; NCon) -&gt; f [Type] -&gt; f ([Type] -&gt; NCon)
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">Set Name -&gt; Traversal' [Type] Name
+forall t. HasTypeVars t =&gt; Set Name -&gt; Traversal' t Name
+</span><span class="hs-identifier hs-var">typeVarsEx</span></span><span> </span><span class="annot"><span class="annottext">Set Name
+</span><a href="#local-6989586621679395196"><span class="hs-identifier hs-var">s'</span></a></span><span> </span><span class="annot"><span class="annottext">Name -&gt; f Name
+</span><a href="#local-6989586621679395191"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">[Type]
+</span><a href="#local-6989586621679395194"><span class="hs-identifier hs-var">y</span></a></span><span> </span><span class="annot"><span class="annottext">f ([Type] -&gt; NCon) -&gt; f [Type] -&gt; f NCon
+forall a b. f (a -&gt; b) -&gt; f a -&gt; f b
+forall (f :: * -&gt; *) a b. Applicative f =&gt; f (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;*&gt;</span></span><span> </span><span class="annot"><span class="annottext">Set Name -&gt; Traversal' [Type] Name
+forall t. HasTypeVars t =&gt; Set Name -&gt; Traversal' t Name
+</span><span class="hs-identifier hs-var">typeVarsEx</span></span><span> </span><span class="annot"><span class="annottext">Set Name
+</span><a href="#local-6989586621679395196"><span class="hs-identifier hs-var">s'</span></a></span><span> </span><span class="annot"><span class="annottext">Name -&gt; f Name
+</span><a href="#local-6989586621679395191"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">[Type]
+</span><a href="#local-6989586621679395195"><span class="hs-identifier hs-var">z</span></a></span><span>
+</span><span id="line-294"></span><span>    </span><span class="hs-keyword">where</span><span> </span><span id="local-6989586621679395196"><span class="annot"><span class="annottext">s' :: Set Name
+</span><a href="#local-6989586621679395196"><span class="hs-identifier hs-var hs-var">s'</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(Set Name -&gt; Name -&gt; Set Name) -&gt; Set Name -&gt; [Name] -&gt; Set Name
+forall b a. (b -&gt; a -&gt; b) -&gt; b -&gt; [a] -&gt; b
+forall (t :: * -&gt; *) b a.
+Foldable t =&gt;
+(b -&gt; a -&gt; b) -&gt; b -&gt; t a -&gt; b
+</span><span class="hs-identifier hs-var">List.foldl'</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(Name -&gt; Set Name -&gt; Set Name) -&gt; Set Name -&gt; Name -&gt; Set Name
+forall a b c. (a -&gt; b -&gt; c) -&gt; b -&gt; a -&gt; c
+</span><span class="hs-identifier hs-var">flip</span></span><span> </span><span class="annot"><span class="annottext">Name -&gt; Set Name -&gt; Set Name
+forall a. Ord a =&gt; a -&gt; Set a -&gt; Set a
+</span><span class="hs-identifier hs-var">Set.insert</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Set Name
+</span><a href="#local-6989586621679395190"><span class="hs-identifier hs-var">s</span></a></span><span> </span><span class="annot"><span class="annottext">[Name]
+</span><a href="#local-6989586621679395193"><span class="hs-identifier hs-var">vars</span></a></span><span>
+</span><span id="line-295"></span><span>
+</span><span id="line-296"></span><span class="annot"><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#nconName"><span class="hs-identifier hs-type">nconName</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Lens'</span></span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#NCon"><span class="hs-identifier hs-type">NCon</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Name</span></span><span>
+</span><span id="line-297"></span><span id="nconName"><span class="annot"><span class="annottext">nconName :: Lens' NCon Name
+</span><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#nconName"><span class="hs-identifier hs-var hs-var">nconName</span></a></span></span><span> </span><span id="local-6989586621679395202"><span class="annot"><span class="annottext">Name -&gt; f Name
+</span><a href="#local-6989586621679395202"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span id="local-6989586621679395203"><span class="annot"><span class="annottext">NCon
+</span><a href="#local-6989586621679395203"><span class="hs-identifier hs-var">x</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(Name -&gt; NCon) -&gt; f Name -&gt; f NCon
+forall a b. (a -&gt; b) -&gt; f a -&gt; f b
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">fmap</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span id="local-6989586621679395204"><span class="annot"><span class="annottext">Name
+</span><a href="#local-6989586621679395204"><span class="hs-identifier hs-var">y</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">NCon
+</span><a href="#local-6989586621679395203"><span class="hs-identifier hs-var">x</span></a></span><span> </span><span class="hs-special">{</span><span class="annot"><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#_nconName"><span class="hs-identifier hs-var">_nconName</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="#local-6989586621679395204"><span class="hs-identifier hs-type">y</span></a></span><span class="hs-special">}</span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Name -&gt; f Name
+</span><a href="#local-6989586621679395202"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">NCon -&gt; Name
+</span><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#_nconName"><span class="hs-identifier hs-var">_nconName</span></a></span><span> </span><span class="annot"><span class="annottext">NCon
+</span><a href="#local-6989586621679395203"><span class="hs-identifier hs-var">x</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-298"></span><span>
+</span><span id="line-299"></span><span class="annot"><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#nconCxt"><span class="hs-identifier hs-type">nconCxt</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Lens'</span></span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#NCon"><span class="hs-identifier hs-type">NCon</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Cxt</span></span><span>
+</span><span id="line-300"></span><span id="nconCxt"><span class="annot"><span class="annottext">nconCxt :: Lens' NCon [Type]
+</span><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#nconCxt"><span class="hs-identifier hs-var hs-var">nconCxt</span></a></span></span><span> </span><span id="local-6989586621679395207"><span class="annot"><span class="annottext">[Type] -&gt; f [Type]
+</span><a href="#local-6989586621679395207"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span id="local-6989586621679395208"><span class="annot"><span class="annottext">NCon
+</span><a href="#local-6989586621679395208"><span class="hs-identifier hs-var">x</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">([Type] -&gt; NCon) -&gt; f [Type] -&gt; f NCon
+forall a b. (a -&gt; b) -&gt; f a -&gt; f b
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">fmap</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span id="local-6989586621679395209"><span class="annot"><span class="annottext">[Type]
+</span><a href="#local-6989586621679395209"><span class="hs-identifier hs-var">y</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">NCon
+</span><a href="#local-6989586621679395208"><span class="hs-identifier hs-var">x</span></a></span><span> </span><span class="hs-special">{</span><span class="annot"><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#_nconCxt"><span class="hs-identifier hs-var">_nconCxt</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="#local-6989586621679395209"><span class="hs-identifier hs-type">y</span></a></span><span class="hs-special">}</span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">[Type] -&gt; f [Type]
+</span><a href="#local-6989586621679395207"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">NCon -&gt; [Type]
+</span><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#_nconCxt"><span class="hs-identifier hs-var">_nconCxt</span></a></span><span> </span><span class="annot"><span class="annottext">NCon
+</span><a href="#local-6989586621679395208"><span class="hs-identifier hs-var">x</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-301"></span><span>
+</span><span id="line-302"></span><span class="annot"><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#nconTypes"><span class="hs-identifier hs-type">nconTypes</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Lens'</span></span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#NCon"><span class="hs-identifier hs-type">NCon</span></a></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">Type</span></span><span class="hs-special">]</span><span>
+</span><span id="line-303"></span><span id="nconTypes"><span class="annot"><span class="annottext">nconTypes :: Lens' NCon [Type]
+</span><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#nconTypes"><span class="hs-identifier hs-var hs-var">nconTypes</span></a></span></span><span> </span><span id="local-6989586621679395212"><span class="annot"><span class="annottext">[Type] -&gt; f [Type]
+</span><a href="#local-6989586621679395212"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span id="local-6989586621679395213"><span class="annot"><span class="annottext">NCon
+</span><a href="#local-6989586621679395213"><span class="hs-identifier hs-var">x</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">([Type] -&gt; NCon) -&gt; f [Type] -&gt; f NCon
+forall a b. (a -&gt; b) -&gt; f a -&gt; f b
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">fmap</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span id="local-6989586621679395214"><span class="annot"><span class="annottext">[Type]
+</span><a href="#local-6989586621679395214"><span class="hs-identifier hs-var">y</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">NCon
+</span><a href="#local-6989586621679395213"><span class="hs-identifier hs-var">x</span></a></span><span> </span><span class="hs-special">{</span><span class="annot"><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#_nconTypes"><span class="hs-identifier hs-var">_nconTypes</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="#local-6989586621679395214"><span class="hs-identifier hs-type">y</span></a></span><span class="hs-special">}</span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">[Type] -&gt; f [Type]
+</span><a href="#local-6989586621679395212"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">NCon -&gt; [Type]
+</span><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#_nconTypes"><span class="hs-identifier hs-var">_nconTypes</span></a></span><span> </span><span class="annot"><span class="annottext">NCon
+</span><a href="#local-6989586621679395213"><span class="hs-identifier hs-var">x</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-304"></span><span>
+</span><span id="line-305"></span><span class="hs-comment">-- Normalize a single 'Con' to its constructor name and field types.</span><span>
+</span><span id="line-306"></span><span class="annot"><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#normalizeCon"><span class="hs-identifier hs-type">normalizeCon</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">D.ConstructorInfo</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#NCon"><span class="hs-identifier hs-type">NCon</span></a></span><span>
+</span><span id="line-307"></span><span id="normalizeCon"><span class="annot"><span class="annottext">normalizeCon :: ConstructorInfo -&gt; NCon
+</span><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#normalizeCon"><span class="hs-identifier hs-var hs-var">normalizeCon</span></a></span></span><span> </span><span id="local-6989586621679395215"><span class="annot"><span class="annottext">ConstructorInfo
+</span><a href="#local-6989586621679395215"><span class="hs-identifier hs-var">info</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Name -&gt; [Name] -&gt; [Type] -&gt; [Type] -&gt; NCon
+</span><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#NCon"><span class="hs-identifier hs-var">NCon</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ConstructorInfo -&gt; Name
+</span><span class="hs-identifier hs-var">D.constructorName</span></span><span> </span><span class="annot"><span class="annottext">ConstructorInfo
+</span><a href="#local-6989586621679395215"><span class="hs-identifier hs-var">info</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-308"></span><span>                         </span><span class="hs-special">(</span><span class="annot"><span class="annottext">TyVarBndr_ () -&gt; Name
+forall flag. TyVarBndr_ flag -&gt; Name
+</span><span class="hs-identifier hs-var">D.tvName</span></span><span> </span><span class="annot"><span class="annottext">(TyVarBndr_ () -&gt; Name) -&gt; [TyVarBndr_ ()] -&gt; [Name]
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">ConstructorInfo -&gt; [TyVarBndr_ ()]
+</span><span class="hs-identifier hs-var">D.constructorVars</span></span><span> </span><span class="annot"><span class="annottext">ConstructorInfo
+</span><a href="#local-6989586621679395215"><span class="hs-identifier hs-var">info</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-309"></span><span>                         </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ConstructorInfo -&gt; [Type]
+</span><span class="hs-identifier hs-var">D.constructorContext</span></span><span> </span><span class="annot"><span class="annottext">ConstructorInfo
+</span><a href="#local-6989586621679395215"><span class="hs-identifier hs-var">info</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-310"></span><span>                         </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ConstructorInfo -&gt; [Type]
+</span><span class="hs-identifier hs-var">D.constructorFields</span></span><span> </span><span class="annot"><span class="annottext">ConstructorInfo
+</span><a href="#local-6989586621679395215"><span class="hs-identifier hs-var">info</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-311"></span><span>
+</span><span id="line-312"></span><span class="hs-comment">-- Compute a prism's name by prefixing an underscore for normal</span><span>
+</span><span id="line-313"></span><span class="hs-comment">-- constructors and period for operators.</span><span>
+</span><span id="line-314"></span><span class="annot"><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#prismName"><span class="hs-identifier hs-type">prismName</span></a></span><span> </span><span class="hs-glyph">::</span><span>
+</span><span id="line-315"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">Name</span></span><span> </span><span class="hs-comment">{- type constructor        -}</span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-316"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">Name</span></span><span> </span><span class="hs-comment">{- prism name              -}</span><span>
+</span><span id="line-317"></span><span id="prismName"><span class="annot"><span class="annottext">prismName :: Name -&gt; Name
+</span><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#prismName"><span class="hs-identifier hs-var hs-var">prismName</span></a></span></span><span> </span><span id="local-6989586621679395221"><span class="annot"><span class="annottext">Name
+</span><a href="#local-6989586621679395221"><span class="hs-identifier hs-var">n</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-318"></span><span>  </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">Name -&gt; String
+</span><span class="hs-identifier hs-var">nameBase</span></span><span> </span><span class="annot"><span class="annottext">Name
+</span><a href="#local-6989586621679395221"><span class="hs-identifier hs-var">n</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-319"></span><span>    </span><span class="hs-special">[</span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">String -&gt; Name
+forall a. HasCallStack =&gt; String -&gt; a
+</span><span class="hs-identifier hs-var">error</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;prismName: empty name base?&quot;</span></span><span>
+</span><span id="line-320"></span><span>    </span><span id="local-6989586621679395223"><span class="annot"><span class="annottext">nb :: String
+</span><a href="#local-6989586621679395223"><span class="hs-identifier hs-var">nb</span></a></span></span><span class="hs-glyph">@</span><span class="hs-special">(</span><span id="local-6989586621679395224"><span class="annot"><span class="annottext">Char
+</span><a href="#local-6989586621679395224"><span class="hs-identifier hs-var">x</span></a></span></span><span class="annot"><span class="hs-glyph hs-type">:</span></span><span class="annot"><span class="annottext">String
+</span><span class="hs-identifier">_</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">Char -&gt; Bool
+</span><span class="hs-identifier hs-var">isUpper</span></span><span> </span><span class="annot"><span class="annottext">Char
+</span><a href="#local-6989586621679395224"><span class="hs-identifier hs-var">x</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">String -&gt; Name
+</span><span class="hs-identifier hs-var">mkName</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Char -&gt; String -&gt; String
+</span><a href="#local-6989586621679395225"><span class="hs-identifier hs-var">prefix</span></a></span><span> </span><span class="annot"><span class="annottext">Char
+</span><span class="hs-char">'_'</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679395223"><span class="hs-identifier hs-var">nb</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-321"></span><span>             </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><span class="hs-identifier hs-var">otherwise</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">String -&gt; Name
+</span><span class="hs-identifier hs-var">mkName</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Char -&gt; String -&gt; String
+</span><a href="#local-6989586621679395225"><span class="hs-identifier hs-var">prefix</span></a></span><span> </span><span class="annot"><span class="annottext">Char
+</span><span class="hs-char">'.'</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679395223"><span class="hs-identifier hs-var">nb</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-comment">-- operator</span><span>
+</span><span id="line-322"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-323"></span><span>    </span><span class="annot"><a href="#local-6989586621679395225"><span class="hs-identifier hs-type">prefix</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Char</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">String</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">String</span></span><span>
+</span><span id="line-324"></span><span>    </span><span id="local-6989586621679395225"><span class="annot"><span class="annottext">prefix :: Char -&gt; String -&gt; String
+</span><a href="#local-6989586621679395225"><span class="hs-identifier hs-var hs-var">prefix</span></a></span></span><span> </span><span id="local-6989586621679395226"><span class="annot"><span class="annottext">Char
+</span><a href="#local-6989586621679395226"><span class="hs-identifier hs-var">char</span></a></span></span><span> </span><span id="local-6989586621679395227"><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679395227"><span class="hs-identifier hs-var">str</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Char
+</span><a href="#local-6989586621679395226"><span class="hs-identifier hs-var">char</span></a></span><span class="annot"><span class="annottext">Char -&gt; String -&gt; String
+forall a. a -&gt; [a] -&gt; [a]
+</span><span class="hs-glyph hs-var">:</span></span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679395227"><span class="hs-identifier hs-var">str</span></a></span><span>
+</span><span id="line-325"></span><span>
+</span><span id="line-326"></span><span class="hs-comment">-- Construct a tuple type given a list of types.</span><span>
+</span><span id="line-327"></span><span class="annot"><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#toNestedPairT"><span class="hs-identifier hs-type">toNestedPairT</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">TypeQ</span></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">TypeQ</span></span><span>
+</span><span id="line-328"></span><span id="toNestedPairT"><span class="annot"><span class="annottext">toNestedPairT :: [Q Type] -&gt; Q Type
+</span><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#toNestedPairT"><span class="hs-identifier hs-var hs-var">toNestedPairT</span></a></span></span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Q Type -&gt; [Q Type] -&gt; Q Type
+</span><span class="hs-identifier hs-var">appsT</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int -&gt; Q Type
+forall (m :: * -&gt; *). Quote m =&gt; Int -&gt; m Type
+</span><span class="hs-identifier hs-var">tupleT</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">0</span></span><span class="hs-special">)</span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span>
+</span><span id="line-329"></span><span class="annot"><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#toNestedPairT"><span class="hs-identifier hs-var">toNestedPairT</span></a></span><span> </span><span class="hs-special">[</span><span id="local-6989586621679395228"><span class="annot"><span class="annottext">Q Type
+</span><a href="#local-6989586621679395228"><span class="hs-identifier hs-var">x</span></a></span></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Q Type
+</span><a href="#local-6989586621679395228"><span class="hs-identifier hs-var">x</span></a></span><span>
+</span><span id="line-330"></span><span class="annot"><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#toNestedPairT"><span class="hs-identifier hs-var">toNestedPairT</span></a></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679395229"><span class="annot"><span class="annottext">Q Type
+</span><a href="#local-6989586621679395229"><span class="hs-identifier hs-var">x</span></a></span></span><span class="annot"><span class="hs-glyph hs-type">:</span></span><span id="local-6989586621679395230"><span class="annot"><span class="annottext">[Q Type]
+</span><a href="#local-6989586621679395230"><span class="hs-identifier hs-var">xs</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Q Type -&gt; [Q Type] -&gt; Q Type
+</span><span class="hs-identifier hs-var">appsT</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int -&gt; Q Type
+forall (m :: * -&gt; *). Quote m =&gt; Int -&gt; m Type
+</span><span class="hs-identifier hs-var">tupleT</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">2</span></span><span class="hs-special">)</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">Q Type
+</span><a href="#local-6989586621679395229"><span class="hs-identifier hs-var">x</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">[Q Type] -&gt; Q Type
+</span><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#toNestedPairT"><span class="hs-identifier hs-var">toNestedPairT</span></a></span><span> </span><span class="annot"><span class="annottext">[Q Type]
+</span><a href="#local-6989586621679395230"><span class="hs-identifier hs-var">xs</span></a></span><span class="hs-special">]</span><span>
+</span><span id="line-331"></span><span>
+</span><span id="line-332"></span><span class="hs-comment">-- Construct a tuple value given a list of expressions.</span><span>
+</span><span id="line-333"></span><span class="annot"><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#toNestedPairE"><span class="hs-identifier hs-type">toNestedPairE</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">ExpQ</span></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ExpQ</span></span><span>
+</span><span id="line-334"></span><span id="toNestedPairE"><span class="annot"><span class="annottext">toNestedPairE :: [Q Exp] -&gt; Q Exp
+</span><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#toNestedPairE"><span class="hs-identifier hs-var hs-var">toNestedPairE</span></a></span></span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[Q Exp] -&gt; Q Exp
+forall (m :: * -&gt; *). Quote m =&gt; [m Exp] -&gt; m Exp
+</span><span class="hs-identifier hs-var">tupE</span></span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span>
+</span><span id="line-335"></span><span class="annot"><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#toNestedPairE"><span class="hs-identifier hs-var">toNestedPairE</span></a></span><span> </span><span class="hs-special">[</span><span id="local-6989586621679395232"><span class="annot"><span class="annottext">Q Exp
+</span><a href="#local-6989586621679395232"><span class="hs-identifier hs-var">x</span></a></span></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Q Exp
+</span><a href="#local-6989586621679395232"><span class="hs-identifier hs-var">x</span></a></span><span>
+</span><span id="line-336"></span><span class="annot"><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#toNestedPairE"><span class="hs-identifier hs-var">toNestedPairE</span></a></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679395233"><span class="annot"><span class="annottext">Q Exp
+</span><a href="#local-6989586621679395233"><span class="hs-identifier hs-var">x</span></a></span></span><span class="annot"><span class="hs-glyph hs-type">:</span></span><span id="local-6989586621679395234"><span class="annot"><span class="annottext">[Q Exp]
+</span><a href="#local-6989586621679395234"><span class="hs-identifier hs-var">xs</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[Q Exp] -&gt; Q Exp
+forall (m :: * -&gt; *). Quote m =&gt; [m Exp] -&gt; m Exp
+</span><span class="hs-identifier hs-var">tupE</span></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">Q Exp
+</span><a href="#local-6989586621679395233"><span class="hs-identifier hs-var">x</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">[Q Exp] -&gt; Q Exp
+</span><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#toNestedPairE"><span class="hs-identifier hs-var">toNestedPairE</span></a></span><span> </span><span class="annot"><span class="annottext">[Q Exp]
+</span><a href="#local-6989586621679395234"><span class="hs-identifier hs-var">xs</span></a></span><span class="hs-special">]</span><span>
+</span><span id="line-337"></span><span>
+</span><span id="line-338"></span><span class="hs-comment">-- Construct a tuple pattern given a list of patterns.</span><span>
+</span><span id="line-339"></span><span class="annot"><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#toNestedPairP"><span class="hs-identifier hs-type">toNestedPairP</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">PatQ</span></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">PatQ</span></span><span>
+</span><span id="line-340"></span><span id="toNestedPairP"><span class="annot"><span class="annottext">toNestedPairP :: [Q Pat] -&gt; Q Pat
+</span><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#toNestedPairP"><span class="hs-identifier hs-var hs-var">toNestedPairP</span></a></span></span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[Q Pat] -&gt; Q Pat
+forall (m :: * -&gt; *). Quote m =&gt; [m Pat] -&gt; m Pat
+</span><span class="hs-identifier hs-var">tupP</span></span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span>
+</span><span id="line-341"></span><span class="annot"><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#toNestedPairP"><span class="hs-identifier hs-var">toNestedPairP</span></a></span><span> </span><span class="hs-special">[</span><span id="local-6989586621679395235"><span class="annot"><span class="annottext">Q Pat
+</span><a href="#local-6989586621679395235"><span class="hs-identifier hs-var">x</span></a></span></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Q Pat
+</span><a href="#local-6989586621679395235"><span class="hs-identifier hs-var">x</span></a></span><span>
+</span><span id="line-342"></span><span class="annot"><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#toNestedPairP"><span class="hs-identifier hs-var">toNestedPairP</span></a></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679395236"><span class="annot"><span class="annottext">Q Pat
+</span><a href="#local-6989586621679395236"><span class="hs-identifier hs-var">x</span></a></span></span><span class="annot"><span class="hs-glyph hs-type">:</span></span><span id="local-6989586621679395237"><span class="annot"><span class="annottext">[Q Pat]
+</span><a href="#local-6989586621679395237"><span class="hs-identifier hs-var">xs</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[Q Pat] -&gt; Q Pat
+forall (m :: * -&gt; *). Quote m =&gt; [m Pat] -&gt; m Pat
+</span><span class="hs-identifier hs-var">tupP</span></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">Q Pat
+</span><a href="#local-6989586621679395236"><span class="hs-identifier hs-var">x</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">[Q Pat] -&gt; Q Pat
+</span><a href="Control.Lens.Grammar.Internal.NestedPrismTH.html#toNestedPairP"><span class="hs-identifier hs-var">toNestedPairP</span></a></span><span> </span><span class="annot"><span class="annottext">[Q Pat]
+</span><a href="#local-6989586621679395237"><span class="hs-identifier hs-var">xs</span></a></span><span class="hs-special">]</span><span>
+</span><span id="line-343"></span></pre></body></html>
