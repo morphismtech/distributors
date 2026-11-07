@@ -38,6 +38,7 @@ module Control.Lens.Monocle
   , indexComonocle
   , zipWithComonocle
   , enumerated
+  , enumed
     -- * Comonocular
   , Comonocular (..), runComonocular
   ) where
@@ -258,6 +259,9 @@ Identity 2
 -}
 enumerated :: Enumerable f => Comonocle (f a) (f b) a b
 enumerated = unwrapPafb . enumerably . WrapPafb
+
+enumed :: (Enum a, Bounded a) => Comonocle a a () ()
+enumed = iso (\x -> (x,())) (\(x,()) -> x) . enumerated
 
 {- | `Comonocular` provides a concrete representation of `Comonocle`s,
 by an `Enumerable` sum of copies.
