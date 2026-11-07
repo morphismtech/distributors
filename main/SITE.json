@@ -1,0 +1,10 @@
+{
+  "commit": "98d4491ae193182d979093bfd33f98a68cc462ff",
+  "built": "2026-11-07 22:24 UTC",
+  "packages": [
+    {
+      "name": "distributors",
+      "synopsis": "Unifying Parsers, Printers & Grammars"
+    }
+  ]
+}
