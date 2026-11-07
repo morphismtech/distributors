@@ -298,7 +298,7 @@ jsonObjectSpec = describe "jsonObject" $ do
       ]
     roundTrip (object ["yes" .= (2 :: Int), "no" .= (1 :: Int)])
       (Votes (2, [(False, 1)]))
-  it "types numeric keys as template literals" $ do
+  it "types number keys as template literals" $ do
     declares (type (Box (Map Int Bool)))
       [ "export type Box_Map_Int_Bool = { [key: `${number}`]: boolean };"
       ]
