@@ -20,10 +20,14 @@ module Control.Lens.Diopter
   , optioned
   , manied
   , homogenized
+  , zipDiopter
+  , zipWithDiopter
+  , transposeDiopter
     -- * Dioptrice
   , Dioptrice (..), runDioptrice
   ) where
 
+import Control.Applicative (Alternative)
 import Control.Lens
 import Control.Lens.Internal.Profunctor
 import Data.Profunctor.Distributor
@@ -85,6 +89,40 @@ countable sum of countable products.
 -}
 homogenized :: Homogeneous t => Diopter (t a) (t b) a b
 homogenized = unwrapPafb . homogeneously . WrapPafb
+
+{- | Zip sources of `ADiopter` in the positions of a `Traversable`,
+when they have the same shape, or else `empty`.
+
+>>> zipDiopter manied (Just . sum) [[1, 2], [3, 4], [5, 6 :: Int]]
+Just [9,12]
+>>> zipDiopter manied (Just . sum) [[1, 2], [3 :: Int]]
+Nothing
+-}
+zipDiopter
+  :: (Traversable f, Alternative g)
+  => ADiopter s t a b -> (f a -> g b) -> f s -> g t
+zipDiopter dio f = withDiopter dio $ \split merge ->
+  fmap merge . zipHomogeneous f . fmap split
+
+{- | Zip two sources of `ADiopter`, when they have the same shape.
+
+>>> zipWithDiopter optioned (+) (Just 1) (Just 2 :: Maybe Int)
+Just (Just 3)
+>>> zipWithDiopter optioned (+) (Just 1) (Nothing :: Maybe Int)
+Nothing
+-}
+zipWithDiopter :: ADiopter s t a b -> (a -> a -> b) -> s -> s -> Maybe t
+zipWithDiopter dio f s0 s1 =
+  zipDiopter dio (\(Par1 a0 :*: Par1 a1) -> Just (f a0 a1)) (Par1 s0 :*: Par1 s1)
+
+{- | Transpose sources of `ADiopter` in the positions of a `Traversable`,
+when they have the same shape.
+
+>>> transposeDiopter manied [[1, 2, 3], [4, 5, 6 :: Int]]
+Just [[1,4],[2,5],[3,6]]
+-}
+transposeDiopter :: Traversable f => ADiopter s t a (f a) -> f s -> Maybe t
+transposeDiopter dio = zipDiopter dio Just
 
 {- | A `Dioptrice` provides efficient access
 to some pair of functions that make up a `Diopter`.

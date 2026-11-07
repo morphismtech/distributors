@@ -36,6 +36,12 @@ module Control.Lens.Monocle
   , altComonocle
   , crossComonocle
   , indexComonocle
+  , countComonocle
+  , toEnumComonocle
+  , succComonocle
+  , predComonocle
+  , enumerateComonocle
+  , zipComonocle
   , zipWithComonocle
   , enumerated
   , enumed
@@ -43,6 +49,7 @@ module Control.Lens.Monocle
   , Comonocular (..), runComonocular
   ) where
 
+import Control.Applicative (Alternative)
 import Control.Lens hiding (Traversing)
 import Control.Lens.Internal.Profunctor
 import Data.Distributive
@@ -58,9 +65,6 @@ import Numeric.Natural (Natural)
 -- >>> import Control.Lens
 -- >>> import Data.Complex
 -- >>> import Data.Functor.Identity
-
--- $setup
--- >>> import Data.Complex
 
 {- | `Monocle`s are an optic that generalizes
 `Control.Lens.Traversal.Traversal`s & `Control.Lens.Grate.Grate`s.
@@ -248,9 +252,79 @@ Nothing
 -}
 zipWithComonocle
   :: AComonocle s t a b -> (a -> a -> b) -> s -> s -> Maybe t
-zipWithComonocle mon f s0 s1 = runZipporah
-  (mapComonocle mon (Zipporah (\(Par1 a0 :*: Par1 a1) -> Just (f a0 a1))))
-  (Par1 s0 :*: Par1 s1)
+zipWithComonocle mon f s0 s1 =
+  zipComonocle mon (\(Par1 a0 :*: Par1 a1) -> Just (f a0 a1)) (Par1 s0 :*: Par1 s1)
+
+{- | Zip sources of `AComonocle` in the positions of a `Traversable`,
+when they all hold the same copy, or else `empty`.
+
+>>> zipComonocle (altComonocle id id) (Just . sum) [Left 1, Left 2, Left 3 :: Either Int Int]
+Just (Left 6)
+>>> zipComonocle (altComonocle id id) (Just . sum) [Left 1, Right 2 :: Either Int Int]
+Nothing
+-}
+zipComonocle
+  :: (Traversable f, Alternative g)
+  => AComonocle s t a b -> (f a -> g b) -> f s -> g t
+zipComonocle mon f = runZipporah (mapComonocle mon (Zipporah f))
+
+{- | How many copies `AComonocle` has, like the size of a `Bounded` `Enum`.
+It diverges for infinitely many copies, & takes time linear in their number.
+
+>>> countComonocle (enumed @Ordering)
+3
+-}
+countComonocle :: AComonocle s t a b -> Natural
+countComonocle mon = withComonocle mon $ \split _ -> copies split
+  where
+    copies :: forall f x y. Enumerable f => (x -> f y) -> Natural
+    copies _ = case enumerably (pure () :: Indexing () ()) :: Indexing (f ()) (f ()) of
+      Indexing count _ _ -> count
+
+{- | The copy of `AComonocle` at an index, holding a focus, if there is one,
+like `toEnum`, & inverse to `indexComonocle`.
+
+>>> toEnumComonocle enumed () 2 :: Maybe Ordering
+Just GT
+>>> toEnumComonocle enumed () 3 :: Maybe Ordering
+Nothing
+-}
+toEnumComonocle :: AComonocle s t a b -> b -> Natural -> Maybe t
+toEnumComonocle mon b copy = withComonocle mon $ \_ merge -> merge <$> toEnumerable b copy
+
+{- | The next copy of `AComonocle`, holding the same focus,
+if there is one, like `succ`.
+
+>>> succComonocle enumed EQ
+Just GT
+>>> succComonocle enumed GT
+Nothing
+-}
+succComonocle :: AComonocle s s a a -> s -> Maybe s
+succComonocle mon s = withComonocle mon $ \split merge -> merge <$> succEnumerable (split s)
+
+{- | The previous copy of `AComonocle`, holding the same focus,
+if there is one, like `pred`.
+
+>>> predComonocle enumed EQ
+Just LT
+>>> predComonocle enumed LT
+Nothing
+-}
+predComonocle :: AComonocle s s a a -> s -> Maybe s
+predComonocle mon s = withComonocle mon $ \split merge -> merge <$> predEnumerable (split s)
+
+{- | The copies of `AComonocle` from one onward, holding the same focus,
+like `enumFrom`.
+
+>>> enumerateComonocle enumed False
+[False,True]
+>>> enumerateComonocle (altComonocle id id) (Left 'x' :: Either Char Char)
+[Left 'x',Right 'x']
+-}
+enumerateComonocle :: AComonocle s s a a -> s -> [s]
+enumerateComonocle mon s =
+  withComonocle mon $ \split merge -> merge <$> enumerateFrom (split s)
 
 {- | The `Comonocle` of an `Enumerable` sum's copy.
 
@@ -260,6 +334,12 @@ Identity 2
 enumerated :: Enumerable f => Comonocle (f a) (f b) a b
 enumerated = unwrapPafb . enumerably . WrapPafb
 
+{- | The `Comonocle` of a `Bounded` `Enum`, as copies of @()@,
+numbered by `fromEnum` from `minBound`.
+
+>>> iview (indexComonocle enumed) True
+(1,())
+-}
 enumed :: (Enum a, Bounded a) => Comonocle a a () ()
 enumed = iso (\x -> (x,())) (\(x,()) -> x) . enumerated
 

@@ -9,6 +9,9 @@ module Properties.Homogeneous (homogeneousProperties) where
 
 import Control.Applicative
 import Control.Arrow ((+++))
+import Control.Lens (iview)
+import Control.Lens.Diopter
+import Control.Lens.Monocle
 import Control.Monad ((<=<))
 import Data.Functor.Compose (Compose (..))
 import Data.Foldable (toList)
@@ -267,6 +270,22 @@ homogeneousProperties = do
           indexing (rmap (either id absurd) p)
             === indexing (unleft (lmap (either id absurd) p) :: Indexing Bool Int)
   zipporahLaws
+  describe "Comonocle & Diopter combinators" $ do
+    prop "countComonocle enumed is the number of values" $
+      countComonocle (enumed @Int8) === 256 .&&. countComonocle (enumed @Bool) === 2
+    prop "toEnumComonocle enumed inverts indexComonocle" $ \(e :: Int8) ->
+      toEnumComonocle enumed () (fst (iview (indexComonocle enumed) e)) === Just e
+    prop "succComonocle enumed is succ, but at maxBound" $ \(e :: Int8) ->
+      succComonocle enumed e === if e == maxBound then Nothing else Just (succ e)
+    prop "predComonocle enumed is pred, but at minBound" $ \(e :: Int8) ->
+      predComonocle enumed e === if e == minBound then Nothing else Just (pred e)
+    prop "enumerateComonocle enumed is enumFrom" $ \(e :: Ordering) ->
+      enumerateComonocle enumed e === [e ..]
+    prop "zipDiopter homogenized is zipHomogeneous" $ \(xss :: [[Int]]) ->
+      zipDiopter homogenized (Just . sum) ([1, 2] : xss)
+        === zipHomogeneous (Just . sum) ([1, 2 :: Int] : xss)
+    prop "zipWithDiopter manied is zipWithHomogeneous" $ \(xs :: [Int]) ys ->
+      zipWithDiopter manied (+) xs ys === zipWithHomogeneous (+) xs ys
   describe "Enumerable & Homogeneous" $ do
     it "numbers copies left to right" $
       map fromEnumerable [(LT, ()), (EQ, ()), (GT, ())] `shouldBe` [0, 1, 2]
