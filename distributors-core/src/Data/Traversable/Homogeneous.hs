@@ -11,8 +11,14 @@ Portability : non-portable
 module Data.Traversable.Homogeneous
   ( -- * Homogeneous
     Homogeneous (..)
+  , zipWithHomogeneous
     -- * Enumerable
   , Enumerable (..)
+  , extractEnumerable
+  , indexEnumerable
+    -- * Counting & Zipping
+  , Counting (..)
+  , Zipping (..)
   ) where
 
 import Control.Applicative
@@ -26,6 +32,8 @@ import qualified Data.Functor.Sum as Functor
 import qualified Data.Monoid as Monoid
 import Data.Ord (Down (..))
 import qualified Data.Semigroup as Semigroup
+import Data.Monoid.Disjunctive
+import Data.Profunctor (Cochoice (..), Forget (..))
 import Data.Profunctor.Monoidal
 import Data.Proxy
 import Data.Sequence (Seq)
@@ -34,8 +42,11 @@ import Data.Tree (Tree (..))
 import Data.Vector (Vector)
 import Data.Void
 import GHC.Generics
+import Numeric.Natural (Natural)
+import Witherable (Filterable (..))
 
 import Data.Profunctor.Distributor
+import Data.Profunctor.Filtrator
 import Data.Profunctor.Monoidal.Cocartesian
 
 {- | A class of `Homogeneous`
@@ -44,14 +55,14 @@ countable sums of countable products.
 class Traversable t => Homogeneous t where
   {- | Sequences actions `homogeneously`.
 
-  prop> homogeneously @Maybe = optionalP
-  prop> homogeneously @[] = manyP
+  @prop> homogeneously @Maybe = optionalP@
+  @prop> homogeneously @[] = manyP@
 
   Any `Traversable` & `Data.Distributive.Distributive` countable product
   can be given a default implementation for the `homogeneously` method
   with `ditraverse`.
 
-  prop> homogeneously = ditraverse
+  @prop> homogeneously = ditraverse@
 
   And any user-defined homogeneous algebraic datatype has
   a default instance for `Homogeneous`, by deriving `Generic1`.
@@ -166,12 +177,12 @@ instance Homogeneous Tree where
 {- | A class of `Enumerable` countable sums of single copies,
 which are `Homogeneous`, & sequenced by sums alone.
 
-prop> enumerably @Identity = dimap runIdentity Identity
+@prop> enumerably @Identity = dimap runIdentity Identity@
 
 Every `Enumerable` is sequenced `enumerably` as it's sequenced
 `homogeneously`, by a `Distributor`.
 
-prop> enumerably = homogeneously
+@prop> enumerably = homogeneously@
 
 And any user-defined enumerable algebraic datatype has
 a default instance for `Enumerable`, by deriving `Generic1`.
@@ -243,3 +254,87 @@ instance Enumerable t => Enumerable (M1 i c t) where
   enumerably = dimap unM1 M1 . enumerably
 instance Enumerable f => Enumerable (Rec1 f) where
   enumerably = dimap unRec1 Rec1 . enumerably
+
+-- | The copy which an `Enumerable` sum holds.
+extractEnumerable :: Enumerable f => f a -> a
+extractEnumerable = runForget (enumerably (Forget id))
+
+-- | Which copy an `Enumerable` sum holds, numbered from 0, left to right.
+indexEnumerable :: Enumerable f => f a -> Natural
+indexEnumerable =
+  case enumerably (Counting 1 (const 0)) of Counting _ which -> which
+
+{- | Zip two `Homogeneous` structures, when they have the same shape.
+
+>>> zipWithHomogeneous (+) [1, 2] [3, 4 :: Int]
+Just [4,6]
+>>> zipWithHomogeneous (+) [1] [3, 4 :: Int]
+Nothing
+-}
+zipWithHomogeneous
+  :: Homogeneous t => (a -> a -> b) -> t a -> t a -> Maybe (t b)
+zipWithHomogeneous f =
+  runZipping (homogeneously (Zipping (\a0 a1 -> Just (f a0 a1))))
+
+{- | `Counting` counts the index of an `Enumerable`. -}
+data Counting s t = Counting Natural (s -> Natural)
+instance Profunctor Counting where
+  dimap f _ (Counting count which) = Counting count (which . f)
+instance Functor (Counting s) where
+  fmap _ (Counting count which) = Counting count which
+instance Contravariant (Counting s) where
+  contramap _ (Counting count which) = Counting count which
+instance Applicative (Counting s) where
+  pure _ = Counting 1 (const 0)
+  Counting count0 which0 <*> Counting count1 which1 = Counting
+    (count0 * count1)
+    (\s -> which0 s * count1 + which1 s)
+instance CocartesianMonoidal Counting where
+  zeroP = Counting 0 absurd
+  Counting count0 which0 >+< Counting count1 which1 = Counting
+    (count0 + count1)
+    (either which0 ((count0 +) . which1))
+instance Cochoice Counting where
+  unleft (Counting count which) = Counting count (which . Left)
+  unright (Counting count which) = Counting count (which . Right)
+
+-- | `Zipping` zips two sources, when they have the same shape.
+newtype Zipping s t = Zipping {runZipping :: s -> s -> Maybe t}
+instance Profunctor Zipping where
+  dimap f g (Zipping z) = Zipping (\s0 s1 -> g <$> z (f s0) (f s1))
+instance Functor (Zipping s) where
+  fmap = rmap
+instance Applicative (Zipping s) where
+  pure t = Zipping (\_ _ -> Just t)
+  Zipping zf <*> Zipping zx = Zipping (\s0 s1 -> zf s0 s1 <*> zx s0 s1)
+instance Alternative (Zipping s) where
+  empty = Zipping (\_ _ -> Nothing)
+  Zipping z0 <|> Zipping z1 = Zipping (\s0 s1 -> z0 s0 s1 <|> z1 s0 s1)
+instance Monad (Zipping s) where
+  Zipping z >>= f = Zipping (\s0 s1 -> z s0 s1 >>= \t -> runZipping (f t) s0 s1)
+instance Filterable (Zipping s) where
+  mapMaybe f (Zipping z) = Zipping (\s0 s1 -> z s0 s1 >>= f)
+instance DisjunctiveMonoid (Zipping s t) where
+  falseP = empty
+  (>|<) = (<|>)
+instance Choice Zipping where
+  left' (Zipping z) = Zipping $ \s0 s1 -> case (s0, s1) of
+    (Left a0, Left a1) -> Left <$> z a0 a1
+    _ -> Nothing
+  right' (Zipping z) = Zipping $ \s0 s1 -> case (s0, s1) of
+    (Right a0, Right a1) -> Right <$> z a0 a1
+    _ -> Nothing
+instance Cochoice Zipping where
+  unleft (Zipping z) = Zipping $ \a0 a1 ->
+    z (Left a0) (Left a1) >>= either Just (const Nothing)
+  unright (Zipping z) = Zipping $ \a0 a1 ->
+    z (Right a0) (Right a1) >>= either (const Nothing) Just
+instance CocartesianMonoidal Zipping where
+  zeroP = Zipping absurd
+  Zipping z0 >+< Zipping z1 = Zipping $ \case
+    Left s0 -> either (fmap Left . z0 s0) (const Nothing)
+    Right s1 -> either (const Nothing) (fmap Right . z1 s1)
+instance CocartesianChoice Zipping
+instance Distributor Zipping
+instance Alternator Zipping
+instance Filtrator Zipping

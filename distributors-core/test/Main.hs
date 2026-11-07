@@ -95,6 +95,8 @@ doctests = do
     modulePaths =
       [ "src/Control/Lens/Grammar.hs"
       , "src/Data/Profunctor/Separator.hs"
+      , "src/Data/Traversable/Homogeneous.hs"
+      , "src/Control/Lens/Monocle.hs"
       ]
     sourceDirs =
       [ "-isrc"

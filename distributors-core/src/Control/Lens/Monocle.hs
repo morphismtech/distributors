@@ -46,13 +46,15 @@ import Control.Lens hiding (Traversing)
 import Control.Lens.Internal.Profunctor
 import Data.Distributive
 import Data.Functor.Compose
-import Data.Profunctor (Forget (..))
 import Data.Profunctor.Monoidal
 import Data.Profunctor.Monoidal.Cocartesian
 import Data.Traversable.Homogeneous
 import Data.Void (Void, absurd)
 import GHC.Generics (Par1 (..), V1, (:+:) (..))
 import Numeric.Natural (Natural)
+
+-- $setup
+-- >>> import Data.Complex
 
 {- | `Monocle`s are an optic that generalizes
 `Control.Lens.Traversal.Traversal`s & `Control.Lens.Grate.Grate`s.
@@ -110,8 +112,8 @@ crossMonocle x y p =
 {- | Build a `Monocle` from a `Traversable` & `Distributive`,
 homogeneous, countable product.
 
-prop> traverse = ditraversed
-prop> cotraversed = ditraversed
+@prop> traverse = ditraversed@
+@prop> cotraversed = ditraversed@
 -}
 ditraversed :: (Traversable g, Distributive g) => Monocle (g a) (g b) a b
 ditraversed = unwrapPafb . ditraverse . WrapPafb
@@ -216,7 +218,7 @@ crossComonocle x y =
   withComonocle y $ \g h ->
     comonocle $ Comonocular
       (\(s,u) -> Compose (fmap (\a -> fmap (a,) (g u)) (e s)))
-      (\(Compose bds) -> (f (fmap (fst . copied) bds), h (fmap snd (copied bds))))
+      (\(Compose bds) -> (f (fmap (fst . extractEnumerable) bds), h (fmap snd (extractEnumerable bds))))
 
 {- | The `Control.Lens.Indexed.IndexedLens` of `AComonocle`,
 indexed by which copy is held, numbered from 0, left to right.
@@ -227,7 +229,7 @@ Numbering diverges past a summand of infinitely many copies.
 -}
 indexComonocle :: AComonocle s t a b -> IndexedLens Natural s t a b
 indexComonocle mon = withComonocle mon $ \split merge ->
-  ilens (\s -> let as = split s in (copyIndex as, copied as))
+  ilens (\s -> let as = split s in (indexEnumerable as, extractEnumerable as))
     (\s b -> merge (b <$ split s))
 
 {- | Zip two sources of `AComonocle`, when they hold the same copy,
@@ -272,31 +274,3 @@ instance CocartesianMonoidal (Comonocular a b) where
 runComonocular
   :: CocartesianMonoidal p => Comonocular a b s t -> p a b -> p s t
 runComonocular (Comonocular split merge) = dimap split merge . enumerably
-
--- The copy which an `Enumerable` sum holds.
-copied :: Enumerable f => f a -> a
-copied = runForget (enumerably (Forget id))
-
--- Which copy an `Enumerable` sum holds, numbered from 0, left to right.
-copyIndex :: Enumerable f => f a -> Natural
-copyIndex = case enumerably (Counting 1 (const 0)) of Counting _ which -> which
-
--- How many copies, & which copy is held.
-data Counting s t = Counting Natural (s -> Natural)
-instance Profunctor Counting where
-  dimap f _ (Counting count which) = Counting count (which . f)
-instance CocartesianMonoidal Counting where
-  zeroP = Counting 0 absurd
-  Counting count0 which0 >+< Counting count1 which1 = Counting
-    (count0 + count1)
-    (either which0 ((count0 +) . which1))
-
--- Zip two sources holding the same copy.
-newtype Zipping s t = Zipping {runZipping :: s -> s -> Maybe t}
-instance Profunctor Zipping where
-  dimap f g (Zipping z) = Zipping (\s0 s1 -> g <$> z (f s0) (f s1))
-instance CocartesianMonoidal Zipping where
-  zeroP = Zipping absurd
-  Zipping z0 >+< Zipping z1 = Zipping $ \case
-    Left s0 -> either (fmap Left . z0 s0) (const Nothing)
-    Right s1 -> either (const Nothing) (fmap Right . z1 s1)
