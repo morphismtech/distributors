@@ -155,8 +155,7 @@ jobs:
 
       - name: Build the documentation
         run: |
-          cabal haddock-project --hackage \
-            --haddock-hyperlink-source --haddock-quickjump --output=docs
+          cabal haddock-project --hackage --output=docs
 
       - name: Upload the documentation
         uses: actions/upload-pages-artifact@v3

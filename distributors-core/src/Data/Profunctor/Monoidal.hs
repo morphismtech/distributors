@@ -269,7 +269,7 @@ arrP :: (Monoidal p, Strong p) => (a -> b) -> p a b
 arrP f = fmap f idP
 
 fixP :: (Monoidal p, Strong p, Costrong p) => p (a -> a) a
-fixP = let dup x = (x,x) in unfirst (arrP (uncurry ((.) dup)))
+fixP = let dup x = (x,x) in unfirst (arrP (uncurry (dup .)))
 
 {- | t'Monoidally' derives instances of a `Monoidal` `Profunctor`,
 via `meander` for `Data.Profunctor.Traversing.Traversing`,
