@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+### New APIs
+
+- `Enumerable`, in `Data.Traversable.Homogeneous`, of `Homogeneous`
+  countable sums of single copies, sequenced `enumerably` by
+  `CocartesianMonoidal`s, with generic defaults by `Generic1`.
+- `Comonocle`s, in `Control.Lens.Monocle`, dual to `Monocle`s by sums:
+  `Comonocle'`, `comonocle`, `enumerated`, `enumBounded`, & concrete
+  `Comonocular`s, with `runComonocular`.
+- `WrappedPafb f p` is `CocartesianMonoidal` for any `Functor f`.
+
 ### Breaking Changes
 
 - `Operator`'s `Infix`, `Prefix` & `Postfix` take `APrism`s, rather than

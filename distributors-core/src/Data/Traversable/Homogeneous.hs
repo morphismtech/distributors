@@ -11,6 +11,8 @@ Portability : non-portable
 module Data.Traversable.Homogeneous
   ( -- * Homogeneous
     Homogeneous (..)
+    -- * Enumerable
+  , Enumerable (..)
   ) where
 
 import Control.Applicative
@@ -141,3 +143,68 @@ instance Homogeneous Complex where
   homogeneously p = dimap2 realPart imagPart (:+) p p
 instance Homogeneous Tree where
   homogeneously p = dimap2 rootLabel subForest Node p (manyP (homogeneously p))
+
+{- | A class of `Enumerable` countable sums of single copies,
+which are `Homogeneous`, & sequenced by sums alone.
+
+prop> enumerably @Identity = dimap runIdentity Identity
+
+Every `Enumerable` is sequenced `enumerably` as it's sequenced
+`homogeneously`, by a `Distributor`.
+
+prop> enumerably = homogeneously
+
+And any user-defined enumerable algebraic datatype has
+a default instance for `Enumerable`, by deriving `Generic1`.
+-}
+class Homogeneous f => Enumerable f where
+  {- | Sequences an action on the copy which a sum holds. -}
+  enumerably :: CocartesianMonoidal p => p a b -> p (f a) (f b)
+  default enumerably
+    :: (Generic1 f, Enumerable (Rep1 f), CocartesianMonoidal p)
+    => p a b -> p (f a) (f b)
+  enumerably = dimap from1 to1 . enumerably
+instance Enumerable Par1 where
+  enumerably = dimap unPar1 Par1
+instance Enumerable Identity where
+  enumerably = dimap runIdentity Identity
+instance Enumerable Monoid.Dual where
+  enumerably = dimap Monoid.getDual Monoid.Dual
+instance Enumerable Monoid.Product where
+  enumerably = dimap Monoid.getProduct Monoid.Product
+instance Enumerable Monoid.Sum where
+  enumerably = dimap Monoid.getSum Monoid.Sum
+instance Enumerable (Tagged s) where
+  enumerably = dimap unTagged Tagged
+instance (Enumerable s, Enumerable t)
+  => Enumerable (s :.: t) where
+    enumerably = dimap unComp1 Comp1 . enumerably . enumerably
+instance (Enumerable s, Enumerable t)
+  => Enumerable (Compose s t) where
+    enumerably = dimap getCompose Compose . enumerably . enumerably
+instance Enumerable V1 where
+  enumerably _ = dimap (\case) (\case) zeroP
+instance Enumerable (K1 i Void) where
+  enumerably _ = dimap unK1 K1 zeroP
+instance Enumerable (Const Void) where
+  enumerably _ = dimap getConst Const zeroP
+instance (Enumerable s, Enumerable t)
+  => Enumerable (s :+: t) where
+    enumerably p = dialt
+      (\case {L1 s -> Left s; R1 t -> Right t})
+      L1
+      R1
+      (enumerably p)
+      (enumerably p)
+instance (Enumerable s, Enumerable t)
+  => Enumerable (Functor.Sum s t) where
+    enumerably p = dialt
+      (\case {Functor.InL s -> Left s; Functor.InR t -> Right t})
+      Functor.InL
+      Functor.InR
+      (enumerably p)
+      (enumerably p)
+instance Enumerable t => Enumerable (M1 i c t) where
+  enumerably = dimap unM1 M1 . enumerably
+instance Enumerable f => Enumerable (Rec1 f) where
+  enumerably = dimap unRec1 Rec1 . enumerably

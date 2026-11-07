@@ -25,12 +25,25 @@ module Control.Lens.Monocle
   , forevered
     -- * Monocular
   , Monocular (..), runMonocular
+    -- * Comonocle
+  , Comonocle
+  , Comonocle'
+  , comonocle
+  , enumerated
+  , enumBounded
+    -- * Comonocular
+  , Comonocular (..), runComonocular
   ) where
 
 import Control.Lens hiding (Traversing)
 import Control.Lens.Internal.Profunctor
 import Data.Distributive
+import Data.List.NonEmpty (NonEmpty (..))
 import Data.Profunctor.Monoidal
+import Data.Profunctor.Monoidal.Cocartesian
+import Data.Traversable.Homogeneous
+import Data.Void (Void, absurd)
+import GHC.Generics (V1, (:+:) (..))
 
 {- | `Monocle`s are an optic that generalizes
 `Control.Lens.Traversal.Traversal`s & `Control.Lens.Grate.Grate`s.
@@ -103,3 +116,67 @@ instance Applicative (Monocular a b s) where
 {- | Run a `Monocular` on a `Monoidal` `Profunctor`. -}
 runMonocular :: Monoidal p => Monocular a b s t -> p a b -> p s t
 runMonocular (Monocular k) p = k $ \f -> lmap f p
+
+{- | `Comonocle`s are an optic dual to `Monocle`s, by sums,
+which focus on the one copy that an `Enumerable` sum holds.
+
+Every `Control.Lens.Iso.Iso` is a `Comonocle`.
+
+`Comonocle`s are isomorphic to `Comonocular`s.
+-}
+type Comonocle s t a b = forall p f.
+  (CocartesianMonoidal p, Functor f)
+    => p a (f b) -> p s (f t)
+
+-- | A simple `Comonocle`.
+type Comonocle' s a = Comonocle s s a a
+
+{- | Build a `Comonocle` from a concrete `Comonocular`. -}
+comonocle :: Comonocular a b s t -> Comonocle s t a b
+comonocle mon = unwrapPafb . runComonocular mon . WrapPafb
+
+{- | The `Comonocle` of an `Enumerable` sum's copy.
+
+>>> over enumerated (+ 1) (Identity 1)
+Identity 2
+-}
+enumerated :: Enumerable f => Comonocle (f a) (f b) a b
+enumerated = unwrapPafb . enumerably . WrapPafb
+
+{- | The `Comonocle` of a bounded enumeration, as a sum of its values,
+each of which holds nothing.
+-}
+enumBounded :: (Enum a, Bounded a) => Comonocle' a ()
+enumBounded p = values (minBound :| drop 1 [minBound .. maxBound])
+  where
+    value a = dimap (const ()) (fmap (const a)) p
+    values = \case
+      a :| [] -> value a
+      a :| (b : others) -> dialt
+        (\x -> if fromEnum x == fromEnum a then Left x else Right x)
+        id
+        id
+        (value a)
+        (values (b :| others))
+
+{- | `Comonocular` provides a concrete representation of `Comonocle`s,
+by an `Enumerable` sum of copies.
+-}
+data Comonocular a b s t where
+  Comonocular
+    :: Enumerable f
+    => (s -> f a)
+    -> (f b -> t)
+    -> Comonocular a b s t
+instance Profunctor (Comonocular a b) where
+  dimap f g (Comonocular split merge) = Comonocular (split . f) (g . merge)
+instance CocartesianMonoidal (Comonocular a b) where
+  zeroP = Comonocular (absurd :: Void -> V1 a) (\case)
+  Comonocular split0 merge0 >+< Comonocular split1 merge1 = Comonocular
+    (either (L1 . split0) (R1 . split1))
+    (\case L1 x -> Left (merge0 x); R1 y -> Right (merge1 y))
+
+{- | Run a `Comonocular` on a `CocartesianMonoidal` `Profunctor`. -}
+runComonocular
+  :: CocartesianMonoidal p => Comonocular a b s t -> p a b -> p s t
+runComonocular (Comonocular split merge) = dimap split merge . enumerably
