@@ -19,6 +19,8 @@ module Data.Profunctor.Monoidal
   , pureP, asEmpty, (>:<), snocP, replicateP, onlyOne
     -- * Monoidal & Strong
   , idP, arrP
+    -- * Monoidal, Strong & Costrong
+  , fixP
     -- * Monoidal, Choice & Strong
   , meander, traverseP, foldP
     -- * Deriving via Monoidal
@@ -265,6 +267,9 @@ prop> arrP f = rmap f idP = lmap f idP
 -}
 arrP :: (Monoidal p, Strong p) => (a -> b) -> p a b
 arrP f = fmap f idP
+
+fixP :: (Monoidal p, Strong p, Costrong p) => p (a -> a) a
+fixP = let dup x = (x,x) in unfirst (arrP (uncurry ((.) dup)))
 
 {- | t'Monoidally' derives instances of a `Monoidal` `Profunctor`,
 via `meander` for `Data.Profunctor.Traversing.Traversing`,
