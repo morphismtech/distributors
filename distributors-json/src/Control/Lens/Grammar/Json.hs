@@ -118,7 +118,7 @@ module Control.Lens.Grammar.Json
   , JsonStr (..)
     -- * Types
   , JsonType (..)
-  , JsonElement (..)
+  , JsonElements (..)
   , JsonProperty (..)
   , jsonType
   , jsonTsDeclarations
@@ -1590,7 +1590,7 @@ printProperty key p a =
 
 {- | The type of JSON values, which a grammar describes,
 of rules by their names, in a `Bnf`, as `jsonType` describes them.
-It's the union of its alternatives, so that `mempty` is the type of
+It's the union of its alternatives, so that `falseP` is the type of
 no values.
 -}
 data JsonType
@@ -1599,19 +1599,22 @@ data JsonType
   | JsonBoolean -- ^ @true@ or @false@
   | JsonNumber -- ^ numbers
   | JsonString -- ^ strings
-  | JsonNumeric -- ^ strings of numbers
+  | JsonNumeric JsonType -- ^ the strings of a type, of numbers
   | JsonStringLiteral Text -- ^ a string
-  | JsonArray JsonType -- ^ arrays of a type
-  | JsonTuple [JsonElement] -- ^ arrays of elements, in order
+  | JsonSubtype JsonType -- ^ some values of a type
+  | JsonTuple JsonElements -- ^ arrays of elements
   | JsonObject [JsonProperty] -- ^ objects of properties
   | JsonUnion [JsonType] -- ^ values of any of some types
   deriving stock (Eq, Ord, Show, Read)
 
--- | An element of a `JsonTuple`.
-data JsonElement
-  = JsonRequired JsonType -- ^ an element
-  | JsonOptional JsonType -- ^ an element, or none
-  | JsonRest JsonType -- ^ any elements
+-- | The elements of a `JsonTuple`, a regular expression of their types.
+data JsonElements
+  = JsonElement JsonType -- ^ an element
+  | JsonElements JsonElements -- ^ elements, repeated any number of times
+  | JsonElements1 JsonElements -- ^ elements, repeated at least once
+  | JsonOptional JsonElements -- ^ elements, or none
+  | JsonSequence [JsonElements] -- ^ elements, in order
+  | JsonAlternate [JsonElements] -- ^ elements of any of some alternatives
   deriving stock (Eq, Ord, Show, Read)
 
 -- | A property of a `JsonObject`.
@@ -1622,10 +1625,9 @@ data JsonProperty
   -- ^ the rest of the properties, by the types of their keys & values
   deriving stock (Eq, Ord, Show, Read)
 
-instance Semigroup JsonType where
-  a <> b = jsonUnion [a, b]
-instance Monoid JsonType where
-  mempty = JsonUnion []
+instance DisjunctiveMonoid JsonType where
+  falseP = JsonUnion []
+  a >|< b = jsonUnion [a, b]
 
 -- | A union, of the alternatives of some types.
 jsonUnion :: [JsonType] -> JsonType
@@ -1636,6 +1638,63 @@ jsonUnion types = case nub (concatMap flatten types) of
     flatten = \case
       JsonUnion ts -> ts
       t -> [t]
+
+jsonSubtype :: JsonType -> JsonType
+jsonSubtype = \case
+  JsonUnion [] -> falseP
+  t@(JsonSubtype _) -> t
+  t -> JsonSubtype t
+
+instance Semigroup JsonElements where
+  JsonAlternate [] <> _ = falseP
+  _ <> JsonAlternate [] = falseP
+  JsonElements a <> b | a == b = plusK a
+  a <> JsonElements b | a == b = plusK a
+  a <> b = case (flatten a, flatten b) of
+    (Just as, Just bs) -> case as <> bs of
+      [els] -> els
+      els -> JsonSequence els
+    _ -> falseP
+    where
+      -- Sequenced elements, or none, for no sequence of elements.
+      flatten = \case
+        JsonAlternate [] -> Nothing
+        JsonSequence els -> Just els
+        els -> Just [els]
+instance Monoid JsonElements where
+  mempty = JsonSequence []
+instance DisjunctiveMonoid JsonElements where
+  falseP = JsonAlternate []
+  a >|< b | a == b = a
+  JsonAlternate [] >|< b = b
+  a >|< JsonAlternate [] = a
+  JsonElements1 a >|< JsonSequence [] = starK a
+  JsonSequence [] >|< JsonElements1 b = starK b
+  a >|< JsonSequence [] = optK a
+  JsonSequence [] >|< b = optK b
+  a >|< b = case nub (flatten a <> flatten b) of
+    [els] -> els
+    alts -> JsonAlternate alts
+    where
+      flatten = \case
+        JsonAlternate alts -> alts
+        els -> [els]
+instance KleeneStarAlgebra JsonElements where
+  starK = \case
+    JsonAlternate [] -> mempty
+    JsonSequence [] -> mempty
+    els -> JsonElements els
+  plusK = \case
+    JsonAlternate [] -> falseP
+    JsonSequence [] -> mempty
+    els -> JsonElements1 els
+  optK = \case
+    JsonAlternate [] -> mempty
+    JsonSequence [] -> mempty
+    JsonElements1 els -> starK els
+    els@(JsonElements _) -> els
+    els@(JsonOptional _) -> els
+    els -> JsonOptional els
 
 {- | The type of the JSON of a type, by its rules, which are named
 by their qualified names.
@@ -1692,9 +1751,9 @@ been unrolled, & updating the rules & their types.
 -}
 newtype JsonTypor a b = JsonTypor (Typing JsonType)
 
--- | Alternative shapes of tuples, which `>*<` concatenates.
+-- | The elements of tuples, which `>*<` sequences.
 newtype TupTypor a b = TupTypor
-  {runTupTypor :: Ap Typing (Ap [] [JsonElement])}
+  {runTupTypor :: Ap Typing JsonElements}
 
 -- | Alternative shapes of objects, which `>*<` concatenates.
 newtype ObjTypor a b = ObjTypor
@@ -1703,21 +1762,21 @@ newtype ObjTypor a b = ObjTypor
 type Typing = ReaderT (Map String Bool) (State (Map String JsonType))
 
 {- | Type a rule once, so that every other occurrence of it, recursive or
-not, is a `JsonRule`. Its type is reserved, as `mempty`, while it's typed.
+not, is a `JsonRule`. Its type is reserved, as `falseP`, while it's typed.
 An unguarded occurrence is its least fixpoint instead, unrolled once,
 so that a rule of a rule is the rule, & a rule recurring unguarded
-contributes `mempty`, since JSON values are finite.
+contributes `falseP`, since JSON values are finite.
 -}
 typeRule :: String -> JsonTypor a b -> JsonTypor c d
 typeRule key (JsonTypor body) = JsonTypor $ do
   unguarded <- ask
   typed <- lift get
   case (Map.lookup key unguarded, Map.member key typed) of
-    (Just True, _) -> pure mempty
+    (Just True, _) -> pure falseP
     (Just False, _) -> local (Map.insert key True) body
     (Nothing, True) -> pure (JsonRule key)
     (Nothing, False) -> do
-      lift (modify (Map.insert key mempty))
+      lift (modify (Map.insert key falseP))
       ruleType <- local (Map.insert key False) body
       lift (modify (Map.insert key ruleType))
       pure (JsonRule key)
@@ -1734,9 +1793,10 @@ deriving via Grammor (Typing JsonType)
   instance Profunctor JsonTypor
 deriving via Grammor (Typing JsonType)
   instance Choice JsonTypor
+-- | A partial isomorphism, like `?<`, matches a `JsonSubtype`.
 instance Cochoice JsonTypor where
-  unleft = coerce
-  unright = coerce
+  unleft (JsonTypor t) = JsonTypor (jsonSubtype <$> t)
+  unright (JsonTypor t) = JsonTypor (jsonSubtype <$> t)
 instance Witherable.Filterable (JsonTypor a) where
   mapMaybe = dimapMaybe Just
 instance Filtrator JsonTypor
@@ -1744,8 +1804,8 @@ instance CocartesianMonoidal JsonTypor
 instance CocartesianChoice JsonTypor where
   alternate = either coerce coerce
 instance DisjunctiveMonoid (JsonTypor a b) where
-  falseP = typing mempty
-  JsonTypor t0 >|< JsonTypor t1 = JsonTypor (liftA2 (<>) t0 t1)
+  falseP = typing falseP
+  JsonTypor t0 >|< JsonTypor t1 = JsonTypor (liftA2 (>|<) t0 t1)
 instance BackusNaurForm (JsonTypor a b) where
   rule = typeRule
   ruleRec name f = rule name (f (typeRule name falseP))
@@ -1755,29 +1815,34 @@ instance JsonStr JsonTypor where
   jsonText = typing JsonString
   jsonEnumWith _ table =
     typing (jsonUnion [JsonStringLiteral literal | (literal, _) <- table])
-  jsonNumeric _ = typing JsonNumeric
+  jsonNumeric (JsonTypor t) = JsonTypor (numeric <$> t)
+    where
+      numeric = \case
+        JsonUnion [] -> falseP
+        ty -> JsonNumeric ty
 instance JsonVal JsonTypor where
   jsonNull = typing JsonNull
   jsonBool = typing JsonBoolean
   jsonNumber = typing JsonNumber
-  jsonArray (JsonTypor t) = JsonTypor (JsonArray <$> guarded t)
-  jsonTuple tup = JsonTypor (tuples <$> getAp (runTupTypor tup))
+  jsonTuple tup = JsonTypor (tuple <$> getAp (runTupTypor tup))
     where
-      tuples (Ap shapes) = jsonUnion (map JsonTuple shapes)
+      tuple = \case
+        JsonAlternate [] -> falseP
+        els -> JsonTuple els
   jsonObject obj = JsonTypor (objects <$> getAp (runObjTypor obj))
     where
       objects (Ap shapes) = jsonUnion (map object shapes)
       object props
         | length (nub keys) == length keys = JsonObject props
-        | otherwise = mempty
+        | otherwise = falseP
         where
           keys = [key | JsonProperty key _ _ <- props]
 
-deriving via Grammor (Ap Typing (Ap [] [JsonElement])) a
+deriving via Grammor (Ap Typing JsonElements) a
   instance Functor (TupTypor a)
-deriving via Grammor (Ap Typing (Ap [] [JsonElement])) a
+deriving via Grammor (Ap Typing JsonElements) a
   instance Applicative (TupTypor a)
-deriving via Grammor (Ap Typing (Ap [] [JsonElement]))
+deriving via Grammor (Ap Typing JsonElements)
   instance Profunctor TupTypor
 instance CocartesianMonoidal TupTypor
 instance Choice TupTypor where
@@ -1786,18 +1851,11 @@ instance Choice TupTypor where
 instance CocartesianChoice TupTypor where
   alternate = either coerce coerce
 instance DisjunctiveMonoid (TupTypor a b) where
-  falseP = TupTypor (pure (Ap []))
-  TupTypor s0 >|< TupTypor s1 = TupTypor (liftA2 unite s0 s1)
-    where
-      unite (Ap shapes0) (Ap shapes1) = Ap (shapes0 <> shapes1)
--- | `manyP` is a rest element, of the union of the elements of its shapes.
+  falseP = TupTypor (pure falseP)
+  TupTypor s0 >|< TupTypor s1 = TupTypor (liftA2 (>|<) s0 s1)
+-- | `manyP` is a repetition of elements, `starK`.
 instance Distributor TupTypor where
-  manyP (TupTypor s) = TupTypor (rest <$> s)
-    where
-      rest (Ap shapes) = Ap $
-        case concatMap (map elementType) shapes of
-          [] -> [[]]
-          ts -> [[JsonRest (jsonUnion ts)]]
+  manyP (TupTypor s) = TupTypor (starK <$> s)
 instance Alternative (TupTypor a) where
   empty = falseP
   (<|>) = (>|<)
@@ -1805,8 +1863,11 @@ instance Alternative (TupTypor a) where
   some = lmap repeat . someP
 instance Alternator TupTypor
 instance JsonTup JsonTypor TupTypor where
-  jsonElem (JsonTypor t) =
-    TupTypor (Ap ((\ty -> Ap [[JsonRequired ty]]) <$> guarded t))
+  jsonElem (JsonTypor t) = TupTypor (Ap (single <$> guarded t))
+    where
+      single = \case
+        JsonUnion [] -> falseP
+        ty -> JsonElement ty
 
 deriving via Grammor (Ap Typing (Ap [] [JsonProperty])) a
   instance Functor (ObjTypor a)
@@ -1835,11 +1896,32 @@ instance JsonObj JsonTypor ObjTypor where
 typedProperty :: Typing JsonProperty -> ObjTypor a b
 typedProperty prop = ObjTypor (Ap ((\p -> Ap [[p]]) <$> prop))
 
-elementType :: JsonElement -> JsonType
+-- | An element of a TypeScript tuple type.
+data TupleElement
+  = RequiredElement JsonType -- ^ @T@
+  | OptionalElement JsonType -- ^ @T?@
+  | RestElement JsonType -- ^ @...T[]@
+  deriving stock Eq
+
+elementType :: TupleElement -> JsonType
 elementType = \case
-  JsonRequired t -> t
-  JsonOptional t -> t
-  JsonRest t -> t
+  RequiredElement t -> t
+  OptionalElement t -> t
+  RestElement t -> t
+
+-- | TypeScript tuple shapes, widening @(A B)*@ to @[...(A | B)[]]@.
+tupleShapes :: JsonElements -> [[TupleElement]]
+tupleShapes = \case
+  JsonElement t -> [[RequiredElement t]]
+  JsonSequence els -> map concat (traverse tupleShapes els)
+  JsonAlternate alts -> concatMap tupleShapes alts
+  JsonElements els -> case concatMap (map elementType) (tupleShapes els) of
+    [] -> [[]]
+    ts -> [[RestElement (jsonUnion ts)]]
+  JsonElements1 els ->
+    [ shape <> rest
+    | shape <- tupleShapes els, rest <- tupleShapes (JsonElements els) ]
+  JsonOptional els -> tupleShapes els <> [[]]
 
 -- TypeScript --
 
@@ -1897,23 +1979,33 @@ tsType rules names = typeNode
       JsonBoolean -> KeywordType BooleanKeyword
       JsonNumber -> KeywordType NumberKeyword
       JsonString -> KeywordType StringKeyword
-      JsonNumeric -> numeric
+      JsonNumeric t -> numeric t
       JsonStringLiteral text -> LiteralType (TextLiteral text)
-      JsonArray t -> ArrayType (operand (typeNode t))
+      JsonSubtype t -> typeNode t
       t@(JsonTuple _) -> typeNode (JsonUnion [t])
       JsonObject props -> object props
       JsonUnion ts -> union $ case break isTuple ts of
         (before, _ : _) ->
           map typeNode before
-          <> map tuple (tsTuples [els | JsonTuple els <- ts])
+          <> map tuple
+            (tsTuples (concat [tupleShapes els | JsonTuple els <- ts]))
           <> [typeNode t | t <- drop (length before) ts, not (isTuple t)]
         _ -> map typeNode ts
     isTuple = \case JsonTuple _ -> True; _ -> False
-    numeric = TemplateLiteralType "" [(KeywordType NumberKeyword, "")]
-    tuple els = TupleType $ els <&> \case
-      JsonRequired t -> typeNode t
-      JsonOptional t -> OptionalType (operand (typeNode t))
-      JsonRest t -> RestType (ArrayType (operand (typeNode t)))
+    numeric t
+      | JsonString `elem` alternatives = union
+          [ if alt == JsonString then numericString else typeNode alt
+          | alt <- alternatives ]
+      | otherwise = typeNode t
+      where
+        alternatives = typeAlternatives rules t
+    numericString = TemplateLiteralType "" [(KeywordType NumberKeyword, "")]
+    tuple = \case
+      [RestElement t] -> ArrayType (operand (typeNode t))
+      els -> TupleType $ els <&> \case
+        RequiredElement t -> typeNode t
+        OptionalElement t -> OptionalType (operand (typeNode t))
+        RestElement t -> RestType (ArrayType (operand (typeNode t)))
     -- The intersected parts of an object type: its named properties
     -- & index signatures, of its string or numeric keys, & a mapped type
     -- of its literal keys, but those which are named, which TypeScript
@@ -1932,13 +2024,13 @@ tsType rules names = typeNode
         keys = [key | JsonProperty key _ _ <- props]
         dicts =
           [ (keyType, typeAlternatives rules keyType, t)
-          | JsonDict keyType t <- props, t /= mempty ]
+          | JsonDict keyType t <- props, t /= falseP ]
         indexSignatures =
           [ IndexSignature [] "key" (typeNode pattern) $ union
               (typeNode t : covered pattern)
           | (_, keyAlternatives, t) <- dicts
           , pattern <- take 1
-              [p | p <- [JsonString, JsonNumeric], p `elem` keyAlternatives]
+              [p | p <- [JsonString, JsonNumeric JsonString], p `elem` keyAlternatives]
           ]
         -- An index type also covers the named properties it matches,
         -- as TypeScript requires.
@@ -1947,7 +2039,7 @@ tsType rules names = typeNode
           <> [ KeywordType UndefinedKeyword
              | or [o | JsonProperty key o _ <- props, matches pattern key] ]
         matches = \case
-          JsonNumeric -> isJust . readScientific
+          JsonNumeric _ -> isJust . readScientific
           _ -> const True
         mappedTypes =
           [ MappedType Nothing "key" base exclusion (Just QuestionToken) (typeNode t)
@@ -1999,7 +2091,7 @@ operand = \case
   node@(ConditionalType {}) -> ParenthesizedType node
   node -> node
 
--- | The alternatives of a type, resolving its rules.
+-- | The alternatives of a type, resolving its rules & widening subtypes.
 typeAlternatives :: Map String JsonType -> JsonType -> [JsonType]
 typeAlternatives rules = go []
   where
@@ -2007,6 +2099,10 @@ typeAlternatives rules = go []
       JsonRule key | key `notElem` seen, Just t <- Map.lookup key rules ->
         go (key : seen) t
       JsonUnion ts -> concatMap (go seen) ts
+      JsonSubtype t -> go seen t
+      JsonNumeric t ->
+        [ if alt == JsonString then JsonNumeric JsonString else alt
+        | alt <- go seen t ]
       t -> [t]
 
 {- | Tuples of some shapes, as TypeScript types them. TypeScript requires
@@ -2021,7 +2117,7 @@ one required or optional element's type, into a union, or by one more
 element, into an optional or rest element, so that @[A] | [B]@ is @[A | B]@,
 @[A] | [A, B]@ is @[A, B?]@ & @[] | [A, ...A[]]@ is @[...A[]]@.
 -}
-tsTuples :: [[JsonElement]] -> [[JsonElement]]
+tsTuples :: [[TupleElement]] -> [[TupleElement]]
 tsTuples shapes = merged (nub (concatMap (expand False . mergeRests) shapes))
   where
     merged alts =
@@ -2043,36 +2139,36 @@ tsTuples shapes = merged (nub (concatMap (expand False . mergeRests) shapes))
             Just (map fst same <> [el] <> map fst others)
       _ -> Nothing
     unionedElement x y = case (x, y) of
-      (JsonRequired s, JsonRequired t) -> Just (JsonRequired (s <> t))
-      (JsonOptional s, JsonOptional t) -> Just (JsonOptional (s <> t))
+      (RequiredElement s, RequiredElement t) -> Just (RequiredElement (s >|< t))
+      (OptionalElement s, OptionalElement t) -> Just (OptionalElement (s >|< t))
       _ -> Nothing
     extended a b
       | any isRest a = Nothing
       | otherwise = stripPrefix a b >>= \case
-          [JsonRequired t] -> Just (a <> [JsonOptional t])
-          [JsonOptional _] -> Just b
-          [JsonRest _] -> Just b
-          [JsonRequired t, JsonRest u] | t == u -> Just (a <> [JsonRest t])
+          [RequiredElement t] -> Just (a <> [OptionalElement t])
+          [OptionalElement _] -> Just b
+          [RestElement _] -> Just b
+          [RequiredElement t, RestElement u] | t == u -> Just (a <> [RestElement t])
           _ -> Nothing
-    isRest = \case JsonRest _ -> True; _ -> False
+    isRest = \case RestElement _ -> True; _ -> False
     mergeRests els = case findIndices isRest els of
       start : rests@(_ : _) ->
         let
           (before, others) = splitAt start els
           (middle, after) = splitAt (last rests - start + 1) others
         in
-          before <> [JsonRest (jsonUnion (map elementType middle))] <> after
+          before <> [RestElement (jsonUnion (map elementType middle))] <> after
       _ -> els
     expand _ [] = [[]]
     expand restBefore (el : els) = case el of
-      JsonOptional t | restBefore || not (optionalTail els) ->
-        expand restBefore els <> map (JsonRequired t :) (expand restBefore els)
-      JsonRest _ -> map (el :) (expand True els)
+      OptionalElement t | restBefore || not (optionalTail els) ->
+        expand restBefore els <> map (RequiredElement t :) (expand restBefore els)
+      RestElement _ -> map (el :) (expand True els)
       _ -> map (el :) (expand restBefore els)
     optionalTail = \case
       [] -> True
-      [JsonRest _] -> True
-      JsonOptional _ : els -> optionalTail els
+      [RestElement _] -> True
+      OptionalElement _ : els -> optionalTail els
       _ -> False
 
 -- Json instance helpers

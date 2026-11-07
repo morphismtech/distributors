@@ -27,6 +27,7 @@ main = do
     jsonOptionalSpec
     jsonCodecSpec
     jsonPrintSpec
+    jsonElementsSpec
     typeScriptSpec
 
 doctests :: IO ()

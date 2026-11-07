@@ -16,12 +16,13 @@ module Properties.Json
   , jsonOptionalSpec
   , jsonCodecSpec
   , jsonPrintSpec
+  , jsonElementsSpec
   ) where
 
 import Control.Lens (coerced, only, prism')
 import Control.Lens.Grammar
-  ( ParsecState (..), dimap, lmap, manyP, optionP, optionalP
-  , parsecG, rule, someP, unparsecG
+  ( ParsecState (..), dimap, falseP, lmap, manyP, optK, optionP, optionalP
+  , parsecG, plusK, rule, someP, starK, unparsecG
   , (>*<), (>+<), (>?), (>|<), (>~)
   )
 import Control.Lens.Grammar.Json
@@ -354,7 +355,7 @@ instance Json Before where
   json = jsonTyped $ dimap (\(Before p) -> p) Before $
     jsonTuple (optionalP (jsonElem json) >*< jsonElem json)
 
--- | Two rests, @[...(number | string)[]]@.
+-- | Two rests, @(number | string)[]@.
 newtype Rests = Rests ([Scientific], [Text])
   deriving stock (Eq, Show)
 instance Json Rests where
@@ -472,11 +473,11 @@ jsonTupleSpec = describe "variadic jsonTuple" $ do
   it "merges rest elements" $ do
     roundTrip (toJSON [toJSON (1 :: Int), toJSON (2 :: Int), "a"])
       (Rests ([1, 2], ["a"]))
-    declares (type Rests) ["export type Rests = [...(number | string)[]];"]
+    declares (type Rests) ["export type Rests = (number | string)[];"]
   it "expands optional elements after rest elements" $ do
     roundTrip (toJSON ["a", toJSON (1 :: Int)]) (RestOptional (["a"], Just 1))
     declares (type RestOptional)
-      ["export type RestOptional = [...string[], number] | [...string[]];"]
+      ["export type RestOptional = [...string[], number] | string[];"]
   it "has alternative elements" $ do
     roundTrip (toJSON [toJSON (1 :: Int)]) (Alternative (Left 1))
     roundTrip (toJSON [String "a"]) (Alternative (Right "a"))
@@ -487,7 +488,7 @@ jsonTupleSpec = describe "variadic jsonTuple" $ do
     jsonParse @AlternativeRests (toJSON [toJSON (1 :: Int), "a"])
       `shouldSatisfy` isLeft
     declares (type AlternativeRests)
-      ["export type AlternativeRests = [...number[]] | [...string[]];"]
+      ["export type AlternativeRests = number[] | string[];"]
   it "locates failures in rest elements" $
     parseError @Rest (toJSON [toJSON (1 :: Int), "a", toJSON (2 :: Int)])
       `shouldBe` "Error in $[2]: expected string, but found 2"
@@ -1183,3 +1184,36 @@ tsSource :: [TsDeclaration] -> String
 tsSource declarations = toList $ parsecStream $ unparsecG tsTokensGrammar
   (toList (parsecStream (unparsecG tsGrammar declarations (Seq.empty @TsToken))))
   (Seq.empty @Char)
+
+-- | The `KleeneStarAlgebra` laws of `JsonElements`.
+jsonElementsSpec :: Spec
+jsonElementsSpec = describe "KleeneStarAlgebra JsonElements" $ do
+  law "starK x = optK (plusK x)" $ \x -> (starK x, optK (plusK x))
+  law "plusK x = x <> starK x" $ \x -> (plusK x, x <> starK x)
+  law "optK x = mempty >|< x" $ \x -> (optK x, mempty >|< x)
+  law "x >|< x = x" $ \x -> (x >|< x, x)
+  law "falseP >|< x = x" $ \x -> (falseP >|< x, x)
+  law "x >|< falseP = x" $ \x -> (x >|< falseP, x)
+  law "x >|< mempty = optK x" $ \x -> (x >|< mempty, optK x)
+  law "falseP <> x = falseP" $ \x -> (falseP <> x, falseP)
+  law "x <> falseP = falseP" $ \x -> (x <> falseP, falseP)
+  law "mempty <> x = x" $ \x -> (mempty <> x, x)
+  law "x <> mempty = x" $ \x -> (x <> mempty, x)
+  where
+    law title sides = prop title $ forAll (sized genElements) $ \x ->
+      let (lhs, rhs) = sides x in lhs === rhs
+    genElements :: Int -> Gen JsonElements
+    genElements = \case
+      0 -> frequency
+        [ (1, pure falseP)
+        , (1, pure mempty)
+        , (6, JsonElement <$> elements [JsonNull, JsonBoolean, JsonNumber])
+        ]
+      n -> frequency
+        [ (2, genElements 0)
+        , (2, (<>) <$> genElements (n `div` 2) <*> genElements (n `div` 2))
+        , (2, (>|<) <$> genElements (n `div` 2) <*> genElements (n `div` 2))
+        , (1, starK <$> genElements (n - 1))
+        , (1, plusK <$> genElements (n - 1))
+        , (1, optK <$> genElements (n - 1))
+        ]
