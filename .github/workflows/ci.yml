@@ -149,7 +149,12 @@ jobs:
           key: docs-${{ runner.os }}-${{ hashFiles('dist-newstyle/cache/plan.json') }}
           restore-keys: docs-${{ runner.os }}-
 
+      # Haddock mustn't load the GHC environment file which cabal.project
+      # writes for doctest-parallel, since it names packages which a
+      # documentation build doesn't register.
       - name: Build the documentation
+        env:
+          GHC_ENVIRONMENT: "-"
         run: |
           cabal haddock-project --hackage --output=docs
 
