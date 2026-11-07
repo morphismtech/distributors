@@ -1,0 +1,14 @@
+{
+  "commit": "bd202cba9ade65005fb9839fc05e05ebfcab2765",
+  "built": "2026-11-07 22:21 UTC",
+  "packages": [
+    {
+      "name": "distributors",
+      "synopsis": "Unifying Parsers, Printers & Grammars"
+    },
+    {
+      "name": "distributors-json",
+      "synopsis": "JSON grammars, compatible with aeson & typed in TypeScript"
+    }
+  ]
+}
