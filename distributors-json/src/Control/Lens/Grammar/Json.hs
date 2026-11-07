@@ -1656,7 +1656,7 @@ of their types, named by its unqualified name, or else its qualified name,
 which `jsonTsPut` puts.
 
 >>> jsonTsDeclarations (type '[Maybe Ordering])
-[TypeAliasDeclaration True "Ordering" (UnionType [LiteralType (TextLiteral "LT"),LiteralType (TextLiteral "EQ"),LiteralType (TextLiteral "GT")])]
+[TypeAliasDeclaration [ExportKeyword] "Ordering" [] (UnionType [LiteralType (TextLiteral "LT"),LiteralType (TextLiteral "EQ"),LiteralType (TextLiteral "GT")])]
 -}
 jsonTsDeclarations :: forall (as :: [Type]) -> All Json as => [TsDeclaration]
 jsonTsDeclarations as = tsDeclarations $ hcollapse
@@ -1847,7 +1847,7 @@ qualified names, as TypeScript identifiers, in order of their names.
 -}
 tsDeclarations :: [Bnf JsonType] -> [TsDeclaration]
 tsDeclarations bnfs =
-  [ TypeAliasDeclaration True identifier (tsType rules names ruleType)
+  [ TypeAliasDeclaration [ExportKeyword] identifier [] (tsType rules names ruleType)
   | (identifier, ruleType) <- sortOn fst
       [(names Map.! key, ruleType) | (key, ruleType) <- Map.toList rules]
   ]
@@ -1890,7 +1890,7 @@ tsType :: Map String JsonType -> Map String Text -> JsonType -> TsType
 tsType rules names = typeNode
   where
     typeNode = \case
-      JsonRule key -> TypeReference (names Map.! key) []
+      JsonRule key -> ReferenceType [names Map.! key] []
       JsonNull -> LiteralType NullLiteral
       JsonBoolean -> KeywordType BooleanKeyword
       JsonNumber -> KeywordType NumberKeyword
@@ -1925,14 +1925,14 @@ tsType rules names = typeNode
         allObjectParts -> IntersectionType allObjectParts
       where
         named =
-          [ PropertySignature (propertyName key) isOptional (typeNode t)
+          [ PropertySignature [] (propertyName key) isOptional (Just (typeNode t))
           | JsonProperty key isOptional t <- props ]
         keys = [key | JsonProperty key _ _ <- props]
         dicts =
           [ (keyType, typeAlternatives rules keyType, t)
           | JsonDict keyType t <- props, t /= mempty ]
         indexSignatures =
-          [ IndexSignature "key" (typeNode pattern) $ union
+          [ IndexSignature [] "key" (typeNode pattern) $ union
               (typeNode t : covered pattern)
           | (_, keyAlternatives, t) <- dicts
           , pattern <- take 1
@@ -1948,7 +1948,7 @@ tsType rules names = typeNode
           JsonNumeric -> isJust . readScientific
           _ -> const True
         mappedTypes =
-          [ MappedType "key" base exclusion True (typeNode t)
+          [ MappedType Nothing "key" base exclusion (Just QuestionToken) (typeNode t)
           | (keyType, keyAlternatives, t) <- dicts
           , let
               literalKeys = [l | JsonStringLiteral l <- keyAlternatives]
@@ -1959,10 +1959,10 @@ tsType rules names = typeNode
               exclusion
                 | null excluded = Nothing
                 | otherwise = Just $ ConditionalType
-                    (TypeReference "key" [])
+                    (ReferenceType ["key"] [])
                     (union (map (LiteralType . TextLiteral) excluded))
                     (KeywordType NeverKeyword)
-                    (TypeReference "key" [])
+                    (ReferenceType ["key"] [])
           , length excluded < length literalKeys
           ]
     propertyName key
