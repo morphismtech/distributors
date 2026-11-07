@@ -1,37 +1,178 @@
 name: CI
 
 on:
-  pull_request:
+  push:
     branches:
       - main
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
 
 jobs:
-  build-and-test:
+  lint:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup Haskell Stack
+      - name: Set up HLint
+        uses: haskell-actions/hlint-setup@v2
+
+      - name: Run HLint
+        uses: haskell-actions/hlint-run@v2
+        with:
+          path: '["distributors-core/", "distributors-json/"]'
+          fail-on: suggestion
+
+      - name: Check generated .cabal files match package.yaml
+        run: |
+          curl -sSL https://github.com/sol/hpack/releases/download/0.39.1/hpack_linux.gz \
+            | gunzip > hpack
+          chmod +x hpack
+          for package in distributors-core distributors-json; do
+            (cd "$package" && ../hpack --force)
+          done
+          git diff --exit-code -I 'by hpack version' -- '*.cabal'
+
+  stack:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Stack
         uses: haskell-actions/setup@v2
         with:
           enable-stack: true
+          stack-no-global: true
 
-      - name: Cache Stack dependencies
+      - name: Cache Stack
         uses: actions/cache@v4
         with:
-          path: ~/.stack
-          key: stack-${{ runner.os }}-${{ hashFiles('stack.yaml', 'package.yaml') }}
+          path: |
+            ~/.stack
+            .stack-work
+            distributors-core/.stack-work
+            distributors-json/.stack-work
+          key: stack-${{ runner.os }}-${{ hashFiles('stack.yaml', '**/package.yaml') }}-${{ hashFiles('**/*.hs') }}
           restore-keys: |
+            stack-${{ runner.os }}-${{ hashFiles('stack.yaml', '**/package.yaml') }}-
             stack-${{ runner.os }}-
 
-      - name: Install dependencies
-        run: stack build --only-dependencies
+      - name: Build dependencies
+        run: stack build --test --bench --only-dependencies
 
-      - name: Build project
-        run: stack build
+      - name: Build
+        run: stack build --test --bench --no-run-tests --no-run-benchmarks
 
-      - name: Run tests
+      - name: Test, with doctests
         env:
           DISTRIBUTORS_RUN_DOCTESTS: "1"
         run: stack test
+
+  cabal:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        ghc: ["9.10.3", "9.12.4"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up GHC & Cabal
+        id: setup
+        uses: haskell-actions/setup@v2
+        with:
+          ghc-version: ${{ matrix.ghc }}
+          cabal-update: true
+
+      - name: Plan the build
+        run: |
+          cabal configure --enable-tests --enable-benchmarks
+          cabal build all --dry-run
+
+      - name: Cache the Cabal store
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.setup.outputs.cabal-store }}
+          key: cabal-${{ runner.os }}-${{ matrix.ghc }}-${{ hashFiles('dist-newstyle/cache/plan.json') }}
+          restore-keys: cabal-${{ runner.os }}-${{ matrix.ghc }}-
+
+      - name: Build dependencies
+        run: cabal build all --only-dependencies
+
+      - name: Build
+        run: cabal build all
+
+      # Doctests run in the stack job, since doctest needs the package
+      # environment, which stack provides to test suites but cabal doesn't.
+      - name: Test
+        run: cabal test all --test-show-details=direct
+
+      - name: Check packages
+        run: |
+          for package in distributors-core distributors-json; do
+            (cd "$package" && cabal check)
+          done
+
+  nix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: DeterminateSystems/nix-installer-action@v16
+
+      - uses: DeterminateSystems/magic-nix-cache-action@v8
+
+      - name: Build & check the flake
+        run: nix flake check -L
+
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up GHC & Cabal
+        id: setup
+        uses: haskell-actions/setup@v2
+        with:
+          ghc-version: "9.12.4"
+          cabal-update: true
+
+      - name: Plan the build
+        run: cabal build all --dry-run
+
+      - name: Cache the Cabal store
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.setup.outputs.cabal-store }}
+          key: docs-${{ runner.os }}-${{ hashFiles('dist-newstyle/cache/plan.json') }}
+          restore-keys: docs-${{ runner.os }}-
+
+      - name: Build the documentation
+        run: |
+          cabal haddock-project --hackage --output=docs
+
+      - name: Upload the documentation
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs
+
+  deploy-docs:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [docs, stack, cabal, nix, lint]
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy the documentation to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

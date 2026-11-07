@@ -1,0 +1,319 @@
+{-|
+Module      : Data.Profunctor.Separator
+Description : separators
+Copyright   : (C) 2026 - Eitan Chatav
+License     : BSD-style (see the file LICENSE)
+Maintainer  : Eitan Chatav <eitan.chatav@gmail.com>
+Stability   : provisional
+Portability : non-portable
+-}
+
+module Data.Profunctor.Separator
+  ( -- * SepBy
+    SepBy (..)
+  , sepBy
+  , noSep
+  , sepWith
+  , beginWith
+  , endWith
+    -- * SepBy Combinators
+  , several
+  , several1
+  , chain
+  , chain1
+  , intercalateP
+    -- * Operator Expressions
+  , Operator (..)
+  , Assoc (..)
+  , withOperators
+  ) where
+
+import Control.Lens
+import Control.Lens.PartialIso
+import Control.Lens.Grammar.Symbol
+import Data.Monoid.Disjunctive (orP)
+import Data.Profunctor.Distributor
+import Data.Profunctor.Monoidal.Cocartesian
+import Data.Profunctor.Monoidal
+import GHC.Exts
+
+{- | Used to sequence multiple times,
+separated by a `separateBy`,
+begun by a `beginBy`,
+and ended by an `endBy`. -}
+data SepBy p = SepBy
+  { beginBy :: p
+  , endBy :: p
+  , separateBy :: p
+  } deriving stock
+    ( Functor, Foldable, Traversable
+    , Eq, Ord, Show, Read
+    )
+
+{- | A `SepBy` smart constructor,
+setting the `separateBy` field.
+Beginning and ending delimitors will be no-ops,
+except by modifier record updates `beginBy` or `endBy`. -}
+sepBy :: Applicative p => p () -> SepBy (p ())
+sepBy = SepBy (pure ()) (pure ())
+
+{- | A `SepBy` smart constructor for no separator,
+beginning or ending delimiters. -}
+noSep :: Applicative p => SepBy (p ())
+noSep = sepBy (pure ())
+
+{- | A `SepBy` smart constructor like `sepBy`,
+with a `terminal` argument.
+Beginning and ending delimitors will be no-ops,
+except by applying smart modifiers `beginWith` or `endWith`. -}
+sepWith
+  :: (Applicative p, TerminalSymbol c (p ()))
+  => [c] -> SepBy (p ())
+sepWith = sepBy . terminal
+
+{- | A `SepBy` smart modifier like `beginBy`,
+with a `terminal` argument. -}
+beginWith :: TerminalSymbol c p => [c] -> SepBy p -> SepBy p
+beginWith str separator = separator {beginBy = terminal str}
+
+{- | A `SepBy` smart modifier like `endBy`,
+with a `terminal` argument. -}
+endWith :: TerminalSymbol c p => [c] -> SepBy p -> SepBy p
+endWith str separator = separator {endBy = terminal str}
+
+{- |
+@prop> several noSep = manyP@
+-}
+several
+  :: (IsList s, IsList t, Distributor p)
+  => SepBy (p () ()) -> p (Item s) (Item t) -> p s t
+several (SepBy beg end sep) p = iso toList fromList . eotList >~
+  beg >* (p >*< manyP (sep >* p) >+< oneP) *< end
+
+{- |
+@prop> several1 noSep = someP@
+-}
+several1
+  :: (IsList s, IsList t, Distributor p, Choice p)
+  => SepBy (p () ()) -> p (Item s) (Item t) -> p s t
+several1 (SepBy beg end sep) p = iso toList fromList . _Cons >?
+  beg >* (p >*< manyP (sep >* p)) *< end
+
+{- | Use a nilary constructor pattern to sequence zero times, or
+associate a binary constructor pattern to sequence one or more times. -}
+chain
+  :: Alternator p
+  => (forall x. x -> Either x x) -- ^ `Left` or `Right` associate
+  -> APartialIso a b (a,a) (b,b) -- ^ binary constructor pattern
+  -> APrism a b () () -- ^ nilary constructor pattern
+  -> SepBy (p () ()) -> p a b -> p a b
+chain association pat2 pat0 (SepBy beg end sep) p =
+  beg >* optionP pat0 (chain1 association pat2 (sepBy sep) p) *< end
+
+{- | Associate a binary constructor pattern to sequence one or more times. -}
+chain1
+  :: (Distributor p, Choice p)
+  => (forall x. x -> Either x x) -- ^ `Left` or `Right` associate
+  -> APartialIso a b (a,a) (b,b) -- ^ binary constructor pattern
+  -> SepBy (p () ()) -> p a b -> p a b
+chain1 association pat (SepBy beg end sep) = leftOrRight chainl1 chainr1
+  where
+    leftOrRight a b = case association () of Left _ -> a; Right _ -> b
+    chainl1 p = difoldl pat >? beg >* p >*< manyP (sep >* p) *< end
+    chainr1 p = difoldr pat >? beg >* manyP (p *< sep) >*< p *< end
+
+{- | Add a `SepBy` to `replicateP` using `intercalateP`. -}
+intercalateP
+  :: (Monoidal p, Choice p, AsEmpty s, Cons s s a a)
+  => Int {- ^ number of repetitions -}
+  -> SepBy (p () ()) -> p a a -> p s s
+intercalateP n (SepBy beg end _) _ | n <= 0 =
+  beg >* asEmpty *< end
+intercalateP n (SepBy beg end comma) p =
+  beg >* p >:< replicateP (n-1) (comma >* p) *< end
+
+{- | An operator at some level of an operator table, for use with
+`withOperators`. `Infix` takes an `Assoc` to distinguish binary operators;
+`Prefix` & `Postfix` are for unary operators. -}
+data Operator p a b where
+  Infix
+    :: Assoc -- ^ `NonAssoc`, `LeftAssoc`, `RightAssoc`
+    -> APrism a b (a,a) (b,b) -- ^ binary constructor pattern
+    -> p () () -- ^ operator symbol
+    -> Operator p a b
+  Prefix
+    :: APrism a b a b -- ^ unary constructor pattern
+    -> p () () -- ^ operator symbol
+    -> Operator p a b
+  Postfix
+    :: APrism a b a b -- ^ unary constructor pattern
+    -> p () () -- ^ operator symbol
+    -> Operator p a b
+
+{- | The associativity of an `Infix` binary operator. -}
+data Assoc = NonAssoc | LeftAssoc | RightAssoc
+  deriving stock (Eq, Ord, Show, Read)
+
+{- | Build an expression `Alternator` from a table of `Operator`s and
+an atomic term `Alternator`, analagous to @buildExpressionParser@ from
+[parsec](https://hackage.haskell.org/package/parsec).
+
+The operator table is a list of list of operators, ordered from highest to lowest precedence.
+Each level is a list of `Operator`s which share precedence.
+Within a level, `Infix` takes an `Assoc` to set left, right or non-associativity for binary operators,
+while `Prefix` & `Postfix` are for unary operators.
+
+For example, an expression grammar over natural numbers with a
+postfix factorial @!@ (binding tightest, and not required to actually
+compute a factorial), a right-associative exponent @^@, a left-associative
+@*@, and left-associative @+@ & @-@ binding loosest:
+
+>>> import Numeric.Natural (Natural)
+>>> import Control.Lens.Grammar hiding (Operator (..), Assoc (..), withOperators)
+>>> import Control.Lens (Prism', prism', iso)
+>>> :{
+data Expr
+  = Nat Natural
+  | Fac Expr
+  | Exp Expr Expr
+  | Mul Expr Expr
+  | Add Expr Expr
+  | Sub Expr Expr
+  deriving stock (Eq, Ord, Show, Read)
+_Nat :: Prism' Expr Natural
+_Nat = prism' Nat (\case Nat n -> Just n; _ -> Nothing)
+_Fac :: Prism' Expr Expr
+_Fac = prism' Fac (\case Fac x -> Just x; _ -> Nothing)
+_Exp, _Mul, _Add, _Sub :: Prism' Expr (Expr, Expr)
+_Exp = prism' (uncurry Exp) (\case Exp x y -> Just (x,y); _ -> Nothing)
+_Mul = prism' (uncurry Mul) (\case Mul x y -> Just (x,y); _ -> Nothing)
+_Add = prism' (uncurry Add) (\case Add x y -> Just (x,y); _ -> Nothing)
+_Sub = prism' (uncurry Sub) (\case Sub x y -> Just (x,y); _ -> Nothing)
+exprGrammar :: Grammar Char Expr
+exprGrammar = ruleRec "expr" $ \expr ->
+  let atom = rule "atom" $ nat >|< terminal "(" >* expr *< terminal ")"
+      nat  = rule "nat"  $ _Nat . iso show read >? someP (asIn @Char DecimalNumber)
+  in withOperators
+    [ [ Postfix _Fac (terminal "!") ]
+    , [ Infix RightAssoc _Exp (terminal "^") ]
+    , [ Infix LeftAssoc _Mul (terminal "*") ]
+    , [ Infix LeftAssoc _Add (terminal "+"), Infix LeftAssoc _Sub (terminal "-") ]
+    ] atom
+:}
+
+The right-associative @^@ groups to the right, @-@ to the left, @*@
+binds tighter than @+@, and postfix @!@ binds tighter than @^@:
+
+>>> [e | (e,"") <- parseG exprGrammar "2^3^2"]
+[Exp (Nat 2) (Exp (Nat 3) (Nat 2))]
+>>> [e | (e,"") <- parseG exprGrammar "3-2-1"]
+[Sub (Sub (Nat 3) (Nat 2)) (Nat 1)]
+>>> [e | (e,"") <- parseG exprGrammar "2*3+4"]
+[Add (Mul (Nat 2) (Nat 3)) (Nat 4)]
+>>> [e | (e,"") <- parseG exprGrammar "2*(3+4)"]
+[Mul (Nat 2) (Add (Nat 3) (Nat 4))]
+>>> [e | (e,"") <- parseG exprGrammar "3!"]
+[Fac (Nat 3)]
+>>> [e | (e,"") <- parseG exprGrammar "2^3!"]
+[Exp (Nat 2) (Fac (Nat 3))]
+
+Being bidirectional, the same grammar prints:
+
+>>> unparseG exprGrammar (Exp (Nat 2) (Exp (Nat 3) (Nat 2))) "" :: Maybe String
+Just "2^3^2"
+>>> unparseG exprGrammar (Exp (Nat 2) (Fac (Nat 3))) "" :: Maybe String
+Just "2^3!"
+-}
+withOperators
+  :: Alternator p
+  => [[Operator p a b]] -- ^ operator table
+  -> p a b -- ^ atomic term
+  -> p a b -- ^ expression
+withOperators table p = foldl makeLevel p table
+  where
+    makeLevel term ops =
+      let
+        (infixes, pres, posts) = foldr splitOp ([],[],[]) ops
+        termP = withPostP posts (withPreP pres term)
+      in
+        infixP infixes termP
+
+    splitOp oper (infixes, pres, posts) = case oper of
+      Infix assoc pat sym -> ((assoc,pat,sym):infixes, pres, posts)
+      Prefix pat sym -> (infixes, (pat,sym):pres, posts)
+      Postfix pat sym -> (infixes, pres, (pat,sym):posts)
+
+    tagSepP syms = orP [only i >? sym | (i, sym) <- zip [0 :: Int ..] syms]
+
+    withPreP ops inner =
+      difoldr (partialIso fwd bwd) >? manyP (tagSepP (snd <$> ops)) >*< inner
+      where
+        fns = [patternFns pat | (pat, _) <- ops]
+        fwd x = orP
+          [ (\y -> (i,y)) <$> f x | (i, (f,_)) <- zip [0 :: Int ..] fns ]
+        bwd (i,y) = case drop i fns of
+          (_,g):_ -> Just (g y)
+          [] -> Nothing
+
+    withPostP ops inner =
+      difoldl (partialIso fwd bwd) >? inner >*< manyP (tagSepP (snd <$> ops))
+      where
+        fns = [patternFns pat | (pat, _) <- ops]
+        fwd x = orP
+          [ (\y -> (y,i)) <$> f x | (i, (f,_)) <- zip [0 :: Int ..] fns ]
+        bwd (y,i) = case drop i fns of
+          (_,g):_ -> Just (g y)
+          [] -> Nothing
+
+    {- | Parse one operand, then zero or more @(operator, operand)@ steps,
+    each testing its operator *before* consuming a further operand --
+    the same shape parsec's & megaparsec's expression-table builders use.
+    A missing operator is therefore always a zero-consumption failure, so
+    the chain's end is found by plain alternation, with no backtracking
+    needed. (Parsing @(operand, operator)@ pairs instead, as a naive
+    right-associative reading would, over-consumes the final operand
+    before discovering there is no trailing operator, which is exactly
+    the bug this replaces.)
+
+    The tagged steps are then folded according to each matched operator's
+    `Assoc`iativity: `RightAssoc` recurses into the tail before combining,
+    associating to the right; `LeftAssoc` & `NonAssoc` combine immediately
+    and continue, associating to the left. Mixing associativities within
+    one level, like parsec, only supports chaining within a single run of
+    the same associativity -- a differently-associating operator simply
+    ends the current run and begins a new one.
+    -}
+    infixP infixes term =
+      prism (uncurry go) (Right . fwd) >? term >*< manyP (tagSepP syms >*< term)
+      where
+        syms = [sym | (_,_,sym) <- infixes]
+        fns = [(assoc,f,g) | (assoc,pat,_) <- infixes, let (f,g) = patternFns pat]
+
+        assocOf i = let (assoc,_,_) = fns !! i in assoc
+        applyTag i (l,r) = let (_,_,g) = fns !! i in g (l,r)
+
+        -- fold a shared seed together with a left-to-right list of tagged
+        -- steps, dispatching on each step's `Assoc`iativity in turn
+        go l [] = l
+        go l ((i,r):more) = case assocOf i of
+          RightAssoc -> applyTag i (l, go r more)
+          _          -> go (applyTag i (l,r)) more
+
+        -- the exact inverse of `go`: decompose a value into a seed and the
+        -- list of tagged steps that `go` would fold back into that value
+        fwd x = decompose x
+          where
+            decompose y = case tryTags y of
+              Nothing -> (y, [])
+              Just (i,l,r) -> case assocOf i of
+                RightAssoc ->
+                  let (r0, rest) = decompose r in (l, (i,r0) : rest)
+                _ ->
+                  let (l0, prior) = decompose l in (l0, prior ++ [(i,r)])
+            tryTags y = orP
+              [ (\(l,r) -> (i,l,r)) <$> f y
+              | (i,(_,f,_)) <- zip [0 :: Int ..] fns ]
+
+    -- an operator's constructor pattern, matching partially & building totally
+    patternFns pat = withPrism pat $ \construct match ->
+      (either (const Nothing) Just . match, construct)

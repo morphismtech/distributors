@@ -1,0 +1,347 @@
+{- |
+Module      : Control.Lens.PartialIso
+Description : partial isomorphisms
+Copyright   : (C) 2026 - Eitan Chatav
+License     : BSD-style (see the file LICENSE)
+Maintainer  : Eitan Chatav <eitan.chatav@gmail.com>
+Stability   : provisional
+Portability : non-portable
+
+See Rendel & Ostermann,
+[Invertible syntax descriptions](https://www.informatik.uni-marburg.de/~rendel/unparse/)
+-}
+
+module Control.Lens.PartialIso
+  ( -- * PartialIso
+    dimapMaybe
+  , PartialIso
+  , PartialIso'
+  , APartialIso
+  , PartialExchange (PartialExchange)
+    -- * Combinators
+  , partialIso
+  , partialInvoluted
+  , withPartialIso
+  , clonePartialIso
+  , coPartialIso
+  , crossPartialIso
+  , altPartialIso
+    -- * Applicators
+  , (>?)
+  , (?<)
+  , (>?<)
+  , (>~)
+  , (~<)
+  , (!=)
+  , coPrism
+    -- * Patterns
+  , satisfied
+  , nulled
+  , notNulled
+  , eotMaybe
+  , eotList
+    -- * Iterators
+  , iterating
+  , difoldl1
+  , difoldr1
+  , difoldl
+  , difoldr
+    -- * Template Haskell
+  , makeNestedPrisms
+    -- * Re-exports
+  , module Control.Lens.Iso
+  , module Control.Lens.Prism
+  ) where
+
+import Control.Lens
+import Control.Lens.Grammar.Internal.Orphanage ()
+import Control.Lens.Grammar.Internal.NestedPrismTH
+import Control.Lens.Internal.Profunctor
+import Control.Lens.Iso
+import Control.Lens.Prism
+import Control.Monad
+import Data.Profunctor
+import Witherable
+
+{- | The `dimapMaybe` function endows
+`Choice` & `Cochoice` "partial profunctors"
+with an action `>?<` of `PartialIso`s.
+-}
+dimapMaybe
+  :: (Choice p, Cochoice p)
+  => (s -> Maybe a) -> (b -> Maybe t)
+  -> p a b -> p s t
+dimapMaybe f g =
+  let
+    m2e h = maybe (Left ()) Right . h
+    fg = dimap (>>= m2e f) (>>= m2e g)
+  in
+    unright . fg . right'
+
+{- | `PartialIso` is a first class inexhaustive pattern,
+similar to how `Control.Lens.Prism.Prism` is a first class exhaustive pattern,
+by combining `Control.Lens.Prism.Prism`s and `coPrism`s.
+
+Every `Control.Lens.Iso.Iso` & `Control.Lens.Prism.Prism` is `APartialIso`.
+
+`PartialIso`s are isomorphic to `PartialExchange`s.
+-}
+type PartialIso s t a b = forall p f.
+  (Choice p, Cochoice p, Applicative f, Filterable f)
+    => p a (f b) -> p s (f t)
+
+{- |
+A simple `PartialIso'` @s a@ is an identification of
+a subset of @s@ with a subset of @a@.
+
+Given a simple `PartialIso'`, @partialIso f g@, has properties:
+
+prop> Just = f <=< g
+prop> Just = g <=< f
+
+These are left and right inverse laws for proper `PartialIso'`s.
+However, sometimes an improper `PartialIso'` will be useful.
+For an improper `PartialIso'`, only the left inverse law holds.
+
+prop> Just = f <=< g
+
+For an improper `PartialIso'`, @norm = g <=< f@ is an idempotent
+
+prop> norm = norm <=< norm
+
+and can be regarded as a normalization within
+some equivalence class of terms.
+-}
+type PartialIso' s a = PartialIso s s a a
+
+{- | `APartialIso` is monomorphically a `PartialIso`. -}
+type APartialIso s t a b =
+  PartialExchange a b a (Maybe b) -> PartialExchange a b s (Maybe t)
+
+{- | A `PartialExchange` provides efficient access
+to the two functions that make up a `PartialIso`.
+-}
+data PartialExchange a b s t =
+  PartialExchange (s -> Maybe a) (b -> Maybe t)
+instance Functor (PartialExchange a b s) where fmap = rmap
+instance Filterable (PartialExchange a b s) where
+  mapMaybe = dimapMaybe Just
+instance Profunctor (PartialExchange a b) where
+  dimap f' g' (PartialExchange f g) =
+    PartialExchange (f . f') (fmap g' . g)
+instance Choice (PartialExchange a b) where
+  left' (PartialExchange f g) =
+    PartialExchange (either f (pure Nothing)) ((Left <$>) . g)
+  right' (PartialExchange f g) =
+    PartialExchange (either (pure Nothing) f) ((Right <$>) . g)
+instance Cochoice (PartialExchange a b) where
+  unleft (PartialExchange f g) =
+    PartialExchange (f . Left) (either Just (pure Nothing) <=< g)
+  unright (PartialExchange f g) =
+    PartialExchange (f . Right) (either (pure Nothing) Just <=< g)
+
+{- | Build a `PartialIso`. -}
+partialIso :: (s -> Maybe a) -> (b -> Maybe t) -> PartialIso s t a b
+partialIso f g =
+  unright . iso (maybe (Left ()) Right . f =<<) (mapMaybe g) . right'
+
+{- | Given a partial function that is its own inverse,
+this gives you a `PartialIso'` using it in both directions. -}
+partialInvoluted :: (a -> Maybe a) -> PartialIso' a a
+partialInvoluted f = partialIso f f
+
+{- | Convert `APartialIso` to the pair of functions that characterize it. -}
+withPartialIso
+  :: APartialIso s t a b
+  -> ((s -> Maybe a) -> (b -> Maybe t) -> r)
+  -> r
+withPartialIso pattern k =
+  case pattern (PartialExchange Just (Just . Just)) of
+    PartialExchange f g -> k f (join . g)
+
+{- | Clone `APartialIso` so that you can reuse the same
+monomorphically typed partial isomorphism for different purposes.
+-}
+clonePartialIso
+  :: APartialIso s t a b
+  -> PartialIso s t a b
+clonePartialIso pattern = withPartialIso pattern $ \f g -> partialIso f g
+
+{- | Clone and invert `APartialIso`. -}
+coPartialIso
+  :: APartialIso b a t s
+  -> PartialIso s t a b
+coPartialIso pattern =
+  withPartialIso pattern $ \f g -> partialIso g f
+
+{- | Construct a `PartialIso` on pairs from components. -}
+crossPartialIso
+  :: APartialIso s t a b
+  -> APartialIso u v c d
+  -> PartialIso (s,u) (t,v) (a,c) (b,d)
+crossPartialIso x y =
+  withPartialIso x $ \e f ->
+  withPartialIso y $ \g h ->
+    partialIso
+      (\(s,u) -> (,) <$> e s <*> g u)
+      (\(t,v) -> (,) <$> f t <*> h v)
+
+{- | Construct a `PartialIso` on `Either`s from components. -}
+altPartialIso
+  :: APartialIso s t a b
+  -> APartialIso u v c d
+  -> PartialIso
+      (Either s u) (Either t v)
+      (Either a c) (Either b d)
+altPartialIso x y =
+  withPartialIso x $ \e f ->
+  withPartialIso y $ \g h ->
+    partialIso
+      (either ((Left <$>) . e) ((Right <$>) . g))
+      (either ((Left <$>) . f) ((Right <$>) . h))
+
+{- | Action of `APrism` on `Choice` `Profunctor`s. -}
+(>?)
+  :: Choice p
+  => APrism s t a b
+  -> p a b
+  -> p s t
+(>?) pat = withPrism pat $ \f g -> dimap g (either id f) . right'
+infixl 4 >?
+
+{- | Action of a coPrism on `Cochoice` `Profunctor`s. -}
+(?<)
+  :: Cochoice p
+  => APrism b a t s
+  -> p a b
+  -> p s t
+(?<) pat = withPrism pat $ \f g -> unright . dimap (either id f) g
+infixl 4 ?<
+
+{- | Action of `APartialIso` on `Choice` & `Cochoice` partial profunctors. -}
+(>?<)
+  :: (Choice p, Cochoice p)
+  => APartialIso s t a b
+  -> p a b
+  -> p s t
+(>?<) pat = withPartialIso pat dimapMaybe
+infixl 4 >?<
+
+{- | Action of `AnIso` on `Profunctor`s. -}
+(>~) :: Profunctor p => AnIso s t a b -> p a b -> p s t
+(>~) pattern = withIso pattern dimap
+infixl 2 >~
+
+{- | Inverse action of `AnIso` on `Profunctor`s. -}
+(~<) :: Profunctor p => AnIso b a t s -> p a b -> p s t
+(~<) pattern = withIso pattern (flip dimap)
+infixl 2 ~<
+
+{- | An optional value,
+missing exactly when it's the default,
+like `Data.Aeson.!=`,
+by the `non` isomorphism.
+
+prop> optP != def = non def ~< optP
+-}
+(!=)
+  :: (Eq a, Profunctor q)
+  => q (Maybe a) (Maybe a) -- ^ optional
+  -> a -- ^ default
+  -> q a a
+prop != def = non def ~< prop
+infix 6 !=
+
+{- | Action of a `coPrism`
+on the composition of a `Profunctor` and `Filterable`.
+-}
+coPrism :: (Profunctor p, Filterable f) => APrism b a t s -> p a (f b) -> p s (f t)
+coPrism p = unwrapPafb . (?<) p . WrapPafb
+
+{- | `satisfied` is the prototypical proper partial isomorphism,
+identifying a subset which satisfies a predicate. -}
+satisfied :: (a -> Bool) -> PartialIso' a a
+satisfied f = partialInvoluted satiate where
+  satiate a = if f a then Just a else Nothing
+
+{- | `nulled` matches an `Empty` pattern, like `_Empty`. -}
+nulled :: (AsEmpty s, AsEmpty t) => PartialIso s t () ()
+nulled = partialIso empA empB where
+  empA s = if isn't _Empty s then Nothing else Just ()
+  empB _ = Just Empty
+
+{- | `notNulled` matches a non-`Empty` pattern. -}
+notNulled :: (AsEmpty s, AsEmpty t) => PartialIso s t s t
+notNulled = partialIso nonEmp nonEmp where
+  nonEmp s = if isn't _Empty s then Just s else Nothing
+
+{- | The either-of-tuples representation of `Maybe`. -}
+eotMaybe :: Iso (Maybe a) (Maybe b) (Either a ()) (Either b ())
+eotMaybe = iso
+  (maybe (Right ()) Left)
+  (either Just (const Nothing))
+
+{- | The either-of-tuples representation of list-like streams. -}
+eotList
+  :: (Cons s s a a, AsEmpty t, Cons t t b b)
+  => Iso s t (Either (a,s) ()) (Either (b,t) ())
+eotList = iso
+  (maybe (Right ()) Left . uncons)
+  (either (review _Cons) (const Empty))
+
+{- | Iterate the application of a partial isomorphism,
+useful for constructing fold/unfold isomorphisms. -}
+iterating :: APartialIso a b a b -> Iso a b a b
+iterating pattern = withPartialIso pattern $ \f g ->
+  iso (iter f) (iter g) where
+    iter h state = maybe state (iter h) (h state)
+
+{- | Left fold & unfold `APartialIso` to an `Control.Lens.Iso.Iso`. -}
+difoldl1
+  :: Cons s t a b
+  => APartialIso d c (d,b) (c,a)
+  -> Iso (d,t) (c,s) (d,t) (c,s)
+difoldl1 pattern =
+  let
+    associate = iso
+      (\(c,(a,s)) -> ((c,a),s))
+      (\((d,b),t) -> (d,(b,t)))
+    step
+      = crossPartialIso id _Cons
+      . associate
+      . crossPartialIso (coPartialIso pattern) id
+  in from (iterating step)
+
+{- | Right fold & unfold `APartialIso` to an `Control.Lens.Iso.Iso`. -}
+difoldr1
+  :: Snoc s t a b
+  => APartialIso d c (b,d) (a,c)
+  -> Iso (t,d) (s,c) (t,d) (s,c)
+difoldr1 pattern =
+  let
+    reorder = iso
+      (\((s,a),c) -> (s,(a,c)))
+      (\(t,(b,d)) -> ((t,b),d))
+    step
+      = crossPartialIso _Snoc id
+      . reorder
+      . crossPartialIso id (coPartialIso pattern)
+  in from (iterating step)
+
+{- | Left fold & unfold `APartialIso` to a `Control.Lens.Prism.Prism`. -}
+difoldl
+  :: (AsEmpty t, Cons s t a b)
+  => APartialIso d c (d,b) (c,a)
+  -> Prism d c (d,t) (c,s)
+difoldl pattern
+  = dimap (,Empty) (fmap fst)
+  . difoldl1 pattern
+
+{- | Right fold & unfold `APartialIso` to a `Control.Lens.Prism.Prism`. -}
+difoldr
+  :: (AsEmpty t, Snoc s t a b)
+  => APartialIso d c (b,d) (a,c)
+  -> Prism d c (t,d) (s,c)
+difoldr pattern
+  = dimap (Empty,) (fmap snd)
+  . difoldr1 pattern

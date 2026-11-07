@@ -1,0 +1,6 @@
+packages:
+  distributors-core
+  distributors-json
+
+tests: True
+benchmarks: True
