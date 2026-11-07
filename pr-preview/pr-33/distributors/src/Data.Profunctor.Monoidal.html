@@ -1,0 +1,751 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# OPTIONS_GHC -Wno-orphans -Wno-redundant-constraints #-}</span><span>
+</span><span id="line-2"></span><span>
+</span><span id="line-3"></span><span class="annot"><span class="hs-comment">{-|
+Module      : Data.Profunctor.Monoidal
+Description : monoidal profunctors
+Copyright   : (C) 2026 - Eitan Chatav
+License     : BSD-style (see the file LICENSE)
+Maintainer  : Eitan Chatav &lt;eitan.chatav@gmail.com&gt;
+Stability   : provisional
+Portability : non-portable
+-}</span></span><span>
+</span><span id="line-12"></span><span>
+</span><span id="line-13"></span><span class="hs-keyword">module</span><span> </span><span class="annot"><a href="Data.Profunctor.Monoidal.html"><span class="hs-identifier">Data.Profunctor.Monoidal</span></a></span><span>
+</span><span id="line-14"></span><span>  </span><span class="hs-special">(</span><span> </span><span class="annot"><span class="hs-comment">-- * Monoidal</span></span><span>
+</span><span id="line-15"></span><span>    </span><span class="annot"><a href="Data.Profunctor.Monoidal.html#Monoidal"><span class="hs-identifier">Monoidal</span></a></span><span>
+</span><span id="line-16"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Data.Profunctor.Monoidal.html#oneP"><span class="hs-identifier">oneP</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Data.Profunctor.Monoidal.html#%3E%2A%3C"><span class="hs-operator">(&gt;*&lt;)</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Data.Profunctor.Monoidal.html#%3E%2A"><span class="hs-operator">(&gt;*)</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Data.Profunctor.Monoidal.html#%2A%3C"><span class="hs-operator">(*&lt;)</span></a></span><span>
+</span><span id="line-17"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Data.Profunctor.Monoidal.html#dimap2"><span class="hs-identifier">dimap2</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Data.Profunctor.Monoidal.html#foreverP"><span class="hs-identifier">foreverP</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Data.Profunctor.Monoidal.html#ditraverse"><span class="hs-identifier">ditraverse</span></a></span><span>
+</span><span id="line-18"></span><span>    </span><span class="annot"><span class="hs-comment">-- * Monoidal &amp; Choice</span></span><span>
+</span><span id="line-19"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Data.Profunctor.Monoidal.html#pureP"><span class="hs-identifier">pureP</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Data.Profunctor.Monoidal.html#asEmpty"><span class="hs-identifier">asEmpty</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Data.Profunctor.Monoidal.html#%3E%3A%3C"><span class="hs-operator">(&gt;:&lt;)</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Data.Profunctor.Monoidal.html#snocP"><span class="hs-identifier">snocP</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Data.Profunctor.Monoidal.html#replicateP"><span class="hs-identifier">replicateP</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Data.Profunctor.Monoidal.html#onlyOne"><span class="hs-identifier">onlyOne</span></a></span><span>
+</span><span id="line-20"></span><span>    </span><span class="annot"><span class="hs-comment">-- * Monoidal, Choice &amp; Strong</span></span><span>
+</span><span id="line-21"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Data.Profunctor.Monoidal.html#meander"><span class="hs-identifier">meander</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Data.Profunctor.Monoidal.html#traverseP"><span class="hs-identifier">traverseP</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Data.Profunctor.Monoidal.html#foldP"><span class="hs-identifier">foldP</span></a></span><span>
+</span><span id="line-22"></span><span>  </span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-23"></span><span>
+</span><span id="line-24"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Lens</span></span><span>
+</span><span id="line-25"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Lens.Internal.Context</span></span><span>
+</span><span id="line-26"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Control.Lens.PartialIso.html"><span class="hs-identifier">Control.Lens.PartialIso</span></a></span><span>
+</span><span id="line-27"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Distributive</span></span><span>
+</span><span id="line-28"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Profunctor</span></span><span>
+</span><span id="line-29"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Foldable</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">traverse_</span></span><span class="hs-special">)</span><span>
+</span><span id="line-30"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">GHC.IsList</span></span><span>
+</span><span id="line-31"></span><span>
+</span><span id="line-32"></span><span class="hs-comment">-- Monoidal --</span><span>
+</span><span id="line-33"></span><span>
+</span><span id="line-34"></span><span class="annot"><span class="hs-comment">{- | A lax `Monoidal` product `Profunctor` has unit `oneP`
+and product `&gt;*&lt;` lax monoidal structure morphisms.
+This is equivalent to the `Profunctor` also being `Applicative`.
+
+Laws:
+
+&gt;&gt;&gt; let lunit = dimap (\((),a) -&gt; a) (\a -&gt; ((),a))
+&gt;&gt;&gt; let runit = dimap (\(a,()) -&gt; a) (\a -&gt; (a,()))
+&gt;&gt;&gt; let assoc = dimap (\(a,(b,c)) -&gt; ((a,b),c)) (\((a,b),c) -&gt; (a,(b,c)))
+
+prop&gt; oneP &gt;*&lt; p = lunit p
+prop&gt; p &gt;*&lt; oneP = runit p
+prop&gt; p &gt;*&lt; q &gt;*&lt; r = assoc ((p &gt;*&lt; q) &gt;*&lt; r)
+prop&gt; dimap (f &gt;*&lt; g) (h &gt;*&lt; i) (p &gt;*&lt; q) = dimap f h p &gt;*&lt; dimap g i q
+
+-}</span></span><span>
+</span><span id="line-50"></span><span class="hs-keyword">type</span><span> </span><span id="Monoidal"><span class="annot"><a href="Data.Profunctor.Monoidal.html#Monoidal"><span class="hs-identifier hs-var">Monoidal</span></a></span></span><span> </span><span id="local-6989586621679341853"><span class="annot"><a href="#local-6989586621679341853"><span class="hs-identifier hs-type">p</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Profunctor</span></span><span> </span><span class="annot"><a href="#local-6989586621679341853"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">,</span><span> </span><span class="hs-keyword">forall</span><span> </span><span id="local-6989586621679341507"><span class="annot"><a href="#local-6989586621679341507"><span class="hs-identifier hs-type">x</span></a></span></span><span class="hs-operator">.</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Applicative</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679341853"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679341507"><span class="hs-identifier hs-type">x</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-51"></span><span>
+</span><span id="line-52"></span><span class="annot"><span class="hs-comment">{- | `oneP` is the unit of a `Monoidal` `Profunctor`. -}</span></span><span>
+</span><span id="line-53"></span><span id="local-6989586621679341504"><span class="annot"><a href="Data.Profunctor.Monoidal.html#oneP"><span class="hs-identifier hs-type">oneP</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Data.Profunctor.Monoidal.html#Monoidal"><span class="hs-identifier hs-type">Monoidal</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679341504"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679341504"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span><span>
+</span><span id="line-54"></span><span id="oneP"><span class="annot"><span class="annottext">oneP :: forall (p :: * -&gt; * -&gt; *). Monoidal p =&gt; p () ()
+</span><a href="Data.Profunctor.Monoidal.html#oneP"><span class="hs-identifier hs-var hs-var">oneP</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">() -&gt; p () ()
+forall a. a -&gt; p () a
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><span class="hs-identifier hs-var">pure</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-55"></span><span>
+</span><span id="line-56"></span><span class="annot"><span class="hs-comment">{- | `&gt;*&lt;` is the product of a `Monoidal` `Profunctor`. -}</span></span><span>
+</span><span id="line-57"></span><span id="local-6989586621679341512"><span id="local-6989586621679341513"><span id="local-6989586621679341514"><span id="local-6989586621679341515"><span id="local-6989586621679341516"><span class="annot"><a href="Data.Profunctor.Monoidal.html#%3E%2A%3C"><span class="hs-operator hs-type">(&gt;*&lt;)</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Data.Profunctor.Monoidal.html#Monoidal"><span class="hs-identifier hs-type">Monoidal</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679341512"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679341512"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679341513"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679341514"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679341512"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679341515"><span class="hs-identifier hs-type">c</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679341516"><span class="hs-identifier hs-type">d</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679341512"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679341513"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">,</span><span class="annot"><a href="#local-6989586621679341515"><span class="hs-identifier hs-type">c</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679341514"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">,</span><span class="annot"><a href="#local-6989586621679341516"><span class="hs-identifier hs-type">d</span></a></span><span class="hs-special">)</span></span></span></span></span></span><span>
+</span><span id="line-58"></span><span id="%3E%2A%3C"><span class="annot"><span class="annottext">&gt;*&lt; :: forall (p :: * -&gt; * -&gt; *) a b c d.
+Monoidal p =&gt;
+p a b -&gt; p c d -&gt; p (a, c) (b, d)
+</span><a href="Data.Profunctor.Monoidal.html#%3E%2A%3C"><span class="hs-operator hs-var hs-var">(&gt;*&lt;)</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">((a, c) -&gt; a)
+-&gt; ((a, c) -&gt; c)
+-&gt; (b -&gt; d -&gt; (b, d))
+-&gt; p a b
+-&gt; p c d
+-&gt; p (a, c) (b, d)
+forall (p :: * -&gt; * -&gt; *) s a c b d t.
+Monoidal p =&gt;
+(s -&gt; a) -&gt; (s -&gt; c) -&gt; (b -&gt; d -&gt; t) -&gt; p a b -&gt; p c d -&gt; p s t
+</span><a href="Data.Profunctor.Monoidal.html#dimap2"><span class="hs-identifier hs-var">dimap2</span></a></span><span> </span><span class="annot"><span class="annottext">(a, c) -&gt; a
+forall a b. (a, b) -&gt; a
+</span><span class="hs-identifier hs-var">fst</span></span><span> </span><span class="annot"><span class="annottext">(a, c) -&gt; c
+forall a b. (a, b) -&gt; b
+</span><span class="hs-identifier hs-var">snd</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">,</span><span class="hs-special">)</span><span>
+</span><span id="line-59"></span><span class="hs-keyword">infixr</span><span> </span><span class="hs-number">5</span><span> </span><span class="annot"><a href="Data.Profunctor.Monoidal.html#%3E%2A%3C"><span class="hs-operator hs-type">&gt;*&lt;</span></a></span><span>
+</span><span id="line-60"></span><span>
+</span><span id="line-61"></span><span class="annot"><span class="hs-comment">{- | `&gt;*` sequences actions, discarding the value of the first argument;
+analagous to `*&gt;`, extending it to `Monoidal`.
+
+prop&gt; oneP &gt;* p = p
+
+-}</span></span><span>
+</span><span id="line-67"></span><span id="local-6989586621679341533"><span id="local-6989586621679341534"><span id="local-6989586621679341535"><span id="local-6989586621679341536"><span class="annot"><a href="Data.Profunctor.Monoidal.html#%3E%2A"><span class="hs-operator hs-type">(&gt;*)</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Data.Profunctor.Monoidal.html#Monoidal"><span class="hs-identifier hs-type">Monoidal</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679341533"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679341533"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621679341534"><span class="hs-identifier hs-type">c</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679341533"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679341535"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679341536"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679341533"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679341535"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679341536"><span class="hs-identifier hs-type">b</span></a></span></span></span></span></span><span>
+</span><span id="line-68"></span><span id="local-6989586621679341866"><span class="annot"><span class="annottext">p () c
+</span><a href="#local-6989586621679341866"><span class="hs-identifier hs-var">x</span></a></span></span><span> </span><span id="%3E%2A"><span class="annot"><span class="annottext">&gt;* :: forall (p :: * -&gt; * -&gt; *) c a b.
+Monoidal p =&gt;
+p () c -&gt; p a b -&gt; p a b
+</span><a href="Data.Profunctor.Monoidal.html#%3E%2A"><span class="hs-operator hs-var hs-var">&gt;*</span></a></span></span><span> </span><span id="local-6989586621679341867"><span class="annot"><span class="annottext">p a b
+</span><a href="#local-6989586621679341867"><span class="hs-identifier hs-var">y</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(a -&gt; ()) -&gt; p () c -&gt; p a c
+forall a b c. (a -&gt; b) -&gt; p b c -&gt; p a c
+forall (p :: * -&gt; * -&gt; *) a b c.
+Profunctor p =&gt;
+(a -&gt; b) -&gt; p b c -&gt; p a c
+</span><span class="hs-identifier hs-var">lmap</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">() -&gt; a -&gt; ()
+forall a b. a -&gt; b -&gt; a
+</span><span class="hs-identifier hs-var">const</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">p () c
+</span><a href="#local-6989586621679341866"><span class="hs-identifier hs-var">x</span></a></span><span> </span><span class="annot"><span class="annottext">p a c -&gt; p a b -&gt; p a b
+forall a b. p a a -&gt; p a b -&gt; p a b
+forall (f :: * -&gt; *) a b. Applicative f =&gt; f a -&gt; f b -&gt; f b
+</span><span class="hs-operator hs-var">*&gt;</span></span><span> </span><span class="annot"><span class="annottext">p a b
+</span><a href="#local-6989586621679341867"><span class="hs-identifier hs-var">y</span></a></span><span>
+</span><span id="line-69"></span><span class="hs-keyword">infixl</span><span> </span><span class="hs-number">6</span><span> </span><span class="annot"><a href="Data.Profunctor.Monoidal.html#%3E%2A"><span class="hs-operator hs-type">&gt;*</span></a></span><span>
+</span><span id="line-70"></span><span>
+</span><span id="line-71"></span><span class="annot"><span class="hs-comment">{- | `*&lt;` sequences actions, discarding the value of the second argument;
+analagous to `&lt;*`, extending it to `Monoidal`.
+
+prop&gt; p *&lt; oneP = p
+
+-}</span></span><span>
+</span><span id="line-77"></span><span id="local-6989586621679341550"><span id="local-6989586621679341551"><span id="local-6989586621679341552"><span id="local-6989586621679341553"><span class="annot"><a href="Data.Profunctor.Monoidal.html#%2A%3C"><span class="hs-operator hs-type">(*&lt;)</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Data.Profunctor.Monoidal.html#Monoidal"><span class="hs-identifier hs-type">Monoidal</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679341550"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679341550"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679341551"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679341552"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679341550"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621679341553"><span class="hs-identifier hs-type">c</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679341550"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679341551"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679341552"><span class="hs-identifier hs-type">b</span></a></span></span></span></span></span><span>
+</span><span id="line-78"></span><span id="local-6989586621679341876"><span class="annot"><span class="annottext">p a b
+</span><a href="#local-6989586621679341876"><span class="hs-identifier hs-var">x</span></a></span></span><span> </span><span id="%2A%3C"><span class="annot"><span class="annottext">*&lt; :: forall (p :: * -&gt; * -&gt; *) a b c.
+Monoidal p =&gt;
+p a b -&gt; p () c -&gt; p a b
+</span><a href="Data.Profunctor.Monoidal.html#%2A%3C"><span class="hs-operator hs-var hs-var">*&lt;</span></a></span></span><span> </span><span id="local-6989586621679341877"><span class="annot"><span class="annottext">p () c
+</span><a href="#local-6989586621679341877"><span class="hs-identifier hs-var">y</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">p a b
+</span><a href="#local-6989586621679341876"><span class="hs-identifier hs-var">x</span></a></span><span> </span><span class="annot"><span class="annottext">p a b -&gt; p a c -&gt; p a b
+forall a b. p a a -&gt; p a b -&gt; p a a
+forall (f :: * -&gt; *) a b. Applicative f =&gt; f a -&gt; f b -&gt; f a
+</span><span class="hs-operator hs-var">&lt;*</span></span><span> </span><span class="annot"><span class="annottext">(a -&gt; ()) -&gt; p () c -&gt; p a c
+forall a b c. (a -&gt; b) -&gt; p b c -&gt; p a c
+forall (p :: * -&gt; * -&gt; *) a b c.
+Profunctor p =&gt;
+(a -&gt; b) -&gt; p b c -&gt; p a c
+</span><span class="hs-identifier hs-var">lmap</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">() -&gt; a -&gt; ()
+forall a b. a -&gt; b -&gt; a
+</span><span class="hs-identifier hs-var">const</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">p () c
+</span><a href="#local-6989586621679341877"><span class="hs-identifier hs-var">y</span></a></span><span>
+</span><span id="line-79"></span><span class="hs-keyword">infixl</span><span> </span><span class="hs-number">6</span><span> </span><span class="annot"><a href="Data.Profunctor.Monoidal.html#%2A%3C"><span class="hs-operator hs-type">*&lt;</span></a></span><span>
+</span><span id="line-80"></span><span>
+</span><span id="line-81"></span><span class="annot"><span class="hs-comment">{- | `dimap2` is a curried, functionalized form of `&gt;*&lt;`,
+analagous to `liftA2`. -}</span></span><span>
+</span><span id="line-83"></span><span id="local-6989586621679341522"><span id="local-6989586621679341523"><span id="local-6989586621679341524"><span id="local-6989586621679341525"><span id="local-6989586621679341526"><span id="local-6989586621679341527"><span id="local-6989586621679341528"><span class="annot"><a href="Data.Profunctor.Monoidal.html#dimap2"><span class="hs-identifier hs-type">dimap2</span></a></span><span>
+</span><span id="line-84"></span><span>  </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Data.Profunctor.Monoidal.html#Monoidal"><span class="hs-identifier hs-type">Monoidal</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679341522"><span class="hs-identifier hs-type">p</span></a></span><span>
+</span><span id="line-85"></span><span>  </span><span class="hs-glyph">=&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679341523"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679341524"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="hs-comment">-- ^ first projection, e.g. `fst`</span></span><span>
+</span><span id="line-86"></span><span>  </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679341523"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679341525"><span class="hs-identifier hs-type">c</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="hs-comment">-- ^ second projection, e.g. `snd`</span></span><span>
+</span><span id="line-87"></span><span>  </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679341526"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679341527"><span class="hs-identifier hs-type">d</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679341528"><span class="hs-identifier hs-type">t</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="hs-comment">-- ^ pairing function, e.g. @(,)@</span></span><span>
+</span><span id="line-88"></span><span>  </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679341522"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679341524"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679341526"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679341522"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679341525"><span class="hs-identifier hs-type">c</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679341527"><span class="hs-identifier hs-type">d</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679341522"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679341523"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679341528"><span class="hs-identifier hs-type">t</span></a></span></span></span></span></span></span></span></span><span>
+</span><span id="line-89"></span><span id="dimap2"><span class="annot"><span class="annottext">dimap2 :: forall (p :: * -&gt; * -&gt; *) s a c b d t.
+Monoidal p =&gt;
+(s -&gt; a) -&gt; (s -&gt; c) -&gt; (b -&gt; d -&gt; t) -&gt; p a b -&gt; p c d -&gt; p s t
+</span><a href="Data.Profunctor.Monoidal.html#dimap2"><span class="hs-identifier hs-var hs-var">dimap2</span></a></span></span><span> </span><span id="local-6989586621679341885"><span class="annot"><span class="annottext">s -&gt; a
+</span><a href="#local-6989586621679341885"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span id="local-6989586621679341886"><span class="annot"><span class="annottext">s -&gt; c
+</span><a href="#local-6989586621679341886"><span class="hs-identifier hs-var">g</span></a></span></span><span> </span><span id="local-6989586621679341887"><span class="annot"><span class="annottext">b -&gt; d -&gt; t
+</span><a href="#local-6989586621679341887"><span class="hs-identifier hs-var">h</span></a></span></span><span> </span><span id="local-6989586621679341888"><span class="annot"><span class="annottext">p a b
+</span><a href="#local-6989586621679341888"><span class="hs-identifier hs-var">p</span></a></span></span><span> </span><span id="local-6989586621679341889"><span class="annot"><span class="annottext">p c d
+</span><a href="#local-6989586621679341889"><span class="hs-identifier hs-var">q</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(b -&gt; d -&gt; t) -&gt; p s b -&gt; p s d -&gt; p s t
+forall a b c. (a -&gt; b -&gt; c) -&gt; p s a -&gt; p s b -&gt; p s c
+forall (f :: * -&gt; *) a b c.
+Applicative f =&gt;
+(a -&gt; b -&gt; c) -&gt; f a -&gt; f b -&gt; f c
+</span><span class="hs-identifier hs-var">liftA2</span></span><span> </span><span class="annot"><span class="annottext">b -&gt; d -&gt; t
+</span><a href="#local-6989586621679341887"><span class="hs-identifier hs-var">h</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(s -&gt; a) -&gt; p a b -&gt; p s b
+forall a b c. (a -&gt; b) -&gt; p b c -&gt; p a c
+forall (p :: * -&gt; * -&gt; *) a b c.
+Profunctor p =&gt;
+(a -&gt; b) -&gt; p b c -&gt; p a c
+</span><span class="hs-identifier hs-var">lmap</span></span><span> </span><span class="annot"><span class="annottext">s -&gt; a
+</span><a href="#local-6989586621679341885"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">p a b
+</span><a href="#local-6989586621679341888"><span class="hs-identifier hs-var">p</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(s -&gt; c) -&gt; p c d -&gt; p s d
+forall a b c. (a -&gt; b) -&gt; p b c -&gt; p a c
+forall (p :: * -&gt; * -&gt; *) a b c.
+Profunctor p =&gt;
+(a -&gt; b) -&gt; p b c -&gt; p a c
+</span><span class="hs-identifier hs-var">lmap</span></span><span> </span><span class="annot"><span class="annottext">s -&gt; c
+</span><a href="#local-6989586621679341886"><span class="hs-identifier hs-var">g</span></a></span><span> </span><span class="annot"><span class="annottext">p c d
+</span><a href="#local-6989586621679341889"><span class="hs-identifier hs-var">q</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-90"></span><span>
+</span><span id="line-91"></span><span class="annot"><span class="hs-comment">{- | `foreverP` repeats an action a countable infinity of times;
+analagous to `Control.Monad.forever`, extending it to `Monoidal`. -}</span></span><span>
+</span><span id="line-93"></span><span id="local-6989586621679341570"><span id="local-6989586621679341571"><span id="local-6989586621679341572"><span id="local-6989586621679341573"><span class="annot"><a href="Data.Profunctor.Monoidal.html#foreverP"><span class="hs-identifier hs-type">foreverP</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Data.Profunctor.Monoidal.html#Monoidal"><span class="hs-identifier hs-type">Monoidal</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679341570"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679341570"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621679341571"><span class="hs-identifier hs-type">c</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679341570"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679341572"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679341573"><span class="hs-identifier hs-type">b</span></a></span></span></span></span></span><span>
+</span><span id="line-94"></span><span id="foreverP"><span class="annot"><span class="annottext">foreverP :: forall (p :: * -&gt; * -&gt; *) c a b. Monoidal p =&gt; p () c -&gt; p a b
+</span><a href="Data.Profunctor.Monoidal.html#foreverP"><span class="hs-identifier hs-var hs-var">foreverP</span></a></span></span><span> </span><span id="local-6989586621679341892"><span class="annot"><span class="annottext">p () c
+</span><a href="#local-6989586621679341892"><span class="hs-identifier hs-var">a</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679341893"><span class="annot"><span class="annottext">a' :: p a b
+</span><a href="#local-6989586621679341893"><span class="hs-identifier hs-var hs-var">a'</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">p () c
+</span><a href="#local-6989586621679341892"><span class="hs-identifier hs-var">a</span></a></span><span> </span><span class="annot"><span class="annottext">p () c -&gt; p a b -&gt; p a b
+forall (p :: * -&gt; * -&gt; *) c a b.
+Monoidal p =&gt;
+p () c -&gt; p a b -&gt; p a b
+</span><a href="Data.Profunctor.Monoidal.html#%3E%2A"><span class="hs-operator hs-var">&gt;*</span></a></span><span> </span><span class="annot"><span class="annottext">p a b
+</span><a href="#local-6989586621679341893"><span class="hs-identifier hs-var">a'</span></a></span><span> </span><span class="hs-keyword">in</span><span> </span><span class="annot"><span class="annottext">p a b
+</span><a href="#local-6989586621679341893"><span class="hs-identifier hs-var">a'</span></a></span><span>
+</span><span id="line-95"></span><span>
+</span><span id="line-96"></span><span class="annot"><span class="hs-comment">{- | Thanks to Fy on Monoidal Caf&#233; Discord.
+
+A `Traversable` &amp; `Data.Distributive.Distributive` type
+is a homogeneous countable product.
+That means it is a static countable-length container,
+so unlike `replicateP`, `ditraverse` doesn't need
+an additional argument for number of repetitions.
+-}</span></span><span>
+</span><span id="line-104"></span><span id="local-6989586621679341578"><span id="local-6989586621679341580"><span id="local-6989586621679341581"><span id="local-6989586621679341582"><span class="annot"><a href="Data.Profunctor.Monoidal.html#ditraverse"><span class="hs-identifier hs-type">ditraverse</span></a></span><span>
+</span><span id="line-105"></span><span>  </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Traversable</span></span><span> </span><span class="annot"><a href="#local-6989586621679341578"><span class="hs-identifier hs-type">t</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Distributive</span></span><span> </span><span class="annot"><a href="#local-6989586621679341578"><span class="hs-identifier hs-type">t</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Data.Profunctor.Monoidal.html#Monoidal"><span class="hs-identifier hs-type">Monoidal</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679341580"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-106"></span><span>  </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679341580"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679341581"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679341582"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679341580"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679341578"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679341581"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679341578"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679341582"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span></span></span></span></span><span>
+</span><span id="line-107"></span><span id="ditraverse"><span class="annot"><span class="annottext">ditraverse :: forall (t :: * -&gt; *) (p :: * -&gt; * -&gt; *) a b.
+(Traversable t, Distributive t, Monoidal p) =&gt;
+p a b -&gt; p (t a) (t b)
+</span><a href="Data.Profunctor.Monoidal.html#ditraverse"><span class="hs-identifier hs-var hs-var">ditraverse</span></a></span></span><span> </span><span id="local-6989586621679341905"><span class="annot"><span class="annottext">p a b
+</span><a href="#local-6989586621679341905"><span class="hs-identifier hs-var">p</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">((t a -&gt; a) -&gt; p (t a) b) -&gt; t (t a -&gt; a) -&gt; p (t a) (t b)
+forall (t :: * -&gt; *) (f :: * -&gt; *) a b.
+(Traversable t, Applicative f) =&gt;
+(a -&gt; f b) -&gt; t a -&gt; f (t b)
+forall (f :: * -&gt; *) a b.
+Applicative f =&gt;
+(a -&gt; f b) -&gt; t a -&gt; f (t b)
+</span><span class="hs-identifier hs-var">traverse</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span id="local-6989586621679341907"><span class="annot"><span class="annottext">t a -&gt; a
+</span><a href="#local-6989586621679341907"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">(t a -&gt; a) -&gt; p a b -&gt; p (t a) b
+forall a b c. (a -&gt; b) -&gt; p b c -&gt; p a c
+forall (p :: * -&gt; * -&gt; *) a b c.
+Profunctor p =&gt;
+(a -&gt; b) -&gt; p b c -&gt; p a c
+</span><span class="hs-identifier hs-var">lmap</span></span><span> </span><span class="annot"><span class="annottext">t a -&gt; a
+</span><a href="#local-6989586621679341907"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">p a b
+</span><a href="#local-6989586621679341905"><span class="hs-identifier hs-var">p</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(t a -&gt; t a) -&gt; t (t a -&gt; a)
+forall (g :: * -&gt; *) (f :: * -&gt; *) a.
+(Distributive g, Functor f) =&gt;
+f (g a) -&gt; g (f a)
+forall (f :: * -&gt; *) a. Functor f =&gt; f (t a) -&gt; t (f a)
+</span><span class="hs-identifier hs-var">distribute</span></span><span> </span><span class="annot"><span class="annottext">t a -&gt; t a
+forall a. a -&gt; a
+</span><span class="hs-identifier hs-var">id</span></span><span class="hs-special">)</span><span>
+</span><span id="line-108"></span><span>
+</span><span id="line-109"></span><span class="annot"><span class="hs-comment">{- | Lift a single bidirectional element
+into a `Monoidal` &amp; `Choice` structure.
+Bidirectionality is encoded by `APrism`.
+Singularity is encoded by the unit type @()@.
+Bidirectional elements can be generated from
+nilary constructors of algebraic datatypes using `makeNestedPrisms`,
+from terms of a type with an `Eq` instance using `only`,
+from nil elements using `_Empty`,
+or from any `.`-composition of `Control.Lens.Prism.Prism`s
+terminating with a bidirectional element.
+-}</span></span><span>
+</span><span id="line-120"></span><span id="local-6989586621679341596"><span id="local-6989586621679341598"><span id="local-6989586621679341599"><span class="annot"><a href="Data.Profunctor.Monoidal.html#pureP"><span class="hs-identifier hs-type">pureP</span></a></span><span>
+</span><span id="line-121"></span><span>  </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.Profunctor.Monoidal.html#Monoidal"><span class="hs-identifier hs-type">Monoidal</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679341596"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Choice</span></span><span> </span><span class="annot"><a href="#local-6989586621679341596"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-122"></span><span>  </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">APrism</span></span><span> </span><span class="annot"><a href="#local-6989586621679341598"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679341599"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="hs-comment">-- ^ bidirectional element</span></span><span>
+</span><span id="line-123"></span><span>  </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679341596"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679341598"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679341599"><span class="hs-identifier hs-type">b</span></a></span></span></span></span><span>
+</span><span id="line-124"></span><span id="pureP"><span class="annot"><span class="annottext">pureP :: forall (p :: * -&gt; * -&gt; *) a b.
+(Monoidal p, Choice p) =&gt;
+APrism a b () () -&gt; p a b
+</span><a href="Data.Profunctor.Monoidal.html#pureP"><span class="hs-identifier hs-var hs-var">pureP</span></a></span></span><span> </span><span id="local-6989586621679341918"><span class="annot"><span class="annottext">APrism a b () ()
+</span><a href="#local-6989586621679341918"><span class="hs-identifier hs-var">pattern</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">APrism a b () ()
+</span><a href="#local-6989586621679341918"><span class="hs-identifier hs-var">pattern</span></a></span><span> </span><span class="annot"><span class="annottext">APrism a b () () -&gt; p () () -&gt; p a b
+forall (p :: * -&gt; * -&gt; *) s t a b.
+Choice p =&gt;
+APrism s t a b -&gt; p a b -&gt; p s t
+</span><a href="Control.Lens.PartialIso.html#%3E%3F"><span class="hs-operator hs-var">&gt;?</span></a></span><span> </span><span class="annot"><span class="annottext">p () ()
+forall (p :: * -&gt; * -&gt; *). Monoidal p =&gt; p () ()
+</span><a href="Data.Profunctor.Monoidal.html#oneP"><span class="hs-identifier hs-var">oneP</span></a></span><span>
+</span><span id="line-125"></span><span>
+</span><span id="line-126"></span><span class="annot"><span class="hs-comment">{- | A `Monoidal` &amp; `Choice` nil combinator. -}</span></span><span>
+</span><span id="line-127"></span><span id="local-6989586621679341609"><span id="local-6989586621679341611"><span class="annot"><a href="Data.Profunctor.Monoidal.html#asEmpty"><span class="hs-identifier hs-type">asEmpty</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">AsEmpty</span></span><span> </span><span class="annot"><a href="#local-6989586621679341609"><span class="hs-identifier hs-type">s</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Data.Profunctor.Monoidal.html#Monoidal"><span class="hs-identifier hs-type">Monoidal</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679341611"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Choice</span></span><span> </span><span class="annot"><a href="#local-6989586621679341611"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679341611"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679341609"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679341609"><span class="hs-identifier hs-type">s</span></a></span></span></span><span>
+</span><span id="line-128"></span><span id="asEmpty"><span class="annot"><span class="annottext">asEmpty :: forall s (p :: * -&gt; * -&gt; *).
+(AsEmpty s, Monoidal p, Choice p) =&gt;
+p s s
+</span><a href="Data.Profunctor.Monoidal.html#asEmpty"><span class="hs-identifier hs-var hs-var">asEmpty</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">APrism s s () () -&gt; p s s
+forall (p :: * -&gt; * -&gt; *) a b.
+(Monoidal p, Choice p) =&gt;
+APrism a b () () -&gt; p a b
+</span><a href="Data.Profunctor.Monoidal.html#pureP"><span class="hs-identifier hs-var">pureP</span></a></span><span> </span><span class="annot"><span class="annottext">APrism s s () ()
+forall a. AsEmpty a =&gt; Prism' a ()
+Prism' s ()
+</span><span class="hs-identifier hs-var">_Empty</span></span><span>
+</span><span id="line-129"></span><span>
+</span><span id="line-130"></span><span class="annot"><span class="hs-comment">{- | A `Monoidal` &amp; `Choice` cons combinator. -}</span></span><span>
+</span><span id="line-131"></span><span id="local-6989586621679341620"><span id="local-6989586621679341621"><span id="local-6989586621679341622"><span id="local-6989586621679341623"><span id="local-6989586621679341625"><span class="annot"><a href="Data.Profunctor.Monoidal.html#%3E%3A%3C"><span class="hs-operator hs-type">(&gt;:&lt;)</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Cons</span></span><span> </span><span class="annot"><a href="#local-6989586621679341620"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679341621"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679341622"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679341623"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Data.Profunctor.Monoidal.html#Monoidal"><span class="hs-identifier hs-type">Monoidal</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679341625"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Choice</span></span><span> </span><span class="annot"><a href="#local-6989586621679341625"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679341625"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679341622"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679341623"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679341625"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679341620"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679341621"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679341625"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679341620"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679341621"><span class="hs-identifier hs-type">t</span></a></span></span></span></span></span></span><span>
+</span><span id="line-132"></span><span id="local-6989586621679341938"><span class="annot"><span class="annottext">p a b
+</span><a href="#local-6989586621679341938"><span class="hs-identifier hs-var">x</span></a></span></span><span> </span><span id="%3E%3A%3C"><span class="annot"><span class="annottext">&gt;:&lt; :: forall s t a b (p :: * -&gt; * -&gt; *).
+(Cons s t a b, Monoidal p, Choice p) =&gt;
+p a b -&gt; p s t -&gt; p s t
+</span><a href="Data.Profunctor.Monoidal.html#%3E%3A%3C"><span class="hs-operator hs-var hs-var">&gt;:&lt;</span></a></span></span><span> </span><span id="local-6989586621679341939"><span class="annot"><span class="annottext">p s t
+</span><a href="#local-6989586621679341939"><span class="hs-identifier hs-var">xs</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Market (a, s) (b, t) (a, s) (Identity (b, t))
+-&gt; Market (a, s) (b, t) s (Identity t)
+forall s t a b. Cons s t a b =&gt; Prism s t (a, s) (b, t)
+Prism s t (a, s) (b, t)
+</span><span class="hs-identifier hs-var">_Cons</span></span><span> </span><span class="annot"><span class="annottext">(Market (a, s) (b, t) (a, s) (Identity (b, t))
+ -&gt; Market (a, s) (b, t) s (Identity t))
+-&gt; p (a, s) (b, t) -&gt; p s t
+forall (p :: * -&gt; * -&gt; *) s t a b.
+Choice p =&gt;
+APrism s t a b -&gt; p a b -&gt; p s t
+</span><a href="Control.Lens.PartialIso.html#%3E%3F"><span class="hs-operator hs-var">&gt;?</span></a></span><span> </span><span class="annot"><span class="annottext">p a b
+</span><a href="#local-6989586621679341938"><span class="hs-identifier hs-var">x</span></a></span><span> </span><span class="annot"><span class="annottext">p a b -&gt; p s t -&gt; p (a, s) (b, t)
+forall (p :: * -&gt; * -&gt; *) a b c d.
+Monoidal p =&gt;
+p a b -&gt; p c d -&gt; p (a, c) (b, d)
+</span><a href="Data.Profunctor.Monoidal.html#%3E%2A%3C"><span class="hs-operator hs-var">&gt;*&lt;</span></a></span><span> </span><span class="annot"><span class="annottext">p s t
+</span><a href="#local-6989586621679341939"><span class="hs-identifier hs-var">xs</span></a></span><span>
+</span><span id="line-133"></span><span class="hs-keyword">infixr</span><span> </span><span class="hs-number">5</span><span> </span><span class="annot"><a href="Data.Profunctor.Monoidal.html#%3E%3A%3C"><span class="hs-operator hs-type">&gt;:&lt;</span></a></span><span>
+</span><span id="line-134"></span><span>
+</span><span id="line-135"></span><span class="annot"><span class="hs-comment">{- | A `Monoidal` &amp; `Choice` snoc combinator. -}</span></span><span>
+</span><span id="line-136"></span><span id="local-6989586621679341636"><span id="local-6989586621679341637"><span id="local-6989586621679341638"><span id="local-6989586621679341639"><span id="local-6989586621679341641"><span class="annot"><a href="Data.Profunctor.Monoidal.html#snocP"><span class="hs-identifier hs-type">snocP</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Snoc</span></span><span> </span><span class="annot"><a href="#local-6989586621679341636"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679341637"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679341638"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679341639"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Data.Profunctor.Monoidal.html#Monoidal"><span class="hs-identifier hs-type">Monoidal</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679341641"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Choice</span></span><span> </span><span class="annot"><a href="#local-6989586621679341641"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679341641"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679341636"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679341637"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679341641"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679341638"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679341639"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679341641"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679341636"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679341637"><span class="hs-identifier hs-type">t</span></a></span></span></span></span></span></span><span>
+</span><span id="line-137"></span><span id="snocP"><span class="annot"><span class="annottext">snocP :: forall s t a b (p :: * -&gt; * -&gt; *).
+(Snoc s t a b, Monoidal p, Choice p) =&gt;
+p s t -&gt; p a b -&gt; p s t
+</span><a href="Data.Profunctor.Monoidal.html#snocP"><span class="hs-identifier hs-var hs-var">snocP</span></a></span></span><span> </span><span id="local-6989586621679341949"><span class="annot"><span class="annottext">p s t
+</span><a href="#local-6989586621679341949"><span class="hs-identifier hs-var">xs</span></a></span></span><span> </span><span id="local-6989586621679341950"><span class="annot"><span class="annottext">p a b
+</span><a href="#local-6989586621679341950"><span class="hs-identifier hs-var">x</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Market (s, a) (t, b) (s, a) (Identity (t, b))
+-&gt; Market (s, a) (t, b) s (Identity t)
+forall s t a b. Snoc s t a b =&gt; Prism s t (s, a) (t, b)
+Prism s t (s, a) (t, b)
+</span><span class="hs-identifier hs-var">_Snoc</span></span><span> </span><span class="annot"><span class="annottext">(Market (s, a) (t, b) (s, a) (Identity (t, b))
+ -&gt; Market (s, a) (t, b) s (Identity t))
+-&gt; p (s, a) (t, b) -&gt; p s t
+forall (p :: * -&gt; * -&gt; *) s t a b.
+Choice p =&gt;
+APrism s t a b -&gt; p a b -&gt; p s t
+</span><a href="Control.Lens.PartialIso.html#%3E%3F"><span class="hs-operator hs-var">&gt;?</span></a></span><span> </span><span class="annot"><span class="annottext">p s t
+</span><a href="#local-6989586621679341949"><span class="hs-identifier hs-var">xs</span></a></span><span> </span><span class="annot"><span class="annottext">p s t -&gt; p a b -&gt; p (s, a) (t, b)
+forall (p :: * -&gt; * -&gt; *) a b c d.
+Monoidal p =&gt;
+p a b -&gt; p c d -&gt; p (a, c) (b, d)
+</span><a href="Data.Profunctor.Monoidal.html#%3E%2A%3C"><span class="hs-operator hs-var">&gt;*&lt;</span></a></span><span> </span><span class="annot"><span class="annottext">p a b
+</span><a href="#local-6989586621679341950"><span class="hs-identifier hs-var">x</span></a></span><span>
+</span><span id="line-138"></span><span>
+</span><span id="line-139"></span><span class="annot"><span class="hs-comment">{- | Use when `IsList` with `onlyOne` `Item`. -}</span></span><span>
+</span><span id="line-140"></span><span id="local-6989586621679341651"><span id="local-6989586621679341652"><span class="annot"><a href="Data.Profunctor.Monoidal.html#onlyOne"><span class="hs-identifier hs-type">onlyOne</span></a></span><span>
+</span><span id="line-141"></span><span>  </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.Profunctor.Monoidal.html#Monoidal"><span class="hs-identifier hs-type">Monoidal</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679341651"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Choice</span></span><span> </span><span class="annot"><a href="#local-6989586621679341651"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IsList</span></span><span> </span><span class="annot"><a href="#local-6989586621679341652"><span class="hs-identifier hs-type">s</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-142"></span><span>  </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679341651"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Item</span></span><span> </span><span class="annot"><a href="#local-6989586621679341652"><span class="hs-identifier hs-type">s</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Item</span></span><span> </span><span class="annot"><a href="#local-6989586621679341652"><span class="hs-identifier hs-type">s</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679341651"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679341652"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679341652"><span class="hs-identifier hs-type">s</span></a></span></span></span><span>
+</span><span id="line-143"></span><span id="onlyOne"><span class="annot"><span class="annottext">onlyOne :: forall (p :: * -&gt; * -&gt; *) s.
+(Monoidal p, Choice p, IsList s) =&gt;
+p (Item s) (Item s) -&gt; p s s
+</span><a href="Data.Profunctor.Monoidal.html#onlyOne"><span class="hs-identifier hs-var hs-var">onlyOne</span></a></span></span><span> </span><span id="local-6989586621679341972"><span class="annot"><span class="annottext">p (Item s) (Item s)
+</span><a href="#local-6989586621679341972"><span class="hs-identifier hs-var">p</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(s -&gt; [Item s]) -&gt; ([Item s] -&gt; s) -&gt; Iso s s [Item s] [Item s]
+forall s a b t. (s -&gt; a) -&gt; (b -&gt; t) -&gt; Iso s t a b
+</span><span class="hs-identifier hs-var">iso</span></span><span> </span><span class="annot"><span class="annottext">s -&gt; [Item s]
+forall l. IsList l =&gt; l -&gt; [Item l]
+</span><span class="hs-identifier hs-var">toList</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int -&gt; [Item s] -&gt; s
+forall l. IsList l =&gt; Int -&gt; [Item l] -&gt; l
+</span><span class="hs-identifier hs-var">fromListN</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">1</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(Market [Item s] [Item s] [Item s] (Identity [Item s])
+ -&gt; Market [Item s] [Item s] s (Identity s))
+-&gt; p [Item s] [Item s] -&gt; p s s
+forall (p :: * -&gt; * -&gt; *) s t a b.
+Choice p =&gt;
+APrism s t a b -&gt; p a b -&gt; p s t
+</span><a href="Control.Lens.PartialIso.html#%3E%3F"><span class="hs-operator hs-var">&gt;?</span></a></span><span> </span><span class="annot"><span class="annottext">p (Item s) (Item s)
+</span><a href="#local-6989586621679341972"><span class="hs-identifier hs-var">p</span></a></span><span> </span><span class="annot"><span class="annottext">p (Item s) (Item s) -&gt; p [Item s] [Item s] -&gt; p [Item s] [Item s]
+forall s t a b (p :: * -&gt; * -&gt; *).
+(Cons s t a b, Monoidal p, Choice p) =&gt;
+p a b -&gt; p s t -&gt; p s t
+</span><a href="Data.Profunctor.Monoidal.html#%3E%3A%3C"><span class="hs-operator hs-var">&gt;:&lt;</span></a></span><span> </span><span class="annot"><span class="annottext">p [Item s] [Item s]
+forall s (p :: * -&gt; * -&gt; *).
+(AsEmpty s, Monoidal p, Choice p) =&gt;
+p s s
+</span><a href="Data.Profunctor.Monoidal.html#asEmpty"><span class="hs-identifier hs-var">asEmpty</span></a></span><span>
+</span><span id="line-144"></span><span>
+</span><span id="line-145"></span><span class="annot"><span class="hs-comment">{- | `replicateP` is analagous to `Control.Monad.replicateM`,
+for `Monoidal` &amp; `Choice` `Profunctor`s. When the number
+of repetitions is less than or equal to 0, it returns `asEmpty`.
+-}</span></span><span>
+</span><span id="line-149"></span><span id="local-6989586621679341668"><span id="local-6989586621679341669"><span id="local-6989586621679341670"><span class="annot"><a href="Data.Profunctor.Monoidal.html#replicateP"><span class="hs-identifier hs-type">replicateP</span></a></span><span>
+</span><span id="line-150"></span><span>  </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.Profunctor.Monoidal.html#Monoidal"><span class="hs-identifier hs-type">Monoidal</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679341668"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Choice</span></span><span> </span><span class="annot"><a href="#local-6989586621679341668"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">AsEmpty</span></span><span> </span><span class="annot"><a href="#local-6989586621679341669"><span class="hs-identifier hs-type">s</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Cons</span></span><span> </span><span class="annot"><a href="#local-6989586621679341669"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679341669"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679341670"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679341670"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-151"></span><span>  </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span> </span><span class="annot"><span class="hs-comment">{- ^ number of repetitions -}</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679341668"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679341670"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679341670"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679341668"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679341669"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679341669"><span class="hs-identifier hs-type">s</span></a></span></span></span></span><span>
+</span><span id="line-152"></span><span id="replicateP"><span class="annot"><span class="annottext">replicateP :: forall (p :: * -&gt; * -&gt; *) s a.
+(Monoidal p, Choice p, AsEmpty s, Cons s s a a) =&gt;
+Int -&gt; p a a -&gt; p s s
+</span><a href="Data.Profunctor.Monoidal.html#replicateP"><span class="hs-identifier hs-var hs-var">replicateP</span></a></span></span><span> </span><span id="local-6989586621679341993"><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679341993"><span class="hs-identifier hs-var">n</span></a></span></span><span> </span><span class="annot"><span class="annottext">p a a
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679341993"><span class="hs-identifier hs-var">n</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Bool
+forall a. Ord a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">&lt;=</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">0</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">p s s
+forall s (p :: * -&gt; * -&gt; *).
+(AsEmpty s, Monoidal p, Choice p) =&gt;
+p s s
+</span><a href="Data.Profunctor.Monoidal.html#asEmpty"><span class="hs-identifier hs-var">asEmpty</span></a></span><span>
+</span><span id="line-153"></span><span class="annot"><a href="Data.Profunctor.Monoidal.html#replicateP"><span class="hs-identifier hs-var">replicateP</span></a></span><span> </span><span id="local-6989586621679341995"><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679341995"><span class="hs-identifier hs-var">n</span></a></span></span><span> </span><span id="local-6989586621679341996"><span class="annot"><span class="annottext">p a a
+</span><a href="#local-6989586621679341996"><span class="hs-identifier hs-var">a</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">p a a
+</span><a href="#local-6989586621679341996"><span class="hs-identifier hs-var">a</span></a></span><span> </span><span class="annot"><span class="annottext">p a a -&gt; p s s -&gt; p s s
+forall s t a b (p :: * -&gt; * -&gt; *).
+(Cons s t a b, Monoidal p, Choice p) =&gt;
+p a b -&gt; p s t -&gt; p s t
+</span><a href="Data.Profunctor.Monoidal.html#%3E%3A%3C"><span class="hs-operator hs-var">&gt;:&lt;</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; p a a -&gt; p s s
+forall (p :: * -&gt; * -&gt; *) s a.
+(Monoidal p, Choice p, AsEmpty s, Cons s s a a) =&gt;
+Int -&gt; p a a -&gt; p s s
+</span><a href="Data.Profunctor.Monoidal.html#replicateP"><span class="hs-identifier hs-var">replicateP</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679341995"><span class="hs-identifier hs-var">n</span></a></span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Int
+forall a. Num a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-glyph hs-var">-</span></span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">1</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">p a a
+</span><a href="#local-6989586621679341996"><span class="hs-identifier hs-var">a</span></a></span><span>
+</span><span id="line-154"></span><span>
+</span><span id="line-155"></span><span class="annot"><span class="hs-comment">{- | For any `Monoidal`, `Choice` &amp; `Strong` `Profunctor`,
+`meander` is invertible and gives a default implementation for the
+`Data.Profunctor.Traversing.wander`
+method of `Data.Profunctor.Traversing.Traversing`,
+though `Strong` isn't needed for its definition,
+but for its invertibility property.
+
+&gt;&gt;&gt; :{
+traversalP :: (forall p. (Monoidal p, Choice p, Strong p) =&gt; p a b -&gt; p s t) -&gt; Traversal s t a b
+traversalP f = runStar . f . Star
+:}
+prop&gt; traversalP . meander = id
+prop&gt; meander . traversalP = id
+
+See Pickering, Gibbons &amp; Wu,
+[Profunctor Optics - Modular Data Accessors](https://arxiv.org/abs/1703.10857)
+-}</span></span><span>
+</span><span id="line-172"></span><span id="local-6989586621679341675"><span id="local-6989586621679341677"><span id="local-6989586621679341678"><span id="local-6989586621679341679"><span id="local-6989586621679341680"><span class="annot"><a href="Data.Profunctor.Monoidal.html#meander"><span class="hs-identifier hs-type">meander</span></a></span><span>
+</span><span id="line-173"></span><span>  </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.Profunctor.Monoidal.html#Monoidal"><span class="hs-identifier hs-type">Monoidal</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679341675"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Choice</span></span><span> </span><span class="annot"><a href="#local-6989586621679341675"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Strong</span></span><span> </span><span class="annot"><a href="#local-6989586621679341675"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-174"></span><span>  </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ATraversal</span></span><span> </span><span class="annot"><a href="#local-6989586621679341677"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679341678"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679341679"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679341680"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679341675"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679341679"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679341680"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679341675"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679341677"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679341678"><span class="hs-identifier hs-type">t</span></a></span></span></span></span></span></span><span>
+</span><span id="line-175"></span><span id="meander"><span class="annot"><span class="annottext">meander :: forall (p :: * -&gt; * -&gt; *) s t a b.
+(Monoidal p, Choice p, Strong p) =&gt;
+ATraversal s t a b -&gt; p a b -&gt; p s t
+</span><a href="Data.Profunctor.Monoidal.html#meander"><span class="hs-identifier hs-var hs-var">meander</span></a></span></span><span> </span><span id="local-6989586621679342012"><span class="annot"><span class="annottext">ATraversal s t a b
+</span><a href="#local-6989586621679342012"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(s -&gt; Bazaar (-&gt;) a b t)
+-&gt; (Bazaar (-&gt;) b b t -&gt; t)
+-&gt; p (Bazaar (-&gt;) a b t) (Bazaar (-&gt;) b b t)
+-&gt; p s t
+forall a b c d. (a -&gt; b) -&gt; (c -&gt; d) -&gt; p b c -&gt; p a d
+forall (p :: * -&gt; * -&gt; *) a b c d.
+Profunctor p =&gt;
+(a -&gt; b) -&gt; (c -&gt; d) -&gt; p b c -&gt; p a d
+</span><span class="hs-identifier hs-var">dimap</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ATraversal s t a b
+</span><a href="#local-6989586621679342012"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">a -&gt; Bazaar (-&gt;) a b b
+forall a b. a -&gt; Bazaar (-&gt;) a b b
+forall (p :: * -&gt; * -&gt; *) (w :: * -&gt; * -&gt; * -&gt; *) a b.
+Sellable p w =&gt;
+p a (w a b b)
+</span><span class="hs-identifier hs-var">sell</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Bazaar (-&gt;) b b t -&gt; t
+forall a t. Bazaar (-&gt;) a a t -&gt; t
+forall (w :: * -&gt; * -&gt; * -&gt; *) a t.
+IndexedComonad w =&gt;
+w a a t -&gt; t
+</span><span class="hs-identifier hs-var">iextract</span></span><span> </span><span class="annot"><span class="annottext">(p (Bazaar (-&gt;) a b t) (Bazaar (-&gt;) b b t) -&gt; p s t)
+-&gt; (p a b -&gt; p (Bazaar (-&gt;) a b t) (Bazaar (-&gt;) b b t))
+-&gt; p a b
+-&gt; p s t
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">p a b -&gt; p (Bazaar (-&gt;) a b t) (Bazaar (-&gt;) b b t)
+forall (q :: * -&gt; * -&gt; *) u v w x.
+(Monoidal q, Choice q) =&gt;
+q u v -&gt; q (Bazaar (-&gt;) u w x) (Bazaar (-&gt;) v w x)
+</span><a href="#local-6989586621679342016"><span class="hs-identifier hs-var">meandering</span></a></span><span>
+</span><span id="line-176"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-177"></span><span>    </span><span id="local-6989586621679341708"><span id="local-6989586621679341709"><span id="local-6989586621679341710"><span id="local-6989586621679341711"><span id="local-6989586621679341712"><span class="annot"><a href="#local-6989586621679342016"><span class="hs-identifier hs-type">meandering</span></a></span><span>
+</span><span id="line-178"></span><span>      </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.Profunctor.Monoidal.html#Monoidal"><span class="hs-identifier hs-type">Monoidal</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679341708"><span class="hs-identifier hs-type">q</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Choice</span></span><span> </span><span class="annot"><a href="#local-6989586621679341708"><span class="hs-identifier hs-type">q</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-179"></span><span>      </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679341708"><span class="hs-identifier hs-type">q</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679341709"><span class="hs-identifier hs-type">u</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679341710"><span class="hs-identifier hs-type">v</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679341708"><span class="hs-identifier hs-type">q</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Bazaar</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">-&gt;</span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621679341709"><span class="hs-identifier hs-type">u</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679341711"><span class="hs-identifier hs-type">w</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679341712"><span class="hs-identifier hs-type">x</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Bazaar</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">-&gt;</span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621679341710"><span class="hs-identifier hs-type">v</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679341711"><span class="hs-identifier hs-type">w</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679341712"><span class="hs-identifier hs-type">x</span></a></span><span class="hs-special">)</span></span></span></span></span></span><span>
+</span><span id="line-180"></span><span>    </span><span id="local-6989586621679342016"><span class="annot"><span class="annottext">meandering :: forall (q :: * -&gt; * -&gt; *) u v w x.
+(Monoidal q, Choice q) =&gt;
+q u v -&gt; q (Bazaar (-&gt;) u w x) (Bazaar (-&gt;) v w x)
+</span><a href="#local-6989586621679342016"><span class="hs-identifier hs-var hs-var">meandering</span></a></span></span><span> </span><span id="local-6989586621679342028"><span class="annot"><span class="annottext">q u v
+</span><a href="#local-6989586621679342028"><span class="hs-identifier hs-var">q</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Exchange
+  (Either x (u, Bazaar (-&gt;) u w (w -&gt; x)))
+  (Either x (v, Bazaar (-&gt;) v w (w -&gt; x)))
+  (Either x (u, Bazaar (-&gt;) u w (w -&gt; x)))
+  (Identity (Either x (v, Bazaar (-&gt;) v w (w -&gt; x))))
+-&gt; Exchange
+     (Either x (u, Bazaar (-&gt;) u w (w -&gt; x)))
+     (Either x (v, Bazaar (-&gt;) v w (w -&gt; x)))
+     (Bazaar (-&gt;) u w x)
+     (Identity (Bazaar (-&gt;) v w x))
+forall a1 b1 t1 a2 b2 t2 (p :: * -&gt; * -&gt; *) (f :: * -&gt; *).
+(Profunctor p, Functor f) =&gt;
+p (Either t1 (a1, Bazaar (-&gt;) a1 b1 (b1 -&gt; t1)))
+  (f (Either t2 (a2, Bazaar (-&gt;) a2 b2 (b2 -&gt; t2))))
+-&gt; p (Bazaar (-&gt;) a1 b1 t1) (f (Bazaar (-&gt;) a2 b2 t2))
+</span><a href="Data.Profunctor.Monoidal.html#eotFunList"><span class="hs-identifier hs-var">eotFunList</span></a></span><span> </span><span class="annot"><span class="annottext">(Exchange
+   (Either x (u, Bazaar (-&gt;) u w (w -&gt; x)))
+   (Either x (v, Bazaar (-&gt;) v w (w -&gt; x)))
+   (Either x (u, Bazaar (-&gt;) u w (w -&gt; x)))
+   (Identity (Either x (v, Bazaar (-&gt;) v w (w -&gt; x))))
+ -&gt; Exchange
+      (Either x (u, Bazaar (-&gt;) u w (w -&gt; x)))
+      (Either x (v, Bazaar (-&gt;) v w (w -&gt; x)))
+      (Bazaar (-&gt;) u w x)
+      (Identity (Bazaar (-&gt;) v w x)))
+-&gt; q (Either x (u, Bazaar (-&gt;) u w (w -&gt; x)))
+     (Either x (v, Bazaar (-&gt;) v w (w -&gt; x)))
+-&gt; q (Bazaar (-&gt;) u w x) (Bazaar (-&gt;) v w x)
+forall (p :: * -&gt; * -&gt; *) s t a b.
+Profunctor p =&gt;
+AnIso s t a b -&gt; p a b -&gt; p s t
+</span><a href="Control.Lens.PartialIso.html#%3E~"><span class="hs-operator hs-var">&gt;~</span></a></span><span> </span><span class="annot"><span class="annottext">q (u, Bazaar (-&gt;) u w (w -&gt; x)) (v, Bazaar (-&gt;) v w (w -&gt; x))
+-&gt; q (Either x (u, Bazaar (-&gt;) u w (w -&gt; x)))
+     (Either x (v, Bazaar (-&gt;) v w (w -&gt; x)))
+forall a b c. q a b -&gt; q (Either c a) (Either c b)
+forall (p :: * -&gt; * -&gt; *) a b c.
+Choice p =&gt;
+p a b -&gt; p (Either c a) (Either c b)
+</span><span class="hs-identifier hs-var">right'</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">q u v
+</span><a href="#local-6989586621679342028"><span class="hs-identifier hs-var">q</span></a></span><span> </span><span class="annot"><span class="annottext">q u v
+-&gt; q (Bazaar (-&gt;) u w (w -&gt; x)) (Bazaar (-&gt;) v w (w -&gt; x))
+-&gt; q (u, Bazaar (-&gt;) u w (w -&gt; x)) (v, Bazaar (-&gt;) v w (w -&gt; x))
+forall (p :: * -&gt; * -&gt; *) a b c d.
+Monoidal p =&gt;
+p a b -&gt; p c d -&gt; p (a, c) (b, d)
+</span><a href="Data.Profunctor.Monoidal.html#%3E%2A%3C"><span class="hs-operator hs-var">&gt;*&lt;</span></a></span><span> </span><span class="annot"><span class="annottext">q u v -&gt; q (Bazaar (-&gt;) u w (w -&gt; x)) (Bazaar (-&gt;) v w (w -&gt; x))
+forall (q :: * -&gt; * -&gt; *) u v w x.
+(Monoidal q, Choice q) =&gt;
+q u v -&gt; q (Bazaar (-&gt;) u w x) (Bazaar (-&gt;) v w x)
+</span><a href="#local-6989586621679342016"><span class="hs-identifier hs-var">meandering</span></a></span><span> </span><span class="annot"><span class="annottext">q u v
+</span><a href="#local-6989586621679342028"><span class="hs-identifier hs-var">q</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-181"></span><span>
+</span><span id="line-182"></span><span class="annot"><span class="hs-comment">{- | `traverseP` gives a default implementation for the
+`Data.Profunctor.Traversing.traverse'`
+method of `Data.Profunctor.Traversing.Traversing`.
+-}</span></span><span>
+</span><span id="line-186"></span><span id="local-6989586621679341739"><span id="local-6989586621679341740"><span id="local-6989586621679341741"><span id="local-6989586621679341742"><span class="annot"><a href="Data.Profunctor.Monoidal.html#traverseP"><span class="hs-identifier hs-type">traverseP</span></a></span><span>
+</span><span id="line-187"></span><span>  </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Traversable</span></span><span> </span><span class="annot"><a href="#local-6989586621679341739"><span class="hs-identifier hs-type">f</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Data.Profunctor.Monoidal.html#Monoidal"><span class="hs-identifier hs-type">Monoidal</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679341740"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Choice</span></span><span> </span><span class="annot"><a href="#local-6989586621679341740"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Strong</span></span><span> </span><span class="annot"><a href="#local-6989586621679341740"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-188"></span><span>  </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679341740"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679341741"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679341742"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679341740"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679341739"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679341741"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679341739"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679341742"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span></span></span></span></span><span>
+</span><span id="line-189"></span><span id="traverseP"><span class="annot"><span class="annottext">traverseP :: forall (f :: * -&gt; *) (p :: * -&gt; * -&gt; *) a b.
+(Traversable f, Monoidal p, Choice p, Strong p) =&gt;
+p a b -&gt; p (f a) (f b)
+</span><a href="Data.Profunctor.Monoidal.html#traverseP"><span class="hs-identifier hs-var hs-var">traverseP</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ATraversal (f a) (f b) a b -&gt; p a b -&gt; p (f a) (f b)
+forall (p :: * -&gt; * -&gt; *) s t a b.
+(Monoidal p, Choice p, Strong p) =&gt;
+ATraversal s t a b -&gt; p a b -&gt; p s t
+</span><a href="Data.Profunctor.Monoidal.html#meander"><span class="hs-identifier hs-var">meander</span></a></span><span> </span><span class="annot"><span class="annottext">ATraversal (f a) (f b) a b
+forall (t :: * -&gt; *) (f :: * -&gt; *) a b.
+(Traversable t, Applicative f) =&gt;
+(a -&gt; f b) -&gt; t a -&gt; f (t b)
+forall (f :: * -&gt; *) a b.
+Applicative f =&gt;
+(a -&gt; f b) -&gt; f a -&gt; f (f b)
+</span><span class="hs-identifier hs-var">traverse</span></span><span>
+</span><span id="line-190"></span><span>
+</span><span id="line-191"></span><span class="annot"><span class="hs-comment">{- | `foldP` gives a contravariant, profunctorial `Foldable` method.
+However, a `Profunctor` which is also `Contravariant` in its last argument
+is /constant/ over or /phantom/ in its last argument.
+
+prop&gt; foldMap f = getConst . runStar (foldP (Star (Const . f)))
+-}</span></span><span>
+</span><span id="line-197"></span><span id="local-6989586621679341750"><span id="local-6989586621679341751"><span id="local-6989586621679341754"><span id="local-6989586621679341755"><span class="annot"><a href="Data.Profunctor.Monoidal.html#foldP"><span class="hs-identifier hs-type">foldP</span></a></span><span>
+</span><span id="line-198"></span><span>  </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Foldable</span></span><span> </span><span class="annot"><a href="#local-6989586621679341750"><span class="hs-identifier hs-type">f</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Data.Profunctor.Monoidal.html#Monoidal"><span class="hs-identifier hs-type">Monoidal</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679341751"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Choice</span></span><span> </span><span class="annot"><a href="#local-6989586621679341751"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Strong</span></span><span> </span><span class="annot"><a href="#local-6989586621679341751"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">,</span><span> </span><span class="hs-keyword">forall</span><span> </span><span id="local-6989586621679341752"><span class="annot"><a href="#local-6989586621679341752"><span class="hs-identifier hs-type">x</span></a></span></span><span class="hs-operator">.</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Contravariant</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679341751"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679341752"><span class="hs-identifier hs-type">x</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-199"></span><span>  </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679341751"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679341754"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679341755"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679341751"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679341750"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679341754"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679341750"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679341755"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span></span></span></span></span><span>
+</span><span id="line-200"></span><span id="foldP"><span class="annot"><span class="annottext">foldP :: forall (f :: * -&gt; *) (p :: * -&gt; * -&gt; *) a b.
+(Foldable f, Monoidal p, Choice p, Strong p,
+ forall x. Contravariant (p x)) =&gt;
+p a b -&gt; p (f a) (f b)
+</span><a href="Data.Profunctor.Monoidal.html#foldP"><span class="hs-identifier hs-var hs-var">foldP</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(f b -&gt; ()) -&gt; p (f a) () -&gt; p (f a) (f b)
+forall a' a. (a' -&gt; a) -&gt; p (f a) a -&gt; p (f a) a'
+forall (f :: * -&gt; *) a' a.
+Contravariant f =&gt;
+(a' -&gt; a) -&gt; f a -&gt; f a'
+</span><span class="hs-identifier hs-var">contramap</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">() -&gt; f b -&gt; ()
+forall a b. a -&gt; b -&gt; a
+</span><span class="hs-identifier hs-var">const</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(p (f a) () -&gt; p (f a) (f b))
+-&gt; (p a b -&gt; p (f a) ()) -&gt; p a b -&gt; p (f a) (f b)
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">ATraversal (f a) () a b -&gt; p a b -&gt; p (f a) ()
+forall (p :: * -&gt; * -&gt; *) s t a b.
+(Monoidal p, Choice p, Strong p) =&gt;
+ATraversal s t a b -&gt; p a b -&gt; p s t
+</span><a href="Data.Profunctor.Monoidal.html#meander"><span class="hs-identifier hs-var">meander</span></a></span><span> </span><span class="annot"><span class="annottext">ATraversal (f a) () a b
+forall (t :: * -&gt; *) (f :: * -&gt; *) a b.
+(Foldable t, Applicative f) =&gt;
+(a -&gt; f b) -&gt; t a -&gt; f ()
+</span><span class="hs-identifier hs-var">traverse_</span></span><span>
+</span><span id="line-201"></span><span>
+</span><span id="line-202"></span><span class="annot"><span class="hs-comment">{- |
+`eotFunList` is used to define `meander`.
+See van Laarhoven, [A non-regular data type challenge]
+(https://twanvl.nl/blog/haskell/non-regular1),
+both post and comments, for details.
+-}</span></span><span>
+</span><span id="line-208"></span><span id="local-6989586621679341723"><span id="local-6989586621679341724"><span id="local-6989586621679341725"><span id="local-6989586621679341726"><span id="local-6989586621679341727"><span id="local-6989586621679341728"><span class="annot"><a href="Data.Profunctor.Monoidal.html#eotFunList"><span class="hs-identifier hs-type">eotFunList</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Iso</span></span><span>
+</span><span id="line-209"></span><span>  </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Bazaar</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">-&gt;</span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621679341724"><span class="hs-identifier hs-type">a1</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679341725"><span class="hs-identifier hs-type">b1</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679341723"><span class="hs-identifier hs-type">t1</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Bazaar</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">-&gt;</span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621679341727"><span class="hs-identifier hs-type">a2</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679341728"><span class="hs-identifier hs-type">b2</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679341726"><span class="hs-identifier hs-type">t2</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-210"></span><span>  </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Either</span></span><span> </span><span class="annot"><a href="#local-6989586621679341723"><span class="hs-identifier hs-type">t1</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679341724"><span class="hs-identifier hs-type">a1</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Bazaar</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">-&gt;</span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621679341724"><span class="hs-identifier hs-type">a1</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679341725"><span class="hs-identifier hs-type">b1</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679341725"><span class="hs-identifier hs-type">b1</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679341723"><span class="hs-identifier hs-type">t1</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-211"></span><span>  </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Either</span></span><span> </span><span class="annot"><a href="#local-6989586621679341726"><span class="hs-identifier hs-type">t2</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679341727"><span class="hs-identifier hs-type">a2</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Bazaar</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">-&gt;</span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621679341727"><span class="hs-identifier hs-type">a2</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679341728"><span class="hs-identifier hs-type">b2</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679341728"><span class="hs-identifier hs-type">b2</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679341726"><span class="hs-identifier hs-type">t2</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span class="hs-special">)</span></span></span></span></span></span></span><span>
+</span><span id="line-212"></span><span id="eotFunList"><span class="annot"><span class="annottext">eotFunList :: forall a1 b1 t1 a2 b2 t2 (p :: * -&gt; * -&gt; *) (f :: * -&gt; *).
+(Profunctor p, Functor f) =&gt;
+p (Either t1 (a1, Bazaar (-&gt;) a1 b1 (b1 -&gt; t1)))
+  (f (Either t2 (a2, Bazaar (-&gt;) a2 b2 (b2 -&gt; t2))))
+-&gt; p (Bazaar (-&gt;) a1 b1 t1) (f (Bazaar (-&gt;) a2 b2 t2))
+</span><a href="Data.Profunctor.Monoidal.html#eotFunList"><span class="hs-identifier hs-var hs-var">eotFunList</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(Bazaar (-&gt;) a1 b1 t1
+ -&gt; Either t1 (a1, Bazaar (-&gt;) a1 b1 (b1 -&gt; t1)))
+-&gt; (Either t2 (a2, Bazaar (-&gt;) a2 b2 (b2 -&gt; t2))
+    -&gt; Bazaar (-&gt;) a2 b2 t2)
+-&gt; Iso
+     (Bazaar (-&gt;) a1 b1 t1)
+     (Bazaar (-&gt;) a2 b2 t2)
+     (Either t1 (a1, Bazaar (-&gt;) a1 b1 (b1 -&gt; t1)))
+     (Either t2 (a2, Bazaar (-&gt;) a2 b2 (b2 -&gt; t2)))
+forall s a b t. (s -&gt; a) -&gt; (b -&gt; t) -&gt; Iso s t a b
+</span><span class="hs-identifier hs-var">iso</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">FunList a1 b1 t1 -&gt; Either t1 (a1, Bazaar (-&gt;) a1 b1 (b1 -&gt; t1))
+forall {a} {b} {t}.
+FunList a b t -&gt; Either t (a, Bazaar (-&gt;) a b (b -&gt; t))
+</span><a href="#local-6989586621679342058"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">(FunList a1 b1 t1 -&gt; Either t1 (a1, Bazaar (-&gt;) a1 b1 (b1 -&gt; t1)))
+-&gt; (Bazaar (-&gt;) a1 b1 t1 -&gt; FunList a1 b1 t1)
+-&gt; Bazaar (-&gt;) a1 b1 t1
+-&gt; Either t1 (a1, Bazaar (-&gt;) a1 b1 (b1 -&gt; t1))
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Bazaar (-&gt;) a1 b1 t1 -&gt; FunList a1 b1 t1
+forall a b t. Bazaar (-&gt;) a b t -&gt; FunList a b t
+</span><a href="Data.Profunctor.Monoidal.html#toFun"><span class="hs-identifier hs-var">toFun</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">FunList a2 b2 t2 -&gt; Bazaar (-&gt;) a2 b2 t2
+forall a b t. FunList a b t -&gt; Bazaar (-&gt;) a b t
+</span><a href="Data.Profunctor.Monoidal.html#fromFun"><span class="hs-identifier hs-var">fromFun</span></a></span><span> </span><span class="annot"><span class="annottext">(FunList a2 b2 t2 -&gt; Bazaar (-&gt;) a2 b2 t2)
+-&gt; (Either t2 (a2, Bazaar (-&gt;) a2 b2 (b2 -&gt; t2))
+    -&gt; FunList a2 b2 t2)
+-&gt; Either t2 (a2, Bazaar (-&gt;) a2 b2 (b2 -&gt; t2))
+-&gt; Bazaar (-&gt;) a2 b2 t2
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Either t2 (a2, Bazaar (-&gt;) a2 b2 (b2 -&gt; t2)) -&gt; FunList a2 b2 t2
+forall {a} {a} {b}.
+Either a (a, Bazaar (-&gt;) a b (b -&gt; a)) -&gt; FunList a b a
+</span><a href="#local-6989586621679342061"><span class="hs-identifier hs-var">g</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-213"></span><span>  </span><span id="local-6989586621679342058"><span class="annot"><span class="annottext">f :: FunList a b t -&gt; Either t (a, Bazaar (-&gt;) a b (b -&gt; t))
+</span><a href="#local-6989586621679342058"><span class="hs-identifier hs-var hs-var">f</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span>
+</span><span id="line-214"></span><span>    </span><span class="annot"><a href="Data.Profunctor.Monoidal.html#DoneFun"><span class="hs-identifier hs-type">DoneFun</span></a></span><span> </span><span id="local-6989586621679342063"><span class="annot"><span class="annottext">t
+</span><a href="#local-6989586621679342063"><span class="hs-identifier hs-var">t</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">t -&gt; Either t (a, Bazaar (-&gt;) a b (b -&gt; t))
+forall a b. a -&gt; Either a b
+</span><span class="hs-identifier hs-var">Left</span></span><span> </span><span class="annot"><span class="annottext">t
+</span><a href="#local-6989586621679342063"><span class="hs-identifier hs-var">t</span></a></span><span>
+</span><span id="line-215"></span><span>    </span><span class="annot"><a href="Data.Profunctor.Monoidal.html#MoreFun"><span class="hs-identifier hs-type">MoreFun</span></a></span><span> </span><span id="local-6989586621679342065"><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679342065"><span class="hs-identifier hs-var">a</span></a></span></span><span> </span><span id="local-6989586621679342066"><span class="annot"><span class="annottext">Bazaar (-&gt;) a b (b -&gt; t)
+</span><a href="#local-6989586621679342066"><span class="hs-identifier hs-var">baz</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">(a, Bazaar (-&gt;) a b (b -&gt; t))
+-&gt; Either t (a, Bazaar (-&gt;) a b (b -&gt; t))
+forall a b. b -&gt; Either a b
+</span><span class="hs-identifier hs-var">Right</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679342065"><span class="hs-identifier hs-var">a</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Bazaar (-&gt;) a b (b -&gt; t)
+</span><a href="#local-6989586621679342066"><span class="hs-identifier hs-var">baz</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-216"></span><span>  </span><span id="local-6989586621679342061"><span class="annot"><span class="annottext">g :: Either a (a, Bazaar (-&gt;) a b (b -&gt; a)) -&gt; FunList a b a
+</span><a href="#local-6989586621679342061"><span class="hs-identifier hs-var hs-var">g</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span>
+</span><span id="line-217"></span><span>    </span><span class="annot"><span class="hs-identifier hs-type">Left</span></span><span> </span><span id="local-6989586621679342067"><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679342067"><span class="hs-identifier hs-var">t</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">a -&gt; FunList a b a
+forall a b t. t -&gt; FunList a b t
+</span><a href="Data.Profunctor.Monoidal.html#DoneFun"><span class="hs-identifier hs-var">DoneFun</span></a></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679342067"><span class="hs-identifier hs-var">t</span></a></span><span>
+</span><span id="line-218"></span><span>    </span><span class="annot"><span class="hs-identifier hs-type">Right</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679342068"><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679342068"><span class="hs-identifier hs-var">a</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679342069"><span class="annot"><span class="annottext">Bazaar (-&gt;) a b (b -&gt; a)
+</span><a href="#local-6989586621679342069"><span class="hs-identifier hs-var">baz</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">a -&gt; Bazaar (-&gt;) a b (b -&gt; a) -&gt; FunList a b a
+forall a b t. a -&gt; Bazaar (-&gt;) a b (b -&gt; t) -&gt; FunList a b t
+</span><a href="Data.Profunctor.Monoidal.html#MoreFun"><span class="hs-identifier hs-var">MoreFun</span></a></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679342068"><span class="hs-identifier hs-var">a</span></a></span><span> </span><span class="annot"><span class="annottext">Bazaar (-&gt;) a b (b -&gt; a)
+</span><a href="#local-6989586621679342069"><span class="hs-identifier hs-var">baz</span></a></span><span>
+</span><span id="line-219"></span><span class="hs-keyword">data</span><span> </span><span id="FunList"><span class="annot"><a href="Data.Profunctor.Monoidal.html#FunList"><span class="hs-identifier hs-var">FunList</span></a></span></span><span> </span><span id="local-6989586621679341791"><span class="annot"><a href="#local-6989586621679341791"><span class="hs-identifier hs-type">a</span></a></span></span><span> </span><span id="local-6989586621679341792"><span class="annot"><a href="#local-6989586621679341792"><span class="hs-identifier hs-type">b</span></a></span></span><span> </span><span id="local-6989586621679341790"><span class="annot"><a href="#local-6989586621679341790"><span class="hs-identifier hs-type">t</span></a></span></span><span>
+</span><span id="line-220"></span><span>  </span><span class="hs-glyph">=</span><span> </span><span id="DoneFun"><span class="annot"><a href="Data.Profunctor.Monoidal.html#DoneFun"><span class="hs-identifier hs-var">DoneFun</span></a></span></span><span> </span><span class="annot"><a href="#local-6989586621679341790"><span class="hs-identifier hs-type">t</span></a></span><span>
+</span><span id="line-221"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="MoreFun"><span class="annot"><a href="Data.Profunctor.Monoidal.html#MoreFun"><span class="hs-identifier hs-var">MoreFun</span></a></span></span><span> </span><span class="annot"><a href="#local-6989586621679341791"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Bazaar</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">-&gt;</span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621679341791"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679341792"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679341792"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679341790"><span class="hs-identifier hs-type">t</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-222"></span><span id="local-6989586621679341779"><span id="local-6989586621679341780"><span id="local-6989586621679341781"><span class="annot"><a href="Data.Profunctor.Monoidal.html#toFun"><span class="hs-identifier hs-type">toFun</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Bazaar</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">-&gt;</span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621679341779"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679341780"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679341781"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Data.Profunctor.Monoidal.html#FunList"><span class="hs-identifier hs-type">FunList</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679341779"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679341780"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679341781"><span class="hs-identifier hs-type">t</span></a></span></span></span></span><span>
+</span><span id="line-223"></span><span id="toFun"><span class="annot"><span class="annottext">toFun :: forall a b t. Bazaar (-&gt;) a b t -&gt; FunList a b t
+</span><a href="Data.Profunctor.Monoidal.html#toFun"><span class="hs-identifier hs-var hs-var">toFun</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Bazaar</span></span><span> </span><span id="local-6989586621679342075"><span class="annot"><span class="annottext">forall (f :: * -&gt; *). Applicative f =&gt; (a -&gt; f b) -&gt; f t
+</span><a href="#local-6989586621679342075"><span class="hs-identifier hs-var">f</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(a -&gt; FunList a b b) -&gt; FunList a b t
+forall (f :: * -&gt; *). Applicative f =&gt; (a -&gt; f b) -&gt; f t
+</span><a href="#local-6989586621679342075"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">a -&gt; FunList a b b
+forall a b. a -&gt; FunList a b b
+forall (p :: * -&gt; * -&gt; *) (w :: * -&gt; * -&gt; * -&gt; *) a b.
+Sellable p w =&gt;
+p a (w a b b)
+</span><span class="hs-identifier hs-var">sell</span></span><span>
+</span><span id="line-224"></span><span id="local-6989586621679341782"><span id="local-6989586621679341783"><span id="local-6989586621679341784"><span class="annot"><a href="Data.Profunctor.Monoidal.html#fromFun"><span class="hs-identifier hs-type">fromFun</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Data.Profunctor.Monoidal.html#FunList"><span class="hs-identifier hs-type">FunList</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679341782"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679341783"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679341784"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Bazaar</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">-&gt;</span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621679341782"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679341783"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679341784"><span class="hs-identifier hs-type">t</span></a></span></span></span></span><span>
+</span><span id="line-225"></span><span id="fromFun"><span class="annot"><span class="annottext">fromFun :: forall a b t. FunList a b t -&gt; Bazaar (-&gt;) a b t
+</span><a href="Data.Profunctor.Monoidal.html#fromFun"><span class="hs-identifier hs-var hs-var">fromFun</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span>
+</span><span id="line-226"></span><span>  </span><span class="annot"><a href="Data.Profunctor.Monoidal.html#DoneFun"><span class="hs-identifier hs-type">DoneFun</span></a></span><span> </span><span id="local-6989586621679342082"><span class="annot"><span class="annottext">t
+</span><a href="#local-6989586621679342082"><span class="hs-identifier hs-var">t</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">t -&gt; Bazaar (-&gt;) a b t
+forall a. a -&gt; Bazaar (-&gt;) a b a
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><span class="hs-identifier hs-var">pure</span></span><span> </span><span class="annot"><span class="annottext">t
+</span><a href="#local-6989586621679342082"><span class="hs-identifier hs-var">t</span></a></span><span>
+</span><span id="line-227"></span><span>  </span><span class="annot"><a href="Data.Profunctor.Monoidal.html#MoreFun"><span class="hs-identifier hs-type">MoreFun</span></a></span><span> </span><span id="local-6989586621679342083"><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679342083"><span class="hs-identifier hs-var">a</span></a></span></span><span> </span><span id="local-6989586621679342084"><span class="annot"><span class="annottext">Bazaar (-&gt;) a b (b -&gt; t)
+</span><a href="#local-6989586621679342084"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">((b -&gt; t) -&gt; b -&gt; t) -&gt; b -&gt; (b -&gt; t) -&gt; t
+forall a b c. (a -&gt; b -&gt; c) -&gt; b -&gt; a -&gt; c
+</span><span class="hs-identifier hs-var">flip</span></span><span> </span><span class="annot"><span class="annottext">(b -&gt; t) -&gt; b -&gt; t
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">($)</span></span><span> </span><span class="annot"><span class="annottext">(b -&gt; (b -&gt; t) -&gt; t)
+-&gt; Bazaar (-&gt;) a b b -&gt; Bazaar (-&gt;) a b ((b -&gt; t) -&gt; t)
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">a -&gt; Bazaar (-&gt;) a b b
+forall a b. a -&gt; Bazaar (-&gt;) a b b
+forall (p :: * -&gt; * -&gt; *) (w :: * -&gt; * -&gt; * -&gt; *) a b.
+Sellable p w =&gt;
+p a (w a b b)
+</span><span class="hs-identifier hs-var">sell</span></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679342083"><span class="hs-identifier hs-var">a</span></a></span><span> </span><span class="annot"><span class="annottext">Bazaar (-&gt;) a b ((b -&gt; t) -&gt; t)
+-&gt; Bazaar (-&gt;) a b (b -&gt; t) -&gt; Bazaar (-&gt;) a b t
+forall a b.
+Bazaar (-&gt;) a b (a -&gt; b) -&gt; Bazaar (-&gt;) a b a -&gt; Bazaar (-&gt;) a b b
+forall (f :: * -&gt; *) a b. Applicative f =&gt; f (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;*&gt;</span></span><span> </span><span class="annot"><span class="annottext">Bazaar (-&gt;) a b (b -&gt; t)
+</span><a href="#local-6989586621679342084"><span class="hs-identifier hs-var">f</span></a></span><span>
+</span><span id="line-228"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679341825"><span id="local-6989586621679341826"><span id="local-6989586621679342089"><span class="annot"><span class="hs-identifier hs-type">Functor</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.Profunctor.Monoidal.html#FunList"><span class="hs-identifier hs-type">FunList</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679341825"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679341826"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-229"></span><span>  </span><span id="local-6989586621679342094"><span class="annot"><span class="annottext">fmap :: forall a b. (a -&gt; b) -&gt; FunList a b a -&gt; FunList a b b
+</span><span class="hs-identifier hs-var hs-var hs-var">fmap</span></span></span><span> </span><span id="local-6989586621679342095"><span class="annot"><span class="annottext">a -&gt; b
+</span><a href="#local-6989586621679342095"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span>
+</span><span id="line-230"></span><span>    </span><span class="annot"><a href="Data.Profunctor.Monoidal.html#DoneFun"><span class="hs-identifier hs-type">DoneFun</span></a></span><span> </span><span id="local-6989586621679342096"><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679342096"><span class="hs-identifier hs-var">t</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">b -&gt; FunList a b b
+forall a b t. t -&gt; FunList a b t
+</span><a href="Data.Profunctor.Monoidal.html#DoneFun"><span class="hs-identifier hs-var">DoneFun</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">a -&gt; b
+</span><a href="#local-6989586621679342095"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679342096"><span class="hs-identifier hs-var">t</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-231"></span><span>    </span><span class="annot"><a href="Data.Profunctor.Monoidal.html#MoreFun"><span class="hs-identifier hs-type">MoreFun</span></a></span><span> </span><span id="local-6989586621679342097"><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679342097"><span class="hs-identifier hs-var">a</span></a></span></span><span> </span><span id="local-6989586621679342098"><span class="annot"><span class="annottext">Bazaar (-&gt;) a b (b -&gt; a)
+</span><a href="#local-6989586621679342098"><span class="hs-identifier hs-var">h</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">a -&gt; Bazaar (-&gt;) a b (b -&gt; b) -&gt; FunList a b b
+forall a b t. a -&gt; Bazaar (-&gt;) a b (b -&gt; t) -&gt; FunList a b t
+</span><a href="Data.Profunctor.Monoidal.html#MoreFun"><span class="hs-identifier hs-var">MoreFun</span></a></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679342097"><span class="hs-identifier hs-var">a</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">((b -&gt; a) -&gt; b -&gt; b)
+-&gt; Bazaar (-&gt;) a b (b -&gt; a) -&gt; Bazaar (-&gt;) a b (b -&gt; b)
+forall a b. (a -&gt; b) -&gt; Bazaar (-&gt;) a b a -&gt; Bazaar (-&gt;) a b b
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">fmap</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">a -&gt; b
+</span><a href="#local-6989586621679342095"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">(a -&gt; b) -&gt; (b -&gt; a) -&gt; b -&gt; b
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Bazaar (-&gt;) a b (b -&gt; a)
+</span><a href="#local-6989586621679342098"><span class="hs-identifier hs-var">h</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-232"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679341795"><span id="local-6989586621679341796"><span id="local-6989586621679342104"><span id="local-6989586621679342107"><span id="local-6989586621679342110"><span class="annot"><span class="hs-identifier hs-type">Applicative</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.Profunctor.Monoidal.html#FunList"><span class="hs-identifier hs-type">FunList</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679341795"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679341796"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span></span></span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-233"></span><span>  </span><span id="local-6989586621679342113"><span class="annot"><span class="annottext">pure :: forall a. a -&gt; FunList a b a
+</span><span class="hs-identifier hs-var hs-var hs-var">pure</span></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">a -&gt; FunList a b a
+forall a b t. t -&gt; FunList a b t
+</span><a href="Data.Profunctor.Monoidal.html#DoneFun"><span class="hs-identifier hs-var">DoneFun</span></a></span><span>
+</span><span id="line-234"></span><span>  </span><span id="local-6989586621679342117"><span class="annot"><span class="annottext">&lt;*&gt; :: forall a b. FunList a b (a -&gt; b) -&gt; FunList a b a -&gt; FunList a b b
+</span><span class="hs-operator hs-var hs-var hs-var">(&lt;*&gt;)</span></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span>
+</span><span id="line-235"></span><span>    </span><span class="annot"><a href="Data.Profunctor.Monoidal.html#DoneFun"><span class="hs-identifier hs-type">DoneFun</span></a></span><span> </span><span id="local-6989586621679342118"><span class="annot"><span class="annottext">a -&gt; b
+</span><a href="#local-6989586621679342118"><span class="hs-identifier hs-var">t</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">(a -&gt; b) -&gt; FunList a b a -&gt; FunList a b b
+forall a b. (a -&gt; b) -&gt; FunList a b a -&gt; FunList a b b
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">fmap</span></span><span> </span><span class="annot"><span class="annottext">a -&gt; b
+</span><a href="#local-6989586621679342118"><span class="hs-identifier hs-var">t</span></a></span><span>
+</span><span id="line-236"></span><span>    </span><span class="annot"><a href="Data.Profunctor.Monoidal.html#MoreFun"><span class="hs-identifier hs-type">MoreFun</span></a></span><span> </span><span id="local-6989586621679342119"><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679342119"><span class="hs-identifier hs-var">a</span></a></span></span><span> </span><span id="local-6989586621679342120"><span class="annot"><span class="annottext">Bazaar (-&gt;) a b (b -&gt; a -&gt; b)
+</span><a href="#local-6989586621679342120"><span class="hs-identifier hs-var">h</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679342121"><span class="annot"><span class="annottext">FunList a b a
+</span><a href="#local-6989586621679342121"><span class="hs-identifier hs-var">l</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-237"></span><span>      </span><span class="annot"><span class="annottext">a -&gt; Bazaar (-&gt;) a b (b -&gt; b) -&gt; FunList a b b
+forall a b t. a -&gt; Bazaar (-&gt;) a b (b -&gt; t) -&gt; FunList a b t
+</span><a href="Data.Profunctor.Monoidal.html#MoreFun"><span class="hs-identifier hs-var">MoreFun</span></a></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679342119"><span class="hs-identifier hs-var">a</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(b -&gt; a -&gt; b) -&gt; a -&gt; b -&gt; b
+forall a b c. (a -&gt; b -&gt; c) -&gt; b -&gt; a -&gt; c
+</span><span class="hs-identifier hs-var">flip</span></span><span> </span><span class="annot"><span class="annottext">((b -&gt; a -&gt; b) -&gt; a -&gt; b -&gt; b)
+-&gt; Bazaar (-&gt;) a b (b -&gt; a -&gt; b) -&gt; Bazaar (-&gt;) a b (a -&gt; b -&gt; b)
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">Bazaar (-&gt;) a b (b -&gt; a -&gt; b)
+</span><a href="#local-6989586621679342120"><span class="hs-identifier hs-var">h</span></a></span><span> </span><span class="annot"><span class="annottext">Bazaar (-&gt;) a b (a -&gt; b -&gt; b)
+-&gt; Bazaar (-&gt;) a b a -&gt; Bazaar (-&gt;) a b (b -&gt; b)
+forall a b.
+Bazaar (-&gt;) a b (a -&gt; b) -&gt; Bazaar (-&gt;) a b a -&gt; Bazaar (-&gt;) a b b
+forall (f :: * -&gt; *) a b. Applicative f =&gt; f (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;*&gt;</span></span><span> </span><span class="annot"><span class="annottext">FunList a b a -&gt; Bazaar (-&gt;) a b a
+forall a b t. FunList a b t -&gt; Bazaar (-&gt;) a b t
+</span><a href="Data.Profunctor.Monoidal.html#fromFun"><span class="hs-identifier hs-var">fromFun</span></a></span><span> </span><span class="annot"><span class="annottext">FunList a b a
+</span><a href="#local-6989586621679342121"><span class="hs-identifier hs-var">l</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-238"></span><span class="hs-keyword">instance</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Sellable</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">-&gt;</span><span class="hs-special">)</span><span> </span><span class="annot"><a href="Data.Profunctor.Monoidal.html#FunList"><span class="hs-identifier hs-type">FunList</span></a></span><span> </span><span class="hs-keyword">where</span><span> </span><span id="local-6989586621679342127"><span class="annot"><span class="annottext">sell :: forall a b. a -&gt; FunList a b b
+</span><span class="hs-identifier hs-var hs-var hs-var">sell</span></span></span><span> </span><span id="local-6989586621679342128"><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679342128"><span class="hs-identifier hs-var">b</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">a -&gt; Bazaar (-&gt;) a b (b -&gt; b) -&gt; FunList a b b
+forall a b t. a -&gt; Bazaar (-&gt;) a b (b -&gt; t) -&gt; FunList a b t
+</span><a href="Data.Profunctor.Monoidal.html#MoreFun"><span class="hs-identifier hs-var">MoreFun</span></a></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679342128"><span class="hs-identifier hs-var">b</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(b -&gt; b) -&gt; Bazaar (-&gt;) a b (b -&gt; b)
+forall a. a -&gt; Bazaar (-&gt;) a b a
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><span class="hs-identifier hs-var">pure</span></span><span> </span><span class="annot"><span class="annottext">b -&gt; b
+forall a. a -&gt; a
+</span><span class="hs-identifier hs-var">id</span></span><span class="hs-special">)</span><span>
+</span><span id="line-239"></span></pre></body></html>
