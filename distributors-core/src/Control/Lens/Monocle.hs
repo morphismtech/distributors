@@ -52,6 +52,7 @@ import Data.Profunctor.Monoidal.Cocartesian
 import Data.Traversable.Homogeneous
 import Data.Void (Void, absurd)
 import GHC.Generics (Par1 (..), V1, (:+:) (..))
+import Numeric.Natural (Natural)
 
 {- | `Monocle`s are an optic that generalizes
 `Control.Lens.Traversal.Traversal`s & `Control.Lens.Grate.Grate`s.
@@ -224,7 +225,7 @@ Numbering diverges past a summand of infinitely many copies.
 >>> iview (indexComonocle (altComonocle id id)) (Right 'a' :: Either Char Char)
 (1,'a')
 -}
-indexComonocle :: AComonocle s t a b -> IndexedLens Int s t a b
+indexComonocle :: AComonocle s t a b -> IndexedLens Natural s t a b
 indexComonocle mon = withComonocle mon $ \split merge ->
   ilens (\s -> let as = split s in (copyIndex as, copied as))
     (\s b -> merge (b <$ split s))
@@ -277,11 +278,11 @@ copied :: Enumerable f => f a -> a
 copied = runForget (enumerably (Forget id))
 
 -- Which copy an `Enumerable` sum holds, numbered from 0, left to right.
-copyIndex :: Enumerable f => f a -> Int
+copyIndex :: Enumerable f => f a -> Natural
 copyIndex = case enumerably (Counting 1 (const 0)) of Counting _ which -> which
 
 -- How many copies, & which copy is held.
-data Counting s t = Counting Int (s -> Int)
+data Counting s t = Counting Natural (s -> Natural)
 instance Profunctor Counting where
   dimap f _ (Counting count which) = Counting count (which . f)
 instance CocartesianMonoidal Counting where
