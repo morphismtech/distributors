@@ -69,6 +69,9 @@ import Data.Text (Text)
 import Data.Text qualified as Text
 import Numeric (readHex, showHex)
 
+-- $setup
+-- >>> import Control.Lens.Grammar
+
 -- Declarations --
 
 {- | A declaration of a declaration file, by the TypeScript compiler's

@@ -32,21 +32,21 @@ as well as `Filterable`, adding the `filtrate` method,
 which is an oplax monoidal structure morphism dual to
 `>+<`.
 
-prop> filtrate . uncurry (>+<) = id
-prop> uncurry (>+<) . filtrate = id
+@prop> filtrate . uncurry (>+<) = id@
+@prop> uncurry (>+<) . filtrate = id@
 -}
 class (Cochoice p, forall x. Filterable (p x))
   => Filtrator p where
 
     {- |
-    prop> unleft = fst . filtrate = lmap Left . mapMaybe (either Just (const Nothing))
-    prop> unright = snd . filtrate = lmap Right . mapMaybe (either (const Nothing) Just)
+    @prop> unleft = fst . filtrate = lmap Left . mapMaybe (either Just (const Nothing))@
+    @prop> unright = snd . filtrate = lmap Right . mapMaybe (either (const Nothing) Just)@
 
     `filtrate` is a distant relative to `Data.Either.partitionEithers`.
     `filtrate` can be given a default value for `Monadic`
     `Alternator`s via `mfiltrate`.
 
-    prop> filtrate = mfiltrate
+    @prop> filtrate = mfiltrate@
 
     `filtrate` has a default for `Choice` & `Cochoice` partial profunctors.
     -}
@@ -65,7 +65,7 @@ class (Cochoice p, forall x. Filterable (p x))
 -- | A `Monadic` `Alternator` has
 -- an equivalent to `filtrate`, given by `mfiltrate`.
 --
--- prop> filtrate = mfiltrate
+-- @prop> filtrate = mfiltrate@
 mfiltrate
   :: (Monadic p, Alternator p)
   => p (Either a c) (Either b d) -- ^ partition `Either`

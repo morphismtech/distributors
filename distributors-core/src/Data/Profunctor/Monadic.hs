@@ -44,7 +44,7 @@ type Monadic p = (Profunctor p, forall x. Monad (p x))
 {- | The pair bonding operator @P.@`>>=` is a context-sensitive
 version of `>*<`.
 
-prop> x >*< y = x P.>>= (\_ -> y)
+@prop> x >*< y = x P.>>= (\_ -> y)@
 -}
 (>>=) :: Monadic p => p a b -> (b -> p c d) -> p (a,c) (b,d)
 infixl 1 >>=
@@ -61,7 +61,7 @@ x >> y = do _ <- lmap (const ()) x; y
 {- | @P.@`return` is a `Monadic`-restricted
 version of `pureP`.
 
-prop> pureP = P.return
+@prop> pureP = P.return@
 -}
 return :: (Monadic p, Choice p) => APrism a b () () -> p a b
 return = pureP

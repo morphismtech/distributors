@@ -6,11 +6,8 @@ import Control.Monad (when)
 import Data.IORef
 import Data.Function (fix)
 import Data.List (genericLength)
-import Data.Maybe (isJust)
 import Data.Profunctor.Types (Star (..))
 import Data.Tree (Tree (..))
-import System.Environment (lookupEnv)
-import Test.DocTest
 import Test.Hspec
 import Test.QuickCheck (generate)
 import qualified Text.Megaparsec as M
@@ -28,29 +25,24 @@ import Properties.Homogeneous
 import Properties.Kleene
 
 main :: IO ()
-main = do
-  shouldRunDoctests <- isJust <$> lookupEnv "DISTRIBUTORS_RUN_DOCTESTS"
-  hspec $ do
-    when shouldRunDoctests $
-      describe "doctest" $
-        it "should run haddock examples" doctests
-    describe "regexGrammar" $ testCfg False regexExamples regexGrammar
-    describe "semverGrammar" $ testCfg True semverExamples semverGrammar
-    describe "semverCtxGrammar" $ testCsg True semverExamples semverCtxGrammar
-    describe "arithGrammar" $ testCfg True arithExamples arithGrammar
-    describe "jsonGrammar" $ testCfg False jsonExamples jsonGrammar
-    describe "sexprGrammar" $ testCfg True sexprExamples sexprGrammar
-    describe "lambdaGrammar" $ testCfg True lambdaExamples lambdaGrammar
-    describe "lenvecGrammar" $ testCsg True lenvecExamples lenvecGrammar
-    describe "chainGrammar" $ testCfg True chainExamples chainGrammar
-    describe "exprGrammar" $ testCfg True exprExamples exprGrammar
-    describe "powGrammar" $ testCfg False powExamples powGrammar
-    describe "leftGrammar" $ testCfg True leftExamples leftGrammar
-    describe "parseForest" parseForestTests
-    describe "Parsector try rollback" tryRollbackTests
-    describe "Kleene" kleeneProperties
-    describe "Homogeneous" homogeneousProperties
-    describe "meander" meanderProperties
+main = hspec $ do
+  describe "regexGrammar" $ testCfg False regexExamples regexGrammar
+  describe "semverGrammar" $ testCfg True semverExamples semverGrammar
+  describe "semverCtxGrammar" $ testCsg True semverExamples semverCtxGrammar
+  describe "arithGrammar" $ testCfg True arithExamples arithGrammar
+  describe "jsonGrammar" $ testCfg False jsonExamples jsonGrammar
+  describe "sexprGrammar" $ testCfg True sexprExamples sexprGrammar
+  describe "lambdaGrammar" $ testCfg True lambdaExamples lambdaGrammar
+  describe "lenvecGrammar" $ testCsg True lenvecExamples lenvecGrammar
+  describe "chainGrammar" $ testCfg True chainExamples chainGrammar
+  describe "exprGrammar" $ testCfg True exprExamples exprGrammar
+  describe "powGrammar" $ testCfg False powExamples powGrammar
+  describe "leftGrammar" $ testCfg True leftExamples leftGrammar
+  describe "parseForest" parseForestTests
+  describe "Parsector try rollback" tryRollbackTests
+  describe "Kleene" kleeneProperties
+  describe "Homogeneous" homogeneousProperties
+  describe "meander" meanderProperties
 
 parseForestTests :: Spec
 parseForestTests = do
@@ -88,71 +80,6 @@ tryRollbackTests = do
     parsecOffset actual `shouldBe` 0
     parsecStream actual `shouldBe` ""
     parsecResult actual `shouldBe` (Nothing :: Maybe String)
-
-doctests :: IO ()
-doctests = do
-  stackExe <- lookupEnv "STACK_EXE"
-  ghcEnvironment <- lookupEnv "GHC_ENVIRONMENT"
-  let
-    modulePaths =
-      [ "src/Control/Lens/Grammar.hs"
-      , "src/Data/Profunctor/Separator.hs"
-      , "src/Data/Traversable/Homogeneous.hs"
-      , "src/Control/Lens/Monocle.hs"
-      ]
-    sourceDirs =
-      [ "-isrc"
-      , "-itest"
-      ]
-    packageEnvFlags = case ghcEnvironment of
-      Just "-" -> []
-      Just path -> ["-package-env=" <> path]
-      Nothing -> []
-    runnerFlags
-      | isJust stackExe = []
-      | otherwise = sourceDirs <> packageEnvFlags
-    languageExtensions =
-      [ "-XAllowAmbiguousTypes"
-      , "-XArrows"
-      , "-XConstraintKinds"
-      , "-XDataKinds"
-      , "-XDefaultSignatures"
-      , "-XDeriveFoldable"
-      , "-XDeriveFunctor"
-      , "-XDeriveTraversable"
-      , "-XDeriveGeneric"
-      , "-XDerivingStrategies"
-      , "-XDerivingVia"
-      , "-XEmptyCase"
-      , "-XFlexibleContexts"
-      , "-XFlexibleInstances"
-      , "-XFunctionalDependencies"
-      , "-XGADTs"
-      , "-XGeneralizedNewtypeDeriving"
-      , "-XImportQualifiedPost"
-      , "-XImpredicativeTypes"
-      , "-XInstanceSigs"
-      , "-XLambdaCase"
-      , "-XMagicHash"
-      , "-XMonoLocalBinds"
-      , "-XQuantifiedConstraints"
-      , "-XRankNTypes"
-      , "-XRecursiveDo"
-      , "-XScopedTypeVariables"
-      , "-XStandaloneDeriving"
-      , "-XStandaloneKindSignatures"
-      , "-XTemplateHaskell"
-      , "-XTupleSections"
-      , "-XTypeApplications"
-      , "-XTypeFamilies"
-      , "-XTypeOperators"
-      , "-XUndecidableInstances"
-      , "-XUndecidableSuperClasses"
-      ]
-  for_ modulePaths $ \modulePath -> do
-    putStr "Testing module documentation in "
-    putStrLn modulePath
-    doctest (modulePath : runnerFlags <> languageExtensions)
 
 meanderProperties :: Spec
 meanderProperties =

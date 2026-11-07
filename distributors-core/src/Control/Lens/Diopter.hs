@@ -80,8 +80,8 @@ manied = unwrapPafb . manyP . WrapPafb
 {- | Build a `Diopter` from a `Homogeneous`
 countable sum of countable products.
 
-prop> traverse = homogenized
-prop> homogenized = ditraversed
+@prop> traverse = homogenized@
+@prop> homogenized = ditraversed@
 -}
 homogenized :: Homogeneous t => Diopter (t a) (t b) a b
 homogenized = unwrapPafb . homogeneously . WrapPafb

@@ -54,6 +54,11 @@ import GHC.Generics (Par1 (..), V1, (:+:) (..), (:*:) (..))
 import Numeric.Natural (Natural)
 
 -- $setup
+-- >>> import Control.Lens
+-- >>> import Data.Complex
+-- >>> import Data.Functor.Identity
+
+-- $setup
 -- >>> import Data.Complex
 
 {- | `Monocle`s are an optic that generalizes

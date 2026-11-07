@@ -312,10 +312,9 @@ fromEnumerable =
 {- | The copy of an `Enumerable` sum at an index, if there is one,
 like `toEnum`, the inverse of `fromEnumerable`.
 
->>> toEnumerable 'x' 1 :: Maybe (Ordering, Char)
-Just (EQ,'x')
->>> toEnumerable 'x' 3 :: Maybe (Ordering, Char)
-Nothing
+>>> [toEnumerable 'x' i | i <- [0..3]] :: [Maybe (Ordering, Char)]
+[Just (LT,'x'),Just (EQ,'x'),Just (GT,'x'),Nothing]
+
 -}
 toEnumerable :: Enumerable f => a -> Natural -> Maybe (f a)
 toEnumerable a copy =

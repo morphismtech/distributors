@@ -37,6 +37,10 @@ import Data.Profunctor.Monad
 import Data.Profunctor.Yoneda
 import Data.Void
 
+-- $setup
+-- >>> import Data.Profunctor (dimap)
+-- >>> import Data.Void (absurd)
+
 -- CocartesianMonoidal --
 
 {- | A lax `CocartesianMonoidal` sum `Profunctor` has zero `zeroP`
@@ -54,10 +58,10 @@ let assoc = dimap
       (either (either Left (Right . Left)) (Right . Right))
 :}
 
-prop> zeroP >+< p = lunit p
-prop> p >+< zeroP = runit p
-prop> p >+< q >+< r = assoc ((p >+< q) >+< r)
-prop> dimap (f >+< g) (h >+< i) (p >+< q) = dimap f h p >+< dimap g i q
+@prop> zeroP >+< p = lunit p@
+@prop> p >+< zeroP = runit p@
+@prop> p >+< q >+< r = assoc ((p >+< q) >+< r)@
+@prop> dimap (f >+< g) (h >+< i) (p >+< q) = dimap f h p >+< dimap g i q@
 -}
 class Profunctor p => CocartesianMonoidal p where
 
@@ -65,7 +69,7 @@ class Profunctor p => CocartesianMonoidal p where
 
   `zeroP` has a default for `CocartesianChoice`s.
 
-  prop> zeroP = falseP
+  @prop> zeroP = falseP@
   -}
   zeroP :: p Void Void
   default zeroP :: CocartesianChoice p => p Void Void
@@ -75,7 +79,7 @@ class Profunctor p => CocartesianMonoidal p where
 
   `>+<` has a default for `CocartesianChoice`s.
 
-  prop> x >+< y = alternate (Left x) >|< alternate (Right y)
+  @prop> x >+< y = alternate (Left x) >|< alternate (Right y)@
   -}
   (>+<) :: p a b -> p c d -> p (Either a c) (Either b d)
   default (>+<)
@@ -154,10 +158,10 @@ like `Alternative` but without requiring
 and the `alternate` method, which is a lax monoidal structure morphism
 on sums, with these laws relating them.
 
-prop> left' = alternate . Left
-prop> right' = alternate . Right
-prop> zeroP = falseP
-prop> x >+< y = alternate (Left x) >|< alternate (Right y)
+@prop> left' = alternate . Left@
+@prop> right' = alternate . Right@
+@prop> zeroP = falseP@
+@prop> x >+< y = alternate (Left x) >|< alternate (Right y)@
 
 For the case of `Functor`s, the analog of `alternate` can be defined
 without any other constraint, but the case of `Profunctor`s turns

@@ -4,3 +4,6 @@ packages:
 
 tests: True
 benchmarks: True
+
+-- doctest-parallel finds the built packages by their GHC environment file.
+write-ghc-environment-files: always

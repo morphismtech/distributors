@@ -72,7 +72,7 @@ class Categorized token => Tokenized token p | p -> token where
 
   {- | A single token which is `oneOf` a set.
 
-  prop> token x = oneOf [x]
+  @prop> token x = oneOf [x]@
   
   -}
   oneOf :: Foldable f => f token -> p
@@ -83,7 +83,7 @@ class Categorized token => Tokenized token p | p -> token where
 
   {- | A single token which is `notOneOf` a set.
   
-  prop> anyToken = notOneOf []
+  @prop> anyToken = notOneOf []@
   
   -}
   notOneOf :: Foldable f => f token -> p

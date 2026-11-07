@@ -53,8 +53,8 @@ are disjunctive logical "or" constructs.
 It has a disjunction `>|<` with identity `falseP`,
 like `Alternative`'s `<|>` & `empty`.
 
-prop> falseP >|< x = x = x >|< falseP
-prop> (x >|< y) >|< z = x >|< (y >|< z)
+@prop> falseP >|< x = x = x >|< falseP@
+@prop> (x >|< y) >|< z = x >|< (y >|< z)@
 -}
 class DisjunctiveMonoid a where
 
@@ -114,24 +114,24 @@ the `Monoid` concatenation operator `<>` with identity `mempty`;
 and an idempotent `DisjunctiveMonoid` addition, the alternation operator `>|<`
 with identity `falseP`.
 
-prop> x >|< x = x
-prop> falseP >|< x = x = x >|< falseP
-prop> falseP <> x = falseP = x <> falseP
-prop> mempty <> x = x = x <> mempty
+@prop> x >|< x = x@
+@prop> falseP >|< x = x = x >|< falseP@
+@prop> falseP <> x = falseP = x <> falseP@
+@prop> mempty <> x = x = x <> mempty@
 
 It also has three unary Kleene quantifier operators;
 
 * `optK`, zero or one,
 
-prop> optK x = mempty >|< x = x >|< mempty
+@prop> optK x = mempty >|< x = x >|< mempty@
 
 * `plusK`, one or more,
 
-prop> plusK x = x <> starK x = starK x <> x
+@prop> plusK x = x <> starK x = starK x <> x@
 
 * and the eponymous `starK`, zero or more.
 
-prop> starK x = optK (plusK x)
+@prop> starK x = optK (plusK x)@
 
 -}
 class (Monoid k, DisjunctiveMonoid k) => KleeneStarAlgebra k where

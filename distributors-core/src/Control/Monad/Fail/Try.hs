@@ -32,14 +32,14 @@ import Witherable
 {- | `MonadTry` is a failure handling interface, with `fail` & `try`
 and redundant alternation & filtration operators.
 
-prop> empty = mzero
-prop> (<|>) = mplus
-prop> filter = mfilter
+@prop> empty = mzero@
+@prop> (<|>) = mplus@
+@prop> filter = mfilter@
 
 `MonadTry` also supports the `BackusNaurForm` interface
 for tracing failures and the following invariant should hold.
 
-prop> fail label = rule label empty
+@prop> fail label = rule label empty@
 
 -}
 class

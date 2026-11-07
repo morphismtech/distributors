@@ -86,6 +86,10 @@ import Data.Profunctor.Monoidal as X
 import Data.Profunctor.Separator as X
 import Data.Traversable.Homogeneous as X
 
+-- $setup
+-- >>> import Data.String (fromString)
+-- >>> import GHC.Exts (toList)
+
 {- |
 A regular grammar may be constructed using
 `Lexical` and `Alternator` combinators.

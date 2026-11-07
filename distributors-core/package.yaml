@@ -94,12 +94,18 @@ default-extensions:
 - UndecidableSuperClasses
 
 tests:
+  doctests:
+    main: Doctests.hs
+    source-dirs: doctest
+    ghc-options: -threaded
+    dependencies:
+      - distributors
+      - doctest-parallel >= 0.3 && < 1
   test:
     main: Main.hs
     source-dirs: test
     dependencies:
       - distributors
-      - doctest >= 0.18 && < 1
       - hspec >= 2.7 && < 3
       - megaparsec >= 9.0 && < 10
       - QuickCheck >= 2.14 && < 3

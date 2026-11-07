@@ -68,7 +68,7 @@ withered :: Witherable t => Wither (t a) (t b) a b
 withered f = wither (optional . f)
 
 {- |
-prop> withered = filtraversed
+@prop> withered = filtraversed@
 -}
 filtraversed :: (Filterable t, Traversable t) => Wither (t a) (t b) a b
 filtraversed f = fmap catMaybes . traverse (optional . f)

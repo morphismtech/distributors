@@ -96,18 +96,18 @@ a subset of @s@ with a subset of @a@.
 
 Given a simple `PartialIso'`, @partialIso f g@, has properties:
 
-prop> Just = f <=< g
-prop> Just = g <=< f
+@prop> Just = f <=< g@
+@prop> Just = g <=< f@
 
 These are left and right inverse laws for proper `PartialIso'`s.
 However, sometimes an improper `PartialIso'` will be useful.
 For an improper `PartialIso'`, only the left inverse law holds.
 
-prop> Just = f <=< g
+@prop> Just = f <=< g@
 
 For an improper `PartialIso'`, @norm = g <=< f@ is an idempotent
 
-prop> norm = norm <=< norm
+@prop> norm = norm <=< norm@
 
 and can be regarded as a normalization within
 some equivalence class of terms.
@@ -242,7 +242,7 @@ missing exactly when it's the default,
 like `Data.Aeson.!=`,
 by the `non` isomorphism.
 
-prop> optP != def = non def ~< optP
+@prop> optP != def = non def ~< optP@
 -}
 (!=)
   :: (Eq a, Profunctor q)

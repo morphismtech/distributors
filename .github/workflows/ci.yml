@@ -69,9 +69,7 @@ jobs:
       - name: Build
         run: stack build --test --bench --no-run-tests --no-run-benchmarks
 
-      - name: Test, with doctests
-        env:
-          DISTRIBUTORS_RUN_DOCTESTS: "1"
+      - name: Test
         run: stack test
 
   cabal:
@@ -108,8 +106,6 @@ jobs:
       - name: Build
         run: cabal build all
 
-      # Doctests run in the stack job, since doctest needs the package
-      # environment, which stack provides to test suites but cabal doesn't.
       - name: Test
         run: cabal test all --test-show-details=direct
 

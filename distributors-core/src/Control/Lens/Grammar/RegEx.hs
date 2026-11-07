@@ -88,13 +88,13 @@ data CategoryTest token
 {- | `TokenClass` forms a `Tokenized` `BooleanAlgebra`,
 such that the following invariants hold.
 
-prop> trueP = anyToken
-prop> trueP = notOneOf []
-prop> falseP = oneOf []
-prop> notP . oneOf = notOneOf
-prop> notP . notOneOf = oneOf
-prop> notP . asIn = notAsIn
-prop> notP . notAsIn = asIn
+@prop> trueP = anyToken@
+@prop> trueP = notOneOf []@
+@prop> falseP = oneOf []@
+@prop> notP . oneOf = notOneOf@
+@prop> notP . notOneOf = oneOf@
+@prop> notP . asIn = notAsIn@
+@prop> notP . notAsIn = asIn@
 
 `TokenClass` is the fixed point algebra of t`RegExam`.
 `TokenClass`es may be understood as normalizations of
@@ -108,13 +108,13 @@ newtype TokenClass token = TokenClass (RegExam token (TokenClass token))
 When a `TokenAlgebra` is a `DisjunctiveMonoid`,
 then `tokenClass` is expected to act homomorphically on disjunction.
 
-prop> falseP = tokenClass falseP
-prop> tokenClass x >|< tokenClass y = tokenClass (x >|< y)
+@prop> falseP = tokenClass falseP@
+@prop> tokenClass x >|< tokenClass y = tokenClass (x >|< y)@
 
 Likewise, when a `TokenAlgebra` is `Alternative`,
 
-prop> empty = tokenClass falseP
-prop> tokenClass x <|> tokenClass y = tokenClass (x >|< y)
+@prop> empty = tokenClass falseP@
+@prop> tokenClass x <|> tokenClass y = tokenClass (x >|< y)@
 
 -}
 class Tokenized token p => TokenAlgebra token p where

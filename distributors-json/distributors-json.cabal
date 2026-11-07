@@ -106,6 +106,85 @@ library
     , witherable >=0.4 && <1
   default-language: Haskell2010
 
+test-suite doctests
+  type: exitcode-stdio-1.0
+  main-is: Doctests.hs
+  other-modules:
+      Paths_distributors_json
+  autogen-modules:
+      Paths_distributors_json
+  hs-source-dirs:
+      doctest
+  default-extensions:
+      AllowAmbiguousTypes
+      Arrows
+      ConstraintKinds
+      DataKinds
+      DefaultSignatures
+      DeriveFoldable
+      DeriveFunctor
+      DeriveTraversable
+      DeriveGeneric
+      DerivingStrategies
+      DerivingVia
+      EmptyCase
+      FlexibleContexts
+      FlexibleInstances
+      FunctionalDependencies
+      GADTs
+      GeneralizedNewtypeDeriving
+      ImportQualifiedPost
+      ImpredicativeTypes
+      InstanceSigs
+      LambdaCase
+      MagicHash
+      MonoLocalBinds
+      QualifiedDo
+      QuantifiedConstraints
+      RankNTypes
+      RecursiveDo
+      ScopedTypeVariables
+      StandaloneDeriving
+      StandaloneKindSignatures
+      TemplateHaskell
+      TupleSections
+      TypeApplications
+      TypeFamilies
+      TypeOperators
+      UndecidableInstances
+      UndecidableSuperClasses
+  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded
+  build-depends:
+      aeson >=2.2 && <3
+    , base >=4.15 && <5
+    , bytestring >=0.11 && <1
+    , containers >=0.6 && <1
+    , data-fix >=0.3 && <1
+    , distributors ==0.6.*
+    , distributors-json
+    , dlist >=1.0 && <2
+    , doctest-parallel >=0.3 && <1
+    , hashable >=1.4 && <2
+    , lens >=5.0 && <6
+    , network-uri >=2.6 && <3
+    , primitive >=0.8 && <1
+    , profunctors >=5.6 && <6
+    , scientific >=0.3 && <1
+    , sop-core >=0.5 && <1
+    , strict >=0.5 && <1
+    , tagged >=0.8 && <1
+    , text ==2.*
+    , text-iso8601 >=0.1 && <1
+    , text-short >=0.1 && <1
+    , these >=1.2 && <2
+    , time >=1.12 && <2
+    , transformers >=0.5 && <1
+    , unordered-containers >=0.2 && <1
+    , uuid-types >=1.0 && <2
+    , vector >=0.12 && <1
+    , witherable >=0.4 && <1
+  default-language: Haskell2010
+
 test-suite test
   type: exitcode-stdio-1.0
   main-is: Main.hs
@@ -166,7 +245,6 @@ test-suite test
     , distributors ==0.6.*
     , distributors-json
     , dlist >=1.0 && <2
-    , doctest >=0.18 && <1
     , hashable >=1.4 && <2
     , hspec >=2.7 && <3
     , lens >=5.0 && <6

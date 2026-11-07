@@ -111,17 +111,17 @@ instance Distributor p => Distributor (Coyoneda p) where
 as well as `Alternative`, adding methods `someP` & `optionP`,
 with these laws relating them.
 
-prop> manyP p = optionP _Empty (someP p)
-prop> optionalP p = optionP _Nothing (_Just >? p)
-prop> someP p = p >:< manyP p
+@prop> manyP p = optionP _Empty (someP p)@
+@prop> optionalP p = optionP _Nothing (_Just >? p)@
+@prop> someP p = p >:< manyP p@
 
 Its `Alternative` structure agrees with its `Alternator` structure,
 `many` & `some` repeating an input for `manyP` & `someP`.
 
-prop> empty = falseP
-prop> (<|>) = (>|<)
-prop> many = lmap repeat . manyP
-prop> some = lmap repeat . someP
+@prop> empty = falseP@
+@prop> (<|>) = (>|<)@
+@prop> many = lmap repeat . manyP@
+@prop> some = lmap repeat . someP@
 
 Not all `Distributor`s are `Alternator`s, in particular @(->)@ is
 a `Distributor` but cannot be `Alternative`,

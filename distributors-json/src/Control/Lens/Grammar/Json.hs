@@ -251,6 +251,8 @@ import Witherable qualified
 -- $setup
 -- >>> :set -XDeriveAnyClass -XDerivingStrategies -XDerivingVia
 -- >>> :set -XOverloadedStrings -XRequiredTypeArguments -XTypeApplications
+-- >>> import Control.Lens.Grammar
+-- >>> import Data.Aeson qualified as Aeson
 -- >>> import Data.Char (toLower)
 -- >>> import Data.Text (Text)
 -- >>> import GHC.Generics (Generic)
