@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>distributors documentation</title>
+<style>
+  :root { --fg: #1f2328; --bg: #ffffff; --muted: #59636e; --line: #d1d9e0; --link: #0969da; }
+  @media (prefers-color-scheme: dark) {
+    :root { --fg: #e6edf3; --bg: #0d1117; --muted: #9198a1; --line: #3d444d; --link: #4493f8; }
+  }
+  body { font: 16px/1.5 system-ui, sans-serif; color: var(--fg); background: var(--bg);
+         max-width: 60rem; margin: 0 auto; padding: 2rem 1rem; }
+  a { color: var(--link); }
+  h1 { margin-bottom: 0; }
+  .lede, .muted, td:last-child { color: var(--muted); }
+  table { border-collapse: collapse; width: 100%; }
+  th, td { text-align: left; vertical-align: top; padding: .5rem; border-bottom: 1px solid var(--line); }
+  .packages { margin: .25rem 0; padding-left: 1.25rem; }
+  td .packages, td p { margin: 0; }
+  @media (max-width: 40rem) { th:last-child, td:last-child { display: none; } }
+</style>
+</head>
+<body>
+<h1>distributors documentation</h1>
+<p class="lede">Haddock documentation for the <a href="https://github.com/morphismtech/distributors">distributors</a> packages,
+built from <code>main</code> & from each open pull request.</p>
+
+<h2><code>main</code></h2>
+<p>The documentation of the latest development version, published whenever <code>main</code> changes.
+Released versions are documented on <a href="https://hackage.haskell.org/package/distributors">Hackage</a>.</p>
+<p>Not published yet: it is published when <code>main</code> changes.</p>
+
+<h2>Pull request previews</h2>
+<p>The documentation of each open pull request from this repository, as it would be if merged,
+updated whenever the pull request changes & removed when it closes.</p>
+<table><thead><tr><th>Pull request</th><th>Title &amp; branch</th><th>Documentation</th><th>Built</th></tr></thead><tbody><tr><td><a href="https://github.com/morphismtech/distributors/pull/33">#33</a></td><td>Index the documentation site, &amp; publish main&#x27;s docs under main/<br><code>docs-index</code></td><td><ul class="packages"><li><a href="pr-preview/pr-33/distributors/"><code>distributors</code></a> &mdash; Unifying Parsers, Printers &amp; Grammars</li></ul><p><a href="pr-preview/pr-33/">All modules &amp; the index</a></p></td><td>Built from <a href="https://github.com/morphismtech/distributors/commit/cb5d168599ad1c4f8bef16d4691ffb216da28fcb"><code>cb5d168</code></a> on 2026-11-07 21:38 UTC.</td></tr><tr><td><a href="https://github.com/morphismtech/distributors/pull/32">#32</a></td><td>Publish docs for main &amp; preview them for each pull request<br><code>docs-previews</code></td><td><a href="pr-preview/pr-32/">Contents</a></td><td></td></tr><tr><td><a href="https://github.com/morphismtech/distributors/pull/30">#30</a></td><td>JSON grammars, disjunctive monoids &amp; cocartesian choice<br><code>json-algebra</code></td><td><a href="pr-preview/pr-30/">Contents</a></td><td></td></tr></tbody></table>
+
+<p class="muted">Published by the <a href="https://github.com/morphismtech/distributors/blob/main/.github/workflows/docs.yml">Docs workflow</a>
+to the <a href="https://github.com/morphismtech/distributors/tree/gh-pages"><code>gh-pages</code></a> branch.</p>
+</body>
+</html>
