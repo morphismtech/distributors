@@ -8,9 +8,23 @@
   countable sums of single copies, sequenced `enumerably` by
   `CocartesianMonoidal`s, with generic defaults by `Generic1`.
 - `Comonocle`s, in `Control.Lens.Monocle`, dual to `Monocle`s by sums:
-  `Comonocle'`, `comonocle`, `enumerated`, `enumBounded`, & concrete
+  `comonocle`, `enumerated`, & concrete
   `Comonocular`s, with `runComonocular`.
 - `WrappedPafb f p` is `CocartesianMonoidal` for any `Functor f`.
+- `AComonocle`, `withComonocle`, `cloneComonocle`, `mapComonocle`,
+  `altComonocle`, `crossComonocle`, `indexComonocle` &
+  `zipWithComonocle`; & `crossMonocle`.
+- `Homogeneous` & `Enumerable` instances for `Down`, `Min`, `Max`,
+  `First`, `Last`, `Alt f`, `Ap f` & `IdentityT f`.
+- `Bool1` & `Ordering1`, in `Data.Traversable.Homogeneous`, single copies
+  tagged by a `Bool` or an `Ordering`, which are `Enumerable` &
+  `Monad`s, combining tags by conjunction or lexicographically;
+  & `Bool1` is a `BooleanAlgebra`.
+
+### Bug Fixes
+
+- `Grating` is `Profunctor` & `Closed`, so every `Grate`, & so every
+  `Monocle`, is `AGrate`, for `withGrate`, `cotraverseOf` & co.
 
 ### Breaking Changes
 

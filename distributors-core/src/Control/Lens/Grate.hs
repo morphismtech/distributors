@@ -103,6 +103,10 @@ collectOf grt f = distributeOf grt . fmap f
 concrete representation of `Grate`s. -}
 newtype Grating a b s t = Grating
   {runGrating :: ((s -> a) -> b) -> t}
+instance Profunctor (Grating a b) where
+  dimap f g (Grating k) = Grating (g . k . (. (. f)))
+instance Closed (Grating a b) where
+  closed (Grating k) = Grating $ \f x -> k $ \g -> f (g . ($ x))
 instance Functor (Grating a b s) where fmap = fmapRep
 instance Applicative (Grating a b s) where
   pure = pureRep

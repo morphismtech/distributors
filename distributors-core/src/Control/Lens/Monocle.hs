@@ -21,16 +21,23 @@ module Control.Lens.Monocle
   , cloneMonocle
   , imprism
   , mapMonocle
+  , crossMonocle
   , ditraversed
   , forevered
     -- * Monocular
   , Monocular (..), runMonocular
     -- * Comonocle
   , Comonocle
-  , Comonocle'
+  , AComonocle
   , comonocle
+  , withComonocle
+  , cloneComonocle
+  , mapComonocle
+  , altComonocle
+  , crossComonocle
+  , indexComonocle
+  , zipWithComonocle
   , enumerated
-  , enumBounded
     -- * Comonocular
   , Comonocular (..), runComonocular
   ) where
@@ -38,12 +45,13 @@ module Control.Lens.Monocle
 import Control.Lens hiding (Traversing)
 import Control.Lens.Internal.Profunctor
 import Data.Distributive
-import Data.List.NonEmpty (NonEmpty (..))
+import Data.Functor.Compose
+import Data.Profunctor (Forget (..))
 import Data.Profunctor.Monoidal
 import Data.Profunctor.Monoidal.Cocartesian
 import Data.Traversable.Homogeneous
 import Data.Void (Void, absurd)
-import GHC.Generics (V1, (:+:) (..))
+import GHC.Generics (Par1 (..), V1, (:+:) (..))
 
 {- | `Monocle`s are an optic that generalizes
 `Control.Lens.Traversal.Traversal`s & `Control.Lens.Grate.Grate`s.
@@ -84,6 +92,20 @@ Just 1
 imprism :: Monocle s t a b -> Prism s t a b
 imprism mon = clonePrism mon
 
+{- | Construct a `Monocle` on pairs from components, with the same foci,
+since products of powers add, \(a^m \times a^n = a^{m+n}\),
+as `Control.Lens.Traversal.beside` does `Control.Lens.Traversal.Traversal`s.
+
+>>> over (crossMonocle id ditraversed) negate (1, 2 :+ 3)
+(-1,(-2) :+ (-3))
+-}
+crossMonocle
+  :: AMonocle s t a b
+  -> AMonocle u v a b
+  -> Monocle (s,u) (t,v) a b
+crossMonocle x y p =
+  rmap (uncurry (liftA2 (,))) (cloneMonocle x p >*< cloneMonocle y p)
+
 {- | Build a `Monocle` from a `Traversable` & `Distributive`,
 homogeneous, countable product.
 
@@ -120,7 +142,12 @@ runMonocular (Monocular k) p = k $ \f -> lmap f p
 {- | `Comonocle`s are an optic dual to `Monocle`s, by sums,
 which focus on the one copy that an `Enumerable` sum holds.
 
-Every `Control.Lens.Iso.Iso` is a `Comonocle`.
+Every `Control.Lens.Iso.Iso` is a `Comonocle`,
+& every `Comonocle` is a `Control.Lens.Lens.Lens`,
+whose residue is which copy is held.
+
+>>> view enumerated (Identity 'a')
+'a'
 
 `Comonocle`s are isomorphic to `Comonocular`s.
 -}
@@ -128,12 +155,92 @@ type Comonocle s t a b = forall p f.
   (CocartesianMonoidal p, Functor f)
     => p a (f b) -> p s (f t)
 
--- | A simple `Comonocle`.
-type Comonocle' s a = Comonocle s s a a
+{- | `AComonocle` is monomorphically a `Comonocle`. -}
+type AComonocle s t a b =
+  Comonocular a b a (Identity b) -> Comonocular a b s (Identity t)
 
 {- | Build a `Comonocle` from a concrete `Comonocular`. -}
 comonocle :: Comonocular a b s t -> Comonocle s t a b
 comonocle mon = unwrapPafb . runComonocular mon . WrapPafb
+
+{- | Convert `AComonocle` to the pair of functions that characterize it. -}
+withComonocle
+  :: AComonocle s t a b
+  -> (forall f. Enumerable f => (s -> f a) -> (f b -> t) -> r)
+  -> r
+withComonocle mon k =
+  case rmap runIdentity (mon (rmap Identity (Comonocular Par1 unPar1))) of
+    Comonocular split merge -> k split merge
+
+{- | Clone `AComonocle` so that you can reuse the same
+monomorphically typed `Comonocle` for different purposes.
+-}
+cloneComonocle :: AComonocle s t a b -> Comonocle s t a b
+cloneComonocle mon = withComonocle mon $ \split merge ->
+  comonocle (Comonocular split merge)
+
+{- | Action of `AComonocle` on `CocartesianMonoidal` `Profunctor`s. -}
+mapComonocle
+  :: CocartesianMonoidal p => AComonocle s t a b -> p a b -> p s t
+mapComonocle mon = withComonocle mon $ \split merge ->
+  dimap split merge . enumerably
+
+{- | Construct a `Comonocle` on `Either`s from components, with the same foci,
+since sums of copies add, \(m a + n a = (m+n) a\),
+as `Control.Lens.Lens.choosing` does `Control.Lens.Lens.Lens`es.
+
+>>> set (altComonocle id enumerated) 'x' (Right (Identity 'y'))
+Right (Identity 'x')
+-}
+altComonocle
+  :: AComonocle s t a b
+  -> AComonocle u v a b
+  -> Comonocle (Either s u) (Either t v) a b
+altComonocle x y p = rmap (either (fmap Left) (fmap Right))
+  (cloneComonocle x p >+< cloneComonocle y p)
+
+{- | Construct a `Comonocle` on pairs from components,
+since products of sums of copies distribute,
+\(m a \times n c = (m n) (a \times c)\).
+
+>>> over (crossComonocle enumerated id) (\(a, c) -> (a + c, show c)) (Identity 1, 2)
+(Identity 3,"2")
+-}
+crossComonocle
+  :: AComonocle s t a b
+  -> AComonocle u v c d
+  -> Comonocle (s,u) (t,v) (a,c) (b,d)
+crossComonocle x y =
+  withComonocle x $ \e f ->
+  withComonocle y $ \g h ->
+    comonocle $ Comonocular
+      (\(s,u) -> Compose (fmap (\a -> fmap (a,) (g u)) (e s)))
+      (\(Compose bds) -> (f (fmap (fst . copied) bds), h (fmap snd (copied bds))))
+
+{- | The `Control.Lens.Indexed.IndexedLens` of `AComonocle`,
+indexed by which copy is held, numbered from 0, left to right.
+Numbering diverges past a summand of infinitely many copies.
+
+>>> iview (indexComonocle (altComonocle id id)) (Right 'a' :: Either Char Char)
+(1,'a')
+-}
+indexComonocle :: AComonocle s t a b -> IndexedLens Int s t a b
+indexComonocle mon = withComonocle mon $ \split merge ->
+  ilens (\s -> let as = split s in (copyIndex as, copied as))
+    (\s b -> merge (b <$ split s))
+
+{- | Zip two sources of `AComonocle`, when they hold the same copy,
+dual to `Control.Lens.Grate.cotraverseOf`, which zips every `Monocle`.
+
+>>> zipWithComonocle (altComonocle id id) (+) (Left 1) (Left 2 :: Either Int Int)
+Just (Left 3)
+>>> zipWithComonocle (altComonocle id id) (+) (Left 1) (Right 2 :: Either Int Int)
+Nothing
+-}
+zipWithComonocle
+  :: AComonocle s t a b -> (a -> a -> b) -> s -> s -> Maybe t
+zipWithComonocle mon f =
+  runZipping (mapComonocle mon (Zipping (\a0 a1 -> Just (f a0 a1))))
 
 {- | The `Comonocle` of an `Enumerable` sum's copy.
 
@@ -142,22 +249,6 @@ Identity 2
 -}
 enumerated :: Enumerable f => Comonocle (f a) (f b) a b
 enumerated = unwrapPafb . enumerably . WrapPafb
-
-{- | The `Comonocle` of a bounded enumeration, as a sum of its values,
-each of which holds nothing.
--}
-enumBounded :: (Enum a, Bounded a) => Comonocle' a ()
-enumBounded p = values (minBound :| drop 1 [minBound .. maxBound])
-  where
-    value a = dimap (const ()) (fmap (const a)) p
-    values = \case
-      a :| [] -> value a
-      a :| (b : others) -> dialt
-        (\x -> if fromEnum x == fromEnum a then Left x else Right x)
-        id
-        id
-        (value a)
-        (values (b :| others))
 
 {- | `Comonocular` provides a concrete representation of `Comonocle`s,
 by an `Enumerable` sum of copies.
@@ -180,3 +271,31 @@ instance CocartesianMonoidal (Comonocular a b) where
 runComonocular
   :: CocartesianMonoidal p => Comonocular a b s t -> p a b -> p s t
 runComonocular (Comonocular split merge) = dimap split merge . enumerably
+
+-- The copy which an `Enumerable` sum holds.
+copied :: Enumerable f => f a -> a
+copied = runForget (enumerably (Forget id))
+
+-- Which copy an `Enumerable` sum holds, numbered from 0, left to right.
+copyIndex :: Enumerable f => f a -> Int
+copyIndex = case enumerably (Counting 1 (const 0)) of Counting _ which -> which
+
+-- How many copies, & which copy is held.
+data Counting s t = Counting Int (s -> Int)
+instance Profunctor Counting where
+  dimap f _ (Counting count which) = Counting count (which . f)
+instance CocartesianMonoidal Counting where
+  zeroP = Counting 0 absurd
+  Counting count0 which0 >+< Counting count1 which1 = Counting
+    (count0 + count1)
+    (either which0 ((count0 +) . which1))
+
+-- Zip two sources holding the same copy.
+newtype Zipping s t = Zipping {runZipping :: s -> s -> Maybe t}
+instance Profunctor Zipping where
+  dimap f g (Zipping z) = Zipping (\s0 s1 -> g <$> z (f s0) (f s1))
+instance CocartesianMonoidal Zipping where
+  zeroP = Zipping absurd
+  Zipping z0 >+< Zipping z1 = Zipping $ \case
+    Left s0 -> either (fmap Left . z0 s0) (const Nothing)
+    Right s1 -> either (const Nothing) (fmap Right . z1 s1)

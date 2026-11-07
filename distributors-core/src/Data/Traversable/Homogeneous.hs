@@ -18,11 +18,14 @@ module Data.Traversable.Homogeneous
 import Control.Applicative
 import Control.Lens hiding (chosen)
 import Control.Lens.PartialIso
+import Control.Monad.Trans.Identity (IdentityT (..))
 import Data.Complex
 import Data.Functor.Compose
 import qualified Data.Functor.Product as Functor
 import qualified Data.Functor.Sum as Functor
 import qualified Data.Monoid as Monoid
+import Data.Ord (Down (..))
+import qualified Data.Semigroup as Semigroup
 import Data.Profunctor.Monoidal
 import Data.Proxy
 import Data.Sequence (Seq)
@@ -70,6 +73,22 @@ instance Homogeneous Monoid.Sum where
   homogeneously = dimap Monoid.getSum Monoid.Sum
 instance Homogeneous (Tagged s) where
   homogeneously = dimap unTagged Tagged
+instance Homogeneous Down where
+  homogeneously = dimap getDown Down
+instance Homogeneous Semigroup.Min where
+  homogeneously = dimap Semigroup.getMin Semigroup.Min
+instance Homogeneous Semigroup.Max where
+  homogeneously = dimap Semigroup.getMax Semigroup.Max
+instance Homogeneous Semigroup.First where
+  homogeneously = dimap Semigroup.getFirst Semigroup.First
+instance Homogeneous Semigroup.Last where
+  homogeneously = dimap Semigroup.getLast Semigroup.Last
+instance Homogeneous f => Homogeneous (Monoid.Alt f) where
+  homogeneously = dimap Monoid.getAlt Monoid.Alt . homogeneously
+instance Homogeneous f => Homogeneous (Monoid.Ap f) where
+  homogeneously = dimap Monoid.getAp Monoid.Ap . homogeneously
+instance Homogeneous f => Homogeneous (IdentityT f) where
+  homogeneously = dimap runIdentityT IdentityT . homogeneously
 instance Homogeneous U1 where
   homogeneously _ = pure U1
 instance Homogeneous (K1 i ()) where
@@ -176,6 +195,22 @@ instance Enumerable Monoid.Sum where
   enumerably = dimap Monoid.getSum Monoid.Sum
 instance Enumerable (Tagged s) where
   enumerably = dimap unTagged Tagged
+instance Enumerable Down where
+  enumerably = dimap getDown Down
+instance Enumerable Semigroup.Min where
+  enumerably = dimap Semigroup.getMin Semigroup.Min
+instance Enumerable Semigroup.Max where
+  enumerably = dimap Semigroup.getMax Semigroup.Max
+instance Enumerable Semigroup.First where
+  enumerably = dimap Semigroup.getFirst Semigroup.First
+instance Enumerable Semigroup.Last where
+  enumerably = dimap Semigroup.getLast Semigroup.Last
+instance Enumerable f => Enumerable (Monoid.Alt f) where
+  enumerably = dimap Monoid.getAlt Monoid.Alt . enumerably
+instance Enumerable f => Enumerable (Monoid.Ap f) where
+  enumerably = dimap Monoid.getAp Monoid.Ap . enumerably
+instance Enumerable f => Enumerable (IdentityT f) where
+  enumerably = dimap runIdentityT IdentityT . enumerably
 instance (Enumerable s, Enumerable t)
   => Enumerable (s :.: t) where
     enumerably = dimap unComp1 Comp1 . enumerably . enumerably
