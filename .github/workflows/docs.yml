@@ -1,8 +1,9 @@
 name: Docs
 
 # Builds the documentation, & publishes it to the gh-pages branch:
-# main's at the root, & each pull request's under pr-preview/pr-<number>,
-# linked from a comment on the pull request & removed when it closes.
+# main's under main/, & each pull request's under pr-preview/pr-<number>,
+# linked from a comment on the pull request & removed when it closes,
+# with an index of them all at the site's root.
 on:
   push:
     branches:
@@ -11,8 +12,10 @@ on:
     types: [opened, reopened, synchronize, closed]
   workflow_dispatch:
 
+# A merged pull request's closed event shares main's ref with the push to
+# main, so pull requests are grouped by number, lest one cancel the other.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 permissions:
@@ -54,15 +57,15 @@ jobs:
           GHC_ENVIRONMENT: "-"
         run: |
           cabal haddock-project --hackage --output=docs
-          touch docs/.nojekyll
+          python3 .github/scripts/docs-site.py describe docs
 
       - name: Publish main's documentation
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
         uses: JamesIves/github-pages-deploy-action@v4
         with:
           folder: docs
           branch: gh-pages
-          clean-exclude: pr-preview/
+          target-folder: main
 
       # A fork's pull request can't push to gh-pages, so it isn't previewed.
       - name: Preview the pull request's documentation
@@ -74,3 +77,27 @@ jobs:
           source-dir: docs
           preview-branch: gh-pages
           umbrella-dir: pr-preview
+
+      # Runs publishing to gh-pages at once may race, so this retries.
+      - name: Index the documentation
+        if: >-
+          github.event_name != 'pull_request'
+          || github.event.pull_request.head.repo.full_name == github.repository
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          script="$PWD/.github/scripts/docs-site.py"
+          for attempt in 1 2 3 4 5; do
+            rm -rf site
+            git clone --quiet --branch gh-pages --single-branch \
+              "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" site
+            if (cd site && python3 "$script" index && git add index.html .nojekyll \
+                && { git diff --cached --quiet || git commit --quiet -m "Index the documentation"; } \
+                && git push --quiet); then
+              exit 0
+            fi
+            sleep $((attempt * 5))
+          done
+          exit 1
