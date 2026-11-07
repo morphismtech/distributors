@@ -1602,12 +1602,12 @@ data JsonType
   | JsonNumberKey JsonType -- ^ the strings of a type which are numbers, as keys
   | JsonStringLiteral Text -- ^ a string
   | JsonSubtype JsonType -- ^ some values of a type
-  | JsonTuple JsonElements -- ^ arrays of elements
+  | JsonArray JsonElements -- ^ arrays of elements
   | JsonObject [JsonProperty] -- ^ objects of properties
   | JsonUnion [JsonType] -- ^ values of any of some types
   deriving stock (Eq, Ord, Show, Read)
 
--- | The elements of a `JsonTuple`, a regular expression of their types.
+-- | The elements of a `JsonArray`, a regular expression of their types.
 data JsonElements
   = JsonElement JsonType -- ^ an element
   | JsonElements JsonElements -- ^ elements, repeated any number of times
@@ -1828,7 +1828,7 @@ instance JsonVal JsonTypor where
     where
       tuple = \case
         JsonAlternate [] -> falseP
-        els -> JsonTuple els
+        els -> JsonArray els
   jsonObject obj = JsonTypor (objects <$> getAp (runObjTypor obj))
     where
       objects (Ap shapes) = jsonUnion (map object shapes)
@@ -1982,16 +1982,16 @@ tsType rules names = typeNode
       JsonNumberKey t -> numberKey t
       JsonStringLiteral text -> LiteralType (TextLiteral text)
       JsonSubtype t -> typeNode t
-      t@(JsonTuple _) -> typeNode (JsonUnion [t])
+      t@(JsonArray _) -> typeNode (JsonUnion [t])
       JsonObject props -> object props
       JsonUnion ts -> union $ case break isTuple ts of
         (before, _ : _) ->
           map typeNode before
           <> map tuple
-            (tsTuples (concat [tupleShapes els | JsonTuple els <- ts]))
+            (tsTuples (concat [tupleShapes els | JsonArray els <- ts]))
           <> [typeNode t | t <- drop (length before) ts, not (isTuple t)]
         _ -> map typeNode ts
-    isTuple = \case JsonTuple _ -> True; _ -> False
+    isTuple = \case JsonArray _ -> True; _ -> False
     numberKey t
       | JsonString `elem` alternatives = union
           [ if alt == JsonString then numberKeyString else typeNode alt
