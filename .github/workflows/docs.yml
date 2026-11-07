@@ -1,0 +1,76 @@
+name: Docs
+
+# Builds the documentation, & publishes it to the gh-pages branch:
+# main's at the root, & each pull request's under pr-preview/pr-<number>,
+# linked from a comment on the pull request & removed when it closes.
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    types: [opened, reopened, synchronize, closed]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up GHC & Cabal
+        if: github.event.action != 'closed'
+        id: setup
+        uses: haskell-actions/setup@v2
+        with:
+          ghc-version: "9.12.4"
+          cabal-update: true
+
+      - name: Plan the build
+        if: github.event.action != 'closed'
+        run: cabal build all --dry-run
+
+      - name: Cache the Cabal store
+        if: github.event.action != 'closed'
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.setup.outputs.cabal-store }}
+          key: docs-${{ runner.os }}-${{ hashFiles('dist-newstyle/cache/plan.json') }}
+          restore-keys: docs-${{ runner.os }}-
+
+      # Haddock mustn't load the GHC environment file which cabal.project
+      # writes for doctest-parallel, since it names packages which a
+      # documentation build doesn't register.
+      - name: Build the documentation
+        if: github.event.action != 'closed'
+        env:
+          GHC_ENVIRONMENT: "-"
+        run: |
+          cabal haddock-project --hackage --output=docs
+          touch docs/.nojekyll
+
+      - name: Publish main's documentation
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: JamesIves/github-pages-deploy-action@v4
+        with:
+          folder: docs
+          branch: gh-pages
+          clean-exclude: pr-preview/
+
+      # A fork's pull request can't push to gh-pages, so it isn't previewed.
+      - name: Preview the pull request's documentation
+        if: >-
+          github.event_name == 'pull_request'
+          && github.event.pull_request.head.repo.full_name == github.repository
+        uses: rossjrw/pr-preview-action@v1
+        with:
+          source-dir: docs
+          preview-branch: gh-pages
+          umbrella-dir: pr-preview
