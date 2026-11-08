@@ -1112,6 +1112,14 @@ class AesonStr val => AesonVal val where
     -> (forall r. (a -> c -> r -> r) -> r -> m -> r)
     -> (c -> val) -> m -> val
   aesonValue :: Value -> val
+  -- | A key of an object, encoded once, before printing its properties.
+  type AesonKey val
+  -- | The properties of an object, as they're rendered.
+  type AesonProps val
+  aesonKey :: Key -> AesonKey val
+  aesonProp :: AesonKey val -> val -> AesonProps val -> AesonProps val
+  aesonPropsEmpty :: AesonProps val
+  aesonProps :: AesonProps val -> val
 
 instance AesonVal Value where
   aesonNull = Null
@@ -1132,7 +1140,14 @@ instance AesonVal Value where
       property a c rest = let printed = render c in
         printed `seq` (runKeyPrintor key a, printed) : rest
   aesonValue = id
+  type AesonKey Value = Key
+  type AesonProps Value = [(Key, Value)]
+  aesonKey = id
+  aesonProp key value rest = (key, value) : rest
+  aesonPropsEmpty = []
+  aesonProps = Object . KeyMap.fromList
 
+-- | Keys are rendered once, as their quoted strings, & properties as a series.
 instance AesonVal Encoding where
   aesonNull = Encoding.null_
   aesonBool = Encoding.bool
@@ -1148,6 +1163,12 @@ instance AesonVal Encoding where
         in encodedKey `seq` printed `seq`
           Encoding.pair' encodedKey printed <> rest
   aesonValue = Encoding.value
+  type AesonKey Encoding = Encoding.Encoding' Key
+  type AesonProps Encoding = Encoding.Series
+  aesonKey = aesonLiteral . Key.toText
+  aesonProp key value rest = Encoding.pair' key value <> rest
+  aesonPropsEmpty = mempty
+  aesonProps = Encoding.pairs
 
 {- | `JsonPrintor` `printorTry`s to print a value, or else `printorCheck`s it
 to locate the failure. A `printorTotal` printor prints every value,
@@ -1240,7 +1261,7 @@ data ObjPrintor val a b = ObjPrintor
   , objPrintorRest :: !Bool
   , objPrintorTotal :: !(Set String -> Bool)
   , objPrintorTry :: !(a -> Maybe (DList (Key, val)))
-  , objPrintorRender :: !(a -> [(Key, val)] -> [(Key, val)])
+  , objPrintorRender :: !(a -> AesonProps val -> AesonProps val)
   , objPrintorCheck :: !(a -> Either JsonError [(Key, val)])
   }
 
@@ -1384,7 +1405,7 @@ instance AesonVal val => JsonVal (JsonPrintor val) where
       | otherwise -> JsonPrintor
         (\rules -> objPrintorTotal printor rules)
         (fmap (aesonObject . toList) . objPrintorTry printor)
-        (\a -> aesonObject (objPrintorRender printor a []))
+        (\a -> aesonProps (objPrintorRender printor a (aesonPropsEmpty @val)))
         (fmap aesonObject . objPrintorCheck printor)
         Nothing
     where
@@ -1511,7 +1532,7 @@ instance Profunctor (ObjPrintor val) where
       (check . f)
   _ #. p = coerce p
   p .# _ = coerce p
-instance Choice (ObjPrintor val) where
+instance AesonVal val => Choice (ObjPrintor val) where
   left' = alternate . Left
   right' = alternate . Right
 instance CocartesianMonoidal (ObjPrintor val) where
@@ -1525,7 +1546,7 @@ instance CocartesianMonoidal (ObjPrintor val) where
       Left a -> objPrintorRender p a props
       Right b -> objPrintorRender q b props)
     (either (objPrintorCheck p) (objPrintorCheck q))
-instance CocartesianChoice (ObjPrintor val) where
+instance AesonVal val => CocartesianChoice (ObjPrintor val) where
   alternate = \case
     Left p -> objTrying p
       (either (objPrintorTry p) (const Nothing))
@@ -1533,7 +1554,7 @@ instance CocartesianChoice (ObjPrintor val) where
     Right p -> objTrying p
       (either (const Nothing) (objPrintorTry p))
       (either (\_ -> jsonUnexpected Nothing) (objPrintorCheck p))
-instance DisjunctiveMonoid (ObjPrintor val a b) where
+instance AesonVal val => DisjunctiveMonoid (ObjPrintor val a b) where
   falseP = ObjPrintor [] False (const False) (const Nothing)
     (\_ props -> props) (\_ -> jsonUnexpected Nothing)
   p >|< q = ObjPrintor
@@ -1542,27 +1563,36 @@ instance DisjunctiveMonoid (ObjPrintor val a b) where
     (\rules -> objPrintorTotal p rules || objPrintorTotal q rules)
     (\a -> objPrintorTry p a <|> objPrintorTry q a)
     (\a props -> maybe
-      (objPrintorRender q a props) (`DList.apply` props) (objPrintorTry p a))
+      (objPrintorRender q a props) (`prependProps` props) (objPrintorTry p a))
     (\a -> case objPrintorCheck p a of
       Left err -> onFailure (jsonOrElse err) (objPrintorCheck q a)
       success -> success)
 
 -- | A partial `ObjPrintor` of another's shapes, rendering what it tries.
 objTrying
-  :: ObjPrintor val x y
+  :: AesonVal val
+  => ObjPrintor val x y
   -> (a -> Maybe (DList (Key, val)))
   -> (a -> Either JsonError [(Key, val)])
   -> ObjPrintor val a b
 objTrying p attempt = ObjPrintor (objPrintorShapes p) (objPrintorRest p)
   (const False) attempt
-  (\a props -> DList.apply (fromMaybe mempty (attempt a)) props)
+  (\a props -> prependProps (fromMaybe mempty (attempt a)) props)
+
+-- | Render tried properties before others, encoding their keys.
+prependProps
+  :: forall val. AesonVal val
+  => DList (Key, val) -> AesonProps val -> AesonProps val
+prependProps props rest =
+  foldr (\(key, value) -> aesonProp (aesonKey @val key) value) rest props
 
 instance AesonVal val => JsonObj (JsonPrintor val) (ObjPrintor val) where
   jsonDict key p = ObjPrintor [[]] True
     (\rules -> printorTotal p rules)
     (fmap DList.fromList . traverse (\(a, c) -> (keyOf a,) <$> printorTry p c))
-    (\entries rest ->
-      foldr (\(a, c) props -> renderProperty (keyOf a) p c props) rest entries)
+    (\entries rest -> foldr
+      (\(a, c) props -> renderProperty (aesonKey @val (keyOf a)) p c props)
+      rest entries)
     (traverse (\(a, c) -> let k = keyOf a in
       (k,) <$> jsonAt (Key k) (printorCheck p c)))
     where
@@ -1570,18 +1600,20 @@ instance AesonVal val => JsonObj (JsonPrintor val) (ObjPrintor val) where
   k !: p = ObjPrintor [[key]] False
     (\rules -> printorTotal p rules)
     (fmap property . printorTry p)
-    (renderProperty key p)
+    (renderProperty encodedKey p)
     (printProperty key p)
     where
       key = Key.fromText k
+      encodedKey = aesonKey @val key
       property printed = DList.singleton (key, printed)
   k ?: p = ObjPrintor [[key]] False
     (\rules -> printorTotal p rules)
     (maybe (Just mempty) (fmap property . printorTry p))
-    (\ma rest -> maybe rest (\a -> renderProperty key p a rest) ma)
+    (\ma rest -> maybe rest (\a -> renderProperty encodedKey p a rest) ma)
     (maybe (Right []) (printProperty key p))
     where
       key = Key.fromText k
+      encodedKey = aesonKey @val key
       property printed = DList.singleton (key, printed)
 
 -- | Print the properties of a map, whose keys are distinct, as an object.
@@ -1604,9 +1636,11 @@ printDistinct fold key p = JsonPrintor
         k = keyOf a
 
 renderProperty
-  :: Key -> JsonPrintor val a b -> a -> [(Key, val)] -> [(Key, val)]
+  :: AesonVal val
+  => AesonKey val -> JsonPrintor val a b -> a -> AesonProps val
+  -> AesonProps val
 renderProperty key p a rest =
-  let printed = printorRender p a in printed `seq` (key, printed) : rest
+  let printed = printorRender p a in printed `seq` aesonProp key printed rest
 
 printProperty
   :: Key -> JsonPrintor val a b -> a -> Either JsonError [(Key, val)]
