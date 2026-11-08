@@ -117,12 +117,12 @@ module Control.Lens.Grammar.Json
   , JsonTup (..)
   , JsonStr (..)
     -- * Types
-  , JsonType (..)
-  , JsonElements (..)
-  , JsonProperty (..)
   , jsonType
   , jsonTsDeclarations
   , jsonTsPut
+  , JsonType (..)
+  , JsonElements (..)
+  , JsonProperty (..)
     -- * Errors
   , JsonError (..)
   , JsonErrorSort (..)
@@ -1830,9 +1830,9 @@ data JsonElements
   = JsonElement JsonType -- ^ an element
   | JsonElements JsonElements -- ^ elements, repeated any number of times
   | JsonElements1 JsonElements -- ^ elements, repeated at least once
-  | JsonOptional JsonElements -- ^ elements, or none
-  | JsonSequence [JsonElements] -- ^ elements, in order
-  | JsonAlternate [JsonElements] -- ^ elements of any of some alternatives
+  | JsonElementsOpt JsonElements -- ^ elements, or none
+  | JsonElementsTup [JsonElements] -- ^ elements, in order
+  | JsonElementsAlt [JsonElements] -- ^ elements of any of some alternatives
   deriving stock (Eq, Ord, Show, Read)
 
 -- | A property of a `JsonObject`.
@@ -1864,55 +1864,55 @@ jsonSubtype = \case
   t -> JsonSubtype t
 
 instance Semigroup JsonElements where
-  JsonAlternate [] <> _ = falseP
-  _ <> JsonAlternate [] = falseP
+  JsonElementsAlt [] <> _ = falseP
+  _ <> JsonElementsAlt [] = falseP
   JsonElements a <> b | a == b = plusK a
   a <> JsonElements b | a == b = plusK a
   a <> b = case (flatten a, flatten b) of
     (Just as, Just bs) -> case as <> bs of
       [els] -> els
-      els -> JsonSequence els
+      els -> JsonElementsTup els
     _ -> falseP
     where
       -- Sequenced elements, or none, for no sequence of elements.
       flatten = \case
-        JsonAlternate [] -> Nothing
-        JsonSequence els -> Just els
+        JsonElementsAlt [] -> Nothing
+        JsonElementsTup els -> Just els
         els -> Just [els]
 instance Monoid JsonElements where
-  mempty = JsonSequence []
+  mempty = JsonElementsTup []
 instance DisjunctiveMonoid JsonElements where
-  falseP = JsonAlternate []
+  falseP = JsonElementsAlt []
   a >|< b | a == b = a
-  JsonAlternate [] >|< b = b
-  a >|< JsonAlternate [] = a
-  JsonElements1 a >|< JsonSequence [] = starK a
-  JsonSequence [] >|< JsonElements1 b = starK b
-  a >|< JsonSequence [] = optK a
-  JsonSequence [] >|< b = optK b
+  JsonElementsAlt [] >|< b = b
+  a >|< JsonElementsAlt [] = a
+  JsonElements1 a >|< JsonElementsTup [] = starK a
+  JsonElementsTup [] >|< JsonElements1 b = starK b
+  a >|< JsonElementsTup [] = optK a
+  JsonElementsTup [] >|< b = optK b
   a >|< b = case nub (flatten a <> flatten b) of
     [els] -> els
-    alts -> JsonAlternate alts
+    alts -> JsonElementsAlt alts
     where
       flatten = \case
-        JsonAlternate alts -> alts
+        JsonElementsAlt alts -> alts
         els -> [els]
 instance KleeneStarAlgebra JsonElements where
   starK = \case
-    JsonAlternate [] -> mempty
-    JsonSequence [] -> mempty
+    JsonElementsAlt [] -> mempty
+    JsonElementsTup [] -> mempty
     els -> JsonElements els
   plusK = \case
-    JsonAlternate [] -> falseP
-    JsonSequence [] -> mempty
+    JsonElementsAlt [] -> falseP
+    JsonElementsTup [] -> mempty
     els -> JsonElements1 els
   optK = \case
-    JsonAlternate [] -> mempty
-    JsonSequence [] -> mempty
+    JsonElementsAlt [] -> mempty
+    JsonElementsTup [] -> mempty
     JsonElements1 els -> starK els
     els@(JsonElements _) -> els
-    els@(JsonOptional _) -> els
-    els -> JsonOptional els
+    els@(JsonElementsOpt _) -> els
+    els -> JsonElementsOpt els
 
 {- | The type of the JSON of a type, by its rules, which are named
 by their qualified names.
@@ -2040,7 +2040,7 @@ instance JsonVal JsonTypor where
   jsonTuple tup = JsonTypor (tuple <$> getAp (runTupTypor tup))
     where
       tuple = \case
-        JsonAlternate [] -> falseP
+        JsonElementsAlt [] -> falseP
         els -> JsonArray els
   jsonObject obj = JsonTypor (objects <$> getAp (runObjTypor obj))
     where
@@ -2126,15 +2126,15 @@ elementType = \case
 tupleShapes :: JsonElements -> [[TupleElement]]
 tupleShapes = \case
   JsonElement t -> [[RequiredElement t]]
-  JsonSequence els -> map concat (traverse tupleShapes els)
-  JsonAlternate alts -> concatMap tupleShapes alts
+  JsonElementsTup els -> map concat (traverse tupleShapes els)
+  JsonElementsAlt alts -> concatMap tupleShapes alts
   JsonElements els -> case concatMap (map elementType) (tupleShapes els) of
     [] -> [[]]
     ts -> [[RestElement (jsonUnion ts)]]
   JsonElements1 els ->
     [ shape <> rest
     | shape <- tupleShapes els, rest <- tupleShapes (JsonElements els) ]
-  JsonOptional els -> tupleShapes els <> [[]]
+  JsonElementsOpt els -> tupleShapes els <> [[]]
 
 -- TypeScript --
 
@@ -2846,6 +2846,7 @@ instance (Ord k, Json k, Json v) => Json (Map k v) where
   json = case jsonKey @k of
     Just key -> jsonMap key json
     Nothing -> iso Map.toList Map.fromList >~ json
+  {-# INLINABLE json #-}
 instance (Typeable a, Json a) => Json (Tree a) where
   json = jsonTyped gtuple
 
