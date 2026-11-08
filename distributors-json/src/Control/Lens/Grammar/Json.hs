@@ -264,6 +264,7 @@ import Witherable qualified
 -- >>> let explain err = formatError (jsonErrorPath err) (jsonErrorMessage err)
 
 makePrisms ''Value
+makePrisms ''These
 
 -- Json grammars --
 
@@ -276,8 +277,12 @@ class Json a where
 
   -- | `Aeson.toJSON` & `Aeson.parseJSON`, as one grammar.
   json :: JsonVal p => p a a
-  default json :: (Json (GHC.Generically a), JsonVal p) => p a a
-  json = iso GHC.Generically coerce >~ json
+  default json
+    :: forall d f p
+     . ( GHC.Generic a, GHC.Rep a ~ GHC.D1 d f, GSum f, Typeable a
+       , EnumTag (AllNullary f) a, JsonVal p )
+    => p a a
+  json = jsonGeneric Aeson.defaultOptions
   {-# INLINABLE json #-}
 
   {- | `Data.Aeson.toJSONList`, an array of values by default.
@@ -1757,13 +1762,15 @@ the instance's specializations needn't break their recursion through
 printTuple
   :: forall val a b. AesonVal val
   => (forall q. JsonTup (JsonPrintor val) q => q a b) -> JsonPrintor val a b
-printTuple tup = JsonPrintor
-  (\rules -> tupPrintorTotal tup rules)
-  (fmap (aesonList id . toList) . tupPrintorTry tup)
-  (\a -> aesonElems (tupPrintorRender tup a (aesonElemsEmpty @val)))
-  (\a -> case tupPrintorCheck tup a of
-    Elements printed -> aesonList id . toList . snd <$> printed)
-  Nothing
+printTuple tup = case tup @(TupPrintor val) of
+  -- The grammar's printor, instantiated once, rather than in each field.
+  TupPrintor total attempt render check _ -> JsonPrintor
+    (\rules -> total rules)
+    (fmap (aesonList id . toList) . attempt)
+    (\a -> aesonElems (render a (aesonElemsEmpty @val)))
+    (\a -> case check a of
+      Elements printed -> aesonList id . toList . snd <$> printed)
+    Nothing
 {-# INLINE printTuple #-}
 
 -- | Print the properties of a map, whose keys are distinct, as an object.
@@ -2461,8 +2468,6 @@ overKey f = \case
   Nothing -> Nothing
 
 -- Json instances
-
-makePrisms ''These
 
 -- base
 instance Json Bool where
