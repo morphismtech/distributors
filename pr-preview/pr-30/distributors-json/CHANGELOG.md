@@ -14,5 +14,9 @@
 - Mapped types exclude named keys by `as`, rather than the global `Exclude`.
 - Single-key objects, like `Either`'s, & numeric keys parse as `aeson` does.
 - `jsonObjectStrict` is a `JsonVal` method.
+- `ViaJson` derives all of `aeson`'s instances: `ToJSON` & `FromJSON` with
+  `omitField` & `omittedField`, by `jsonOmitField`, & `ToJSONKey` &
+  `FromJSONKey`, by `jsonKey` & `jsonKeyList`, or else as values in arrays
+  of pairs; & it's `Eq`, `Ord` & `Show`.
 - `jsonEnumWith` takes a table of strings & values, & each value's index in it,
   so that it prints by index; generic enumerations index by `dataToTag#`.
