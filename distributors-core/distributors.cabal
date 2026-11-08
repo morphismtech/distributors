@@ -5,7 +5,7 @@ cabal-version: 2.2
 -- see: https://github.com/sol/hpack
 
 name:           distributors
-version:        0.6.0.0
+version:        0.7.0.0
 synopsis:       Profunctor algebra & optics for invertible syntax
 description:    Distributors provides mathematically inspired abstractions for coders to write parsers that can also be inverted to printers. Its grammars are in @distributors-grammar@.
 category:       Profunctors, Optics, Parsing

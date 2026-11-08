@@ -22,7 +22,7 @@ dependencies:
 - base >= 4.15 && < 5
 - bifunctors >= 5.5 && < 6
 - containers >= 0.6 && < 1
-- distributors >= 0.6 && < 0.7
+- distributors >= 0.7 && < 0.8
 - lens >= 5.0 && < 6
 - MemoTrie >= 0.6 && < 1
 - monad-loops >= 0.4.3 && < 1
