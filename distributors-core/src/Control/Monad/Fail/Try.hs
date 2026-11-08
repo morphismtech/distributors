@@ -11,6 +11,7 @@ Portability : non-portable
 module Control.Monad.Fail.Try
   ( -- * MonadTry
     MonadTry (..)
+  , MonadicTry
     -- * MonadFail
   , MonadFail (..)
     -- * MonadPlus
@@ -26,6 +27,7 @@ import Control.Lens.Grammar.BackusNaur
 import Control.Lens.PartialIso ()
 import Control.Monad
 import Data.Bifunctor.Joker
+import Data.Profunctor (Profunctor)
 import Text.ParserCombinators.ReadP (ReadP)
 import Witherable
 
@@ -54,6 +56,9 @@ class
   try :: m a -> m a
   default try :: m a -> m a
   try = id
+
+{- | A `Profunctor` which is also a `MonadTry`. -}
+type MonadicTry p = (Profunctor p, forall x. MonadTry (p x))
 
 instance MonadTry m => MonadTry (Joker m a) where
   try = Joker . try . runJoker

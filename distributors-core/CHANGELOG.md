@@ -31,6 +31,12 @@
 - `Operator`'s `Infix`, `Prefix` & `Postfix` take `APrism`s, rather than
   `APartialIso`s, so that `withOperators` builds every operator it parses,
   rather than failing by `error`, or dropping prefix & postfix operators.
+- `MonadicTry` moves from `Data.Profunctor.Monadic` to
+  `Control.Monad.Fail.Try`, which `Data.Profunctor.Monadic` no longer
+  imports, & `Data.Profunctor.Monadic` no longer re-exports `try`.
+- `sepWith`, `beginWith` & `endWith` move from `Data.Profunctor.Separator`
+  to `Control.Lens.Grammar.Symbol`, beside `terminal`, so that
+  `Data.Profunctor.Separator` needn't import grammar symbols.
 
 ## 0.6.0.0 - 2026-04-24
 

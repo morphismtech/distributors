@@ -568,7 +568,7 @@ tsTokensGrammar = rmap
 within each, innermost first.
 -}
 tokensWithin
-  :: (Lexical Char p, Alternator p, Filtrator p, P.MonadicTry p)
+  :: (Lexical Char p, Alternator p, Filtrator p, MonadicTry p)
   => [Int] -> p [TsToken] [TsToken]
 tokensWithin depths = orP
   [ _Cons >? (tokenWithin P.>>= tokensWithin . within depths)
@@ -689,7 +689,7 @@ _HexCode = prism'
 
 -- | The interpreters of TypeScript's syntax.
 type TsGrammatical p =
-  (Lexical TsToken p, Alternator p, Filtrator p, P.MonadicTry p)
+  (Lexical TsToken p, Alternator p, Filtrator p, MonadicTry p)
 
 {- | The declarations of a declaration file, of tokens, by the TypeScript
 compiler's syntax, printed one per line, indented within blocks, & with

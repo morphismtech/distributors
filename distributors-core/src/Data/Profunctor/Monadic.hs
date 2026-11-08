@@ -26,15 +26,11 @@ module Data.Profunctor.Monadic
   , (>>=)
   , (>>)
   , return
-    -- * MonadicTry
-  , MonadicTry
-  , try
   , fail
   ) where
 
 import Control.Lens
 import Control.Monad hiding ((>>=), (>>), return)
-import Control.Monad.Fail.Try
 import Data.Profunctor.Monoidal
 import Prelude hiding ((>>=), (>>), return)
 
@@ -65,6 +61,3 @@ version of `pureP`.
 -}
 return :: (Monadic p, Choice p) => APrism a b () () -> p a b
 return = pureP
-
-{- | A `Profunctor` which is also a `MonadTry`. -}
-type MonadicTry p = (Profunctor p, forall x. MonadTry (p x))

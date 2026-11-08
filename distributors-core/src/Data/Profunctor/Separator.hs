@@ -13,9 +13,6 @@ module Data.Profunctor.Separator
     SepBy (..)
   , sepBy
   , noSep
-  , sepWith
-  , beginWith
-  , endWith
     -- * SepBy Combinators
   , several
   , several1
@@ -30,7 +27,6 @@ module Data.Profunctor.Separator
 
 import Control.Lens
 import Control.Lens.PartialIso
-import Control.Lens.Grammar.Symbol
 import Data.Monoid.Disjunctive (orP)
 import Data.Profunctor.Distributor
 import Data.Profunctor.Monoidal.Cocartesian
@@ -61,25 +57,6 @@ sepBy = SepBy (pure ()) (pure ())
 beginning or ending delimiters. -}
 noSep :: Applicative p => SepBy (p ())
 noSep = sepBy (pure ())
-
-{- | A `SepBy` smart constructor like `sepBy`,
-with a `terminal` argument.
-Beginning and ending delimitors will be no-ops,
-except by applying smart modifiers `beginWith` or `endWith`. -}
-sepWith
-  :: (Applicative p, TerminalSymbol c (p ()))
-  => [c] -> SepBy (p ())
-sepWith = sepBy . terminal
-
-{- | A `SepBy` smart modifier like `beginBy`,
-with a `terminal` argument. -}
-beginWith :: TerminalSymbol c p => [c] -> SepBy p -> SepBy p
-beginWith str separator = separator {beginBy = terminal str}
-
-{- | A `SepBy` smart modifier like `endBy`,
-with a `terminal` argument. -}
-endWith :: TerminalSymbol c p => [c] -> SepBy p -> SepBy p
-endWith str separator = separator {endBy = terminal str}
 
 {- |
 > prop> several noSep = manyP
