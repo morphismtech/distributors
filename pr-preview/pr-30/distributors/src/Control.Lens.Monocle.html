@@ -43,8 +43,8 @@ See Oliveira, Jaskelioff &amp; de Melo,
 </span><span id="line-43"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Monocle.html#enumerateComonocle"><span class="hs-identifier">enumerateComonocle</span></a></span><span>
 </span><span id="line-44"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Monocle.html#zipComonocle"><span class="hs-identifier">zipComonocle</span></a></span><span>
 </span><span id="line-45"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Monocle.html#zipWithComonocle"><span class="hs-identifier">zipWithComonocle</span></a></span><span>
-</span><span id="line-46"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Monocle.html#enumerated"><span class="hs-identifier">enumerated</span></a></span><span>
-</span><span id="line-47"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Monocle.html#enumed"><span class="hs-identifier">enumed</span></a></span><span>
+</span><span id="line-46"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Monocle.html#_Enumerable"><span class="hs-identifier">_Enumerable</span></a></span><span>
+</span><span id="line-47"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Monocle.html#_BoundedEnum"><span class="hs-identifier">_BoundedEnum</span></a></span><span>
 </span><span id="line-48"></span><span>    </span><span class="annot"><span class="hs-comment">-- * Comonocular</span></span><span>
 </span><span id="line-49"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Monocle.html#Comonocular"><span class="hs-identifier">Comonocular</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Monocle.html#runComonocular"><span class="hs-identifier">runComonocular</span></a></span><span>
 </span><span id="line-50"></span><span>  </span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
@@ -431,7 +431,7 @@ Every `Control.Lens.Iso.Iso` is a `Comonocle`,
 &amp; every `Comonocle` is a `Control.Lens.Lens.Lens`,
 whose residue is which copy is held.
 
-&gt;&gt;&gt; view enumerated (Identity 'a')
+&gt;&gt;&gt; view _Enumerable (Identity 'a')
 'a'
 
 `Comonocle`s are isomorphic to `Comonocular`s.
@@ -617,7 +617,7 @@ p a b -&gt; p (f a) (f b)
 since sums of copies add, \(m a + n a = (m+n) a\),
 as `Control.Lens.Lens.choosing` does `Control.Lens.Lens.Lens`es.
 
-&gt;&gt;&gt; set (altComonocle id enumerated) 'x' (Right (Identity 'y'))
+&gt;&gt;&gt; set (altComonocle id _Enumerable) 'x' (Right (Identity 'y'))
 Right (Identity 'x')
 -}</span></span><span>
 </span><span id="line-208"></span><span id="local-6989586621679421441"><span id="local-6989586621679421442"><span id="local-6989586621679421443"><span id="local-6989586621679421444"><span id="local-6989586621679421445"><span id="local-6989586621679421446"><span class="annot"><a href="Control.Lens.Monocle.html#altComonocle"><span class="hs-identifier hs-type">altComonocle</span></a></span><span>
@@ -670,7 +670,7 @@ forall s t a b. AComonocle s t a b -&gt; Comonocle s t a b
 since products of sums of copies distribute,
 \(m a \times n c = (m n) (a \times c)\).
 
-&gt;&gt;&gt; over (crossComonocle enumerated id) (\(a, c) -&gt; (a + c, show c)) (Identity 1, 2)
+&gt;&gt;&gt; over (crossComonocle _Enumerable id) (\(a, c) -&gt; (a + c, show c)) (Identity 1, 2)
 (Identity 3,&quot;2&quot;)
 -}</span></span><span>
 </span><span id="line-222"></span><span id="local-6989586621679421464"><span id="local-6989586621679421465"><span id="local-6989586621679421466"><span id="local-6989586621679421467"><span id="local-6989586621679421468"><span id="local-6989586621679421469"><span id="local-6989586621679421470"><span id="local-6989586621679421471"><span class="annot"><a href="Control.Lens.Monocle.html#crossComonocle"><span class="hs-identifier hs-type">crossComonocle</span></a></span><span>
@@ -937,7 +937,7 @@ p (f a) (g b) -&gt; Zipporah p f g a b
 </span><span id="line-271"></span><span class="annot"><span class="hs-comment">{- | How many copies `AComonocle` has, like the size of a `Bounded` `Enum`.
 It diverges for infinitely many copies, &amp; takes time linear in their number.
 
-&gt;&gt;&gt; countComonocle (enumed @Ordering)
+&gt;&gt;&gt; countComonocle (_BoundedEnum @Ordering)
 3
 -}</span></span><span>
 </span><span id="line-277"></span><span id="local-6989586621679421567"><span id="local-6989586621679421568"><span id="local-6989586621679421569"><span id="local-6989586621679421570"><span class="annot"><a href="Control.Lens.Monocle.html#countComonocle"><span class="hs-identifier hs-type">countComonocle</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Control.Lens.Monocle.html#AComonocle"><span class="hs-identifier hs-type">AComonocle</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679421567"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679421568"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679421569"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679421570"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Natural</span></span></span></span></span></span><span>
@@ -994,9 +994,9 @@ forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
 </span><span id="line-284"></span><span class="annot"><span class="hs-comment">{- | The copy of `AComonocle` at an index, holding a focus, if there is one,
 like `toEnum`, &amp; inverse to `indexComonocle`.
 
-&gt;&gt;&gt; toEnumComonocle enumed () 2 :: Maybe Ordering
+&gt;&gt;&gt; toEnumComonocle _BoundedEnum () 2 :: Maybe Ordering
 Just GT
-&gt;&gt;&gt; toEnumComonocle enumed () 3 :: Maybe Ordering
+&gt;&gt;&gt; toEnumComonocle _BoundedEnum () 3 :: Maybe Ordering
 Nothing
 -}</span></span><span>
 </span><span id="line-292"></span><span id="local-6989586621679421585"><span id="local-6989586621679421586"><span id="local-6989586621679421587"><span id="local-6989586621679421588"><span class="annot"><a href="Control.Lens.Monocle.html#toEnumComonocle"><span class="hs-identifier hs-type">toEnumComonocle</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Control.Lens.Monocle.html#AComonocle"><span class="hs-identifier hs-type">AComonocle</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679421585"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679421586"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679421587"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679421588"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679421588"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Natural</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="annot"><a href="#local-6989586621679421586"><span class="hs-identifier hs-type">t</span></a></span></span></span></span></span><span>
@@ -1039,9 +1039,9 @@ forall (f :: * -&gt; *) a. Enumerable f =&gt; a -&gt; Natural -&gt; Maybe (f a)
 </span><span id="line-295"></span><span class="annot"><span class="hs-comment">{- | The next copy of `AComonocle`, holding the same focus,
 if there is one, like `succ`.
 
-&gt;&gt;&gt; succComonocle enumed EQ
+&gt;&gt;&gt; succComonocle _BoundedEnum EQ
 Just GT
-&gt;&gt;&gt; succComonocle enumed GT
+&gt;&gt;&gt; succComonocle _BoundedEnum GT
 Nothing
 -}</span></span><span>
 </span><span id="line-303"></span><span id="local-6989586621679421597"><span id="local-6989586621679421598"><span class="annot"><a href="Control.Lens.Monocle.html#succComonocle"><span class="hs-identifier hs-type">succComonocle</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Control.Lens.Monocle.html#AComonocle"><span class="hs-identifier hs-type">AComonocle</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679421597"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679421597"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679421598"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679421598"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679421597"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="annot"><a href="#local-6989586621679421597"><span class="hs-identifier hs-type">s</span></a></span></span></span><span>
@@ -1083,9 +1083,9 @@ forall (f :: * -&gt; *) a. Enumerable f =&gt; f a -&gt; Maybe (f a)
 </span><span id="line-306"></span><span class="annot"><span class="hs-comment">{- | The previous copy of `AComonocle`, holding the same focus,
 if there is one, like `pred`.
 
-&gt;&gt;&gt; predComonocle enumed EQ
+&gt;&gt;&gt; predComonocle _BoundedEnum EQ
 Just LT
-&gt;&gt;&gt; predComonocle enumed LT
+&gt;&gt;&gt; predComonocle _BoundedEnum LT
 Nothing
 -}</span></span><span>
 </span><span id="line-314"></span><span id="local-6989586621679422081"><span id="local-6989586621679422082"><span class="annot"><a href="Control.Lens.Monocle.html#predComonocle"><span class="hs-identifier hs-type">predComonocle</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Control.Lens.Monocle.html#AComonocle"><span class="hs-identifier hs-type">AComonocle</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679422081"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679422081"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679422082"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679422082"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679422081"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="annot"><a href="#local-6989586621679422081"><span class="hs-identifier hs-type">s</span></a></span></span></span><span>
@@ -1127,7 +1127,7 @@ forall (f :: * -&gt; *) a. Enumerable f =&gt; f a -&gt; Maybe (f a)
 </span><span id="line-317"></span><span class="annot"><span class="hs-comment">{- | The copies of `AComonocle` from one onward, holding the same focus,
 like `enumFrom`.
 
-&gt;&gt;&gt; enumerateComonocle enumed False
+&gt;&gt;&gt; enumerateComonocle _BoundedEnum False
 [False,True]
 &gt;&gt;&gt; enumerateComonocle (altComonocle id id) (Left 'x' :: Either Char Char)
 [Left 'x',Right 'x']
@@ -1171,12 +1171,12 @@ forall (f :: * -&gt; *) a. Enumerable f =&gt; f a -&gt; [f a]
 </span><span id="line-328"></span><span>
 </span><span id="line-329"></span><span class="annot"><span class="hs-comment">{- | The `Comonocle` of an `Enumerable` sum's copy.
 
-&gt;&gt;&gt; over enumerated (+ 1) (Identity 1)
+&gt;&gt;&gt; over _Enumerable (+ 1) (Identity 1)
 Identity 2
 -}</span></span><span>
-</span><span id="line-334"></span><span id="local-6989586621679421617"><span id="local-6989586621679421618"><span id="local-6989586621679421619"><span class="annot"><a href="Control.Lens.Monocle.html#enumerated"><span class="hs-identifier hs-type">enumerated</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Data.Traversable.Homogeneous.html#Enumerable"><span class="hs-identifier hs-type">Enumerable</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679421617"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Control.Lens.Monocle.html#Comonocle"><span class="hs-identifier hs-type">Comonocle</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679421617"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679421618"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679421617"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679421619"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621679421618"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679421619"><span class="hs-identifier hs-type">b</span></a></span></span></span></span><span>
-</span><span id="line-335"></span><span id="enumerated"><span class="annot"><span class="annottext">enumerated :: forall (f :: * -&gt; *) a b. Enumerable f =&gt; Comonocle (f a) (f b) a b
-</span><a href="Control.Lens.Monocle.html#enumerated"><span class="hs-identifier hs-var hs-var">enumerated</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">WrappedPafb f p (f a) (f b) -&gt; p (f a) (f (f b))
+</span><span id="line-334"></span><span id="local-6989586621679421617"><span id="local-6989586621679421618"><span id="local-6989586621679421619"><span class="annot"><a href="Control.Lens.Monocle.html#_Enumerable"><span class="hs-identifier hs-type">_Enumerable</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Data.Traversable.Homogeneous.html#Enumerable"><span class="hs-identifier hs-type">Enumerable</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679421617"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Control.Lens.Monocle.html#Comonocle"><span class="hs-identifier hs-type">Comonocle</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679421617"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679421618"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679421617"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679421619"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621679421618"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679421619"><span class="hs-identifier hs-type">b</span></a></span></span></span></span><span>
+</span><span id="line-335"></span><span id="_Enumerable"><span class="annot"><span class="annottext">_Enumerable :: forall (f :: * -&gt; *) a b. Enumerable f =&gt; Comonocle (f a) (f b) a b
+</span><a href="Control.Lens.Monocle.html#_Enumerable"><span class="hs-identifier hs-var hs-var">_Enumerable</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">WrappedPafb f p (f a) (f b) -&gt; p (f a) (f (f b))
 forall (f :: * -&gt; *) (p :: * -&gt; * -&gt; *) a b.
 WrappedPafb f p a b -&gt; p a (f b)
 </span><span class="hs-identifier hs-var">unwrapPafb</span></span><span> </span><span class="annot"><span class="annottext">(WrappedPafb f p (f a) (f b) -&gt; p (f a) (f (f b)))
@@ -1204,12 +1204,12 @@ p a (f b) -&gt; WrappedPafb f p a b
 </span><span id="line-337"></span><span class="annot"><span class="hs-comment">{- | The `Comonocle` of a `Bounded` `Enum`, as copies of @()@,
 numbered by `fromEnum` from `minBound`.
 
-&gt;&gt;&gt; iview (indexComonocle enumed) True
+&gt;&gt;&gt; iview (indexComonocle _BoundedEnum) True
 (1,())
 -}</span></span><span>
-</span><span id="line-343"></span><span id="local-6989586621679421625"><span class="annot"><a href="Control.Lens.Monocle.html#enumed"><span class="hs-identifier hs-type">enumed</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Enum</span></span><span> </span><span class="annot"><a href="#local-6989586621679421625"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Bounded</span></span><span> </span><span class="annot"><a href="#local-6989586621679421625"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Control.Lens.Monocle.html#Comonocle"><span class="hs-identifier hs-type">Comonocle</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679421625"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679421625"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span><span>
-</span><span id="line-344"></span><span id="enumed"><span class="annot"><span class="annottext">enumed :: forall a. (Enum a, Bounded a) =&gt; Comonocle a a () ()
-</span><a href="Control.Lens.Monocle.html#enumed"><span class="hs-identifier hs-var hs-var">enumed</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(a -&gt; (a, ())) -&gt; ((a, ()) -&gt; a) -&gt; Iso a a (a, ()) (a, ())
+</span><span id="line-343"></span><span id="local-6989586621679421625"><span class="annot"><a href="Control.Lens.Monocle.html#_BoundedEnum"><span class="hs-identifier hs-type">_BoundedEnum</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Bounded</span></span><span> </span><span class="annot"><a href="#local-6989586621679421625"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Enum</span></span><span> </span><span class="annot"><a href="#local-6989586621679421625"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Control.Lens.Monocle.html#Comonocle"><span class="hs-identifier hs-type">Comonocle</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679421625"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679421625"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span><span>
+</span><span id="line-344"></span><span id="_BoundedEnum"><span class="annot"><span class="annottext">_BoundedEnum :: forall a. (Bounded a, Enum a) =&gt; Comonocle a a () ()
+</span><a href="Control.Lens.Monocle.html#_BoundedEnum"><span class="hs-identifier hs-var hs-var">_BoundedEnum</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(a -&gt; (a, ())) -&gt; ((a, ()) -&gt; a) -&gt; Iso a a (a, ()) (a, ())
 forall s a b t. (s -&gt; a) -&gt; (b -&gt; t) -&gt; Iso s t a b
 </span><span class="hs-identifier hs-var">iso</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span id="local-6989586621679422123"><span class="annot"><span class="annottext">a
 </span><a href="#local-6989586621679422123"><span class="hs-identifier hs-var">x</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">a
@@ -1223,7 +1223,7 @@ forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
 </span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">p () (f ()) -&gt; p (a, ()) (f (a, ()))
 forall (f :: * -&gt; *) a b. Enumerable f =&gt; Comonocle (f a) (f b) a b
 Comonocle (a, ()) (a, ()) () ()
-</span><a href="Control.Lens.Monocle.html#enumerated"><span class="hs-identifier hs-var">enumerated</span></a></span><span>
+</span><a href="Control.Lens.Monocle.html#_Enumerable"><span class="hs-identifier hs-var">_Enumerable</span></a></span><span>
 </span><span id="line-345"></span><span>
 </span><span id="line-346"></span><span class="annot"><span class="hs-comment">{- | `Comonocular` provides a concrete representation of `Comonocle`s,
 by an `Enumerable` sum of copies.

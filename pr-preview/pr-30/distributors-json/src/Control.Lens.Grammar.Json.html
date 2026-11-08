@@ -1349,11 +1349,11 @@ forall a b. (a, b) -&gt; a
 which `jsonEnumWith` tables once, numbered as `fromEnumerable` numbers them.
 
 &gt;&gt;&gt; import Control.Lens (coerced)
-&gt;&gt;&gt; import Control.Lens.Monocle (enumed)
+&gt;&gt;&gt; import Control.Lens.Monocle (_BoundedEnum)
 &gt;&gt;&gt; import Data.Text qualified as Text
 &gt;&gt;&gt; newtype Order = Order Ordering deriving (Show)
 &gt;&gt;&gt; let name = Text.toLower . Text.pack . show @Ordering
-&gt;&gt;&gt; instance Json Order where json = coerced &gt;~ jsonEnum enumed name
+&gt;&gt;&gt; instance Json Order where json = coerced &gt;~ jsonEnum _BoundedEnum name
 &gt;&gt;&gt; jsonPrint (Order GT)
 String &quot;gt&quot;
 &gt;&gt;&gt; jsonParse @Order (Aeson.String &quot;lt&quot;)
@@ -11411,11 +11411,11 @@ forall a. a -&gt; [a] -&gt; [a]
 </span><span id="line-2386"></span><span class="hs-comment">-- Json instance helpers</span><span>
 </span><span id="line-2387"></span><span>
 </span><span id="line-2388"></span><span class="annot"><span class="hs-comment">-- | An enumeration of a bounded `Enum`, by the names of its values.</span></span><span>
-</span><span id="line-2389"></span><span id="local-6989586621679382974"><span id="local-6989586621679382975"><span class="annot"><a href="Control.Lens.Grammar.Json.html#enumerated"><span class="hs-identifier hs-type">enumerated</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Bounded</span></span><span> </span><span class="annot"><a href="#local-6989586621679382974"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Enum</span></span><span> </span><span class="annot"><a href="#local-6989586621679382974"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Json.html#JsonStr"><span class="hs-identifier hs-type">JsonStr</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679382975"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679382974"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679382975"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679382974"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679382974"><span class="hs-identifier hs-type">a</span></a></span></span></span><span>
-</span><span id="line-2390"></span><span id="enumerated"><span class="annot"><span class="annottext">enumerated :: forall a (p :: * -&gt; * -&gt; *).
+</span><span id="line-2389"></span><span id="local-6989586621679382974"><span id="local-6989586621679382975"><span class="annot"><a href="Control.Lens.Grammar.Json.html#jsonEnumerated"><span class="hs-identifier hs-type">jsonEnumerated</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Bounded</span></span><span> </span><span class="annot"><a href="#local-6989586621679382974"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Enum</span></span><span> </span><span class="annot"><a href="#local-6989586621679382974"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Json.html#JsonStr"><span class="hs-identifier hs-type">JsonStr</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679382975"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679382974"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679382975"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679382974"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679382974"><span class="hs-identifier hs-type">a</span></a></span></span></span><span>
+</span><span id="line-2390"></span><span id="jsonEnumerated"><span class="annot"><span class="annottext">jsonEnumerated :: forall a (p :: * -&gt; * -&gt; *).
 (Bounded a, Enum a, JsonStr p) =&gt;
 (a -&gt; Text) -&gt; p a a
-</span><a href="Control.Lens.Grammar.Json.html#enumerated"><span class="hs-identifier hs-var hs-var">enumerated</span></a></span></span><span> </span><span id="local-6989586621679389083"><span class="annot"><span class="annottext">a -&gt; Text
+</span><a href="Control.Lens.Grammar.Json.html#jsonEnumerated"><span class="hs-identifier hs-var hs-var">jsonEnumerated</span></a></span></span><span> </span><span id="local-6989586621679389083"><span class="annot"><span class="annottext">a -&gt; Text
 </span><a href="#local-6989586621679389083"><span class="hs-identifier hs-var">name</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(a -&gt; Int) -&gt; [(Text, a)] -&gt; p a a
 forall a. (a -&gt; Int) -&gt; [(Text, a)] -&gt; p a a
 forall (p :: * -&gt; * -&gt; *) a.
@@ -12064,7 +12064,7 @@ forall a. a -&gt; Maybe a
 forall a (p :: * -&gt; * -&gt; *).
 (Bounded a, Enum a, JsonStr p) =&gt;
 (a -&gt; Text) -&gt; p a a
-</span><a href="Control.Lens.Grammar.Json.html#enumerated"><span class="hs-identifier hs-var">enumerated</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span id="local-6989586621679389468"><span class="annot"><span class="annottext">Bool
+</span><a href="Control.Lens.Grammar.Json.html#jsonEnumerated"><span class="hs-identifier hs-var">jsonEnumerated</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span id="local-6989586621679389468"><span class="annot"><span class="annottext">Bool
 </span><a href="#local-6989586621679389468"><span class="hs-identifier hs-var">b</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">if</span><span> </span><span class="annot"><span class="annottext">Bool
 </span><a href="#local-6989586621679389468"><span class="hs-identifier hs-var">b</span></a></span><span> </span><span class="hs-keyword">then</span><span> </span><span class="annot"><span class="annottext">Text
 </span><span class="hs-string">&quot;true&quot;</span></span><span> </span><span class="hs-keyword">else</span><span> </span><span class="annot"><span class="annottext">Text
@@ -12079,7 +12079,7 @@ p a a -&gt; p a a
 forall a (p :: * -&gt; * -&gt; *).
 (Bounded a, Enum a, JsonStr p) =&gt;
 (a -&gt; Text) -&gt; p a a
-</span><a href="Control.Lens.Grammar.Json.html#enumerated"><span class="hs-identifier hs-var">enumerated</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">String -&gt; Text
+</span><a href="Control.Lens.Grammar.Json.html#jsonEnumerated"><span class="hs-identifier hs-var">jsonEnumerated</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">String -&gt; Text
 </span><span class="hs-identifier hs-var">Text.pack</span></span><span> </span><span class="annot"><span class="annottext">(String -&gt; Text) -&gt; (Ordering -&gt; String) -&gt; Ordering -&gt; Text
 forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
 </span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Ordering -&gt; String
@@ -18916,7 +18916,7 @@ p QuarterOfYear QuarterOfYear
 forall a (p :: * -&gt; * -&gt; *).
 (Bounded a, Enum a, JsonStr p) =&gt;
 (a -&gt; Text) -&gt; p a a
-</span><a href="Control.Lens.Grammar.Json.html#enumerated"><span class="hs-identifier hs-var">enumerated</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text -&gt; Text
+</span><a href="Control.Lens.Grammar.Json.html#jsonEnumerated"><span class="hs-identifier hs-var">jsonEnumerated</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text -&gt; Text
 </span><span class="hs-identifier hs-var">Text.toLower</span></span><span> </span><span class="annot"><span class="annottext">(Text -&gt; Text) -&gt; (QuarterOfYear -&gt; Text) -&gt; QuarterOfYear -&gt; Text
 forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
 </span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">String -&gt; Text
