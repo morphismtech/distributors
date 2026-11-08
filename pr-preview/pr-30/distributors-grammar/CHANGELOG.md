@@ -6,3 +6,7 @@
   `Control.Lens.Grammar` & its `BackusNaur`, `Machine`, `RegEx`, `Symbol`
   & `Token` modules, `Control.Monad.Fail.Try`, `Data.Profunctor.Grammar`
   & `Data.Profunctor.Grammar.Parsector`.
+- `RegExam`, the type, is renamed `TokenExam`, & moves with `TokenClass`,
+  `TokenAlgebra` & `CategoryTest` to `Control.Lens.Grammar.Token`;
+  `RegEx`'s `RegExam` constructor keeps its name. `foldTokenClass` folds a
+  `TokenClass` by an algebra of its `TokenExam`s.
