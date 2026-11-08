@@ -4,8 +4,10 @@ module Properties.Kleene (kleeneProperties) where
 
 import Control.Lens.Grammar
 import Data.Foldable (for_)
+import Data.String (fromString)
+import GHC.Exts (fromList, toList)
 import Test.Hspec
-import Test.Hspec.QuickCheck (prop)
+import Test.Hspec.QuickCheck (modifyMaxSize, prop)
 import Test.QuickCheck
 
 #if !MIN_VERSION_QuickCheck(2,17,0)
@@ -54,6 +56,20 @@ instance Arbitrary (RegEx Char) where
 
 kleeneProperties :: Spec
 kleeneProperties = do
+  -- Small regular expressions, since `readG` backtracks exponentially.
+  describe "Read & Show, as of strings" $ modifyMaxSize (const 8) $ do
+    prop "read . show = id for RegString" $ \(x :: RegEx Char) ->
+      let r = reparsed (RegString x) in read (show r) === r
+    prop "reads a RegString within a list & a Maybe" $ \(x :: RegEx Char) ->
+      let r = reparsed (RegString x)
+      in read (show [r, r]) === [r, r] .&&. read (show (Just r)) === Just r
+    prop "reads a RegString, leaving the rest" $ \(x :: RegEx Char) ->
+      let r = reparsed (RegString x)
+      in reads (show r <> " rest") === [(r, " rest")]
+    it "read . show = id for RegBnf" $ do
+      let bnf = fromString "{start} = \\q{a}|b*\n{a} = a" :: RegBnf
+      read (show bnf) `shouldBe` bnf
+      read (show [bnf]) `shouldBe` [bnf]
   describe "KleeneStarAlgebra" $ do
     prop "starK x = optK (plusK x)" $ \(x :: RegEx Char) ->
       starK x == optK (plusK x)
@@ -145,3 +161,8 @@ kleeneProperties = do
       (x >|< x) == x
     prop "x >&< x = x" $ \(x :: TokenClass Char) ->
       (x >&< x) == x
+
+-- | A `RegString` as its printed text parses, which `read` reads.
+reparsed :: RegString -> RegString
+reparsed = fromList . toList
+

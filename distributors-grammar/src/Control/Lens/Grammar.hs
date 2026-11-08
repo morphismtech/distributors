@@ -1104,7 +1104,7 @@ instance IsString RegString where
 instance Show RegString where
   showsPrec precision = showsPrec precision . toList
 instance Read RegString where
-  readsPrec _ str = [(fromList str, "")]
+  readsPrec = readsGrammar regexGrammar
 instance IsList RegBnf where
   type Item RegBnf = Char
   fromList
@@ -1123,4 +1123,14 @@ instance IsString RegBnf where
 instance Show RegBnf where
   showsPrec precision = showsPrec precision . toList
 instance Read RegBnf where
-  readsPrec _ str = [(fromList str, "")]
+  readsPrec = readsGrammar regbnfGrammar
+
+{- | Read a string literal, as `String`'s `readsPrec` does,
+& its text by a `Grammar`, so that @read . show = id@.
+-}
+readsGrammar :: Grammar Char a -> Int -> ReadS a
+readsGrammar grammar precision str =
+  [ (a, rest)
+  | (text, rest) <- readsPrec @String precision str
+  , a <- take 1 [a | (a, "") <- readP_to_S (readG grammar) text]
+  ]
