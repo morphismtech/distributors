@@ -35,7 +35,7 @@ It is also a `TokenAlgebra` and `tokenClass` acts homomorphically on disjunction
 data RegEx token
   = SeqEmpty
   -- | Two or more items, none of them sequences or empty.
-  | Sequence [RegEx token]
+  | Sequence (RegEx token) (RegEx token) [RegEx token]
   | NonTerminal String
   | KleeneStar (RegEx token)
   | KleeneOpt (RegEx token)
@@ -116,7 +116,7 @@ instance (Categorized token, HasTrie token)
     untrie rex = \case
       SeqEmpty -> seqEmptyTrie rex
       NonTerminal name -> untrie (nonTerminalTrie rex) name
-      Sequence xs -> untrie (sequenceTrie rex) xs
+      Sequence x y zs -> untrie (sequenceTrie rex) (x : y : zs)
       KleeneStar x -> untrie (kleeneStarTrie rex) x
       KleenePlus x -> untrie (kleenePlusTrie rex) x
       KleeneOpt x -> untrie (kleeneOptTrie rex) x
@@ -126,12 +126,12 @@ instance (Categorized token, HasTrie token)
       RegExam (NotOneOf chars (AndNotAsIn cats)) ->
         untrie (notOneOfTrie rex)
           (Set.toList chars, Right (Set.toList (Set.map fromEnum cats)))
-      RegExam (Alternate xs) -> untrie (alternateTrie rex) xs
+      RegExam (Alternate x y zs) -> untrie (alternateTrie rex) (x : y : zs)
     enumerate rex = mconcat
       [ [(SeqEmpty, seqEmptyTrie rex)]
       , first' NonTerminal <$> enumerate (nonTerminalTrie rex)
-      , first' Sequence <$> enumerate (sequenceTrie rex)
-      , first' (RegExam . Alternate) <$> enumerate (alternateTrie rex)
+      , first' mconcat <$> enumerate (sequenceTrie rex)
+      , first' (foldr (>|<) falseP) <$> enumerate (alternateTrie rex)
       , first' KleeneStar <$> enumerate (kleeneStarTrie rex)
       , first' KleeneOpt <$> enumerate (kleeneOptTrie rex)
       , first' KleenePlus <$> enumerate (kleenePlusTrie rex)
@@ -155,7 +155,7 @@ isFailExam = \case
 items :: RegEx token -> [RegEx token]
 items = \case
   SeqEmpty -> []
-  Sequence rexes -> rexes
+  Sequence rex0 rex1 rexes -> rex0 : rex1 : rexes
   rex -> [rex]
 
 {- | Items, normalized: any which fails fails, & runs of a repeated item,
@@ -173,7 +173,7 @@ sequenced rexes
   | otherwise = case rewrite rexes of
       [] -> SeqEmpty
       [rex] -> rex
-      rexes' -> Sequence rexes'
+      rex0 : rex1 : rexes' -> Sequence rex0 rex1 rexes'
   where
     isFail = \case
       RegExam exam -> isFailExam exam
@@ -219,7 +219,7 @@ sequenced rexes
 alternatives :: RegEx token -> [RegEx token]
 alternatives = \case
   RegExam (OneOf tokens') | Set.null tokens' -> []
-  RegExam (Alternate rexes) -> rexes
+  RegExam (Alternate rex0 rex1 rexes) -> rex0 : rex1 : rexes
   KleeneOpt rex -> alternatives rex <> [SeqEmpty]
   KleeneStar rex -> [KleenePlus rex, SeqEmpty]
   rex -> [rex]
@@ -235,7 +235,7 @@ alternated rexes =
     case nub (unionTokens [rex | rex <- rexes, rex /= SeqEmpty]) of
       [] -> falseP
       [rex] -> rex
-      rexes' -> RegExam (Alternate rexes')
+      rex0 : rex1 : rexes' -> RegExam (Alternate rex0 rex1 rexes')
   where
     unionTokens xs = case [cls | x <- xs, Just cls <- [tokenOf x]] of
       [] -> xs

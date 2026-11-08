@@ -455,7 +455,7 @@ diverge if the `CtxGrammar` they're run on is left-recursive.
 ParsecState {parsecLooked = False, parsecOffset = 0, parsecStream = "abc", parsecFailure = ParsecFailure {parsecExpect = TokenClass (OneOf (fromList "")), parsecLabels = [Node {rootLabel = "foo", subForest = [Node {rootLabel = "bar", subForest = []}]},Node {rootLabel = "baz", subForest = []}]}, parsecResult = Nothing}
 
 >>> parsecG (manyP (token 'a') >*< asIn @Char DecimalNumber) "aaab"
-ParsecState {parsecLooked = True, parsecOffset = 3, parsecStream = "b", parsecFailure = ParsecFailure {parsecExpect = TokenClass (Alternate [TokenClass (OneOf (fromList "a")),TokenClass (NotOneOf (fromList "") (AndAsIn DecimalNumber))]), parsecLabels = []}, parsecResult = Nothing}
+ParsecState {parsecLooked = True, parsecOffset = 3, parsecStream = "b", parsecFailure = ParsecFailure {parsecExpect = TokenClass (Alternate (TokenClass (OneOf (fromList "a"))) (TokenClass (NotOneOf (fromList "") (AndAsIn DecimalNumber))) []), parsecLabels = []}, parsecResult = Nothing}
 
 >>> unparsecG (tokens "abc") "abx" ""
 ParsecState {parsecLooked = True, parsecOffset = 2, parsecStream = "ab", parsecFailure = ParsecFailure {parsecExpect = TokenClass (OneOf (fromList "c")), parsecLabels = []}, parsecResult = Nothing}
@@ -497,7 +497,7 @@ with `Control.Lens.Grammar.regstringG`.
 t'RegString's are actually stored as an algebraic datatype, `RegEx`.
 
 >>> runRegString rex
-RegExam (Alternate [Sequence [RegExam (OneOf (fromList "a")),RegExam (OneOf (fromList "b"))],RegExam (OneOf (fromList "c"))])
+RegExam (Alternate (Sequence (RegExam (OneOf (fromList "a"))) (RegExam (OneOf (fromList "b"))) []) (RegExam (OneOf (fromList "c"))) [])
 
 t'RegString's are similar to regular expression strings in many other
 programming languages. We can use them to see if a word and pattern
@@ -673,12 +673,12 @@ regexGrammar = _RegString >~ ruleRec "regex" altG
       iso itemsOf mconcat >~ manyP (exprG rex)
 
     alternativesOf = \case
-      RegExam (Alternate rexes) -> rexes
+      RegExam (Alternate rex0 rex1 rexes) -> rex0 : rex1 : rexes
       rex -> [rex]
 
     itemsOf = \case
       SeqEmpty -> []
-      Sequence rexes -> rexes
+      Sequence rex0 rex1 rexes -> rex0 : rex1 : rexes
       rex -> [rex]
 
     exprG rex = rule "expression" $ orP

@@ -185,7 +185,7 @@ data TokenExam token alg
   {- | Two or more alternatives, none of them alternatives,
   in the order they're written.
   -}
-  | Alternate [alg]
+  | Alternate alg alg [alg]
 
 failExam :: TokenExam token alg
 failExam = OneOf Set.empty
@@ -205,7 +205,7 @@ isPassExam _ = False
 examAlternatives
   :: TokenExam token (TokenClass token) -> [TokenExam token (TokenClass token)]
 examAlternatives = \case
-  Alternate xs -> [x | TokenClass x <- xs]
+  Alternate x y zs -> [exam | TokenClass exam <- x : y : zs]
   exam -> [exam]
 
 {- | Alternatives, normalized: any which passes every token passes,
@@ -221,7 +221,8 @@ alternatives exams
   | otherwise = case nub (unionOneOfs (filter (not . isFailExam) exams)) of
       [] -> failExam
       [exam] -> exam
-      exams' -> Alternate (map TokenClass exams')
+      exam0 : exam1 : exams' ->
+        Alternate (TokenClass exam0) (TokenClass exam1) (map TokenClass exams')
   where
     unionOneOfs xs = case [tokens' | OneOf tokens' <- xs] of
       [] -> xs
@@ -288,7 +289,7 @@ class Tokenized token p => TokenAlgebra token p where
       satisfy (notOneOf chars >&< asIn cat)
     NotOneOf chars (AndNotAsIn cats) ->
       satisfy (notOneOf chars >&< allP notAsIn cats)
-    Alternate ps -> foldr1 (>|<) ps
+    Alternate p q ps -> foldr1 (>|<) (p : q : ps)
 
 deriving stock instance Generic (TokenExam token alg)
 deriving stock instance Generic1 (TokenExam token)
@@ -319,7 +320,7 @@ instance Categorized token => TokenAlgebra token (token -> Bool) where
       Set.notMember x xs && categorize x == y
     NotOneOf xs (AndNotAsIn ys) ->
       Set.notMember x xs && Set.notMember (categorize x) ys
-    Alternate ps -> any ($ x) ps
+    Alternate p q ps -> any ($ x) (p : q : ps)
 instance TokenAlgebra token (f token)
   => TokenAlgebra token (Joker f token token) where
     tokenClass = Joker . tokenClass
@@ -332,7 +333,7 @@ instance (Categorized token, Arbitrary token) => TokenAlgebra token (Gen token) 
       (\x -> x `notElem` xs && categorize x == cat)
     NotOneOf xs (AndNotAsIn cats) -> arbitrary `Gen.suchThat`
       (\x -> x `notElem` xs && categorize x `notElem` cats)
-    Alternate ps -> Gen.oneof ps
+    Alternate p q ps -> Gen.oneof (p : q : ps)
 instance (RandomGen g, Monad m, Categorized token, Random token)
   => TokenAlgebra token (StateT g m token) where
   tokenClass = foldTokenClass $ \case
@@ -341,9 +342,9 @@ instance (RandomGen g, Monad m, Categorized token, Random token)
       iterateUntil (\x -> x `notElem` xs && categorize x == cat) anyToken
     NotOneOf xs (AndNotAsIn cats) ->
       iterateUntil (\x -> x `notElem` xs && categorize x `notElem` cats) anyToken
-    Alternate ps -> do
-      i <- state (randomR (0, length ps - 1))
-      ps !! i
+    Alternate p q ps -> do
+      i <- state (randomR (0, length ps + 1))
+      (p : q : ps) !! i
 instance Categorized token => Tokenized token (TokenExam token alg) where
   anyToken = passExam
   token a = OneOf (Set.singleton a)
@@ -363,7 +364,8 @@ instance Categorized token
   trueP = passExam
   notP exam | isFailExam exam = passExam
   notP exam | isPassExam exam = failExam
-  notP (Alternate xs) = foldr1 (>&<) [notP x | TokenClass x <- xs]
+  notP (Alternate x y zs) =
+    foldr1 (>&<) [notP exam | TokenClass exam <- x : y : zs]
   notP (OneOf xs) = notOneOf xs
   notP (NotOneOf xs (AndAsIn y)) = oneOf xs >|< notAsIn y
   notP (NotOneOf xs (AndNotAsIn ys)) = oneOf xs >|< anyP asIn ys
@@ -372,8 +374,10 @@ instance Categorized token
   exam >&< _ | isFailExam exam = failExam
   x >&< exam | isPassExam exam = x
   exam >&< z | isPassExam exam = z
-  x >&< Alternate ys = foldr1 (>|<) [x >&< y | TokenClass y <- ys]
-  Alternate xs >&< z = foldr1 (>|<) [x >&< z | TokenClass x <- xs]
+  x >&< Alternate y z ws =
+    foldr1 (>|<) [x >&< exam | TokenClass exam <- y : z : ws]
+  Alternate x y ws >&< z =
+    foldr1 (>|<) [exam >&< z | TokenClass exam <- x : y : ws]
   OneOf xs >&< OneOf ys = OneOf (Set.intersection xs ys)
   OneOf xs >&< NotOneOf ys (AndAsIn z) = OneOf
     (Set.filter (\x -> categorize x == z) (Set.difference xs ys))
