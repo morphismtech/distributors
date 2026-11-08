@@ -311,8 +311,8 @@ class Json a where
   it matches the value omitted by `Aeson.omitNothingFields`,
   & reviews the value of a field omitted by `Aeson.allowOmittedFields`.
   -}
-  jsonOmit :: Maybe (APrism' a ())
-  jsonOmit = Nothing
+  jsonOmitField :: Maybe (APrism' a ())
+  jsonOmitField = Nothing
 
 -- Running Json grammars --
 
@@ -2496,7 +2496,7 @@ instance Json Ordering where
   json = jsonTyped (jsonEnumerated (Text.pack . show))
 instance Json () where
   json = jsonTuple oneP
-  jsonOmit = Just (only ())
+  jsonOmitField = Just (only ())
 instance Json Void where
   json = zeroP
   jsonKey = Just (prism' absurd (const Nothing) ?< jsonText)
@@ -2519,7 +2519,7 @@ instance Json a => Json [a] where
   jsonKey = jsonKeyList @a
 instance Json a => Json (Maybe a) where
   json = jsonNullable json
-  jsonOmit = Just _Nothing
+  jsonOmitField = Just _Nothing
 instance (Json a, Json b) => Json (Either a b) where
   json = jsonTag "Left" json >+< jsonTag "Right" json
 instance Json Double where
@@ -2594,13 +2594,13 @@ instance Json a => Json (Solo a) where
   jsonKeyList = overKey (iso (map getSolo) (map MkSolo) >~) (jsonKeyList @a)
 instance Json a => Json (Identity a) where
   json = coerced >~ json @a
-  jsonOmit = (coerced .) <$> jsonOmit @a
+  jsonOmitField = (coerced .) <$> jsonOmitField @a
   jsonList = coerced >~ jsonList @a
   jsonKey = overKey (coerced >~) (jsonKey @a)
   jsonKeyList = overKey (coerced >~) (jsonKeyList @a)
 instance Json a => Json (Const a b) where
   json = coerced >~ json @a
-  jsonOmit = (coerced .) <$> jsonOmit @a
+  jsonOmitField = (coerced .) <$> jsonOmitField @a
   jsonKey = overKey (coerced >~) (jsonKey @a)
 instance Json (f (g a)) => Json (Compose f g a) where
   json = coerced >~ json @(f (g a))
@@ -2644,7 +2644,7 @@ instance Json Semigroup.All where json = coerced >~ json @Bool
 instance Json Semigroup.Any where json = coerced >~ json @Bool
 instance Json (Proxy a) where
   json = dimap (const ()) (const Proxy) jsonNull
-  jsonOmit = Just (only Proxy)
+  jsonOmitField = Just (only Proxy)
 -- tuples
 -- | An element of a tuple, by its projection.
 projectElem :: (Json a, JsonVal p, JsonTup p q) => (s -> a) -> q s a
@@ -3040,7 +3040,7 @@ instance (Functor f, Typeable f, Json (f (Fix f))) => Json (Nu f) where
 -- jsonTag
 instance Json b => Json (Tagged a b) where
   json = coerced >~ json @b
-  jsonOmit = (coerced .) <$> jsonOmit @b
+  jsonOmitField = (coerced .) <$> jsonOmitField @b
   jsonKey = overKey (coerced >~) (jsonKey @b)
   jsonKeyList = overKey (coerced >~) (jsonKeyList @b)
 
@@ -3066,7 +3066,7 @@ instance (Json (f a), Json (g a)) => Json (These1 f g a) where
 -- strict
 instance Json a => Json (Strict.Maybe a) where
   json = iso Strict.toLazy Strict.toStrict >~ json @(Maybe a)
-  jsonOmit = Just (nearly Strict.Nothing Strict.isNothing)
+  jsonOmitField = Just (nearly Strict.Nothing Strict.isNothing)
 instance (Json a, Json b) => Json (Strict.Either a b) where
   json = iso Strict.toLazy Strict.toStrict >~ json @(Either a b)
 instance (Json a, Json b) => Json (Strict.These a b) where
@@ -3251,9 +3251,9 @@ instance (GHC.Selector s, Json a) => GFields (GHC.S1 s (GHC.K1 i a)) where
   gfields opts = (GHC.M1 . GHC.K1) #. property .# GHC.unK1 . GHC.unM1
     where
       key = Text.pack (Aeson.fieldLabelModifier opts (gselName @s))
-      -- An omittable field, by `jsonOmit`.
+      -- An omittable field, by `jsonOmitField`.
       property :: (JsonVal p, JsonObj p q) => q a a
-      property = case jsonOmit @a of
+      property = case jsonOmitField @a of
         Just omitted
           | Aeson.allowOmittedFields opts || Aeson.omitNothingFields opts ->
               withPrism omitted $ \omit match ->
