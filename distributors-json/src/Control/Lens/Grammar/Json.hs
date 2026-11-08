@@ -877,22 +877,30 @@ data ObjParsor a b = ObjParsor
   }
 
 instance Functor (JsonParsor a) where
-  fmap f = mapParsing (fmap (onSuccess f))
+  fmap f p = (mapParsing (fmap (onSuccess f)) p)
+    {jsonParsorArray = fmap (fmap (map f) .) (jsonParsorArray p)}
 instance Witherable.Filterable (JsonParsor a) where
   mapMaybe = dimapMaybe Just
 instance Filtrator JsonParsor
 instance Profunctor JsonParsor where
-  dimap _ g = mapParsing (fmap (onSuccess g))
+  dimap _ g = fmap g . coerce
   _ #. p = coerce p
   p .# _ = coerce p
 instance Choice JsonParsor where
   left' = mapParsing (fmap (fmap Left))
   right' = mapParsing (fmap (fmap Right))
+-- | An array of values which all match parses at once.
 instance Cochoice JsonParsor where
-  unleft = mapParsing $ \p v ->
-    p v >>= either pure (\_ -> jsonUnexpected (Just v))
-  unright = mapParsing $ \p v ->
-    p v >>= either (\_ -> jsonUnexpected (Just v)) pure
+  unleft p = (mapParsing (\parse v ->
+    parse v >>= either pure (\_ -> jsonUnexpected (Just v))) p)
+    { jsonParsorArray = (traverse (either Just (const Nothing)) <=<)
+        <$> jsonParsorArray p
+    }
+  unright p = (mapParsing (\parse v ->
+    parse v >>= either (\_ -> jsonUnexpected (Just v)) pure) p)
+    { jsonParsorArray = (traverse (either (const Nothing) Just) <=<)
+        <$> jsonParsorArray p
+    }
 instance CocartesianMonoidal JsonParsor where
   zeroP = falseP
   p >+< q = (Left <$> coerce p) >|< (Right <$> coerce q)
@@ -906,10 +914,14 @@ instance DisjunctiveMonoid (JsonParsor a b) where
             dispatch = Dispatch (dispatchKey dispatch0) $ Map.unionWith orElse
               (dispatchTable dispatch0) (dispatchTable dispatch1)
           in
-            JsonParsor (Just dispatch) (dispatching dispatch) Nothing
-    _ -> jsonParsor (orElse (runJsonParsor p) (runJsonParsor q))
+            JsonParsor (Just dispatch) (dispatching dispatch) array
+    _ -> JsonParsor Nothing (orElse (runJsonParsor p) (runJsonParsor q)) array
+    where
+      -- An array which the first alternative parses, element by element.
+      array = jsonParsorArray p
 instance BackusNaurForm (JsonParsor a b) where
-  rule name = mapParsing (onFailure (jsonRelabel (unqualified name)) .)
+  rule name p = (mapParsing (onFailure (jsonRelabel (unqualified name)) .) p)
+    {jsonParsorArray = jsonParsorArray p}
   ruleRec name f = fix (rule name . f)
 instance (x ~ (), y ~ ()) => IsString (JsonParsor x y) where
   fromString s = JsonParsor
