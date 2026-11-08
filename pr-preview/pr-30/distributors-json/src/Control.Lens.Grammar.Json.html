@@ -327,8 +327,8 @@ forall a. Maybe a
   it matches the value omitted by `Aeson.omitNothingFields`,
   &amp; reviews the value of a field omitted by `Aeson.allowOmittedFields`.
   -}</span><span>
-</span><span id="line-314"></span><span>  </span><span id="jsonOmit"><span class="annot"><a href="Control.Lens.Grammar.Json.html#jsonOmit"><span class="hs-identifier hs-type">jsonOmit</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">APrism'</span></span><span> </span><span class="annot"><a href="#local-6989586621679381375"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
-</span><span id="line-315"></span><span>  </span><span id="local-6989586621679384612"><span class="annot"><a href="Control.Lens.Grammar.Json.html#jsonOmit"><span class="hs-identifier hs-var hs-var">jsonOmit</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Maybe (APrism' a ())
+</span><span id="line-314"></span><span>  </span><span id="jsonOmitField"><span class="annot"><a href="Control.Lens.Grammar.Json.html#jsonOmitField"><span class="hs-identifier hs-type">jsonOmitField</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">APrism'</span></span><span> </span><span class="annot"><a href="#local-6989586621679381375"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-315"></span><span>  </span><span id="local-6989586621679384612"><span class="annot"><a href="Control.Lens.Grammar.Json.html#jsonOmitField"><span class="hs-identifier hs-var hs-var">jsonOmitField</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Maybe (APrism' a ())
 forall a. Maybe a
 </span><span class="hs-identifier hs-var">Nothing</span></span></span><span>
 </span><span id="line-316"></span><span>
@@ -12097,8 +12097,8 @@ JsonVal p =&gt;
 forall (p :: * -&gt; * -&gt; *). Monoidal p =&gt; p () ()
 forall (q :: * -&gt; * -&gt; *). JsonTup p q =&gt; q () ()
 </span><span class="hs-identifier hs-var">oneP</span></span><span>
-</span><span id="line-2499"></span><span>  </span><span id="local-6989586621679389533"><span class="annot"><span class="annottext">jsonOmit :: Maybe (APrism' () ())
-</span><a href="Control.Lens.Grammar.Json.html#jsonOmit"><span class="hs-identifier hs-var hs-var hs-var">jsonOmit</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">APrism' () () -&gt; Maybe (APrism' () ())
+</span><span id="line-2499"></span><span>  </span><span id="local-6989586621679389533"><span class="annot"><span class="annottext">jsonOmitField :: Maybe (APrism' () ())
+</span><a href="Control.Lens.Grammar.Json.html#jsonOmitField"><span class="hs-identifier hs-var hs-var hs-var">jsonOmitField</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">APrism' () () -&gt; Maybe (APrism' () ())
 forall a. a -&gt; Maybe a
 </span><span class="hs-identifier hs-var">Just</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">() -&gt; Prism' () ()
 forall a. Eq a =&gt; a -&gt; Prism' a ()
@@ -12214,8 +12214,8 @@ p a b -&gt; p (Maybe a) (Maybe b)
 forall a (p :: * -&gt; * -&gt; *). (Json a, JsonVal p) =&gt; p a a
 forall (p :: * -&gt; * -&gt; *). JsonVal p =&gt; p a a
 </span><a href="Control.Lens.Grammar.Json.html#json"><span class="hs-identifier hs-var">json</span></a></span><span>
-</span><span id="line-2522"></span><span>  </span><span id="local-6989586621679389639"><span class="annot"><span class="annottext">jsonOmit :: Maybe (APrism' (Maybe a) ())
-</span><a href="Control.Lens.Grammar.Json.html#jsonOmit"><span class="hs-identifier hs-var hs-var hs-var">jsonOmit</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">APrism' (Maybe a) () -&gt; Maybe (APrism' (Maybe a) ())
+</span><span id="line-2522"></span><span>  </span><span id="local-6989586621679389639"><span class="annot"><span class="annottext">jsonOmitField :: Maybe (APrism' (Maybe a) ())
+</span><a href="Control.Lens.Grammar.Json.html#jsonOmitField"><span class="hs-identifier hs-var hs-var hs-var">jsonOmitField</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">APrism' (Maybe a) () -&gt; Maybe (APrism' (Maybe a) ())
 forall a. a -&gt; Maybe a
 </span><span class="hs-identifier hs-var">Just</span></span><span> </span><span class="annot"><span class="annottext">APrism' (Maybe a) ()
 forall a (p :: * -&gt; * -&gt; *) (f :: * -&gt; *).
@@ -12871,8 +12871,8 @@ Profunctor p =&gt;
 AnIso s t a b -&gt; p a b -&gt; p s t
 </span><span class="hs-operator hs-var">&gt;~</span></span><span> </span><span class="annot"><span class="annottext">forall a (p :: * -&gt; * -&gt; *). (Json a, JsonVal p) =&gt; p a a
 </span><a href="Control.Lens.Grammar.Json.html#json"><span class="hs-identifier hs-var">json</span></a></span><span> </span><span class="hs-glyph">@</span><span class="annot"><a href="#local-6989586621679383213"><span class="hs-identifier hs-type">a</span></a></span><span>
-</span><span id="line-2597"></span><span>  </span><span id="local-6989586621679390331"><span class="annot"><span class="annottext">jsonOmit :: Maybe (APrism' (Identity a) ())
-</span><a href="Control.Lens.Grammar.Json.html#jsonOmit"><span class="hs-identifier hs-var hs-var hs-var">jsonOmit</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Market () () a (Identity a)
+</span><span id="line-2597"></span><span>  </span><span id="local-6989586621679390331"><span class="annot"><span class="annottext">jsonOmitField :: Maybe (APrism' (Identity a) ())
+</span><a href="Control.Lens.Grammar.Json.html#jsonOmitField"><span class="hs-identifier hs-var hs-var hs-var">jsonOmitField</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Market () () a (Identity a)
 -&gt; Market () () (Identity a) (Identity (Identity a))
 forall s t a b. (Coercible s a, Coercible t b) =&gt; Iso s t a b
 Iso (Identity a) (Identity a) a a
@@ -12888,7 +12888,7 @@ forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
 -&gt; Maybe (APrism' (Identity a) ())
 forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
 </span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">forall a. Json a =&gt; Maybe (APrism' a ())
-</span><a href="Control.Lens.Grammar.Json.html#jsonOmit"><span class="hs-identifier hs-var">jsonOmit</span></a></span><span> </span><span class="hs-glyph">@</span><span class="annot"><a href="#local-6989586621679383213"><span class="hs-identifier hs-type">a</span></a></span><span>
+</span><a href="Control.Lens.Grammar.Json.html#jsonOmitField"><span class="hs-identifier hs-var">jsonOmitField</span></a></span><span> </span><span class="hs-glyph">@</span><span class="annot"><a href="#local-6989586621679383213"><span class="hs-identifier hs-type">a</span></a></span><span>
 </span><span id="line-2598"></span><span>  </span><span id="local-6989586621679390343"><span class="annot"><span class="annottext">jsonList :: forall (p :: * -&gt; * -&gt; *). JsonVal p =&gt; p [Identity a] [Identity a]
 </span><a href="Control.Lens.Grammar.Json.html#jsonList"><span class="hs-identifier hs-var hs-var hs-var">jsonList</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Exchange [a] [a] [a] (Identity [a])
 -&gt; Exchange [a] [a] [Identity a] (Identity [Identity a])
@@ -12976,8 +12976,8 @@ Profunctor p =&gt;
 AnIso s t a b -&gt; p a b -&gt; p s t
 </span><span class="hs-operator hs-var">&gt;~</span></span><span> </span><span class="annot"><span class="annottext">forall a (p :: * -&gt; * -&gt; *). (Json a, JsonVal p) =&gt; p a a
 </span><a href="Control.Lens.Grammar.Json.html#json"><span class="hs-identifier hs-var">json</span></a></span><span> </span><span class="hs-glyph">@</span><span class="annot"><a href="#local-6989586621679383221"><span class="hs-identifier hs-type">a</span></a></span><span>
-</span><span id="line-2603"></span><span>  </span><span id="local-6989586621679390395"><span class="annot"><span class="annottext">jsonOmit :: Maybe (APrism' (Const a b) ())
-</span><a href="Control.Lens.Grammar.Json.html#jsonOmit"><span class="hs-identifier hs-var hs-var hs-var">jsonOmit</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Market () () a (Identity a)
+</span><span id="line-2603"></span><span>  </span><span id="local-6989586621679390395"><span class="annot"><span class="annottext">jsonOmitField :: Maybe (APrism' (Const a b) ())
+</span><a href="Control.Lens.Grammar.Json.html#jsonOmitField"><span class="hs-identifier hs-var hs-var hs-var">jsonOmitField</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Market () () a (Identity a)
 -&gt; Market () () (Const a b) (Identity (Const a b))
 forall s t a b. (Coercible s a, Coercible t b) =&gt; Iso s t a b
 Iso (Const a b) (Const a b) a a
@@ -12993,7 +12993,7 @@ forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
 -&gt; Maybe (APrism' (Const a b) ())
 forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
 </span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">forall a. Json a =&gt; Maybe (APrism' a ())
-</span><a href="Control.Lens.Grammar.Json.html#jsonOmit"><span class="hs-identifier hs-var">jsonOmit</span></a></span><span> </span><span class="hs-glyph">@</span><span class="annot"><a href="#local-6989586621679383221"><span class="hs-identifier hs-type">a</span></a></span><span>
+</span><a href="Control.Lens.Grammar.Json.html#jsonOmitField"><span class="hs-identifier hs-var">jsonOmitField</span></a></span><span> </span><span class="hs-glyph">@</span><span class="annot"><a href="#local-6989586621679383221"><span class="hs-identifier hs-type">a</span></a></span><span>
 </span><span id="line-2604"></span><span>  </span><span id="local-6989586621679390397"><span class="annot"><span class="annottext">jsonKey :: Maybe
   (forall (k :: * -&gt; * -&gt; *). JsonStr k =&gt; k (Const a b) (Const a b))
 </span><a href="Control.Lens.Grammar.Json.html#jsonKey"><span class="hs-identifier hs-var hs-var hs-var">jsonKey</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(forall (k :: * -&gt; * -&gt; *).
@@ -13422,8 +13422,8 @@ forall {k} (t :: k). Proxy t
 </span><span class="hs-identifier hs-var">Proxy</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">p () ()
 forall (p :: * -&gt; * -&gt; *). JsonVal p =&gt; p () ()
 </span><a href="Control.Lens.Grammar.Json.html#jsonNull"><span class="hs-identifier hs-var">jsonNull</span></a></span><span>
-</span><span id="line-2647"></span><span>  </span><span id="local-6989586621679390977"><span class="annot"><span class="annottext">jsonOmit :: Maybe (APrism' (Proxy a) ())
-</span><a href="Control.Lens.Grammar.Json.html#jsonOmit"><span class="hs-identifier hs-var hs-var hs-var">jsonOmit</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">APrism' (Proxy a) () -&gt; Maybe (APrism' (Proxy a) ())
+</span><span id="line-2647"></span><span>  </span><span id="local-6989586621679390977"><span class="annot"><span class="annottext">jsonOmitField :: Maybe (APrism' (Proxy a) ())
+</span><a href="Control.Lens.Grammar.Json.html#jsonOmitField"><span class="hs-identifier hs-var hs-var hs-var">jsonOmitField</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">APrism' (Proxy a) () -&gt; Maybe (APrism' (Proxy a) ())
 forall a. a -&gt; Maybe a
 </span><span class="hs-identifier hs-var">Just</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Proxy a -&gt; Prism' (Proxy a) ()
 forall a. Eq a =&gt; a -&gt; Prism' a ()
@@ -19128,8 +19128,8 @@ Profunctor p =&gt;
 AnIso s t a b -&gt; p a b -&gt; p s t
 </span><span class="hs-operator hs-var">&gt;~</span></span><span> </span><span class="annot"><span class="annottext">forall a (p :: * -&gt; * -&gt; *). (Json a, JsonVal p) =&gt; p a a
 </span><a href="Control.Lens.Grammar.Json.html#json"><span class="hs-identifier hs-var">json</span></a></span><span> </span><span class="hs-glyph">@</span><span class="annot"><a href="#local-6989586621679383923"><span class="hs-identifier hs-type">b</span></a></span><span>
-</span><span id="line-3043"></span><span>  </span><span id="local-6989586621679393589"><span class="annot"><span class="annottext">jsonOmit :: Maybe (APrism' (Tagged a b) ())
-</span><a href="Control.Lens.Grammar.Json.html#jsonOmit"><span class="hs-identifier hs-var hs-var hs-var">jsonOmit</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Market () () b (Identity b)
+</span><span id="line-3043"></span><span>  </span><span id="local-6989586621679393589"><span class="annot"><span class="annottext">jsonOmitField :: Maybe (APrism' (Tagged a b) ())
+</span><a href="Control.Lens.Grammar.Json.html#jsonOmitField"><span class="hs-identifier hs-var hs-var hs-var">jsonOmitField</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Market () () b (Identity b)
 -&gt; Market () () (Tagged a b) (Identity (Tagged a b))
 forall s t a b. (Coercible s a, Coercible t b) =&gt; Iso s t a b
 Iso (Tagged a b) (Tagged a b) b b
@@ -19145,7 +19145,7 @@ forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
 -&gt; Maybe (APrism' (Tagged a b) ())
 forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
 </span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">forall a. Json a =&gt; Maybe (APrism' a ())
-</span><a href="Control.Lens.Grammar.Json.html#jsonOmit"><span class="hs-identifier hs-var">jsonOmit</span></a></span><span> </span><span class="hs-glyph">@</span><span class="annot"><a href="#local-6989586621679383923"><span class="hs-identifier hs-type">b</span></a></span><span>
+</span><a href="Control.Lens.Grammar.Json.html#jsonOmitField"><span class="hs-identifier hs-var">jsonOmitField</span></a></span><span> </span><span class="hs-glyph">@</span><span class="annot"><a href="#local-6989586621679383923"><span class="hs-identifier hs-type">b</span></a></span><span>
 </span><span id="line-3044"></span><span>  </span><span id="local-6989586621679393591"><span class="annot"><span class="annottext">jsonKey :: Maybe
   (forall (k :: * -&gt; * -&gt; *).
    JsonStr k =&gt;
@@ -19387,8 +19387,8 @@ Profunctor p =&gt;
 AnIso s t a b -&gt; p a b -&gt; p s t
 </span><span class="hs-operator hs-var">&gt;~</span></span><span> </span><span class="annot"><span class="annottext">forall a (p :: * -&gt; * -&gt; *). (Json a, JsonVal p) =&gt; p a a
 </span><a href="Control.Lens.Grammar.Json.html#json"><span class="hs-identifier hs-var">json</span></a></span><span> </span><span class="hs-glyph">@</span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="annot"><a href="#local-6989586621679383956"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span>
-</span><span id="line-3069"></span><span>  </span><span id="local-6989586621679393737"><span class="annot"><span class="annottext">jsonOmit :: Maybe (APrism' (Maybe a) ())
-</span><a href="Control.Lens.Grammar.Json.html#jsonOmit"><span class="hs-identifier hs-var hs-var hs-var">jsonOmit</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">APrism' (Maybe a) () -&gt; Maybe (APrism' (Maybe a) ())
+</span><span id="line-3069"></span><span>  </span><span id="local-6989586621679393737"><span class="annot"><span class="annottext">jsonOmitField :: Maybe (APrism' (Maybe a) ())
+</span><a href="Control.Lens.Grammar.Json.html#jsonOmitField"><span class="hs-identifier hs-var hs-var hs-var">jsonOmitField</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">APrism' (Maybe a) () -&gt; Maybe (APrism' (Maybe a) ())
 forall a. a -&gt; Maybe a
 </span><span class="hs-identifier hs-var">Just</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Maybe a -&gt; (Maybe a -&gt; Bool) -&gt; Prism' (Maybe a) ()
 forall a. a -&gt; (a -&gt; Bool) -&gt; Prism' a ()
@@ -20599,13 +20599,13 @@ forall k i (c :: Meta) (f :: k -&gt; *) (p :: k). M1 i c f p -&gt; f p
 </span><span class="hs-identifier hs-var">Aeson.fieldLabelModifier</span></span><span> </span><span class="annot"><span class="annottext">Options
 </span><a href="#local-6989586621679394310"><span class="hs-identifier hs-var">opts</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">forall (s :: Meta). Selector s =&gt; String
 </span><a href="Control.Lens.Grammar.Json.html#gselName"><span class="hs-identifier hs-var">gselName</span></a></span><span> </span><span class="hs-glyph">@</span><span class="annot"><a href="#local-6989586621679384157"><span class="hs-identifier hs-type">s</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
-</span><span id="line-3254"></span><span>      </span><span class="hs-comment">-- An omittable field, by `jsonOmit`.</span><span>
+</span><span id="line-3254"></span><span>      </span><span class="hs-comment">-- An omittable field, by `jsonOmitField`.</span><span>
 </span><span id="line-3255"></span><span>      </span><span id="local-6989586621679384167"><span id="local-6989586621679384168"><span class="annot"><a href="#local-6989586621679394312"><span class="hs-identifier hs-type">property</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Grammar.Json.html#JsonVal"><span class="hs-identifier hs-type">JsonVal</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679384167"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Json.html#JsonObj"><span class="hs-identifier hs-type">JsonObj</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679384167"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679384168"><span class="hs-identifier hs-type">q</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679384168"><span class="hs-identifier hs-type">q</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679384158"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679384158"><span class="hs-identifier hs-type">a</span></a></span></span></span><span>
 </span><span id="line-3256"></span><span>      </span><span id="local-6989586621679394312"><span class="annot"><span class="annottext">property :: forall (p :: * -&gt; * -&gt; *) (q :: * -&gt; * -&gt; *).
 (JsonVal p, JsonObj p q) =&gt;
 q a a
 </span><a href="#local-6989586621679394312"><span class="hs-identifier hs-var hs-var">property</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">forall a. Json a =&gt; Maybe (APrism' a ())
-</span><a href="Control.Lens.Grammar.Json.html#jsonOmit"><span class="hs-identifier hs-var">jsonOmit</span></a></span><span> </span><span class="hs-glyph">@</span><span class="annot"><a href="#local-6989586621679384158"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><a href="Control.Lens.Grammar.Json.html#jsonOmitField"><span class="hs-identifier hs-var">jsonOmitField</span></a></span><span> </span><span class="hs-glyph">@</span><span class="annot"><a href="#local-6989586621679384158"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-keyword">of</span><span>
 </span><span id="line-3257"></span><span>        </span><span class="annot"><span class="hs-identifier hs-type">Just</span></span><span> </span><span id="local-6989586621679394328"><span class="annot"><span class="annottext">APrism' a ()
 </span><a href="#local-6989586621679394328"><span class="hs-identifier hs-var">omitted</span></a></span></span><span>
 </span><span id="line-3258"></span><span>          </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">Options -&gt; Bool
