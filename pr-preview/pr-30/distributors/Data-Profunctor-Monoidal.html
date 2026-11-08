@@ -19,7 +19,7 @@ into a <code><a href="Data-Profunctor-Monoidal.html#t:Monoidal" title="Data.Prof
 Bidirectionality is encoded by <code><a href="https://hackage.haskell.org/package/lens-5.3.6/docs/Control-Lens-Prism.html#t:APrism" title="Control.Lens.Prism">APrism</a></code>.
 Singularity is encoded by the unit type <code class="inline-code">()</code>.
 Bidirectional elements can be generated from
-nilary constructors of algebraic datatypes using <code><a href="Control-Lens-Internal-NestedPrismTH.html#v:makeNestedPrisms" title="Control.Lens.Internal.NestedPrismTH">makeNestedPrisms</a></code>,
+nilary constructors of algebraic datatypes using <code><a href="Control-Lens-Internal-Distributors-NestedPrismTH.html#v:makeNestedPrisms" title="Control.Lens.Internal.Distributors.NestedPrismTH">makeNestedPrisms</a></code>,
 from terms of a type with an <code><a href="https://hackage.haskell.org/package/base-4.21.2.0/docs/Data-Eq.html#t:Eq" title="Data.Eq">Eq</a></code> instance using <code><a href="https://hackage.haskell.org/package/lens-5.3.6/docs/Control-Lens-Prism.html#v:only" title="Control.Lens.Prism">only</a></code>,
 from nil elements using <code><a href="https://hackage.haskell.org/package/lens-5.3.6/docs/Control-Lens-Empty.html#v:_Empty" title="Control.Lens.Empty">_Empty</a></code>,
 or from any <code><a href="https://hackage.haskell.org/package/base-4.21.2.0/docs/Data-Function.html#v:." title="Data.Function">.</a></code>-composition of <code><a href="https://hackage.haskell.org/package/lens-5.3.6/docs/Control-Lens-Prism.html#v:Prism" title="Control.Lens.Prism">Prism</a></code>s
