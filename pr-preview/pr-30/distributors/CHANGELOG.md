@@ -28,9 +28,22 @@
 
 ### Breaking Changes
 
+- The grammars move to their own package, `distributors-grammar`:
+  `Control.Lens.Grammar` & its `BackusNaur`, `Machine`, `RegEx`, `Symbol`
+  & `Token` modules, `Control.Monad.Fail.Try`, `Data.Profunctor.Grammar`
+  & `Data.Profunctor.Grammar.Parsector`. So `distributors` no longer
+  depends on `QuickCheck`, `random`, `MemoTrie`, `monad-loops` or `mtl`.
+- `Control.Lens.Grammar.Internal.NestedPrismTH` & `.Orphanage` are renamed
+  `Control.Lens.Internal.NestedPrismTH` & `.Orphanage`.
 - `Operator`'s `Infix`, `Prefix` & `Postfix` take `APrism`s, rather than
   `APartialIso`s, so that `withOperators` builds every operator it parses,
   rather than failing by `error`, or dropping prefix & postfix operators.
+- `MonadicTry` moves from `Data.Profunctor.Monadic` to
+  `Control.Monad.Fail.Try`, which `Data.Profunctor.Monadic` no longer
+  imports, & `Data.Profunctor.Monadic` no longer re-exports `try`.
+- `sepWith`, `beginWith` & `endWith` move from `Data.Profunctor.Separator`
+  to `Control.Lens.Grammar.Symbol`, beside `terminal`, so that
+  `Data.Profunctor.Separator` needn't import grammar symbols.
 
 ## 0.6.0.0 - 2026-04-24
 

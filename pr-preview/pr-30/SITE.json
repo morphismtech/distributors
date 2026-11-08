@@ -1,9 +1,13 @@
 {
-  "commit": "67db482e8c71a322032b7ab22374b21fbd6e26e0",
-  "built": "2026-11-08 15:25 UTC",
+  "commit": "b7f509ce2107b33fa1d225b83cf5e7654eebc81f",
+  "built": "2026-11-08 15:41 UTC",
   "packages": [
     {
       "name": "distributors",
+      "synopsis": "Profunctor algebra & optics for invertible syntax"
+    },
+    {
+      "name": "distributors-grammar",
       "synopsis": "Unifying Parsers, Printers & Grammars"
     },
     {
