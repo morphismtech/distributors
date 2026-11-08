@@ -54,8 +54,8 @@ module Control.Lens.PartialIso
   ) where
 
 import Control.Lens
-import Control.Lens.Internal.Distributors.Orphanage ()
-import Control.Lens.Internal.Distributors.NestedPrismTH
+import Control.Lens.Internal.Distributor.Orphanage ()
+import Control.Lens.Internal.Distributor.NestedPrismTH
 import Control.Lens.Internal.Profunctor
 import Control.Lens.Iso
 import Control.Lens.Prism

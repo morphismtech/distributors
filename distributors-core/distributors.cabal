@@ -31,8 +31,8 @@ library
       Control.Lens.Bifocal
       Control.Lens.Diopter
       Control.Lens.Grate
-      Control.Lens.Internal.Distributors.NestedPrismTH
-      Control.Lens.Internal.Distributors.Orphanage
+      Control.Lens.Internal.Distributor.NestedPrismTH
+      Control.Lens.Internal.Distributor.Orphanage
       Control.Lens.Monocle
       Control.Lens.PartialIso
       Control.Lens.Wither
