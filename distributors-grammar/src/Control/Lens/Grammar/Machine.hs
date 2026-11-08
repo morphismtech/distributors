@@ -120,11 +120,11 @@ transducer (Bnf start rules) = Transducer
     rexNullable nm = \case
       SeqEmpty -> True
       NonTerminal n -> Set.member n nm
-      Sequence x y -> rexNullable nm x && rexNullable nm y
+      Sequence xs -> all (rexNullable nm) xs
       KleeneStar _ -> True
       KleeneOpt _ -> True
       KleenePlus x -> rexNullable nm x
-      RegExam (Alternate x y) -> rexNullable nm x || rexNullable nm y
+      RegExam (Alternate xs) -> any (rexNullable nm) xs
       RegExam (OneOf _) -> False
       RegExam (NotOneOf _ _) -> False
 
@@ -180,9 +180,12 @@ transducer (Bnf start rules) = Transducer
           , nextId + 1
           , Set.member name nullSet
           )
-        Sequence rex0 rex1 ->
+        Sequence [] -> thompson SeqEmpty nextId dests
+        Sequence [rex0] -> thompson rex0 nextId dests
+        Sequence (rex0 : rexes) ->
           let
-            (firsts1, states1, nextId1, bypass1) = thompson rex1 nextId dests
+            (firsts1, states1, nextId1, bypass1) =
+              thompson (Sequence rexes) nextId dests
             (firsts0, states0, nextId0, bypass0) =
               thompson rex0 nextId1 (firsts1 <> bypassStates bypass1 dests)
           in
@@ -220,9 +223,12 @@ transducer (Bnf start rules) = Transducer
           , nextId + 1
           , False
           )
-        RegExam (Alternate rex0 rex1) ->
+        RegExam (Alternate []) -> (IntSet.empty, [], nextId, False)
+        RegExam (Alternate [rex0]) -> thompson rex0 nextId dests
+        RegExam (Alternate (rex0 : rexes)) ->
           let
-            (firsts1, states1, nextId1, bypass1) = thompson rex1 nextId dests
+            (firsts1, states1, nextId1, bypass1) =
+              thompson (RegExam (Alternate rexes)) nextId dests
             (firsts0, states0, nextId0, bypass0) = thompson rex0 nextId1 dests
           in
             ( firsts0 <> firsts1

@@ -188,7 +188,7 @@ You can generate a t'RegString' from a `RegGrammar`
 with `Control.Lens.Grammar.regstringG`.
 
 >>> putStringLn (regstringG semverGrammar)
-\p{Nd}+(.\p{Nd}+(.\p{Nd}+((-((\p{Ll}|\p{Lu}|\p{Nd}|-)+(.(\p{Ll}|\p{Lu}|\p{Nd}|-)+)*))?(\+((\p{Ll}|\p{Lu}|\p{Nd}|-)+(.(\p{Ll}|\p{Lu}|\p{Nd}|-)+)*))?)))
+\p{Nd}+.\p{Nd}+.\p{Nd}+(-(\p{Ll}|\p{Lu}|\p{Nd}|-)+(.(\p{Ll}|\p{Lu}|\p{Nd}|-)+)*)?(\+(\p{Ll}|\p{Lu}|\p{Nd}|-)+(.(\p{Ll}|\p{Lu}|\p{Nd}|-)+)*)?
 
 You can also generate parsers and printers.
 
@@ -455,7 +455,7 @@ diverge if the `CtxGrammar` they're run on is left-recursive.
 ParsecState {parsecLooked = False, parsecOffset = 0, parsecStream = "abc", parsecFailure = ParsecFailure {parsecExpect = TokenClass (OneOf (fromList "")), parsecLabels = [Node {rootLabel = "foo", subForest = [Node {rootLabel = "bar", subForest = []}]},Node {rootLabel = "baz", subForest = []}]}, parsecResult = Nothing}
 
 >>> parsecG (manyP (token 'a') >*< asIn @Char DecimalNumber) "aaab"
-ParsecState {parsecLooked = True, parsecOffset = 3, parsecStream = "b", parsecFailure = ParsecFailure {parsecExpect = TokenClass (Alternate (TokenClass (OneOf (fromList "a"))) (TokenClass (NotOneOf (fromList "") (AndAsIn DecimalNumber)))), parsecLabels = []}, parsecResult = Nothing}
+ParsecState {parsecLooked = True, parsecOffset = 3, parsecStream = "b", parsecFailure = ParsecFailure {parsecExpect = TokenClass (Alternate [TokenClass (OneOf (fromList "a")),TokenClass (NotOneOf (fromList "") (AndAsIn DecimalNumber))]), parsecLabels = []}, parsecResult = Nothing}
 
 >>> unparsecG (tokens "abc") "abx" ""
 ParsecState {parsecLooked = True, parsecOffset = 2, parsecStream = "ab", parsecFailure = ParsecFailure {parsecExpect = TokenClass (OneOf (fromList "c")), parsecLabels = []}, parsecResult = Nothing}
@@ -497,7 +497,7 @@ with `Control.Lens.Grammar.regstringG`.
 t'RegString's are actually stored as an algebraic datatype, `RegEx`.
 
 >>> runRegString rex
-RegExam (Alternate (Sequence (RegExam (OneOf (fromList "a"))) (RegExam (OneOf (fromList "b")))) (RegExam (OneOf (fromList "c"))))
+RegExam (Alternate [Sequence [RegExam (OneOf (fromList "a")),RegExam (OneOf (fromList "b"))],RegExam (OneOf (fromList "c"))])
 
 t'RegString's are similar to regular expression strings in many other
 programming languages. We can use them to see if a word and pattern
@@ -654,8 +654,8 @@ are a context-free language.
 {char-control} = NUL|SOH|STX|ETX|EOT|ENQ|ACK|BEL|BS|HT|LF|VT|FF|CR|SO|SI|DLE|DC1|DC2|DC3|DC4|NAK|SYN|ETB|CAN|EM|SUB|ESC|FS|GS|RS|US|DEL|PAD|HOP|BPH|NBH|IND|NEL|SSA|ESA|HTS|HTJ|VTS|PLD|PLU|RI|SS2|SS3|DCS|PU1|PU2|STS|CCH|MW|SPA|EPA|SOS|SGCI|SCI|CSI|ST|OSC|PM|APC
 {char-escaped} = [\(\)\*\+\?\[\\\]\^\{\|\}]|\q{char-control}
 {class} = \q{class-one-of}|\q{class-not-one-of}
-{class-category} = \\p\{\q{category}\}|\\P\{(\q{category}(\|\q{category})*)\}
-{class-not-one-of} = \q{class-category}|\[\^\q{char}*(\q{class-category}?\])
+{class-category} = \\p\{\q{category}\}|\\P\{\q{category}(\|\q{category})*\}
+{class-not-one-of} = \q{class-category}|\[\^\q{char}*\q{class-category}?\]
 {class-one-of} = \q{char}|\[\q{char}*\]
 {expression} = \q{atom}\?|\q{atom}\*|\q{atom}\+|\q{atom}
 {nonterminal} = \{\q{char}*\}
@@ -666,10 +666,20 @@ regexGrammar :: Grammar Char RegString
 regexGrammar = _RegString >~ ruleRec "regex" altG
   where
     altG rex = rule "alternate" $
-      chain1 Left (_RegExam . _Alternate) (sepWith "|") (seqG rex)
+      iso alternativesOf (foldr1 (>|<) :: [RegEx Char] -> RegEx Char)
+        >~ several1 (sepWith "|") (seqG rex)
 
     seqG rex = rule "sequence" $
-      chain Left _Sequence _SeqEmpty noSep (exprG rex)
+      iso itemsOf mconcat >~ manyP (exprG rex)
+
+    alternativesOf = \case
+      RegExam (Alternate rexes) -> rexes
+      rex -> [rex]
+
+    itemsOf = \case
+      SeqEmpty -> []
+      Sequence rexes -> rexes
+      rex -> [rex]
 
     exprG rex = rule "expression" $ orP
       [ _KleeneOpt >? atomG rex *< terminal "?"
@@ -835,12 +845,12 @@ That means that it can generate a self-hosted definition.
 {char-control} = NUL|SOH|STX|ETX|EOT|ENQ|ACK|BEL|BS|HT|LF|VT|FF|CR|SO|SI|DLE|DC1|DC2|DC3|DC4|NAK|SYN|ETB|CAN|EM|SUB|ESC|FS|GS|RS|US|DEL|PAD|HOP|BPH|NBH|IND|NEL|SSA|ESA|HTS|HTJ|VTS|PLD|PLU|RI|SS2|SS3|DCS|PU1|PU2|STS|CCH|MW|SPA|EPA|SOS|SGCI|SCI|CSI|ST|OSC|PM|APC
 {char-escaped} = [\(\)\*\+\?\[\\\]\^\{\|\}]|\q{char-control}
 {class} = \q{class-one-of}|\q{class-not-one-of}
-{class-category} = \\p\{\q{category}\}|\\P\{(\q{category}(\|\q{category})*)\}
-{class-not-one-of} = \q{class-category}|\[\^\q{char}*(\q{class-category}?\])
+{class-category} = \\p\{\q{category}\}|\\P\{\q{category}(\|\q{category})*\}
+{class-not-one-of} = \q{class-category}|\[\^\q{char}*\q{class-category}?\]
 {class-one-of} = \q{char}|\[\q{char}*\]
 {expression} = \q{atom}\?|\q{atom}\*|\q{atom}\+|\q{atom}
 {nonterminal} = \{\q{char}*\}
-{regbnf} = \{start\} = \q{regex}(\LF\q{nonterminal}( = )\q{regex})*
+{regbnf} = \{start\} = \q{regex}(\LF\q{nonterminal} = \q{regex})*
 {regex} = \q{alternate}
 {sequence} = \q{expression}*
 -}

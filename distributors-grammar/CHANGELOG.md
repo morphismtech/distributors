@@ -10,3 +10,7 @@
   `TokenAlgebra` & `CategoryTest` to `Control.Lens.Grammar.Token`;
   `RegEx`'s `RegExam` constructor keeps its name. `foldTokenClass` folds a
   `TokenClass` by an algebra of its `TokenExam`s.
+- `RegEx`'s `Sequence` & `TokenExam`'s `Alternate` take lists, normalized,
+  so that `RegEx`'s `Monoid` & `DisjunctiveMonoid`, & `TokenClass`'s
+  `DisjunctiveMonoid`, are associative up to `==`, as tested; regular
+  expressions print with fewer parentheses.

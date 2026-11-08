@@ -126,9 +126,11 @@ diffB prefix (Bnf start rules) =
     diff1B = memo2 $ \x -> \case
       SeqEmpty -> falseP
       NonTerminal nameY -> anyP (diff1B x) (rulesNamed nameY rules)
-      Sequence y1 y2 ->
+      Sequence [] -> falseP
+      Sequence (y1 : ys) ->
         if δ (Bnf y1 rules) then y1'y2 >|< y1y2' else y1'y2
         where
+          y2 = mconcat ys
           y1'y2 = diff1B x y1 <> y2
           y1y2' = y1 <> diff1B x y2
       KleeneStar y -> diff1B x y <> starK y
@@ -142,7 +144,7 @@ diffB prefix (Bnf start rules) =
       RegExam (NotOneOf chars (AndNotAsIn cats)) ->
         if elem x chars || elem (categorize x) cats
           then falseP else mempty
-      RegExam (Alternate y1 y2) -> diff1B x y1 >|< diff1B x y2
+      RegExam (Alternate ys) -> anyP (diff1B x) ys
 
 -- | Does a pattern match the empty word?
 δ :: (Categorized token, HasTrie token)
@@ -153,8 +155,8 @@ diffB prefix (Bnf start rules) =
     KleeneStar _ -> True
     KleeneOpt _ -> True
     KleenePlus y -> ν y
-    Sequence y1 y2 -> ν y1 && ν y2
-    RegExam (Alternate y1 y2) -> ν y1 || ν y2
+    Sequence ys -> all ν ys
+    RegExam (Alternate ys) -> any ν ys
     NonTerminal nameY -> any ν (rulesNamed nameY rules)
     _ -> False
 

@@ -30,6 +30,7 @@ import Control.Monad.Loops (iterateUntil)
 import Data.Bifunctor.Joker
 import Data.Char
 import Data.Foldable
+import Data.List (nub)
 import Data.Profunctor
 import Data.Monoid.Disjunctive
 import Data.Profunctor.Distributor
@@ -181,7 +182,10 @@ of an algebra, whose fixed point is t'TokenClass'. Both t'TokenClass'es &
 data TokenExam token alg
   = OneOf (Set token)
   | NotOneOf (Set token) (CategoryTest token)
-  | Alternate alg alg
+  {- | Two or more alternatives, none of them alternatives,
+  in the order they're written.
+  -}
+  | Alternate [alg]
 
 failExam :: TokenExam token alg
 failExam = OneOf Set.empty
@@ -196,6 +200,39 @@ isFailExam _ = False
 isPassExam :: TokenExam token alg -> Bool
 isPassExam (NotOneOf xs (AndNotAsIn ys)) = Set.null xs && Set.null ys
 isPassExam _ = False
+
+-- | The alternatives of an examination of t'TokenClass'es.
+examAlternatives
+  :: TokenExam token (TokenClass token) -> [TokenExam token (TokenClass token)]
+examAlternatives = \case
+  Alternate xs -> [x | TokenClass x <- xs]
+  exam -> [exam]
+
+{- | Alternatives, normalized: any which passes every token passes,
+those which fail none are dropped, those of `OneOf` some tokens are one,
+in place of the first, & each is kept once, in order, so that the
+alternatives of alternatives are associative.
+-}
+alternatives
+  :: Categorized token
+  => [TokenExam token (TokenClass token)] -> TokenExam token (TokenClass token)
+alternatives exams
+  | any isPassExam exams = passExam
+  | otherwise = case nub (unionOneOfs (filter (not . isFailExam) exams)) of
+      [] -> failExam
+      [exam] -> exam
+      exams' -> Alternate (map TokenClass exams')
+  where
+    unionOneOfs xs = case [tokens' | OneOf tokens' <- xs] of
+      [] -> xs
+      tokenss -> placeFirst (OneOf (Set.unions tokenss)) xs
+    placeFirst union = \case
+      OneOf _ : rest -> union : [x | x <- rest, not (isOneOf x)]
+      x : rest -> x : placeFirst union rest
+      [] -> []
+    isOneOf = \case
+      OneOf _ -> True
+      _ -> False
 
 {- | `CategoryTest`s for `Categorized` tokens,
 taken in conjunction with `NotOneOf` some `Set` of tokens.
@@ -251,7 +288,7 @@ class Tokenized token p => TokenAlgebra token p where
       satisfy (notOneOf chars >&< asIn cat)
     NotOneOf chars (AndNotAsIn cats) ->
       satisfy (notOneOf chars >&< allP notAsIn cats)
-    Alternate p q -> p >|< q
+    Alternate ps -> foldr1 (>|<) ps
 
 deriving stock instance Generic (TokenExam token alg)
 deriving stock instance Generic1 (TokenExam token)
@@ -282,7 +319,7 @@ instance Categorized token => TokenAlgebra token (token -> Bool) where
       Set.notMember x xs && categorize x == y
     NotOneOf xs (AndNotAsIn ys) ->
       Set.notMember x xs && Set.notMember (categorize x) ys
-    Alternate p q -> p x || q x
+    Alternate ps -> any ($ x) ps
 instance TokenAlgebra token (f token)
   => TokenAlgebra token (Joker f token token) where
     tokenClass = Joker . tokenClass
@@ -295,7 +332,7 @@ instance (Categorized token, Arbitrary token) => TokenAlgebra token (Gen token) 
       (\x -> x `notElem` xs && categorize x == cat)
     NotOneOf xs (AndNotAsIn cats) -> arbitrary `Gen.suchThat`
       (\x -> x `notElem` xs && categorize x `notElem` cats)
-    Alternate p q -> Gen.oneof [p, q]
+    Alternate ps -> Gen.oneof ps
 instance (RandomGen g, Monad m, Categorized token, Random token)
   => TokenAlgebra token (StateT g m token) where
   tokenClass = foldTokenClass $ \case
@@ -304,9 +341,9 @@ instance (RandomGen g, Monad m, Categorized token, Random token)
       iterateUntil (\x -> x `notElem` xs && categorize x == cat) anyToken
     NotOneOf xs (AndNotAsIn cats) ->
       iterateUntil (\x -> x `notElem` xs && categorize x `notElem` cats) anyToken
-    Alternate p q -> do
-      b <- state random
-      if (b :: Bool) then p else q
+    Alternate ps -> do
+      i <- state (randomR (0, length ps - 1))
+      ps !! i
 instance Categorized token => Tokenized token (TokenExam token alg) where
   anyToken = passExam
   token a = OneOf (Set.singleton a)
@@ -320,19 +357,13 @@ instance Categorized token => Tokenized token (TokenExam token alg) where
 instance Categorized token
   => DisjunctiveMonoid (TokenExam token (TokenClass token)) where
   falseP = failExam
-  x >|< y | x == y = x
-  x >|< exam | isFailExam exam = x
-  exam >|< y | isFailExam exam = y
-  _ >|< exam | isPassExam exam = passExam
-  exam >|< _ | isPassExam exam = passExam
-  OneOf xs >|< OneOf ys = oneOf (Set.union xs ys)
-  x >|< y = Alternate (TokenClass x) (TokenClass y)
+  x >|< y = alternatives (examAlternatives x <> examAlternatives y)
 instance Categorized token
   => BooleanAlgebra (TokenExam token (TokenClass token)) where
   trueP = passExam
   notP exam | isFailExam exam = passExam
   notP exam | isPassExam exam = failExam
-  notP (Alternate (TokenClass x) (TokenClass y)) = notP x >&< notP y
+  notP (Alternate xs) = foldr1 (>&<) [notP x | TokenClass x <- xs]
   notP (OneOf xs) = notOneOf xs
   notP (NotOneOf xs (AndAsIn y)) = oneOf xs >|< notAsIn y
   notP (NotOneOf xs (AndNotAsIn ys)) = oneOf xs >|< anyP asIn ys
@@ -341,8 +372,8 @@ instance Categorized token
   exam >&< _ | isFailExam exam = failExam
   x >&< exam | isPassExam exam = x
   exam >&< z | isPassExam exam = z
-  x >&< Alternate (TokenClass y) (TokenClass z) = (x >&< y) >|< (x >&< z)
-  Alternate (TokenClass x) (TokenClass y) >&< z = (x >&< z) >|< (y >&< z)
+  x >&< Alternate ys = foldr1 (>|<) [x >&< y | TokenClass y <- ys]
+  Alternate xs >&< z = foldr1 (>|<) [x >&< z | TokenClass x <- xs]
   OneOf xs >&< OneOf ys = OneOf (Set.intersection xs ys)
   OneOf xs >&< NotOneOf ys (AndAsIn z) = OneOf
     (Set.filter (\x -> categorize x == z) (Set.difference xs ys))

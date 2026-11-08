@@ -20,6 +20,7 @@ module Control.Lens.Grammar.RegEx
 import Control.Lens.Grammar.Symbol
 import Control.Lens.Grammar.Token
 import Data.Foldable
+import Data.List (nub)
 import Data.MemoTrie
 import Data.Monoid.Disjunctive
 import Data.Profunctor
@@ -33,7 +34,8 @@ It is also a `TokenAlgebra` and `tokenClass` acts homomorphically on disjunction
 -}
 data RegEx token
   = SeqEmpty
-  | Sequence (RegEx token) (RegEx token)
+  -- | Two or more items, none of them sequences or empty.
+  | Sequence [RegEx token]
   | NonTerminal String
   | KleeneStar (RegEx token)
   | KleeneOpt (RegEx token)
@@ -67,34 +69,19 @@ instance Categorized token => TokenAlgebra token (RegEx token) where
   tokenClass = foldTokenClass RegExam
 instance Categorized token => Monoid (RegEx token) where
   mempty = SeqEmpty
+-- | Sequences are associative, as items normalized by `sequenced`.
 instance Categorized token => Semigroup (RegEx token) where
-  SeqEmpty <> rex = rex
-  rex <> SeqEmpty = rex
-  RegExam exam <> _ | isFailExam exam = falseP
-  _ <> RegExam exam | isFailExam exam = falseP
-  KleeneStar rex0 <> rex1 | rex0 == rex1 = plusK rex0
-  rex0 <> KleeneStar rex1 | rex0 == rex1 = plusK rex1
-  rex0 <> rex1 = Sequence rex0 rex1
+  rex0 <> rex1 = sequenced (items rex0 <> items rex1)
+-- | Alternatives are associative, as normalized by `alternated`.
 instance Categorized token => DisjunctiveMonoid (RegEx token) where
   falseP = RegExam (OneOf Set.empty)
-  rex0 >|< rex1 | rex0 == rex1 = rex0
-  KleenePlus rex >|< SeqEmpty = starK rex
-  SeqEmpty >|< KleenePlus rex = starK rex
-  rex >|< SeqEmpty = optK rex
-  SeqEmpty >|< rex = optK rex
-  rex >|< RegExam exam | isFailExam exam = rex
-  RegExam exam >|< rex | isFailExam exam = rex
-  rex0 >|< rex1 | Just tokenOr <- maybeOr = tokenClass tokenOr
-    where
-      toTokenClass (RegExam exam) =
-        TokenClass <$> traverse toTokenClass exam
-      toTokenClass _ = Nothing
-      maybeOr = (>|<) <$> toTokenClass rex0 <*> toTokenClass rex1
-  rex0 >|< rex1 = RegExam (Alternate rex0 rex1)
+  rex0 >|< rex1 = alternated (alternatives rex0 <> alternatives rex1)
 instance Categorized token => KleeneStarAlgebra (RegEx token) where
   optK (RegExam exam) | isFailExam exam = mempty
   optK SeqEmpty = mempty
   optK (KleenePlus rex) = starK rex
+  optK rex@(KleeneStar _) = rex
+  optK rex@(KleeneOpt _) = rex
   optK rex = KleeneOpt rex
   starK (RegExam exam) | isFailExam exam = mempty
   starK SeqEmpty = mempty
@@ -107,8 +94,8 @@ instance (Categorized token, HasTrie token)
     data (RegEx token :->: b) = RegExTrie
       { seqEmptyTrie :: b
       , nonTerminalTrie :: String :->: b
-      , sequenceTrie :: (RegEx token, RegEx token) :->: b
-      , alternateTrie :: (RegEx token, RegEx token) :->: b
+      , sequenceTrie :: [RegEx token] :->: b
+      , alternateTrie :: [RegEx token] :->: b
       , kleeneStarTrie :: RegEx token :->: b
       , kleeneOptTrie :: RegEx token :->: b
       , kleenePlusTrie :: RegEx token :->: b
@@ -118,8 +105,8 @@ instance (Categorized token, HasTrie token)
     trie f = RegExTrie
       { seqEmptyTrie = f mempty
       , nonTerminalTrie = trie (f . nonTerminal)
-      , sequenceTrie = trie (f . uncurry (<>))
-      , alternateTrie = trie (f . uncurry (>|<))
+      , sequenceTrie = trie (f . mconcat)
+      , alternateTrie = trie (f . foldr (>|<) falseP)
       , kleeneStarTrie = trie (f . starK)
       , kleeneOptTrie = trie (f . optK)
       , kleenePlusTrie = trie (f . plusK)
@@ -129,7 +116,7 @@ instance (Categorized token, HasTrie token)
     untrie rex = \case
       SeqEmpty -> seqEmptyTrie rex
       NonTerminal name -> untrie (nonTerminalTrie rex) name
-      Sequence x1 x2 -> untrie (sequenceTrie rex) (x1,x2)
+      Sequence xs -> untrie (sequenceTrie rex) xs
       KleeneStar x -> untrie (kleeneStarTrie rex) x
       KleenePlus x -> untrie (kleenePlusTrie rex) x
       KleeneOpt x -> untrie (kleeneOptTrie rex) x
@@ -139,12 +126,12 @@ instance (Categorized token, HasTrie token)
       RegExam (NotOneOf chars (AndNotAsIn cats)) ->
         untrie (notOneOfTrie rex)
           (Set.toList chars, Right (Set.toList (Set.map fromEnum cats)))
-      RegExam (Alternate x1 x2) -> untrie (alternateTrie rex) (x1,x2)
+      RegExam (Alternate xs) -> untrie (alternateTrie rex) xs
     enumerate rex = mconcat
       [ [(SeqEmpty, seqEmptyTrie rex)]
       , first' NonTerminal <$> enumerate (nonTerminalTrie rex)
-      , first' (uncurry Sequence) <$> enumerate (sequenceTrie rex)
-      , first' (RegExam . uncurry Alternate) <$> enumerate (alternateTrie rex)
+      , first' Sequence <$> enumerate (sequenceTrie rex)
+      , first' (RegExam . Alternate) <$> enumerate (alternateTrie rex)
       , first' KleeneStar <$> enumerate (kleeneStarTrie rex)
       , first' KleeneOpt <$> enumerate (kleeneOptTrie rex)
       , first' KleenePlus <$> enumerate (kleenePlusTrie rex)
@@ -163,3 +150,105 @@ isFailExam :: TokenExam token alg -> Bool
 isFailExam = \case
   OneOf tokens' -> Set.null tokens'
   _ -> False
+
+-- | The items of a sequence.
+items :: RegEx token -> [RegEx token]
+items = \case
+  SeqEmpty -> []
+  Sequence rexes -> rexes
+  rex -> [rex]
+
+{- | Items, normalized: any which fails fails, & runs of a repeated item,
+@b@, whose items are @B@, are rewritten until none apply, by
+
+* @B b*@ & @b* B@ to @b+@,
+* @b* b*@ to @b*@, & @b+ b*@ & @b* b+@ to @b+@,
+* @b+ B@ to @B b+@, & @b+ b+@ to @B b+@,
+
+so that sequences of sequences are associative.
+-}
+sequenced :: Categorized token => [RegEx token] -> RegEx token
+sequenced rexes
+  | any isFail rexes = falseP
+  | otherwise = case rewrite rexes of
+      [] -> SeqEmpty
+      [rex] -> rex
+      rexes' -> Sequence rexes'
+  where
+    isFail = \case
+      RegExam exam -> isFailExam exam
+      _ -> False
+    rewrite xs = maybe xs rewrite (step xs)
+    step = \case
+      [] -> Nothing
+      xs@(x : rest) -> case once xs of
+        Just xs' -> Just xs'
+        Nothing -> (x :) <$> step rest
+    -- a rule applying at the start of the items
+    once = \case
+      KleeneStar b : KleeneStar b' : rest | b == b' ->
+        Just (KleeneStar b : rest)
+      KleenePlus b : KleeneStar b' : rest | b == b' ->
+        Just (KleenePlus b : rest)
+      KleeneStar b : KleenePlus b' : rest | b == b' ->
+        Just (KleenePlus b : rest)
+      KleenePlus b : KleenePlus b' : rest | b == b' ->
+        Just (items b <> (KleenePlus b : rest))
+      KleeneStar b : rest | not (null (items b))
+        , Just rest' <- after (items b) rest ->
+        Just (KleenePlus b : rest')
+      KleenePlus b : rest | not (null (items b))
+        , Just rest' <- after (items b) rest ->
+        Just (items b <> (KleenePlus b : rest'))
+      xs | Just (b, rest) <- starred xs -> Just (KleenePlus b : rest)
+      _ -> Nothing
+    -- the rest of the items after a prefix of them
+    after prefix xs
+      | prefix == take (length prefix) xs = Just (drop (length prefix) xs)
+      | otherwise = Nothing
+    -- items which a repetition of them follows
+    starred xs = case [ (b, rest)
+      | n <- [1 .. length xs - 1]
+      , KleeneStar b : rest <- [drop n xs]
+      , items b == take n xs
+      ] of
+      found : _ -> Just found
+      [] -> Nothing
+
+-- | The alternatives of an alternation, with the empty word for an option.
+alternatives :: RegEx token -> [RegEx token]
+alternatives = \case
+  RegExam (OneOf tokens') | Set.null tokens' -> []
+  RegExam (Alternate rexes) -> rexes
+  KleeneOpt rex -> alternatives rex <> [SeqEmpty]
+  KleeneStar rex -> [KleenePlus rex, SeqEmpty]
+  rex -> [rex]
+
+{- | Alternatives, normalized: those of tokens are one t'TokenClass',
+in place of the first, the empty word makes them optional,
+& each is kept once, in order, so that alternatives of alternatives
+are associative.
+-}
+alternated :: Categorized token => [RegEx token] -> RegEx token
+alternated rexes =
+  (if SeqEmpty `elem` rexes then optK else id) $
+    case nub (unionTokens [rex | rex <- rexes, rex /= SeqEmpty]) of
+      [] -> falseP
+      [rex] -> rex
+      rexes' -> RegExam (Alternate rexes')
+  where
+    unionTokens xs = case [cls | x <- xs, Just cls <- [tokenOf x]] of
+      [] -> xs
+      classes ->
+        placeFirst (alternatives (tokenClass (foldr1 (>|<) classes))) xs
+    placeFirst union = \case
+      x : rest | Just _ <- tokenOf x ->
+        union <> [y | y <- rest, Nothing <- [tokenOf y]]
+      x : rest -> x : placeFirst union rest
+      [] -> []
+    tokenOf = \case
+      RegExam (OneOf tokens') -> Just (TokenClass (OneOf tokens'))
+      RegExam (NotOneOf tokens' test) ->
+        Just (TokenClass (NotOneOf tokens' test))
+      _ -> Nothing
+

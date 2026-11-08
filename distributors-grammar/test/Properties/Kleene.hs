@@ -93,6 +93,13 @@ kleeneProperties = do
       (mempty <> x) == x
     prop "x <> mempty = x" $ \(x :: RegEx Char) ->
       (x <> mempty) == x
+    prop "(x <> y) <> z = x <> (y <> z)" $ \(x :: RegEx Char) y z ->
+      (x <> y) <> z === x <> (y <> z)
+    prop "(x >|< y) >|< z = x >|< (y >|< z)" $ \(x :: RegEx Char) y z ->
+      ((x >|< y) >|< z) === (x >|< (y >|< z))
+    prop "TokenClass: (x >|< y) >|< z = x >|< (y >|< z)" $
+      \(x :: TokenClass Char) y z ->
+        ((x >|< y) >|< z) === (x >|< (y >|< z))
   describe "TokenAlgebra" $ do
     it "falseP = tokenClass falseP" $
       (falseP :: RegEx Char) `shouldBe` tokenClass falseP
