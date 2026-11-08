@@ -405,6 +405,10 @@ class
   jsonWord32 = jsonBoundedInteger
   jsonWord64 :: p Word64 Word64
   jsonWord64 = jsonBoundedInteger
+  jsonInteger :: p Integer Integer
+  jsonInteger = _Integer ?< jsonNumber
+  jsonNatural :: p Natural Natural
+  jsonNatural = _Natural ?< jsonNumber
   jsonDouble :: p Double Double
   jsonDouble = iso fromFloatDigits toRealFloat >~ jsonNumber
   {- | A homogeneous JSON array, like TypeScript's @T[]@, which is a tuple
@@ -1340,6 +1344,8 @@ instance AesonVal val => JsonVal (JsonPrintor val) where
   jsonWord16 = primitive (aesonIntegral Encoding.word16)
   jsonWord32 = primitive (aesonIntegral Encoding.word32)
   jsonWord64 = primitive (aesonIntegral Encoding.word64)
+  jsonInteger = primitive (aesonIntegral Encoding.integer)
+  jsonNatural = primitive (aesonIntegral (Encoding.integer . toInteger))
   jsonDouble = primitive aesonDouble
   jsonValue = printing aesonValue
   jsonArray p = JsonPrintor
@@ -2188,6 +2194,15 @@ _BoundedInteger = prism' fromIntegral toBoundedInteger
 jsonBoundedInteger :: (Integral a, Bounded a, JsonVal p) => p a a
 jsonBoundedInteger = _BoundedInteger ?< jsonNumber
 
+_Integer :: Prism' Scientific Integer
+_Integer = prism' fromInteger $
+  boundedScientific >=> either (const Nothing) Just . floatingOrInteger @Double
+
+_Natural :: Prism' Scientific Natural
+_Natural = prism' fromIntegral $ \s -> do
+  i <- preview _Integer s
+  fromInteger i <$ guard (i >= 0)
+
 jsonRealFloat :: (RealFloat a, JsonVal p) => p a a -> p a a
 jsonRealFloat finite = dimap finiteness (either id id) (finite >+< nonFinite)
   where
@@ -2344,18 +2359,11 @@ instance Json Word32 where
 instance Json Word64 where
   json = jsonTyped jsonWord64
   jsonKey = Just (jsonIntKey _BoundedInteger)
-_Integer :: Prism' Scientific Integer
-_Integer = prism' fromInteger $
-  boundedScientific >=> either (const Nothing) Just . floatingOrInteger @Double
 instance Json Integer where
-  json = jsonTyped (_Integer ?< jsonNumber)
+  json = jsonTyped jsonInteger
   jsonKey = Just (jsonIntKey _Integer)
-_Natural :: Prism' Scientific Natural
-_Natural = prism' fromIntegral $ \s -> do
-  i <- preview _Integer s
-  fromInteger i <$ guard (i >= 0)
 instance Json Natural where
-  json = jsonTyped (_Natural ?< jsonNumber)
+  json = jsonTyped jsonNatural
   jsonKey = Just (jsonIntKey _Natural)
 instance Json CTime where json = coerced >~ json @Int64
 
