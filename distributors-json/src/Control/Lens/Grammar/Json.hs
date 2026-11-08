@@ -3387,7 +3387,7 @@ instance (GElements f, GElements g) => GContents (f GHC.:*: g) where
   gcontents = case gelement @f @x of
     Just a -> case gelement @g @x of
       Just b -> dimap
-        (\(x GHC.:*: y) -> (x, y)) (\(x, y) -> x GHC.:*: y) (jsonPair a b)
+        (\(x GHC.:*: y) -> (x, y)) (uncurry (GHC.:*:)) (jsonPair a b)
       Nothing -> jsonTuple gelements
     Nothing -> jsonTuple gelements
   {-# INLINE gcontents #-}
