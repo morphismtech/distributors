@@ -67,10 +67,12 @@ type Monoidal p = (Profunctor p, forall x. Applicative (p x))
 {- | `oneP` is the unit of a `Monoidal` `Profunctor`. -}
 oneP :: Monoidal p => p () ()
 oneP = pure ()
+{-# INLINE oneP #-}
 
 {- | `>*<` is the product of a `Monoidal` `Profunctor`. -}
 (>*<) :: Monoidal p => p a b -> p c d -> p (a,c) (b,d)
 (>*<) = dimap2 fst snd (,)
+{-# INLINE (>*<) #-}
 infixr 5 >*<
 
 {- | `>*` sequences actions, discarding the value of the first argument;
@@ -81,6 +83,7 @@ analagous to `*>`, extending it to `Monoidal`.
 -}
 (>*) :: Monoidal p => p () c -> p a b -> p a b
 x >* y = lmap (const ()) x *> y
+{-# INLINE (>*) #-}
 infixl 6 >*
 
 {- | `*<` sequences actions, discarding the value of the second argument;
@@ -91,6 +94,7 @@ analagous to `<*`, extending it to `Monoidal`.
 -}
 (*<) :: Monoidal p => p a b -> p () c -> p a b
 x *< y = x <* lmap (const ()) y
+{-# INLINE (*<) #-}
 infixl 6 *<
 
 {- | `dimap2` is a curried, functionalized form of `>*<`,
@@ -102,6 +106,7 @@ dimap2
   -> (b -> d -> t) -- ^ pairing function, e.g. @(,)@
   -> p a b -> p c d -> p s t
 dimap2 f g h p q = liftA2 h (lmap f p) (lmap g q)
+{-# INLINE dimap2 #-}
 
 {- | `foreverP` repeats an action a countable infinity of times;
 analagous to `Control.Monad.forever`, extending it to `Monoidal`. -}

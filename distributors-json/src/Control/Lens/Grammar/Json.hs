@@ -1713,8 +1713,14 @@ instance Applicative (TupPrintor val a) where
     (\a rest -> tupPrintorRender p a $! tupPrintorRender q a rest)
     (tupPrintorCheck p <> tupPrintorCheck q)
     Nothing
+  liftA2 f p q = fmap f p <*> q
+  p *> q = fmap (\_ b -> b) p <*> q
+  p <* q = fmap const p <*> q
   {-# INLINE pure #-}
   {-# INLINE (<*>) #-}
+  {-# INLINE liftA2 #-}
+  {-# INLINE (*>) #-}
+  {-# INLINE (<*) #-}
 instance AesonVal val => Profunctor (TupPrintor val) where
   {-# SPECIALISE instance Profunctor (TupPrintor Value) #-}
   {-# SPECIALISE instance Profunctor (TupPrintor Encoding) #-}
@@ -1830,7 +1836,14 @@ instance Applicative (ObjPrintor val a) where
       (\a -> (<>) <$> try0 a <*> try1 a)
       (\a rest -> render0 a $! render1 a rest)
       (\a -> (<>) <$> check0 a <*> check1 a)
+  liftA2 f p q = fmap f p <*> q
+  p *> q = fmap (\_ b -> b) p <*> q
+  p <* q = fmap const p <*> q
   {-# INLINE pure #-}
+  {-# INLINE (<*>) #-}
+  {-# INLINE liftA2 #-}
+  {-# INLINE (*>) #-}
+  {-# INLINE (<*) #-}
 instance Profunctor (ObjPrintor val) where
   dimap f _ (ObjPrintor keys rest total attempt render check) =
     ObjPrintor keys rest total
