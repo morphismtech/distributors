@@ -23,7 +23,7 @@ module Data.Profunctor.Monoidal
   , fixP
     -- * Monoidal, Choice & Strong
   , meander, traverseP, foldP
-    -- * Deriving via Monoidal
+    -- * Deriving via Monoidally
   , Monoidally (..)
   ) where
 
