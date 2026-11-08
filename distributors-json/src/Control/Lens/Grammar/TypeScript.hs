@@ -17,7 +17,9 @@ together.
 
 Both layers parse by `parsecG` & print by `unparsecG`, locating failures,
 since `tsTokensGrammar` scans tokens without their trivia, as the compiler
-does. Here, a declaration prints as tokens, & as characters, & parses back.
+does. `tsGrammar` isn't @LL(1)@: it backtracks, by `try`, where TypeScript's
+syntax needs more lookahead. Here, a declaration prints as tokens,
+& as characters, & parses back.
 
 >>> :set -XOverloadedStrings
 >>> let point = ObjectType [PropertySignature [] (PropertyIdentifier "x") False (Just (KeywordType NumberKeyword))]
@@ -30,8 +32,12 @@ True
 -}
 
 module Control.Lens.Grammar.TypeScript
-  ( -- * Declarations
-    TsDeclaration (..)
+  ( -- * Grammar
+    tsGrammar
+  , tsTokenGrammar
+  , tsTokensGrammar
+    -- * Declarations
+  , TsDeclaration (..)
   , TsModuleName (..)
   , TsImportClause (..)
   , TsNamedBindings (..)
@@ -52,12 +58,9 @@ module Control.Lens.Grammar.TypeScript
   , TsParameter (..)
   , TsBindingName (..)
   , TsBindingElement (..)
-  , tsGrammar
     -- * Tokens
   , TsToken (..)
   , TsTokenCategory (..)
-  , tsTokenGrammar
-  , tsTokensGrammar
   ) where
 
 import Control.Lens
@@ -466,6 +469,8 @@ rescans it.
 
 A number is spelled by its digits, letters, separators & points,
 as in @0xFF@, @1_000.5@ or @1n@, but not by a signed exponent.
+
+It's a `RegGrammar`, since each token's spelling is a regular language.
 -}
 tsTokenGrammar :: RegGrammar Char TsToken
 tsTokenGrammar = orP
@@ -549,10 +554,14 @@ templateChar = orP
 
 {- | Tokens, scanned from their characters without their trivia,
 as the TypeScript compiler's scanner skips trivia, & printed with them,
-as `tsGrammar` prints them, so that `tsGrammar` parses by @LL(1)@.
+as `tsGrammar` prints them, so that `tsGrammar` parses by `parsecG`.
 A @}@ which closes a template's substitution is scanned as the template's
 middle or tail, by the depth of braces within the substitutions open,
 as the compiler's parser rescans it.
+
+It's a `CtxGrammar` by monadic bonding: each token is scanned in the
+context of the tokens before it, whose braces & templates bond, by
+@P.@`Data.Profunctor.Monadic.>>=`, the depths that a @}@ is scanned by.
 -}
 tsTokensGrammar :: CtxGrammar Char [TsToken]
 tsTokensGrammar = rmap
@@ -696,6 +705,14 @@ compiler's syntax, printed one per line, indented within blocks, & with
 object types on one line. Trivia print conventionally, & parse only
 from tokens with trivia, by `parseG`, since `tsTokensGrammar` scans
 without them. Its @;@s print, & parse if they're there.
+
+It's a `CtxGrammar` by `try`, rather than by monadic bonding, since it
+isn't @LL(1)@: TypeScript's syntax needs more lookahead in places,
+where it backtracks by `try`: declarations' & members' modifiers, imports'
+forms & their @type@ & @as@, comma-separated lists after their first item,
+members' signatures, constructors & accessors, a binding's name before
+its @:@, type parameters' modifiers, @asserts@ & @is@ predicates,
+function, conditional, @typeof import@, mapped & named tuple member types.
 
 Printing a file, of many tokens, is linear into a stream which grows
 at its end in constant time, like a `Data.Sequence.Seq`, rather than
