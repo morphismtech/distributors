@@ -34,7 +34,7 @@ Failures are located, &amp; name what they expected.
 
 = @aeson@
 
-`ViaJson` derives @aeson@'s instances, &amp; `jsonGeneric` takes
+t'ViaJson' derives @aeson@'s instances, &amp; `jsonGeneric` takes
 @aeson@'s `Aeson.Options`.
 
 &gt;&gt;&gt; :{
@@ -294,7 +294,7 @@ Options -&gt; p a a
 </span><span id="line-288"></span><span>
 </span><span id="line-289"></span><span>  </span><span class="hs-comment">{- | `Data.Aeson.toJSONList` &amp; `Data.Aeson.parseJSONList`,
   as one grammar, an array of values by default.
-  `Char` and wrappers override it, so that a `String` is a JSON string.
+  `Char` and wrappers override it, so that a t'String' is a JSON string.
   -}</span><span>
 </span><span id="line-293"></span><span>  </span><span id="jsonList"><span class="annot"><a href="Control.Lens.Grammar.Json.html#jsonList"><span class="hs-identifier hs-type">jsonList</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span id="local-6989586621679382259"><span class="annot"><a href="Control.Lens.Grammar.Json.html#JsonVal"><span class="hs-identifier hs-type">JsonVal</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679382259"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679382259"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-special">[</span><span class="annot"><a href="#local-6989586621679382242"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">]</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="#local-6989586621679382242"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">]</span></span><span>
 </span><span id="line-294"></span><span>  </span><span id="local-6989586621679385499"><span class="annot"><a href="Control.Lens.Grammar.Json.html#jsonList"><span class="hs-identifier hs-var hs-var">jsonList</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">p a a -&gt; p [a] [a]
@@ -440,7 +440,7 @@ forall (p :: * -&gt; * -&gt; *). JsonVal p =&gt; p a a
 </span><span id="line-354"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Json.html#jsonErrorEncode"><span class="hs-pragma hs-type">jsonErrorEncode</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
 </span><span id="line-355"></span><span>
 </span><span id="line-356"></span><span class="annot"><span class="hs-comment">{- | @aeson@'s instances, derived from a `Json` instance, failing to parse
-at the path of a `JsonError`, by its message: `Aeson.ToJSON` &amp;
+at the path of a t'JsonError', by its message: `Aeson.ToJSON` &amp;
 `Aeson.FromJSON`, with their fields omitted by `jsonOmitField`, &amp;
 `Aeson.ToJSONKey` &amp; `Aeson.FromJSONKey`, by `jsonKey` &amp; `jsonKeyList`,
 or else as values, in arrays of pairs.
@@ -851,7 +851,7 @@ forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
 </span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Value
 </span><span class="hs-identifier hs-var">String</span></span><span class="hs-special">)</span><span>
 </span><span id="line-414"></span><span>
-</span><span id="line-415"></span><span class="annot"><span class="hs-comment">-- | Fail to parse at the path of a `JsonError`, by its message.</span></span><span>
+</span><span id="line-415"></span><span class="annot"><span class="hs-comment">-- | Fail to parse at the path of a t'JsonError', by its message.</span></span><span>
 </span><span id="line-416"></span><span id="local-6989586621679382331"><span class="annot"><a href="Control.Lens.Grammar.Json.html#parseFailure"><span class="hs-identifier hs-type">parseFailure</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Json.html#JsonError"><span class="hs-identifier hs-type">JsonError</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Aeson.Parser</span></span><span> </span><span class="annot"><a href="#local-6989586621679382331"><span class="hs-identifier hs-type">x</span></a></span></span><span>
 </span><span id="line-417"></span><span id="parseFailure"><span class="annot"><span class="annottext">parseFailure :: forall x. JsonError -&gt; Parser x
 </span><a href="Control.Lens.Grammar.Json.html#parseFailure"><span class="hs-identifier hs-var hs-var">parseFailure</span></a></span></span><span> </span><span id="local-6989586621679385754"><span class="annot"><span class="annottext">JsonError
@@ -1823,7 +1823,7 @@ $cshowList :: [JsonError] -&gt; ShowS
 showList :: [JsonError] -&gt; ShowS
 </span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></span></span></span></span><span class="hs-special">)</span><span>
 </span><span id="line-674"></span><span>
-</span><span id="line-675"></span><span class="annot"><span class="hs-comment">-- | How a `JsonError` failed, so that alternatives report the closest.</span></span><span>
+</span><span id="line-675"></span><span class="annot"><span class="hs-comment">-- | How a t'JsonError' failed, so that alternatives report the closest.</span></span><span>
 </span><span id="line-676"></span><span class="hs-keyword">data</span><span> </span><span id="JsonErrorSort"><span class="annot"><a href="Control.Lens.Grammar.Json.html#JsonErrorSort"><span class="hs-identifier hs-var">JsonErrorSort</span></a></span></span><span>
 </span><span id="line-677"></span><span>  </span><span class="hs-glyph">=</span><span> </span><span id="JsonLiteral"><span class="annot"><a href="Control.Lens.Grammar.Json.html#JsonLiteral"><span class="hs-identifier hs-var">JsonLiteral</span></a></span></span><span>
 </span><span id="line-678"></span><span>  </span><span class="annot"><span class="hs-comment">-- ^ a string literal mismatch; the alternative doesn't apply</span></span><span>
@@ -1893,7 +1893,7 @@ $cshowList :: [JsonErrorSort] -&gt; ShowS
 showList :: [JsonErrorSort] -&gt; ShowS
 </span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></span></span></span></span><span class="hs-special">)</span><span>
 </span><span id="line-684"></span><span>
-</span><span id="line-685"></span><span class="annot"><span class="hs-comment">{- | A `JsonError`'s message, without its path, as @aeson@ words it.
+</span><span id="line-685"></span><span class="annot"><span class="hs-comment">{- | The message of a t'JsonError', without its path, as @aeson@ words it.
 
 &gt;&gt;&gt; either jsonErrorMessage show (jsonParse @Bool (Aeson.String &quot;yes&quot;))
 &quot;expected boolean, but found \&quot;yes\&quot;&quot;
@@ -2242,7 +2242,7 @@ forall (t :: * -&gt; *) a. Foldable t =&gt; t a -&gt; Int
 </span><span id="line-769"></span><span>
 </span><span id="line-770"></span><span class="hs-comment">-- Parsing interpreters --</span><span>
 </span><span id="line-771"></span><span>
-</span><span id="line-772"></span><span class="annot"><span class="hs-comment">{- | `JsonParsor` parses a `Value`. It may also have a `Dispatch`,
+</span><span id="line-772"></span><span class="annot"><span class="hs-comment">{- | t'JsonParsor' parses a `Value`. It may also have a t'Dispatch',
 when it only accepts string literals, as values or as the values of
 a key of objects, so that alternatives are chosen by lookup,
 rather than tried in turn.
@@ -2449,7 +2449,7 @@ forall a.
 </span><a href="#local-6989586621679386381"><span class="hs-identifier hs-var">success</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Either JsonError b
 </span><a href="#local-6989586621679386381"><span class="hs-identifier hs-var">success</span></a></span><span>
 </span><span id="line-826"></span><span>
-</span><span id="line-827"></span><span class="annot"><span class="hs-comment">{- | `TupParsor` parses the elements of a JSON array from a position,
+</span><span id="line-827"></span><span class="annot"><span class="hs-comment">{- | t'TupParsor' parses the elements of a JSON array from a position,
 in every way it can, so that optional and rest elements backtrack.
 A tuple of fixed length also parses its elements from known positions.
 -}</span></span><span>
@@ -2462,7 +2462,7 @@ TupParsor a b -&gt; Array -&gt; Int -&gt; [Either JsonError (b, Int)]
 </span><a href="Control.Lens.Grammar.Json.html#runTupParsor"><span class="hs-identifier hs-var hs-var">runTupParsor</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Vector</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Value</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">Either</span></span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Json.html#JsonError"><span class="hs-identifier hs-type">JsonError</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679382658"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span class="hs-special">)</span><span class="hs-special">]</span><span>
 </span><span id="line-834"></span><span>  </span><span class="hs-special">}</span><span>
 </span><span id="line-835"></span><span>
-</span><span id="line-836"></span><span class="annot"><span class="hs-comment">{- | `ObjParsor` reads keys of an `Object`, ignoring other keys,
+</span><span id="line-836"></span><span class="annot"><span class="hs-comment">{- | t'ObjParsor' reads keys of an t'Object', ignoring other keys,
 unless it reads the rest of them, those which the object doesn't name.
 Its keys are known before parsing, so overlapping keys are found once,
 as are its tags, keys which only accept string literals,
@@ -3266,7 +3266,7 @@ forall a b. Bool -&gt; ObjParsor a b -&gt; JsonParsor a b
 forall (q :: * -&gt; * -&gt; *). JsonObj JsonParsor q =&gt; q a b
 </span><a href="#local-6989586621679386729"><span class="hs-identifier hs-var">obj</span></a></span><span>
 </span><span id="line-949"></span><span>
-</span><span id="line-950"></span><span class="annot"><span class="hs-comment">{- | Parse an `Object` by its properties, and, if it's rejecting,
+</span><span id="line-950"></span><span class="annot"><span class="hs-comment">{- | Parse an t'Object' by its properties, and, if it's rejecting,
 reject the first property which isn't named, as `jsonObjectStrict`'s
 default would, but without parsing the rest of the properties.
 -}</span></span><span>
@@ -4590,7 +4590,7 @@ forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
 </span><span id="line-1100"></span><span>
 </span><span id="line-1101"></span><span class="hs-comment">-- Printing interpreters --</span><span>
 </span><span id="line-1102"></span><span>
-</span><span id="line-1103"></span><span class="annot"><span class="hs-comment">-- | @aeson@'s representations of JSON strings, `Value`, `Encoding` &amp; `Key`.</span></span><span>
+</span><span id="line-1103"></span><span class="annot"><span class="hs-comment">-- | @aeson@'s representations of JSON strings, `Value`, `Encoding` &amp; t'Key'.</span></span><span>
 </span><span id="line-1104"></span><span class="hs-keyword">class</span><span> </span><span id="AesonStr"><span class="annot"><a href="Control.Lens.Grammar.Json.html#AesonStr"><span class="hs-identifier hs-var">AesonStr</span></a></span></span><span> </span><span id="local-6989586621679382971"><span class="annot"><a href="#local-6989586621679382971"><span class="hs-identifier hs-type">val</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
 </span><span id="line-1105"></span><span>  </span><span id="aesonText"><span class="annot"><a href="Control.Lens.Grammar.Json.html#aesonText"><span class="hs-identifier hs-type">aesonText</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679382971"><span class="hs-identifier hs-type">val</span></a></span><span>
 </span><span id="line-1106"></span><span>  </span><span id="aesonString"><span class="annot"><a href="Control.Lens.Grammar.Json.html#aesonString"><span class="hs-identifier hs-type">aesonString</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">String</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679382971"><span class="hs-identifier hs-type">val</span></a></span><span>
@@ -4718,8 +4718,8 @@ forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
 forall tag. Encoding' tag -&gt; Builder
 </span><span class="hs-identifier hs-var">Encoding.fromEncoding</span></span><span>
 </span><span id="line-1144"></span><span>
-</span><span id="line-1145"></span><span class="annot"><span class="hs-comment">{- | `KeyPrintor` prints the key of an `Object`, which is total,
-as a `Key` or as its `Encoding.Encoding'`.
+</span><span id="line-1145"></span><span class="annot"><span class="hs-comment">{- | t'KeyPrintor' prints the key of an t'Object', which is total,
+as a t'Key' or as its `Encoding.Encoding'`.
 -}</span></span><span>
 </span><span id="line-1148"></span><span class="hs-keyword">newtype</span><span> </span><span id="KeyPrintor"><span class="annot"><a href="Control.Lens.Grammar.Json.html#KeyPrintor"><span class="hs-identifier hs-var">KeyPrintor</span></a></span></span><span> </span><span id="local-6989586621679382382"><span class="annot"><a href="#local-6989586621679382382"><span class="hs-identifier hs-type">key</span></a></span></span><span> </span><span id="local-6989586621679382383"><span class="annot"><a href="#local-6989586621679382383"><span class="hs-identifier hs-type">a</span></a></span></span><span> </span><span id="local-6989586621679382384"><span class="annot"><a href="#local-6989586621679382384"><span class="hs-identifier hs-type">b</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="KeyPrintor"><span class="annot"><a href="Control.Lens.Grammar.Json.html#KeyPrintor"><span class="hs-identifier hs-var">KeyPrintor</span></a></span></span><span> </span><span class="hs-special">{</span><span id="runKeyPrintor"><span class="annot"><span class="annottext">forall key a b. KeyPrintor key a b -&gt; a -&gt; key
 </span><a href="Control.Lens.Grammar.Json.html#runKeyPrintor"><span class="hs-identifier hs-var hs-var">runKeyPrintor</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="#local-6989586621679382383"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679382382"><span class="hs-identifier hs-type">key</span></a></span><span class="hs-special">}</span><span>
@@ -5261,7 +5261,7 @@ forall a. Encoding' a
 </span><span id="line-1299"></span><span>  </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Json.html#aesonPropsEmpty"><span class="hs-pragma hs-type">aesonPropsEmpty</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
 </span><span id="line-1300"></span><span>  </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Json.html#aesonProps"><span class="hs-pragma hs-type">aesonProps</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
 </span><span id="line-1301"></span><span>
-</span><span id="line-1302"></span><span class="annot"><span class="hs-comment">{- | `JsonPrintor` `printorTry`s to print a value, or else `printorCheck`s it
+</span><span id="line-1302"></span><span class="annot"><span class="hs-comment">{- | t'JsonPrintor' `printorTry`s to print a value, or else `printorCheck`s it
 to locate the failure. A `printorTotal` printor prints every value,
 so it `printorRender`s it without trying. Totality is determined
 through `rule`s, assuming those being determined are total.
@@ -5320,7 +5320,7 @@ forall val a b. JsonPrintor val a b -&gt; a -&gt; Maybe val
 </span><a href="#local-6989586621679387501"><span class="hs-identifier hs-var">a</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-1322"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Json.html#runJsonPrintor"><span class="hs-pragma hs-type">runJsonPrintor</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
 </span><span id="line-1323"></span><span>
-</span><span id="line-1324"></span><span class="annot"><span class="hs-comment">-- | A total `JsonPrintor`.</span></span><span>
+</span><span id="line-1324"></span><span class="annot"><span class="hs-comment">-- | A total t'JsonPrintor'.</span></span><span>
 </span><span id="line-1325"></span><span id="local-6989586621679383097"><span id="local-6989586621679383098"><span id="local-6989586621679383099"><span class="annot"><a href="Control.Lens.Grammar.Json.html#printing"><span class="hs-identifier hs-type">printing</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679383097"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679383098"><span class="hs-identifier hs-type">val</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Json.html#JsonPrintor"><span class="hs-identifier hs-type">JsonPrintor</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679383098"><span class="hs-identifier hs-type">val</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679383097"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679383099"><span class="hs-identifier hs-type">b</span></a></span></span></span></span><span>
 </span><span id="line-1326"></span><span id="printing"><span class="annot"><span class="annottext">printing :: forall a val b. (a -&gt; val) -&gt; JsonPrintor val a b
 </span><a href="Control.Lens.Grammar.Json.html#printing"><span class="hs-identifier hs-var hs-var">printing</span></a></span></span><span> </span><span id="local-6989586621679387503"><span class="annot"><span class="annottext">a -&gt; val
@@ -5358,7 +5358,7 @@ forall a. Maybe a
 </span><span class="hs-identifier hs-var">Nothing</span></span><span>
 </span><span id="line-1328"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Json.html#printing"><span class="hs-pragma hs-type">printing</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
 </span><span id="line-1329"></span><span>
-</span><span id="line-1330"></span><span class="annot"><span class="hs-comment">-- | A total `JsonPrintor` of a primitive.</span></span><span>
+</span><span id="line-1330"></span><span class="annot"><span class="hs-comment">-- | A total t'JsonPrintor' of a primitive.</span></span><span>
 </span><span id="line-1331"></span><span id="local-6989586621679383103"><span id="local-6989586621679383104"><span id="local-6989586621679383105"><span class="annot"><a href="Control.Lens.Grammar.Json.html#primitive"><span class="hs-identifier hs-type">primitive</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Json.html#AesonStr"><span class="hs-identifier hs-type">AesonStr</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679383103"><span class="hs-identifier hs-type">val</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679383104"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679383103"><span class="hs-identifier hs-type">val</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Json.html#JsonPrintor"><span class="hs-identifier hs-type">JsonPrintor</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679383103"><span class="hs-identifier hs-type">val</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679383104"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679383105"><span class="hs-identifier hs-type">b</span></a></span></span></span></span><span>
 </span><span id="line-1332"></span><span id="primitive"><span class="annot"><span class="annottext">primitive :: forall val a b. AesonStr val =&gt; (a -&gt; val) -&gt; JsonPrintor val a b
 </span><a href="Control.Lens.Grammar.Json.html#primitive"><span class="hs-identifier hs-var hs-var">primitive</span></a></span></span><span> </span><span id="local-6989586621679387507"><span class="annot"><span class="annottext">a -&gt; val
@@ -5369,7 +5369,7 @@ forall a val b. (a -&gt; val) -&gt; JsonPrintor val a b
 </span><a href="#local-6989586621679387507"><span class="hs-identifier hs-var">render</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">{</span><span class="annot"><a href="Control.Lens.Grammar.Json.html#printorRenderArray"><span class="hs-identifier hs-var">printorRenderArray</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Json.html#aesonPrimitives"><span class="hs-identifier hs-type">aesonPrimitives</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679387507"><span class="hs-identifier hs-type">render</span></a></span><span class="hs-special">}</span><span>
 </span><span id="line-1334"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Json.html#primitive"><span class="hs-pragma hs-type">primitive</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
 </span><span id="line-1335"></span><span>
-</span><span id="line-1336"></span><span class="annot"><span class="hs-comment">{- | A partial `JsonPrintor`, rendering what it tries,
+</span><span id="line-1336"></span><span class="annot"><span class="hs-comment">{- | A partial t'JsonPrintor', rendering what it tries,
 or else null, as `jsonPrint` does.
 -}</span></span><span>
 </span><span id="line-1339"></span><span id="local-6989586621679383109"><span id="local-6989586621679383110"><span id="local-6989586621679383111"><span class="annot"><a href="Control.Lens.Grammar.Json.html#trying"><span class="hs-identifier hs-type">trying</span></a></span><span>
@@ -5450,7 +5450,7 @@ Applicative f =&gt;
 forall a. Set a
 </span><span class="hs-identifier hs-var">Set.empty</span></span><span>
 </span><span id="line-1354"></span><span>
-</span><span id="line-1355"></span><span class="annot"><span class="hs-comment">{- | `TupPrintor` prints the elements of a JSON array,
+</span><span id="line-1355"></span><span class="annot"><span class="hs-comment">{- | t'TupPrintor' prints the elements of a JSON array,
 counted to locate a failure of a later element.
 A single element keeps its rendering, so that mapping it composes.
 -}</span></span><span>
@@ -5551,7 +5551,7 @@ forall a b. b -&gt; Either a b
 forall a. Monoid a =&gt; a
 </span><span class="hs-identifier hs-var">mempty</span></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
 </span><span id="line-1387"></span><span>
-</span><span id="line-1388"></span><span class="annot"><span class="hs-comment">{- | `ObjPrintor` writes keys of an `Object`.
+</span><span id="line-1388"></span><span class="annot"><span class="hs-comment">{- | t'ObjPrintor' writes keys of an t'Object'.
 Its keys are known before printing, so overlapping keys are found once,
 unless it writes the rest of the properties, whose keys are checked.
 -}</span></span><span>
@@ -7407,7 +7407,7 @@ forall a. Maybe Value -&gt; Either JsonError a
 forall a. Maybe a
 </span><span class="hs-identifier hs-var">Nothing</span></span><span class="hs-special">)</span><span>
 </span><span id="line-1650"></span><span>
-</span><span id="line-1651"></span><span class="annot"><span class="hs-comment">-- | A partial `TupPrintor`, rendering what it tries, or else nothing.</span></span><span>
+</span><span id="line-1651"></span><span class="annot"><span class="hs-comment">-- | A partial t'TupPrintor', rendering what it tries, or else nothing.</span></span><span>
 </span><span id="line-1652"></span><span id="local-6989586621679383379"><span id="local-6989586621679383380"><span id="local-6989586621679383381"><span class="annot"><a href="Control.Lens.Grammar.Json.html#tupTrying"><span class="hs-identifier hs-type">tupTrying</span></a></span><span>
 </span><span id="line-1653"></span><span>  </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Json.html#AesonVal"><span class="hs-identifier hs-type">AesonVal</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679383379"><span class="hs-identifier hs-type">val</span></a></span><span>
 </span><span id="line-1654"></span><span>  </span><span class="hs-glyph">=&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679383380"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">DList</span></span><span> </span><span class="annot"><a href="#local-6989586621679383379"><span class="hs-identifier hs-type">val</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679383380"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Json.html#Elements"><span class="hs-identifier hs-type">Elements</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679383379"><span class="hs-identifier hs-type">val</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Json.html#TupPrintor"><span class="hs-identifier hs-type">TupPrintor</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679383379"><span class="hs-identifier hs-type">val</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679383380"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679383381"><span class="hs-identifier hs-type">b</span></a></span></span></span></span><span>
@@ -8375,7 +8375,7 @@ ObjPrintor val a b -&gt; a -&gt; Either JsonError [(Key, val)]
 </span><a href="#local-6989586621679388356"><span class="hs-identifier hs-var">success</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Either JsonError [(Key, val)]
 </span><a href="#local-6989586621679388356"><span class="hs-identifier hs-var">success</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-1763"></span><span>
-</span><span id="line-1764"></span><span class="annot"><span class="hs-comment">-- | A partial `ObjPrintor` of another's shapes, rendering what it tries.</span></span><span>
+</span><span id="line-1764"></span><span class="annot"><span class="hs-comment">-- | A partial t'ObjPrintor' of another's shapes, rendering what it tries.</span></span><span>
 </span><span id="line-1765"></span><span id="local-6989586621679383447"><span id="local-6989586621679383448"><span id="local-6989586621679383449"><span id="local-6989586621679383450"><span id="local-6989586621679383451"><span class="annot"><a href="Control.Lens.Grammar.Json.html#objTrying"><span class="hs-identifier hs-type">objTrying</span></a></span><span>
 </span><span id="line-1766"></span><span>  </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Json.html#AesonVal"><span class="hs-identifier hs-type">AesonVal</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679383447"><span class="hs-identifier hs-type">val</span></a></span><span>
 </span><span id="line-1767"></span><span>  </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Json.html#ObjPrintor"><span class="hs-identifier hs-type">ObjPrintor</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679383447"><span class="hs-identifier hs-type">val</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679383448"><span class="hs-identifier hs-type">x</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679383449"><span class="hs-identifier hs-type">y</span></a></span><span>
@@ -9076,7 +9076,7 @@ forall val a b. JsonPrintor val a b -&gt; a -&gt; Either JsonError val
 </span><span id="line-1865"></span><span class="hs-comment">-- Types of JSON --</span><span>
 </span><span id="line-1866"></span><span>
 </span><span id="line-1867"></span><span class="annot"><span class="hs-comment">{- | The type of JSON values, which a grammar describes,
-of rules by their names, in a `Bnf`, as `jsonType` describes them.
+of rules by their names, in a t'Bnf', as `jsonType` describes them.
 It's the union of its alternatives, so that `falseP` is the type of
 no values.
 -}</span></span><span>
@@ -9805,7 +9805,7 @@ forall s a. ParsecState s a -&gt; ParsecFailure s
 </span><span class="hs-identifier hs-var">parsecFailure</span></span><span> </span><span class="annot"><span class="annottext">ParsecState s a
 </span><a href="#local-6989586621679389106"><span class="hs-identifier hs-var">stage</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
 </span><span id="line-2022"></span><span>
-</span><span id="line-2023"></span><span class="annot"><span class="hs-comment">{- | `JsonTypor` types the JSON of a grammar, reading the rules being typed
+</span><span id="line-2023"></span><span class="annot"><span class="hs-comment">{- | t'JsonTypor' types the JSON of a grammar, reading the rules being typed
 which are unguarded by an array, object or tuple, each noting whether it's
 been unrolled, &amp; updating the rules &amp; their types.
 -}</span></span><span>

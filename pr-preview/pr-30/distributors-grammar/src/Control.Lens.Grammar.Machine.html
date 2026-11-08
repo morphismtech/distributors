@@ -100,13 +100,13 @@ forall s t a b. APrism s t a b -&gt; s -&gt; Bool
 </span><a href="#local-6989586621679262237"><span class="hs-identifier hs-var">pattern</span></a></span><span> </span><span class="annot"><span class="annottext">s
 </span><a href="#local-6989586621679262235"><span class="hs-identifier hs-var">word</span></a></span><span>
 </span><span id="line-59"></span><span>
-</span><span id="line-60"></span><span class="annot"><span class="hs-comment">{-| A `Transducer` is a tuple
+</span><span id="line-60"></span><span class="annot"><span class="hs-comment">{-| A t'Transducer' is a tuple
 
 @
 T = (&#931;, &#916;, Q, I &#8838; Q, F &#8712; Q, transition &#8838; Q &#215; (&#931; &#8746; &#8710;) &#215; Q, output &#8838; Q &#215; &#8710;)
 @
 
-* @&#931;@ is a (possibly infinite) set of terminal token classes, represented by `TokenClass`es.
+* @&#931;@ is a (possibly infinite) set of terminal token classes, represented by t'TokenClass'es.
 * @&#916;@ is a finite set of nonterminals, represented by the key set of `transducerRules`.
 * @Q@ is a set of states, which is represented by the key set of `transducerRelations`.
 * @I@ are initial states represented by `transducerStarts`.
@@ -126,13 +126,13 @@ T = (&#931;, &#916;, Q, I &#8838; Q, F &#8712; Q, transition &#8838; Q &#215; (&
 </span><span id="line-80"></span><span>  </span><span class="annot"><span class="hs-comment">-- ^ an index into `transducerRelations` for the starting rule</span></span><span>
 </span><span id="line-81"></span><span>  </span><span class="hs-special">}</span><span>
 </span><span id="line-82"></span><span>
-</span><span id="line-83"></span><span class="annot"><span class="hs-comment">-- | A `TransducerStep` in a `Transducer`.</span></span><span>
+</span><span id="line-83"></span><span class="annot"><span class="hs-comment">-- | A `TransducerStep` in a t'Transducer'.</span></span><span>
 </span><span id="line-84"></span><span class="hs-keyword">data</span><span> </span><span id="TransducerStep"><span class="annot"><a href="Control.Lens.Grammar.Machine.html#TransducerStep"><span class="hs-identifier hs-var">TransducerStep</span></a></span></span><span> </span><span id="local-6989586621679262079"><span class="annot"><a href="#local-6989586621679262079"><span class="hs-identifier hs-type">token</span></a></span></span><span>
 </span><span id="line-85"></span><span>  </span><span class="hs-glyph">=</span><span> </span><span id="TransitionTokenClass"><span class="annot"><a href="Control.Lens.Grammar.Machine.html#TransitionTokenClass"><span class="hs-identifier hs-var">TransitionTokenClass</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Grammar.RegEx.html#TokenClass"><span class="hs-identifier hs-type">TokenClass</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679262079"><span class="hs-identifier hs-type">token</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IntSet</span></span><span>
 </span><span id="line-86"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="TransitionNonTerminal"><span class="annot"><a href="Control.Lens.Grammar.Machine.html#TransitionNonTerminal"><span class="hs-identifier hs-var">TransitionNonTerminal</span></a></span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">String</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">IntSet</span></span><span>
 </span><span id="line-87"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="EmitNonTerminal"><span class="annot"><a href="Control.Lens.Grammar.Machine.html#EmitNonTerminal"><span class="hs-identifier hs-var">EmitNonTerminal</span></a></span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">String</span></span><span>
 </span><span id="line-88"></span><span>
-</span><span id="line-89"></span><span class="annot"><span class="hs-comment">{- | Compile a `RegEx`tended `Bnf` into a `Transducer`,
+</span><span id="line-89"></span><span class="annot"><span class="hs-comment">{- | Compile a `RegEx`tended t'Bnf' into a t'Transducer',
 using a combination of Thompson's algorithm for regular expressions
 and Earley's algorithm for context-free grammars. See Jim &amp; Mandelbaum,
 [Efficient Earley Parsing with Regular Right-hand Sides]
@@ -1514,7 +1514,7 @@ forall a. (a -&gt; a -&gt; a) -&gt; Key -&gt; a -&gt; IntMap a -&gt; IntMap a
 </span><a href="#local-6989586621679262657"><span class="hs-identifier hs-var">acc</span></a></span><span>
 </span><span id="line-365"></span><span>
 </span><span id="line-366"></span><span class="annot"><span class="hs-comment">{- | What token is expected next?
-The scanner frontier, `expectNext` returns the `TokenClass`
+The scanner frontier, `expectNext` returns the t'TokenClass'
 that can be scanned next after the given input prefix.
 A `falseP` result means the current chart has no scanner transitions,
 i.e. the prefix is a dead end for recognition.
@@ -1683,7 +1683,7 @@ forall a. Ord a =&gt; a -&gt; Set a -&gt; Set a
 </span><span id="line-404"></span><span>
 </span><span id="line-405"></span><span class="annot"><span class="hs-comment">{- |
 `languageSample` lazily produces all words in a language from shortest to longest.
-However since `TokenClass`es can resolve to infinite sets of tokens,
+However since t'TokenClass'es can resolve to infinite sets of tokens,
 and the relevant case of `Char` tokens while not infinite is huge,
 it samples tokens in an `Applicative` `TokenAlgebra`.
 -}</span></span><span>

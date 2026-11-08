@@ -44,7 +44,7 @@ See Leijen,
 </span><span id="line-44"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">GHC.Exts</span></span><span>
 </span><span id="line-45"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Prelude</span></span><span> </span><span class="hs-keyword">hiding</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">id</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-operator">(.)</span></span><span class="hs-special">)</span><span>
 </span><span id="line-46"></span><span>
-</span><span id="line-47"></span><span class="annot"><span class="hs-comment">{- | `Parsector` is an invertible @LL(1)@ parser which is intended
+</span><span id="line-47"></span><span class="annot"><span class="hs-comment">{- | t'Parsector' is an invertible @LL(1)@ parser which is intended
 to provide detailed failure information, based on [Parsec]
 (https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/parsec-paper-letter.pdf).
 -}</span></span><span>
@@ -54,8 +54,8 @@ Parsector s a b
 -&gt; forall x. (ParsecState s b -&gt; x) -&gt; ParsecState s a -&gt; x
 </span><a href="Data.Profunctor.Grammar.Parsector.html#runParsector"><span class="hs-identifier hs-var hs-var">runParsector</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-keyword">forall</span><span> </span><span id="local-6989586621679265864"><span class="annot"><a href="#local-6989586621679265864"><span class="hs-identifier hs-type">x</span></a></span></span><span class="hs-operator">.</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.Profunctor.Grammar.Parsector.html#ParsecState"><span class="hs-identifier hs-type">ParsecState</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265859"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265861"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679265864"><span class="hs-identifier hs-type">x</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Data.Profunctor.Grammar.Parsector.html#ParsecState"><span class="hs-identifier hs-type">ParsecState</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265859"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265860"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679265864"><span class="hs-identifier hs-type">x</span></a></span><span class="hs-special">}</span><span>
 </span><span id="line-53"></span><span>
-</span><span id="line-54"></span><span class="annot"><span class="hs-comment">{- | Run `Parsector` as a parser: consume tokens from @s@,
-left to right, returning a `ParsecState` whose `parsecResult`
+</span><span id="line-54"></span><span class="annot"><span class="hs-comment">{- | Run t'Parsector' as a parser: consume tokens from @s@,
+left to right, returning a t'ParsecState' whose `parsecResult`
 is `Nothing` on failure and `Just` the output syntax value on success. -}</span></span><span>
 </span><span id="line-57"></span><span id="local-6989586621679265869"><span id="local-6989586621679265870"><span id="local-6989586621679265871"><span class="annot"><a href="Data.Profunctor.Grammar.Parsector.html#parsecP"><span class="hs-identifier hs-type">parsecP</span></a></span><span>
 </span><span id="line-58"></span><span>  </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Token.html#Categorized"><span class="hs-identifier hs-type">Categorized</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Item</span></span><span> </span><span class="annot"><a href="#local-6989586621679265869"><span class="hs-identifier hs-type">s</span></a></span><span class="hs-special">)</span><span>
@@ -88,9 +88,9 @@ forall a. Monoid a =&gt; a
 forall a. Maybe a
 </span><span class="hs-identifier hs-var">Nothing</span></span><span class="hs-special">)</span><span>
 </span><span id="line-63"></span><span>
-</span><span id="line-64"></span><span class="annot"><span class="hs-comment">{- | Run `Parsector` as a printer: given a syntax value @a@ and
+</span><span id="line-64"></span><span class="annot"><span class="hs-comment">{- | Run t'Parsector' as a printer: given a syntax value @a@ and
 an input stream, append tokens to @s@ left to right,
-returning a `ParsecState` whose `parsecResult` is
+returning a t'ParsecState' whose `parsecResult` is
 `Nothing` on failure or `Just` a successful output syntax value,
 in which case, `parsecStream` is the output stream. -}</span></span><span>
 </span><span id="line-69"></span><span id="local-6989586621679265885"><span id="local-6989586621679265886"><span id="local-6989586621679265887"><span class="annot"><a href="Data.Profunctor.Grammar.Parsector.html#unparsecP"><span class="hs-identifier hs-type">unparsecP</span></a></span><span>
@@ -127,13 +127,13 @@ forall a. a -&gt; Maybe a
 </span><span class="hs-identifier hs-var">Just</span></span><span> </span><span class="annot"><span class="annottext">a
 </span><a href="#local-6989586621679266504"><span class="hs-identifier hs-var">a</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
 </span><span id="line-76"></span><span>
-</span><span id="line-77"></span><span class="annot"><span class="hs-comment">{- | `ParsecState` is both the input and output type of the
-underlying function inside `Parsector`.
+</span><span id="line-77"></span><span class="annot"><span class="hs-comment">{- | t'ParsecState' is both the input and output type of the
+underlying function inside t'Parsector'.
 @Parsector s a b@ is equivalent to
 
 @ParsecState s a -&gt; ParsecState s b@
 
-So `ParsecState` has a dual interpretation as input and output. -}</span></span><span>
+So t'ParsecState' has a dual interpretation as input and output. -}</span></span><span>
 </span><span id="line-84"></span><span class="hs-keyword">data</span><span> </span><span id="ParsecState"><span class="annot"><a href="Data.Profunctor.Grammar.Parsector.html#ParsecState"><span class="hs-identifier hs-var">ParsecState</span></a></span></span><span> </span><span id="local-6989586621679265881"><span class="annot"><a href="#local-6989586621679265881"><span class="hs-identifier hs-type">s</span></a></span></span><span> </span><span id="local-6989586621679265882"><span class="annot"><a href="#local-6989586621679265882"><span class="hs-identifier hs-type">a</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="ParsecState"><span class="annot"><a href="Data.Profunctor.Grammar.Parsector.html#ParsecState"><span class="hs-identifier hs-var">ParsecState</span></a></span></span><span>
 </span><span id="line-85"></span><span>  </span><span class="hs-special">{</span><span> </span><span id="parsecLooked"><span class="annot"><span class="annottext">forall s a. ParsecState s a -&gt; Bool
 </span><a href="Data.Profunctor.Grammar.Parsector.html#parsecLooked"><span class="hs-identifier hs-var hs-var">parsecLooked</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-glyph">!</span><span class="annot"><span class="hs-identifier hs-type">Bool</span></span><span>
@@ -150,7 +150,7 @@ So `ParsecState` has a dual interpretation as input and output. -}</span></span>
 </span><a href="Data.Profunctor.Grammar.Parsector.html#parsecStream"><span class="hs-identifier hs-var hs-var">parsecStream</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="#local-6989586621679265881"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><span class="hs-comment">-- ^ stream</span></span><span>
 </span><span id="line-95"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="parsecFailure"><span class="annot"><span class="annottext">forall s a. ParsecState s a -&gt; ParsecFailure s
 </span><a href="Data.Profunctor.Grammar.Parsector.html#parsecFailure"><span class="hs-identifier hs-var hs-var">parsecFailure</span></a></span></span><span>  </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Data.Profunctor.Grammar.Parsector.html#ParsecFailure"><span class="hs-identifier hs-type">ParsecFailure</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265881"><span class="hs-identifier hs-type">s</span></a></span><span>
-</span><span id="line-96"></span><span>    </span><span class="annot"><span class="hs-comment">{- ^ `ParsecFailure` channel.
+</span><span id="line-96"></span><span>    </span><span class="annot"><span class="hs-comment">{- ^ t'ParsecFailure' channel.
 
     * If `parsecResult` is `Nothing`, this is the hard failure.
     * If `parsecResult` is `Just`, this is deferred failure/hint info
@@ -170,9 +170,9 @@ So `ParsecState` has a dual interpretation as input and output. -}</span></span>
     -}</span></span><span>
 </span><span id="line-113"></span><span>  </span><span class="hs-special">}</span><span>
 </span><span id="line-114"></span><span>
-</span><span id="line-115"></span><span class="annot"><span class="hs-comment">{- | `ParsecFailure` is the failure payload produced by `Parsector`,
+</span><span id="line-115"></span><span class="annot"><span class="hs-comment">{- | t'ParsecFailure' is the failure payload produced by t'Parsector',
 stored in `parsecFailure`.
-`ParsecFailure` is a `Monoid` and `Parsector` merges failures/hints
+t'ParsecFailure' is a `Monoid` and t'Parsector' merges failures/hints
 when control flow reaches the same offset without commitment.
 -}</span></span><span>
 </span><span id="line-120"></span><span class="hs-keyword">data</span><span> </span><span id="ParsecFailure"><span class="annot"><a href="Data.Profunctor.Grammar.Parsector.html#ParsecFailure"><span class="hs-identifier hs-var">ParsecFailure</span></a></span></span><span> </span><span id="local-6989586621679265901"><span class="annot"><a href="#local-6989586621679265901"><span class="hs-identifier hs-type">s</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="ParsecFailure"><span class="annot"><a href="Data.Profunctor.Grammar.Parsector.html#ParsecFailure"><span class="hs-identifier hs-var">ParsecFailure</span></a></span></span><span>
