@@ -414,6 +414,13 @@ class
   -}
   jsonArray :: p a b -> p [a] [b]
   jsonArray p = jsonTuple (manyP (jsonElem p))
+  {- | @null@ or a value, like @aeson@'s `Maybe`,
+  though interpreters may define it more efficiently.
+
+  @jsonNullable p = eotMaybe . swapped >~ jsonNull >+< p@
+  -}
+  jsonNullable :: p a b -> p (Maybe a) (Maybe b)
+  jsonNullable p = eotMaybe . swapped >~ jsonNull >+< p
   {- | A `jsonDict` object of a `Map`, whose keys can't repeat,
   so that printing needn't check them.
   -}
@@ -824,6 +831,14 @@ instance JsonVal JsonParsor where
   jsonNull = jsonParsor $ \case
     Null -> Right ()
     v -> jsonMismatch "null" v
+  -- | As the default, but without trying @null@ before every value.
+  jsonNullable p = jsonParsor $ \case
+    Null -> Right Nothing
+    v -> case runJsonParsor p v of
+      Right b -> Right (Just b)
+      Left err -> Left (jsonOrElse nullError err)
+        where
+          nullError = JsonError [] ["null"] (Just (Right v)) JsonMismatch []
   jsonBool = jsonParsor $ \case
     Bool b -> Right b
     v -> jsonMismatch "boolean" v
@@ -1304,6 +1319,15 @@ instance AesonStr val => JsonStr (JsonPrintor val) where
       rendered = arrayFromList [aesonLiteral literal | (literal, _) <- table]
 instance AesonVal val => JsonVal (JsonPrintor val) where
   jsonNull = primitive (const aesonNull)
+  -- | As the default, but rendering without an `Either` for every value.
+  jsonNullable p = JsonPrintor
+    (\rules -> printorTotal p rules)
+    (maybe (Just aesonNull) (printorTry p))
+    render
+    (maybe (Right aesonNull) (printorCheck p))
+    (aesonPrimitives render)
+    where
+      render = maybe aesonNull (printorRender p)
   jsonBool = primitive aesonBool
   jsonNumber = primitive aesonNumber
   jsonInt = primitive (aesonIntegral Encoding.int)
@@ -2270,7 +2294,7 @@ instance Json a => Json [a] where
   json = jsonList
   jsonKey = jsonKeyList @a
 instance Json a => Json (Maybe a) where
-  json = eotMaybe . swapped >~ jsonNull >+< json
+  json = jsonNullable json
   jsonOmitField = isNothing
   jsonOmittedField = Just Nothing
 instance (Json a, Json b) => Json (Either a b) where
