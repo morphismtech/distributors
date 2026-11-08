@@ -115,7 +115,7 @@ module Control.Lens.Grammar.Json
   , JsonVal (..), jsonTyped
   , JsonObj (..), (!=)
   , JsonTup (..)
-  , JsonStr (..)
+  , JsonStr (..), jsonEnum
     -- * Types
   , jsonType
   , jsonTsDeclarations
@@ -132,6 +132,7 @@ module Control.Lens.Grammar.Json
 import Control.Applicative
 import Control.Lens
 import Control.Lens.Grammar
+import Control.Lens.Monocle (AComonocle, withComonocle)
 import Control.Monad
 import Control.Monad.Trans.Class (lift)
 import Control.Monad.Trans.Reader (ReaderT, ask, local, runReaderT)
@@ -552,6 +553,27 @@ class
     prism' (indexArray names . indexOf) (`lookup` table) ?< jsonText
     where
       names = arrayFromList (map fst table)
+
+{- | An enumeration of strings, by `AComonocle`'s copies & their names,
+which `jsonEnumWith` tables once, numbered as `fromEnumerable` numbers them.
+
+>>> import Control.Lens (coerced)
+>>> import Control.Lens.Monocle (enumed)
+>>> import Data.Text qualified as Text
+>>> newtype Order = Order Ordering deriving (Show)
+>>> let name = Text.toLower . Text.pack . show @Ordering
+>>> instance Json Order where json = coerced >~ jsonEnum enumed name
+>>> jsonPrint (Order GT)
+String "gt"
+>>> jsonParse @Order (Aeson.String "lt")
+Right (Order LT)
+-}
+jsonEnum :: JsonStr p => AComonocle a a () () -> (a -> Text) -> p a a
+jsonEnum mon name = withComonocle mon $ \split merge ->
+  let copies = maybe [] enumerateFrom (toEnumerable () 0)
+  in jsonEnumWith (fromIntegral . fromEnumerable . split)
+    [(name a, a) | a <- map merge copies]
+{-# INLINE jsonEnum #-}
 
 {- | `JsonTup` grammars describe the elements of a JSON array.
 As `Alternator`s they have optional elements (`optionalP`, `optionP`),
@@ -2846,7 +2868,6 @@ instance (Ord k, Json k, Json v) => Json (Map k v) where
   json = case jsonKey @k of
     Just key -> jsonMap key json
     Nothing -> iso Map.toList Map.fromList >~ json
-  {-# INLINABLE json #-}
 instance (Typeable a, Json a) => Json (Tree a) where
   json = jsonTyped gtuple
 
