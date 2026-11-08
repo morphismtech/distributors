@@ -276,13 +276,13 @@ instance Categorized token
   => TokenAlgebra token (TokenExam token (TokenClass token)) where
   tokenClass (TokenClass exam) = exam
 instance Categorized token => TokenAlgebra token (token -> Bool) where
-  tokenClass = foldTokenClass $ \case
-    OneOf xs -> \x -> Set.member x xs
-    NotOneOf xs (AndAsIn y) -> \x ->
+  tokenClass = foldTokenClass . flip $ \x -> \case
+    OneOf xs -> Set.member x xs
+    NotOneOf xs (AndAsIn y) ->
       Set.notMember x xs && categorize x == y
-    NotOneOf xs (AndNotAsIn ys) -> \x ->
+    NotOneOf xs (AndNotAsIn ys) ->
       Set.notMember x xs && Set.notMember (categorize x) ys
-    Alternate p q -> \x -> p x || q x
+    Alternate p q -> p x || q x
 instance TokenAlgebra token (f token)
   => TokenAlgebra token (Joker f token token) where
     tokenClass = Joker . tokenClass
