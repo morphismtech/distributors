@@ -139,6 +139,7 @@ import Control.Monad.Trans.State.Strict
 import Data.Aeson qualified as Aeson
 import Data.Aeson.Encoding (Encoding)
 import Data.Aeson.Encoding qualified as Encoding
+import Data.Aeson.Encoding.Internal qualified as EncodingInternal
 import Data.Aeson.Key (Key)
 import Data.Aeson.Key qualified as Key
 import Data.Aeson.KeyMap (KeyMap)
@@ -1130,6 +1131,14 @@ class AesonStr val => AesonVal val where
   aesonProp :: AesonKey val -> val -> AesonProps val -> AesonProps val
   aesonPropsEmpty :: AesonProps val
   aesonProps :: AesonProps val -> val
+  -- | The elements of an array, as they're rendered.
+  type AesonElems val
+  aesonElem :: val -> AesonElems val -> AesonElems val
+  aesonElemsEmpty :: AesonElems val
+  aesonElems :: AesonElems val -> val
+
+-- | Elements of an `Encoding` array, separated by commas.
+data EncodingElems = NoEncodingElems | EncodingElems Encoding
 
 instance AesonVal Value where
   aesonNull = Null
@@ -1156,6 +1165,13 @@ instance AesonVal Value where
   aesonProp key value rest = (key, value) : rest
   aesonPropsEmpty = []
   aesonProps = Object . KeyMap.fromList
+  type AesonElems Value = [Value]
+  aesonElem = (:)
+  aesonElemsEmpty = []
+  aesonElems = aesonList id
+  {-# INLINE aesonElem #-}
+  {-# INLINE aesonElemsEmpty #-}
+  {-# INLINE aesonElems #-}
   {-# INLINE aesonNull #-}
   {-# INLINE aesonBool #-}
   {-# INLINE aesonNumber #-}
@@ -1192,6 +1208,21 @@ instance AesonVal Encoding where
   aesonProp key value rest = Encoding.pair' key value <> rest
   aesonPropsEmpty = mempty
   aesonProps = Encoding.pairs
+  type AesonElems Encoding = EncodingElems
+  aesonElem value = \case
+    NoEncodingElems -> EncodingElems value
+    EncodingElems rest ->
+      EncodingElems (value EncodingInternal.>< EncodingInternal.comma
+        EncodingInternal.>< rest)
+  aesonElemsEmpty = NoEncodingElems
+  aesonElems = \case
+    NoEncodingElems -> Encoding.emptyArray_
+    EncodingElems items -> EncodingInternal.openBracket
+      EncodingInternal.>< items
+      EncodingInternal.>< EncodingInternal.closeBracket
+  {-# INLINE aesonElem #-}
+  {-# INLINE aesonElemsEmpty #-}
+  {-# INLINE aesonElems #-}
   {-# INLINE aesonNull #-}
   {-# INLINE aesonBool #-}
   {-# INLINE aesonNumber #-}
@@ -1266,15 +1297,16 @@ A single element keeps its rendering, so that mapping it composes.
 data TupPrintor val a b = TupPrintor
   { tupPrintorTotal :: !(Set String -> Bool)
   , tupPrintorTry :: !(a -> Maybe (DList val))
-  , tupPrintorRender :: !(a -> [val] -> [val])
+  , tupPrintorRender :: !(a -> AesonElems val -> AesonElems val)
   , tupPrintorCheck :: !(a -> Elements val)
   , tupPrintorElement :: !(Maybe (a -> val))
   }
 
 -- | Render a single element, before the rest.
-renderElement :: (a -> val) -> a -> [val] -> [val]
+renderElement
+  :: AesonVal val => (a -> val) -> a -> AesonElems val -> AesonElems val
 renderElement render a rest =
-  let printed = render a in printed `seq` printed : rest
+  let printed = render a in printed `seq` aesonElem printed rest
 {-# INLINE renderElement #-}
 
 -- | Printed elements, counted to locate a failure of a later element.
@@ -1500,7 +1532,9 @@ instance Applicative (TupPrintor val a) where
     Nothing
   {-# INLINE pure #-}
   {-# INLINE (<*>) #-}
-instance Profunctor (TupPrintor val) where
+instance AesonVal val => Profunctor (TupPrintor val) where
+  {-# SPECIALISE instance Profunctor (TupPrintor Value) #-}
+  {-# SPECIALISE instance Profunctor (TupPrintor Encoding) #-}
   dimap f _ p = case tupPrintorElement p of
     Just single ->
       let projected a = single $! f a in TupPrintor total
@@ -1514,7 +1548,7 @@ instance Profunctor (TupPrintor val) where
   {-# INLINE lmap #-}
   _ #. p = coerce p
   p .# _ = coerce p
-instance CocartesianMonoidal (TupPrintor val) where
+instance AesonVal val => CocartesianMonoidal (TupPrintor val) where
   zeroP = TupPrintor (const True) absurd absurd absurd Nothing
   p >+< q = TupPrintor
     (\rules -> tupPrintorTotal p rules && tupPrintorTotal q rules)
@@ -1524,11 +1558,11 @@ instance CocartesianMonoidal (TupPrintor val) where
       Right b -> tupPrintorRender q b rest)
     (either (tupPrintorCheck p) (tupPrintorCheck q))
     Nothing
-instance Distributor (TupPrintor val) where
+instance AesonVal val => Distributor (TupPrintor val) where
   manyP p = TupPrintor
     (\rules -> tupPrintorTotal p rules)
     (fmap mconcat . tryAll (tupPrintorTotal p) (tupPrintorTry p)
-      (\a -> DList.fromList (tupPrintorRender p a [])))
+      (\a -> fromMaybe mempty (tupPrintorTry p a)))
     (\as rest -> foldr (\a printed -> tupPrintorRender p a $! printed) rest as)
     (foldMap (tupPrintorCheck p))
     Nothing
@@ -1539,14 +1573,14 @@ instance Distributor (TupPrintor val) where
     (foldMap (tupPrintorCheck p))
     Nothing
 -- | `optionP` omits its default.
-instance Alternative (TupPrintor val a) where
+instance AesonVal val => Alternative (TupPrintor val a) where
   empty = falseP
   (<|>) = (>|<)
   many = lmap repeat . manyP
   some = lmap repeat . someP
-instance Alternator (TupPrintor val) where
+instance AesonVal val => Alternator (TupPrintor val) where
   optionP def p = pureP def >|< p
-instance Choice (TupPrintor val) where
+instance AesonVal val => Choice (TupPrintor val) where
   left' = alternate . Left
   right' = alternate . Right
 unprintable :: Elements val
@@ -1554,11 +1588,16 @@ unprintable = Elements (jsonUnexpected Nothing)
 
 -- | A partial `TupPrintor`, rendering what it tries, or else nothing.
 tupTrying
-  :: (a -> Maybe (DList val)) -> (a -> Elements val) -> TupPrintor val a b
+  :: AesonVal val
+  => (a -> Maybe (DList val)) -> (a -> Elements val) -> TupPrintor val a b
 tupTrying attempt check = TupPrintor (const False) attempt
-  (\a -> DList.apply (fromMaybe mempty (attempt a))) check Nothing
+  (\a -> prependElems (fromMaybe mempty (attempt a))) check Nothing
 
-instance CocartesianChoice (TupPrintor val) where
+-- | Render tried elements before others.
+prependElems :: AesonVal val => DList val -> AesonElems val -> AesonElems val
+prependElems items rest = foldr aesonElem rest items
+
+instance AesonVal val => CocartesianChoice (TupPrintor val) where
   alternate = \case
     Left p -> tupTrying
       (either (tupPrintorTry p) (const Nothing))
@@ -1566,13 +1605,13 @@ instance CocartesianChoice (TupPrintor val) where
     Right p -> tupTrying
       (either (const Nothing) (tupPrintorTry p))
       (either (\_ -> unprintable) (tupPrintorCheck p))
-instance DisjunctiveMonoid (TupPrintor val a b) where
+instance AesonVal val => DisjunctiveMonoid (TupPrintor val a b) where
   falseP = tupTrying (const Nothing) (\_ -> unprintable)
   p >|< q = TupPrintor
     (\rules -> tupPrintorTotal p rules || tupPrintorTotal q rules)
     (\a -> tupPrintorTry p a <|> tupPrintorTry q a)
     (\a rest -> maybe
-      (tupPrintorRender q a rest) (`DList.apply` rest) (tupPrintorTry p a))
+      (tupPrintorRender q a rest) (`prependElems` rest) (tupPrintorTry p a))
     (\a -> case (tupPrintorCheck p a, tupPrintorCheck q a) of
       (Elements (Left err0), Elements (Left err1)) ->
         Elements (Left (jsonOrElse err0 err1))
@@ -1580,7 +1619,10 @@ instance DisjunctiveMonoid (TupPrintor val a b) where
       (printed, _) -> printed)
     Nothing
 
-instance JsonTup (JsonPrintor val) (TupPrintor val) where
+instance AesonVal val => JsonTup (JsonPrintor val) (TupPrintor val) where
+  {-# SPECIALISE instance JsonTup (JsonPrintor Value) (TupPrintor Value) #-}
+  {-# SPECIALISE instance
+    JsonTup (JsonPrintor Encoding) (TupPrintor Encoding) #-}
   jsonElem p = TupPrintor
     (\rules -> printorTotal p rules)
     (fmap DList.singleton . printorTry p)
@@ -1713,12 +1755,12 @@ the instance's specializations needn't break their recursion through
 `jsonTuple` itself, which would stop it from inlining.
 -}
 printTuple
-  :: AesonVal val
+  :: forall val a b. AesonVal val
   => (forall q. JsonTup (JsonPrintor val) q => q a b) -> JsonPrintor val a b
 printTuple tup = JsonPrintor
   (\rules -> tupPrintorTotal tup rules)
   (fmap (aesonList id . toList) . tupPrintorTry tup)
-  (\a -> aesonList id (tupPrintorRender tup a []))
+  (\a -> aesonElems (tupPrintorRender tup a (aesonElemsEmpty @val)))
   (\a -> case tupPrintorCheck tup a of
     Elements printed -> aesonList id . toList . snd <$> printed)
   Nothing
