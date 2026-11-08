@@ -30,7 +30,7 @@ import Witherable
 {- | The `Filtrator` class extends `Cochoice`,
 as well as `Filterable`, adding the `filtrate` method,
 which is an oplax monoidal structure morphism dual to
-`>+<`.
+`Data.Profunctor.Monoidal.Cocartesian.>+<`.
 
 > prop> filtrate . uncurry (>+<) = id
 > prop> uncurry (>+<) . filtrate = id

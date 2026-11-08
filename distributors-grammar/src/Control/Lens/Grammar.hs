@@ -175,7 +175,7 @@ because @_SemVer@ is an `Control.Lens.Iso.Iso`.
 +------------+---------------+
 | `<|>`      | `>|<`         |
 +------------+---------------+
-| `choice`   | `orP`         |
+| @choice@   | `orP`         |
 +------------+---------------+
 | `many`     | `manyP`       |
 +------------+---------------+
@@ -184,7 +184,8 @@ because @_SemVer@ is an `Control.Lens.Iso.Iso`.
 | `optional` | `optionalP`   |
 +------------+---------------+
 
-You can generate a `RegString` from a `RegGrammar` with `regstringG`.
+You can generate a t'RegString' from a `RegGrammar`
+with `Control.Lens.Grammar.regstringG`.
 
 >>> putStringLn (regstringG semverGrammar)
 \p{Nd}+(.\p{Nd}+(.\p{Nd}+((-((\p{Ll}|\p{Lu}|\p{Nd}|-)+(.(\p{Ll}|\p{Lu}|\p{Nd}|-)+)*))?(\+((\p{Ll}|\p{Lu}|\p{Nd}|-)+(.(\p{Ll}|\p{Lu}|\p{Nd}|-)+)*))?)))
@@ -219,7 +220,8 @@ coming from the `BackusNaurForm` interface
 * `rule` abstraction,
 * and general recursion.
 
-`regexGrammar` and `regbnfGrammar` are examples of context-free
+`Control.Lens.Grammar.regexGrammar` and
+`Control.Lens.Grammar.regbnfGrammar` are examples of context-free
 `Grammar`s. Regular expressions are a form of expression algebra.
 Let's see a similar but simpler example,
 the algebra of arithmetic expressions of natural numbers.
@@ -398,7 +400,7 @@ but being unscoped means it isn't added to the context.
 If all bound actions are unscoped,
 and filtration & failure handling aren't used,
 then a `CtxGrammar` can be rewritten as a `Grammar` since it is context-free.
-We can't generate a `RegBnf` from a `CtxGrammar` since the `rule`s
+We can't generate a t'RegBnf' from a `CtxGrammar` since the `rule`s
 aren't static, but dynamic and contextual.
 We can generate parsers and printers as expected.
 
@@ -434,17 +436,19 @@ unrestricted filtration of grammars by computable predicates,
 which can recognize the larger class of recursively enumerable languages.
 
 Finally, `CtxGrammar`s support failure reporting and backtracking.
-This has no effect on `printG`, `parseG` or `unparseG`;
-but it effects `parsecG` and `unparsecG`.
+This has no effect on `Control.Lens.Grammar.printG`,
+`Control.Lens.Grammar.parseG` or `Control.Lens.Grammar.unparseG`;
+but it effects `Control.Lens.Grammar.parsecG`
+and `Control.Lens.Grammar.unparsecG`.
 For context, an @LL@ grammar can be (un)parsed by an @LL@ parser.
 An @LL@ parser (un)parses from left to right,
 and constucts leftmost derivations.
 An @LL(k)@ parser can look @k@ tokens ahead.
-`Parsor` is an @LL(∞)@ parser.
-`Parsector` is an @LL(1)@ parser.
+t'Parsor' is an @LL(∞)@ parser.
+t'Parsector' is an @LL(1)@ parser.
 The backtracking `try` combinator
-restores full lookahead to `Parsector`.
-Since both `Parsor` & `Parsector` are @LL@ parsers they
+restores full lookahead to t'Parsector'.
+Since both t'Parsor' & t'Parsector' are @LL@ parsers they
 diverge if the `CtxGrammar` they're run on is left-recursive.
 
 >>> parsecG (rule "foo" (fail "bar") >|< fail "baz") "abc"
@@ -473,7 +477,7 @@ type Lexical token p =
   , forall x y. (x ~ token, y ~ token) => TokenAlgebra token (p x y)
   ) :: Constraint
 
-{- | `RegString`s are an embedded domain specific language
+{- | t'RegString's are an embedded domain specific language
 of regular expression strings.
 
 Since they are strings, they have a string-like interface.
@@ -484,17 +488,18 @@ ab|c
 >>> rex
 "ab|c"
 
-`RegString`s can be generated from `RegGrammar`s with `regstringG`.
+t'RegString's can be generated from `RegGrammar`s
+with `Control.Lens.Grammar.regstringG`.
 
 >>> regstringG (terminal "a" >* terminal "b" >|< terminal "c")
 "ab|c"
 
-`RegString`s are actually stored as an algebraic datatype, `RegEx`.
+t'RegString's are actually stored as an algebraic datatype, `RegEx`.
 
 >>> runRegString rex
 RegExam (Alternate (Sequence (RegExam (OneOf (fromList "a"))) (RegExam (OneOf (fromList "b")))) (RegExam (OneOf (fromList "c"))))
 
-`RegString`s are similar to regular expression strings in many other
+t'RegString's are similar to regular expression strings in many other
 programming languages. We can use them to see if a word and pattern
 are `Matching`.
 
@@ -505,16 +510,16 @@ True
 >>> "xyz" =~ rex
 False
 
-Like `RegGrammar`s, `RegString`s can use all the `Lexical` combinators.
+Like `RegGrammar`s, t'RegString's can use all the `Lexical` combinators.
 Unlike `RegGrammar`s, instead of using `Monoidal` and `Alternator` combinators,
-`RegString`s use `Monoid` and `KleeneStarAlgebra` combinators.
+t'RegString's use `Monoid` and `KleeneStarAlgebra` combinators.
 
 >>> terminal "a" <> terminal "b" >|< terminal "c" :: RegString
 "ab|c"
 >>> mempty :: RegString
 ""
 
-Since `RegString`s are a `KleeneStarAlgebra`,
+Since t'RegString's are a `KleeneStarAlgebra`,
 they support Kleene quantifiers.
 
 >>> starK rex
@@ -524,7 +529,7 @@ they support Kleene quantifiers.
 >>> optK rex
 "(ab|c)?"
 
-Like other regular expression languages, `RegString`s support
+Like other regular expression languages, t'RegString's support
 character classes.
 
 >>> oneOf "abc" :: RegString
@@ -551,7 +556,7 @@ Additional forms of character classes test for a character's `GeneralCategory`.
 and the `Tokenized` combinators are all negatable.
 However, we'd like to be able to take the
 intersection of character classes as well.
-`RegString`s can combine characters' `tokenClass`es
+t'RegString's can combine characters' `tokenClass`es
 using `BooleanAlgebra` combinators.
 
 >>> tokenClass (notOneOf "abc" >&< notOneOf "xyz") :: RegString
@@ -565,7 +570,7 @@ using `BooleanAlgebra` combinators.
 >>> tokenClass (notP (oneOf "xyz")) :: RegString
 "[^xyz]"
 
-Ill-formed `RegString`s normalize to failure.
+Ill-formed t'RegString's normalize to failure.
 
 >>> fromString ")(" :: RegString
 "[]"
@@ -579,17 +584,17 @@ newtype RegString = RegString {runRegString :: RegEx Char}
     , Matching String
     )
 
-{- | `RegBnf`s are an embedded domain specific language
+{- | t'RegBnf's are an embedded domain specific language
 of Backus-Naur forms extended by regular expression strings.
 
-A `RegBnf` consists of a distinguished `RegString` "start" rule,
-and a set of named `RegString` `rule`s.
+A t'RegBnf' consists of a distinguished t'RegString' "start" rule,
+and a set of named t'RegString' `rule`s.
 
 >>> putStringLn (rule "baz" (terminal "foo" >|< terminal "bar") :: RegBnf)
 {start} = \q{baz}
 {baz} = foo|bar
 
-Like `RegString`s they have a string-like interface.
+Like t'RegString's they have a string-like interface.
 
 >>> let bnf = fromString "{start} = foo|bar" :: RegBnf
 >>> putStringLn bnf
@@ -599,12 +604,13 @@ Like `RegString`s they have a string-like interface.
 >>> :type toList bnf
 toList bnf :: [Char]
 
-`RegBnf`s can be generated from context-free `Grammar`s with `regbnfG`.
+t'RegBnf's can be generated from context-free `Grammar`s
+with `Control.Lens.Grammar.regbnfG`.
 
 >>> :type regbnfG regbnfGrammar
 regbnfG regbnfGrammar :: RegBnf
 
-Like `RegString`s, `RegBnf`s can be constructed using
+Like t'RegString's, t'RegBnf's can be constructed using
 `Lexical`, `Monoid` and `KleeneStarAlgebra` combinators.
 But they also support `BackusNaurForm` `rule`s and `ruleRec`s.
 
@@ -634,8 +640,8 @@ makeNestedPrisms ''GeneralCategory
 makeNestedPrisms ''RegString
 makeNestedPrisms ''RegBnf
 
-{- | `regexGrammar` is a context-free `Grammar` for `RegString`s.
-It can't be a `RegGrammar`, since `RegString`s include parenthesization.
+{- | `regexGrammar` is a context-free `Grammar` for t'RegString's.
+It can't be a `RegGrammar`, since t'RegString's include parenthesization.
 But [balanced parentheses](https://en.wikipedia.org/wiki/Dyck_language)
 are a context-free language.
 
@@ -817,7 +823,7 @@ charG = rule "char" $
       ]
 
 {- |
-`regbnfGrammar` is a context-free `Grammar` for `RegBnf`s.
+`regbnfGrammar` is a context-free `Grammar` for t'RegBnf's.
 That means that it can generate a self-hosted definition.
 
 >>> putStringLn (regbnfG regbnfGrammar)
@@ -844,14 +850,14 @@ regbnfGrammar = rule "regbnf" $ _RegBnf . _Bnf >~
     (terminal "\n" >* nonterminalG *< terminal " = " >*< regexGrammar)
 
 
-{- | `regstringG` generates a `RegString` from a regular grammar.
+{- | `regstringG` generates a t'RegString' from a regular grammar.
 Since context-free `Grammar`s and `CtxGrammar`s aren't necessarily regular,
 the type system will prevent `regstringG` from being applied to them.
 -}
 regstringG :: RegGrammar Char a -> RegString
 regstringG rex = runGrammor rex
 
-{- | `regbnfG` generates a `RegBnf` from a context-free `Grammar`.
+{- | `regbnfG` generates a t'RegBnf' from a context-free `Grammar`.
 Since `CtxGrammar`s aren't context-free,
 the type system will prevent `regbnfG` from being applied to a `CtxGrammar`.
 It can apply to a `RegGrammar`.
@@ -859,7 +865,7 @@ It can apply to a `RegGrammar`.
 regbnfG :: Grammar Char a -> RegBnf
 regbnfG bnf = runGrammor bnf
 
-{- | Compile a `Grammar` into a `Transducer`.
+{- | Compile a `Grammar` into a t'Transducer'.
 
 >>> let regexMachine = transducerG @Char regexGrammar
 
@@ -1081,7 +1087,7 @@ monadG
 monadG joker = runJoker joker
 
 {- | `putStringLn` is a utility that generalizes `putStrLn`
-to string-like interfaces such as `RegString` and `RegBnf`.
+to string-like interfaces such as t'RegString' and t'RegBnf'.
 -}
 putStringLn :: (IsList string, Item string ~ Char) => string -> IO ()
 putStringLn = putStrLn . toList

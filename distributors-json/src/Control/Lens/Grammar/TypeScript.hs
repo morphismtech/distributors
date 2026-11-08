@@ -284,7 +284,7 @@ instance Categorized TsToken where
   type Categorize TsToken = TsTokenCategory
   categorize = tokenCategory
 
--- | The categories of `TsToken`s, by the TypeScript compiler's names.
+-- | The categories of t'TsToken's, by the TypeScript compiler's names.
 data TsTokenCategory
   = WhitespaceTrivia
   | NewLineTrivia

@@ -41,7 +41,7 @@ import GHC.Generics
 
 Every `Control.Lens.Iso.Iso` and `Control.Lens.Monocle` is a `Diopter`.
 
-`Diopter`s are isomorphic to `Dioptrice`s.
+`Diopter`s are isomorphic to t'Dioptrice's.
 -}
 type Diopter s t a b = forall p f.
   (Distributor p, Applicative f)
@@ -91,7 +91,7 @@ homogenized :: Homogeneous t => Diopter (t a) (t b) a b
 homogenized = unwrapPafb . homogeneously . WrapPafb
 
 {- | Zip sources of `ADiopter` in the positions of a `Traversable`,
-when they have the same shape, or else `empty`.
+when they have the same shape, or else `Control.Applicative.empty`.
 
 >>> zipDiopter manied (Just . sum) [[1, 2], [3, 4], [5, 6 :: Int]]
 Just [9,12]
@@ -124,7 +124,7 @@ Just [[1,4],[2,5],[3,6]]
 transposeDiopter :: Traversable f => ADiopter s t a (f a) -> f s -> Maybe t
 transposeDiopter dio = zipDiopter dio Just
 
-{- | A `Dioptrice` provides efficient access
+{- | A t'Dioptrice' provides efficient access
 to some pair of functions that make up a `Diopter`.
 -}
 data Dioptrice a b s t where
@@ -157,7 +157,7 @@ instance Distributor (Dioptrice a b) where
     (Comp1 . fmap f)
     (fmap g . unComp1)
 
-{- | Run a `Dioptrice` on a `Distributor`. -}
+{- | Run a t'Dioptrice' on a `Distributor`. -}
 runDioptrice
   :: Distributor p
   => Dioptrice a b s t

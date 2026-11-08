@@ -46,14 +46,14 @@ data SepBy p = SepBy
     , Eq, Ord, Show, Read
     )
 
-{- | A `SepBy` smart constructor,
+{- | A t'SepBy' smart constructor,
 setting the `separateBy` field.
 Beginning and ending delimitors will be no-ops,
 except by modifier record updates `beginBy` or `endBy`. -}
 sepBy :: Applicative p => p () -> SepBy (p ())
 sepBy = SepBy (pure ()) (pure ())
 
-{- | A `SepBy` smart constructor for no separator,
+{- | A t'SepBy' smart constructor for no separator,
 beginning or ending delimiters. -}
 noSep :: Applicative p => SepBy (p ())
 noSep = sepBy (pure ())
@@ -99,7 +99,7 @@ chain1 association pat (SepBy beg end sep) = leftOrRight chainl1 chainr1
     chainl1 p = difoldl pat >? beg >* p >*< manyP (sep >* p) *< end
     chainr1 p = difoldr pat >? beg >* manyP (p *< sep) >*< p *< end
 
-{- | Add a `SepBy` to `replicateP` using `intercalateP`. -}
+{- | Add a t'SepBy' to `replicateP` using `intercalateP`. -}
 intercalateP
   :: (Monoidal p, Choice p, AsEmpty s, Cons s s a a)
   => Int {- ^ number of repetitions -}

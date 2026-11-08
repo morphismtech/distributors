@@ -427,7 +427,7 @@ transposeHomogeneous
 transposeHomogeneous = zipHomogeneous Just
 
 
-{- | `Indexing` numbers the copies of a sum of products, from 0,
+{- | t'Indexing' numbers the copies of a sum of products, from 0,
 left to right, & products row by row, both ways:
 how many copies there are, which copy a source is, & the copy at an index.
 -}
@@ -458,7 +458,7 @@ instance Cochoice Indexing where
     (which . Right) (select >=> either (const Nothing) Just)
 
 
-{- | `Zipporah` is a profunctor @p@ between functors, like `Data.Bifunctor.Biff`,
+{- | t'Zipporah' is a profunctor @p@ between functors, like `Data.Bifunctor.Biff`,
 but lifting @p@'s instances through @g@, & splitting sums by @f@,
 which fail in @g@ unless every position of @f@ holds the same copy.
 -}

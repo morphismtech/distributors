@@ -273,6 +273,9 @@ like `Control.Arrow.arr`.
 arrP :: (Monoidal p, Strong p) => (a -> b) -> p a b
 arrP f = fmap f idP
 
+{- | The fixed point of a function, like `Data.Function.fix`,
+by `Costrong`'s `unfirst`, like `Control.Arrow.loop`.
+-}
 fixP :: (Monoidal p, Strong p, Costrong p) => p (a -> a) a
 fixP = let dup x = (x,x) in unfirst (arrP (uncurry (dup .)))
 

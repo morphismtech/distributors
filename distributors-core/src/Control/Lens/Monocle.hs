@@ -71,7 +71,7 @@ import Numeric.Natural (Natural)
 
 Every `Control.Lens.Iso.Iso` is a `Monocle`.
 
-`Monocle`s are isomorphic to `Monocular`s.
+`Monocle`s are isomorphic to t'Monocular's.
 -}
 type Monocle s t a b = forall p f.
   (Monoidal p, Applicative f)
@@ -81,7 +81,7 @@ type Monocle s t a b = forall p f.
 type AMonocle s t a b =
   Monocular a b a (Identity b) -> Monocular a b s (Identity t)
 
-{- | Build a `Monocle` from a concrete `Monocular`. -}
+{- | Build a `Monocle` from a concrete t'Monocular'. -}
 monocle :: Monocular a b s t -> Monocle s t a b
 monocle mon = unwrapPafb . runMonocular mon . WrapPafb
 
@@ -136,7 +136,7 @@ forevered = unwrapPafb . foreverP . WrapPafb
 withMonocle :: Applicative f => AMonocle s t a b -> ((s -> a) -> f b) -> f t
 withMonocle mon = unMonocular (runIdentity <$> mon (Identity <$> Monocular ($ id)))
 
-{- | `Monocular` provides an efficient
+{- | t'Monocular' provides an efficient
 concrete representation of `Monocle`s. -}
 newtype Monocular a b s t = Monocular
   {unMonocular :: forall f. Applicative f => ((s -> a) -> f b) -> f t}
@@ -148,7 +148,7 @@ instance Applicative (Monocular a b s) where
   pure t = Monocular (pure (pure t))
   Monocular x <*> Monocular y = Monocular (liftA2 (<*>) x y)
 
-{- | Run a `Monocular` on a `Monoidal` `Profunctor`. -}
+{- | Run a t'Monocular' on a `Monoidal` `Profunctor`. -}
 runMonocular :: Monoidal p => Monocular a b s t -> p a b -> p s t
 runMonocular (Monocular k) p = k $ \f -> lmap f p
 
@@ -162,7 +162,7 @@ whose residue is which copy is held.
 >>> view _Enumerable (Identity 'a')
 'a'
 
-`Comonocle`s are isomorphic to `Comonocular`s.
+`Comonocle`s are isomorphic to t'Comonocular's.
 -}
 type Comonocle s t a b = forall p f.
   (CocartesianMonoidal p, Functor f)
@@ -172,7 +172,7 @@ type Comonocle s t a b = forall p f.
 type AComonocle s t a b =
   Comonocular a b a (Identity b) -> Comonocular a b s (Identity t)
 
-{- | Build a `Comonocle` from a concrete `Comonocular`. -}
+{- | Build a `Comonocle` from a concrete t'Comonocular'. -}
 comonocle :: Comonocular a b s t -> Comonocle s t a b
 comonocle mon = unwrapPafb . runComonocular mon . WrapPafb
 
@@ -256,7 +256,7 @@ zipWithComonocle mon f s0 s1 =
   zipComonocle mon (\(Par1 a0 :*: Par1 a1) -> Just (f a0 a1)) (Par1 s0 :*: Par1 s1)
 
 {- | Zip sources of `AComonocle` in the positions of a `Traversable`,
-when they all hold the same copy, or else `empty`.
+when they all hold the same copy, or else `Control.Applicative.empty`.
 
 >>> zipComonocle (altComonocle id id) (Just . sum) [Left 1, Left 2, Left 3 :: Either Int Int]
 Just (Left 6)
@@ -343,7 +343,7 @@ numbered by `fromEnum` from `minBound`.
 _BoundedEnum :: (Bounded a, Enum a) => Comonocle a a () ()
 _BoundedEnum = iso (\x -> (x,())) (\(x,()) -> x) . _Enumerable
 
-{- | `Comonocular` provides a concrete representation of `Comonocle`s,
+{- | t'Comonocular' provides a concrete representation of `Comonocle`s,
 by an `Enumerable` sum of copies.
 -}
 data Comonocular a b s t where
@@ -360,7 +360,7 @@ instance CocartesianMonoidal (Comonocular a b) where
     (either (L1 . split0) (R1 . split1))
     (\case L1 x -> Left (merge0 x); R1 y -> Right (merge1 y))
 
-{- | Run a `Comonocular` on a `CocartesianMonoidal` `Profunctor`. -}
+{- | Run a t'Comonocular' on a `CocartesianMonoidal` `Profunctor`. -}
 runComonocular
   :: CocartesianMonoidal p => Comonocular a b s t -> p a b -> p s t
 runComonocular (Comonocular split merge) = dimap split merge . enumerably

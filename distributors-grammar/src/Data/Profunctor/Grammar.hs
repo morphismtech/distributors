@@ -44,7 +44,7 @@ import Data.Void
 import Prelude hiding (id, (.))
 import GHC.Exts
 
--- | `Printor` is a simple printer `Profunctor`.
+-- | t'Printor' is a simple printer `Profunctor`.
 newtype Printor s f a b = Printor {runPrintor :: a -> f (b, s -> s)}
 
 -- | Run the printer on a value, returning a function
@@ -53,7 +53,7 @@ newtype Printor s f a b = Printor {runPrintor :: a -> f (b, s -> s)}
 printP :: Functor f => Printor s f a b -> a -> f (s -> s)
 printP (Printor f) = fmap snd . f
 
--- | `Parsor` is a simple invertible parser `Profunctor`.
+-- | t'Parsor' is a simple invertible parser `Profunctor`.
 newtype Parsor s f a b = Parsor {runParsor :: Maybe a -> s -> f (b,s)}
 
 -- | Run the parser on an input string,
@@ -68,7 +68,7 @@ parseP (Parsor f) = f Nothing
 unparseP :: Functor f => Parsor s f a b -> a -> s -> f s
 unparseP (Parsor f) a = fmap snd . f (Just a)
 
--- | `Grammor` is a constant `Profunctor`.
+-- | t'Grammor' is a constant `Profunctor`.
 newtype Grammor k a b = Grammor {runGrammor :: k}
 
 -- Parsor instances

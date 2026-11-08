@@ -55,7 +55,7 @@ Every one of the following is a `Bifocal`.
 * `Control.Lens.Diopter.Diopter`
 * `Prismoid` & `Filtroid`
 
-`Bifocal`s are isomorphic to `Binocular`s.
+`Bifocal`s are isomorphic to t'Binocular's.
 -}
 type Bifocal s t a b = forall p f.
   (Alternator p, Filtrator p, Alternative f, Filterable f)
@@ -76,7 +76,7 @@ type Filtroid s t a b = forall p f.
   (Filtrator p, Filterable f)
     => p a (f b) -> p s (f t)
 
-{- | Build a `Bifocal` from a concrete `Binocular`. -}
+{- | Build a `Bifocal` from a concrete t'Binocular'. -}
 bifocal :: Binocular a b s t -> Bifocal s t a b
 bifocal bif = unwrapPafb . runBinocular bif . WrapPafb
 
@@ -145,7 +145,7 @@ withBifocal
   => ABifocal s t a b -> ((s -> Maybe a) -> f b) -> f t
 withBifocal bif = unBinocular (catMaybes (bif (Just <$> Binocular ($ Just))))
 
-{- | `Binocular` provides an efficient
+{- | t'Binocular' provides an efficient
 concrete representation of `Bifocal`s. -}
 newtype Binocular a b s t = Binocular
   { unBinocular
@@ -189,7 +189,7 @@ instance CocartesianChoice (Binocular a b)
 instance Alternator (Binocular a b)
 instance Filtrator (Binocular a b)
 
-{- | Run a `Binocular` on a partial `Distributor`. -}
+{- | Run a t'Binocular' on a partial `Distributor`. -}
 runBinocular
   :: (Alternator p, Filtrator p)
   => Binocular a b s t

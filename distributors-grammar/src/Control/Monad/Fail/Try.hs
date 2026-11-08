@@ -51,7 +51,7 @@ class
 
   {- | A handler for failures.
   Used for backtracking state on failure in
-  `Data.Profunctor.Grammar.Parsector.Parsector`.
+  t'Data.Profunctor.Grammar.Parsector.Parsector'.
   -}
   try :: m a -> m a
   default try :: m a -> m a

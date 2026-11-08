@@ -42,7 +42,7 @@ import Data.Profunctor.Monoidal
 
 Every `Control.Lens.Monocle.Monocle` is a `Grate`.
 
-`Grate`s are isomorphic to `Grating`s.
+`Grate`s are isomorphic to t'Grating's.
 -}
 type Grate s t a b = forall p f.
   (Closed p, Monoidal p, Distributive f, Applicative f)
@@ -99,7 +99,7 @@ distributeOf grt = cotraverseOf grt id
 collectOf :: Functor f => AGrate s t b (f b) -> (a -> s) -> f a -> t
 collectOf grt f = distributeOf grt . fmap f
 
-{- | `Grating` provides an efficient
+{- | t'Grating' provides an efficient
 concrete representation of `Grate`s. -}
 newtype Grating a b s t = Grating
   {runGrating :: ((s -> a) -> b) -> t}

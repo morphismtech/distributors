@@ -84,7 +84,7 @@ by combining `Control.Lens.Prism.Prism`s and `coPrism`s.
 
 Every `Control.Lens.Iso.Iso` & `Control.Lens.Prism.Prism` is `APartialIso`.
 
-`PartialIso`s are isomorphic to `PartialExchange`s.
+`PartialIso`s are isomorphic to t'PartialExchange's.
 -}
 type PartialIso s t a b = forall p f.
   (Choice p, Cochoice p, Applicative f, Filterable f)
@@ -118,7 +118,7 @@ type PartialIso' s a = PartialIso s s a a
 type APartialIso s t a b =
   PartialExchange a b a (Maybe b) -> PartialExchange a b s (Maybe t)
 
-{- | A `PartialExchange` provides efficient access
+{- | A t'PartialExchange' provides efficient access
 to the two functions that make up a `PartialIso`.
 -}
 data PartialExchange a b s t =

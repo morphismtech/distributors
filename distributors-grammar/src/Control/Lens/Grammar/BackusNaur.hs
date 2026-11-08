@@ -76,8 +76,8 @@ class BackusNaurForm bnf where
   ruleRec :: String -> (bnf -> bnf) -> bnf
   ruleRec _ = fix
 
-{- | A `Bnf` consists of a distinguished starting rule
-and a set of named rules. When a `Bnf` supports `NonTerminalSymbol`s,
+{- | A t'Bnf' consists of a distinguished starting rule
+and a set of named rules. When a t'Bnf' supports `NonTerminalSymbol`s,
 then it supports the `BackusNaurForm` interface
 by replacing recursive calls with `nonTerminal`s.
 
@@ -89,15 +89,15 @@ data Bnf rule = Bnf
   , rulesBnf :: Set (String, rule)
   } deriving stock (Eq, Ord, Show, Read)
 
-{- | Lift a rule to a `Bnf`. -}
+{- | Lift a rule to a t'Bnf'. -}
 liftBnf0 :: Ord a => a -> Bnf a
 liftBnf0 a = Bnf a mempty
 
-{- | Lift a function of rules to `Bnf`s. -}
+{- | Lift a function of rules to t'Bnf's. -}
 liftBnf1 :: (Coercible a b, Ord b) => (a -> b) -> Bnf a -> Bnf b
 liftBnf1 f (Bnf start rules) = Bnf (f start) (Set.map coerce rules)
 
-{- | Lift a binary function of rules to `Bnf`s. -}
+{- | Lift a binary function of rules to t'Bnf's. -}
 liftBnf2
   :: (Coercible a c, Coercible b c, Ord c)
   => (a -> b -> c) -> Bnf a -> Bnf b -> Bnf c
@@ -107,7 +107,7 @@ liftBnf2 f (Bnf start0 rules0) (Bnf start1 rules1) =
 {- |
 The [Brzozowski derivative]
 (https://dl.acm.org/doi/pdf/10.1145/321239.321249) of a
-`RegEx`tended `Bnf`, with memoization.
+`RegEx`tended t'Bnf', with memoization.
 
 > prop> word =~ diffB prefix pattern = prefix <> word =~ pattern
 

@@ -44,15 +44,15 @@ import Data.Tree
 import GHC.Exts
 import Prelude hiding (id, (.))
 
-{- | `Parsector` is an invertible @LL(1)@ parser which is intended
+{- | t'Parsector' is an invertible @LL(1)@ parser which is intended
 to provide detailed failure information, based on [Parsec]
 (https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/parsec-paper-letter.pdf).
 -}
 newtype Parsector s a b = Parsector
   {runParsector :: forall x. (ParsecState s b -> x) -> ParsecState s a -> x}
 
-{- | Run `Parsector` as a parser: consume tokens from @s@,
-left to right, returning a `ParsecState` whose `parsecResult`
+{- | Run t'Parsector' as a parser: consume tokens from @s@,
+left to right, returning a t'ParsecState' whose `parsecResult`
 is `Nothing` on failure and `Just` the output syntax value on success. -}
 parsecP
   :: Categorized (Item s)
@@ -61,9 +61,9 @@ parsecP
   -> ParsecState s b
 parsecP p s = runParsector p id (ParsecState False 0 s mempty Nothing)
 
-{- | Run `Parsector` as a printer: given a syntax value @a@ and
+{- | Run t'Parsector' as a printer: given a syntax value @a@ and
 an input stream, append tokens to @s@ left to right,
-returning a `ParsecState` whose `parsecResult` is
+returning a t'ParsecState' whose `parsecResult` is
 `Nothing` on failure or `Just` a successful output syntax value,
 in which case, `parsecStream` is the output stream. -}
 unparsecP
@@ -74,13 +74,13 @@ unparsecP
   -> ParsecState s b
 unparsecP p a s = runParsector p id (ParsecState False 0 s mempty (Just a))
 
-{- | `ParsecState` is both the input and output type of the
-underlying function inside `Parsector`.
+{- | t'ParsecState' is both the input and output type of the
+underlying function inside t'Parsector'.
 @Parsector s a b@ is equivalent to
 
 @ParsecState s a -> ParsecState s b@
 
-So `ParsecState` has a dual interpretation as input and output. -}
+So t'ParsecState' has a dual interpretation as input and output. -}
 data ParsecState s a = ParsecState
   { parsecLooked :: !Bool
     {- ^ `True` once the parser has consumed/produced at least one token
@@ -93,7 +93,7 @@ data ParsecState s a = ParsecState
     -- ^ Number of tokens consumed from the start of the stream.
   , parsecStream :: s -- ^ stream
   , parsecFailure  :: ParsecFailure s
-    {- ^ `ParsecFailure` channel.
+    {- ^ t'ParsecFailure' channel.
 
     * If `parsecResult` is `Nothing`, this is the hard failure.
     * If `parsecResult` is `Just`, this is deferred failure/hint info
@@ -112,9 +112,9 @@ data ParsecState s a = ParsecState
     -}
   }
 
-{- | `ParsecFailure` is the failure payload produced by `Parsector`,
+{- | t'ParsecFailure' is the failure payload produced by t'Parsector',
 stored in `parsecFailure`.
-`ParsecFailure` is a `Monoid` and `Parsector` merges failures/hints
+t'ParsecFailure' is a `Monoid` and t'Parsector' merges failures/hints
 when control flow reaches the same offset without commitment.
 -}
 data ParsecFailure s = ParsecFailure

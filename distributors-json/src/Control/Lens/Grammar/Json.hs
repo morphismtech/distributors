@@ -34,7 +34,7 @@ Failures are located, & name what they expected.
 
 = @aeson@
 
-`ViaJson` derives @aeson@'s instances, & `jsonGeneric` takes
+t'ViaJson' derives @aeson@'s instances, & `jsonGeneric` takes
 @aeson@'s `Aeson.Options`.
 
 >>> :{
@@ -288,7 +288,7 @@ class Json a where
 
   {- | `Data.Aeson.toJSONList` & `Data.Aeson.parseJSONList`,
   as one grammar, an array of values by default.
-  `Char` and wrappers override it, so that a `String` is a JSON string.
+  `Char` and wrappers override it, so that a t'String' is a JSON string.
   -}
   jsonList :: JsonVal p => p [a] [a]
   jsonList = jsonArray json
@@ -354,7 +354,7 @@ jsonErrorEncode = runJsonPrintor json
 {-# INLINE jsonErrorEncode #-}
 
 {- | @aeson@'s instances, derived from a `Json` instance, failing to parse
-at the path of a `JsonError`, by its message: `Aeson.ToJSON` &
+at the path of a t'JsonError', by its message: `Aeson.ToJSON` &
 `Aeson.FromJSON`, with their fields omitted by `jsonOmitField`, &
 `Aeson.ToJSONKey` & `Aeson.FromJSONKey`, by `jsonKey` & `jsonKeyList`,
 or else as values, in arrays of pairs.
@@ -412,7 +412,7 @@ keyParser
 keyParser key = Aeson.FromJSONKeyTextParser
   (either parseFailure pure . runJsonParsor key . String)
 
--- | Fail to parse at the path of a `JsonError`, by its message.
+-- | Fail to parse at the path of a t'JsonError', by its message.
 parseFailure :: JsonError -> Aeson.Parser x
 parseFailure err =
   Aeson.parserThrowError (jsonErrorPath err) (jsonErrorMessage err)
@@ -672,7 +672,7 @@ data JsonError = JsonError
   , jsonErrorRules :: Forest String
   } deriving stock (Eq, Show)
 
--- | How a `JsonError` failed, so that alternatives report the closest.
+-- | How a t'JsonError' failed, so that alternatives report the closest.
 data JsonErrorSort
   = JsonLiteral
   -- ^ a string literal mismatch; the alternative doesn't apply
@@ -682,7 +682,7 @@ data JsonErrorSort
   -- ^ the value was rejected for what it contains, lacks or repeats
   deriving stock (Eq, Ord, Show)
 
-{- | A `JsonError`'s message, without its path, as @aeson@ words it.
+{- | The message of a t'JsonError', without its path, as @aeson@ words it.
 
 >>> either jsonErrorMessage show (jsonParse @Bool (Aeson.String "yes"))
 "expected boolean, but found \"yes\""
@@ -769,7 +769,7 @@ jsonOrElse err1 err2
 
 -- Parsing interpreters --
 
-{- | `JsonParsor` parses a `Value`. It may also have a `Dispatch`,
+{- | t'JsonParsor' parses a `Value`. It may also have a t'Dispatch',
 when it only accepts string literals, as values or as the values of
 a key of objects, so that alternatives are chosen by lookup,
 rather than tried in turn.
@@ -824,7 +824,7 @@ orElse p q v = case p v of
   Left err1 -> onFailure (jsonOrElse err1) (q v)
   success -> success
 
-{- | `TupParsor` parses the elements of a JSON array from a position,
+{- | t'TupParsor' parses the elements of a JSON array from a position,
 in every way it can, so that optional and rest elements backtrack.
 A tuple of fixed length also parses its elements from known positions.
 -}
@@ -833,7 +833,7 @@ data TupParsor a b = TupParsor
   , runTupParsor :: Vector Value -> Int -> [Either JsonError (b, Int)]
   }
 
-{- | `ObjParsor` reads keys of an `Object`, ignoring other keys,
+{- | t'ObjParsor' reads keys of an t'Object', ignoring other keys,
 unless it reads the rest of them, those which the object doesn't name.
 Its keys are known before parsing, so overlapping keys are found once,
 as are its tags, keys which only accept string literals,
@@ -947,7 +947,7 @@ instance JsonVal JsonParsor where
   jsonObject obj = objectParsor False obj
   jsonObjectStrict obj = objectParsor True obj
 
-{- | Parse an `Object` by its properties, and, if it's rejecting,
+{- | Parse an t'Object' by its properties, and, if it's rejecting,
 reject the first property which isn't named, as `jsonObjectStrict`'s
 default would, but without parsing the rest of the properties.
 -}
@@ -1100,7 +1100,7 @@ showKey = show . Key.toText
 
 -- Printing interpreters --
 
--- | @aeson@'s representations of JSON strings, `Value`, `Encoding` & `Key`.
+-- | @aeson@'s representations of JSON strings, `Value`, `Encoding` & t'Key'.
 class AesonStr val where
   aesonText :: Text -> val
   aesonString :: String -> val
@@ -1142,8 +1142,8 @@ instance AesonStr (Encoding.Encoding' a) where
 retagEncoding :: Encoding.Encoding' a -> Encoding.Encoding' b
 retagEncoding = Encoding.unsafeToEncoding . Encoding.fromEncoding
 
-{- | `KeyPrintor` prints the key of an `Object`, which is total,
-as a `Key` or as its `Encoding.Encoding'`.
+{- | t'KeyPrintor' prints the key of an t'Object', which is total,
+as a t'Key' or as its `Encoding.Encoding'`.
 -}
 newtype KeyPrintor key a b = KeyPrintor {runKeyPrintor :: a -> key}
 
@@ -1299,7 +1299,7 @@ instance AesonVal Encoding where
   {-# INLINE aesonPropsEmpty #-}
   {-# INLINE aesonProps #-}
 
-{- | `JsonPrintor` `printorTry`s to print a value, or else `printorCheck`s it
+{- | t'JsonPrintor' `printorTry`s to print a value, or else `printorCheck`s it
 to locate the failure. A `printorTotal` printor prints every value,
 so it `printorRender`s it without trying. Totality is determined
 through `rule`s, assuming those being determined are total.
@@ -1321,19 +1321,19 @@ runJsonPrintor p
   | otherwise = \a -> maybe (printorCheck p a) Right (printorTry p a)
 {-# INLINE runJsonPrintor #-}
 
--- | A total `JsonPrintor`.
+-- | A total t'JsonPrintor'.
 printing :: (a -> val) -> JsonPrintor val a b
 printing render =
   JsonPrintor (const True) (Just . render) render (Right . render) Nothing
 {-# INLINE printing #-}
 
--- | A total `JsonPrintor` of a primitive.
+-- | A total t'JsonPrintor' of a primitive.
 primitive :: AesonStr val => (a -> val) -> JsonPrintor val a b
 primitive render =
   (printing render) {printorRenderArray = aesonPrimitives render}
 {-# INLINE primitive #-}
 
-{- | A partial `JsonPrintor`, rendering what it tries,
+{- | A partial t'JsonPrintor', rendering what it tries,
 or else null, as `jsonPrint` does.
 -}
 trying
@@ -1352,7 +1352,7 @@ tryAll total attempt render = \as -> if isTotal
   where
     isTotal = total Set.empty
 
-{- | `TupPrintor` prints the elements of a JSON array,
+{- | t'TupPrintor' prints the elements of a JSON array,
 counted to locate a failure of a later element.
 A single element keeps its rendering, so that mapping it composes.
 -}
@@ -1385,7 +1385,7 @@ instance Semigroup (Elements val) where
 instance Monoid (Elements val) where
   mempty = Elements (Right (0, mempty))
 
-{- | `ObjPrintor` writes keys of an `Object`.
+{- | t'ObjPrintor' writes keys of an t'Object'.
 Its keys are known before printing, so overlapping keys are found once,
 unless it writes the rest of the properties, whose keys are checked.
 -}
@@ -1648,7 +1648,7 @@ instance AesonVal val => Choice (TupPrintor val) where
 unprintable :: Elements val
 unprintable = Elements (jsonUnexpected Nothing)
 
--- | A partial `TupPrintor`, rendering what it tries, or else nothing.
+-- | A partial t'TupPrintor', rendering what it tries, or else nothing.
 tupTrying
   :: AesonVal val
   => (a -> Maybe (DList val)) -> (a -> Elements val) -> TupPrintor val a b
@@ -1761,7 +1761,7 @@ instance AesonVal val => DisjunctiveMonoid (ObjPrintor val a b) where
       Left err -> onFailure (jsonOrElse err) (objPrintorCheck q a)
       success -> success)
 
--- | A partial `ObjPrintor` of another's shapes, rendering what it tries.
+-- | A partial t'ObjPrintor' of another's shapes, rendering what it tries.
 objTrying
   :: AesonVal val
   => ObjPrintor val x y
@@ -1865,7 +1865,7 @@ printProperty key p a =
 -- Types of JSON --
 
 {- | The type of JSON values, which a grammar describes,
-of rules by their names, in a `Bnf`, as `jsonType` describes them.
+of rules by their names, in a t'Bnf', as `jsonType` describes them.
 It's the union of its alternatives, so that `falseP` is the type of
 no values.
 -}
@@ -2020,7 +2020,7 @@ jsonTsPut as handle = case (parsecResult printed, parsecResult source) of
       <> show (parsecOffset stage) <> ", expecting "
       <> show (parsecExpect (parsecFailure stage))
 
-{- | `JsonTypor` types the JSON of a grammar, reading the rules being typed
+{- | t'JsonTypor' types the JSON of a grammar, reading the rules being typed
 which are unguarded by an array, object or tuple, each noting whether it's
 been unrolled, & updating the rules & their types.
 -}

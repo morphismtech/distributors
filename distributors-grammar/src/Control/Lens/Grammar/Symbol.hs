@@ -39,7 +39,7 @@ class TerminalSymbol token s | s -> token where
 class NonTerminalSymbol s where
   nonTerminal :: String -> s
 
-{- | A `SepBy` smart constructor like `sepBy`,
+{- | A t'SepBy' smart constructor like `sepBy`,
 with a `terminal` argument.
 Beginning and ending delimitors will be no-ops,
 except by applying smart modifiers `beginWith` or `endWith`. -}
@@ -48,12 +48,12 @@ sepWith
   => [c] -> SepBy (p ())
 sepWith = sepBy . terminal
 
-{- | A `SepBy` smart modifier like `beginBy`,
+{- | A t'SepBy' smart modifier like `beginBy`,
 with a `terminal` argument. -}
 beginWith :: TerminalSymbol c p => [c] -> SepBy p -> SepBy p
 beginWith str separator = separator {beginBy = terminal str}
 
-{- | A `SepBy` smart modifier like `endBy`,
+{- | A t'SepBy' smart modifier like `endBy`,
 with a `terminal` argument. -}
 endWith :: TerminalSymbol c p => [c] -> SepBy p -> SepBy p
 endWith str separator = separator {endBy = terminal str}

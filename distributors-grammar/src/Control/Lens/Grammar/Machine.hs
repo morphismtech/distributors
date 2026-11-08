@@ -57,13 +57,13 @@ instance Categorized token
 instance Matching s (APrism s t a b) where
   word =~ pattern = is pattern word
 
-{-| A `Transducer` is a tuple
+{-| A t'Transducer' is a tuple
 
 @
 T = (Σ, Δ, Q, I ⊆ Q, F ∈ Q, transition ⊆ Q × (Σ ∪ ∆) × Q, output ⊆ Q × ∆)
 @
 
-* @Σ@ is a (possibly infinite) set of terminal token classes, represented by `TokenClass`es.
+* @Σ@ is a (possibly infinite) set of terminal token classes, represented by t'TokenClass'es.
 * @Δ@ is a finite set of nonterminals, represented by the key set of `transducerRules`.
 * @Q@ is a set of states, which is represented by the key set of `transducerRelations`.
 * @I@ are initial states represented by `transducerStarts`.
@@ -80,13 +80,13 @@ data Transducer token = Transducer
   -- ^ an index into `transducerRelations` for the starting rule
   }
 
--- | A `TransducerStep` in a `Transducer`.
+-- | A `TransducerStep` in a t'Transducer'.
 data TransducerStep token
   = TransitionTokenClass (TokenClass token) IntSet
   | TransitionNonTerminal String IntSet
   | EmitNonTerminal String
 
-{- | Compile a `RegEx`tended `Bnf` into a `Transducer`,
+{- | Compile a `RegEx`tended t'Bnf' into a t'Transducer',
 using a combination of Thompson's algorithm for regular expressions
 and Earley's algorithm for context-free grammars. See Jim & Mandelbaum,
 [Efficient Earley Parsing with Regular Right-hand Sides]
@@ -364,7 +364,7 @@ prefixGen et word = go 0 (initialChart et) word
           _ -> acc
 
 {- | What token is expected next?
-The scanner frontier, `expectNext` returns the `TokenClass`
+The scanner frontier, `expectNext` returns the t'TokenClass'
 that can be scanned next after the given input prefix.
 A `falseP` result means the current chart has no scanner transitions,
 i.e. the prefix is a dead end for recognition.
@@ -404,7 +404,7 @@ unreachableRules et =
 
 {- |
 `languageSample` lazily produces all words in a language from shortest to longest.
-However since `TokenClass`es can resolve to infinite sets of tokens,
+However since t'TokenClass'es can resolve to infinite sets of tokens,
 and the relevant case of `Char` tokens while not infinite is huge,
 it samples tokens in an `Applicative` `TokenAlgebra`.
 -}
