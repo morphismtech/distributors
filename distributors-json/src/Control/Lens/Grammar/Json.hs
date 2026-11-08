@@ -306,17 +306,13 @@ class Json a where
   jsonKeyList :: Maybe (forall k. JsonStr k => k [a] [a])
   jsonKeyList = Nothing
 
-  {- | `Data.Aeson.omitField`, whether a record's field of the value
-  may be omitted, by `Aeson.omitNothingFields`.
+  {- | `Data.Aeson.omitField` & `Data.Aeson.omittedField` together,
+  as the value of a record's field which may be omitted, like `nearly`:
+  it matches the value omitted by `Aeson.omitNothingFields`,
+  & reviews the value of a field omitted by `Aeson.allowOmittedFields`.
   -}
-  jsonOmitField :: a -> Bool
-  jsonOmitField _ = False
-
-  {- | `Data.Aeson.omittedField`, the value of a record's field which is
-  omitted, by `Aeson.allowOmittedFields`.
-  -}
-  jsonOmittedField :: Maybe a
-  jsonOmittedField = Nothing
+  jsonOmit :: Maybe (APrism' a ())
+  jsonOmit = Nothing
 
 -- Running Json grammars --
 
@@ -2500,8 +2496,7 @@ instance Json Ordering where
   json = jsonTyped (enumerated (Text.pack . show))
 instance Json () where
   json = jsonTuple oneP
-  jsonOmitField _ = True
-  jsonOmittedField = Just ()
+  jsonOmit = Just (only ())
 instance Json Void where
   json = zeroP
   jsonKey = Just (prism' absurd (const Nothing) ?< jsonText)
@@ -2524,8 +2519,7 @@ instance Json a => Json [a] where
   jsonKey = jsonKeyList @a
 instance Json a => Json (Maybe a) where
   json = jsonNullable json
-  jsonOmitField = isNothing
-  jsonOmittedField = Just Nothing
+  jsonOmit = Just _Nothing
 instance (Json a, Json b) => Json (Either a b) where
   json = jsonTag "Left" json >+< jsonTag "Right" json
 instance Json Double where
@@ -2600,15 +2594,13 @@ instance Json a => Json (Solo a) where
   jsonKeyList = overKey (iso (map getSolo) (map MkSolo) >~) (jsonKeyList @a)
 instance Json a => Json (Identity a) where
   json = coerced >~ json @a
-  jsonOmitField = coerce (jsonOmitField @a)
-  jsonOmittedField = coerce (jsonOmittedField @a)
+  jsonOmit = (coerced .) <$> jsonOmit @a
   jsonList = coerced >~ jsonList @a
   jsonKey = overKey (coerced >~) (jsonKey @a)
   jsonKeyList = overKey (coerced >~) (jsonKeyList @a)
 instance Json a => Json (Const a b) where
   json = coerced >~ json @a
-  jsonOmitField = coerce (jsonOmitField @a)
-  jsonOmittedField = coerce (jsonOmittedField @a)
+  jsonOmit = (coerced .) <$> jsonOmit @a
   jsonKey = overKey (coerced >~) (jsonKey @a)
 instance Json (f (g a)) => Json (Compose f g a) where
   json = coerced >~ json @(f (g a))
@@ -2652,8 +2644,7 @@ instance Json Semigroup.All where json = coerced >~ json @Bool
 instance Json Semigroup.Any where json = coerced >~ json @Bool
 instance Json (Proxy a) where
   json = dimap (const ()) (const Proxy) jsonNull
-  jsonOmitField _ = True
-  jsonOmittedField = Just Proxy
+  jsonOmit = Just (only Proxy)
 -- tuples
 -- | An element of a tuple, by its projection.
 projectElem :: (Json a, JsonVal p, JsonTup p q) => (s -> a) -> q s a
@@ -3049,8 +3040,7 @@ instance (Functor f, Typeable f, Json (f (Fix f))) => Json (Nu f) where
 -- jsonTag
 instance Json b => Json (Tagged a b) where
   json = coerced >~ json @b
-  jsonOmitField = coerce (jsonOmitField @b)
-  jsonOmittedField = coerce (jsonOmittedField @b)
+  jsonOmit = (coerced .) <$> jsonOmit @b
   jsonKey = overKey (coerced >~) (jsonKey @b)
   jsonKeyList = overKey (coerced >~) (jsonKeyList @b)
 
@@ -3076,8 +3066,7 @@ instance (Json (f a), Json (g a)) => Json (These1 f g a) where
 -- strict
 instance Json a => Json (Strict.Maybe a) where
   json = iso Strict.toLazy Strict.toStrict >~ json @(Maybe a)
-  jsonOmitField = Strict.isNothing
-  jsonOmittedField = Just Strict.Nothing
+  jsonOmit = Just (nearly Strict.Nothing Strict.isNothing)
 instance (Json a, Json b) => Json (Strict.Either a b) where
   json = iso Strict.toLazy Strict.toStrict >~ json @(Either a b)
 instance (Json a, Json b) => Json (Strict.These a b) where
@@ -3262,16 +3251,19 @@ instance (GHC.Selector s, Json a) => GFields (GHC.S1 s (GHC.K1 i a)) where
   gfields opts = (GHC.M1 . GHC.K1) #. property .# GHC.unK1 . GHC.unM1
     where
       key = Text.pack (Aeson.fieldLabelModifier opts (gselName @s))
-      -- An omittable field, by `jsonOmitField` & `jsonOmittedField`.
+      -- An omittable field, by `jsonOmit`.
       property :: (JsonVal p, JsonObj p q) => q a a
-      property = case jsonOmittedField @a of
+      property = case jsonOmit @a of
         Just omitted
           | Aeson.allowOmittedFields opts || Aeson.omitNothingFields opts ->
-              dimap present (fromMaybe omitted) (key ?: json)
+              withPrism omitted $ \omit match ->
+                let
+                  present a
+                    | Aeson.omitNothingFields opts, Right () <- match a =
+                        Nothing
+                    | otherwise = Just a
+                in dimap present (fromMaybe (omit ())) (key ?: json)
         _ -> key !: json
-      present a
-        | Aeson.omitNothingFields opts && jsonOmitField a = Nothing
-        | otherwise = Just a
   gfield = Just ((GHC.M1 . GHC.K1) #. json .# GHC.unK1 . GHC.unM1)
   {-# INLINE gfields #-}
   {-# INLINE gfield #-}
