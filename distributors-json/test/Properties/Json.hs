@@ -827,6 +827,10 @@ jsonErrorSpec = describe "jsonParse errors" $ do
       "Error in $: expected key \"py\", but found {\"px\":1}"
     parseError @[Int] (toJSON [toJSON (1 :: Int), String "x"]) `shouldBe`
       "Error in $[1]: expected Int, but found \"x\""
+    parseError @(Map Text Int) (object ["a" .= (1 :: Int), "b" .= True])
+      `shouldBe` "Error in $.b: expected Int, but found true"
+    parseError @[Bool] (toJSON [toJSON True, String "x"]) `shouldBe`
+      "Error in $[1]: expected boolean, but found \"x\""
     parseError @(Int, Text) (toJSON [1 :: Int]) `shouldBe`
       "Error in $: expected at least 2 elements, but found [1]"
     parseError @(Int, Text) (toJSON [toJSON (1 :: Int), toJSON (2 :: Int)])

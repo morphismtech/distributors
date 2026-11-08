@@ -794,6 +794,10 @@ data JsonParsor a b = JsonParsor
   , runJsonParsor :: Value -> Either JsonError b
   -- | A primitive parses an array of its values at once, when they all match.
   , jsonParsorArray :: Maybe (Vector Value -> Maybe [b])
+  {- | A string's text, when it parses every string by a function of its text
+  which keeps its order, so that a map's keys parse by mapping them.
+  -}
+  , jsonParsorText :: Maybe (Text -> b)
   }
 
 {- | Parsers by the string literal which they accept,
@@ -805,12 +809,12 @@ data Dispatch b = Dispatch
   }
 
 jsonParsor :: (Value -> Either JsonError b) -> JsonParsor a b
-jsonParsor parse = JsonParsor Nothing parse Nothing
+jsonParsor parse = JsonParsor Nothing parse Nothing Nothing
 
 -- | A primitive t'JsonParsor', matching its values.
 primitiveParsor
   :: String -> (Value -> Maybe b) -> JsonParsor a b
-primitiveParsor expected match = JsonParsor Nothing parse (Just array)
+primitiveParsor expected match = JsonParsor Nothing parse (Just array) Nothing
   where
     parse v = maybe (jsonMismatch expected v) Right (match v)
     array arr
@@ -827,6 +831,7 @@ mapParsing f parsor = JsonParsor
   { jsonParsorDispatch = retable <$> jsonParsorDispatch parsor
   , runJsonParsor = f (runJsonParsor parsor)
   , jsonParsorArray = Nothing
+  , jsonParsorText = Nothing
   }
   where
     retable dispatch = dispatch {dispatchTable = f <$> dispatchTable dispatch}
@@ -914,27 +919,29 @@ instance DisjunctiveMonoid (JsonParsor a b) where
             dispatch = Dispatch (dispatchKey dispatch0) $ Map.unionWith orElse
               (dispatchTable dispatch0) (dispatchTable dispatch1)
           in
-            JsonParsor (Just dispatch) (dispatching dispatch) array
-    _ -> JsonParsor Nothing (orElse (runJsonParsor p) (runJsonParsor q)) array
+            JsonParsor (Just dispatch) (dispatching dispatch) array Nothing
+    _ -> JsonParsor Nothing (orElse (runJsonParsor p) (runJsonParsor q))
+      array Nothing
     where
       -- An array which the first alternative parses, element by element.
       array = jsonParsorArray p
 instance BackusNaurForm (JsonParsor a b) where
   rule name p = (mapParsing (onFailure (jsonRelabel (unqualified name)) .) p)
-    {jsonParsorArray = jsonParsorArray p}
+    {jsonParsorArray = jsonParsorArray p, jsonParsorText = jsonParsorText p}
   ruleRec name f = fix (rule name . f)
 instance (x ~ (), y ~ ()) => IsString (JsonParsor x y) where
   fromString s = JsonParsor
     (Just (Dispatch Nothing (Map.singleton literal parse))) parse Nothing
+    Nothing
     where
       literal = Text.pack s
       parse = \case
         String t | t == literal -> Right ()
         v -> Left (JsonError [] [show s] (Just (Right v)) JsonLiteral [])
 instance JsonStr JsonParsor where
-  jsonText = primitiveParsor "string" $ \case
+  jsonText = (primitiveParsor "string" $ \case
     String t -> Just t
-    _ -> Nothing
+    _ -> Nothing) {jsonParsorText = Just id}
   -- | TsLiteral alternatives, dispatched by their string.
   jsonEnumWith indexOf table = orP
     [ dimap indexOf (const a) (only i >? fromString (Text.unpack literal))
@@ -959,6 +966,18 @@ instance JsonVal JsonParsor where
     Number n -> Just n
     _ -> Nothing
   jsonValue = jsonParsor Right
+  -- | As the default, but mapping text keys, rather than parsing them.
+  jsonMap key p = case jsonParsorText key of
+    Just keyOf -> jsonParsor $ \case
+      Object o -> Map.fromDistinctAscList <$> entries (KeyMap.toAscList o)
+        where
+          entries = \case
+            [] -> Right []
+            (k, v) : rest -> case runJsonParsor p v of
+              Right b -> ((keyOf (Key.toText k), b) :) <$> entries rest
+              Left err -> jsonAt (Key k) (Left err)
+      v -> jsonMismatch "object" v
+    Nothing -> dimap Map.toList Map.fromList (jsonObject (jsonDict key p))
   jsonArray p = jsonParsor $ \case
     Array arr | Just parsed <- jsonParsorArray p >>= ($ arr) -> Right parsed
     Array arr -> zipWithM
@@ -995,7 +1014,7 @@ reject the first property which isn't named, as `jsonObjectStrict`'s
 default would, but without parsing the rest of the properties.
 -}
 objectParsor :: Bool -> ObjParsor a b -> JsonParsor a b
-objectParsor rejecting obj = JsonParsor dispatch parse Nothing
+objectParsor rejecting obj = JsonParsor dispatch parse Nothing Nothing
   where
     overlap = foldr ((<|>) . duplicateKey) Nothing (objParsorShapes obj)
     parse = \case
