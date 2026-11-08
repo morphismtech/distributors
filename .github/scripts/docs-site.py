@@ -8,6 +8,8 @@
         Write index.html at the root of the gh-pages checkout in the current
         directory, describing main's documentation, in main/, & each pull
         request's preview, in pr-preview/pr-<number>/, by their SITE.json.
+        It removes the previews of closed pull requests, & those left empty,
+        such as by a removal which leaves a .nojekyll behind.
 """
 
 import datetime
@@ -16,6 +18,7 @@ import json
 import os
 import pathlib
 import re
+import shutil
 import subprocess
 import sys
 import urllib.request
@@ -48,12 +51,11 @@ def describe(docs: pathlib.Path) -> None:
 
 
 def pull_request(number: str) -> dict:
+    headers = {"Accept": "application/vnd.github+json"}
+    if os.environ.get("GITHUB_TOKEN"):
+        headers["Authorization"] = f"Bearer {os.environ['GITHUB_TOKEN']}"
     request = urllib.request.Request(
-        f"https://api.github.com/repos/{REPO}/pulls/{number}",
-        headers={
-            "Accept": "application/vnd.github+json",
-            "Authorization": f"Bearer {os.environ['GITHUB_TOKEN']}",
-        },
+        f"https://api.github.com/repos/{REPO}/pulls/{number}", headers=headers
     )
     try:
         with urllib.request.urlopen(request) as response:
@@ -108,6 +110,12 @@ def index() -> None:
     for preview in previews:
         number = preview.name[3:]
         pr = pull_request(number)
+        # A preview without documentation, or of a closed pull request, is
+        # stale; one whose pull request is unknown is kept, unless empty.
+        empty = not any(not p.name.startswith(".") for p in preview.iterdir())
+        if empty or pr.get("state") == "closed":
+            shutil.rmtree(preview)
+            continue
         site = site_of(preview)
         title = html.escape(pr.get("title", ""))
         branch = html.escape(pr.get("head", {}).get("ref", ""))

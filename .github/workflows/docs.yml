@@ -93,7 +93,7 @@ jobs:
             rm -rf site
             git clone --quiet --branch gh-pages --single-branch \
               "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" site
-            if (cd site && python3 "$script" index && git add index.html .nojekyll \
+            if (cd site && python3 "$script" index && git add --all \
                 && { git diff --cached --quiet || git commit --quiet -m "Index the documentation"; } \
                 && git push --quiet); then
               exit 0
