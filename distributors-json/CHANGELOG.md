@@ -17,6 +17,9 @@
 - `jsonPair` is a `JsonVal` method, of pairs & of generic constructors of
   two positional fields, which printing renders as arrays of two elements
   directly.
+- `jsonTag`, an object of a single property, as `Either` & sums by
+  `ObjectWithSingleField` print, is a `JsonVal` method, which printing renders
+  directly; sums by `TwoElemArray` print by `jsonPair`.
 - `ViaJson` derives all of `aeson`'s instances: `ToJSON` & `FromJSON` with
   `omitField` & `omittedField`, by `jsonOmitField`, & `ToJSONKey` &
   `FromJSONKey`, by `jsonKey` & `jsonKeyList`, or else as values in arrays

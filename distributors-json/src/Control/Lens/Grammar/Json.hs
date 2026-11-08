@@ -478,6 +478,13 @@ class
   -}
   jsonPair :: p a b -> p c d -> p (a, c) (b, d)
   jsonPair p q = jsonTuple (jsonElem p >*< jsonElem q)
+  {- | An object of a single property, as @aeson@ tags `Either`'s & sums'
+  values, though interpreters may define it more efficiently.
+
+  @jsonTag k p = jsonObjectStrict (k !: p)@
+  -}
+  jsonTag :: Text -> p a b -> p a b
+  jsonTag k p = jsonObjectStrict (k !: p)
   {- | A `jsonDict` object of a `Map`, whose keys can't repeat,
   so that printing needn't check them.
   -}
@@ -737,6 +744,7 @@ onFailure
 onFailure f = \case
   Left err -> Left (f err)
   success -> success
+
 
 -- | Map a success strictly, sharing a failure.
 onSuccess :: (a -> b) -> Either JsonError a -> Either JsonError b
@@ -1202,6 +1210,8 @@ class AesonStr val => AesonVal val where
   aesonProp :: AesonKey val -> val -> AesonProps val -> AesonProps val
   aesonPropsEmpty :: AesonProps val
   aesonProps :: AesonProps val -> val
+  -- | An object of a single property.
+  aesonTag :: AesonKey val -> val -> val
   -- | The elements of an array, as they're rendered.
   type AesonElems val
   aesonElem :: val -> AesonElems val -> AesonElems val
@@ -1241,10 +1251,29 @@ instance AesonVal Value where
   aesonProp key value rest = (key, value) : rest
   aesonPropsEmpty = []
   aesonProps = Object . KeyMap.fromList
+  aesonTag key value = Object (KeyMap.singleton key value)
   type AesonElems Value = [Value]
   aesonElem = (:)
   aesonElemsEmpty = []
-  aesonElems = aesonList id
+  -- Few elements are an array of a known size, which is allocated inline.
+  aesonElems = \case
+    [] -> Array Vector.empty
+    [a] -> Array (Vector.singleton a)
+    [a, b] -> aesonPair a b
+    [a, b, c] -> Array $ Vector.create $ do
+      array <- MVector.unsafeNew 3
+      MVector.unsafeWrite array 0 a
+      MVector.unsafeWrite array 1 b
+      MVector.unsafeWrite array 2 c
+      pure array
+    [a, b, c, d] -> Array $ Vector.create $ do
+      array <- MVector.unsafeNew 4
+      MVector.unsafeWrite array 0 a
+      MVector.unsafeWrite array 1 b
+      MVector.unsafeWrite array 2 c
+      MVector.unsafeWrite array 3 d
+      pure array
+    items -> aesonList id items
   {-# INLINE aesonElem #-}
   {-# INLINE aesonElemsEmpty #-}
   {-# INLINE aesonElems #-}
@@ -1288,6 +1317,7 @@ instance AesonVal Encoding where
   aesonProp key value rest = Encoding.pair' key value <> rest
   aesonPropsEmpty = mempty
   aesonProps = Encoding.pairs
+  aesonTag key value = Encoding.pairs (Encoding.pair' key value)
   type AesonElems Encoding = EncodingElems
   aesonElem value = \case
     NoEncodingElems -> EncodingElems value
@@ -1564,6 +1594,17 @@ instance AesonVal val => JsonVal (JsonPrintor val) where
         let x = printorRender p a; y = printorRender q c
         in x `seq` y `seq` aesonPair x y
   {-# INLINE jsonPair #-}
+  -- | As the default, but rendering its one property directly.
+  jsonTag k p = JsonPrintor
+    (\rules -> printorTotal p rules)
+    (fmap (aesonTag key) . printorTry p)
+    (\a -> let printed = printorRender p a
+      in printed `seq` aesonTag key printed)
+    (fmap (aesonTag key) . jsonAt (Key (Key.fromText k)) . printorCheck p)
+    Nothing
+    where
+      key = aesonKey @val (Key.fromText k)
+  {-# INLINE jsonTag #-}
   jsonMap key = printDistinct Map.foldrWithKey key
   jsonHashMap key = printDistinct HashMap.foldrWithKey key
   jsonTuple = printTuple
@@ -2463,10 +2504,6 @@ jsonEnumerated name = jsonEnumWith
   (\a -> fromEnum a - fromEnum (minBound `asTypeOf` a))
   [(name a, a) | a <- [minBound .. maxBound]]
 
--- | An object of a single property, as @aeson@ requires of sums' tags.
-jsonTag :: JsonVal p => Text -> p a b -> p a b
-jsonTag k p = jsonObjectStrict (k !: p)
-
 boundedScientific :: Scientific -> Maybe Scientific
 boundedScientific s = s <$ guard (abs (base10Exponent s) <= 1024)
 
@@ -3288,10 +3325,8 @@ instance (GHC.Constructor c, GFields f, GContents f, GNullary f)
       _ -> gcons opts
     gsingleField opts =
       jsonTag (Text.pack (gconTag @c opts)) (gcons @(GHC.C1 c f) opts)
-    gtwoElements opts = jsonTuple
-      ( lmap (const ()) (jsonElem (fromString (gconTag @c opts)))
-      *> jsonElem (gcons @(GHC.C1 c f) opts)
-      )
+    gtwoElements opts = dimap ((),) snd
+      (jsonPair (fromString (gconTag @c opts)) (gcons @(GHC.C1 c f) opts))
     {-# INLINE gconCount #-}
     {-# INLINE gcons #-}
     {-# INLINE genum #-}
