@@ -1,7 +1,7 @@
 {-# OPTIONS_GHC -Wno-orphans #-}
 
 {- |
-Module      : Control.Lens.Internal.Orphanage
+Module      : Control.Lens.Internal.Distributors.Orphanage
 Description : orphanage
 Copyright   : (C) 2026 - Eitan Chatav
 License     : BSD-style (see the file LICENSE)
@@ -12,7 +12,7 @@ Portability : non-portable
 An orphanage for instances without a home.
 -}
 
-module Control.Lens.Internal.Orphanage () where
+module Control.Lens.Internal.Distributors.Orphanage () where
 
 import Control.Applicative hiding (WrappedArrow)
 import Control.Applicative qualified as Ap (WrappedArrow)
