@@ -1151,7 +1151,7 @@ instance AesonVal Value where
     let
       write _ [] = pure array
       write i (a : rest) =
-        MVector.unsafeWrite array i (f a) >> write (i + 1) rest
+        (MVector.unsafeWrite array i $! f a) >> write (i + 1) rest
     write 0 as
   aesonObject = Object . KeyMap.fromList
   aesonMap key fold render = Object . KeyMap.fromList . fold property []
