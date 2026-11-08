@@ -43,8 +43,8 @@ module Control.Lens.Monocle
   , enumerateComonocle
   , zipComonocle
   , zipWithComonocle
-  , enumerated
-  , enumed
+  , _Enumerable
+  , _BoundedEnum
     -- * Comonocular
   , Comonocular (..), runComonocular
   ) where
@@ -159,7 +159,7 @@ Every `Control.Lens.Iso.Iso` is a `Comonocle`,
 & every `Comonocle` is a `Control.Lens.Lens.Lens`,
 whose residue is which copy is held.
 
->>> view enumerated (Identity 'a')
+>>> view _Enumerable (Identity 'a')
 'a'
 
 `Comonocle`s are isomorphic to `Comonocular`s.
@@ -202,7 +202,7 @@ mapComonocle mon = withComonocle mon $ \split merge ->
 since sums of copies add, \(m a + n a = (m+n) a\),
 as `Control.Lens.Lens.choosing` does `Control.Lens.Lens.Lens`es.
 
->>> set (altComonocle id enumerated) 'x' (Right (Identity 'y'))
+>>> set (altComonocle id _Enumerable) 'x' (Right (Identity 'y'))
 Right (Identity 'x')
 -}
 altComonocle
@@ -216,7 +216,7 @@ altComonocle x y p = rmap (either (fmap Left) (fmap Right))
 since products of sums of copies distribute,
 \(m a \times n c = (m n) (a \times c)\).
 
->>> over (crossComonocle enumerated id) (\(a, c) -> (a + c, show c)) (Identity 1, 2)
+>>> over (crossComonocle _Enumerable id) (\(a, c) -> (a + c, show c)) (Identity 1, 2)
 (Identity 3,"2")
 -}
 crossComonocle
@@ -271,7 +271,7 @@ zipComonocle mon f = runZipporah (mapComonocle mon (Zipporah f))
 {- | How many copies `AComonocle` has, like the size of a `Bounded` `Enum`.
 It diverges for infinitely many copies, & takes time linear in their number.
 
->>> countComonocle (enumed @Ordering)
+>>> countComonocle (_BoundedEnum @Ordering)
 3
 -}
 countComonocle :: AComonocle s t a b -> Natural
@@ -284,9 +284,9 @@ countComonocle mon = withComonocle mon $ \split _ -> copies split
 {- | The copy of `AComonocle` at an index, holding a focus, if there is one,
 like `toEnum`, & inverse to `indexComonocle`.
 
->>> toEnumComonocle enumed () 2 :: Maybe Ordering
+>>> toEnumComonocle _BoundedEnum () 2 :: Maybe Ordering
 Just GT
->>> toEnumComonocle enumed () 3 :: Maybe Ordering
+>>> toEnumComonocle _BoundedEnum () 3 :: Maybe Ordering
 Nothing
 -}
 toEnumComonocle :: AComonocle s t a b -> b -> Natural -> Maybe t
@@ -295,9 +295,9 @@ toEnumComonocle mon b copy = withComonocle mon $ \_ merge -> merge <$> toEnumera
 {- | The next copy of `AComonocle`, holding the same focus,
 if there is one, like `succ`.
 
->>> succComonocle enumed EQ
+>>> succComonocle _BoundedEnum EQ
 Just GT
->>> succComonocle enumed GT
+>>> succComonocle _BoundedEnum GT
 Nothing
 -}
 succComonocle :: AComonocle s s a a -> s -> Maybe s
@@ -306,9 +306,9 @@ succComonocle mon s = withComonocle mon $ \split merge -> merge <$> succEnumerab
 {- | The previous copy of `AComonocle`, holding the same focus,
 if there is one, like `pred`.
 
->>> predComonocle enumed EQ
+>>> predComonocle _BoundedEnum EQ
 Just LT
->>> predComonocle enumed LT
+>>> predComonocle _BoundedEnum LT
 Nothing
 -}
 predComonocle :: AComonocle s s a a -> s -> Maybe s
@@ -317,7 +317,7 @@ predComonocle mon s = withComonocle mon $ \split merge -> merge <$> predEnumerab
 {- | The copies of `AComonocle` from one onward, holding the same focus,
 like `enumFrom`.
 
->>> enumerateComonocle enumed False
+>>> enumerateComonocle _BoundedEnum False
 [False,True]
 >>> enumerateComonocle (altComonocle id id) (Left 'x' :: Either Char Char)
 [Left 'x',Right 'x']
@@ -328,20 +328,20 @@ enumerateComonocle mon s =
 
 {- | The `Comonocle` of an `Enumerable` sum's copy.
 
->>> over enumerated (+ 1) (Identity 1)
+>>> over _Enumerable (+ 1) (Identity 1)
 Identity 2
 -}
-enumerated :: Enumerable f => Comonocle (f a) (f b) a b
-enumerated = unwrapPafb . enumerably . WrapPafb
+_Enumerable :: Enumerable f => Comonocle (f a) (f b) a b
+_Enumerable = unwrapPafb . enumerably . WrapPafb
 
 {- | The `Comonocle` of a `Bounded` `Enum`, as copies of @()@,
 numbered by `fromEnum` from `minBound`.
 
->>> iview (indexComonocle enumed) True
+>>> iview (indexComonocle _BoundedEnum) True
 (1,())
 -}
-enumed :: (Enum a, Bounded a) => Comonocle a a () ()
-enumed = iso (\x -> (x,())) (\(x,()) -> x) . enumerated
+_BoundedEnum :: (Bounded a, Enum a) => Comonocle a a () ()
+_BoundedEnum = iso (\x -> (x,())) (\(x,()) -> x) . _Enumerable
 
 {- | `Comonocular` provides a concrete representation of `Comonocle`s,
 by an `Enumerable` sum of copies.

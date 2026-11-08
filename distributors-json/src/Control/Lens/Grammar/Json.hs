@@ -554,11 +554,11 @@ class
 which `jsonEnumWith` tables once, numbered as `fromEnumerable` numbers them.
 
 >>> import Control.Lens (coerced)
->>> import Control.Lens.Monocle (enumed)
+>>> import Control.Lens.Monocle (_BoundedEnum)
 >>> import Data.Text qualified as Text
 >>> newtype Order = Order Ordering deriving (Show)
 >>> let name = Text.toLower . Text.pack . show @Ordering
->>> instance Json Order where json = coerced >~ jsonEnum enumed name
+>>> instance Json Order where json = coerced >~ jsonEnum _BoundedEnum name
 >>> jsonPrint (Order GT)
 String "gt"
 >>> jsonParse @Order (Aeson.String "lt")
@@ -2386,8 +2386,8 @@ tsTuples shapes = merged (nub (concatMap (expand False . mergeRests) shapes))
 -- Json instance helpers
 
 -- | An enumeration of a bounded `Enum`, by the names of its values.
-enumerated :: (Bounded a, Enum a, JsonStr p) => (a -> Text) -> p a a
-enumerated name = jsonEnumWith
+jsonEnumerated :: (Bounded a, Enum a, JsonStr p) => (a -> Text) -> p a a
+jsonEnumerated name = jsonEnumWith
   (\a -> fromEnum a - fromEnum (minBound `asTypeOf` a))
   [(name a, a) | a <- [minBound .. maxBound]]
 
@@ -2491,9 +2491,9 @@ overKey f = \case
 instance Json Bool where
   json = jsonBool
   {-# INLINE json #-}
-  jsonKey = Just (enumerated (\b -> if b then "true" else "false"))
+  jsonKey = Just (jsonEnumerated (\b -> if b then "true" else "false"))
 instance Json Ordering where
-  json = jsonTyped (enumerated (Text.pack . show))
+  json = jsonTyped (jsonEnumerated (Text.pack . show))
 instance Json () where
   json = jsonTuple oneP
   jsonOmit = Just (only ())
@@ -3002,7 +3002,7 @@ instance Json DayOfWeek where
 
 -- | Quarters of the year, named as @aeson@ names them.
 quarters :: JsonStr p => p QuarterOfYear QuarterOfYear
-quarters = enumerated (Text.toLower . Text.pack . show)
+quarters = jsonEnumerated (Text.toLower . Text.pack . show)
 
 instance Json QuarterOfYear where
   json = jsonTyped quarters

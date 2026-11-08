@@ -8,7 +8,7 @@
   countable sums of single copies, sequenced `enumerably` by
   `CocartesianMonoidal`s, with generic defaults by `Generic1`.
 - `Comonocle`s, in `Control.Lens.Monocle`, dual to `Monocle`s by sums:
-  `comonocle`, `enumerated`, & concrete
+  `comonocle`, `_Enumerable`, `_BoundedEnum`, & concrete
   `Comonocular`s, with `runComonocular`.
 - `WrappedPafb f p` is `CocartesianMonoidal` for any `Functor f`.
 - `AComonocle`, `withComonocle`, `cloneComonocle`, `mapComonocle`,
