@@ -277,6 +277,7 @@ class Json a where
   json :: JsonVal p => p a a
   default json :: (Json (GHC.Generically a), JsonVal p) => p a a
   json = iso GHC.Generically coerce >~ json
+  {-# INLINABLE json #-}
 
   {- | `Data.Aeson.toJSONList`, an array of values by default.
   `Char` overrides it, so that a `String` is a JSON string,
@@ -284,6 +285,7 @@ class Json a where
   -}
   jsonList :: JsonVal p => p [a] [a]
   jsonList = jsonArray json
+  {-# INLINE jsonList #-}
 
   {- | `Data.Aeson.toJSONKey`, as the text keys of objects,
   or else `Nothing` for the keys of arrays of pairs.
@@ -339,10 +341,12 @@ jsonErrorPrint = runJsonPrintor json
 -- | `Data.Aeson.toEncoding`
 jsonEncode :: Json a => a -> Encoding
 jsonEncode = either (\_ -> Encoding.null_) id . jsonErrorEncode
+{-# INLINE jsonEncode #-}
 
 -- | `jsonEncode`, failing where the grammar doesn't print a value.
 jsonErrorEncode :: Json a => a -> Either JsonError Encoding
 jsonErrorEncode = runJsonPrintor json
+{-# INLINE jsonErrorEncode #-}
 
 {- | @aeson@'s instances, derived from a `Json` instance, failing to parse
 at the path of a `JsonError`, by its message.
@@ -472,6 +476,7 @@ displayed as @Map Text Int@.
 jsonTyped
   :: forall a p. (Typeable a, JsonStr p) => p a a -> p a a
 jsonTyped = rule (qualifiedName (SomeTypeRep (typeRep @a)))
+{-# INLINE jsonTyped #-}
 
 -- | A type, `show`n with its type constructors qualified by their modules.
 qualifiedName :: SomeTypeRep -> String
@@ -548,7 +553,7 @@ rest elements (`manyP`, `someP`) and alternatives (`>+<`, `>|<`),
 like TypeScript's variadic tuple types, @[A, B?, ...C[]]@.
 Its elements are `JsonVal` grammars, which determine its type.
 -}
-class (JsonVal p, Alternator q) => JsonTup p q | q -> p where
+class Alternator q => JsonTup p q | q -> p where
   jsonElem :: p a b -> q a b
 
 {- | `JsonObj` grammars describe the properties of a JSON object.
@@ -559,8 +564,7 @@ A property with a default, @"limit" ?: jsonInt != 10@,
 like @aeson@'s @.:?@ & @.!=@, is missing exactly when it's the default.
 Its properties are `JsonVal` grammars, which determine its type.
 -}
-class (JsonVal p, Monoidal q, CocartesianChoice q)
-  => JsonObj p q | q -> p where
+class (Monoidal q, CocartesianChoice q) => JsonObj p q | q -> p where
   (!:) :: Text -> p a b -> q a b
   (?:) :: Text -> p a b -> q (Maybe a) (Maybe b)
   {- | The properties of an object which aren't named by `!:` or `?:`,
@@ -1050,6 +1054,8 @@ class AesonStr val where
 instance AesonStr Value where
   aesonText = String
   aesonString = String . Text.pack
+  {-# INLINE aesonText #-}
+  {-# INLINE aesonString #-}
 
 instance AesonStr Key where
   aesonText = Key.fromText
@@ -1064,6 +1070,10 @@ instance AesonStr (Encoding.Encoding' a) where
     Just (retagEncoding . Encoding.list (retagEncoding . render))
   {-# INLINE aesonPrimitives #-}
   aesonEncodedText = retagEncoding . snd
+  {-# INLINE aesonText #-}
+  {-# INLINE aesonString #-}
+  {-# INLINE aesonLiteral #-}
+  {-# INLINE aesonEncodedText #-}
 
 -- | Retag an @aeson@ `Encoding.Encoding'`.
 retagEncoding :: Encoding.Encoding' a -> Encoding.Encoding' b
@@ -1146,6 +1156,19 @@ instance AesonVal Value where
   aesonProp key value rest = (key, value) : rest
   aesonPropsEmpty = []
   aesonProps = Object . KeyMap.fromList
+  {-# INLINE aesonNull #-}
+  {-# INLINE aesonBool #-}
+  {-# INLINE aesonNumber #-}
+  {-# INLINE aesonIntegral #-}
+  {-# INLINE aesonDouble #-}
+  {-# INLINE aesonList #-}
+  {-# INLINE aesonObject #-}
+  {-# INLINE aesonMap #-}
+  {-# INLINE aesonValue #-}
+  {-# INLINE aesonKey #-}
+  {-# INLINE aesonProp #-}
+  {-# INLINE aesonPropsEmpty #-}
+  {-# INLINE aesonProps #-}
 
 -- | Keys are rendered once, as their quoted strings, & properties as a series.
 instance AesonVal Encoding where
@@ -1169,6 +1192,19 @@ instance AesonVal Encoding where
   aesonProp key value rest = Encoding.pair' key value <> rest
   aesonPropsEmpty = mempty
   aesonProps = Encoding.pairs
+  {-# INLINE aesonNull #-}
+  {-# INLINE aesonBool #-}
+  {-# INLINE aesonNumber #-}
+  {-# INLINE aesonIntegral #-}
+  {-# INLINE aesonDouble #-}
+  {-# INLINE aesonList #-}
+  {-# INLINE aesonObject #-}
+  {-# INLINE aesonMap #-}
+  {-# INLINE aesonValue #-}
+  {-# INLINE aesonKey #-}
+  {-# INLINE aesonProp #-}
+  {-# INLINE aesonPropsEmpty #-}
+  {-# INLINE aesonProps #-}
 
 {- | `JsonPrintor` `printorTry`s to print a value, or else `printorCheck`s it
 to locate the failure. A `printorTotal` printor prints every value,
@@ -1190,11 +1226,13 @@ runJsonPrintor :: JsonPrintor val a b -> a -> Either JsonError val
 runJsonPrintor p
   | printorTotal p Set.empty = Right . printorRender p
   | otherwise = \a -> maybe (printorCheck p a) Right (printorTry p a)
+{-# INLINE runJsonPrintor #-}
 
 -- | A total `JsonPrintor`.
 printing :: (a -> val) -> JsonPrintor val a b
 printing render =
   JsonPrintor (const True) (Just . render) render (Right . render) Nothing
+{-# INLINE printing #-}
 
 -- | A total `JsonPrintor` of a primitive.
 primitive :: AesonStr val => (a -> val) -> JsonPrintor val a b
@@ -1237,6 +1275,7 @@ data TupPrintor val a b = TupPrintor
 renderElement :: (a -> val) -> a -> [val] -> [val]
 renderElement render a rest =
   let printed = render a in printed `seq` printed : rest
+{-# INLINE renderElement #-}
 
 -- | Printed elements, counted to locate a failure of a later element.
 newtype Elements val = Elements (Either JsonError (Int, DList val))
@@ -1271,6 +1310,7 @@ printDuplicate key = jsonMissing ("key " <> showKey key <> " twice") Nothing
 instance Functor (JsonPrintor val a) where
   fmap _ (JsonPrintor total attempt render check renderArray) =
     JsonPrintor total attempt render check renderArray
+  {-# INLINE fmap #-}
 {- | A printor's results are phantom, so that `Witherable.mapMaybe`,
 like `fmap`, keeps it, as @mapMaybe = dimapMaybe Just@ would observably,
 but keeping its totality.
@@ -1284,6 +1324,9 @@ instance Profunctor (JsonPrintor val) where
       (fmap (. map f) renderArray)
   _ #. p = coerce p
   p .# _ = coerce p
+  {-# INLINE dimap #-}
+  {-# INLINE (#.) #-}
+  {-# INLINE (.#) #-}
 instance Cochoice (JsonPrintor val) where
   unleft (JsonPrintor total attempt render check renderArray) =
     JsonPrintor total (attempt . Left) (render . Left) (check . Left)
@@ -1291,6 +1334,8 @@ instance Cochoice (JsonPrintor val) where
   unright (JsonPrintor total attempt render check renderArray) =
     JsonPrintor total (attempt . Right) (render . Right) (check . Right)
       (fmap (. map Right) renderArray)
+  {-# INLINE unleft #-}
+  {-# INLINE unright #-}
 instance CocartesianMonoidal (JsonPrintor val) where
   zeroP = JsonPrintor (const True) absurd absurd absurd Nothing
   p >+< q = JsonPrintor
@@ -1299,6 +1344,8 @@ instance CocartesianMonoidal (JsonPrintor val) where
     (either (printorRender p) (printorRender q))
     (either (printorCheck p) (printorCheck q))
     Nothing
+  {-# INLINE zeroP #-}
+  {-# INLINE (>+<) #-}
 instance AesonVal val => Choice (JsonPrintor val) where
   left' p = trying
     (either (printorTry p) (const Nothing))
@@ -1306,6 +1353,8 @@ instance AesonVal val => Choice (JsonPrintor val) where
   right' p = trying
     (either (const Nothing) (printorTry p))
     (either (\_ -> jsonUnexpected Nothing) (printorCheck p))
+  {-# INLINE left' #-}
+  {-# INLINE right' #-}
 instance AesonVal val => CocartesianChoice (JsonPrintor val)
 instance AesonVal val => DisjunctiveMonoid (JsonPrintor val a b) where
   falseP = trying (const Nothing) (\_ -> jsonUnexpected Nothing)
@@ -1328,6 +1377,7 @@ instance BackusNaurForm (JsonPrintor val a b) where
     , printorCheck = onFailure (jsonRelabel (unqualified name)) . printorCheck p
     }
   ruleRec name f = fix (rule name . f)
+  {-# INLINE rule #-}
 
 instance (AesonStr val, x ~ (), y ~ ()) => IsString (JsonPrintor val x y) where
   fromString s = printing (const literal)
@@ -1335,6 +1385,7 @@ instance (AesonStr val, x ~ (), y ~ ()) => IsString (JsonPrintor val x y) where
       literal = aesonLiteral (Text.pack s)
 instance AesonStr val => JsonStr (JsonPrintor val) where
   jsonText = primitive aesonText
+  {-# INLINE jsonText #-}
   jsonString = primitive aesonString
   jsonEncodedText encoding = withPrism encoding $ \encode _ ->
     primitive (aesonEncodedText . encode)
@@ -1342,6 +1393,9 @@ instance AesonStr val => JsonStr (JsonPrintor val) where
   jsonEnumWith indexOf table = printing (indexArray rendered . indexOf)
     where
       rendered = arrayFromList [aesonLiteral literal | (literal, _) <- table]
+  {-# INLINE jsonString #-}
+  {-# INLINE jsonEncodedText #-}
+  {-# INLINE jsonEnumWith #-}
 instance AesonVal val => JsonVal (JsonPrintor val) where
   jsonNull = primitive (const aesonNull)
   -- | As the default, but rendering without an `Either` for every value.
@@ -1354,8 +1408,10 @@ instance AesonVal val => JsonVal (JsonPrintor val) where
     where
       render = maybe aesonNull (printorRender p)
   jsonBool = primitive aesonBool
+  {-# INLINE jsonBool #-}
   jsonNumber = primitive aesonNumber
   jsonInt = primitive (aesonIntegral Encoding.int)
+  {-# INLINE jsonInt #-}
   jsonInt8 = primitive (aesonIntegral Encoding.int8)
   jsonInt16 = primitive (aesonIntegral Encoding.int16)
   jsonInt32 = primitive (aesonIntegral Encoding.int32)
@@ -1380,15 +1436,11 @@ instance AesonVal val => JsonVal (JsonPrintor val) where
     Nothing
     where
       render = fromMaybe (aesonList (printorRender p)) (printorRenderArray p)
+  {-# INLINE jsonArray #-}
   jsonMap key = printDistinct Map.foldrWithKey key
   jsonHashMap key = printDistinct HashMap.foldrWithKey key
-  jsonTuple tup = JsonPrintor
-    (\rules -> tupPrintorTotal tup rules)
-    (fmap (aesonList id . toList) . tupPrintorTry tup)
-    (\a -> aesonList id (tupPrintorRender tup a []))
-    (\a -> case tupPrintorCheck tup a of
-      Elements printed -> aesonList id . toList . snd <$> printed)
-    Nothing
+  jsonTuple = printTuple
+  {-# INLINE jsonTuple #-}
   jsonObject obj = case
     foldr ((<|>) . duplicateKey) Nothing (objPrintorShapes printor) of
     Just key -> trying (const Nothing) (\_ -> printDuplicate key)
@@ -1412,10 +1464,31 @@ instance AesonVal val => JsonVal (JsonPrintor val) where
       printor = obj @(ObjPrintor val)
   -- | The properties which a strict object rejects are never printed.
   jsonObjectStrict obj = jsonObject obj
+  {-# INLINE jsonNull #-}
+  {-# INLINE jsonNullable #-}
+  {-# INLINE jsonNumber #-}
+  {-# INLINE jsonInt8 #-}
+  {-# INLINE jsonInt16 #-}
+  {-# INLINE jsonInt32 #-}
+  {-# INLINE jsonInt64 #-}
+  {-# INLINE jsonWord #-}
+  {-# INLINE jsonWord8 #-}
+  {-# INLINE jsonWord16 #-}
+  {-# INLINE jsonWord32 #-}
+  {-# INLINE jsonWord64 #-}
+  {-# INLINE jsonInteger #-}
+  {-# INLINE jsonNatural #-}
+  {-# INLINE jsonDouble #-}
+  {-# INLINE jsonValue #-}
+  {-# INLINE jsonMap #-}
+  {-# INLINE jsonHashMap #-}
+  {-# INLINE jsonObject #-}
+  {-# INLINE jsonObjectStrict #-}
 
 instance Functor (TupPrintor val a) where
   fmap _ (TupPrintor total attempt render check single) =
     TupPrintor total attempt render check single
+  {-# INLINE fmap #-}
 instance Applicative (TupPrintor val a) where
   pure _ = TupPrintor
     (const True) (const (Just mempty)) (\_ rest -> rest) mempty Nothing
@@ -1425,6 +1498,8 @@ instance Applicative (TupPrintor val a) where
     (\a rest -> tupPrintorRender p a $! tupPrintorRender q a rest)
     (tupPrintorCheck p <> tupPrintorCheck q)
     Nothing
+  {-# INLINE pure #-}
+  {-# INLINE (<*>) #-}
 instance Profunctor (TupPrintor val) where
   dimap f _ p = case tupPrintorElement p of
     Just single ->
@@ -1434,6 +1509,9 @@ instance Profunctor (TupPrintor val) where
       (\a rest -> let b = f a in b `seq` render b rest) (check . f) Nothing
     where
       TupPrintor total attempt render check _ = p
+  {-# INLINE dimap #-}
+  lmap f = dimap f id
+  {-# INLINE lmap #-}
   _ #. p = coerce p
   p .# _ = coerce p
 instance CocartesianMonoidal (TupPrintor val) where
@@ -1502,7 +1580,7 @@ instance DisjunctiveMonoid (TupPrintor val a b) where
       (printed, _) -> printed)
     Nothing
 
-instance AesonVal val => JsonTup (JsonPrintor val) (TupPrintor val) where
+instance JsonTup (JsonPrintor val) (TupPrintor val) where
   jsonElem p = TupPrintor
     (\rules -> printorTotal p rules)
     (fmap DList.singleton . printorTry p)
@@ -1510,10 +1588,12 @@ instance AesonVal val => JsonTup (JsonPrintor val) (TupPrintor val) where
     (\a -> Elements $ (\printed -> (1, pure printed))
       <$> jsonAt (Index 0) (printorCheck p a))
     (Just (printorRender p))
+  {-# INLINE jsonElem #-}
 
 instance Functor (ObjPrintor val a) where
   fmap _ (ObjPrintor keys rest total attempt render check) =
     ObjPrintor keys rest total attempt render check
+  {-# INLINE fmap #-}
 instance Applicative (ObjPrintor val a) where
   pure _ = ObjPrintor [[]] False
     (const True) (const (Just mempty)) (\_ rest -> rest) (\_ -> Right [])
@@ -1525,6 +1605,7 @@ instance Applicative (ObjPrintor val a) where
       (\a -> (<>) <$> try0 a <*> try1 a)
       (\a rest -> render0 a $! render1 a rest)
       (\a -> (<>) <$> check0 a <*> check1 a)
+  {-# INLINE pure #-}
 instance Profunctor (ObjPrintor val) where
   dimap f _ (ObjPrintor keys rest total attempt render check) =
     ObjPrintor keys rest total
@@ -1532,9 +1613,14 @@ instance Profunctor (ObjPrintor val) where
       (check . f)
   _ #. p = coerce p
   p .# _ = coerce p
+  {-# INLINE dimap #-}
+  {-# INLINE (#.) #-}
+  {-# INLINE (.#) #-}
 instance AesonVal val => Choice (ObjPrintor val) where
   left' = alternate . Left
   right' = alternate . Right
+  {-# INLINE left' #-}
+  {-# INLINE right' #-}
 instance CocartesianMonoidal (ObjPrintor val) where
   zeroP = ObjPrintor [] False (const True) absurd absurd absurd
   p >+< q = ObjPrintor
@@ -1546,6 +1632,8 @@ instance CocartesianMonoidal (ObjPrintor val) where
       Left a -> objPrintorRender p a props
       Right b -> objPrintorRender q b props)
     (either (objPrintorCheck p) (objPrintorCheck q))
+  {-# INLINE zeroP #-}
+  {-# INLINE (>+<) #-}
 instance AesonVal val => CocartesianChoice (ObjPrintor val) where
   alternate = \case
     Left p -> objTrying p
@@ -1554,6 +1642,7 @@ instance AesonVal val => CocartesianChoice (ObjPrintor val) where
     Right p -> objTrying p
       (either (const Nothing) (objPrintorTry p))
       (either (\_ -> jsonUnexpected Nothing) (objPrintorCheck p))
+  {-# INLINE alternate #-}
 instance AesonVal val => DisjunctiveMonoid (ObjPrintor val a b) where
   falseP = ObjPrintor [] False (const False) (const Nothing)
     (\_ props -> props) (\_ -> jsonUnexpected Nothing)
@@ -1615,6 +1704,25 @@ instance AesonVal val => JsonObj (JsonPrintor val) (ObjPrintor val) where
       key = Key.fromText k
       encodedKey = aesonKey @val key
       property printed = DList.singleton (key, printed)
+  {-# INLINE jsonDict #-}
+  {-# INLINE (!:) #-}
+  {-# INLINE (?:) #-}
+
+{- | Print an array of elements. Outside the `JsonVal` instance, so that
+the instance's specializations needn't break their recursion through
+`jsonTuple` itself, which would stop it from inlining.
+-}
+printTuple
+  :: AesonVal val
+  => (forall q. JsonTup (JsonPrintor val) q => q a b) -> JsonPrintor val a b
+printTuple tup = JsonPrintor
+  (\rules -> tupPrintorTotal tup rules)
+  (fmap (aesonList id . toList) . tupPrintorTry tup)
+  (\a -> aesonList id (tupPrintorRender tup a []))
+  (\a -> case tupPrintorCheck tup a of
+    Elements printed -> aesonList id . toList . snd <$> printed)
+  Nothing
+{-# INLINE printTuple #-}
 
 -- | Print the properties of a map, whose keys are distinct, as an object.
 printDistinct
@@ -1641,6 +1749,7 @@ renderProperty
   -> AesonProps val
 renderProperty key p a rest =
   let printed = printorRender p a in printed `seq` aesonProp key printed rest
+{-# INLINE renderProperty #-}
 
 printProperty
   :: Key -> JsonPrintor val a b -> a -> Either JsonError [(Key, val)]
@@ -2316,6 +2425,7 @@ makePrisms ''These
 -- base
 instance Json Bool where
   json = jsonBool
+  {-# INLINE json #-}
   jsonKey = Just (enumerated (\b -> if b then "true" else "false"))
 instance Json Ordering where
   json = jsonTyped (enumerated (Text.pack . show))
@@ -2341,6 +2451,7 @@ instance Json Char where
   jsonKeyList = Just jsonString
 instance Json a => Json [a] where
   json = jsonList
+  {-# INLINE json #-}
   jsonKey = jsonKeyList @a
 instance Json a => Json (Maybe a) where
   json = jsonNullable json
@@ -2365,6 +2476,7 @@ instance HasResolution a => Json (Fixed a) where
   jsonKey = Just (iso realToFrac realToFrac >~ jsonScientificKey)
 instance Json Int where
   json = jsonTyped jsonInt
+  {-# INLINE json #-}
   jsonKey = Just (jsonIntKey _BoundedInteger)
 instance Json Int8 where
   json = jsonTyped jsonInt8
@@ -2475,16 +2587,23 @@ instance Json (Proxy a) where
   jsonOmittedField = Just Proxy
 -- tuples
 -- | An element of a tuple, by its projection.
-projectElem :: (Json a, JsonTup p q) => (s -> a) -> q s a
+projectElem :: (Json a, JsonVal p, JsonTup p q) => (s -> a) -> q s a
 projectElem f = lmap f (jsonElem json)
+{-# INLINE projectElem #-}
 
 instance (Json a, Json b) => Json (a, b) where
   json = jsonTuple (jsonElem json >*< jsonElem json)
+  {-# INLINE json #-}
+  jsonList = jsonArray json
+  {-# INLINE jsonList #-}
 instance (Json a, Json b, Json c) => Json (a, b, c) where
   json = jsonTuple $ (,,)
     <$> projectElem (\(a, _, _) -> a)
     <*> projectElem (\(_, b, _) -> b)
     <*> projectElem (\(_, _, c) -> c)
+  {-# INLINE json #-}
+  jsonList = jsonArray json
+  {-# INLINE jsonList #-}
 instance (Json a, Json b, Json c, Json d) => Json (a, b, c, d) where
   json = jsonTuple $ (,,,)
     <$> projectElem (\(a, _, _, _) -> a)
@@ -2653,6 +2772,7 @@ instance
 -- text
 instance Json Text where
   json = jsonText
+  {-# INLINE json #-}
   jsonKey = Just jsonText
 instance Json LText.Text where
   json = iso LText.toStrict LText.fromStrict >~ jsonText
@@ -2905,6 +3025,7 @@ instance
   ) => Json (GHC.Generically a) where
     json = dimap (\(GHC.Generically a) -> a) GHC.Generically
       (jsonGeneric Aeson.defaultOptions)
+    {-# INLINABLE json #-}
 
 {- | The `GHC.Generic` `Json` grammar by @aeson@'s `Aeson.Options`,
 compatible with @aeson@'s generic instances by the same options,
@@ -2923,6 +3044,7 @@ jsonGeneric opts = jsonTyped $ case (enumIndex @(AllNullary f) @a, gtable @f opt
     , gconCount @f > 1 || Aeson.tagSingleConstructors opts ->
         jsonEnumWith indexOf [(tag, GHC.to (GHC.M1 v)) | (tag, v) <- table]
   _ -> dimap (GHC.unM1 . GHC.from) (GHC.to . GHC.M1) (gsum opts)
+{-# INLINE jsonGeneric #-}
 
 -- | Whether a `GHC.Generic` representation's constructors are all nullary.
 type AllNullary :: (Type -> Type) -> Bool
@@ -2951,6 +3073,7 @@ gsum opts
       Aeson.UntaggedValue -> guntagged opts
       Aeson.ObjectWithSingleField -> gsingleField opts
       Aeson.TwoElemArray -> gtwoElements opts
+{-# INLINE gsum #-}
 
 -- | An object, rejecting other properties by `Aeson.rejectUnknownFields`.
 gobject
@@ -2958,6 +3081,7 @@ gobject
 gobject opts obj
   | Aeson.rejectUnknownFields opts = jsonObjectStrict obj
   | otherwise = jsonObject obj
+{-# INLINE gobject #-}
 
 class GSum f where
   gconCount :: Int
@@ -2990,6 +3114,14 @@ instance (GSum f, GSum g) => GSum (f GHC.:+: g) where
   guntagged opts = sumIso >~ guntagged opts >+< guntagged opts
   gsingleField opts = sumIso >~ gsingleField opts >+< gsingleField opts
   gtwoElements opts = sumIso >~ gtwoElements opts >+< gtwoElements opts
+  {-# INLINE gconCount #-}
+  {-# INLINE gcons #-}
+  {-# INLINE genum #-}
+  {-# INLINE gtable #-}
+  {-# INLINE gtagged #-}
+  {-# INLINE guntagged #-}
+  {-# INLINE gsingleField #-}
+  {-# INLINE gtwoElements #-}
 
 sumIso :: Iso' ((f GHC.:+: g) x) (Either (f x) (g x))
 sumIso = iso
@@ -3013,9 +3145,9 @@ instance (GHC.Constructor c, GFields f, GContents f, GNullary f)
     gtagged opts tagField contentsField =
       GHC.M1 #. gobject opts (tag >* contents) .# GHC.unM1
       where
-        tag :: JsonObj p q => q () ()
+        tag :: (JsonVal p, JsonObj p q) => q () ()
         tag = tagField !: fromString (gconTag @c opts)
-        contents :: JsonObj p q => q (f x) (f x)
+        contents :: (JsonVal p, JsonObj p q) => q (f x) (f x)
         contents
           | gconIsRecord @c = gfields opts
           | Just v <- gnullary @f = dimap (const ()) (const v) oneP
@@ -3030,6 +3162,14 @@ instance (GHC.Constructor c, GFields f, GContents f, GNullary f)
       ( lmap (const ()) (jsonElem (fromString (gconTag @c opts)))
       *> jsonElem (gcons @(GHC.C1 c f) opts)
       )
+    {-# INLINE gconCount #-}
+    {-# INLINE gcons #-}
+    {-# INLINE genum #-}
+    {-# INLINE gtable #-}
+    {-# INLINE gtagged #-}
+    {-# INLINE guntagged #-}
+    {-# INLINE gsingleField #-}
+    {-# INLINE gtwoElements #-}
 
 -- | A constructor's tag, by `Aeson.constructorTagModifier`.
 gconTag :: forall (c :: GHC.Meta). GHC.Constructor c => Aeson.Options -> String
@@ -3046,7 +3186,7 @@ gselName = GHC.selName (GHC.M1 GHC.U1 :: GHC.S1 s GHC.U1 ())
 
 class GFields f where
   -- | A record's fields, by `Aeson.fieldLabelModifier`.
-  gfields :: JsonObj p q => Aeson.Options -> q (f x) (f x)
+  gfields :: (JsonVal p, JsonObj p q) => Aeson.Options -> q (f x) (f x)
   -- | A record's field, when it's its only field.
   gfield :: JsonVal p => Maybe (p (f x) (f x))
 instance (GHC.Selector s, Json a) => GFields (GHC.S1 s (GHC.K1 i a)) where
@@ -3054,7 +3194,7 @@ instance (GHC.Selector s, Json a) => GFields (GHC.S1 s (GHC.K1 i a)) where
     where
       key = Text.pack (Aeson.fieldLabelModifier opts (gselName @s))
       -- An omittable field, by `jsonOmitField` & `jsonOmittedField`.
-      property :: JsonObj p q => q a a
+      property :: (JsonVal p, JsonObj p q) => q a a
       property = case jsonOmittedField @a of
         Just omitted
           | Aeson.allowOmittedFields opts || Aeson.omitNothingFields opts ->
@@ -3064,21 +3204,27 @@ instance (GHC.Selector s, Json a) => GFields (GHC.S1 s (GHC.K1 i a)) where
         | Aeson.omitNothingFields opts && jsonOmitField a = Nothing
         | otherwise = Just a
   gfield = Just ((GHC.M1 . GHC.K1) #. json .# GHC.unK1 . GHC.unM1)
+  {-# INLINE gfields #-}
+  {-# INLINE gfield #-}
 instance (GFields f, GFields g) => GFields (f GHC.:*: g) where
   gfields opts = dimap2 (\(a GHC.:*: _) -> a) (\(_ GHC.:*: b) -> b) (GHC.:*:)
     (gfields opts) (gfields opts)
   gfield = Nothing
+  {-# INLINE gfields #-}
+  {-# INLINE gfield #-}
 instance GFields GHC.U1 where
   gfields _ = dimap (const ()) (const GHC.U1) oneP
   gfield = Nothing
 
 class GElements f where
-  gelements :: JsonTup p q => q (f x) (f x)
+  gelements :: (JsonVal p, JsonTup p q) => q (f x) (f x)
 instance Json a => GElements (GHC.S1 s (GHC.K1 i a)) where
   gelements = (GHC.M1 . GHC.K1) #. jsonElem json .# GHC.unK1 . GHC.unM1
+  {-# INLINE gelements #-}
 instance (GElements f, GElements g) => GElements (f GHC.:*: g) where
   gelements = dimap2
     (\(a GHC.:*: _) -> a) (\(_ GHC.:*: b) -> b) (GHC.:*:) gelements gelements
+  {-# INLINE gelements #-}
 instance GElements GHC.U1 where
   gelements = dimap (const ()) (const GHC.U1) oneP
 
@@ -3088,13 +3234,16 @@ gtuple
   => p a a
 gtuple = dimap (GHC.unM1 . GHC.unM1 . GHC.from) (GHC.to . GHC.M1 . GHC.M1)
   (jsonTuple gelements)
+{-# INLINE gtuple #-}
 
 class GContents f where
   gcontents :: JsonVal p => p (f x) (f x)
 instance Json a => GContents (GHC.S1 s (GHC.K1 i a)) where
   gcontents = (GHC.M1 . GHC.K1) #. json .# GHC.unK1 . GHC.unM1
+  {-# INLINE gcontents #-}
 instance (GElements f, GElements g) => GContents (f GHC.:*: g) where
   gcontents = jsonTuple gelements
+  {-# INLINE gcontents #-}
 instance GContents GHC.U1 where
   gcontents = jsonTuple gelements
 
@@ -3104,5 +3253,7 @@ instance GNullary GHC.U1 where
   gnullary = Just GHC.U1
 instance GNullary (GHC.S1 s f) where
   gnullary = Nothing
+  {-# INLINE gnullary #-}
 instance GNullary (f GHC.:*: g) where
   gnullary = Nothing
+  {-# INLINE gnullary #-}
