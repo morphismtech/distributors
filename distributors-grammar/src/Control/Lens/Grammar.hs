@@ -634,7 +634,7 @@ instance Matching String RegBnf where
 
 makeNestedPrisms ''Bnf
 makeNestedPrisms ''RegEx
-makeNestedPrisms ''RegExam
+makeNestedPrisms ''TokenExam
 makeNestedPrisms ''CategoryTest
 makeNestedPrisms ''GeneralCategory
 makeNestedPrisms ''RegString

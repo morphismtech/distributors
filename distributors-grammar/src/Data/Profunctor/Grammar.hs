@@ -27,7 +27,6 @@ import Control.Lens
 import Control.Lens.Extras
 import Control.Lens.Grammar.BackusNaur
 import Control.Lens.Grammar.Machine
-import Control.Lens.Grammar.RegEx
 import Control.Lens.Grammar.Symbol
 import Control.Lens.Grammar.Token
 import Control.Monad

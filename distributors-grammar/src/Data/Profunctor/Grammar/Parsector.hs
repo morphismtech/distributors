@@ -27,7 +27,6 @@ import Control.Category
 import Data.Function (fix)
 import Control.Lens
 import Control.Lens.Grammar.BackusNaur
-import Control.Lens.Grammar.RegEx
 import Control.Lens.Grammar.Symbol
 import Control.Lens.Grammar.Token
 import Control.Lens.PartialIso
