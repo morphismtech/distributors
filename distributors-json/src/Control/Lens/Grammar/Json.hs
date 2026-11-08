@@ -286,30 +286,32 @@ class Json a where
   json = jsonGeneric Aeson.defaultOptions
   {-# INLINABLE json #-}
 
-  {- | `Data.Aeson.toJSONList`, an array of values by default.
-  `Char` overrides it, so that a `String` is a JSON string,
-  as do types wrapping a `Char`, by forwarding it.
+  {- | `Data.Aeson.toJSONList` & `Data.Aeson.parseJSONList`,
+  as one grammar, an array of values by default.
+  `Char` and wrappers override it, so that a `String` is a JSON string.
   -}
   jsonList :: JsonVal p => p [a] [a]
   jsonList = jsonArray json
   {-# INLINE jsonList #-}
 
-  {- | `Data.Aeson.toJSONKey`, as the text keys of objects,
+  {- | `Data.Aeson.toJSONKey` & `Data.Aeson.parseJSONKey`
+  as one grammar for the text keys of objects,
   or else `Nothing` for the keys of arrays of pairs.
   -}
   jsonKey :: Maybe (forall k. JsonStr k => k a a)
   jsonKey = Nothing
 
-  {- | `Data.Aeson.toJSONKeyList`, keys of lists, like `jsonList`.
-  `Char` overrides it, so that a `String` is a key.
+  {- | `Data.Aeson.toJSONKeyList` & `Data.Aeson.parseJSONKeyList`
+  as one grammar for keys of lists, like `jsonList`.
+  `Char` and wrappers override it.
   -}
   jsonKeyList :: Maybe (forall k. JsonStr k => k [a] [a])
   jsonKeyList = Nothing
 
   {- | `Data.Aeson.omitField` & `Data.Aeson.omittedField` together,
   as the value of a record's field which may be omitted, like `nearly`:
-  it matches the value omitted by `Aeson.omitNothingFields`,
-  & reviews the value of a field omitted by `Aeson.allowOmittedFields`.
+  it matches the value omitted by `Data.Aeson.omitNothingFields`,
+  & reviews the value of a field omitted by `Data.Aeson.allowOmittedFields`.
   -}
   jsonOmitField :: Maybe (APrism' a ())
   jsonOmitField = Nothing
@@ -352,7 +354,10 @@ jsonErrorEncode = runJsonPrintor json
 {-# INLINE jsonErrorEncode #-}
 
 {- | @aeson@'s instances, derived from a `Json` instance, failing to parse
-at the path of a `JsonError`, by its message.
+at the path of a `JsonError`, by its message: `Aeson.ToJSON` &
+`Aeson.FromJSON`, with their fields omitted by `jsonOmitField`, &
+`Aeson.ToJSONKey` & `Aeson.FromJSONKey`, by `jsonKey` & `jsonKeyList`,
+or else as values, in arrays of pairs.
 
 > data Point = Point {x :: Int, y :: Int}
 >   deriving stock Generic
@@ -360,6 +365,7 @@ at the path of a `JsonError`, by its message.
 >   deriving (ToJSON, FromJSON) via ViaJson Point
 -}
 newtype ViaJson a = ViaJson a
+  deriving stock (Eq, Ord, Show)
 
 instance Json a => Aeson.ToJSON (ViaJson a) where
   toJSON (ViaJson a) = jsonPrint a
@@ -368,10 +374,43 @@ instance Json a => Aeson.ToJSON (ViaJson a) where
     (runJsonPrintor (jsonList @a) (coerce vs))
   toEncodingList vs = either (\_ -> Encoding.null_) id
     (runJsonPrintor (jsonList @a) (coerce vs))
+  omitField (ViaJson a) = case jsonOmitField @a of
+    Just omitted -> withPrism omitted $ \_ match ->
+      either (const False) (const True) (match a)
+    Nothing -> False
 instance Json a => Aeson.FromJSON (ViaJson a) where
   parseJSON = either parseFailure (pure . ViaJson) . jsonParse
   parseJSONList =
     either parseFailure (pure . coerce) . runJsonParsor (jsonList @a)
+  omittedField = case jsonOmitField @a of
+    Just omitted -> withPrism omitted $ \omit _ -> Just (ViaJson (omit ()))
+    Nothing -> Nothing
+instance Json a => Aeson.ToJSONKey (ViaJson a) where
+  toJSONKey = case jsonKey @a of
+    Just key -> keyText (coerced >~ key)
+    Nothing -> Aeson.ToJSONKeyValue Aeson.toJSON Aeson.toEncoding
+  toJSONKeyList = case jsonKeyList @a of
+    Just key -> keyText (coerced >~ key)
+    Nothing -> Aeson.ToJSONKeyValue Aeson.toJSON Aeson.toEncoding
+instance Json a => Aeson.FromJSONKey (ViaJson a) where
+  fromJSONKey = case jsonKey @a of
+    Just key -> keyParser (coerced >~ key)
+    Nothing -> Aeson.FromJSONKeyValue Aeson.parseJSON
+  fromJSONKeyList = case jsonKeyList @a of
+    Just key -> keyParser (coerced >~ key)
+    Nothing -> Aeson.FromJSONKeyValue Aeson.parseJSON
+
+-- | Print a key's text, by a key grammar.
+keyText
+  :: (forall k. JsonStr k => k a a) -> Aeson.ToJSONKeyFunction a
+keyText key =
+  Aeson.ToJSONKeyText (runKeyPrintor key) (runKeyPrintor key)
+
+-- | Parse a key's text, by a key grammar.
+keyParser
+  :: (forall k. JsonStr k => k a a) -> Aeson.FromJSONKeyFunction a
+keyParser key = Aeson.FromJSONKeyTextParser
+  (either parseFailure pure . runJsonParsor key . String)
 
 -- | Fail to parse at the path of a `JsonError`, by its message.
 parseFailure :: JsonError -> Aeson.Parser x

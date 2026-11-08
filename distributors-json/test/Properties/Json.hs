@@ -32,8 +32,8 @@ import Control.Lens.Grammar.TypeScript
 import Data.Foldable (toList)
 import Data.Sequence qualified as Seq
 import Data.Aeson
-  ( FromJSON (..), Options (..), SumEncoding (..), ToJSON (..), Value (String)
-  , camelTo2, decode, defaultOptions, genericToJSON
+  ( FromJSON (..), Options (..), SumEncoding (..), ToJSON (..), ToJSONKey
+  , Value (String), camelTo2, decode, defaultOptions, encode, genericToJSON
   , object, (.=)
   )
 import Data.Aeson.Encoding (encodingToLazyByteString)
@@ -727,6 +727,28 @@ jsonCodecSpec = describe "jsonEncode" $ do
   it "encodes in order" $
     encodingToLazyByteString <$> jsonErrorEncode (Point 1 2)
       `shouldBe` Right "{\"px\":1,\"py\":2}"
+  describe "ViaJson's keys agree with aeson's" $ do
+    viaKeys @Int
+    viaKeys @Text
+    viaKeys @(Int, Int)
+    prop "[Char]" $ \(m :: Map String Bool) ->
+      let via = Map.mapKeysMonotonic (map ViaJson) m
+      in encode via === encode m .&&. decode (encode m) === Just via
+  it "ViaJson omits fields as aeson does" $ do
+    omitField (ViaJson (Nothing :: Maybe Int)) `shouldBe` True
+    omitField (ViaJson (Just (1 :: Int))) `shouldBe` False
+    omitField (ViaJson (1 :: Int)) `shouldBe` False
+    omittedField `shouldBe` Just (ViaJson (Nothing :: Maybe Int))
+    omittedField `shouldBe` (Nothing :: Maybe (ViaJson Int))
+
+-- | `ViaJson`'s keys print & parse as @aeson@'s.
+viaKeys
+  :: forall k
+   . (Json k, Ord k, ToJSONKey k, Arbitrary k, Show k, Typeable k)
+  => Spec
+viaKeys = prop (show (typeRep (Proxy @k))) $ \(m :: Map k Bool) ->
+  let via = Map.mapKeysMonotonic ViaJson m
+  in encode via === encode m .&&. decode (encode m) === Just via
 
 codecCompat :: forall a. (Json a, ToJSON a, Show a, Typeable a) => Gen a -> Spec
 codecCompat gen = it (show (typeRep (Proxy @a))) $ forAll gen $ \a ->
