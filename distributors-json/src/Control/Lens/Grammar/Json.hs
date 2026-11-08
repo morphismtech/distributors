@@ -103,13 +103,13 @@ export type Shape = { kind: "circle"; radius: Double } | { kind: "rectangle"; si
 module Control.Lens.Grammar.Json
   ( -- * Json
     Json (..)
+  , jsonGeneric
   , jsonParse
   , jsonDecode
   , jsonPrint
   , jsonErrorPrint
   , jsonEncode
   , jsonErrorEncode
-  , jsonGeneric
   , ViaJson (..)
     -- * Grammar
   , JsonVal (..), jsonTyped
