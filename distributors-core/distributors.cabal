@@ -1,13 +1,13 @@
 cabal-version: 2.2
 
--- This file has been generated from package.yaml by hpack version 0.39.1.
+-- This file has been generated from package.yaml by hpack version 0.39.6.
 --
 -- see: https://github.com/sol/hpack
 
 name:           distributors
 version:        0.6.0.0
-synopsis:       Unifying Parsers, Printers & Grammars
-description:    Distributors provides mathematically inspired abstractions for coders to write parsers that can also be inverted to printers.
+synopsis:       Profunctor algebra & optics for invertible syntax
+description:    Distributors provides mathematically inspired abstractions for coders to write parsers that can also be inverted to printers. Its grammars are in @distributors-grammar@.
 category:       Profunctors, Optics, Parsing
 homepage:       https://github.com/morphismtech/distributors#readme
 bug-reports:    https://github.com/morphismtech/distributors/issues
@@ -30,24 +30,15 @@ library
   exposed-modules:
       Control.Lens.Bifocal
       Control.Lens.Diopter
-      Control.Lens.Grammar
-      Control.Lens.Grammar.BackusNaur
-      Control.Lens.Grammar.Internal.NestedPrismTH
-      Control.Lens.Grammar.Internal.Orphanage
-      Control.Lens.Grammar.Machine
-      Control.Lens.Grammar.RegEx
-      Control.Lens.Grammar.Symbol
-      Control.Lens.Grammar.Token
       Control.Lens.Grate
+      Control.Lens.Internal.NestedPrismTH
+      Control.Lens.Internal.Orphanage
       Control.Lens.Monocle
       Control.Lens.PartialIso
       Control.Lens.Wither
-      Control.Monad.Fail.Try
       Data.Monoid.Disjunctive
       Data.Profunctor.Distributor
       Data.Profunctor.Filtrator
-      Data.Profunctor.Grammar
-      Data.Profunctor.Grammar.Parsector
       Data.Profunctor.Monadic
       Data.Profunctor.Monoidal
       Data.Profunctor.Monoidal.Cocartesian
@@ -99,23 +90,16 @@ library
       UndecidableSuperClasses
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints
   build-depends:
-      MemoTrie >=0.6 && <1
-    , QuickCheck >=2.14 && <3
-    , adjunctions >=4.4 && <5
+      adjunctions >=4.4 && <5
     , base >=4.15 && <5
     , bifunctors >=5.5 && <6
-    , bytestring >=0.11 && <1
     , containers >=0.6 && <1
     , contravariant >=1.5 && <2
     , distributive >=0.6 && <1
     , lens >=5.0 && <6
-    , monad-loops >=0.4.3 && <1
-    , mtl >=2.2 && <3
     , profunctors >=5.6 && <6
-    , random >=1.2 && <2
     , tagged >=0.8 && <1
     , template-haskell >=2.17 && <3
-    , text ==2.*
     , th-abstraction >=0.4 && <1
     , transformers >=0.5 && <1
     , vector >=0.12 && <1
@@ -171,25 +155,18 @@ test-suite doctests
       UndecidableSuperClasses
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded
   build-depends:
-      MemoTrie >=0.6 && <1
-    , QuickCheck >=2.14 && <3
-    , adjunctions >=4.4 && <5
+      adjunctions >=4.4 && <5
     , base >=4.15 && <5
     , bifunctors >=5.5 && <6
-    , bytestring >=0.11 && <1
     , containers >=0.6 && <1
     , contravariant >=1.5 && <2
     , distributive >=0.6 && <1
     , distributors
     , doctest-parallel >=0.3 && <1
     , lens >=5.0 && <6
-    , monad-loops >=0.4.3 && <1
-    , mtl >=2.2 && <3
     , profunctors >=5.6 && <6
-    , random >=1.2 && <2
     , tagged >=0.8 && <1
     , template-haskell >=2.17 && <3
-    , text ==2.*
     , th-abstraction >=0.4 && <1
     , transformers >=0.5 && <1
     , vector >=0.12 && <1
@@ -200,17 +177,7 @@ test-suite test
   type: exitcode-stdio-1.0
   main-is: Main.hs
   other-modules:
-      Examples.Arithmetic
-      Examples.Chain
-      Examples.Expression
-      Examples.Json
-      Examples.Lambda
-      Examples.LenVec
-      Examples.RegString
-      Examples.SemVer
-      Examples.SExpr
       Properties.Homogeneous
-      Properties.Kleene
       Paths_distributors
   autogen-modules:
       Paths_distributors
@@ -256,26 +223,19 @@ test-suite test
       UndecidableSuperClasses
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints
   build-depends:
-      MemoTrie >=0.6 && <1
-    , QuickCheck >=2.14 && <3
+      QuickCheck >=2.14 && <3
     , adjunctions >=4.4 && <5
     , base >=4.15 && <5
     , bifunctors >=5.5 && <6
-    , bytestring >=0.11 && <1
     , containers >=0.6 && <1
     , contravariant >=1.5 && <2
     , distributive >=0.6 && <1
     , distributors
     , hspec >=2.7 && <3
     , lens >=5.0 && <6
-    , megaparsec >=9.0 && <10
-    , monad-loops >=0.4.3 && <1
-    , mtl >=2.2 && <3
     , profunctors >=5.6 && <6
-    , random >=1.2 && <2
     , tagged >=0.8 && <1
     , template-haskell >=2.17 && <3
-    , text ==2.*
     , th-abstraction >=0.4 && <1
     , transformers >=0.5 && <1
     , vector >=0.12 && <1

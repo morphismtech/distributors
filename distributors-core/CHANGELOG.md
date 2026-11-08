@@ -28,6 +28,13 @@
 
 ### Breaking Changes
 
+- The grammars move to their own package, `distributors-grammar`:
+  `Control.Lens.Grammar` & its `BackusNaur`, `Machine`, `RegEx`, `Symbol`
+  & `Token` modules, `Control.Monad.Fail.Try`, `Data.Profunctor.Grammar`
+  & `Data.Profunctor.Grammar.Parsector`. So `distributors` no longer
+  depends on `QuickCheck`, `random`, `MemoTrie`, `monad-loops` or `mtl`.
+- `Control.Lens.Grammar.Internal.NestedPrismTH` & `.Orphanage` are renamed
+  `Control.Lens.Internal.NestedPrismTH` & `.Orphanage`.
 - `Operator`'s `Infix`, `Prefix` & `Postfix` take `APrism`s, rather than
   `APartialIso`s, so that `withOperators` builds every operator it parses,
   rather than failing by `error`, or dropping prefix & postfix operators.

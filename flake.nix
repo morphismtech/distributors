@@ -1,5 +1,5 @@
 {
-  description = "distributors & distributors-json";
+  description = "distributors, distributors-grammar & distributors-json";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
@@ -16,6 +16,8 @@
           overrides = self: super: {
             distributors = self.callCabal2nix "distributors"
               ./distributors-core { };
+            distributors-grammar = self.callCabal2nix "distributors-grammar"
+              ./distributors-grammar { };
             distributors-json = self.callCabal2nix "distributors-json"
               ./distributors-json { };
           };
@@ -24,17 +26,21 @@
       {
         packages = {
           distributors = haskellPackages.distributors;
+          distributors-grammar = haskellPackages.distributors-grammar;
           distributors-json = haskellPackages.distributors-json;
           default = haskellPackages.distributors-json;
         };
 
         checks = {
           distributors = lib.doBenchmark haskellPackages.distributors;
+          distributors-grammar =
+            lib.doBenchmark haskellPackages.distributors-grammar;
           distributors-json = lib.doBenchmark haskellPackages.distributors-json;
         };
 
         devShells.default = haskellPackages.shellFor {
-          packages = p: [ p.distributors p.distributors-json ];
+          packages = p:
+            [ p.distributors p.distributors-grammar p.distributors-json ];
           withHoogle = false;
           nativeBuildInputs = [
             pkgs.cabal-install

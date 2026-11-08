@@ -1,5 +1,6 @@
 packages:
   distributors-core
+  distributors-grammar
   distributors-json
 
 tests: True

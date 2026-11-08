@@ -1,6 +1,6 @@
 cabal-version: 2.2
 
--- This file has been generated from package.yaml by hpack version 0.39.1.
+-- This file has been generated from package.yaml by hpack version 0.39.6.
 --
 -- see: https://github.com/sol/hpack
 
@@ -84,6 +84,7 @@ library
     , containers >=0.6 && <1
     , data-fix >=0.3 && <1
     , distributors ==0.6.*
+    , distributors-grammar ==0.1.*
     , dlist >=1.0 && <2
     , hashable >=1.4 && <2
     , lens >=5.0 && <6
@@ -161,6 +162,7 @@ test-suite doctests
     , containers >=0.6 && <1
     , data-fix >=0.3 && <1
     , distributors ==0.6.*
+    , distributors-grammar ==0.1.*
     , distributors-json
     , dlist >=1.0 && <2
     , doctest-parallel >=0.3 && <1
@@ -243,6 +245,7 @@ test-suite test
     , containers >=0.6 && <1
     , data-fix >=0.3 && <1
     , distributors ==0.6.*
+    , distributors-grammar ==0.1.*
     , distributors-json
     , dlist >=1.0 && <2
     , hashable >=1.4 && <2
@@ -324,6 +327,7 @@ benchmark json
     , data-fix >=0.3 && <1
     , deepseq >=1.4 && <2
     , distributors ==0.6.*
+    , distributors-grammar ==0.1.*
     , distributors-json
     , dlist >=1.0 && <2
     , hashable >=1.4 && <2

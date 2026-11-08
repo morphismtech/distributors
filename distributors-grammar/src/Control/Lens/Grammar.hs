@@ -280,6 +280,66 @@ Just "1+2*3"
 >>> do pr <- printG arithGrammar (Num 69); pure (pr "") :: Maybe String
 Just "69"
 
+Operator tables with precedence, like @buildExpressionParser@'s,
+are built by `withOperators`. For example, an expression grammar
+over natural numbers with a postfix factorial @!@ (binding tightest,
+and not required to actually compute a factorial), a right-associative
+exponent @^@, a left-associative @*@, and left-associative @+@ & @-@
+binding loosest:
+
+>>> :{
+data Expr
+  = Nat Natural
+  | Fac Expr
+  | Exp Expr Expr
+  | Mul Expr Expr
+  | Add Expr Expr
+  | Sub Expr Expr
+  deriving stock (Eq, Ord, Show, Read)
+_Nat :: Prism' Expr Natural
+_Nat = prism' Nat (\case Nat n -> Just n; _ -> Nothing)
+_Fac :: Prism' Expr Expr
+_Fac = prism' Fac (\case Fac x -> Just x; _ -> Nothing)
+_Exp, _Mul, _Add, _Sub :: Prism' Expr (Expr, Expr)
+_Exp = prism' (uncurry Exp) (\case Exp x y -> Just (x,y); _ -> Nothing)
+_Mul = prism' (uncurry Mul) (\case Mul x y -> Just (x,y); _ -> Nothing)
+_Add = prism' (uncurry Add) (\case Add x y -> Just (x,y); _ -> Nothing)
+_Sub = prism' (uncurry Sub) (\case Sub x y -> Just (x,y); _ -> Nothing)
+exprGrammar :: Grammar Char Expr
+exprGrammar = ruleRec "expr" $ \expr ->
+  let atom = rule "atom" $ nat >|< terminal "(" >* expr *< terminal ")"
+      nat  = rule "nat"  $ _Nat . iso show read >? someP (asIn @Char DecimalNumber)
+  in withOperators
+    [ [ Postfix _Fac (terminal "!") ]
+    , [ Infix RightAssoc _Exp (terminal "^") ]
+    , [ Infix LeftAssoc _Mul (terminal "*") ]
+    , [ Infix LeftAssoc _Add (terminal "+"), Infix LeftAssoc _Sub (terminal "-") ]
+    ] atom
+:}
+
+The right-associative @^@ groups to the right, @-@ to the left, @*@
+binds tighter than @+@, and postfix @!@ binds tighter than @^@:
+
+>>> [e | (e,"") <- parseG exprGrammar "2^3^2"]
+[Exp (Nat 2) (Exp (Nat 3) (Nat 2))]
+>>> [e | (e,"") <- parseG exprGrammar "3-2-1"]
+[Sub (Sub (Nat 3) (Nat 2)) (Nat 1)]
+>>> [e | (e,"") <- parseG exprGrammar "2*3+4"]
+[Add (Mul (Nat 2) (Nat 3)) (Nat 4)]
+>>> [e | (e,"") <- parseG exprGrammar "2*(3+4)"]
+[Mul (Nat 2) (Add (Nat 3) (Nat 4))]
+>>> [e | (e,"") <- parseG exprGrammar "3!"]
+[Fac (Nat 3)]
+>>> [e | (e,"") <- parseG exprGrammar "2^3!"]
+[Exp (Nat 2) (Fac (Nat 3))]
+
+Being bidirectional, the same grammar prints:
+
+>>> unparseG exprGrammar (Exp (Nat 2) (Exp (Nat 3) (Nat 2))) "" :: Maybe String
+Just "2^3^2"
+>>> unparseG exprGrammar (Exp (Nat 2) (Fac (Nat 3))) "" :: Maybe String
+Just "2^3!"
+
 If all `rule`s are non-recursive, then a `Grammar`
 can be rewritten as a `RegGrammar`.
 Since Haskell permits general recursion, and `RegGrammar`s are
