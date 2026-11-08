@@ -87,7 +87,7 @@ endWith str separator = separator {endBy = terminal str}
 several
   :: (IsList s, IsList t, Distributor p)
   => SepBy (p () ()) -> p (Item s) (Item t) -> p s t
-several (SepBy beg end sep) p = iso toList fromList . eotList >~
+several (SepBy beg end sep) p = iso toList fromList . eotList . swapped >~
   beg >* (p >*< manyP (sep >* p) >+< oneP) *< end
 
 {- |

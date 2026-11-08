@@ -275,19 +275,23 @@ notNulled :: (AsEmpty s, AsEmpty t) => PartialIso s t s t
 notNulled = partialIso nonEmp nonEmp where
   nonEmp s = if isn't _Empty s then Just s else Nothing
 
-{- | The either-of-tuples representation of `Maybe`. -}
-eotMaybe :: Iso (Maybe a) (Maybe b) (Either a ()) (Either b ())
+{- | The either-of-tuples representation of `Maybe`,
+in the order of its constructors.
+-}
+eotMaybe :: Iso (Maybe a) (Maybe b) (Either () a) (Either () b)
 eotMaybe = iso
-  (maybe (Right ()) Left)
-  (either Just (const Nothing))
+  (maybe (Left ()) Right)
+  (either (const Nothing) Just)
 
-{- | The either-of-tuples representation of list-like streams. -}
+{- | The either-of-tuples representation of list-like streams,
+empty or else a cons, as lists' constructors are ordered.
+-}
 eotList
   :: (Cons s s a a, AsEmpty t, Cons t t b b)
-  => Iso s t (Either (a,s) ()) (Either (b,t) ())
+  => Iso s t (Either () (a,s)) (Either () (b,t))
 eotList = iso
-  (maybe (Right ()) Left . uncons)
-  (either (review _Cons) (const Empty))
+  (maybe (Left ()) Right . uncons)
+  (either (const Empty) (review _Cons))
 
 {- | Iterate the application of a partial isomorphism,
 useful for constructing fold/unfold isomorphisms. -}

@@ -417,10 +417,10 @@ class
   {- | @null@ or a value, like @aeson@'s `Maybe`,
   though interpreters may define it more efficiently.
 
-  @jsonNullable p = eotMaybe . swapped >~ jsonNull >+< p@
+  @jsonNullable p = eotMaybe >~ jsonNull >+< p@
   -}
   jsonNullable :: p a b -> p (Maybe a) (Maybe b)
-  jsonNullable p = eotMaybe . swapped >~ jsonNull >+< p
+  jsonNullable p = eotMaybe >~ jsonNull >+< p
   {- | A `jsonDict` object of a `Map`, whose keys can't repeat,
   so that printing needn't check them.
   -}

@@ -175,9 +175,9 @@ instance Homogeneous Maybe where
 instance Homogeneous [] where
   homogeneously = manyP
 instance Homogeneous Vector where
-  homogeneously p = eotList >~ p >*< homogeneously p >+< oneP
+  homogeneously p = eotList . swapped >~ p >*< homogeneously p >+< oneP
 instance Homogeneous Seq where
-  homogeneously p = eotList >~ p >*< homogeneously p >+< oneP
+  homogeneously p = eotList . swapped >~ p >*< homogeneously p >+< oneP
 instance Homogeneous Complex where
   homogeneously p = dimap2 realPart imagPart (:+) p p
 instance Homogeneous Tree where

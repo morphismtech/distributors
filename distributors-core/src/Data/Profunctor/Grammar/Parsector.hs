@@ -417,7 +417,7 @@ instance Categorized (Item s) => Choice (Parsector s) where
         query { parsecResult = either (const Nothing) Just =<< result }
 instance Categorized (Item s) => CocartesianMonoidal (Parsector s)
 instance Categorized (Item s) => Distributor (Parsector s) where
-  {- | Like @eotList >~ p >*< manyP p >+< oneP@, in one loop,
+  {- | Like @eotList . swapped >~ p >*< manyP p >+< oneP@, in one loop,
   with its hints: a failure of @p@ without consuming ends the list,
   merging its expectations with those of the last element.
   -}

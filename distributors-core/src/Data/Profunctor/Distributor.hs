@@ -56,11 +56,11 @@ class (Monoidal p, CocartesianMonoidal p) => Distributor p where
 
   {- | One or none. -}
   optionalP :: p a b -> p (Maybe a) (Maybe b)
-  optionalP p = eotMaybe >~ p >+< oneP
+  optionalP p = eotMaybe . swapped >~ p >+< oneP
 
   {- | Zero or more. -}
   manyP :: p a b -> p [a] [b]
-  manyP p = eotList >~ p >*< manyP p >+< oneP
+  manyP p = eotList . swapped >~ p >*< manyP p >+< oneP
 
 instance Distributor (->)
 instance Monoid s => Distributor (Forget s)
