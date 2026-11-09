@@ -39,6 +39,7 @@ import Control.Lens.Internal.Profunctor
 import Data.Functor.Compose
 import Data.Profunctor.Monoidal.Cocartesian
 import Data.Traversable.Homogeneous
+import Data.Traversable.Homogeneous.Enumerable
 import Data.Void (Void, absurd)
 import GHC.Generics (Par1 (..), V1, (:+:) (..), (:*:) (..))
 import Numeric.Natural (Natural)
@@ -173,8 +174,8 @@ countComonocle :: AComonocle s t a b -> Natural
 countComonocle mon = withComonocle mon $ \split _ -> copies split
   where
     copies :: forall f x y. Enumerable f => (x -> f y) -> Natural
-    copies _ = case enumerably (pure () :: Indexing () ()) :: Indexing (f ()) (f ()) of
-      Indexing count _ _ -> count
+    copies _ = case enumerably (pure () :: Enumerator () ()) :: Enumerator (f ()) (f ()) of
+      Enumerator count _ _ -> count
 
 {- | The copy of `AComonocle` at an index, holding a focus, if there is one,
 like `toEnum`, & inverse to `indexComonocle`.

@@ -28,6 +28,8 @@
 
 ### Breaking Changes
 
+- `Enumerable`, its functions & `Indexing`, renamed `Enumerator`, move from
+  `Data.Traversable.Homogeneous` to `Data.Traversable.Homogeneous.Enumerable`.
 - `Comonocle`s & their combinators move from `Control.Lens.Monocle` to
   their own module, `Control.Lens.Comonocle`.
 - `Data.Profunctor.Separator` merges into `Data.Profunctor.Distributor`:

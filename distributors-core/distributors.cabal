@@ -44,6 +44,7 @@ library
       Data.Profunctor.Monoidal
       Data.Profunctor.Monoidal.Cocartesian
       Data.Traversable.Homogeneous
+      Data.Traversable.Homogeneous.Enumerable
   other-modules:
       Paths_distributors
   autogen-modules:

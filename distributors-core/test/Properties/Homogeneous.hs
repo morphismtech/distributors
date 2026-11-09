@@ -25,6 +25,7 @@ import Data.Profunctor.Monoidal (Monoidal)
 import Data.Profunctor.Monoidal.Cocartesian
 import Data.Proxy (Proxy (..))
 import Data.Traversable.Homogeneous
+import Data.Traversable.Homogeneous.Enumerable
 import Data.Void
 import GHC.Generics (Par1 (..), (:*:) (..))
 import Numeric.Natural (Natural)
@@ -45,20 +46,20 @@ instance Finite Void where
 instance (Finite a, Finite b) => Finite (Either a b) where
   universe = map Left universe <> map Right universe
 
--- | An `Indexing`'s count, indices of all sources, & selections, a little past.
-indexing :: Finite s => Indexing s t -> (Natural, [Natural], [Maybe t])
-indexing (Indexing count which select) =
+-- | An `Enumerator`'s count, indices of all sources, & selections, a little past.
+enumerator :: Finite s => Enumerator s t -> (Natural, [Natural], [Maybe t])
+enumerator (Enumerator count which select) =
   (count, map which universe, map select [0 .. count + 1])
 
 natural :: Gen Natural
 natural = fromInteger . getNonNegative <$> arbitrary
 
-genIndexing :: forall s t. Finite s => Gen t -> Gen (Indexing s t)
-genIndexing gen = do
+genEnumerator :: forall s t. Finite s => Gen t -> Gen (Enumerator s t)
+genEnumerator gen = do
   count <- (`mod` 5) <$> natural
   which <- vectorOf (length (universe :: [s])) natural
   selected <- vectorOf (fromIntegral count) gen
-  pure $ Indexing count
+  pure $ Enumerator count
     (\s -> fromMaybe 0 (lookup s (zip universe which)))
     (\i -> lookup i (zip [0 ..] selected))
 
@@ -241,34 +242,34 @@ zipporahLaws = do
 
 homogeneousProperties :: Spec
 homogeneousProperties = do
-  describe "Indexing" $ do
-    let ix = genIndexing arbitrary :: Gen (Indexing Bool Int)
-        ixf = genIndexing (applyFun <$> arbitrary)
-          :: Gen (Indexing Bool (Int -> Int))
+  describe "Enumerator" $ do
+    let ix = genEnumerator arbitrary :: Gen (Enumerator Bool Int)
+        ixf = genEnumerator (applyFun <$> arbitrary)
+          :: Gen (Enumerator Bool (Int -> Int))
     prop "pure id <*> v = v" $ forAllBlind ix $ \v ->
-      indexing (pure id <*> v) === indexing v
+      enumerator (pure id <*> v) === enumerator v
     prop "pure (.) <*> u <*> v <*> w = u <*> (v <*> w)" $
       forAllBlind ixf $ \u -> forAllBlind ixf $ \v -> forAllBlind ix $ \w ->
-        indexing (pure (.) <*> u <*> v <*> w) === indexing (u <*> (v <*> w))
+        enumerator (pure (.) <*> u <*> v <*> w) === enumerator (u <*> (v <*> w))
     prop "u <*> pure y = pure ($ y) <*> u" $ forAllBlind ixf $ \u (y :: Int) ->
-      indexing (u <*> pure y) === indexing (pure ($ y) <*> u)
+      enumerator (u <*> pure y) === enumerator (pure ($ y) <*> u)
     prop "zeroP >+< p = lunit p" $ forAllBlind ix $ \p ->
-      indexing (zeroP >+< p) === indexing (lunit p)
+      enumerator (zeroP >+< p) === enumerator (lunit p)
     prop "p >+< zeroP = runit p" $ forAllBlind ix $ \p ->
-      indexing (p >+< zeroP) === indexing (runit p)
+      enumerator (p >+< zeroP) === enumerator (runit p)
     prop "p >+< q >+< r = assoc ((p >+< q) >+< r)" $
       forAllBlind ix $ \p -> forAllBlind ix $ \q -> forAllBlind ix $ \r ->
-        indexing (p >+< q >+< r)
-          === indexing (dimap unassocE assocE ((p >+< q) >+< r))
+        enumerator (p >+< q >+< r)
+          === enumerator (dimap unassocE assocE ((p >+< q) >+< r))
     prop "unleft = unright . dimap swapE swapE" $
-      forAllBlind (genIndexing arbitrary
-        :: Gen (Indexing (Either Bool ()) (Either Int ()))) $ \p ->
-          indexing (unleft p) === indexing (unright (dimap swapE swapE p))
+      forAllBlind (genEnumerator arbitrary
+        :: Gen (Enumerator (Either Bool ()) (Either Int ()))) $ \p ->
+          enumerator (unleft p) === enumerator (unright (dimap swapE swapE p))
     prop "rmap (either id absurd) = unleft . lmap (either id absurd)" $
-      forAllBlind (genIndexing (Left <$> arbitrary)
-        :: Gen (Indexing Bool (Either Int Void))) $ \p ->
-          indexing (rmap (either id absurd) p)
-            === indexing (unleft (lmap (either id absurd) p) :: Indexing Bool Int)
+      forAllBlind (genEnumerator (Left <$> arbitrary)
+        :: Gen (Enumerator Bool (Either Int Void))) $ \p ->
+          enumerator (rmap (either id absurd) p)
+            === enumerator (unleft (lmap (either id absurd) p) :: Enumerator Bool Int)
   zipporahLaws
   describe "Comonocle & Diopter combinators" $ do
     prop "countComonocle _BoundedEnum is the number of values" $

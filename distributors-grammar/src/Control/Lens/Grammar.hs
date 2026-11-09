@@ -83,6 +83,7 @@ import Data.Profunctor.Grammar as X
 import Data.Profunctor.Grammar.Parsector as X
 import Data.Profunctor.Monoidal as X
 import Data.Traversable.Homogeneous as X
+import Data.Traversable.Homogeneous.Enumerable as X
 
 -- $setup
 -- >>> import Data.String (fromString)
