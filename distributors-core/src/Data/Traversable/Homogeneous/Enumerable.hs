@@ -17,6 +17,9 @@ module Data.Traversable.Homogeneous.Enumerable
   , succEnumerable
   , predEnumerable
   , enumerateFrom
+  , enumerateFromThen
+  , enumerateFromTo
+  , enumerateFromThenTo
     -- * Enumerator
   , Enumerator (..)
   ) where
@@ -203,6 +206,54 @@ enumerateFrom :: Enumerable f => f a -> [f a]
 enumerateFrom x = case enumerably (pure (extractEnumerable x)) of
   Enumerator _ which select ->
     let go copy = maybe [] (: go (copy + 1)) (select copy) in go (which x)
+
+{- | The copies of an `Enumerable` sum from one onward, holding its focus,
+stepping by the copy of another, like `enumFromThen`.
+
+>>> enumerateFromThen (LT, 'x') (EQ, ())
+[(LT,'x'),(EQ,'x'),(GT,'x')]
+>>> enumerateFromThen (GT, 'x') (EQ, ())
+[(GT,'x'),(EQ,'x'),(LT,'x')]
+-}
+enumerateFromThen :: Enumerable f => f a -> f b -> [f a]
+enumerateFromThen x y = copiesAt x [from, fromEnumerable' y ..]
+  where
+    from = fromEnumerable' x
+
+{- | The copies of an `Enumerable` sum from one to the copy of another,
+holding its focus, like `enumFromTo`.
+
+>>> enumerateFromTo (LT, 'x') (EQ, ())
+[(LT,'x'),(EQ,'x')]
+-}
+enumerateFromTo :: Enumerable f => f a -> f b -> [f a]
+enumerateFromTo x z = copiesAt x [fromEnumerable' x .. fromEnumerable' z]
+
+{- | The copies of an `Enumerable` sum from one to the copy of another,
+holding its focus, stepping by the copy of a third, like `enumFromThenTo`.
+
+>>> enumerateFromThenTo (GT, 'x') (EQ, ()) (LT, ())
+[(GT,'x'),(EQ,'x'),(LT,'x')]
+-}
+enumerateFromThenTo :: Enumerable f => f a -> f b -> f c -> [f a]
+enumerateFromThenTo x y z =
+  copiesAt x [fromEnumerable' x, fromEnumerable' y .. fromEnumerable' z]
+
+-- | The index of an `Enumerable` sum's copy, as an `Integer`.
+fromEnumerable' :: Enumerable f => f a -> Integer
+fromEnumerable' = toInteger . fromEnumerable
+
+{- | The copies at some indices, holding a sum's focus,
+until an index has none.
+-}
+copiesAt :: Enumerable f => f a -> [Integer] -> [f a]
+copiesAt x indices = case enumerably (pure (extractEnumerable x)) of
+  Enumerator _ _ select ->
+    let
+      go = \case
+        i : is | i >= 0, Just copy <- select (fromInteger i) -> copy : go is
+        _ -> []
+    in go indices
 
 {- | t'Enumerator' numbers the copies of a sum of products, from 0,
 left to right, & products row by row, both ways:

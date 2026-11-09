@@ -282,12 +282,33 @@ homogeneousProperties = do
       predComonocle _BoundedEnum e === if e == minBound then Nothing else Just (pred e)
     prop "enumerateComonocle _BoundedEnum is enumFrom" $ \(e :: Ordering) ->
       enumerateComonocle _BoundedEnum e === [e ..]
+    prop "enumerateFromThenComonocle _BoundedEnum is enumFromThen" $
+      \(e :: Int8) e' -> take 600 (enumerateFromThenComonocle _BoundedEnum e e')
+        === take 600 [e, e' ..]
+    prop "enumerateFromToComonocle _BoundedEnum is enumFromTo" $
+      \(e :: Int8) e' -> enumerateFromToComonocle _BoundedEnum e e' === [e .. e']
+    prop "enumerateFromThenToComonocle _BoundedEnum is enumFromThenTo" $
+      \(e :: Int8) e' e'' ->
+        take 600 (enumerateFromThenToComonocle _BoundedEnum e e' e'')
+          === take 600 [e, e' .. e'']
     prop "zipDiopter homogenized is zipHomogeneous" $ \(xss :: [[Int]]) ->
       zipDiopter homogenized (Just . sum) ([1, 2] : xss)
         === zipHomogeneous (Just . sum) ([1, 2 :: Int] : xss)
     prop "zipWithDiopter manied is zipWithHomogeneous" $ \(xs :: [Int]) ys ->
       zipWithDiopter manied (+) xs ys === zipWithHomogeneous (+) xs ys
   describe "Enumerable & Homogeneous" $ do
+    let tagged = map (fst :: (Int8, Char) -> Int8)
+    prop "enumerateFromThen is enumFromThen" $ \(e :: Int8) e' c ->
+      take 600 (tagged (enumerateFromThen (e, c) (e', ())))
+        === take 600 [e, e' ..]
+    prop "enumerateFromTo is enumFromTo" $ \(e :: Int8) e' c ->
+      tagged (enumerateFromTo (e, c) (e', ())) === [e .. e']
+    prop "enumerateFromThenTo is enumFromThenTo" $ \(e :: Int8) e' e'' c ->
+      take 600 (tagged (enumerateFromThenTo (e, c) (e', ()) (e'', ())))
+        === take 600 [e, e' .. e'']
+    prop "enumerate holds the first focus" $ \(e :: Int8) e' (c :: Char) ->
+      all ((== c) . snd)
+        (take 600 (enumerateFromThenTo (e, c) (e', ()) (maxBound, ())))
     it "numbers copies left to right" $
       map fromEnumerable [(LT, ()), (EQ, ()), (GT, ())] `shouldBe` [0, 1, 2]
     prop "toEnumerable inverts fromEnumerable" $ \(c :: Char) ->

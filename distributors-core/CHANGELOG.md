@@ -14,6 +14,12 @@
 - `AComonocle`, `withComonocle`, `cloneComonocle`, `mapComonocle`,
   `altComonocle`, `crossComonocle`, `indexComonocle` &
   `zipWithComonocle`; & `crossMonocle`.
+- Enum-like functions of `Enumerable`s, `fromEnumerable`, `toEnumerable`,
+  `succEnumerable`, `predEnumerable`, `enumerateFrom`, `enumerateFromThen`,
+  `enumerateFromTo` & `enumerateFromThenTo`, & of `Comonocle`s,
+  `toEnumComonocle`, `succComonocle`, `predComonocle`, `enumerateComonocle`,
+  `enumerateFromThenComonocle`, `enumerateFromToComonocle` &
+  `enumerateFromThenToComonocle`.
 - `Homogeneous` & `Enumerable` instances for `Down`, `Min`, `Max`,
   `First`, `Last`, `Alt f`, `Ap f` & `IdentityT f`.
 - `Bool1` & `Ordering1`, in `Data.Traversable.Homogeneous`, single copies

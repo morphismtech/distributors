@@ -25,6 +25,9 @@ module Control.Lens.Comonocle
   , succComonocle
   , predComonocle
   , enumerateComonocle
+  , enumerateFromThenComonocle
+  , enumerateFromToComonocle
+  , enumerateFromThenToComonocle
   , zipComonocle
   , zipWithComonocle
   , _Enumerable
@@ -221,6 +224,36 @@ like `enumFrom`.
 enumerateComonocle :: AComonocle s s a a -> s -> [s]
 enumerateComonocle mon s =
   withComonocle mon $ \split merge -> merge <$> enumerateFrom (split s)
+
+{- | The copies of `AComonocle` from one onward, holding its focus,
+stepping by the copy of another, like `enumFromThen`.
+
+>>> enumerateFromThenComonocle _BoundedEnum GT EQ
+[GT,EQ,LT]
+-}
+enumerateFromThenComonocle :: AComonocle s s a a -> s -> s -> [s]
+enumerateFromThenComonocle mon s s' = withComonocle mon $ \split merge ->
+  merge <$> enumerateFromThen (split s) (split s')
+
+{- | The copies of `AComonocle` from one to the copy of another,
+holding its focus, like `enumFromTo`.
+
+>>> enumerateFromToComonocle _BoundedEnum LT EQ
+[LT,EQ]
+-}
+enumerateFromToComonocle :: AComonocle s s a a -> s -> s -> [s]
+enumerateFromToComonocle mon s s'' = withComonocle mon $ \split merge ->
+  merge <$> enumerateFromTo (split s) (split s'')
+
+{- | The copies of `AComonocle` from one to the copy of another,
+holding its focus, stepping by the copy of a third, like `enumFromThenTo`.
+
+>>> enumerateFromThenToComonocle _BoundedEnum LT GT LT
+[LT]
+-}
+enumerateFromThenToComonocle :: AComonocle s s a a -> s -> s -> s -> [s]
+enumerateFromThenToComonocle mon s s' s'' = withComonocle mon $ \split merge ->
+  merge <$> enumerateFromThenTo (split s) (split s') (split s'')
 
 {- | The `Comonocle` of an `Enumerable` sum's copy.
 
