@@ -13,9 +13,7 @@ import Control.Lens (iview)
 import Control.Lens.Diopter
 import Control.Lens.Comonocle
 import Control.Monad ((<=<))
-import Data.Complex (Complex (..), imagPart, realPart)
 import Data.Functor.Compose (Compose (..))
-import Data.Functor.Rep (Representable (..))
 import Data.Foldable (toList)
 import Data.List (transpose)
 import Data.Int (Int8)
@@ -28,7 +26,6 @@ import Data.Profunctor.Monoidal.Cocartesian
 import Data.Proxy (Proxy (..))
 import Data.Traversable.Homogeneous
 import Data.Traversable.Homogeneous.Enumerable
-import Data.Traversable.Homogeneous.Vectorial
 import Data.Void
 import GHC.Generics (Par1 (..), (:*:) (..))
 import Numeric.Natural (Natural)
@@ -245,38 +242,6 @@ zipporahLaws = do
 
 homogeneousProperties :: Spec
 homogeneousProperties = do
-  describe "Vectorial" $ do
-    prop "zipWithVectorial zips position by position" $
-      \(a :: Complex Int) (b :: Complex Int) ->
-        zipWithVectorial (-) a b
-          === (realPart a - realPart b) :+ (imagPart a - imagPart b)
-    prop "zipWithVectorial' agrees with zipWithVectorial" $
-      \(a :: Complex Int) (b :: Complex Int) ->
-        zipWithVectorial' (*) a b === zipWithVectorial (*) a b
-    prop "fromListVectorial . toList = Just" $ \(a :: Complex Int) ->
-      fromListVectorial (toList a) === Just a
-    prop "transposeVectorial . transposeVectorial = id" $
-      \(a :: Complex (Complex Int)) ->
-        transposeVectorial (transposeVectorial a) === a
-    prop "toList v = map (index v) basisVectorial" $ \(v :: Complex Int) ->
-      toList v === map (index v) (basisVectorial @Complex)
-    prop "toList v = map (index v) basisVectorial, composed" $
-      \(v :: Complex (Complex Int)) ->
-        let w = Compose v
-        in toList w === map (index w) (basisVectorial @(Compose Complex Complex))
-    it "_Basis numbers basis elements as their ordinals" $
-      map (fst . iview (indexComonocle (_Basis @Complex)))
-        (basisVectorial @Complex)
-        `shouldBe` [0, 1]
-    it "ordinals invert basis elements" $
-      map (ordinalVectorial @Complex) (basisVectorial @Complex)
-        `shouldBe` map Just [0, 1]
-    prop "transposeVectorial . outerVectorial u = outerVectorial u . flip" $
-      \(u :: Complex Int) (v :: Complex Int) ->
-        transposeVectorial (outerVectorial u v) === outerVectorial v u
-    prop "dotVectorial is the sum of products" $
-      \(a :: Complex Int) (b :: Complex Int) ->
-        dotVectorial a b === sum (zipWithVectorial (*) a b)
   describe "Enumerator" $ do
     let ix = genEnumerator arbitrary :: Gen (Enumerator Bool Int)
         ixf = genEnumerator (applyFun <$> arbitrary)
