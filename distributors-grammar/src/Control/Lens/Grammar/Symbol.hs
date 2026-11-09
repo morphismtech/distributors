@@ -41,7 +41,7 @@ class NonTerminalSymbol s where
 
 {- | A t'SepBy' smart constructor like `sepBy`,
 with a `terminal` argument.
-Beginning and ending delimitors will be no-ops,
+Beginning and ending delimiters will be no-ops,
 except by applying smart modifiers `beginWith` or `endWith`. -}
 sepWith
   :: (Applicative p, TerminalSymbol c (p ()))

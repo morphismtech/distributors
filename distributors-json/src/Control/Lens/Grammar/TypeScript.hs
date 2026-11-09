@@ -1325,7 +1325,6 @@ entityName =
 commas :: TsGrammatical p => p a a -> p [a] [a]
 commas item = orP [commas1 item, _Empty >? oneP]
 
--- | At least one comma separated item.
 -- | At least one comma separated item, & a trailing comma, if it's there.
 commas1 :: TsGrammatical p => p a a -> p [a] [a]
 commas1 item = _Cons >? item >*< manyP (try (comma >* item))

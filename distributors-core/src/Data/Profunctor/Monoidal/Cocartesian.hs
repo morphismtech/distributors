@@ -165,7 +165,7 @@ on sums, with these laws relating them.
 
 For the case of `Functor`s, the analog of `alternate` can be defined
 without any other constraint, but the case of `Profunctor`s turns
-out to be slighly more complex, necessitating `CocartesianChoice`.
+out to be slightly more complex, necessitating `CocartesianChoice`.
 
 >>> :{
 alternateF :: Functor f => Either (f a) (f b) -> f (Either a b)
