@@ -9,6 +9,8 @@ copyright: "2026 Eitan Chatav"
 extra-source-files:
 - README.md
 - test/Properties/*.d.ts
+- bench/data/*.json
+- bench/data/README.md
 extra-doc-files:
 - CHANGELOG.md
 
@@ -128,4 +130,5 @@ benchmarks:
     dependencies:
       - deepseq >= 1.4 && < 2
       - distributors-json
+      - file-embed >= 0.0.15 && < 1
       - tasty-bench >= 0.3 && < 1

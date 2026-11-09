@@ -21,6 +21,13 @@ extra-source-files:
     README.md
     test/Properties/fixture.d.ts
     test/Properties/fixture.golden.d.ts
+    bench/data/buffer-builder.json
+    bench/data/geometry.json
+    bench/data/github-issues.json
+    bench/data/jp100.json
+    bench/data/twitter10.json
+    bench/data/twitter100.json
+    bench/data/README.md
 extra-doc-files:
     CHANGELOG.md
 
@@ -275,6 +282,7 @@ benchmark json
   type: exitcode-stdio-1.0
   main-is: Main.hs
   other-modules:
+      Documents
       Paths_distributors_json
   autogen-modules:
       Paths_distributors_json
@@ -330,6 +338,7 @@ benchmark json
     , distributors-grammar ==0.1.*
     , distributors-json
     , dlist >=1.0 && <2
+    , file-embed >=0.0.15 && <1
     , hashable >=1.4 && <2
     , lens >=5.0 && <6
     , network-uri >=2.6 && <3

@@ -36,6 +36,8 @@ import Data.Word (Word64)
 import GHC.Generics (Generic)
 import Test.Tasty.Bench
 
+import Documents qualified as Doc
+
 data Person = Person
   { name :: Text
   , age :: Int
@@ -286,6 +288,12 @@ main = defaultMain
   , dataset "longTexts" longTexts
   , dataset "hashMap" hashMap
   , dataset "value" value
+  , dataset "twitter10" Doc.twitter10
+  , dataset "twitter100" Doc.twitter100
+  , dataset "jp100" Doc.jp100
+  , dataset "githubIssues" Doc.githubIssues
+  , dataset "geometry" Doc.geoJson
+  , dataset "people" Doc.people
   , bgroup "typescript"
     [ bench "records" (nf (\() -> tsTypes (type '[Person])) ())
     , bench "sums" (nf (\() -> tsTypes [Shape]) ())
