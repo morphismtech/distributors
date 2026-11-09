@@ -1,9 +1,12 @@
 # distributors
 
-Unifying parsers, printers & grammars, in two packages:
+Unifying parsers, printers & grammars, in three packages:
 
 - [`distributors-core`](distributors-core): the `distributors` package,
-  of profunctor grammars, which parse, print & generate together.
+  of profunctor algebra & optics for invertible syntax.
+- [`distributors-grammar`](distributors-grammar): the
+  `distributors-grammar` package, of grammars, which parse, print &
+  generate together.
 - [`distributors-json`](distributors-json): the `distributors-json`
   package, of JSON grammars, compatible with `aeson` & typed in TypeScript.
 

@@ -22,10 +22,8 @@
   `enumerateFromThenToComonocle`.
 - `Homogeneous` & `Enumerable` instances for `Down`, `Min`, `Max`,
   `First`, `Last`, `Alt f`, `Ap f` & `IdentityT f`.
-- `Bool1` & `Ordering1`, in `Data.Traversable.Homogeneous`, single copies
-  tagged by a `Bool` or an `Ordering`, which are `Enumerable` &
-  `Monad`s, combining tags by conjunction or lexicographically;
-  & `Bool1` is a `BooleanAlgebra`.
+- `Homogeneous` & `Enumerable` instances for `(,) e`, a copy for each tag
+  of a `Bounded` `Enum`, summed in a balanced tree.
 
 ### Bug Fixes
 
