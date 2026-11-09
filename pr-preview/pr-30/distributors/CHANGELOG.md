@@ -4,6 +4,10 @@
 
 ### New APIs
 
+- `Data.Traversable.Homogeneous.Vectorial`: `Vectorial` containers,
+  `Homogeneous` & `Distributive`, of fixed shapes, sequenced `vectorially`
+  by `Monoidal` profunctors, with total & strict zipping, transposing,
+  positions & vector space operations.
 - `Enumerable`, in `Data.Traversable.Homogeneous`, of `Homogeneous`
   countable sums of single copies, sequenced `enumerably` by
   `CocartesianMonoidal`s, with generic defaults by `Generic1`.
@@ -28,6 +32,8 @@
 
 ### Breaking Changes
 
+- `Enumerable`, its functions & `Indexing`, renamed `Enumerator`, move from
+  `Data.Traversable.Homogeneous` to `Data.Traversable.Homogeneous.Enumerable`.
 - `Comonocle`s & their combinators move from `Control.Lens.Monocle` to
   their own module, `Control.Lens.Comonocle`.
 - `Data.Profunctor.Separator` merges into `Data.Profunctor.Distributor`:
