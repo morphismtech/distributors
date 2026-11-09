@@ -24,14 +24,20 @@ module Control.Lens.Monocle
   , crossMonocle
   , ditraversed
   , forevered
+  , zipMonocle
+  , zipWithMonocle
+  , replicateMonocle
+  , tabulateMonocle
     -- * Monocular
   , Monocular (..), runMonocular
   ) where
 
 import Control.Lens hiding (Traversing)
 import Control.Lens.Internal.Profunctor
+import Control.Monad.Trans.State.Lazy (evalState, state)
 import Data.Distributive
 import Data.Profunctor.Monoidal
+import Numeric.Natural (Natural)
 
 -- $setup
 -- >>> import Control.Lens
@@ -103,6 +109,48 @@ ditraversed = unwrapPafb . ditraverse . WrapPafb
 {- | Repeat action indefinitely. -}
 forevered :: Monocle s t () b
 forevered = unwrapPafb . foreverP . WrapPafb
+
+{- | Zip with `AMonocle`, by running it on the `Monoidal` `Profunctor`
+of functions @f a -> g b@, generalizing both
+`Control.Lens.Traversal.traverseOf`, at `Identity` @f@,
+& `Control.Lens.Grate.cotraverseOf`, at `Identity` @g@.
+
+>>> zipMonocle ditraversed (\xs -> [sum xs, product xs]) [1 :+ 2, 3 :+ 4 :: Complex Int]
+[4 :+ 6,4 :+ 8,3 :+ 6,3 :+ 8]
+-}
+zipMonocle
+  :: (Functor f, Applicative g)
+  => AMonocle s t a b -> (f a -> g b) -> f s -> g t
+zipMonocle mon f ss = withMonocle mon $ \get -> f (get <$> ss)
+
+{- | Zip two sources with `AMonocle`; all of whose foci match.
+
+>>> zipWithMonocle ditraversed (+) (1 :+ 2) (3 :+ 4 :: Complex Int)
+4 :+ 6
+-}
+zipWithMonocle :: AMonocle s t a b -> (a -> a -> b) -> s -> s -> t
+zipWithMonocle mon f s0 s1 =
+  runIdentity (withMonocle mon (\get -> Identity (f (get s0) (get s1))))
+
+{- | Sequence an action at every focus of `AMonocle`,
+needing no source, by running it on the `Monoidal` `Profunctor`
+@Joker g@, like `Control.Monad.replicateM`.
+
+>>> replicateMonocle ditraversed "ab" :: [Complex Char]
+['a' :+ 'a','a' :+ 'b','b' :+ 'a','b' :+ 'b']
+-}
+replicateMonocle :: Applicative g => AMonocle s t a b -> g b -> g t
+replicateMonocle mon gb = withMonocle mon (const gb)
+
+{- | Build from the index of each focus of `AMonocle`, numbered left to right,
+like `Data.Functor.Rep.tabulate`.
+
+>>> tabulateMonocle ditraversed fromIntegral :: Complex Int
+0 :+ 1
+-}
+tabulateMonocle :: AMonocle s t a b -> (Natural -> b) -> t
+tabulateMonocle mon f =
+  evalState (replicateMonocle mon (state (\n -> (f n, n + 1)))) 0
 
 {- | Run `AMonocle` over an `Applicative`. -}
 withMonocle :: Applicative f => AMonocle s t a b -> ((s -> a) -> f b) -> f t

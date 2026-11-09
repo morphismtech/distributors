@@ -9,12 +9,16 @@ module Properties.Homogeneous (homogeneousProperties) where
 
 import Control.Applicative
 import Control.Arrow ((+++))
-import Control.Lens (iview)
+import Control.Lens (iview, toListOf, traverseOf)
 import Control.Lens.Diopter
 import Control.Lens.Comonocle
+import Control.Lens.Grate (cotraverseOf)
+import Control.Lens.Monocle
 import Control.Monad ((<=<))
 import Data.Functor.Compose (Compose (..))
+import Data.Complex (Complex (..))
 import Data.Foldable (toList)
+import Data.Functor.Identity (Identity (..))
 import Data.List (transpose)
 import Data.Int (Int8)
 import Data.Maybe (fromMaybe)
@@ -291,6 +295,23 @@ homogeneousProperties = do
       \(e :: Int8) e' e'' ->
         take 600 (enumerateFromThenToComonocle _BoundedEnum e e' e'')
           === take 600 [e, e' .. e'']
+    prop "zipMonocle at Identity sources is traverseOf" $ \(c :: Complex Int) ->
+      let f x = if even x then Just x else Nothing
+      in zipMonocle ditraversed (f . runIdentity) (Identity c)
+        === traverseOf ditraversed f c
+    prop "zipMonocle at Identity effects is cotraverseOf" $
+      \(cs :: [Complex Int]) ->
+        runIdentity (zipMonocle ditraversed (Identity . sum) cs)
+          === cotraverseOf ditraversed sum cs
+    prop "zipWithMonocle ditraversed zips componentwise" $
+      \(x :+ y :: Complex Int) (x' :+ y') ->
+        zipWithMonocle ditraversed (-) (x :+ y) (x' :+ y') === (x - x') :+ (y - y')
+    prop "replicateMonocle ditraversed is replicateM 2" $ \(xs :: [Int]) ->
+      map (toListOf ditraversed) (replicateMonocle ditraversed xs :: [Complex Int])
+        === sequenceA [xs, xs]
+    it "tabulateMonocle numbers foci left to right" $
+      toListOf ditraversed (tabulateMonocle ditraversed id :: Complex Natural)
+        `shouldBe` [0, 1]
     prop "zipDiopter homogenized is zipHomogeneous" $ \(xss :: [[Int]]) ->
       zipDiopter homogenized (Just . sum) ([1, 2] : xss)
         === zipHomogeneous (Just . sum) ([1, 2 :: Int] : xss)
