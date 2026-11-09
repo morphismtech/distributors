@@ -39,7 +39,7 @@ import GHC.Generics
 {- | `Diopter`s are an optic that generalizes
 `Control.Lens.Bifocal.Bifocal`s and `Control.Lens.Traversal.Traversal`s.
 
-Every `Control.Lens.Iso.Iso` and `Control.Lens.Monocle` is a `Diopter`.
+Every `Control.Lens.Iso.Iso` and `Control.Lens.Monocle.Monocle` is a `Diopter`.
 
 `Diopter`s are isomorphic to t'Dioptrice's.
 -}

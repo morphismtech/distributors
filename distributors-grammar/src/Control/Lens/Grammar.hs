@@ -116,7 +116,7 @@ You could generate it with the TemplateHaskell combinator,
 
 Unfortunately, we can't use TemplateHaskell to generate it in [GHCi]
 (https://wiki.haskell.org/GHC/GHCi),
-which is used to test this documenation.
+which is used to test this documentation.
 Here is equivalent Haskell code instead.
 Since @SemVer@ has only one constructor,
 @_SemVer@ can be an `Control.Lens.Iso.Iso`.
@@ -390,8 +390,8 @@ so that we must apply the constructor pattern @_LenVec@
 to the do-block with the `>?` applicator.
 Any scoped bound action, @var <- action@,
 gets "bonded" to the constructor pattern.
-Any unbound actions, except for the last action in the do-block,
-does not get bonded to the pattern.
+Unbound actions, except for the last action in the do-block,
+don't get bonded to the pattern.
 The last action does get bonded to the pattern.
 Any unscoped bound action, @_ <- action@,
 also gets bonded to the pattern,
@@ -437,11 +437,11 @@ which can recognize the larger class of recursively enumerable languages.
 Finally, `CtxGrammar`s support failure reporting and backtracking.
 This has no effect on `Control.Lens.Grammar.printG`,
 `Control.Lens.Grammar.parseG` or `Control.Lens.Grammar.unparseG`;
-but it effects `Control.Lens.Grammar.parsecG`
+but it affects `Control.Lens.Grammar.parsecG`
 and `Control.Lens.Grammar.unparsecG`.
 For context, an @LL@ grammar can be (un)parsed by an @LL@ parser.
 An @LL@ parser (un)parses from left to right,
-and constucts leftmost derivations.
+and constructs leftmost derivations.
 An @LL(k)@ parser can look @k@ tokens ahead.
 t'Parsor' is an @LL(∞)@ parser.
 t'Parsector' is an @LL(1)@ parser.

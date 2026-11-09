@@ -76,7 +76,7 @@ oneP = pure ()
 infixr 5 >*<
 
 {- | `>*` sequences actions, discarding the value of the first argument;
-analagous to `*>`, extending it to `Monoidal`.
+analogous to `*>`, extending it to `Monoidal`.
 
 > prop> oneP >* p = p
 
@@ -87,7 +87,7 @@ x >* y = lmap (const ()) x *> y
 infixl 6 >*
 
 {- | `*<` sequences actions, discarding the value of the second argument;
-analagous to `<*`, extending it to `Monoidal`.
+analogous to `<*`, extending it to `Monoidal`.
 
 > prop> p *< oneP = p
 
@@ -98,7 +98,7 @@ x *< y = x <* lmap (const ()) y
 infixl 6 *<
 
 {- | `dimap2` is a curried, functionalized form of `>*<`,
-analagous to `liftA2`. -}
+analogous to `liftA2`. -}
 dimap2
   :: Monoidal p
   => (s -> a) -- ^ first projection, e.g. `fst`
@@ -109,7 +109,7 @@ dimap2 f g h p q = liftA2 h (lmap f p) (lmap g q)
 {-# INLINE dimap2 #-}
 
 {- | `foreverP` repeats an action a countable infinity of times;
-analagous to `Control.Monad.forever`, extending it to `Monoidal`. -}
+analogous to `Control.Monad.forever`, extending it to `Monoidal`. -}
 foreverP :: Monoidal p => p () c -> p a b
 foreverP a = let a' = a >* a' in a'
 
@@ -162,7 +162,7 @@ onlyOne
   => p (Item s) (Item s) -> p s s
 onlyOne p = iso toList (fromListN 1) >? p >:< asEmpty
 
-{- | `replicateP` is analagous to `Control.Monad.replicateM`,
+{- | `replicateP` is analogous to `Control.Monad.replicateM`,
 for `Monoidal` & `Choice` `Profunctor`s. When the number
 of repetitions is less than or equal to 0, it returns `asEmpty`.
 -}

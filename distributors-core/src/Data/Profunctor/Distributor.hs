@@ -187,7 +187,7 @@ data SepBy p = SepBy
 
 {- | A t'SepBy' smart constructor,
 setting the `separateBy` field.
-Beginning and ending delimitors will be no-ops,
+Beginning and ending delimiters will be no-ops,
 except by modifier record updates `beginBy` or `endBy`. -}
 sepBy :: Applicative p => p () -> SepBy (p ())
 sepBy = SepBy (pure ()) (pure ())
@@ -271,7 +271,7 @@ data Assoc = NonAssoc | LeftAssoc | RightAssoc
   deriving stock (Eq, Ord, Show, Read)
 
 {- | Build an expression `Alternator` from a table of `Operator`s and
-an atomic term `Alternator`, analagous to @buildExpressionParser@ from
+an atomic term `Alternator`, analogous to @buildExpressionParser@ from
 [parsec](https://hackage.haskell.org/package/parsec).
 
 The operator table is a list of list of operators, ordered from highest to lowest precedence.
@@ -323,24 +323,9 @@ withOperators table p = foldl makeLevel p table
           (_,g):_ -> Just (g y)
           [] -> Nothing
 
-    {- | Parse one operand, then zero or more @(operator, operand)@ steps,
-    each testing its operator *before* consuming a further operand --
-    the same shape parsec's & megaparsec's expression-table builders use.
-    A missing operator is therefore always a zero-consumption failure, so
-    the chain's end is found by plain alternation, with no backtracking
-    needed. (Parsing @(operand, operator)@ pairs instead, as a naive
-    right-associative reading would, over-consumes the final operand
-    before discovering there is no trailing operator, which is exactly
-    the bug this replaces.)
-
-    The tagged steps are then folded according to each matched operator's
-    `Assoc`iativity: `RightAssoc` recurses into the tail before combining,
-    associating to the right; `LeftAssoc` & `NonAssoc` combine immediately
-    and continue, associating to the left. Mixing associativities within
-    one level, like parsec, only supports chaining within a single run of
-    the same associativity -- a differently-associating operator simply
-    ends the current run and begins a new one.
-    -}
+    -- An operand, then @(operator, operand)@ steps, folded by each
+    -- operator's associativity, like parsec's @buildExpressionParser@:
+    -- https://hackage.haskell.org/package/parsec/docs/src/Text.Parsec.Expr.html
     infixP infixes term =
       prism (uncurry go) (Right . fwd) >? term >*< manyP (tagSepP syms >*< term)
       where
