@@ -5,9 +5,10 @@
 ### New APIs
 
 - `Data.Traversable.Homogeneous.Vectorial`: `Vectorial` containers,
-  `Homogeneous` & `Distributive`, of fixed shapes, sequenced `vectorially`
-  by `Monoidal` profunctors, with total & strict zipping, transposing,
-  positions & vector space operations.
+  `Homogeneous` & `Representable`, whose `Foldable` order enumerates their
+  basis, which `_Basis` is a `Comonocle` of; sequenced `vectorially` by
+  `Monoidal` profunctors, with coordinates, total & strict zipping,
+  transposing, & vector space & matrix operations.
 - `Enumerable`, in `Data.Traversable.Homogeneous`, of `Homogeneous`
   countable sums of single copies, sequenced `enumerably` by
   `CocartesianMonoidal`s, with generic defaults by `Generic1`.

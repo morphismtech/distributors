@@ -15,6 +15,7 @@ import Control.Lens.Comonocle
 import Control.Monad ((<=<))
 import Data.Complex (Complex (..), imagPart, realPart)
 import Data.Functor.Compose (Compose (..))
+import Data.Functor.Rep (Representable (..))
 import Data.Foldable (toList)
 import Data.List (transpose)
 import Data.Int (Int8)
@@ -257,6 +258,22 @@ homogeneousProperties = do
     prop "transposeVectorial . transposeVectorial = id" $
       \(a :: Complex (Complex Int)) ->
         transposeVectorial (transposeVectorial a) === a
+    prop "toList v = map (index v) basisVectorial" $ \(v :: Complex Int) ->
+      toList v === map (index v) (basisVectorial @Complex)
+    prop "toList v = map (index v) basisVectorial, composed" $
+      \(v :: Complex (Complex Int)) ->
+        let w = Compose v
+        in toList w === map (index w) (basisVectorial @(Compose Complex Complex))
+    it "_Basis numbers basis elements as their ordinals" $
+      map (fst . iview (indexComonocle (_Basis @Complex)))
+        (basisVectorial @Complex)
+        `shouldBe` [0, 1]
+    it "ordinals invert basis elements" $
+      map (ordinalVectorial @Complex) (basisVectorial @Complex)
+        `shouldBe` map Just [0, 1]
+    prop "transposeVectorial . outerVectorial u = outerVectorial u . flip" $
+      \(u :: Complex Int) (v :: Complex Int) ->
+        transposeVectorial (outerVectorial u v) === outerVectorial v u
     prop "dotVectorial is the sum of products" $
       \(a :: Complex Int) (b :: Complex Int) ->
         dotVectorial a b === sum (zipWithVectorial (*) a b)
