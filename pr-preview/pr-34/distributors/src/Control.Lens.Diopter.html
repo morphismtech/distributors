@@ -1,0 +1,642 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="annot"><span class="hs-comment">{- |
+Module      : Control.Lens.Diopter
+Description : diopters
+Copyright   : (C) 2026 - Eitan Chatav
+License     : BSD-style (see the file LICENSE)
+Maintainer  : Eitan Chatav &lt;eitan.chatav@gmail.com&gt;
+Stability   : provisional
+Portability : non-portable
+-}</span></span><span>
+</span><span id="line-10"></span><span>
+</span><span id="line-11"></span><span class="hs-keyword">module</span><span> </span><span class="annot"><a href="Control.Lens.Diopter.html"><span class="hs-identifier">Control.Lens.Diopter</span></a></span><span>
+</span><span id="line-12"></span><span>  </span><span class="hs-special">(</span><span> </span><span class="annot"><span class="hs-comment">-- * Diopter</span></span><span>
+</span><span id="line-13"></span><span>    </span><span class="annot"><a href="Control.Lens.Diopter.html#Diopter"><span class="hs-identifier">Diopter</span></a></span><span>
+</span><span id="line-14"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Diopter.html#ADiopter"><span class="hs-identifier">ADiopter</span></a></span><span>
+</span><span id="line-15"></span><span>    </span><span class="annot"><span class="hs-comment">-- * Combinators</span></span><span>
+</span><span id="line-16"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Diopter.html#diopter"><span class="hs-identifier">diopter</span></a></span><span>
+</span><span id="line-17"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Diopter.html#withDiopter"><span class="hs-identifier">withDiopter</span></a></span><span>
+</span><span id="line-18"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Diopter.html#cloneDiopter"><span class="hs-identifier">cloneDiopter</span></a></span><span>
+</span><span id="line-19"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Diopter.html#mapDiopter"><span class="hs-identifier">mapDiopter</span></a></span><span>
+</span><span id="line-20"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Diopter.html#optioned"><span class="hs-identifier">optioned</span></a></span><span>
+</span><span id="line-21"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Diopter.html#manied"><span class="hs-identifier">manied</span></a></span><span>
+</span><span id="line-22"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Diopter.html#homogenized"><span class="hs-identifier">homogenized</span></a></span><span>
+</span><span id="line-23"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Diopter.html#zipDiopter"><span class="hs-identifier">zipDiopter</span></a></span><span>
+</span><span id="line-24"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Diopter.html#zipWithDiopter"><span class="hs-identifier">zipWithDiopter</span></a></span><span>
+</span><span id="line-25"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Diopter.html#transposeDiopter"><span class="hs-identifier">transposeDiopter</span></a></span><span>
+</span><span id="line-26"></span><span>    </span><span class="annot"><span class="hs-comment">-- * Dioptrice</span></span><span>
+</span><span id="line-27"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Diopter.html#Dioptrice"><span class="hs-identifier">Dioptrice</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Diopter.html#runDioptrice"><span class="hs-identifier">runDioptrice</span></a></span><span>
+</span><span id="line-28"></span><span>  </span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-29"></span><span>
+</span><span id="line-30"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Applicative</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Alternative</span></span><span class="hs-special">)</span><span>
+</span><span id="line-31"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Lens</span></span><span>
+</span><span id="line-32"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Lens.Internal.Profunctor</span></span><span>
+</span><span id="line-33"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Data.Profunctor.Distributor.html"><span class="hs-identifier">Data.Profunctor.Distributor</span></a></span><span>
+</span><span id="line-34"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Data.Profunctor.Monoidal.Cocartesian.html"><span class="hs-identifier">Data.Profunctor.Monoidal.Cocartesian</span></a></span><span>
+</span><span id="line-35"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Data.Traversable.Homogeneous.html"><span class="hs-identifier">Data.Traversable.Homogeneous</span></a></span><span>
+</span><span id="line-36"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Void</span></span><span>
+</span><span id="line-37"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">GHC.Generics</span></span><span>
+</span><span id="line-38"></span><span>
+</span><span id="line-39"></span><span class="annot"><span class="hs-comment">{- | `Diopter`s are an optic that generalizes
+`Control.Lens.Bifocal.Bifocal`s and `Control.Lens.Traversal.Traversal`s.
+
+Every `Control.Lens.Iso.Iso` and `Control.Lens.Monocle.Monocle` is a `Diopter`.
+
+`Diopter`s are isomorphic to t'Dioptrice's.
+-}</span></span><span>
+</span><span id="line-46"></span><span class="hs-keyword">type</span><span> </span><span id="Diopter"><span class="annot"><a href="Control.Lens.Diopter.html#Diopter"><span class="hs-identifier hs-var">Diopter</span></a></span></span><span> </span><span id="local-6989586621679265570"><span class="annot"><a href="#local-6989586621679265570"><span class="hs-identifier hs-type">s</span></a></span></span><span> </span><span id="local-6989586621679265571"><span class="annot"><a href="#local-6989586621679265571"><span class="hs-identifier hs-type">t</span></a></span></span><span> </span><span id="local-6989586621679265572"><span class="annot"><a href="#local-6989586621679265572"><span class="hs-identifier hs-type">a</span></a></span></span><span> </span><span id="local-6989586621679265573"><span class="annot"><a href="#local-6989586621679265573"><span class="hs-identifier hs-type">b</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">forall</span><span> </span><span id="local-6989586621679265363"><span class="annot"><a href="#local-6989586621679265363"><span class="hs-identifier hs-type">p</span></a></span></span><span> </span><span id="local-6989586621679265364"><span class="annot"><a href="#local-6989586621679265364"><span class="hs-identifier hs-type">f</span></a></span></span><span class="hs-operator">.</span><span>
+</span><span id="line-47"></span><span>  </span><span class="hs-special">(</span><span class="annot"><a href="Data.Profunctor.Distributor.html#Distributor"><span class="hs-identifier hs-type">Distributor</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265363"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Applicative</span></span><span> </span><span class="annot"><a href="#local-6989586621679265364"><span class="hs-identifier hs-type">f</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-48"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679265363"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265572"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679265364"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265573"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679265363"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265570"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679265364"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265571"><span class="hs-identifier hs-type">t</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-49"></span><span>
+</span><span id="line-50"></span><span class="annot"><span class="hs-comment">{- | `ADiopter` is monomorphically a `Diopter`. -}</span></span><span>
+</span><span id="line-51"></span><span class="hs-keyword">type</span><span> </span><span id="ADiopter"><span class="annot"><a href="Control.Lens.Diopter.html#ADiopter"><span class="hs-identifier hs-var">ADiopter</span></a></span></span><span> </span><span id="local-6989586621679265574"><span class="annot"><a href="#local-6989586621679265574"><span class="hs-identifier hs-type">s</span></a></span></span><span> </span><span id="local-6989586621679265575"><span class="annot"><a href="#local-6989586621679265575"><span class="hs-identifier hs-type">t</span></a></span></span><span> </span><span id="local-6989586621679265576"><span class="annot"><a href="#local-6989586621679265576"><span class="hs-identifier hs-type">a</span></a></span></span><span> </span><span id="local-6989586621679265577"><span class="annot"><a href="#local-6989586621679265577"><span class="hs-identifier hs-type">b</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-52"></span><span>  </span><span class="annot"><a href="Control.Lens.Diopter.html#Dioptrice"><span class="hs-identifier hs-type">Dioptrice</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265576"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265577"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265576"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Identity</span></span><span> </span><span class="annot"><a href="#local-6989586621679265577"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Control.Lens.Diopter.html#Dioptrice"><span class="hs-identifier hs-type">Dioptrice</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265576"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265577"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265574"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Identity</span></span><span> </span><span class="annot"><a href="#local-6989586621679265575"><span class="hs-identifier hs-type">t</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-53"></span><span>
+</span><span id="line-54"></span><span class="annot"><span class="hs-comment">{- | Build a `Diopter`. -}</span></span><span>
+</span><span id="line-55"></span><span id="local-6989586621679265258"><span id="local-6989586621679265260"><span id="local-6989586621679265261"><span id="local-6989586621679265262"><span id="local-6989586621679265263"><span class="annot"><a href="Control.Lens.Diopter.html#diopter"><span class="hs-identifier hs-type">diopter</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Data.Traversable.Homogeneous.html#Homogeneous"><span class="hs-identifier hs-type">Homogeneous</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265258"><span class="hs-identifier hs-type">h</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679265260"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679265258"><span class="hs-identifier hs-type">h</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265261"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679265258"><span class="hs-identifier hs-type">h</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265262"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679265263"><span class="hs-identifier hs-type">t</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Control.Lens.Diopter.html#Diopter"><span class="hs-identifier hs-type">Diopter</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265260"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265263"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265261"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265262"><span class="hs-identifier hs-type">b</span></a></span></span></span></span></span></span><span>
+</span><span id="line-56"></span><span id="diopter"><span class="annot"><span class="annottext">diopter :: forall (h :: * -&gt; *) s a b t.
+Homogeneous h =&gt;
+(s -&gt; h a) -&gt; (h b -&gt; t) -&gt; Diopter s t a b
+</span><a href="Control.Lens.Diopter.html#diopter"><span class="hs-identifier hs-var hs-var">diopter</span></a></span></span><span> </span><span id="local-6989586621679265584"><span class="annot"><span class="annottext">s -&gt; h a
+</span><a href="#local-6989586621679265584"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span id="local-6989586621679265585"><span class="annot"><span class="annottext">h b -&gt; t
+</span><a href="#local-6989586621679265585"><span class="hs-identifier hs-var">g</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">WrappedPafb f p s t -&gt; p s (f t)
+forall (f :: * -&gt; *) (p :: * -&gt; * -&gt; *) a b.
+WrappedPafb f p a b -&gt; p a (f b)
+</span><span class="hs-identifier hs-var">unwrapPafb</span></span><span> </span><span class="annot"><span class="annottext">(WrappedPafb f p s t -&gt; p s (f t))
+-&gt; (p a (f b) -&gt; WrappedPafb f p s t) -&gt; p a (f b) -&gt; p s (f t)
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Dioptrice a b s t -&gt; WrappedPafb f p a b -&gt; WrappedPafb f p s t
+forall (p :: * -&gt; * -&gt; *) a b s t.
+Distributor p =&gt;
+Dioptrice a b s t -&gt; p a b -&gt; p s t
+</span><a href="Control.Lens.Diopter.html#runDioptrice"><span class="hs-identifier hs-var">runDioptrice</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(s -&gt; h a) -&gt; (h b -&gt; t) -&gt; Dioptrice a b s t
+forall (h :: * -&gt; *) s a b t.
+Homogeneous h =&gt;
+(s -&gt; h a) -&gt; (h b -&gt; t) -&gt; Dioptrice a b s t
+</span><a href="Control.Lens.Diopter.html#Dioptrice"><span class="hs-identifier hs-var">Dioptrice</span></a></span><span> </span><span class="annot"><span class="annottext">s -&gt; h a
+</span><a href="#local-6989586621679265584"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">h b -&gt; t
+</span><a href="#local-6989586621679265585"><span class="hs-identifier hs-var">g</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(WrappedPafb f p a b -&gt; WrappedPafb f p s t)
+-&gt; (p a (f b) -&gt; WrappedPafb f p a b)
+-&gt; p a (f b)
+-&gt; WrappedPafb f p s t
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">p a (f b) -&gt; WrappedPafb f p a b
+forall (f :: * -&gt; *) (p :: * -&gt; * -&gt; *) a b.
+p a (f b) -&gt; WrappedPafb f p a b
+</span><span class="hs-identifier hs-var">WrapPafb</span></span><span>
+</span><span id="line-57"></span><span>
+</span><span id="line-58"></span><span class="annot"><span class="hs-comment">{- | Convert `ADiopter` to the pair of functions that characterize it. -}</span></span><span>
+</span><span id="line-59"></span><span id="local-6989586621679265298"><span id="local-6989586621679265299"><span id="local-6989586621679265300"><span id="local-6989586621679265301"><span id="local-6989586621679265304"><span class="annot"><a href="Control.Lens.Diopter.html#withDiopter"><span class="hs-identifier hs-type">withDiopter</span></a></span><span>
+</span><span id="line-60"></span><span>  </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Control.Lens.Diopter.html#ADiopter"><span class="hs-identifier hs-type">ADiopter</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265298"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265299"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265300"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265301"><span class="hs-identifier hs-type">b</span></a></span><span>
+</span><span id="line-61"></span><span>  </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="hs-keyword">forall</span><span> </span><span id="local-6989586621679265303"><span class="annot"><a href="#local-6989586621679265303"><span class="hs-identifier hs-type">h</span></a></span></span><span class="hs-operator">.</span><span> </span><span class="annot"><a href="Data.Traversable.Homogeneous.html#Homogeneous"><span class="hs-identifier hs-type">Homogeneous</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265303"><span class="hs-identifier hs-type">h</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679265298"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679265303"><span class="hs-identifier hs-type">h</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265300"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679265303"><span class="hs-identifier hs-type">h</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265301"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679265299"><span class="hs-identifier hs-type">t</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679265304"><span class="hs-identifier hs-type">r</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-62"></span><span>  </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679265304"><span class="hs-identifier hs-type">r</span></a></span></span></span></span></span></span><span>
+</span><span id="line-63"></span><span id="withDiopter"><span class="annot"><span class="annottext">withDiopter :: forall s t a b r.
+ADiopter s t a b
+-&gt; (forall (h :: * -&gt; *).
+    Homogeneous h =&gt;
+    (s -&gt; h a) -&gt; (h b -&gt; t) -&gt; r)
+-&gt; r
+</span><a href="Control.Lens.Diopter.html#withDiopter"><span class="hs-identifier hs-var hs-var">withDiopter</span></a></span></span><span> </span><span id="local-6989586621679265594"><span class="annot"><span class="annottext">ADiopter s t a b
+</span><a href="#local-6989586621679265594"><span class="hs-identifier hs-var">dio</span></a></span></span><span> </span><span id="local-6989586621679265595"><span class="annot"><span class="annottext">forall (h :: * -&gt; *).
+Homogeneous h =&gt;
+(s -&gt; h a) -&gt; (h b -&gt; t) -&gt; r
+</span><a href="#local-6989586621679265595"><span class="hs-identifier hs-var">k</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">Identity t -&gt; t
+forall a. Identity a -&gt; a
+</span><span class="hs-identifier hs-var">runIdentity</span></span><span> </span><span class="annot"><span class="annottext">(Identity t -&gt; t)
+-&gt; Dioptrice a b s (Identity t) -&gt; Dioptrice a b s t
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">ADiopter s t a b
+</span><a href="#local-6989586621679265594"><span class="hs-identifier hs-var">dio</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">b -&gt; Identity b
+forall a. a -&gt; Identity a
+</span><span class="hs-identifier hs-var">Identity</span></span><span> </span><span class="annot"><span class="annottext">(b -&gt; Identity b)
+-&gt; Dioptrice a b a b -&gt; Dioptrice a b a (Identity b)
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">(a -&gt; Par1 a) -&gt; (Par1 b -&gt; b) -&gt; Dioptrice a b a b
+forall (h :: * -&gt; *) s a b t.
+Homogeneous h =&gt;
+(s -&gt; h a) -&gt; (h b -&gt; t) -&gt; Dioptrice a b s t
+</span><a href="Control.Lens.Diopter.html#Dioptrice"><span class="hs-identifier hs-var">Dioptrice</span></a></span><span> </span><span class="annot"><span class="annottext">a -&gt; Par1 a
+forall p. p -&gt; Par1 p
+</span><span class="hs-identifier hs-var">Par1</span></span><span> </span><span class="annot"><span class="annottext">Par1 b -&gt; b
+forall p. Par1 p -&gt; p
+</span><span class="hs-identifier hs-var">unPar1</span></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-64"></span><span>  </span><span class="annot"><a href="Control.Lens.Diopter.html#Dioptrice"><span class="hs-identifier hs-type">Dioptrice</span></a></span><span> </span><span id="local-6989586621679265603"><span class="annot"><span class="annottext">s -&gt; h a
+</span><a href="#local-6989586621679265603"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span id="local-6989586621679265604"><span class="annot"><span class="annottext">h b -&gt; t
+</span><a href="#local-6989586621679265604"><span class="hs-identifier hs-var">g</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">(s -&gt; h a) -&gt; (h b -&gt; t) -&gt; r
+forall (h :: * -&gt; *).
+Homogeneous h =&gt;
+(s -&gt; h a) -&gt; (h b -&gt; t) -&gt; r
+</span><a href="#local-6989586621679265595"><span class="hs-identifier hs-var">k</span></a></span><span> </span><span class="annot"><span class="annottext">s -&gt; h a
+</span><a href="#local-6989586621679265603"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">h b -&gt; t
+</span><a href="#local-6989586621679265604"><span class="hs-identifier hs-var">g</span></a></span><span>
+</span><span id="line-65"></span><span>
+</span><span id="line-66"></span><span class="annot"><span class="hs-comment">{- | Action of `ADiopter` on `Distributor`s. -}</span></span><span>
+</span><span id="line-67"></span><span id="local-6989586621679265322"><span id="local-6989586621679265323"><span id="local-6989586621679265324"><span id="local-6989586621679265325"><span id="local-6989586621679265326"><span class="annot"><a href="Control.Lens.Diopter.html#mapDiopter"><span class="hs-identifier hs-type">mapDiopter</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Data.Profunctor.Distributor.html#Distributor"><span class="hs-identifier hs-type">Distributor</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265322"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Control.Lens.Diopter.html#ADiopter"><span class="hs-identifier hs-type">ADiopter</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265323"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265324"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265325"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265326"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679265322"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265325"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265326"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679265322"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265323"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265324"><span class="hs-identifier hs-type">t</span></a></span></span></span></span></span></span><span>
+</span><span id="line-68"></span><span id="mapDiopter"><span class="annot"><span class="annottext">mapDiopter :: forall (p :: * -&gt; * -&gt; *) s t a b.
+Distributor p =&gt;
+ADiopter s t a b -&gt; p a b -&gt; p s t
+</span><a href="Control.Lens.Diopter.html#mapDiopter"><span class="hs-identifier hs-var hs-var">mapDiopter</span></a></span></span><span> </span><span id="local-6989586621679265609"><span class="annot"><span class="annottext">ADiopter s t a b
+</span><a href="#local-6989586621679265609"><span class="hs-identifier hs-var">dio</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ADiopter s t a b
+-&gt; (forall (h :: * -&gt; *).
+    Homogeneous h =&gt;
+    (s -&gt; h a) -&gt; (h b -&gt; t) -&gt; p a b -&gt; p s t)
+-&gt; p a b
+-&gt; p s t
+forall s t a b r.
+ADiopter s t a b
+-&gt; (forall (h :: * -&gt; *).
+    Homogeneous h =&gt;
+    (s -&gt; h a) -&gt; (h b -&gt; t) -&gt; r)
+-&gt; r
+</span><a href="Control.Lens.Diopter.html#withDiopter"><span class="hs-identifier hs-var">withDiopter</span></a></span><span> </span><span class="annot"><span class="annottext">ADiopter s t a b
+</span><a href="#local-6989586621679265609"><span class="hs-identifier hs-var">dio</span></a></span><span> </span><span class="annot"><span class="annottext">((forall (h :: * -&gt; *).
+  Homogeneous h =&gt;
+  (s -&gt; h a) -&gt; (h b -&gt; t) -&gt; p a b -&gt; p s t)
+ -&gt; p a b -&gt; p s t)
+-&gt; (forall (h :: * -&gt; *).
+    Homogeneous h =&gt;
+    (s -&gt; h a) -&gt; (h b -&gt; t) -&gt; p a b -&gt; p s t)
+-&gt; p a b
+-&gt; p s t
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679265616"><span class="annot"><span class="annottext">s -&gt; h a
+</span><a href="#local-6989586621679265616"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span id="local-6989586621679265617"><span class="annot"><span class="annottext">h b -&gt; t
+</span><a href="#local-6989586621679265617"><span class="hs-identifier hs-var">g</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">(s -&gt; h a) -&gt; (h b -&gt; t) -&gt; p (h a) (h b) -&gt; p s t
+forall a b c d. (a -&gt; b) -&gt; (c -&gt; d) -&gt; p b c -&gt; p a d
+forall (p :: * -&gt; * -&gt; *) a b c d.
+Profunctor p =&gt;
+(a -&gt; b) -&gt; (c -&gt; d) -&gt; p b c -&gt; p a d
+</span><span class="hs-identifier hs-var">dimap</span></span><span> </span><span class="annot"><span class="annottext">s -&gt; h a
+</span><a href="#local-6989586621679265616"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">h b -&gt; t
+</span><a href="#local-6989586621679265617"><span class="hs-identifier hs-var">g</span></a></span><span> </span><span class="annot"><span class="annottext">(p (h a) (h b) -&gt; p s t)
+-&gt; (p a b -&gt; p (h a) (h b)) -&gt; p a b -&gt; p s t
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">p a b -&gt; p (h a) (h b)
+forall (t :: * -&gt; *) (p :: * -&gt; * -&gt; *) a b.
+(Homogeneous t, Distributor p) =&gt;
+p a b -&gt; p (t a) (t b)
+forall (p :: * -&gt; * -&gt; *) a b.
+Distributor p =&gt;
+p a b -&gt; p (h a) (h b)
+</span><a href="Data.Traversable.Homogeneous.html#homogeneously"><span class="hs-identifier hs-var">homogeneously</span></a></span><span>
+</span><span id="line-69"></span><span>
+</span><span id="line-70"></span><span class="annot"><span class="hs-comment">{- | Clone `ADiopter` so that you can reuse the same
+monomorphically typed `Diopter` for different purposes.
+-}</span></span><span>
+</span><span id="line-73"></span><span id="local-6989586621679265352"><span id="local-6989586621679265353"><span id="local-6989586621679265354"><span id="local-6989586621679265355"><span class="annot"><a href="Control.Lens.Diopter.html#cloneDiopter"><span class="hs-identifier hs-type">cloneDiopter</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Control.Lens.Diopter.html#ADiopter"><span class="hs-identifier hs-type">ADiopter</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265352"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265353"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265354"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265355"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Control.Lens.Diopter.html#Diopter"><span class="hs-identifier hs-type">Diopter</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265352"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265353"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265354"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265355"><span class="hs-identifier hs-type">b</span></a></span></span></span></span></span><span>
+</span><span id="line-74"></span><span id="cloneDiopter"><span class="annot"><span class="annottext">cloneDiopter :: forall s t a b. ADiopter s t a b -&gt; Diopter s t a b
+</span><a href="Control.Lens.Diopter.html#cloneDiopter"><span class="hs-identifier hs-var hs-var">cloneDiopter</span></a></span></span><span> </span><span id="local-6989586621679265622"><span class="annot"><span class="annottext">ADiopter s t a b
+</span><a href="#local-6989586621679265622"><span class="hs-identifier hs-var">dio</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ADiopter s t a b
+-&gt; (forall (h :: * -&gt; *).
+    Homogeneous h =&gt;
+    (s -&gt; h a) -&gt; (h b -&gt; t) -&gt; p a (f b) -&gt; p s (f t))
+-&gt; p a (f b)
+-&gt; p s (f t)
+forall s t a b r.
+ADiopter s t a b
+-&gt; (forall (h :: * -&gt; *).
+    Homogeneous h =&gt;
+    (s -&gt; h a) -&gt; (h b -&gt; t) -&gt; r)
+-&gt; r
+</span><a href="Control.Lens.Diopter.html#withDiopter"><span class="hs-identifier hs-var">withDiopter</span></a></span><span> </span><span class="annot"><span class="annottext">ADiopter s t a b
+</span><a href="#local-6989586621679265622"><span class="hs-identifier hs-var">dio</span></a></span><span> </span><span class="annot"><span class="annottext">(s -&gt; h a) -&gt; (h b -&gt; t) -&gt; p a (f b) -&gt; p s (f t)
+(s -&gt; h a) -&gt; (h b -&gt; t) -&gt; Diopter s t a b
+forall (h :: * -&gt; *).
+Homogeneous h =&gt;
+(s -&gt; h a) -&gt; (h b -&gt; t) -&gt; p a (f b) -&gt; p s (f t)
+forall (h :: * -&gt; *) s a b t.
+Homogeneous h =&gt;
+(s -&gt; h a) -&gt; (h b -&gt; t) -&gt; Diopter s t a b
+</span><a href="Control.Lens.Diopter.html#diopter"><span class="hs-identifier hs-var">diopter</span></a></span><span>
+</span><span id="line-75"></span><span>
+</span><span id="line-76"></span><span class="annot"><span class="hs-comment">{- | One or none. -}</span></span><span>
+</span><span id="line-77"></span><span id="local-6989586621679265365"><span id="local-6989586621679265366"><span class="annot"><a href="Control.Lens.Diopter.html#optioned"><span class="hs-identifier hs-type">optioned</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Control.Lens.Diopter.html#Diopter"><span class="hs-identifier hs-type">Diopter</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="annot"><a href="#local-6989586621679265365"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="annot"><a href="#local-6989586621679265366"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621679265365"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265366"><span class="hs-identifier hs-type">b</span></a></span></span></span><span>
+</span><span id="line-78"></span><span id="optioned"><span class="annot"><span class="annottext">optioned :: forall a b (p :: * -&gt; * -&gt; *) (f :: * -&gt; *).
+(Distributor p, Applicative f) =&gt;
+p a (f b) -&gt; p (Maybe a) (f (Maybe b))
+</span><a href="Control.Lens.Diopter.html#optioned"><span class="hs-identifier hs-var hs-var">optioned</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">WrappedPafb f p (Maybe a) (Maybe b) -&gt; p (Maybe a) (f (Maybe b))
+forall (f :: * -&gt; *) (p :: * -&gt; * -&gt; *) a b.
+WrappedPafb f p a b -&gt; p a (f b)
+</span><span class="hs-identifier hs-var">unwrapPafb</span></span><span> </span><span class="annot"><span class="annottext">(WrappedPafb f p (Maybe a) (Maybe b) -&gt; p (Maybe a) (f (Maybe b)))
+-&gt; (p a (f b) -&gt; WrappedPafb f p (Maybe a) (Maybe b))
+-&gt; p a (f b)
+-&gt; p (Maybe a) (f (Maybe b))
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">WrappedPafb f p a b -&gt; WrappedPafb f p (Maybe a) (Maybe b)
+forall a b.
+WrappedPafb f p a b -&gt; WrappedPafb f p (Maybe a) (Maybe b)
+forall (p :: * -&gt; * -&gt; *) a b.
+Distributor p =&gt;
+p a b -&gt; p (Maybe a) (Maybe b)
+</span><a href="Data.Profunctor.Distributor.html#optionalP"><span class="hs-identifier hs-var">optionalP</span></a></span><span> </span><span class="annot"><span class="annottext">(WrappedPafb f p a b -&gt; WrappedPafb f p (Maybe a) (Maybe b))
+-&gt; (p a (f b) -&gt; WrappedPafb f p a b)
+-&gt; p a (f b)
+-&gt; WrappedPafb f p (Maybe a) (Maybe b)
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">p a (f b) -&gt; WrappedPafb f p a b
+forall (f :: * -&gt; *) (p :: * -&gt; * -&gt; *) a b.
+p a (f b) -&gt; WrappedPafb f p a b
+</span><span class="hs-identifier hs-var">WrapPafb</span></span><span>
+</span><span id="line-79"></span><span>
+</span><span id="line-80"></span><span class="annot"><span class="hs-comment">{- | Zero or more. -}</span></span><span>
+</span><span id="line-81"></span><span id="local-6989586621679265373"><span id="local-6989586621679265374"><span class="annot"><a href="Control.Lens.Diopter.html#manied"><span class="hs-identifier hs-type">manied</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Control.Lens.Diopter.html#Diopter"><span class="hs-identifier hs-type">Diopter</span></a></span><span> </span><span class="hs-special">[</span><span class="annot"><a href="#local-6989586621679265373"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">]</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="#local-6989586621679265374"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">]</span><span> </span><span class="annot"><a href="#local-6989586621679265373"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265374"><span class="hs-identifier hs-type">b</span></a></span></span></span><span>
+</span><span id="line-82"></span><span id="manied"><span class="annot"><span class="annottext">manied :: forall a b (p :: * -&gt; * -&gt; *) (f :: * -&gt; *).
+(Distributor p, Applicative f) =&gt;
+p a (f b) -&gt; p [a] (f [b])
+</span><a href="Control.Lens.Diopter.html#manied"><span class="hs-identifier hs-var hs-var">manied</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">WrappedPafb f p [a] [b] -&gt; p [a] (f [b])
+forall (f :: * -&gt; *) (p :: * -&gt; * -&gt; *) a b.
+WrappedPafb f p a b -&gt; p a (f b)
+</span><span class="hs-identifier hs-var">unwrapPafb</span></span><span> </span><span class="annot"><span class="annottext">(WrappedPafb f p [a] [b] -&gt; p [a] (f [b]))
+-&gt; (p a (f b) -&gt; WrappedPafb f p [a] [b])
+-&gt; p a (f b)
+-&gt; p [a] (f [b])
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">WrappedPafb f p a b -&gt; WrappedPafb f p [a] [b]
+forall a b. WrappedPafb f p a b -&gt; WrappedPafb f p [a] [b]
+forall (p :: * -&gt; * -&gt; *) a b. Distributor p =&gt; p a b -&gt; p [a] [b]
+</span><a href="Data.Profunctor.Distributor.html#manyP"><span class="hs-identifier hs-var">manyP</span></a></span><span> </span><span class="annot"><span class="annottext">(WrappedPafb f p a b -&gt; WrappedPafb f p [a] [b])
+-&gt; (p a (f b) -&gt; WrappedPafb f p a b)
+-&gt; p a (f b)
+-&gt; WrappedPafb f p [a] [b]
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">p a (f b) -&gt; WrappedPafb f p a b
+forall (f :: * -&gt; *) (p :: * -&gt; * -&gt; *) a b.
+p a (f b) -&gt; WrappedPafb f p a b
+</span><span class="hs-identifier hs-var">WrapPafb</span></span><span>
+</span><span id="line-83"></span><span>
+</span><span id="line-84"></span><span class="annot"><span class="hs-comment">{- | Build a `Diopter` from a `Homogeneous`
+countable sum of countable products.
+
+&gt; prop&gt; traverse = homogenized
+&gt; prop&gt; homogenized = ditraversed
+-}</span></span><span>
+</span><span id="line-90"></span><span id="local-6989586621679265381"><span id="local-6989586621679265382"><span id="local-6989586621679265383"><span class="annot"><a href="Control.Lens.Diopter.html#homogenized"><span class="hs-identifier hs-type">homogenized</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Data.Traversable.Homogeneous.html#Homogeneous"><span class="hs-identifier hs-type">Homogeneous</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265381"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Control.Lens.Diopter.html#Diopter"><span class="hs-identifier hs-type">Diopter</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679265381"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265382"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679265381"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265383"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621679265382"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265383"><span class="hs-identifier hs-type">b</span></a></span></span></span></span><span>
+</span><span id="line-91"></span><span id="homogenized"><span class="annot"><span class="annottext">homogenized :: forall (t :: * -&gt; *) a b. Homogeneous t =&gt; Diopter (t a) (t b) a b
+</span><a href="Control.Lens.Diopter.html#homogenized"><span class="hs-identifier hs-var hs-var">homogenized</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">WrappedPafb f p (t a) (t b) -&gt; p (t a) (f (t b))
+forall (f :: * -&gt; *) (p :: * -&gt; * -&gt; *) a b.
+WrappedPafb f p a b -&gt; p a (f b)
+</span><span class="hs-identifier hs-var">unwrapPafb</span></span><span> </span><span class="annot"><span class="annottext">(WrappedPafb f p (t a) (t b) -&gt; p (t a) (f (t b)))
+-&gt; (p a (f b) -&gt; WrappedPafb f p (t a) (t b))
+-&gt; p a (f b)
+-&gt; p (t a) (f (t b))
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">WrappedPafb f p a b -&gt; WrappedPafb f p (t a) (t b)
+forall (t :: * -&gt; *) (p :: * -&gt; * -&gt; *) a b.
+(Homogeneous t, Distributor p) =&gt;
+p a b -&gt; p (t a) (t b)
+forall (p :: * -&gt; * -&gt; *) a b.
+Distributor p =&gt;
+p a b -&gt; p (t a) (t b)
+</span><a href="Data.Traversable.Homogeneous.html#homogeneously"><span class="hs-identifier hs-var">homogeneously</span></a></span><span> </span><span class="annot"><span class="annottext">(WrappedPafb f p a b -&gt; WrappedPafb f p (t a) (t b))
+-&gt; (p a (f b) -&gt; WrappedPafb f p a b)
+-&gt; p a (f b)
+-&gt; WrappedPafb f p (t a) (t b)
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">p a (f b) -&gt; WrappedPafb f p a b
+forall (f :: * -&gt; *) (p :: * -&gt; * -&gt; *) a b.
+p a (f b) -&gt; WrappedPafb f p a b
+</span><span class="hs-identifier hs-var">WrapPafb</span></span><span>
+</span><span id="line-92"></span><span>
+</span><span id="line-93"></span><span class="annot"><span class="hs-comment">{- | Zip sources of `ADiopter` in the positions of a `Traversable`,
+when they have the same shape, or else `Control.Applicative.empty`.
+
+&gt;&gt;&gt; zipDiopter manied (Just . sum) [[1, 2], [3, 4], [5, 6 :: Int]]
+Just [9,12]
+&gt;&gt;&gt; zipDiopter manied (Just . sum) [[1, 2], [3 :: Int]]
+Nothing
+-}</span></span><span>
+</span><span id="line-101"></span><span id="local-6989586621679265389"><span id="local-6989586621679265390"><span id="local-6989586621679265392"><span id="local-6989586621679265393"><span id="local-6989586621679265394"><span id="local-6989586621679265395"><span class="annot"><a href="Control.Lens.Diopter.html#zipDiopter"><span class="hs-identifier hs-type">zipDiopter</span></a></span><span>
+</span><span id="line-102"></span><span>  </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Traversable</span></span><span> </span><span class="annot"><a href="#local-6989586621679265389"><span class="hs-identifier hs-type">f</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Alternative</span></span><span> </span><span class="annot"><a href="#local-6989586621679265390"><span class="hs-identifier hs-type">g</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-103"></span><span>  </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Control.Lens.Diopter.html#ADiopter"><span class="hs-identifier hs-type">ADiopter</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265392"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265393"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265394"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265395"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679265389"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265394"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679265390"><span class="hs-identifier hs-type">g</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265395"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679265389"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265392"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679265390"><span class="hs-identifier hs-type">g</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265393"><span class="hs-identifier hs-type">t</span></a></span></span></span></span></span></span></span><span>
+</span><span id="line-104"></span><span id="zipDiopter"><span class="annot"><span class="annottext">zipDiopter :: forall (f :: * -&gt; *) (g :: * -&gt; *) s t a b.
+(Traversable f, Alternative g) =&gt;
+ADiopter s t a b -&gt; (f a -&gt; g b) -&gt; f s -&gt; g t
+</span><a href="Control.Lens.Diopter.html#zipDiopter"><span class="hs-identifier hs-var hs-var">zipDiopter</span></a></span></span><span> </span><span id="local-6989586621679265648"><span class="annot"><span class="annottext">ADiopter s t a b
+</span><a href="#local-6989586621679265648"><span class="hs-identifier hs-var">dio</span></a></span></span><span> </span><span id="local-6989586621679265649"><span class="annot"><span class="annottext">f a -&gt; g b
+</span><a href="#local-6989586621679265649"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ADiopter s t a b
+-&gt; (forall (h :: * -&gt; *).
+    Homogeneous h =&gt;
+    (s -&gt; h a) -&gt; (h b -&gt; t) -&gt; f s -&gt; g t)
+-&gt; f s
+-&gt; g t
+forall s t a b r.
+ADiopter s t a b
+-&gt; (forall (h :: * -&gt; *).
+    Homogeneous h =&gt;
+    (s -&gt; h a) -&gt; (h b -&gt; t) -&gt; r)
+-&gt; r
+</span><a href="Control.Lens.Diopter.html#withDiopter"><span class="hs-identifier hs-var">withDiopter</span></a></span><span> </span><span class="annot"><span class="annottext">ADiopter s t a b
+</span><a href="#local-6989586621679265648"><span class="hs-identifier hs-var">dio</span></a></span><span> </span><span class="annot"><span class="annottext">((forall (h :: * -&gt; *).
+  Homogeneous h =&gt;
+  (s -&gt; h a) -&gt; (h b -&gt; t) -&gt; f s -&gt; g t)
+ -&gt; f s -&gt; g t)
+-&gt; (forall (h :: * -&gt; *).
+    Homogeneous h =&gt;
+    (s -&gt; h a) -&gt; (h b -&gt; t) -&gt; f s -&gt; g t)
+-&gt; f s
+-&gt; g t
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679265658"><span class="annot"><span class="annottext">s -&gt; h a
+</span><a href="#local-6989586621679265658"><span class="hs-identifier hs-var">split</span></a></span></span><span> </span><span id="local-6989586621679265659"><span class="annot"><span class="annottext">h b -&gt; t
+</span><a href="#local-6989586621679265659"><span class="hs-identifier hs-var">merge</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-105"></span><span>  </span><span class="annot"><span class="annottext">(h b -&gt; t) -&gt; g (h b) -&gt; g t
+forall a b. (a -&gt; b) -&gt; g a -&gt; g b
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">fmap</span></span><span> </span><span class="annot"><span class="annottext">h b -&gt; t
+</span><a href="#local-6989586621679265659"><span class="hs-identifier hs-var">merge</span></a></span><span> </span><span class="annot"><span class="annottext">(g (h b) -&gt; g t) -&gt; (f s -&gt; g (h b)) -&gt; f s -&gt; g t
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">(f a -&gt; g b) -&gt; f (h a) -&gt; g (h b)
+forall (t :: * -&gt; *) (f :: * -&gt; *) (g :: * -&gt; *) a b.
+(Homogeneous t, Traversable f, Alternative g) =&gt;
+(f a -&gt; g b) -&gt; f (t a) -&gt; g (t b)
+</span><a href="Data.Traversable.Homogeneous.html#zipHomogeneous"><span class="hs-identifier hs-var">zipHomogeneous</span></a></span><span> </span><span class="annot"><span class="annottext">f a -&gt; g b
+</span><a href="#local-6989586621679265649"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">(f (h a) -&gt; g (h b)) -&gt; (f s -&gt; f (h a)) -&gt; f s -&gt; g (h b)
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">(s -&gt; h a) -&gt; f s -&gt; f (h a)
+forall a b. (a -&gt; b) -&gt; f a -&gt; f b
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">fmap</span></span><span> </span><span class="annot"><span class="annottext">s -&gt; h a
+</span><a href="#local-6989586621679265658"><span class="hs-identifier hs-var">split</span></a></span><span>
+</span><span id="line-106"></span><span>
+</span><span id="line-107"></span><span class="annot"><span class="hs-comment">{- | Zip two sources of `ADiopter`, when they have the same shape.
+
+&gt;&gt;&gt; zipWithDiopter optioned (+) (Just 1) (Just 2 :: Maybe Int)
+Just (Just 3)
+&gt;&gt;&gt; zipWithDiopter optioned (+) (Just 1) (Nothing :: Maybe Int)
+Nothing
+-}</span></span><span>
+</span><span id="line-114"></span><span id="local-6989586621679265415"><span id="local-6989586621679265416"><span id="local-6989586621679265417"><span id="local-6989586621679265418"><span class="annot"><a href="Control.Lens.Diopter.html#zipWithDiopter"><span class="hs-identifier hs-type">zipWithDiopter</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Control.Lens.Diopter.html#ADiopter"><span class="hs-identifier hs-type">ADiopter</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265415"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265416"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265417"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265418"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679265417"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679265417"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679265418"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679265415"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679265415"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="annot"><a href="#local-6989586621679265416"><span class="hs-identifier hs-type">t</span></a></span></span></span></span></span><span>
+</span><span id="line-115"></span><span id="zipWithDiopter"><span class="annot"><span class="annottext">zipWithDiopter :: forall s t a b.
+ADiopter s t a b -&gt; (a -&gt; a -&gt; b) -&gt; s -&gt; s -&gt; Maybe t
+</span><a href="Control.Lens.Diopter.html#zipWithDiopter"><span class="hs-identifier hs-var hs-var">zipWithDiopter</span></a></span></span><span> </span><span id="local-6989586621679265668"><span class="annot"><span class="annottext">ADiopter s t a b
+</span><a href="#local-6989586621679265668"><span class="hs-identifier hs-var">dio</span></a></span></span><span> </span><span id="local-6989586621679265669"><span class="annot"><span class="annottext">a -&gt; a -&gt; b
+</span><a href="#local-6989586621679265669"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span id="local-6989586621679265670"><span class="annot"><span class="annottext">s
+</span><a href="#local-6989586621679265670"><span class="hs-identifier hs-var">s0</span></a></span></span><span> </span><span id="local-6989586621679265671"><span class="annot"><span class="annottext">s
+</span><a href="#local-6989586621679265671"><span class="hs-identifier hs-var">s1</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-116"></span><span>  </span><span class="annot"><span class="annottext">ADiopter s t a b
+-&gt; ((:*:) Par1 Par1 a -&gt; Maybe b) -&gt; (:*:) Par1 Par1 s -&gt; Maybe t
+forall (f :: * -&gt; *) (g :: * -&gt; *) s t a b.
+(Traversable f, Alternative g) =&gt;
+ADiopter s t a b -&gt; (f a -&gt; g b) -&gt; f s -&gt; g t
+</span><a href="Control.Lens.Diopter.html#zipDiopter"><span class="hs-identifier hs-var">zipDiopter</span></a></span><span> </span><span class="annot"><span class="annottext">ADiopter s t a b
+</span><a href="#local-6989586621679265668"><span class="hs-identifier hs-var">dio</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Par1</span></span><span> </span><span id="local-6989586621679265672"><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679265672"><span class="hs-identifier hs-var">a0</span></a></span></span><span> </span><span class="annot"><span class="hs-operator hs-type">:*:</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Par1</span></span><span> </span><span id="local-6989586621679265674"><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679265674"><span class="hs-identifier hs-var">a1</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">b -&gt; Maybe b
+forall a. a -&gt; Maybe a
+</span><span class="hs-identifier hs-var">Just</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">a -&gt; a -&gt; b
+</span><a href="#local-6989586621679265669"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679265672"><span class="hs-identifier hs-var">a0</span></a></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679265674"><span class="hs-identifier hs-var">a1</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">s -&gt; Par1 s
+forall p. p -&gt; Par1 p
+</span><span class="hs-identifier hs-var">Par1</span></span><span> </span><span class="annot"><span class="annottext">s
+</span><a href="#local-6989586621679265670"><span class="hs-identifier hs-var">s0</span></a></span><span> </span><span class="annot"><span class="annottext">Par1 s -&gt; Par1 s -&gt; (:*:) Par1 Par1 s
+forall k (f :: k -&gt; *) (g :: k -&gt; *) (p :: k).
+f p -&gt; g p -&gt; (:*:) f g p
+</span><span class="hs-operator hs-var">:*:</span></span><span> </span><span class="annot"><span class="annottext">s -&gt; Par1 s
+forall p. p -&gt; Par1 p
+</span><span class="hs-identifier hs-var">Par1</span></span><span> </span><span class="annot"><span class="annottext">s
+</span><a href="#local-6989586621679265671"><span class="hs-identifier hs-var">s1</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-117"></span><span>
+</span><span id="line-118"></span><span class="annot"><span class="hs-comment">{- | Transpose sources of `ADiopter` in the positions of a `Traversable`,
+when they have the same shape.
+
+&gt;&gt;&gt; transposeDiopter manied [[1, 2, 3], [4, 5, 6 :: Int]]
+Just [[1,4],[2,5],[3,6]]
+-}</span></span><span>
+</span><span id="line-124"></span><span id="local-6989586621679265429"><span id="local-6989586621679265430"><span id="local-6989586621679265431"><span id="local-6989586621679265432"><span class="annot"><a href="Control.Lens.Diopter.html#transposeDiopter"><span class="hs-identifier hs-type">transposeDiopter</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Traversable</span></span><span> </span><span class="annot"><a href="#local-6989586621679265429"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Control.Lens.Diopter.html#ADiopter"><span class="hs-identifier hs-type">ADiopter</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265430"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265431"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265432"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679265429"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265432"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679265429"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265430"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="annot"><a href="#local-6989586621679265431"><span class="hs-identifier hs-type">t</span></a></span></span></span></span></span><span>
+</span><span id="line-125"></span><span id="transposeDiopter"><span class="annot"><span class="annottext">transposeDiopter :: forall (f :: * -&gt; *) s t a.
+Traversable f =&gt;
+ADiopter s t a (f a) -&gt; f s -&gt; Maybe t
+</span><a href="Control.Lens.Diopter.html#transposeDiopter"><span class="hs-identifier hs-var hs-var">transposeDiopter</span></a></span></span><span> </span><span id="local-6989586621679265678"><span class="annot"><span class="annottext">ADiopter s t a (f a)
+</span><a href="#local-6989586621679265678"><span class="hs-identifier hs-var">dio</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ADiopter s t a (f a) -&gt; (f a -&gt; Maybe (f a)) -&gt; f s -&gt; Maybe t
+forall (f :: * -&gt; *) (g :: * -&gt; *) s t a b.
+(Traversable f, Alternative g) =&gt;
+ADiopter s t a b -&gt; (f a -&gt; g b) -&gt; f s -&gt; g t
+</span><a href="Control.Lens.Diopter.html#zipDiopter"><span class="hs-identifier hs-var">zipDiopter</span></a></span><span> </span><span class="annot"><span class="annottext">ADiopter s t a (f a)
+</span><a href="#local-6989586621679265678"><span class="hs-identifier hs-var">dio</span></a></span><span> </span><span class="annot"><span class="annottext">f a -&gt; Maybe (f a)
+forall a. a -&gt; Maybe a
+</span><span class="hs-identifier hs-var">Just</span></span><span>
+</span><span id="line-126"></span><span>
+</span><span id="line-127"></span><span class="annot"><span class="hs-comment">{- | A t'Dioptrice' provides efficient access
+to some pair of functions that make up a `Diopter`.
+-}</span></span><span>
+</span><span id="line-130"></span><span class="hs-keyword">data</span><span> </span><span id="Dioptrice"><span class="annot"><a href="Control.Lens.Diopter.html#Dioptrice"><span class="hs-identifier hs-var">Dioptrice</span></a></span></span><span> </span><span id="local-6989586621679265679"><span class="annot"><a href="#local-6989586621679265679"><span class="hs-identifier hs-type">a</span></a></span></span><span> </span><span id="local-6989586621679265680"><span class="annot"><a href="#local-6989586621679265680"><span class="hs-identifier hs-type">b</span></a></span></span><span> </span><span id="local-6989586621679265681"><span class="annot"><a href="#local-6989586621679265681"><span class="hs-identifier hs-type">s</span></a></span></span><span> </span><span id="local-6989586621679265682"><span class="annot"><a href="#local-6989586621679265682"><span class="hs-identifier hs-type">t</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-131"></span><span>  </span><span id="local-6989586621679265290"><span id="local-6989586621679265291"><span id="local-6989586621679265292"><span id="local-6989586621679265293"><span id="local-6989586621679265683"><span id="Dioptrice"><span class="annot"><a href="Control.Lens.Diopter.html#Dioptrice"><span class="hs-identifier hs-var">Dioptrice</span></a></span></span><span>
+</span><span id="line-132"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Data.Traversable.Homogeneous.html#Homogeneous"><span class="hs-identifier hs-type">Homogeneous</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265683"><span class="hs-identifier hs-type">h</span></a></span><span>
+</span><span id="line-133"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679265290"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679265683"><span class="hs-identifier hs-type">h</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265291"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-134"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679265683"><span class="hs-identifier hs-type">h</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265292"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679265293"><span class="hs-identifier hs-type">t</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-135"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Control.Lens.Diopter.html#Dioptrice"><span class="hs-identifier hs-type">Dioptrice</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265291"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265292"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265290"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265293"><span class="hs-identifier hs-type">t</span></a></span></span></span></span></span></span><span>
+</span><span id="line-136"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679265458"><span id="local-6989586621679265459"><span id="local-6989586621679265686"><span id="local-6989586621679265690"><span id="local-6989586621679265693"><span id="local-6989586621679265699"><span class="annot"><span class="hs-identifier hs-type">Profunctor</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Diopter.html#Dioptrice"><span class="hs-identifier hs-type">Dioptrice</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265458"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265459"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span></span></span></span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-137"></span><span>  </span><span id="local-6989586621679265705"><span class="annot"><span class="annottext">dimap :: forall a b c d.
+(a -&gt; b) -&gt; (c -&gt; d) -&gt; Dioptrice a b b c -&gt; Dioptrice a b a d
+</span><span class="hs-identifier hs-var hs-var hs-var">dimap</span></span></span><span> </span><span id="local-6989586621679265706"><span class="annot"><span class="annottext">a -&gt; b
+</span><a href="#local-6989586621679265706"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span id="local-6989586621679265707"><span class="annot"><span class="annottext">c -&gt; d
+</span><a href="#local-6989586621679265707"><span class="hs-identifier hs-var">g</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Diopter.html#Dioptrice"><span class="hs-identifier hs-type">Dioptrice</span></a></span><span> </span><span id="local-6989586621679265710"><span class="annot"><span class="annottext">b -&gt; h a
+</span><a href="#local-6989586621679265710"><span class="hs-identifier hs-var">sa</span></a></span></span><span> </span><span id="local-6989586621679265711"><span class="annot"><span class="annottext">h b -&gt; c
+</span><a href="#local-6989586621679265711"><span class="hs-identifier hs-var">bt</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(a -&gt; h a) -&gt; (h b -&gt; d) -&gt; Dioptrice a b a d
+forall (h :: * -&gt; *) s a b t.
+Homogeneous h =&gt;
+(s -&gt; h a) -&gt; (h b -&gt; t) -&gt; Dioptrice a b s t
+</span><a href="Control.Lens.Diopter.html#Dioptrice"><span class="hs-identifier hs-var">Dioptrice</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">b -&gt; h a
+</span><a href="#local-6989586621679265710"><span class="hs-identifier hs-var">sa</span></a></span><span> </span><span class="annot"><span class="annottext">(b -&gt; h a) -&gt; (a -&gt; b) -&gt; a -&gt; h a
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">a -&gt; b
+</span><a href="#local-6989586621679265706"><span class="hs-identifier hs-var">f</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">c -&gt; d
+</span><a href="#local-6989586621679265707"><span class="hs-identifier hs-var">g</span></a></span><span> </span><span class="annot"><span class="annottext">(c -&gt; d) -&gt; (h b -&gt; c) -&gt; h b -&gt; d
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">h b -&gt; c
+</span><a href="#local-6989586621679265711"><span class="hs-identifier hs-var">bt</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-138"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679265308"><span id="local-6989586621679265309"><span id="local-6989586621679265310"><span id="local-6989586621679265714"><span class="annot"><span class="hs-identifier hs-type">Functor</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Diopter.html#Dioptrice"><span class="hs-identifier hs-type">Dioptrice</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265308"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265309"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265310"><span class="hs-identifier hs-type">s</span></a></span><span class="hs-special">)</span></span></span></span></span><span> </span><span class="hs-keyword">where</span><span> </span><span id="local-6989586621679265718"><span class="annot"><span class="annottext">fmap :: forall a b. (a -&gt; b) -&gt; Dioptrice a b s a -&gt; Dioptrice a b s b
+</span><span class="hs-identifier hs-var hs-var hs-var">fmap</span></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(a -&gt; b) -&gt; Dioptrice a b s a -&gt; Dioptrice a b s b
+forall b c a. (b -&gt; c) -&gt; Dioptrice a b a b -&gt; Dioptrice a b a c
+forall (p :: * -&gt; * -&gt; *) b c a.
+Profunctor p =&gt;
+(b -&gt; c) -&gt; p a b -&gt; p a c
+</span><span class="hs-identifier hs-var">rmap</span></span><span>
+</span><span id="line-139"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679265485"><span id="local-6989586621679265486"><span id="local-6989586621679265487"><span id="local-6989586621679265725"><span id="local-6989586621679265729"><span id="local-6989586621679265732"><span class="annot"><span class="hs-identifier hs-type">Applicative</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Diopter.html#Dioptrice"><span class="hs-identifier hs-type">Dioptrice</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265485"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265486"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265487"><span class="hs-identifier hs-type">s</span></a></span><span class="hs-special">)</span></span></span></span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-140"></span><span>  </span><span id="local-6989586621679265737"><span class="annot"><span class="annottext">pure :: forall a. a -&gt; Dioptrice a b s a
+</span><span class="hs-identifier hs-var hs-var hs-var">pure</span></span></span><span> </span><span id="local-6989586621679265738"><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679265738"><span class="hs-identifier hs-var">t</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(s -&gt; U1 a) -&gt; (U1 b -&gt; a) -&gt; Dioptrice a b s a
+forall (h :: * -&gt; *) s a b t.
+Homogeneous h =&gt;
+(s -&gt; h a) -&gt; (h b -&gt; t) -&gt; Dioptrice a b s t
+</span><a href="Control.Lens.Diopter.html#Dioptrice"><span class="hs-identifier hs-var">Dioptrice</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">U1 a -&gt; s -&gt; U1 a
+forall a b. a -&gt; b -&gt; a
+</span><span class="hs-identifier hs-var">const</span></span><span> </span><span class="annot"><span class="annottext">U1 a
+forall k (p :: k). U1 p
+</span><span class="hs-identifier hs-var">U1</span></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">a -&gt; U1 b -&gt; a
+forall a b. a -&gt; b -&gt; a
+</span><span class="hs-identifier hs-var">const</span></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679265738"><span class="hs-identifier hs-var">t</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-141"></span><span>  </span><span class="annot"><a href="Control.Lens.Diopter.html#Dioptrice"><span class="hs-identifier hs-type">Dioptrice</span></a></span><span> </span><span id="local-6989586621679265742"><span class="annot"><span class="annottext">s -&gt; h a
+</span><a href="#local-6989586621679265742"><span class="hs-identifier hs-var">fx</span></a></span></span><span> </span><span id="local-6989586621679265743"><span class="annot"><span class="annottext">h b -&gt; a -&gt; b
+</span><a href="#local-6989586621679265743"><span class="hs-identifier hs-var">gx</span></a></span></span><span> </span><span id="local-6989586621679265744"><span class="annot"><span class="annottext">&lt;*&gt; :: forall a b.
+Dioptrice a b s (a -&gt; b) -&gt; Dioptrice a b s a -&gt; Dioptrice a b s b
+</span><span class="hs-operator hs-var hs-var hs-var">&lt;*&gt;</span></span></span><span> </span><span class="annot"><a href="Control.Lens.Diopter.html#Dioptrice"><span class="hs-identifier hs-type">Dioptrice</span></a></span><span> </span><span id="local-6989586621679265748"><span class="annot"><span class="annottext">s -&gt; h a
+</span><a href="#local-6989586621679265748"><span class="hs-identifier hs-var">fy</span></a></span></span><span> </span><span id="local-6989586621679265749"><span class="annot"><span class="annottext">h b -&gt; a
+</span><a href="#local-6989586621679265749"><span class="hs-identifier hs-var">gy</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(s -&gt; (:*:) h h a) -&gt; ((:*:) h h b -&gt; b) -&gt; Dioptrice a b s b
+forall (h :: * -&gt; *) s a b t.
+Homogeneous h =&gt;
+(s -&gt; h a) -&gt; (h b -&gt; t) -&gt; Dioptrice a b s t
+</span><a href="Control.Lens.Diopter.html#Dioptrice"><span class="hs-identifier hs-var">Dioptrice</span></a></span><span>
+</span><span id="line-142"></span><span>    </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span id="local-6989586621679265750"><span class="annot"><span class="annottext">s
+</span><a href="#local-6989586621679265750"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">s -&gt; h a
+</span><a href="#local-6989586621679265742"><span class="hs-identifier hs-var">fx</span></a></span><span> </span><span class="annot"><span class="annottext">s
+</span><a href="#local-6989586621679265750"><span class="hs-identifier hs-var">s</span></a></span><span> </span><span class="annot"><span class="annottext">h a -&gt; h a -&gt; (:*:) h h a
+forall k (f :: k -&gt; *) (g :: k -&gt; *) (p :: k).
+f p -&gt; g p -&gt; (:*:) f g p
+</span><span class="hs-operator hs-var">:*:</span></span><span> </span><span class="annot"><span class="annottext">s -&gt; h a
+</span><a href="#local-6989586621679265748"><span class="hs-identifier hs-var">fy</span></a></span><span> </span><span class="annot"><span class="annottext">s
+</span><a href="#local-6989586621679265750"><span class="hs-identifier hs-var">s</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-143"></span><span>    </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span class="hs-special">(</span><span id="local-6989586621679265751"><span class="annot"><span class="annottext">h b
+</span><a href="#local-6989586621679265751"><span class="hs-identifier hs-var">h</span></a></span></span><span> </span><span class="annot"><span class="hs-operator hs-type">:*:</span></span><span> </span><span id="local-6989586621679265752"><span class="annot"><span class="annottext">h b
+</span><a href="#local-6989586621679265752"><span class="hs-identifier hs-var">g</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">h b -&gt; a -&gt; b
+</span><a href="#local-6989586621679265743"><span class="hs-identifier hs-var">gx</span></a></span><span> </span><span class="annot"><span class="annottext">h b
+</span><a href="#local-6989586621679265751"><span class="hs-identifier hs-var">h</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">h b -&gt; a
+</span><a href="#local-6989586621679265749"><span class="hs-identifier hs-var">gy</span></a></span><span> </span><span class="annot"><span class="annottext">h b
+</span><a href="#local-6989586621679265752"><span class="hs-identifier hs-var">g</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-144"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679265507"><span id="local-6989586621679265508"><span class="annot"><a href="Data.Profunctor.Monoidal.Cocartesian.html#CocartesianMonoidal"><span class="hs-identifier hs-type">CocartesianMonoidal</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Diopter.html#Dioptrice"><span class="hs-identifier hs-type">Dioptrice</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265507"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265508"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-145"></span><span>  </span><span id="local-6989586621679265761"><span class="annot"><span class="annottext">zeroP :: Dioptrice a b Void Void
+</span><a href="#local-6989586621679265761"><span class="hs-identifier hs-var hs-var hs-var">zeroP</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(Void -&gt; V1 a) -&gt; (V1 b -&gt; Void) -&gt; Dioptrice a b Void Void
+forall (h :: * -&gt; *) s a b t.
+Homogeneous h =&gt;
+(s -&gt; h a) -&gt; (h b -&gt; t) -&gt; Dioptrice a b s t
+</span><a href="Control.Lens.Diopter.html#Dioptrice"><span class="hs-identifier hs-var">Dioptrice</span></a></span><span> </span><span class="annot"><span class="annottext">Void -&gt; V1 a
+forall a. Void -&gt; a
+</span><span class="hs-identifier hs-var">absurd</span></span><span> </span><span class="annot"><span class="annottext">V1 b -&gt; Void
+forall x. V1 b -&gt; x
+</span><a href="#local-6989586621679265764"><span class="hs-identifier hs-var">ridiculous</span></a></span><span>
+</span><span id="line-146"></span><span>    </span><span class="hs-keyword">where</span><span>
+</span><span id="line-147"></span><span>      </span><span id="local-6989586621679265510"><span class="annot"><a href="#local-6989586621679265764"><span class="hs-identifier hs-type">ridiculous</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">V1</span></span><span> </span><span class="annot"><a href="#local-6989586621679265508"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679265510"><span class="hs-identifier hs-type">x</span></a></span></span><span>
+</span><span id="line-148"></span><span>      </span><span id="local-6989586621679265764"><span class="annot"><span class="annottext">ridiculous :: forall x. V1 b -&gt; x
+</span><a href="#local-6989586621679265764"><span class="hs-identifier hs-var hs-var">ridiculous</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span class="hs-special">)</span><span>
+</span><span id="line-149"></span><span>  </span><span class="annot"><a href="Control.Lens.Diopter.html#Dioptrice"><span class="hs-identifier hs-type">Dioptrice</span></a></span><span> </span><span id="local-6989586621679265766"><span class="annot"><span class="annottext">a -&gt; h a
+</span><a href="#local-6989586621679265766"><span class="hs-identifier hs-var">fx</span></a></span></span><span> </span><span id="local-6989586621679265767"><span class="annot"><span class="annottext">h b -&gt; b
+</span><a href="#local-6989586621679265767"><span class="hs-identifier hs-var">gx</span></a></span></span><span> </span><span id="local-6989586621679265768"><span class="annot"><span class="annottext">&gt;+&lt; :: forall a b c d.
+Dioptrice a b a b
+-&gt; Dioptrice a b c d -&gt; Dioptrice a b (Either a c) (Either b d)
+</span><a href="#local-6989586621679265768"><span class="hs-operator hs-var hs-var hs-var">&gt;+&lt;</span></a></span></span><span> </span><span class="annot"><a href="Control.Lens.Diopter.html#Dioptrice"><span class="hs-identifier hs-type">Dioptrice</span></a></span><span> </span><span id="local-6989586621679265773"><span class="annot"><span class="annottext">c -&gt; h a
+</span><a href="#local-6989586621679265773"><span class="hs-identifier hs-var">fy</span></a></span></span><span> </span><span id="local-6989586621679265774"><span class="annot"><span class="annottext">h b -&gt; d
+</span><a href="#local-6989586621679265774"><span class="hs-identifier hs-var">gy</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(Either a c -&gt; (:+:) h h a)
+-&gt; ((:+:) h h b -&gt; Either b d)
+-&gt; Dioptrice a b (Either a c) (Either b d)
+forall (h :: * -&gt; *) s a b t.
+Homogeneous h =&gt;
+(s -&gt; h a) -&gt; (h b -&gt; t) -&gt; Dioptrice a b s t
+</span><a href="Control.Lens.Diopter.html#Dioptrice"><span class="hs-identifier hs-var">Dioptrice</span></a></span><span>
+</span><span id="line-150"></span><span>    </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(a -&gt; (:+:) h h a)
+-&gt; (c -&gt; (:+:) h h a) -&gt; Either a c -&gt; (:+:) h h a
+forall a c b. (a -&gt; c) -&gt; (b -&gt; c) -&gt; Either a b -&gt; c
+</span><span class="hs-identifier hs-var">either</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">h a -&gt; (:+:) h h a
+forall k (f :: k -&gt; *) (g :: k -&gt; *) (p :: k). f p -&gt; (:+:) f g p
+</span><span class="hs-identifier hs-var">L1</span></span><span> </span><span class="annot"><span class="annottext">(h a -&gt; (:+:) h h a) -&gt; (a -&gt; h a) -&gt; a -&gt; (:+:) h h a
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">a -&gt; h a
+</span><a href="#local-6989586621679265766"><span class="hs-identifier hs-var">fx</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">h a -&gt; (:+:) h h a
+forall k (f :: k -&gt; *) (g :: k -&gt; *) (p :: k). g p -&gt; (:+:) f g p
+</span><span class="hs-identifier hs-var">R1</span></span><span> </span><span class="annot"><span class="annottext">(h a -&gt; (:+:) h h a) -&gt; (c -&gt; h a) -&gt; c -&gt; (:+:) h h a
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">c -&gt; h a
+</span><a href="#local-6989586621679265773"><span class="hs-identifier hs-var">fy</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-151"></span><span>    </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span> </span><span class="hs-special">{</span><span class="annot"><span class="hs-identifier hs-type">L1</span></span><span> </span><span id="local-6989586621679265778"><span class="annot"><span class="annottext">h b
+</span><a href="#local-6989586621679265778"><span class="hs-identifier hs-var">h</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">b -&gt; Either b d
+forall a b. a -&gt; Either a b
+</span><span class="hs-identifier hs-var">Left</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">h b -&gt; b
+</span><a href="#local-6989586621679265767"><span class="hs-identifier hs-var">gx</span></a></span><span> </span><span class="annot"><span class="annottext">h b
+</span><a href="#local-6989586621679265778"><span class="hs-identifier hs-var">h</span></a></span><span class="hs-special">)</span><span class="hs-special">;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">R1</span></span><span> </span><span id="local-6989586621679265779"><span class="annot"><span class="annottext">h b
+</span><a href="#local-6989586621679265779"><span class="hs-identifier hs-var">j</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">d -&gt; Either b d
+forall a b. b -&gt; Either a b
+</span><span class="hs-identifier hs-var">Right</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">h b -&gt; d
+</span><a href="#local-6989586621679265774"><span class="hs-identifier hs-var">gy</span></a></span><span> </span><span class="annot"><span class="annottext">h b
+</span><a href="#local-6989586621679265779"><span class="hs-identifier hs-var">j</span></a></span><span class="hs-special">)</span><span class="hs-special">}</span><span class="hs-special">)</span><span>
+</span><span id="line-152"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679265532"><span id="local-6989586621679265533"><span class="annot"><a href="Data.Profunctor.Distributor.html#Distributor"><span class="hs-identifier hs-type">Distributor</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Diopter.html#Dioptrice"><span class="hs-identifier hs-type">Dioptrice</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265532"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265533"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-153"></span><span>  </span><span id="local-6989586621679265790"><span class="annot"><span class="annottext">optionalP :: forall a b. Dioptrice a b a b -&gt; Dioptrice a b (Maybe a) (Maybe b)
+</span><a href="Data.Profunctor.Distributor.html#optionalP"><span class="hs-identifier hs-var hs-var hs-var">optionalP</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Diopter.html#Dioptrice"><span class="hs-identifier hs-type">Dioptrice</span></a></span><span> </span><span id="local-6989586621679265799"><span class="annot"><span class="annottext">a -&gt; h a
+</span><a href="#local-6989586621679265799"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span id="local-6989586621679265800"><span class="annot"><span class="annottext">h b -&gt; b
+</span><a href="#local-6989586621679265800"><span class="hs-identifier hs-var">g</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(Maybe a -&gt; (:.:) Maybe h a)
+-&gt; ((:.:) Maybe h b -&gt; Maybe b)
+-&gt; Dioptrice a b (Maybe a) (Maybe b)
+forall (h :: * -&gt; *) s a b t.
+Homogeneous h =&gt;
+(s -&gt; h a) -&gt; (h b -&gt; t) -&gt; Dioptrice a b s t
+</span><a href="Control.Lens.Diopter.html#Dioptrice"><span class="hs-identifier hs-var">Dioptrice</span></a></span><span>
+</span><span id="line-154"></span><span>    </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Maybe (h a) -&gt; (:.:) Maybe h a
+forall k2 k1 (f :: k2 -&gt; *) (g :: k1 -&gt; k2) (p :: k1).
+f (g p) -&gt; (:.:) f g p
+</span><span class="hs-identifier hs-var">Comp1</span></span><span> </span><span class="annot"><span class="annottext">(Maybe (h a) -&gt; (:.:) Maybe h a)
+-&gt; (Maybe a -&gt; Maybe (h a)) -&gt; Maybe a -&gt; (:.:) Maybe h a
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">(a -&gt; h a) -&gt; Maybe a -&gt; Maybe (h a)
+forall a b. (a -&gt; b) -&gt; Maybe a -&gt; Maybe b
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">fmap</span></span><span> </span><span class="annot"><span class="annottext">a -&gt; h a
+</span><a href="#local-6989586621679265799"><span class="hs-identifier hs-var">f</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-155"></span><span>    </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(h b -&gt; b) -&gt; Maybe (h b) -&gt; Maybe b
+forall a b. (a -&gt; b) -&gt; Maybe a -&gt; Maybe b
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">fmap</span></span><span> </span><span class="annot"><span class="annottext">h b -&gt; b
+</span><a href="#local-6989586621679265800"><span class="hs-identifier hs-var">g</span></a></span><span> </span><span class="annot"><span class="annottext">(Maybe (h b) -&gt; Maybe b)
+-&gt; ((:.:) Maybe h b -&gt; Maybe (h b)) -&gt; (:.:) Maybe h b -&gt; Maybe b
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">(:.:) Maybe h b -&gt; Maybe (h b)
+forall k2 k1 (f :: k2 -&gt; *) (g :: k1 -&gt; k2) (p :: k1).
+(:.:) f g p -&gt; f (g p)
+</span><span class="hs-identifier hs-var">unComp1</span></span><span class="hs-special">)</span><span>
+</span><span id="line-156"></span><span>  </span><span id="local-6989586621679265803"><span class="annot"><span class="annottext">manyP :: forall a b. Dioptrice a b a b -&gt; Dioptrice a b [a] [b]
+</span><a href="Data.Profunctor.Distributor.html#manyP"><span class="hs-identifier hs-var hs-var hs-var">manyP</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Diopter.html#Dioptrice"><span class="hs-identifier hs-type">Dioptrice</span></a></span><span> </span><span id="local-6989586621679265811"><span class="annot"><span class="annottext">a -&gt; h a
+</span><a href="#local-6989586621679265811"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span id="local-6989586621679265812"><span class="annot"><span class="annottext">h b -&gt; b
+</span><a href="#local-6989586621679265812"><span class="hs-identifier hs-var">g</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">([a] -&gt; (:.:) [] h a)
+-&gt; ((:.:) [] h b -&gt; [b]) -&gt; Dioptrice a b [a] [b]
+forall (h :: * -&gt; *) s a b t.
+Homogeneous h =&gt;
+(s -&gt; h a) -&gt; (h b -&gt; t) -&gt; Dioptrice a b s t
+</span><a href="Control.Lens.Diopter.html#Dioptrice"><span class="hs-identifier hs-var">Dioptrice</span></a></span><span>
+</span><span id="line-157"></span><span>    </span><span class="hs-special">(</span><span class="annot"><span class="annottext">[h a] -&gt; (:.:) [] h a
+forall k2 k1 (f :: k2 -&gt; *) (g :: k1 -&gt; k2) (p :: k1).
+f (g p) -&gt; (:.:) f g p
+</span><span class="hs-identifier hs-var">Comp1</span></span><span> </span><span class="annot"><span class="annottext">([h a] -&gt; (:.:) [] h a) -&gt; ([a] -&gt; [h a]) -&gt; [a] -&gt; (:.:) [] h a
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">(a -&gt; h a) -&gt; [a] -&gt; [h a]
+forall a b. (a -&gt; b) -&gt; [a] -&gt; [b]
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">fmap</span></span><span> </span><span class="annot"><span class="annottext">a -&gt; h a
+</span><a href="#local-6989586621679265811"><span class="hs-identifier hs-var">f</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-158"></span><span>    </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(h b -&gt; b) -&gt; [h b] -&gt; [b]
+forall a b. (a -&gt; b) -&gt; [a] -&gt; [b]
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">fmap</span></span><span> </span><span class="annot"><span class="annottext">h b -&gt; b
+</span><a href="#local-6989586621679265812"><span class="hs-identifier hs-var">g</span></a></span><span> </span><span class="annot"><span class="annottext">([h b] -&gt; [b]) -&gt; ((:.:) [] h b -&gt; [h b]) -&gt; (:.:) [] h b -&gt; [b]
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">(:.:) [] h b -&gt; [h b]
+forall k2 k1 (f :: k2 -&gt; *) (g :: k1 -&gt; k2) (p :: k1).
+(:.:) f g p -&gt; f (g p)
+</span><span class="hs-identifier hs-var">unComp1</span></span><span class="hs-special">)</span><span>
+</span><span id="line-159"></span><span>
+</span><span id="line-160"></span><span class="annot"><span class="hs-comment">{- | Run a t'Dioptrice' on a `Distributor`. -}</span></span><span>
+</span><span id="line-161"></span><span id="local-6989586621679265284"><span id="local-6989586621679265285"><span id="local-6989586621679265286"><span id="local-6989586621679265287"><span id="local-6989586621679265288"><span class="annot"><a href="Control.Lens.Diopter.html#runDioptrice"><span class="hs-identifier hs-type">runDioptrice</span></a></span><span>
+</span><span id="line-162"></span><span>  </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Data.Profunctor.Distributor.html#Distributor"><span class="hs-identifier hs-type">Distributor</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265284"><span class="hs-identifier hs-type">p</span></a></span><span>
+</span><span id="line-163"></span><span>  </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Control.Lens.Diopter.html#Dioptrice"><span class="hs-identifier hs-type">Dioptrice</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265285"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265286"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265287"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265288"><span class="hs-identifier hs-type">t</span></a></span><span>
+</span><span id="line-164"></span><span>  </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679265284"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265285"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265286"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679265284"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265287"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265288"><span class="hs-identifier hs-type">t</span></a></span></span></span></span></span></span><span>
+</span><span id="line-165"></span><span id="runDioptrice"><span class="annot"><span class="annottext">runDioptrice :: forall (p :: * -&gt; * -&gt; *) a b s t.
+Distributor p =&gt;
+Dioptrice a b s t -&gt; p a b -&gt; p s t
+</span><a href="Control.Lens.Diopter.html#runDioptrice"><span class="hs-identifier hs-var hs-var">runDioptrice</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Diopter.html#Dioptrice"><span class="hs-identifier hs-type">Dioptrice</span></a></span><span> </span><span id="local-6989586621679265820"><span class="annot"><span class="annottext">s -&gt; h a
+</span><a href="#local-6989586621679265820"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span id="local-6989586621679265821"><span class="annot"><span class="annottext">h b -&gt; t
+</span><a href="#local-6989586621679265821"><span class="hs-identifier hs-var">g</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(s -&gt; h a) -&gt; (h b -&gt; t) -&gt; p (h a) (h b) -&gt; p s t
+forall a b c d. (a -&gt; b) -&gt; (c -&gt; d) -&gt; p b c -&gt; p a d
+forall (p :: * -&gt; * -&gt; *) a b c d.
+Profunctor p =&gt;
+(a -&gt; b) -&gt; (c -&gt; d) -&gt; p b c -&gt; p a d
+</span><span class="hs-identifier hs-var">dimap</span></span><span> </span><span class="annot"><span class="annottext">s -&gt; h a
+</span><a href="#local-6989586621679265820"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">h b -&gt; t
+</span><a href="#local-6989586621679265821"><span class="hs-identifier hs-var">g</span></a></span><span> </span><span class="annot"><span class="annottext">(p (h a) (h b) -&gt; p s t)
+-&gt; (p a b -&gt; p (h a) (h b)) -&gt; p a b -&gt; p s t
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">p a b -&gt; p (h a) (h b)
+forall (t :: * -&gt; *) (p :: * -&gt; * -&gt; *) a b.
+(Homogeneous t, Distributor p) =&gt;
+p a b -&gt; p (t a) (t b)
+forall (p :: * -&gt; * -&gt; *) a b.
+Distributor p =&gt;
+p a b -&gt; p (h a) (h b)
+</span><a href="Data.Traversable.Homogeneous.html#homogeneously"><span class="hs-identifier hs-var">homogeneously</span></a></span><span>
+</span><span id="line-166"></span></pre></body></html>

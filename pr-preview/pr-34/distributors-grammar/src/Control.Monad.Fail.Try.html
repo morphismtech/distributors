@@ -1,0 +1,83 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="annot"><span class="hs-comment">{-|
+Module      : Control.Monad.Fail.Try
+Description : try &amp; fail
+Copyright   : (C) 2026 - Eitan Chatav
+License     : BSD-style (see the file LICENSE)
+Maintainer  : Eitan Chatav &lt;eitan.chatav@gmail.com&gt;
+Stability   : provisional
+Portability : non-portable
+-}</span></span><span>
+</span><span id="line-10"></span><span>
+</span><span id="line-11"></span><span class="hs-keyword">module</span><span> </span><span class="annot"><a href="Control.Monad.Fail.Try.html"><span class="hs-identifier">Control.Monad.Fail.Try</span></a></span><span>
+</span><span id="line-12"></span><span>  </span><span class="hs-special">(</span><span> </span><span class="annot"><span class="hs-comment">-- * MonadTry</span></span><span>
+</span><span id="line-13"></span><span>    </span><span class="annot"><a href="Control.Monad.Fail.Try.html#MonadTry"><span class="hs-identifier">MonadTry</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><span id="line-14"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Monad.Fail.Try.html#MonadicTry"><span class="hs-identifier">MonadicTry</span></a></span><span>
+</span><span id="line-15"></span><span>    </span><span class="annot"><span class="hs-comment">-- * MonadFail</span></span><span>
+</span><span id="line-16"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">MonadFail</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><span id="line-17"></span><span>    </span><span class="annot"><span class="hs-comment">-- * MonadPlus</span></span><span>
+</span><span id="line-18"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">MonadPlus</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><span id="line-19"></span><span>    </span><span class="annot"><span class="hs-comment">-- * Alternative</span></span><span>
+</span><span id="line-20"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">Alternative</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><span id="line-21"></span><span>    </span><span class="annot"><span class="hs-comment">-- * Filterable</span></span><span>
+</span><span id="line-22"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">Filterable</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><span id="line-23"></span><span>  </span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-24"></span><span>
+</span><span id="line-25"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Applicative</span></span><span>
+</span><span id="line-26"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.BackusNaur.html"><span class="hs-identifier">Control.Lens.Grammar.BackusNaur</span></a></span><span>
+</span><span id="line-27"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Lens.PartialIso</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-28"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Monad</span></span><span>
+</span><span id="line-29"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Bifunctor.Joker</span></span><span>
+</span><span id="line-30"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Profunctor</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Profunctor</span></span><span class="hs-special">)</span><span>
+</span><span id="line-31"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Text.ParserCombinators.ReadP</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">ReadP</span></span><span class="hs-special">)</span><span>
+</span><span id="line-32"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Witherable</span></span><span>
+</span><span id="line-33"></span><span>
+</span><span id="line-34"></span><span class="annot"><span class="hs-comment">{- | `MonadTry` is a failure handling interface, with `fail` &amp; `try`
+and redundant alternation &amp; filtration operators.
+
+&gt; prop&gt; empty = mzero
+&gt; prop&gt; (&lt;|&gt;) = mplus
+&gt; prop&gt; filter = mfilter
+
+`MonadTry` also supports the `BackusNaurForm` interface
+for tracing failures and the following invariant should hold.
+
+&gt; prop&gt; fail label = rule label empty
+
+-}</span></span><span>
+</span><span id="line-47"></span><span class="hs-keyword">class</span><span>
+</span><span id="line-48"></span><span>  </span><span class="hs-special">(</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadFail</span></span><span> </span><span class="annot"><a href="#local-6989586621679269788"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadPlus</span></span><span> </span><span class="annot"><a href="#local-6989586621679269788"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Filterable</span></span><span> </span><span class="annot"><a href="#local-6989586621679269788"><span class="hs-identifier hs-type">m</span></a></span><span>
+</span><span id="line-49"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="hs-keyword">forall</span><span> </span><span id="local-6989586621679269792"><span class="annot"><a href="#local-6989586621679269792"><span class="hs-identifier hs-type">x</span></a></span></span><span class="hs-operator">.</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.BackusNaur.html#BackusNaurForm"><span class="hs-identifier hs-type">BackusNaurForm</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679269788"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679269792"><span class="hs-identifier hs-type">x</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-50"></span><span>  </span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span id="MonadTry"><span class="annot"><a href="Control.Monad.Fail.Try.html#MonadTry"><span class="hs-identifier hs-var">MonadTry</span></a></span></span><span> </span><span id="local-6989586621679269788"><span class="annot"><a href="#local-6989586621679269788"><span class="hs-identifier hs-type">m</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-51"></span><span>
+</span><span id="line-52"></span><span>  </span><span class="hs-comment">{- | A handler for failures.
+  Used for backtracking state on failure in
+  t'Data.Profunctor.Grammar.Parsector.Parsector'.
+  -}</span><span>
+</span><span id="line-56"></span><span>  </span><span id="try"><span class="annot"><a href="Control.Monad.Fail.Try.html#try"><span class="hs-identifier hs-type">try</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span id="local-6989586621679269800"><span class="annot"><a href="#local-6989586621679269788"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679269800"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679269788"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679269800"><span class="hs-identifier hs-type">a</span></a></span></span><span>
+</span><span id="line-57"></span><span>  </span><span class="hs-keyword">default</span><span> </span><span id="try"><span class="annot"><a href="Control.Monad.Fail.Try.html#try"><span class="hs-identifier hs-type">try</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span id="local-6989586621679269794"><span class="annot"><a href="#local-6989586621679269788"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679269794"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679269788"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679269794"><span class="hs-identifier hs-type">a</span></a></span></span><span>
+</span><span id="line-58"></span><span>  </span><span id="local-6989586621679269833"><span class="annot"><a href="Control.Monad.Fail.Try.html#try"><span class="hs-identifier hs-var hs-var">try</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">m a -&gt; m a
+forall a. a -&gt; a
+</span><span class="hs-identifier hs-var">id</span></span></span><span>
+</span><span id="line-59"></span><span>
+</span><span id="line-60"></span><span class="annot"><span class="hs-comment">{- | A `Profunctor` which is also a `MonadTry`. -}</span></span><span>
+</span><span id="line-61"></span><span class="hs-keyword">type</span><span> </span><span id="MonadicTry"><span class="annot"><a href="Control.Monad.Fail.Try.html#MonadicTry"><span class="hs-identifier hs-var">MonadicTry</span></a></span></span><span> </span><span id="local-6989586621679269835"><span class="annot"><a href="#local-6989586621679269835"><span class="hs-identifier hs-type">p</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Profunctor</span></span><span> </span><span class="annot"><a href="#local-6989586621679269835"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">,</span><span> </span><span class="hs-keyword">forall</span><span> </span><span id="local-6989586621679269836"><span class="annot"><a href="#local-6989586621679269836"><span class="hs-identifier hs-type">x</span></a></span></span><span class="hs-operator">.</span><span> </span><span class="annot"><a href="Control.Monad.Fail.Try.html#MonadTry"><span class="hs-identifier hs-type">MonadTry</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679269835"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679269836"><span class="hs-identifier hs-type">x</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-62"></span><span>
+</span><span id="line-63"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679269807"><span id="local-6989586621679269808"><span class="annot"><a href="Control.Monad.Fail.Try.html#MonadTry"><span class="hs-identifier hs-type">MonadTry</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679269807"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Control.Monad.Fail.Try.html#MonadTry"><span class="hs-identifier hs-type">MonadTry</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Joker</span></span><span> </span><span class="annot"><a href="#local-6989586621679269807"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679269808"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-64"></span><span>  </span><span id="local-6989586621679269857"><span class="annot"><span class="annottext">try :: forall a. Joker m a a -&gt; Joker m a a
+</span><a href="Control.Monad.Fail.Try.html#try"><span class="hs-identifier hs-var hs-var hs-var">try</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">m a -&gt; Joker m a a
+forall {k} {k1} (g :: k -&gt; *) (a :: k1) (b :: k).
+g b -&gt; Joker g a b
+</span><span class="hs-identifier hs-var">Joker</span></span><span> </span><span class="annot"><span class="annottext">(m a -&gt; Joker m a a)
+-&gt; (Joker m a a -&gt; m a) -&gt; Joker m a a -&gt; Joker m a a
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">m a -&gt; m a
+forall a. m a -&gt; m a
+forall (m :: * -&gt; *) a. MonadTry m =&gt; m a -&gt; m a
+</span><a href="Control.Monad.Fail.Try.html#try"><span class="hs-identifier hs-var">try</span></a></span><span> </span><span class="annot"><span class="annottext">(m a -&gt; m a) -&gt; (Joker m a a -&gt; m a) -&gt; Joker m a a -&gt; m a
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Joker m a a -&gt; m a
+forall {k1} {k2} (g :: k1 -&gt; *) (a :: k2) (b :: k1).
+Joker g a b -&gt; g b
+</span><span class="hs-identifier hs-var">runJoker</span></span><span>
+</span><span id="line-65"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679269873"><span class="annot"><a href="Control.Monad.Fail.Try.html#MonadTry"><span class="hs-identifier hs-type">MonadTry</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">ReadP</span></span></span><span>
+</span><span id="line-66"></span></pre></body></html>
