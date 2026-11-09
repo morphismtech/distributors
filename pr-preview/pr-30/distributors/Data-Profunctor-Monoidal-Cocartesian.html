@@ -21,7 +21,7 @@ prop&gt; right' = alternate . Right
 prop&gt; zeroP = falseP
 prop&gt; x &gt;+&lt; y = alternate (Left x) &gt;|&lt; alternate (Right y)</pre><p>For the case of <code><a href="https://hackage.haskell.org/package/base-4.21.2.0/docs/Control-Monad.html#t:Functor" title="Control.Monad">Functor</a></code>s, the analog of <code><a href="Data-Profunctor-Monoidal-Cocartesian.html#v:alternate" title="Data.Profunctor.Monoidal.Cocartesian">alternate</a></code> can be defined
 without any other constraint, but the case of <code><a href="https://hackage.haskell.org/package/lens-5.3.6/docs/Control-Lens-Iso.html#t:Profunctor" title="Control.Lens.Iso">Profunctor</a></code>s turns
-out to be slighly more complex, necessitating <code><a href="Data-Profunctor-Monoidal-Cocartesian.html#t:CocartesianChoice" title="Data.Profunctor.Monoidal.Cocartesian">CocartesianChoice</a></code>.</p><pre class="screen"><code class="prompt">&gt;&gt;&gt; </code><strong class="userinput"><code>:{
+out to be slightly more complex, necessitating <code><a href="Data-Profunctor-Monoidal-Cocartesian.html#t:CocartesianChoice" title="Data.Profunctor.Monoidal.Cocartesian">CocartesianChoice</a></code>.</p><pre class="screen"><code class="prompt">&gt;&gt;&gt; </code><strong class="userinput"><code>:{
 </code></strong>alternateF :: Functor f =&gt; Either (f a) (f b) -&gt; f (Either a b)
 alternateF = either (fmap Left) (fmap Right)
 :}

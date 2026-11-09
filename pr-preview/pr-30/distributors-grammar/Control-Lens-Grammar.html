@@ -16,7 +16,7 @@ Let's see an example using
 corresponding to the constructor pattern <code class="inline-code">SemVer</code>.
 You could generate it with the TemplateHaskell combinator,
 <code><a href="https://hackage.haskell.org/package/distributors-0.7.0.0/docs/Control-Lens-Internal-Distributor-NestedPrismTH.html#v:makeNestedPrisms" title="Control.Lens.Internal.Distributor.NestedPrismTH">makeNestedPrisms</a></code>.</p><pre>makeNestedPrisms ''SemVer</pre><p>Unfortunately, we can't use TemplateHaskell to generate it in <a href="https://wiki.haskell.org/GHC/GHCi">GHCi</a>,
-which is used to test this documenation.
+which is used to test this documentation.
 Here is equivalent Haskell code instead.
 Since <code class="inline-code">SemVer</code> has only one constructor,
 <code class="inline-code">_SemVer</code> can be an <code><a href="https://hackage.haskell.org/package/lens-5.3.6/docs/Control-Lens-Iso.html#v:Iso" title="Control.Lens.Iso">Iso</a></code>.</p><pre class="screen"><code class="prompt">&gt;&gt;&gt; </code><strong class="userinput"><code>:set -XRecordWildCards
@@ -382,8 +382,8 @@ so that we must apply the constructor pattern <code class="inline-code">_LenVec<
 to the do-block with the <code><a href="https://hackage.haskell.org/package/distributors-0.7.0.0/docs/Control-Lens-PartialIso.html#v:-62--63-" title="Control.Lens.PartialIso">&gt;?</a></code> applicator.
 Any scoped bound action, <code class="inline-code">var &lt;- action</code>,
 gets &quot;bonded&quot; to the constructor pattern.
-Any unbound actions, except for the last action in the do-block,
-does not get bonded to the pattern.
+Unbound actions, except for the last action in the do-block,
+don't get bonded to the pattern.
 The last action does get bonded to the pattern.
 Any unscoped bound action, <code class="inline-code">_ &lt;- action</code>,
 also gets bonded to the pattern,
@@ -420,11 +420,11 @@ unrestricted filtration of grammars by computable predicates,
 which can recognize the larger class of recursively enumerable languages.</p><p>Finally, <code><a href="Control-Lens-Grammar.html#t:CtxGrammar" title="Control.Lens.Grammar">CtxGrammar</a></code>s support failure reporting and backtracking.
 This has no effect on <code><a href="Control-Lens-Grammar.html#v:printG" title="Control.Lens.Grammar">printG</a></code>,
 <code><a href="Control-Lens-Grammar.html#v:parseG" title="Control.Lens.Grammar">parseG</a></code> or <code><a href="Control-Lens-Grammar.html#v:unparseG" title="Control.Lens.Grammar">unparseG</a></code>;
-but it effects <code><a href="Control-Lens-Grammar.html#v:parsecG" title="Control.Lens.Grammar">parsecG</a></code>
+but it affects <code><a href="Control-Lens-Grammar.html#v:parsecG" title="Control.Lens.Grammar">parsecG</a></code>
 and <code><a href="Control-Lens-Grammar.html#v:unparsecG" title="Control.Lens.Grammar">unparsecG</a></code>.
 For context, an <code class="inline-code">LL</code> grammar can be (un)parsed by an <code class="inline-code">LL</code> parser.
 An <code class="inline-code">LL</code> parser (un)parses from left to right,
-and constucts leftmost derivations.
+and constructs leftmost derivations.
 An <code class="inline-code">LL(k)</code> parser can look <code class="inline-code">k</code> tokens ahead.
 t<code><a href="Data-Profunctor-Grammar.html#t:Parsor" title="Data.Profunctor.Grammar">Parsor</a></code> is an <code class="inline-code">LL(&#8734;)</code> parser.
 t<code><a href="Data-Profunctor-Grammar-Parsector.html#t:Parsector" title="Data.Profunctor.Grammar.Parsector">Parsector</a></code> is an <code class="inline-code">LL(1)</code> parser.
