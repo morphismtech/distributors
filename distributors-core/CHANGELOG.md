@@ -7,7 +7,7 @@
 - `Enumerable`, in `Data.Traversable.Homogeneous`, of `Homogeneous`
   countable sums of single copies, sequenced `enumerably` by
   `CocartesianMonoidal`s, with generic defaults by `Generic1`.
-- `Comonocle`s, in `Control.Lens.Monocle`, dual to `Monocle`s by sums:
+- `Comonocle`s, in `Control.Lens.Comonocle`, dual to `Monocle`s by sums:
   `comonocle`, `_Enumerable`, `_BoundedEnum`, & concrete
   `Comonocular`s, with `runComonocular`.
 - `WrappedPafb f p` is `CocartesianMonoidal` for any `Functor f`.
@@ -28,6 +28,10 @@
 
 ### Breaking Changes
 
+- `Comonocle`s & their combinators move from `Control.Lens.Monocle` to
+  their own module, `Control.Lens.Comonocle`.
+- `Data.Profunctor.Separator` merges into `Data.Profunctor.Distributor`:
+  `SepBy`, `several`, `chain`, `intercalateP`, `withOperators` & so on.
 - The grammars move to their own package, `distributors-grammar`:
   `Control.Lens.Grammar` & its `BackusNaur`, `Machine`, `RegEx`, `Symbol`
   & `Token` modules, `Control.Monad.Fail.Try`, `Data.Profunctor.Grammar`

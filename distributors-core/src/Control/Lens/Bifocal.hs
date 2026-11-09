@@ -42,7 +42,6 @@ import Data.Profunctor
 import Data.Profunctor.Distributor
 import Data.Profunctor.Monoidal.Cocartesian
 import Data.Profunctor.Filtrator
-import Data.Profunctor.Separator
 import Witherable
 
 {- | `Bifocal`s are bidirectional parser optics.

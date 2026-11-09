@@ -24,7 +24,7 @@ import Control.Lens.Grammar.Token
 import Data.Bifunctor.Joker
 import Data.Profunctor
 import Data.Profunctor.Monoidal
-import Data.Profunctor.Separator (SepBy (..), sepBy)
+import Data.Profunctor.Distributor (SepBy (..), sepBy)
 import Text.ParserCombinators.ReadP (ReadP, string)
 
 -- | A `terminal` symbol in a grammar.

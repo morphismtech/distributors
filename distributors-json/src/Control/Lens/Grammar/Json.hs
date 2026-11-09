@@ -132,7 +132,7 @@ module Control.Lens.Grammar.Json
 import Control.Applicative
 import Control.Lens
 import Control.Lens.Grammar
-import Control.Lens.Monocle (AComonocle, withComonocle)
+import Control.Lens.Comonocle (AComonocle, withComonocle)
 import Control.Monad
 import Control.Monad.Trans.Class (lift)
 import Control.Monad.Trans.Reader (ReaderT, ask, local, runReaderT)
@@ -607,7 +607,7 @@ class
 which `jsonEnumWith` tables once, numbered as `fromEnumerable` numbers them.
 
 >>> import Control.Lens (coerced)
->>> import Control.Lens.Monocle (_BoundedEnum)
+>>> import Control.Lens.Comonocle (_BoundedEnum)
 >>> import Data.Text qualified as Text
 >>> newtype Order = Order Ordering deriving (Show)
 >>> let name = Text.toLower . Text.pack . show @Ordering

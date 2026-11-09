@@ -59,7 +59,6 @@ import Data.Profunctor.Monadic
 import Data.Profunctor.Monoidal
 import Data.Profunctor.Grammar
 import Data.Profunctor.Grammar.Parsector
-import Data.Profunctor.Separator
 import Data.String
 import GHC.Exts
 import Prelude hiding (filter)
@@ -83,7 +82,6 @@ import Data.Profunctor.Filtrator as X
 import Data.Profunctor.Grammar as X
 import Data.Profunctor.Grammar.Parsector as X
 import Data.Profunctor.Monoidal as X
-import Data.Profunctor.Separator as X
 import Data.Traversable.Homogeneous as X
 
 -- $setup

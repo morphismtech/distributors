@@ -11,7 +11,7 @@ import Control.Applicative
 import Control.Arrow ((+++))
 import Control.Lens (iview)
 import Control.Lens.Diopter
-import Control.Lens.Monocle
+import Control.Lens.Comonocle
 import Control.Monad ((<=<))
 import Data.Functor.Compose (Compose (..))
 import Data.Foldable (toList)
