@@ -21,10 +21,8 @@ module Control.Lens.Comonocle
   , crossComonocle
   , indexComonocle
   , countComonocle
-  , toEnumComonocle
-  , prismComonocle
+  , fromComonocle
   , succComonocle
-  , predComonocle
   , enumerateComonocle
   , enumerateFromThenComonocle
   , enumerateFromToComonocle
@@ -39,8 +37,10 @@ module Control.Lens.Comonocle
 
 import Control.Applicative (Alternative)
 import Control.Lens hiding (Traversing)
+import Control.Lens.PartialIso
 import Control.Lens.Internal.Profunctor
 import Data.Functor.Compose
+import Data.Profunctor.Monoidal
 import Data.Profunctor.Monoidal.Cocartesian
 import Data.Traversable.Homogeneous
 import Data.Traversable.Homogeneous.Enumerable
@@ -128,7 +128,14 @@ crossComonocle x y =
   withComonocle y $ \g h ->
     comonocle $ Comonocular
       (\(s,u) -> Compose (fmap (\a -> fmap (a,) (g u)) (e s)))
-      (\(Compose bds) -> (f (fmap (fst . extractEnumerable) bds), h (fmap snd (extractEnumerable bds))))
+      (\(Compose x) -> f >*< h $
+          let
+            (_, y) = review fromEnumerable x
+            z = fmap (review fromEnumerable) x
+          in
+            (fmap (fst . snd) z, fmap snd y)
+      )
+      -- (\(Compose bds) -> (f (fmap (fst . extractEnumerable) bds), h (fmap snd (extractEnumerable bds))))
 
 {- | The `Control.Lens.Indexed.IndexedLens` of `AComonocle`,
 indexed by which copy is held, numbered from 0, left to right.
@@ -139,13 +146,21 @@ Numbering diverges past a summand of infinitely many copies.
 -}
 indexComonocle :: AComonocle s t a b -> IndexedLens Natural s t a b
 indexComonocle mon = withComonocle mon $ \split merge -> ilens
-  (((,) <$> fromEnumerable <*> extractEnumerable) . split)
+  (review fromEnumerable . split)
   (\s b -> merge (b <$ split s))
 
-prismComonocle :: AComonocle s s a a -> Prism' (Natural, a) s
-prismComonocle mon = withComonocle mon $ \split merge -> prism'
-  (((,) <$> fromEnumerable <*> extractEnumerable) . split)
-  (\(n,a) -> merge <$> toEnumerable a n)
+{- | The copy of `AComonocle` at an index, holding a focus, if there is one,
+like `toEnum`, & inverse to `indexComonocle`.
+
+>>> toEnumComonocle _BoundedEnum () 2 :: Maybe Ordering
+Just GT
+>>> toEnumComonocle _BoundedEnum () 3 :: Maybe Ordering
+Nothing
+-}
+fromComonocle :: AComonocle s s a a -> Prism' (Natural, a) s
+fromComonocle mon = withComonocle mon $ \split merge -> prism'
+  (review fromEnumerable . split)
+  (fmap merge . preview fromEnumerable)
 
 {- | Zip two sources of `AComonocle`, when they hold the same copy,
 dual to `Control.Lens.Grate.cotraverseOf`, which zips every `Monocle`.
@@ -186,17 +201,6 @@ countComonocle mon = withComonocle mon $ \split _ -> copies split
     copies _ = case enumerably (pure () :: Enumerator () ()) :: Enumerator (f ()) (f ()) of
       Enumerator count _ _ -> count
 
-{- | The copy of `AComonocle` at an index, holding a focus, if there is one,
-like `toEnum`, & inverse to `indexComonocle`.
-
->>> toEnumComonocle _BoundedEnum () 2 :: Maybe Ordering
-Just GT
->>> toEnumComonocle _BoundedEnum () 3 :: Maybe Ordering
-Nothing
--}
-toEnumComonocle :: AComonocle s t a b -> b -> Natural -> Maybe t
-toEnumComonocle mon b copy = withComonocle mon $ \_ merge -> merge <$> toEnumerable b copy
-
 {- | The next copy of `AComonocle`, holding the same focus,
 if there is one, like `succ`.
 
@@ -204,11 +208,8 @@ if there is one, like `succ`.
 Just GT
 >>> succComonocle _BoundedEnum GT
 Nothing
--}
-succComonocle :: AComonocle s s a a -> s -> Maybe s
-succComonocle mon s = withComonocle mon $ \split merge -> merge <$> succEnumerable (split s)
 
-{- | The previous copy of `AComonocle`, holding the same focus,
+The previous copy of `AComonocle`, holding the same focus,
 if there is one, like `pred`.
 
 >>> predComonocle _BoundedEnum EQ
@@ -216,8 +217,13 @@ Just LT
 >>> predComonocle _BoundedEnum LT
 Nothing
 -}
-predComonocle :: AComonocle s s a a -> s -> Maybe s
-predComonocle mon s = withComonocle mon $ \split merge -> merge <$> predEnumerable (split s)
+succComonocle :: AComonocle s s a a -> PartialIso' s s
+succComonocle mon =
+  withComonocle mon $ \split merge ->
+  withPartialIso succEnumerable $ \hither thither ->
+    partialIso 
+      (fmap merge . hither . split)
+      (fmap merge . thither . split)
 
 {- | The copies of `AComonocle` from one onward, holding the same focus,
 like `enumFrom`.

@@ -11,12 +11,8 @@ Portability : non-portable
 module Data.Traversable.Homogeneous.Enumerable
   ( -- * Enumerable
     Enumerable (..)
-  , extractEnumerable
   , fromEnumerable
-  , toEnumerable
-  , prismEnumerable
   , succEnumerable
-  , predEnumerable
   , enumerateFrom
   , enumerateFromThen
   , enumerateFromTo
@@ -27,6 +23,7 @@ module Data.Traversable.Homogeneous.Enumerable
 
 import Control.Applicative
 import Control.Lens hiding (chosen)
+import Control.Lens.PartialIso
 import Control.Monad ((>=>))
 import Control.Monad.Trans.Identity (IdentityT (..))
 import Data.Functor.Compose
@@ -149,59 +146,51 @@ instance (Enum e, Bounded e) => Enumerable ((,) e) where
         where
           mid = (lo + hi) `div` 2
 
--- | The copy which an `Enumerable` sum holds.
-extractEnumerable :: Enumerable f => f a -> a
-extractEnumerable = runForget (enumerably (Forget id))
-
 {- | Which copy an `Enumerable` sum holds, numbered from 0, left to right,
 like `fromEnum`.
 
->>> fromEnumerable (GT, 'x')
-2
--}
-fromEnumerable :: Enumerable f => f a -> Natural
-fromEnumerable =
-  case enumerably (pure ()) of Enumerator _ which _ -> which
+>>> view fromEnumerable (GT, 'x')
+(2, 'x')
 
-prismEnumerable :: Enumerable f => Prism' (Natural, a) (f a)
-prismEnumerable = prism'
-  (liftA2 (,) fromEnumerable extractEnumerable)
-  (\(n,a) -> toEnumerable a n)
+Also, the copy of an `Enumerable` sum at an index, if there is one,
+like `toEnum`.
 
-{- | The copy of an `Enumerable` sum at an index, if there is one,
-like `toEnum`, the inverse of `fromEnumerable`.
-
->>> [toEnumerable 'x' i | i <- [0..3]] :: [Maybe (Ordering, Char)]
+>>> [review fromEnumerable (i,'x') | i <- [0..3]] :: [Maybe (Ordering, Char)]
 [Just (LT,'x'),Just (EQ,'x'),Just (GT,'x'),Nothing]
 
 -}
-toEnumerable :: Enumerable f => a -> Natural -> Maybe (f a)
-toEnumerable a copy =
-  case enumerably (pure a) of Enumerator _ _ select -> select copy
+fromEnumerable :: Enumerable f => Prism' (Natural, a) (f a)
+fromEnumerable = prism' (liftA2 (,) from' extract') to'
+  where
+    extract' = runForget (enumerably (Forget id))
+    from' = case enumerably (pure ()) of
+      Enumerator _ which _ -> which
+    to' (n,a) = case enumerably (pure a) of
+      Enumerator _ _ select -> select n
 
 {- | The next copy of an `Enumerable` sum, if there is one, like `succ`.
 
->>> succEnumerable (EQ, 'x')
+>>> view succEnumerable (EQ, 'x')
 Just (GT,'x')
->>> succEnumerable (GT, 'x')
+>>> view succEnumerable (GT, 'x')
 Nothing
--}
-succEnumerable :: Enumerable f => f a -> Maybe (f a)
-succEnumerable x = case enumerably (pure (extractEnumerable x)) of
-  Enumerator _ which select -> select (which x + 1)
 
-{- | The previous copy of an `Enumerable` sum, if there is one, like `pred`.
-
->>> predEnumerable (EQ, 'x')
+>>> review succEnumerable (EQ, 'x')
 Just (LT,'x')
->>> predEnumerable (LT, 'x')
+>>> review succEnumerable (LT, 'x')
 Nothing
 -}
-predEnumerable :: Enumerable f => f a -> Maybe (f a)
-predEnumerable x = case enumerably (pure (extractEnumerable x)) of
-  Enumerator _ which select -> case which x of
-    0 -> Nothing
-    copy -> select (copy - 1)
+succEnumerable :: Enumerable f => PartialIso' (f a) (f a)
+succEnumerable = partialIso succ' pred'
+  where
+    succ' :: Enumerable f => f a -> Maybe (f a)
+    succ' x = case enumerably (pure (review fromEnumerable x)) of
+      Enumerator _ which select -> fmap (fmap snd) (select (which x + 1))
+    pred' :: Enumerable f => f a -> Maybe (f a)
+    pred' x = case enumerably (pure (snd (review fromEnumerable x))) of
+      Enumerator _ which select -> case which x of
+        0 -> Nothing
+        n -> select (n - 1)
 
 {- | The copies of an `Enumerable` sum from one onward, like `enumFrom`.
 
@@ -209,9 +198,9 @@ predEnumerable x = case enumerably (pure (extractEnumerable x)) of
 [(EQ,'x'),(GT,'x')]
 -}
 enumerateFrom :: Enumerable f => f a -> [f a]
-enumerateFrom x = case enumerably (pure (extractEnumerable x)) of
+enumerateFrom x = case enumerably (pure (review fromEnumerable x)) of
   Enumerator _ which select ->
-    let go copy = maybe [] (: go (copy + 1)) (select copy) in go (which x)
+    let go n = maybe [] (: go (n + 1)) (select n) in fmap (fmap snd) (go (which x))
 
 {- | The copies of an `Enumerable` sum from one onward, holding its focus,
 stepping by the copy of another, like `enumFromThen`.
@@ -245,13 +234,13 @@ enumerateFromThenTo x y z =
 
 -- | The index of an `Enumerable` sum's copy, as an `Integer`.
 fromEnumerable' :: Enumerable f => f a -> Integer
-fromEnumerable' = toInteger . fromEnumerable
+fromEnumerable' = toInteger . fst . review fromEnumerable
 
 {- | The copies at some indices, holding a sum's focus,
 until an index has none.
 -}
 copiesAt :: Enumerable f => f a -> [Integer] -> [f a]
-copiesAt x ixes = case enumerably (pure (extractEnumerable x)) of
+copiesAt x ixes = case enumerably (pure (snd (review fromEnumerable x))) of
   Enumerator _ _ select ->
     let
       go = \case

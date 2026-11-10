@@ -619,8 +619,8 @@ Right (Order LT)
 -}
 jsonEnum :: JsonStr p => AComonocle a a () () -> (a -> Text) -> p a a
 jsonEnum mon name = withComonocle mon $ \split merge ->
-  let copies = maybe [] enumerateFrom (toEnumerable () 0)
-  in jsonEnumWith (fromIntegral . fromEnumerable . split)
+  let copies = maybe [] enumerateFrom (preview fromEnumerable (0,()))
+  in jsonEnumWith (fromIntegral . fst . review fromEnumerable . split)
     [(name a, a) | a <- map merge copies]
 {-# INLINE jsonEnum #-}
 
