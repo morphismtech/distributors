@@ -22,6 +22,7 @@ module Control.Lens.Comonocle
   , indexComonocle
   , countComonocle
   , toEnumComonocle
+  , prismComonocle
   , succComonocle
   , predComonocle
   , enumerateComonocle
@@ -137,9 +138,14 @@ Numbering diverges past a summand of infinitely many copies.
 (1,'a')
 -}
 indexComonocle :: AComonocle s t a b -> IndexedLens Natural s t a b
-indexComonocle mon = withComonocle mon $ \split merge ->
-  ilens (\s -> let as = split s in (fromEnumerable as, extractEnumerable as))
-    (\s b -> merge (b <$ split s))
+indexComonocle mon = withComonocle mon $ \split merge -> ilens
+  (((,) <$> fromEnumerable <*> extractEnumerable) . split)
+  (\s b -> merge (b <$ split s))
+
+prismComonocle :: AComonocle s s a a -> Prism' (Natural, a) s
+prismComonocle mon = withComonocle mon $ \split merge -> prism'
+  (((,) <$> fromEnumerable <*> extractEnumerable) . split)
+  (\(n,a) -> merge <$> toEnumerable a n)
 
 {- | Zip two sources of `AComonocle`, when they hold the same copy,
 dual to `Control.Lens.Grate.cotraverseOf`, which zips every `Monocle`.

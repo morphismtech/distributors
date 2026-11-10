@@ -14,6 +14,7 @@ module Data.Traversable.Homogeneous.Enumerable
   , extractEnumerable
   , fromEnumerable
   , toEnumerable
+  , prismEnumerable
   , succEnumerable
   , predEnumerable
   , enumerateFrom
@@ -162,6 +163,11 @@ fromEnumerable :: Enumerable f => f a -> Natural
 fromEnumerable =
   case enumerably (pure ()) of Enumerator _ which _ -> which
 
+prismEnumerable :: Enumerable f => Prism' (Natural, a) (f a)
+prismEnumerable = prism'
+  (liftA2 (,) fromEnumerable extractEnumerable)
+  (\(n,a) -> toEnumerable a n)
+
 {- | The copy of an `Enumerable` sum at an index, if there is one,
 like `toEnum`, the inverse of `fromEnumerable`.
 
@@ -216,9 +222,7 @@ stepping by the copy of another, like `enumFromThen`.
 [(GT,'x'),(EQ,'x'),(LT,'x')]
 -}
 enumerateFromThen :: Enumerable f => f a -> f b -> [f a]
-enumerateFromThen x y = copiesAt x [from, fromEnumerable' y ..]
-  where
-    from = fromEnumerable' x
+enumerateFromThen x y = copiesAt x [fromEnumerable' x, fromEnumerable' y ..]
 
 {- | The copies of an `Enumerable` sum from one to the copy of another,
 holding its focus, like `enumFromTo`.
@@ -247,13 +251,13 @@ fromEnumerable' = toInteger . fromEnumerable
 until an index has none.
 -}
 copiesAt :: Enumerable f => f a -> [Integer] -> [f a]
-copiesAt x indices = case enumerably (pure (extractEnumerable x)) of
+copiesAt x ixes = case enumerably (pure (extractEnumerable x)) of
   Enumerator _ _ select ->
     let
       go = \case
         i : is | i >= 0, Just copy <- select (fromInteger i) -> copy : go is
         _ -> []
-    in go indices
+    in go ixes
 
 {- | t'Enumerator' numbers the copies of a sum of products, from 0,
 left to right, & products row by row, both ways:
