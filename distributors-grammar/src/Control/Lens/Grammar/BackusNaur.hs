@@ -14,7 +14,7 @@ See Naur & Backus, et al.
 
 module Control.Lens.Grammar.BackusNaur
   ( -- * BackusNaurForm
-    BackusNaurForm (..)
+    BackusNaurForm (..), failBnf
   , Bnf (..)
   , liftBnf0
   , liftBnf1
@@ -75,6 +75,10 @@ class BackusNaurForm bnf where
   {- | General recursion. -}
   ruleRec :: String -> (bnf -> bnf) -> bnf
   ruleRec _ = fix
+
+-- | A nonterminal symbol to indicate a failure.
+failBnf :: (BackusNaurForm bnf, DisjunctiveMonoid bnf) => String -> bnf
+failBnf msg = rule msg falseP
 
 {- | A t'Bnf' consists of a distinguished starting rule
 and a set of named rules. When a t'Bnf' supports `NonTerminalSymbol`s,
