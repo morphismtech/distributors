@@ -128,14 +128,13 @@ crossComonocle x y =
   withComonocle y $ \g h ->
     comonocle $ Comonocular
       (\(s,u) -> Compose (fmap (\a -> fmap (a,) (g u)) (e s)))
-      (\(Compose x) -> f >*< h $
+      (\(Compose i) -> f >*< h $
           let
-            (_, y) = review fromEnumerable x
-            z = fmap (review fromEnumerable) x
+            (_, j) = review fromEnumerable i
+            k = fmap (review fromEnumerable) i
           in
-            (fmap (fst . snd) z, fmap snd y)
+            (fmap (fst . snd) k, fmap snd j)
       )
-      -- (\(Compose bds) -> (f (fmap (fst . extractEnumerable) bds), h (fmap snd (extractEnumerable bds))))
 
 {- | The `Control.Lens.Indexed.IndexedLens` of `AComonocle`,
 indexed by which copy is held, numbered from 0, left to right.
