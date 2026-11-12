@@ -1,7 +1,8 @@
 module Properties.PartialIso (partialIsoProperties) where
 
-import Control.Lens (preview, traverseOf)
+import Control.Lens (preview, review, traverseOf, view)
 import Control.Lens.PartialIso
+import Data.Monoid.Disjunctive
 import Test.Hspec
 import Test.Hspec.QuickCheck (prop)
 import Test.QuickCheck
@@ -18,14 +19,39 @@ partialIsoProperties = do
   checkTraverse "nulled" (nulled :: PartialIso' [Int] ())
   checkPartialIso "notNulled" (notNulled :: PartialIso' [Int] [Int])
   checkTraverse "notNulled" (notNulled :: PartialIso' [Int] [Int])
-  checkPartialIso "a coPrism" (coPrism _Just :: PartialIso' Int (Maybe Int))
-  checkTraverse "a coPrism" (coPrism _Just :: PartialIso' Int (Maybe Int))
+  checkPartialIso "filterPrism" (filterPrism _Just :: PartialIso' Int (Maybe Int))
+  checkTraverse "filterPrism" (filterPrism _Just :: PartialIso' Int (Maybe Int))
+  describe "filterPrism" $ do
+    prop "reverses a Prism, forwards by view as it reviews" $ \(x :: Int) ->
+      view (filterPrism _Just) x === review _Just x
+    prop "reverses a Prism, backwards by preview as it previews" $
+      \(m :: Maybe Int) ->
+        preview (coPartialIso (filterPrism _Just)) m === preview _Just m
   checkPartialIso "a Prism" (_Just :: PartialIso' (Maybe Int) Int)
   describe "a Prism" $
     prop "traverseOf passes a mismatch through, unlike its clone" $
       \(Fun _ f :: Fun Int (Maybe Int)) -> within second $
         traverseOf _Just f Nothing === Just Nothing
           .&&. traverseOf (clonePartialIso _Just) f Nothing === Nothing
+  describe "satisfied, a homomorphism of predicates" $ do
+    prop "from >|< to >|< of PartialExchanges" $
+      \(Fun _ p :: Fun Int Bool) (Fun _ q) x y ->
+        exchanged (satisfied (p >|< q)) x y
+          === exchanging
+            ( withPartialIso (satisfied p) PartialExchange
+              >|< withPartialIso (satisfied q) PartialExchange ) x y
+    prop "from falseP to falseP" $ \x y ->
+      exchanged (satisfied (falseP :: Int -> Bool)) x y
+        === exchanging falseP x y
+    prop "from >&< to composition" $
+      \(Fun _ p :: Fun Int Bool) (Fun _ q) x y ->
+        exchanged (satisfied (p >&< q)) x y
+          === exchanged (satisfied p . satisfied q) x y
+  where
+    exchanged :: APartialIso s t a b -> s -> b -> (Maybe a, Maybe t)
+    exchanged pattern = exchanging (withPartialIso pattern PartialExchange)
+    exchanging :: PartialExchange a b s t -> s -> b -> (Maybe a, Maybe t)
+    exchanging (PartialExchange match build) s b = (match s, build b)
 
 halve :: PartialIso' Int Int
 halve = partialIso

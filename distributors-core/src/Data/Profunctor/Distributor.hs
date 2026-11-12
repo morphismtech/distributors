@@ -130,6 +130,13 @@ with these laws relating them.
 > prop> optionalP p = optionP _Nothing (_Just >? p)
 > prop> someP p = p >:< manyP p
 
+These mirror the laws of a `KleeneStarAlgebra`, @starK x = optK (plusK x)@
+& @plusK x = x <> starK x@, unfolding `someP` on the left.
+Its unfolding on the right, @someP p = snocP (manyP p) p@,
+mirroring @plusK x = starK x <> x@, isn't a law though,
+since a greedy or predictive parser's `manyP` consumes every @p@,
+leaving none for the last; only a backtracking one finds it.
+
 Its `Alternative` structure agrees with its `Alternator` structure,
 `many` & `some` repeating an input for `manyP` & `someP`.
 
@@ -304,24 +311,27 @@ withOperators table p = foldl makeLevel p table
     tagSepP syms = orP [only i >? sym | (i, sym) <- zip [0 :: Int ..] syms]
 
     withPreP ops inner =
-      difoldr (partialIso fwd bwd) >? manyP (tagSepP (snd <$> ops)) >*< inner
-      where
-        fns = [patternFns pat | (pat, _) <- ops]
-        fwd x = orP
-          [ (\y -> (i,y)) <$> f x | (i, (f,_)) <- zip [0 :: Int ..] fns ]
-        bwd (i,y) = case drop i fns of
-          (_,g):_ -> Just (g y)
-          [] -> Nothing
+      difoldr (taggedP (,) id (fst <$> ops))
+        >? manyP (tagSepP (snd <$> ops)) >*< inner
 
     withPostP ops inner =
-      difoldl (partialIso fwd bwd) >? inner >*< manyP (tagSepP (snd <$> ops))
+      difoldl (taggedP (flip (,)) (\(y,i) -> (i,y)) (fst <$> ops))
+        >? inner >*< manyP (tagSepP (snd <$> ops))
+
+    -- unary operators' patterns, tagged by their positions,
+    -- & tried in turn, as one partial isomorphism
+    taggedP
+      :: (Int -> x -> c) -- ^ tag a match
+      -> (d -> (Int, y)) -- ^ untag a build
+      -> [APrism x y x y] -> PartialIso x y c d
+    taggedP tag untag pats =
+      case orP (zipWith exchange [0 ..] pats) of
+        PartialExchange fwd bwd -> partialIso fwd bwd
       where
-        fns = [patternFns pat | (pat, _) <- ops]
-        fwd x = orP
-          [ (\y -> (y,i)) <$> f x | (i, (f,_)) <- zip [0 :: Int ..] fns ]
-        bwd (y,i) = case drop i fns of
-          (_,g):_ -> Just (g y)
-          [] -> Nothing
+        exchange i pat = let (match, build) = patternFns pat in
+          PartialExchange (fmap (tag i) . match) $ \d -> case untag d of
+            (j, y) | j == i -> Just (build y)
+            _ -> Nothing
 
     -- An operand, then @(operator, operand)@ steps, folded by each
     -- operator's associativity, like parsec's @buildExpressionParser@:

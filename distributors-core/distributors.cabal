@@ -36,6 +36,7 @@ library
       Control.Lens.Internal.Distributor.Orphanage
       Control.Lens.Monocle
       Control.Lens.PartialIso
+      Control.Lens.Prismoid
       Control.Lens.Wither
       Data.Monoid.Disjunctive
       Data.Profunctor.Distributor

@@ -15,12 +15,14 @@ module Control.Lens.Monocle
   ( -- * Monocle
     Monocle
   , AMonocle
+  , Monocular (..), runMonocular
+  , Ditraversal (..), ditraversal, withDitraversal
     -- * Combinators
   , monocle
   , withMonocle
   , cloneMonocle
-  , imprism
   , mapMonocle
+  , imprism
   , crossMonocle
   , ditraversed
   , forevered
@@ -28,10 +30,7 @@ module Control.Lens.Monocle
   , zipWithMonocle
   , replicateMonocle
   , tabulateMonocle
-    -- * Monocular
-  , Monocular (..), runMonocular
-    -- * Ditraversal
-  , Ditraversal (..), ditraversal, withDitraversal
+  , fociMonocle
   ) where
 
 import Control.Lens hiding (Traversing)
@@ -48,12 +47,18 @@ import Numeric.Natural (Natural)
 -- >>> import Data.Foldable (toList)
 -- >>> import Data.Functor.Identity
 
-{- | `Monocle`s are an optic that generalizes
-`Control.Lens.Traversal.Traversal`s & `Control.Lens.Grate.Grate`s.
+{- | `Monocle`s are an optic which is both
+a `Control.Lens.Traversal.Traversal` & a `Control.Lens.Grate.Grate`,
+focusing on a number of foci fixed by the optic, not its source.
+Writing ⊂ for "every one is a",
 
-Every `Control.Lens.Iso.Iso` is a `Monocle`.
+`Control.Lens.Iso.Iso` ⊂ `Monocle` ⊂
+`Control.Lens.Traversal.Traversal` ∩ `Control.Lens.Grate.Grate`.
 
-`Monocle`s are isomorphic to t'Monocular's.
+`Monocle`s are isomorphic to t'Monocular's, & those of finitely many foci
+to t'Ditraversal's, whose shapes are `Traversable` ∩ `Distributive`,
+the shapes of `Control.Lens.Traversal.Traversal`s
+∩ the shapes of `Control.Lens.Grate.Grate`s.
 -}
 type Monocle s t a b = forall p f.
   (Monoidal p, Applicative f)
@@ -155,6 +160,27 @@ like `Data.Functor.Rep.tabulate`.
 tabulateMonocle :: AMonocle s t a b -> (Natural -> b) -> t
 tabulateMonocle mon f =
   evalState (replicateMonocle mon (state (\n -> (f n, n + 1)))) 0
+
+{- | The `Control.Lens.Lens.Lens`es of the foci of `AMonocle`,
+numbered from 0, left to right, every one of which focuses on a source.
+
+Dual to `Control.Lens.Comonocle.copiesComonocle`: a product of foci has
+a `Control.Lens.Lens.Lens` for each focus, every one of which focuses,
+as a sum of copies has a `Control.Lens.Prism.Prism` for each copy,
+exactly one of which matches.
+
+>>> [view (runLens focus) (1 :+ 2) | focus <- fociMonocle ditraversed] :: [Int]
+[1,2]
+>>> [set (runLens focus) 0 (1 :+ 2) | focus <- fociMonocle ditraversed] :: [Complex Int]
+[0 :+ 2,1 :+ 0]
+-}
+fociMonocle :: AMonocle s s a a -> [ReifiedLens' s a]
+fociMonocle mon = zipWith focusAt [0 :: Natural ..] getters
+  where
+    getters = getConst (withMonocle mon (\get -> Const [get]))
+    focusAt i get = Lens $ lens get $ \s a -> evalState
+      (withMonocle mon (\get' -> state (\n -> (if n == i then a else get' s, n + 1))))
+      0
 
 {- | Run `AMonocle` over an `Applicative`. -}
 withMonocle :: Applicative f => AMonocle s t a b -> ((s -> a) -> f b) -> f t

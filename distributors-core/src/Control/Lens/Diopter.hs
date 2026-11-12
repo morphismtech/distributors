@@ -12,6 +12,7 @@ module Control.Lens.Diopter
   ( -- * Diopter
     Diopter
   , ADiopter
+  , Dioptrice (..), runDioptrice
     -- * Combinators
   , diopter
   , withDiopter
@@ -23,8 +24,6 @@ module Control.Lens.Diopter
   , zipDiopter
   , zipWithDiopter
   , transposeDiopter
-    -- * Dioptrice
-  , Dioptrice (..), runDioptrice
   ) where
 
 import Control.Applicative (Alternative)
@@ -37,11 +36,21 @@ import Data.Void
 import GHC.Generics
 
 {- | `Diopter`s are an optic that generalizes
-`Control.Lens.Bifocal.Bifocal`s and `Control.Lens.Traversal.Traversal`s.
+`Control.Lens.Monocle.Monocle`s, of products,
+& `Control.Lens.Comonocle.Comonocle`s, of sums,
+to countable sums of countable products.
+Writing ⊂ for "every one is a",
 
-Every `Control.Lens.Iso.Iso` and `Control.Lens.Monocle.Monocle` is a `Diopter`.
+`Control.Lens.Monocle.Monocle` ∪ `Control.Lens.Comonocle.Comonocle`
+⊂ `Diopter` ⊂
+`Control.Lens.Traversal.Traversal` ∩ `Control.Lens.Prismoid.Prismoid`.
 
-`Diopter`s are isomorphic to t'Dioptrice's.
+`Diopter`s are isomorphic to t'Dioptrice's, whose shapes are `Homogeneous`,
+so these inclusions mirror those of the optics' shapes,
+
+(`Traversable` ∩ `Data.Distributive.Distributive`)
+∪ `Data.Traversable.Homogeneous.Enumerable.Enumerable`
+⊂ `Homogeneous`.
 -}
 type Diopter s t a b = forall p f.
   (Distributor p, Applicative f)

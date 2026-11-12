@@ -9,8 +9,9 @@ module Properties.Homogeneous (homogeneousProperties) where
 
 import Control.Applicative
 import Control.Arrow ((+++))
-import Control.Lens (iview, over, preview, review, toListOf, traverseOf)
+import Control.Lens (ReifiedLens (..), ReifiedPrism (..), _Just, iview, over, preview, review, set, toListOf, traverseOf, view)
 import Control.Lens.Diopter
+import Control.Lens.Prismoid (APrismoid, clonePrismoid, lefted, severaled, severaled1, somed, withPrismoid)
 import Control.Lens.Comonocle
 import Control.Lens.Grate (cotraverseOf)
 import Control.Lens.Monocle
@@ -25,6 +26,7 @@ import Data.Int (Int8)
 import Data.Maybe (fromMaybe)
 import Data.Monoid.Disjunctive
 import Data.Profunctor
+import Data.Profunctor.Distributor (noSep)
 import Data.Profunctor.Monadic (Monadic)
 import Data.Profunctor.Monoidal (Monoidal)
 import Data.Profunctor.Monoidal.Cocartesian
@@ -332,6 +334,50 @@ homogeneousProperties = do
     it "tabulateMonocle numbers foci left to right" $
       toListOf ditraversed (tabulateMonocle ditraversed id :: Complex Natural)
         `shouldBe` [0, 1]
+    prop "copiesComonocle has a copy for each, exactly one matching" $
+      \(e :: Int8) ->
+        length (copiesComonocle (_BoundedEnum @Int8)) === 256
+          .&&. length
+            [ () | Prism copy <- copiesComonocle _BoundedEnum
+            , Just () <- [preview copy e] ] === 1
+    prop "copiesComonocle are lawful prisms" $ \(s :: Either Int Int) a ->
+      conjoin
+        [ preview copy (review copy a) === Just a
+            .&&. maybe (property True) (\a' -> review copy a' === s)
+              (preview copy s)
+        | Prism copy <- copiesComonocle (altComonocle id id) ]
+    prop "fociMonocle has a focus for each, viewing toListOf" $
+      \(s :: (Int, Complex Int)) ->
+        [view foc s | Lens foc <- fociMonocle (crossMonocle id ditraversed)]
+          === toListOf (crossMonocle id ditraversed) s
+    prop "fociMonocle are lawful lenses" $ \(s :: (Int, Complex Int)) a b ->
+      conjoin
+        [ view foc (set foc a s) === a
+            .&&. set foc (view foc s) s === s
+            .&&. set foc b (set foc a s) === set foc b s
+        | Lens foc <- fociMonocle (crossMonocle id ditraversed) ]
+    prop "clonePrismoid keeps both directions" $
+      \(xs :: [Int]) (e :: Either Int Char) (m :: Maybe Int) (Fun _ k :: Fun Int Int) ->
+        let
+          roundTrip :: APrismoid s s Int Int -> s -> Maybe s
+          roundTrip o s = withPrismoid o $ \match build -> build . fmap k <$> match s
+        in
+          roundTrip (clonePrismoid somed) xs === roundTrip somed xs
+            .&&. roundTrip (clonePrismoid lefted) e === roundTrip lefted e
+            .&&. roundTrip (clonePrismoid _Just) m === roundTrip _Just m
+            .&&. roundTrip (clonePrismoid manied) xs === roundTrip manied xs
+    prop "a Prism, as a Prismoid, fails on a mismatch" $ \(m :: Maybe Int) ->
+      withPrismoid (_Just :: APrismoid (Maybe Int) (Maybe Int) Int Int)
+        (\match _ -> toList <$> match m)
+        === fmap pure m
+    prop "severaled1 noSep is somed, & severaled noSep is manied" $ \(xs :: [Int]) ->
+      withPrismoid (severaled1 noSep :: APrismoid [Int] [Int] Int Int) (\match _ -> toList <$> match xs)
+        === withPrismoid somed (\match _ -> toList <$> match xs)
+        .&&. withPrismoid (severaled noSep :: APrismoid [Int] [Int] Int Int) (\match _ -> toList <$> match xs)
+          === withPrismoid manied (\match _ -> toList <$> match xs)
+    prop "somed matches one or more" $ \(xs :: [Int]) ->
+      withPrismoid somed (\match _ -> toList <$> match xs)
+        === if null xs then Nothing else Just xs
     prop "zipDiopter homogenized is zipHomogeneous" $ \(xss :: [[Int]]) ->
       zipDiopter homogenized (Just . sum) ([1, 2] : xss)
         === zipHomogeneous (Just . sum) ([1, 2 :: Int] : xss)

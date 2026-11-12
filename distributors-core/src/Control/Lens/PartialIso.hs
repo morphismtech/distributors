@@ -13,8 +13,7 @@ See Rendel & Ostermann,
 
 module Control.Lens.PartialIso
   ( -- * PartialIso
-    dimapMaybe
-  , PartialIso
+    PartialIso
   , PartialIso'
   , APartialIso
   , PartialExchange (PartialExchange)
@@ -27,13 +26,14 @@ module Control.Lens.PartialIso
   , crossPartialIso
   , altPartialIso
     -- * Applicators
+  , dimapMaybe
   , (>?)
   , (?<)
   , (>?<)
   , (>~)
   , (~<)
   , (!=)
-  , coPrism
+  , filterPrism
     -- * Patterns
   , satisfied
   , nulled
@@ -60,6 +60,7 @@ import Control.Lens.Internal.Profunctor
 import Control.Lens.Iso
 import Control.Lens.Prism
 import Control.Monad
+import Data.Monoid.Disjunctive
 import Data.Profunctor
 import Witherable
 
@@ -83,10 +84,13 @@ dimapMaybe f g =
 
 {- | `PartialIso` is a first class inexhaustive pattern,
 similar to how `Control.Lens.Prism.Prism` is a first class exhaustive pattern,
-by combining `Control.Lens.Prism.Prism`s and `coPrism`s.
+by combining `Control.Lens.Prism.Prism`s, constructor patterns,
+with `filterPrism`s, filter patterns.
 
-Every `Control.Lens.Iso.Iso`, `Control.Lens.Prism.Prism` & `coPrism`
-is a `PartialIso`.
+Writing ⊂ for "every one is a",
+
+`Control.Lens.Iso.Iso` ∪ `Control.Lens.Prism.Prism` ∪ `filterPrism`
+⊂ `PartialIso` ⊂ `Control.Lens.Bifocal.Bifocal`.
 
 __N.B.__ t'PartialExchange' is a retract of `PartialIso`:
 `withPartialIso` is a retraction, with `partialIso` its section,
@@ -162,13 +166,13 @@ since t'Data.Functor.Identity.Identity' can't fail, so isn't `Filterable`;
 `Control.Lens.Fold.Fold`, by t'Data.Functor.Const.Const'.
 
 `PartialIso`s compose by `.`, with each other,
-& with `Control.Lens.Iso.Iso`s, `Control.Lens.Prism.Prism`s & `coPrism`s.
+& with `Control.Lens.Iso.Iso`s, `Control.Lens.Prism.Prism`s & `filterPrism`s.
 
 >>> preview (halve . halve) 12
 Just 3
 >>> preview (_Just . halve) (Just 4)
 Just 2
->>> preview (halve . coPrism _Just) 6
+>>> preview (halve . filterPrism _Just) 6
 Just (Just 3)
 -}
 type PartialIso s t a b = forall p f.
@@ -224,11 +228,27 @@ instance Cochoice (PartialExchange a b) where
     PartialExchange (f . Left) (either Just (pure Nothing) <=< g)
   unright (PartialExchange f g) =
     PartialExchange (f . Right) (either (pure Nothing) Just <=< g)
+{- | t'PartialExchange's choose by first success, in either direction,
+& `falseP` fails in both, so `Data.Monoid.Disjunctive.orP` tries
+the partial functions of `PartialIso`s in turn.
+
+`satisfied` is a homomorphism of `Data.Monoid.Disjunctive.BooleanAlgebra`s
+of predicates, from `>|<` to `>|<`, & from `>&<` to composition.
+
+> prop> withPartialIso (satisfied (p >|< q)) PartialExchange = withPartialIso (satisfied p) PartialExchange >|< withPartialIso (satisfied q) PartialExchange
+> prop> withPartialIso (satisfied falseP) PartialExchange = falseP
+> prop> satisfied (p >&< q) = satisfied p . satisfied q
+> prop> satisfied trueP = id
+-}
+instance DisjunctiveMonoid (PartialExchange a b s t) where
+  falseP = PartialExchange falseP falseP
+  PartialExchange f g >|< PartialExchange f' g' =
+    PartialExchange (f >|< f') (g >|< g')
 
 {- | Build a `PartialIso` from its partial functions,
 matching forwards & building backwards,
 as the action `dimapMaybe` on @p a (f b)@,
-like `coPrism` is the action `?<`.
+like `filterPrism` is the action `?<`.
 -}
 partialIso :: (s -> Maybe a) -> (b -> Maybe t) -> PartialIso s t a b
 partialIso f g = unwrapPafb . dimapMaybe f g . WrapPafb
@@ -297,7 +317,14 @@ altPartialIso x y =
 (>?) pat = withPrism pat $ \f g -> dimap g (either id f) . right'
 infixl 4 >?
 
-{- | Action of a coPrism on `Cochoice` `Profunctor`s. -}
+{- | The coprism, the action of a reversed `APrism`
+on `Cochoice` `Profunctor`s, feeding the residual of a mismatch
+back by `unright`, as in
+[profunctor-optics](https://hackage.haskell.org/package/profunctor-optics),
+where @coprism f g = re (prism f g)@.
+`filterPrism` acts by it on @p a (f b)@,
+whose `Cochoice` by a `Filterable` @f@ filters the residual out.
+-}
 (?<)
   :: Cochoice p
   => APrism b a t s
@@ -340,11 +367,35 @@ by the `non` isomorphism.
 prop != def = non def ~< prop
 infix 6 !=
 
-{- | Action of a `coPrism`
-on the composition of a `Profunctor` and `Filterable`.
+{- | A filter pattern of `APrism`, as the coprism `?<` acts on @p a (f b)@,
+total forwards & partial backwards, failing by `Filterable` alone.
+As a `Control.Lens.Prism.Prism` is a constructor pattern,
+like @Right x@ in a @case@ expression, passing any other case through,
+a `filterPrism` is a filter pattern,
+like @Right x <- xs@ in a comprehension or a @do@ block,
+filtering any other case out, by discarding the residual of a mismatch.
+It runs as its `Control.Lens.Prism.Prism` does, reversed,
+building forwards by `view`, as the prism `review`s,
+& matching backwards by `preview` of its `coPartialIso`,
+as the prism `preview`s.
+
+>>> view (filterPrism _Just) 'x'
+Just 'x'
+>>> preview (coPartialIso (filterPrism _Just)) (Just 'x')
+Just 'x'
+>>> preview (coPartialIso (filterPrism _Just)) (Nothing :: Maybe Char)
+Nothing
+
+An optic for `Data.Profunctor.Filtrator.Filtrator`s may only map its source
+& filter its target, as a `filterPrism` does, since by its laws,
+a `Data.Profunctor.Filtrator.Filtrator`'s `Cochoice` derives from
+its `Profunctor` & `Filterable` structure,
+@unleft = lmap Left . mapMaybe (either Just (const Nothing))@.
 -}
-coPrism :: (Profunctor p, Filterable f) => APrism b a t s -> p a (f b) -> p s (f t)
-coPrism p = unwrapPafb . (?<) p . WrapPafb
+filterPrism
+  :: (Profunctor p, Filterable f)
+  => APrism b a t s -> p a (f b) -> p s (f t)
+filterPrism p = unwrapPafb . (?<) p . WrapPafb
 
 {- | `satisfied` is the prototypical proper partial isomorphism,
 identifying a subset which satisfies a predicate. -}

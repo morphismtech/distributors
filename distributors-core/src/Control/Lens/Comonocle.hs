@@ -12,6 +12,7 @@ module Control.Lens.Comonocle
   ( -- * Comonocle
     Comonocle
   , AComonocle
+  , Comonocular (..), runComonocular
     -- * Combinators
   , comonocle
   , withComonocle
@@ -21,6 +22,7 @@ module Control.Lens.Comonocle
   , crossComonocle
   , indexComonocle
   , countComonocle
+  , copiesComonocle
   , fromComonocle
   , succComonocle
   , predComonocle
@@ -32,8 +34,6 @@ module Control.Lens.Comonocle
   , zipWithComonocle
   , _Enumerable
   , _BoundedEnum
-    -- * Comonocular
-  , Comonocular (..), runComonocular
   ) where
 
 import Control.Applicative (Alternative)
@@ -56,14 +56,19 @@ import Numeric.Natural (Natural)
 {- | `Comonocle`s are an optic dual to `Control.Lens.Monocle.Monocle`s, by sums,
 which focus on the one copy that an `Enumerable` sum holds.
 
-Every `Control.Lens.Iso.Iso` is a `Comonocle`,
-& every `Comonocle` is a `Control.Lens.Lens.Lens`,
+Writing ⊂ for "every one is a",
+
+`Control.Lens.Iso.Iso` ⊂ `Comonocle` ⊂
+`Control.Lens.Lens.Lens` ∩ `Control.Lens.Diopter.Diopter`,
+
+a `Comonocle` being a `Control.Lens.Lens.Lens`
 whose residue is which copy is held.
 
 >>> view _Enumerable (Identity 'a')
 'a'
 
-`Comonocle`s are isomorphic to t'Comonocular's.
+`Comonocle`s are isomorphic to t'Comonocular's,
+whose shapes are `Enumerable`.
 -}
 type Comonocle s t a b = forall p f.
   (CocartesianMonoidal p, Functor f)
@@ -200,6 +205,40 @@ countComonocle mon = withComonocle mon $ \split _ -> copies split
     copies :: forall f x y. Enumerable f => (x -> f y) -> Natural
     copies _ = case enumerably (pure () :: Enumerator () ()) :: Enumerator (f ()) (f ()) of
       Enumerator count _ _ -> count
+
+{- | The `Control.Lens.Prism.Prism`s of the copies of `AComonocle`,
+numbered from 0, left to right, exactly one of which matches a source.
+
+Dual to `Control.Lens.Monocle.fociMonocle`: a sum of copies has
+a `Control.Lens.Prism.Prism` for each copy, exactly one of which matches,
+as a product of foci has a `Control.Lens.Lens.Lens` for each focus,
+every one of which focuses.
+
+>>> [preview (runPrism copy) EQ | copy <- copiesComonocle _BoundedEnum]
+[Nothing,Just (),Nothing]
+>>> [review (runPrism copy) () | copy <- copiesComonocle _BoundedEnum] :: [Ordering]
+[LT,EQ,GT]
+-}
+copiesComonocle :: forall s a. AComonocle s s a a -> [ReifiedPrism' s a]
+copiesComonocle mon = withComonocle mon copiesOf
+  where
+    copiesOf
+      :: forall f. Enumerable f
+      => (s -> f a) -> (f a -> s) -> [ReifiedPrism' s a]
+    copiesOf split merge =
+      case enumerably (pure () :: Enumerator () ()) :: Enumerator (f ()) (f ()) of
+        Enumerator _ _ select ->
+          let
+            go i = case select i of
+              Nothing -> []
+              Just copy -> copyAt i copy : go (i + 1)
+          in
+            go 0
+      where
+        copyAt i copy = Prism $ prism (\a -> merge (a <$ copy)) $ \s ->
+          case review fromEnumerable (split s) of
+            (j, a) | j == i -> Right a
+            _ -> Left s
 
 {- | The next copy of `AComonocle`, holding the same focus,
 if there is one, like `succ`, & conversely, the previous copy, like `pred`.

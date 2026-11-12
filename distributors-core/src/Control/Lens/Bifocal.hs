@@ -12,25 +12,12 @@ module Control.Lens.Bifocal
   ( -- * Bifocal
     Bifocal
   , ABifocal
+  , Binocular (..), runBinocular
     -- * Combinators
   , bifocal
-  , mapBifocal
-  , cloneBifocal
   , withBifocal
-    -- * Binocular
-  , Binocular (..), runBinocular
-    -- * Prismoid
-  , Prismoid
-  , somed
-  , opted
-  , lefted
-  , righted
-  , chained1
-  , chained
-    -- * Filtroid
-  , Filtroid
-  , unlefted
-  , unrighted
+  , cloneBifocal
+  , mapBifocal
   ) where
 
 import Control.Applicative
@@ -45,38 +32,24 @@ import Data.Profunctor.Filtrator
 import Witherable
 
 {- | `Bifocal`s are bidirectional parser optics.
+Writing ⊂ for "every one is a",
 
-Every one of the following is a `Bifocal`.
+`Control.Lens.Prismoid.Prismoid` ∪ `Control.Lens.PartialIso.PartialIso` ⊂ `Bifocal`,
 
-* `Control.Lens.Iso.Iso`
-* `Control.Lens.Prism.Prism`
-* `Control.Lens.PartialIso.PartialIso` & `Control.Lens.PartialIso.coPrism`
-* `Control.Lens.Monocle.Monocle`
-* `Control.Lens.Diopter.Diopter`
-* `Prismoid` & `Filtroid`
+so every `Control.Lens.Iso.Iso`, `Control.Lens.Prism.Prism`,
+`Control.Lens.PartialIso.filterPrism`, `Control.Lens.Monocle.Monocle`,
+`Control.Lens.Comonocle.Comonocle` & `Control.Lens.Diopter.Diopter`
+is a `Bifocal` too.
 
 `Bifocal`s are isomorphic to t'Binocular's.
 -}
 type Bifocal s t a b = forall p f.
-  (Alternator p, Filtrator p, Alternative f, Filterable f)
+  (Alternator p, Applicative f, Filterable f)
     => p a (f b) -> p s (f t)
 
 {- | `ABifocal` is monomorphically a `Bifocal`. -}
 type ABifocal s t a b =
   Binocular a b a (Maybe b) -> Binocular a b s (Maybe t)
-
-{- | `Prismoid`s generalize `Control.Lens.Prism.Prism`s
-& `Control.Lens.Diopter.Diopter`s, combining them,
-& every `Prismoid` is a `Bifocal`. -}
-type Prismoid s t a b = forall p f.
-  (Alternator p, Alternative f)
-    => p a (f b) -> p s (f t)
-
-{- | An optic for `Filtrator`s, `Filtroid`s generalize
-`Control.Lens.PartialIso.coPrism`s, & every `Filtroid` is a `Bifocal`. -}
-type Filtroid s t a b = forall p f.
-  (Filtrator p, Filterable f)
-    => p a (f b) -> p s (f t)
 
 {- | Build a `Bifocal` from a concrete t'Binocular'. -}
 bifocal :: Binocular a b s t -> Bifocal s t a b
@@ -93,53 +66,6 @@ monomorphically typed `Bifocal` for different purposes.
 -}
 cloneBifocal :: ABifocal s t a b -> Bifocal s t a b
 cloneBifocal bif = unwrapPafb . mapBifocal bif . WrapPafb
-
-{- | One or more. -}
-somed :: Prismoid [a] [b] a b
-somed = unwrapPafb . someP . WrapPafb
-
-{- | One or zero with default. -}
-opted :: APrism a b () () -> Prismoid a b a b
-opted def = unwrapPafb . optionP def . WrapPafb
-
-{- | `lefted` is like `_Left`, except
-with heterogeneous `Right` parameters. -}
-lefted :: Prismoid (Either a c) (Either b d) a b
-lefted = unwrapPafb . alternate . Left . WrapPafb
-
-
-{- | `righted` is like `_Right`, except
-with heterogeneous `Left` parameters. -}
-righted :: Prismoid (Either c a) (Either d b) a b
-righted = unwrapPafb . alternate . Right . WrapPafb
-
-{- | Dual to `lefted`. -}
-unlefted :: Filtroid a b (Either a c) (Either b d)
-unlefted = unwrapPafb . fst . filtrate . WrapPafb
-
-{- | Dual to `righted`. -}
-unrighted :: Filtroid a b (Either c a) (Either d b)
-unrighted = unwrapPafb . snd . filtrate . WrapPafb
-
-{- |
-Associate a binary constructor pattern to sequence one or more times.
--}
-chained1
-  :: (forall x. x -> Either x x)
-  -> APartialIso a b (a,a) (b,b)
-  -> Prismoid a b a b
-chained1 assoc binPat = unwrapPafb . chain1 assoc binPat noSep . WrapPafb
-
-{- |
-Associate a binary constructor pattern to sequence one or more times,
-or use a nilary constructor pattern to sequence zero times.
--}
-chained
-  :: (forall x. x -> Either x x)
-  -> APartialIso a b (a,a) (b,b)
-  -> APrism a b () ()
-  -> Prismoid a b a b
-chained assoc binPat nilPat = unwrapPafb . chain assoc binPat nilPat noSep . WrapPafb
 
 {- | Run `ABifocal` over an `Alternative` & `Filterable`. -}
 withBifocal

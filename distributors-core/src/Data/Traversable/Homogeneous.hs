@@ -26,6 +26,7 @@ import Control.Lens.PartialIso
 import Control.Monad.Trans.Identity (IdentityT (..))
 import Data.Complex
 import Data.Functor.Compose
+import Data.List.NonEmpty (NonEmpty (..))
 import qualified Data.Functor.Product as Functor
 import qualified Data.Functor.Sum as Functor
 import qualified Data.Monoid as Monoid
@@ -47,8 +48,26 @@ import Data.Profunctor.Distributor
 import Data.Profunctor.Monadic (Monadic)
 import Data.Profunctor.Monoidal.Cocartesian
 
+-- $setup
+-- >>> import Data.List.NonEmpty (NonEmpty (..))
+
 {- | A class of `Homogeneous`
 countable sums of countable products.
+
+They shape `Control.Lens.Diopter.Diopter`s,
+& two subclasses of them shape two kinds of `Control.Lens.Diopter.Diopter`:
+countable products, which are `Traversable` ∩ `Data.Distributive.Distributive`,
+shape `Control.Lens.Monocle.Monocle`s,
+& countable sums of single copies, which are
+`Data.Traversable.Homogeneous.Enumerable.Enumerable`,
+shape `Control.Lens.Comonocle.Comonocle`s,
+
+(`Traversable` ∩ `Data.Distributive.Distributive`)
+∪ `Data.Traversable.Homogeneous.Enumerable.Enumerable`
+⊂ `Homogeneous`,
+
+as `Control.Lens.Monocle.Monocle` ∪ `Control.Lens.Comonocle.Comonocle`
+⊂ `Control.Lens.Diopter.Diopter`.
 -}
 class Traversable t => Homogeneous t where
   {- | Sequences actions `homogeneously`.
@@ -163,6 +182,12 @@ instance Homogeneous Maybe where
   homogeneously = optionalP
 instance Homogeneous [] where
   homogeneously = manyP
+{- | One or more, by deriving `Generic1`, like `someP`.
+
+>>> zipWithHomogeneous (+) (1 :| [2]) (3 :| [4 :: Int])
+Just (4 :| [6])
+-}
+instance Homogeneous NonEmpty
 instance Homogeneous Vector where
   homogeneously p = eotList . swapped >~ p >*< homogeneously p >+< oneP
 instance Homogeneous Seq where

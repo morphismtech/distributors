@@ -15,6 +15,7 @@ module Control.Lens.Grate
   ( -- * Grate
     Grate
   , AGrate
+  , Grating (..)
     -- * Combinators
   , grate
   , withGrate
@@ -26,8 +27,6 @@ module Control.Lens.Grate
   , distributeOf
   , collectOf
   , distributing
-    -- * Grating
-  , Grating (..)
   ) where
 
 import Data.Distributive
@@ -40,7 +39,9 @@ import Data.Profunctor.Monoidal
 {- | `Grate`s are an optic that are dual to
 `Control.Lens.Traversal.Traversal`s, as `Distributive` is `Traversable`.
 
-Every `Control.Lens.Monocle.Monocle` is a `Grate`.
+Writing ⊂ for "every one is a",
+
+`Control.Lens.Iso.Iso` ⊂ `Control.Lens.Monocle.Monocle` ⊂ `Grate`.
 
 `Grate`s are isomorphic to t'Grating's.
 -}

@@ -15,16 +15,12 @@ module Control.Lens.Wither
   ( -- * Wither
     Wither
   , AWither
+  , Altar (..)
     -- * Combinators
   , cloneWither
   , withered
   , filtraversed
   , filterOf
-    -- * Witheroid
-  , Witheroid
-  , witherPrism
-    -- * Altar
-  , Altar (..)
   ) where
 
 import Control.Applicative
@@ -35,27 +31,23 @@ import Data.Profunctor.Sieve
 import Prelude hiding (filter)
 import Witherable
 
+-- $setup
+-- >>> import Control.Applicative (Alternative (..))
+-- >>> import Control.Lens
+-- >>> import Control.Lens.PartialIso (clonePartialIso)
+
 {- | `Wither`s extend `Control.Lens.Traversal.Traversal`s by filtering.
+Writing ⊂ for "every one is a",
 
-Every one of the following is a `Wither`.
+`Control.Lens.Traversal.Traversal` ⊂ `Wither`,
 
-* `Control.Lens.Iso.Iso`
-* `Control.Lens.Lens.Lens`
-* `Control.Lens.Prism.Prism`
-* `Control.Lens.Traversal.Traversal`
-* `Witheroid`
+so every `Control.Lens.Iso.Iso`, `Control.Lens.Lens.Lens`
+& `Control.Lens.Prism.Prism` is a `Wither` too.
 -}
 type Wither s t a b = forall f. Alternative f => (a -> f b) -> s -> f t
 
 {- | `AWither` is monomorphically a `Wither`. -}
 type AWither s t a b = (a -> Altar a b b) -> s -> Altar a b t
-
-{- | `Witheroid`s generalize `Control.Lens.Prism.Prism`s,
-& every `Witheroid` is a `Wither`, at the `Choice` @(->)@.
--}
-type Witheroid s t a b = forall p f.
-  (Choice p, Alternative f)
-    => p a (f b) -> p s (f t)
 
 {- | Clone `AWither` so that you can reuse the same
 monomorphically typed `Wither` for different purposes.
@@ -63,7 +55,31 @@ monomorphically typed `Wither` for different purposes.
 cloneWither :: AWither s t a b -> Wither s t a b
 cloneWither w f = (\g z -> runAltar z g) f . w sell
 
-{- | Construct a `Wither` for a `Witherable`. -}
+{- | Construct a `Wither` for a `Witherable`,
+dropping each element whose action fails, by `optional`.
+
+A `Control.Lens.Prism.Prism` passes a mismatch through,
+so it filters nothing in a `Wither`. Penner's @witherPrism@
+makes it fail instead, by `empty`, so that `withered` drops it.
+
+>>> :{
+witherPrism
+  :: (Choice p, Alternative f)
+  => APrism s t a b -> p a (f b) -> p s (f t)
+witherPrism prsm = withPrism prsm $ \embed match ->
+  dimap match (either (const empty) (fmap embed)) . right'
+:}
+
+>>> (withered . witherPrism _Just) (\x -> Just (x + 1)) [Just 1, Nothing, Just 2]
+Just [Just 2,Just 3]
+
+With @catMaybes (pure Nothing)@ in place of `empty`,
+@witherPrism@ is `Control.Lens.PartialIso.clonePartialIso`,
+a `Control.Lens.PartialIso.PartialIso`, for a `Filterable` @f@.
+
+>>> (withered . clonePartialIso _Just) (\x -> Just (x + 1)) [Just 1, Nothing, Just 2]
+Just [Just 2,Just 3]
+-}
 withered :: Witherable t => Wither (t a) (t b) a b
 withered f = wither (optional . f)
 
@@ -79,16 +95,6 @@ filterOf w p s = w guardingp s where
   guardingp a
     | p a = pure a
     | otherwise = empty
-
-{- |
-`Control.Lens.Prism.Prism`s already capture the idea of success and failure,
-but they simply skip the traversal if the prism doesn't match.
-Lift prisms into withers such that they'll fail in a way that wither can catch.
--}
-witherPrism :: APrism s t a b -> Witheroid s t a b
-witherPrism prsm =
-  withPrism prsm $ \embed match ->
-    dimap match (either (const empty) (fmap embed)) . right'
 
 {- | This is used to characterize `Wither`s. -}
 newtype Altar a b t = Altar
