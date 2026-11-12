@@ -35,7 +35,7 @@ import Data.Profunctor.Sieve
 import Prelude hiding (filter)
 import Witherable
 
-{- | `Wither`s extends `Control.Lens.Traversal.Traversal`s by filtering.
+{- | `Wither`s extend `Control.Lens.Traversal.Traversal`s by filtering.
 
 Every one of the following is a `Wither`.
 
@@ -50,8 +50,8 @@ type Wither s t a b = forall f. Alternative f => (a -> f b) -> s -> f t
 {- | `AWither` is monomorphically a `Wither`. -}
 type AWither s t a b = (a -> Altar a b b) -> s -> Altar a b t
 
-{- | `Witheroid`s generalize `Wither`s.
-Every `Control.Lens.Prism.Prism` is a `Witheroid`.
+{- | `Witheroid`s generalize `Control.Lens.Prism.Prism`s,
+& every `Witheroid` is a `Wither`, at the `Choice` @(->)@.
 -}
 type Witheroid s t a b = forall p f.
   (Choice p, Alternative f)

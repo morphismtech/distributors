@@ -251,8 +251,6 @@ instance DisjunctiveMonoid (f a) => DisjunctiveMonoid (Alt f a) where
 instance DisjunctiveMonoid (f a) => DisjunctiveMonoid (Ap f a) where
   falseP = Ap falseP
   Ap x >|< Ap y = Ap (x >|< y)
-instance (Applicative f, DisjunctiveMonoid (f k), Monoid k)
-  => KleeneStarAlgebra (Ap f k)
 instance DisjunctiveMonoid (f (g a)) => DisjunctiveMonoid (Compose f g a) where
   falseP = Compose falseP
   Compose x >|< Compose y = Compose (x >|< y)

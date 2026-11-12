@@ -50,6 +50,7 @@ Every one of the following is a `Bifocal`.
 
 * `Control.Lens.Iso.Iso`
 * `Control.Lens.Prism.Prism`
+* `Control.Lens.PartialIso.PartialIso` & `Control.Lens.PartialIso.coPrism`
 * `Control.Lens.Monocle.Monocle`
 * `Control.Lens.Diopter.Diopter`
 * `Prismoid` & `Filtroid`
@@ -64,13 +65,15 @@ type Bifocal s t a b = forall p f.
 type ABifocal s t a b =
   Binocular a b a (Maybe b) -> Binocular a b s (Maybe t)
 
-{- | `Prismoid`s generalize `Bifocal`s, combining
-`Control.Lens.Prism.Prism`s and `Control.Lens.Diopter.Diopter`s. -}
+{- | `Prismoid`s generalize `Control.Lens.Prism.Prism`s
+& `Control.Lens.Diopter.Diopter`s, combining them,
+& every `Prismoid` is a `Bifocal`. -}
 type Prismoid s t a b = forall p f.
   (Alternator p, Alternative f)
     => p a (f b) -> p s (f t)
 
-{- | An optic for `Filtrator`s, `Filtroid`s generalize `Bifocal`s. -}
+{- | An optic for `Filtrator`s, `Filtroid`s generalize
+`Control.Lens.PartialIso.coPrism`s, & every `Filtroid` is a `Bifocal`. -}
 type Filtroid s t a b = forall p f.
   (Filtrator p, Filterable f)
     => p a (f b) -> p s (f t)

@@ -41,6 +41,14 @@
   `PartialIso` which fails to match, rather than looping in `Cochoice (->)`.
   `partialIso` is the action `dimapMaybe` on @p a (f b)@, like `coPrism`.
   Its action `>?<` on `Choice` & `Cochoice` profunctors is unchanged.
+- `Filtrator`'s laws are that `filtrate` is a retraction of `alternate`,
+  rather than an inverse of `>+<`, which fails for left-biased &
+  predictive parsers, & for profunctors which cross summands.
+- `Filtrator (Star f)` is removed, since `Star`'s `Cochoice` retries
+  the other summand where `filtrate` drops it, breaking
+  `unright = snd . filtrate`.
+- `KleeneStarAlgebra (Ap f k)` is removed, since a left-biased `f`,
+  like `Maybe`, breaks `optK x = mempty >|< x = x >|< mempty`.
 - `Enumerable`, its functions & `Indexing`, renamed `Enumerator`, move from
   `Data.Traversable.Homogeneous` to `Data.Traversable.Homogeneous.Enumerable`.
 - `Comonocle`s & their combinators move from `Control.Lens.Monocle` to

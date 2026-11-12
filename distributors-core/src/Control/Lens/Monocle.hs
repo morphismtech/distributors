@@ -116,8 +116,8 @@ forevered = unwrapPafb . foreverP . WrapPafb
 
 {- | Zip with `AMonocle`, by running it on the `Monoidal` `Profunctor`
 of functions @f a -> g b@, generalizing both
-`Control.Lens.Traversal.traverseOf`, at `Identity` @f@,
-& `Control.Lens.Grate.cotraverseOf`, at `Identity` @g@.
+`Control.Lens.Traversal.traverseOf`, at t'Identity' @f@,
+& `Control.Lens.Grate.cotraverseOf`, at t'Identity' @g@.
 
 >>> zipMonocle ditraversed (\xs -> [sum xs, product xs]) [1 :+ 2, 3 :+ 4 :: Complex Int]
 [4 :+ 6,4 :+ 8,3 :+ 6,3 :+ 8]

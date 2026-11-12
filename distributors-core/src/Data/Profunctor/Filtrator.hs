@@ -29,18 +29,37 @@ import Witherable
 
 {- | The `Filtrator` class extends `Cochoice`,
 as well as `Filterable`, adding the `filtrate` method,
-which is an oplax monoidal structure morphism dual to
-`Data.Profunctor.Monoidal.Cocartesian.>+<`.
+which projects a profunctor of sums onto its summands.
 
-> prop> filtrate . uncurry (>+<) = id
-> prop> uncurry (>+<) . filtrate = id
+For a `Data.Profunctor.Monoidal.Cocartesian.CocartesianChoice`,
+`filtrate` is a retraction of `Data.Profunctor.Monoidal.Cocartesian.alternate`,
+projecting a summand back out of its injection,
+
+> prop> fst (filtrate (alternate (Left p))) = p
+> prop> snd (filtrate (alternate (Right p))) = p
+
+that is, since `unleft` is @fst . filtrate@ & `left'` is @alternate . Left@,
+
+> prop> unleft . left' = id
+> prop> unright . right' = id
+
+`filtrate` isn't a retraction of
+`Data.Profunctor.Monoidal.Cocartesian.>+<` in general, though,
+since it tries its summands in turn, & the second summand
+of a left-biased or predictive one,
+like the @Parsor s Maybe@ or @Parsector@ parsers of @distributors-grammar@,
+is lost where the first applies. Nor is `Data.Profunctor.Monoidal.Cocartesian.>+<`
+a retraction of `filtrate`, since a profunctor of sums may cross summands,
+as @rmap (either Right Left)@ does.
 -}
 class (Cochoice p, forall x. Filterable (p x))
   => Filtrator p where
 
     {- |
-    > prop> unleft = fst . filtrate = lmap Left . mapMaybe (either Just (const Nothing))
-    > prop> unright = snd . filtrate = lmap Right . mapMaybe (either (const Nothing) Just)
+    > prop> unleft = fst . filtrate
+    > prop> unleft = lmap Left . mapMaybe (either Just (const Nothing))
+    > prop> unright = snd . filtrate
+    > prop> unright = lmap Right . mapMaybe (either (const Nothing) Just)
 
     `filtrate` is a distant relative to `Data.Either.partitionEithers`.
     `filtrate` can be given a default value for `Monadic`
@@ -92,11 +111,6 @@ instance Filtrator p => Filtrator (Yoneda p) where
     in (proreturn q, proreturn r)
 instance Filtrator (Forget r) where
   filtrate (Forget f) = (Forget (f . Left), Forget (f . Right))
-instance (Filterable f, Traversable f) => Filtrator (Star f) where
-  filtrate (Star f) =
-    ( Star (mapMaybe (either Just (const Nothing)) . f . Left)
-    , Star (mapMaybe (either (const Nothing) Just) . f . Right)
-    )
 instance Filtrator (PartialExchange a b) where
   filtrate (PartialExchange f g) =
     ( PartialExchange (f . Left) (either Just (pure Nothing) <=< g)

@@ -163,6 +163,14 @@ on sums, with these laws relating them.
 > prop> zeroP = falseP
 > prop> x >+< y = alternate (Left x) >|< alternate (Right y)
 
+Since @alternate (Left x)@ is parametric in the other summand,
+it can't pass that summand through, so by these laws,
+`left'` & `right'` of a `CocartesianChoice` never pass the other
+summand through, unlike those of @(->)@, which isn't one;
+they fail on it, or ignore their input, as those of t'Joker' do.
+So a `Control.Lens.Prism.Prism` applied by `Control.Lens.PartialIso.>?`
+doesn't pass a mismatch through, either.
+
 For the case of `Functor`s, the analog of `alternate` can be defined
 without any other constraint, but the case of `Profunctor`s turns
 out to be slightly more complex, necessitating `CocartesianChoice`.

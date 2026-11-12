@@ -163,7 +163,7 @@ fromComonocle mon = withComonocle mon $ \split merge -> prism'
   (fmap merge . preview fromEnumerable)
 
 {- | Zip two sources of `AComonocle`, when they hold the same copy,
-dual to `Control.Lens.Grate.cotraverseOf`, which zips every `Monocle`.
+dual to `Control.Lens.Grate.cotraverseOf`, which zips every `Control.Lens.Monocle.Monocle`.
 
 >>> zipWithComonocle (altComonocle id id) (+) (Left 1) (Left 2 :: Either Int Int)
 Just (Left 3)

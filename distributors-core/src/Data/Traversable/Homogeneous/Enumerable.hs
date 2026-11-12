@@ -50,7 +50,7 @@ which are `Homogeneous`, & sequenced by sums alone.
 > prop> enumerably @Identity = dimap runIdentity Identity
 
 Every `Enumerable` is sequenced `enumerably` as it's sequenced
-`homogeneously`, by a `Distributor`.
+`homogeneously`, by a `Data.Profunctor.Distributor.Distributor`.
 
 > prop> enumerably = homogeneously
 
