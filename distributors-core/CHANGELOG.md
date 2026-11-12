@@ -14,10 +14,11 @@
 - `AComonocle`, `withComonocle`, `cloneComonocle`, `mapComonocle`,
   `altComonocle`, `crossComonocle`, `indexComonocle` &
   `zipWithComonocle`; & `crossMonocle`.
-- Enum-like functions of `Enumerable`s, `fromEnumerable`, `toEnumerable`,
-  `succEnumerable`, `predEnumerable`, `enumerateFrom`, `enumerateFromThen`,
-  `enumerateFromTo` & `enumerateFromThenTo`, & of `Comonocle`s,
-  `toEnumComonocle`, `succComonocle`, `predComonocle`, `enumerateComonocle`,
+- Enum-like optics & functions of `Enumerable`s: the prism
+  `fromEnumerable`, the partial isos `succEnumerable` & `predEnumerable`,
+  `enumerateFrom`, `enumerateFromThen`, `enumerateFromTo` &
+  `enumerateFromThenTo`; & of `Comonocle`s: the prism `fromComonocle`,
+  the partial isos `succComonocle` & `predComonocle`, `enumerateComonocle`,
   `enumerateFromThenComonocle`, `enumerateFromToComonocle` &
   `enumerateFromThenToComonocle`.
 - `Homogeneous` & `Enumerable` instances for `Down`, `Min`, `Max`,

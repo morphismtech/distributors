@@ -23,6 +23,7 @@ module Control.Lens.Comonocle
   , countComonocle
   , fromComonocle
   , succComonocle
+  , predComonocle
   , enumerateComonocle
   , enumerateFromThenComonocle
   , enumerateFromToComonocle
@@ -50,6 +51,7 @@ import Numeric.Natural (Natural)
 
 -- $setup
 -- >>> import Control.Lens
+-- >>> import Control.Lens.PartialIso (withPartialIso)
 -- >>> import Data.Functor.Identity
 
 {- | `Comonocle`s are an optic dual to `Control.Lens.Monocle.Monocle`s, by sums,
@@ -151,9 +153,9 @@ indexComonocle mon = withComonocle mon $ \split merge -> ilens
 {- | The copy of `AComonocle` at an index, holding a focus, if there is one,
 like `toEnum`, & inverse to `indexComonocle`.
 
->>> toEnumComonocle _BoundedEnum () 2 :: Maybe Ordering
+>>> preview (fromComonocle _BoundedEnum) (2, ()) :: Maybe Ordering
 Just GT
->>> toEnumComonocle _BoundedEnum () 3 :: Maybe Ordering
+>>> preview (fromComonocle _BoundedEnum) (3, ()) :: Maybe Ordering
 Nothing
 -}
 fromComonocle :: AComonocle s s a a -> Prism' (Natural, a) s
@@ -201,19 +203,11 @@ countComonocle mon = withComonocle mon $ \split _ -> copies split
       Enumerator count _ _ -> count
 
 {- | The next copy of `AComonocle`, holding the same focus,
-if there is one, like `succ`.
+if there is one, like `succ`, & conversely, the previous copy, like `pred`.
 
->>> succComonocle _BoundedEnum EQ
+>>> withPartialIso (succComonocle _BoundedEnum) const EQ
 Just GT
->>> succComonocle _BoundedEnum GT
-Nothing
-
-The previous copy of `AComonocle`, holding the same focus,
-if there is one, like `pred`.
-
->>> predComonocle _BoundedEnum EQ
-Just LT
->>> predComonocle _BoundedEnum LT
+>>> withPartialIso (succComonocle _BoundedEnum) const GT
 Nothing
 -}
 succComonocle :: AComonocle s s a a -> PartialIso' s s
@@ -223,6 +217,17 @@ succComonocle mon =
     partialIso 
       (fmap merge . hither . split)
       (fmap merge . thither . split)
+
+{- | The previous copy of `AComonocle`, holding the same focus,
+if there is one, like `pred`, & conversely, the next copy, like `succ`.
+
+>>> withPartialIso (predComonocle _BoundedEnum) const EQ
+Just LT
+>>> withPartialIso (predComonocle _BoundedEnum) const LT
+Nothing
+-}
+predComonocle :: AComonocle s s a a -> PartialIso' s s
+predComonocle mon = coPartialIso (succComonocle mon)
 
 {- | The copies of `AComonocle` from one onward, holding the same focus,
 like `enumFrom`.

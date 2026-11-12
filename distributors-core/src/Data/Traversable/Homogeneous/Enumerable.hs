@@ -13,6 +13,7 @@ module Data.Traversable.Homogeneous.Enumerable
     Enumerable (..)
   , fromEnumerable
   , succEnumerable
+  , predEnumerable
   , enumerateFrom
   , enumerateFromThen
   , enumerateFromTo
@@ -39,6 +40,10 @@ import Numeric.Natural (Natural)
 
 import Data.Profunctor.Monoidal.Cocartesian
 import Data.Traversable.Homogeneous
+
+-- $setup
+-- >>> import Control.Lens (preview, review)
+-- >>> import Control.Lens.PartialIso (withPartialIso)
 
 {- | A class of `Enumerable` countable sums of single copies,
 which are `Homogeneous`, & sequenced by sums alone.
@@ -124,10 +129,10 @@ instance Enumerable f => Enumerable (Rec1 f) where
 numbered by its tag's `fromEnum`, from `minBound`,
 & summed in a balanced tree, built lazily.
 
->>> map fromEnumerable [(False, 'a'), (True, 'b')]
-[0,1]
->>> map fromEnumerable [(LT, 'a'), (EQ, 'b'), (GT, 'c')]
-[0,1,2]
+>>> map (review fromEnumerable) [(False, 'a'), (True, 'b')]
+[(0,'a'),(1,'b')]
+>>> map (review fromEnumerable) [(LT, 'a'), (EQ, 'b'), (GT, 'c')]
+[(0,'a'),(1,'b'),(2,'c')]
 
 Reaching a copy takes time logarithmic in the number of tags,
 but counting them, as `fromEnumerable` does, takes time linear in it,
@@ -149,13 +154,13 @@ instance (Enum e, Bounded e) => Enumerable ((,) e) where
 {- | Which copy an `Enumerable` sum holds, numbered from 0, left to right,
 like `fromEnum`.
 
->>> view fromEnumerable (GT, 'x')
-(2, 'x')
+>>> review fromEnumerable (GT, 'x')
+(2,'x')
 
 Also, the copy of an `Enumerable` sum at an index, if there is one,
 like `toEnum`.
 
->>> [review fromEnumerable (i,'x') | i <- [0..3]] :: [Maybe (Ordering, Char)]
+>>> [preview fromEnumerable (i,'x') | i <- [0..3]] :: [Maybe (Ordering, Char)]
 [Just (LT,'x'),Just (EQ,'x'),Just (GT,'x'),Nothing]
 
 -}
@@ -168,16 +173,12 @@ fromEnumerable = prism' (liftA2 (,) from' extract') to'
     to' (n,a) = case enumerably (pure a) of
       Enumerator _ _ select -> select n
 
-{- | The next copy of an `Enumerable` sum, if there is one, like `succ`.
+{- | The next copy of an `Enumerable` sum, if there is one, like `succ`,
+& conversely, the previous copy, like `pred`.
 
->>> view succEnumerable (EQ, 'x')
+>>> withPartialIso succEnumerable const (EQ, 'x')
 Just (GT,'x')
->>> view succEnumerable (GT, 'x')
-Nothing
-
->>> review succEnumerable (EQ, 'x')
-Just (LT,'x')
->>> review succEnumerable (LT, 'x')
+>>> withPartialIso succEnumerable const (GT, 'x')
 Nothing
 -}
 succEnumerable :: Enumerable f => PartialIso' (f a) (f a)
@@ -191,6 +192,17 @@ succEnumerable = partialIso succ' pred'
       Enumerator _ which select -> case which x of
         0 -> Nothing
         n -> select (n - 1)
+
+{- | The previous copy of an `Enumerable` sum, if there is one, like `pred`,
+& conversely, the next copy, like `succ`.
+
+>>> withPartialIso predEnumerable const (EQ, 'x')
+Just (LT,'x')
+>>> withPartialIso predEnumerable const (LT, 'x')
+Nothing
+-}
+predEnumerable :: Enumerable f => PartialIso' (f a) (f a)
+predEnumerable = coPartialIso succEnumerable
 
 {- | The copies of an `Enumerable` sum from one onward, like `enumFrom`.
 

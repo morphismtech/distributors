@@ -9,11 +9,12 @@ module Properties.Homogeneous (homogeneousProperties) where
 
 import Control.Applicative
 import Control.Arrow ((+++))
-import Control.Lens (iview, toListOf, traverseOf)
+import Control.Lens (iview, preview, review, toListOf, traverseOf)
 import Control.Lens.Diopter
 import Control.Lens.Comonocle
 import Control.Lens.Grate (cotraverseOf)
 import Control.Lens.Monocle
+import Control.Lens.PartialIso (withPartialIso)
 import Control.Monad ((<=<))
 import Data.Functor.Compose (Compose (..))
 import Data.Complex (Complex (..))
@@ -278,12 +279,15 @@ homogeneousProperties = do
   describe "Comonocle & Diopter combinators" $ do
     prop "countComonocle _BoundedEnum is the number of values" $
       countComonocle (_BoundedEnum @Int8) === 256 .&&. countComonocle (_BoundedEnum @Bool) === 2
-    prop "toEnumComonocle _BoundedEnum inverts indexComonocle" $ \(e :: Int8) ->
-      toEnumComonocle _BoundedEnum () (fst (iview (indexComonocle _BoundedEnum) e)) === Just e
+    prop "fromComonocle _BoundedEnum inverts indexComonocle" $ \(e :: Int8) ->
+      preview (fromComonocle _BoundedEnum)
+        (fst (iview (indexComonocle _BoundedEnum) e), ()) === Just e
     prop "succComonocle _BoundedEnum is succ, but at maxBound" $ \(e :: Int8) ->
-      succComonocle _BoundedEnum e === if e == maxBound then Nothing else Just (succ e)
+      withPartialIso (succComonocle _BoundedEnum) const e
+        === if e == maxBound then Nothing else Just (succ e)
     prop "predComonocle _BoundedEnum is pred, but at minBound" $ \(e :: Int8) ->
-      predComonocle _BoundedEnum e === if e == minBound then Nothing else Just (pred e)
+      withPartialIso (predComonocle _BoundedEnum) const e
+        === if e == minBound then Nothing else Just (pred e)
     prop "enumerateComonocle _BoundedEnum is enumFrom" $ \(e :: Ordering) ->
       enumerateComonocle _BoundedEnum e === [e ..]
     prop "enumerateFromThenComonocle _BoundedEnum is enumFromThen" $
@@ -331,20 +335,22 @@ homogeneousProperties = do
       all ((== c) . snd)
         (take 600 (enumerateFromThenTo (e, c) (e', ()) (maxBound, ())))
     it "numbers copies left to right" $
-      map fromEnumerable [(LT, ()), (EQ, ()), (GT, ())] `shouldBe` [0, 1, 2]
-    prop "toEnumerable inverts fromEnumerable" $ \(c :: Char) ->
-      map (toEnumerable c) [0 .. 3]
+      map (fst . review fromEnumerable) [(LT, ()), (EQ, ()), (GT, ())]
+        `shouldBe` [0, 1, 2]
+    prop "fromEnumerable is a prism, inverting its review" $ \(c :: Char) ->
+      map (\i -> preview fromEnumerable (i, c)) [0 .. 3]
         === map Just [(LT, c), (EQ, c), (GT, c)] <> [Nothing :: Maybe (Ordering, Char)]
-        .&&. fmap fromEnumerable (toEnumerable c 2 :: Maybe (Ordering, Char))
-          === Just 2
+        .&&. fmap (review fromEnumerable)
+          (preview fromEnumerable (2, c) :: Maybe (Ordering, Char))
+          === Just (2, c)
     prop "fromEnumerable is fromEnum, from minBound" $ \(e :: Int8) (c :: Char) ->
-      fromEnumerable (e, c)
-        === fromIntegral (fromEnum e - fromEnum (minBound :: Int8))
+      review fromEnumerable (e, c)
+        === (fromIntegral (fromEnum e - fromEnum (minBound :: Int8)), c)
     prop "succEnumerable is succ, but at maxBound" $ \(e :: Ordering) (c :: Char) ->
-      succEnumerable (e, c)
+      withPartialIso succEnumerable const (e, c)
         === if e == maxBound then Nothing else Just (succ e, c)
     prop "predEnumerable is pred, but at minBound" $ \(e :: Int8) (c :: Char) ->
-      predEnumerable (e, c)
+      withPartialIso predEnumerable const (e, c)
         === if e == minBound then Nothing else Just (pred e, c)
     prop "enumerateFrom is enumFrom" $ \(e :: Ordering) (c :: Char) ->
       enumerateFrom (e, c) === [(e', c) | e' <- [e ..]]
