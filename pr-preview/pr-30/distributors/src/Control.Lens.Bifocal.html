@@ -12,77 +12,50 @@ Portability : non-portable
 </span><span id="line-12"></span><span>  </span><span class="hs-special">(</span><span> </span><span class="annot"><span class="hs-comment">-- * Bifocal</span></span><span>
 </span><span id="line-13"></span><span>    </span><span class="annot"><a href="Control.Lens.Bifocal.html#Bifocal"><span class="hs-identifier">Bifocal</span></a></span><span>
 </span><span id="line-14"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Bifocal.html#ABifocal"><span class="hs-identifier">ABifocal</span></a></span><span>
-</span><span id="line-15"></span><span>    </span><span class="annot"><span class="hs-comment">-- * Combinators</span></span><span>
-</span><span id="line-16"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Bifocal.html#bifocal"><span class="hs-identifier">bifocal</span></a></span><span>
-</span><span id="line-17"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Bifocal.html#mapBifocal"><span class="hs-identifier">mapBifocal</span></a></span><span>
-</span><span id="line-18"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Bifocal.html#cloneBifocal"><span class="hs-identifier">cloneBifocal</span></a></span><span>
-</span><span id="line-19"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Bifocal.html#withBifocal"><span class="hs-identifier">withBifocal</span></a></span><span>
-</span><span id="line-20"></span><span>    </span><span class="annot"><span class="hs-comment">-- * Binocular</span></span><span>
-</span><span id="line-21"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Bifocal.html#Binocular"><span class="hs-identifier">Binocular</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Bifocal.html#runBinocular"><span class="hs-identifier">runBinocular</span></a></span><span>
-</span><span id="line-22"></span><span>    </span><span class="annot"><span class="hs-comment">-- * Prismoid</span></span><span>
-</span><span id="line-23"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Bifocal.html#Prismoid"><span class="hs-identifier">Prismoid</span></a></span><span>
-</span><span id="line-24"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Bifocal.html#somed"><span class="hs-identifier">somed</span></a></span><span>
-</span><span id="line-25"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Bifocal.html#opted"><span class="hs-identifier">opted</span></a></span><span>
-</span><span id="line-26"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Bifocal.html#lefted"><span class="hs-identifier">lefted</span></a></span><span>
-</span><span id="line-27"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Bifocal.html#righted"><span class="hs-identifier">righted</span></a></span><span>
-</span><span id="line-28"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Bifocal.html#chained1"><span class="hs-identifier">chained1</span></a></span><span>
-</span><span id="line-29"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Bifocal.html#chained"><span class="hs-identifier">chained</span></a></span><span>
-</span><span id="line-30"></span><span>    </span><span class="annot"><span class="hs-comment">-- * Filtroid</span></span><span>
-</span><span id="line-31"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Bifocal.html#Filtroid"><span class="hs-identifier">Filtroid</span></a></span><span>
-</span><span id="line-32"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Bifocal.html#unlefted"><span class="hs-identifier">unlefted</span></a></span><span>
-</span><span id="line-33"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Bifocal.html#unrighted"><span class="hs-identifier">unrighted</span></a></span><span>
-</span><span id="line-34"></span><span>  </span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-35"></span><span>
-</span><span id="line-36"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Applicative</span></span><span>
-</span><span id="line-37"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Lens</span></span><span>
-</span><span id="line-38"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Lens.Internal.Profunctor</span></span><span>
-</span><span id="line-39"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Control.Lens.PartialIso.html"><span class="hs-identifier">Control.Lens.PartialIso</span></a></span><span>
-</span><span id="line-40"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Data.Monoid.Disjunctive.html"><span class="hs-identifier">Data.Monoid.Disjunctive</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.Monoid.Disjunctive.html#DisjunctiveMonoid"><span class="hs-identifier">DisjunctiveMonoid</span></a></span><span class="hs-special">)</span><span>
-</span><span id="line-41"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Profunctor</span></span><span>
-</span><span id="line-42"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Data.Profunctor.Distributor.html"><span class="hs-identifier">Data.Profunctor.Distributor</span></a></span><span>
-</span><span id="line-43"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Data.Profunctor.Monoidal.Cocartesian.html"><span class="hs-identifier">Data.Profunctor.Monoidal.Cocartesian</span></a></span><span>
-</span><span id="line-44"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Data.Profunctor.Filtrator.html"><span class="hs-identifier">Data.Profunctor.Filtrator</span></a></span><span>
-</span><span id="line-45"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Witherable</span></span><span>
-</span><span id="line-46"></span><span>
-</span><span id="line-47"></span><span class="annot"><span class="hs-comment">{- | `Bifocal`s are bidirectional parser optics.
+</span><span id="line-15"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Bifocal.html#Binocular"><span class="hs-identifier">Binocular</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Bifocal.html#runBinocular"><span class="hs-identifier">runBinocular</span></a></span><span>
+</span><span id="line-16"></span><span>    </span><span class="annot"><span class="hs-comment">-- * Combinators</span></span><span>
+</span><span id="line-17"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Bifocal.html#bifocal"><span class="hs-identifier">bifocal</span></a></span><span>
+</span><span id="line-18"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Bifocal.html#withBifocal"><span class="hs-identifier">withBifocal</span></a></span><span>
+</span><span id="line-19"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Bifocal.html#cloneBifocal"><span class="hs-identifier">cloneBifocal</span></a></span><span>
+</span><span id="line-20"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Bifocal.html#mapBifocal"><span class="hs-identifier">mapBifocal</span></a></span><span>
+</span><span id="line-21"></span><span>  </span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-22"></span><span>
+</span><span id="line-23"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Applicative</span></span><span>
+</span><span id="line-24"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Lens</span></span><span>
+</span><span id="line-25"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Lens.Internal.Profunctor</span></span><span>
+</span><span id="line-26"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Control.Lens.PartialIso.html"><span class="hs-identifier">Control.Lens.PartialIso</span></a></span><span>
+</span><span id="line-27"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Data.Monoid.Disjunctive.html"><span class="hs-identifier">Data.Monoid.Disjunctive</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.Monoid.Disjunctive.html#DisjunctiveMonoid"><span class="hs-identifier">DisjunctiveMonoid</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-28"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Profunctor</span></span><span>
+</span><span id="line-29"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Data.Profunctor.Distributor.html"><span class="hs-identifier">Data.Profunctor.Distributor</span></a></span><span>
+</span><span id="line-30"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Data.Profunctor.Monoidal.Cocartesian.html"><span class="hs-identifier">Data.Profunctor.Monoidal.Cocartesian</span></a></span><span>
+</span><span id="line-31"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Data.Profunctor.Filtrator.html"><span class="hs-identifier">Data.Profunctor.Filtrator</span></a></span><span>
+</span><span id="line-32"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Witherable</span></span><span>
+</span><span id="line-33"></span><span>
+</span><span id="line-34"></span><span class="annot"><span class="hs-comment">{- | `Bifocal`s are bidirectional parser optics.
+Writing &#8834; for &quot;every one is a&quot;,
 
-Every one of the following is a `Bifocal`.
+`Control.Lens.Prismoid.Prismoid` &#8746; `Control.Lens.PartialIso.PartialIso` &#8834; `Bifocal`,
 
-* `Control.Lens.Iso.Iso`
-* `Control.Lens.Prism.Prism`
-* `Control.Lens.PartialIso.PartialIso` &amp; `Control.Lens.PartialIso.coPrism`
-* `Control.Lens.Monocle.Monocle`
-* `Control.Lens.Diopter.Diopter`
-* `Prismoid` &amp; `Filtroid`
+so every `Control.Lens.Iso.Iso`, `Control.Lens.Prism.Prism`,
+`Control.Lens.PartialIso.filterPrism`, `Control.Lens.Monocle.Monocle`,
+`Control.Lens.Comonocle.Comonocle` &amp; `Control.Lens.Diopter.Diopter`
+is a `Bifocal` too.
 
 `Bifocal`s are isomorphic to t'Binocular's.
 -}</span></span><span>
-</span><span id="line-60"></span><span class="hs-keyword">type</span><span> </span><span id="Bifocal"><span class="annot"><a href="Control.Lens.Bifocal.html#Bifocal"><span class="hs-identifier hs-var">Bifocal</span></a></span></span><span> </span><span id="local-6989586621679263335"><span class="annot"><a href="#local-6989586621679263335"><span class="hs-identifier hs-type">s</span></a></span></span><span> </span><span id="local-6989586621679263336"><span class="annot"><a href="#local-6989586621679263336"><span class="hs-identifier hs-type">t</span></a></span></span><span> </span><span id="local-6989586621679263337"><span class="annot"><a href="#local-6989586621679263337"><span class="hs-identifier hs-type">a</span></a></span></span><span> </span><span id="local-6989586621679263338"><span class="annot"><a href="#local-6989586621679263338"><span class="hs-identifier hs-type">b</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">forall</span><span> </span><span id="local-6989586621679263339"><span class="annot"><a href="#local-6989586621679263339"><span class="hs-identifier hs-type">p</span></a></span></span><span> </span><span id="local-6989586621679263340"><span class="annot"><a href="#local-6989586621679263340"><span class="hs-identifier hs-type">f</span></a></span></span><span class="hs-operator">.</span><span>
-</span><span id="line-61"></span><span>  </span><span class="hs-special">(</span><span class="annot"><a href="Data.Profunctor.Distributor.html#Alternator"><span class="hs-identifier hs-type">Alternator</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679263339"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Data.Profunctor.Filtrator.html#Filtrator"><span class="hs-identifier hs-type">Filtrator</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679263339"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Alternative</span></span><span> </span><span class="annot"><a href="#local-6989586621679263340"><span class="hs-identifier hs-type">f</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Filterable</span></span><span> </span><span class="annot"><a href="#local-6989586621679263340"><span class="hs-identifier hs-type">f</span></a></span><span class="hs-special">)</span><span>
-</span><span id="line-62"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679263339"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679263337"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679263340"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679263338"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679263339"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679263335"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679263340"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679263336"><span class="hs-identifier hs-type">t</span></a></span><span class="hs-special">)</span><span>
-</span><span id="line-63"></span><span>
-</span><span id="line-64"></span><span class="annot"><span class="hs-comment">{- | `ABifocal` is monomorphically a `Bifocal`. -}</span></span><span>
-</span><span id="line-65"></span><span class="hs-keyword">type</span><span> </span><span id="ABifocal"><span class="annot"><a href="Control.Lens.Bifocal.html#ABifocal"><span class="hs-identifier hs-var">ABifocal</span></a></span></span><span> </span><span id="local-6989586621679263341"><span class="annot"><a href="#local-6989586621679263341"><span class="hs-identifier hs-type">s</span></a></span></span><span> </span><span id="local-6989586621679263342"><span class="annot"><a href="#local-6989586621679263342"><span class="hs-identifier hs-type">t</span></a></span></span><span> </span><span id="local-6989586621679263343"><span class="annot"><a href="#local-6989586621679263343"><span class="hs-identifier hs-type">a</span></a></span></span><span> </span><span id="local-6989586621679263344"><span class="annot"><a href="#local-6989586621679263344"><span class="hs-identifier hs-type">b</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
-</span><span id="line-66"></span><span>  </span><span class="annot"><a href="Control.Lens.Bifocal.html#Binocular"><span class="hs-identifier hs-type">Binocular</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679263343"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679263344"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679263343"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="annot"><a href="#local-6989586621679263344"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Control.Lens.Bifocal.html#Binocular"><span class="hs-identifier hs-type">Binocular</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679263343"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679263344"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679263341"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="annot"><a href="#local-6989586621679263342"><span class="hs-identifier hs-type">t</span></a></span><span class="hs-special">)</span><span>
-</span><span id="line-67"></span><span>
-</span><span id="line-68"></span><span class="annot"><span class="hs-comment">{- | `Prismoid`s generalize `Control.Lens.Prism.Prism`s
-&amp; `Control.Lens.Diopter.Diopter`s, combining them,
-&amp; every `Prismoid` is a `Bifocal`. -}</span></span><span>
-</span><span id="line-71"></span><span class="hs-keyword">type</span><span> </span><span id="Prismoid"><span class="annot"><a href="Control.Lens.Bifocal.html#Prismoid"><span class="hs-identifier hs-var">Prismoid</span></a></span></span><span> </span><span id="local-6989586621679263345"><span class="annot"><a href="#local-6989586621679263345"><span class="hs-identifier hs-type">s</span></a></span></span><span> </span><span id="local-6989586621679263346"><span class="annot"><a href="#local-6989586621679263346"><span class="hs-identifier hs-type">t</span></a></span></span><span> </span><span id="local-6989586621679263347"><span class="annot"><a href="#local-6989586621679263347"><span class="hs-identifier hs-type">a</span></a></span></span><span> </span><span id="local-6989586621679263348"><span class="annot"><a href="#local-6989586621679263348"><span class="hs-identifier hs-type">b</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">forall</span><span> </span><span id="local-6989586621679262993"><span class="annot"><a href="#local-6989586621679262993"><span class="hs-identifier hs-type">p</span></a></span></span><span> </span><span id="local-6989586621679262994"><span class="annot"><a href="#local-6989586621679262994"><span class="hs-identifier hs-type">f</span></a></span></span><span class="hs-operator">.</span><span>
-</span><span id="line-72"></span><span>  </span><span class="hs-special">(</span><span class="annot"><a href="Data.Profunctor.Distributor.html#Alternator"><span class="hs-identifier hs-type">Alternator</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679262993"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Alternative</span></span><span> </span><span class="annot"><a href="#local-6989586621679262994"><span class="hs-identifier hs-type">f</span></a></span><span class="hs-special">)</span><span>
-</span><span id="line-73"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679262993"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679263347"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679262994"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679263348"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679262993"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679263345"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679262994"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679263346"><span class="hs-identifier hs-type">t</span></a></span><span class="hs-special">)</span><span>
-</span><span id="line-74"></span><span>
-</span><span id="line-75"></span><span class="annot"><span class="hs-comment">{- | An optic for `Filtrator`s, `Filtroid`s generalize
-`Control.Lens.PartialIso.coPrism`s, &amp; every `Filtroid` is a `Bifocal`. -}</span></span><span>
-</span><span id="line-77"></span><span class="hs-keyword">type</span><span> </span><span id="Filtroid"><span class="annot"><a href="Control.Lens.Bifocal.html#Filtroid"><span class="hs-identifier hs-var">Filtroid</span></a></span></span><span> </span><span id="local-6989586621679263349"><span class="annot"><a href="#local-6989586621679263349"><span class="hs-identifier hs-type">s</span></a></span></span><span> </span><span id="local-6989586621679263350"><span class="annot"><a href="#local-6989586621679263350"><span class="hs-identifier hs-type">t</span></a></span></span><span> </span><span id="local-6989586621679263351"><span class="annot"><a href="#local-6989586621679263351"><span class="hs-identifier hs-type">a</span></a></span></span><span> </span><span id="local-6989586621679263352"><span class="annot"><a href="#local-6989586621679263352"><span class="hs-identifier hs-type">b</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">forall</span><span> </span><span id="local-6989586621679263041"><span class="annot"><a href="#local-6989586621679263041"><span class="hs-identifier hs-type">p</span></a></span></span><span> </span><span id="local-6989586621679263042"><span class="annot"><a href="#local-6989586621679263042"><span class="hs-identifier hs-type">f</span></a></span></span><span class="hs-operator">.</span><span>
-</span><span id="line-78"></span><span>  </span><span class="hs-special">(</span><span class="annot"><a href="Data.Profunctor.Filtrator.html#Filtrator"><span class="hs-identifier hs-type">Filtrator</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679263041"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Filterable</span></span><span> </span><span class="annot"><a href="#local-6989586621679263042"><span class="hs-identifier hs-type">f</span></a></span><span class="hs-special">)</span><span>
-</span><span id="line-79"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679263041"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679263351"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679263042"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679263352"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679263041"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679263349"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679263042"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679263350"><span class="hs-identifier hs-type">t</span></a></span><span class="hs-special">)</span><span>
-</span><span id="line-80"></span><span>
-</span><span id="line-81"></span><span class="annot"><span class="hs-comment">{- | Build a `Bifocal` from a concrete t'Binocular'. -}</span></span><span>
-</span><span id="line-82"></span><span id="local-6989586621679262903"><span id="local-6989586621679262904"><span id="local-6989586621679262905"><span id="local-6989586621679262906"><span class="annot"><a href="Control.Lens.Bifocal.html#bifocal"><span class="hs-identifier hs-type">bifocal</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Control.Lens.Bifocal.html#Binocular"><span class="hs-identifier hs-type">Binocular</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679262903"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679262904"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679262905"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679262906"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Control.Lens.Bifocal.html#Bifocal"><span class="hs-identifier hs-type">Bifocal</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679262905"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679262906"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679262903"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679262904"><span class="hs-identifier hs-type">b</span></a></span></span></span></span></span><span>
-</span><span id="line-83"></span><span id="bifocal"><span class="annot"><span class="annottext">bifocal :: forall a b s t. Binocular a b s t -&gt; Bifocal s t a b
-</span><a href="Control.Lens.Bifocal.html#bifocal"><span class="hs-identifier hs-var hs-var">bifocal</span></a></span></span><span> </span><span id="local-6989586621679263372"><span class="annot"><span class="annottext">Binocular a b s t
-</span><a href="#local-6989586621679263372"><span class="hs-identifier hs-var">bif</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">WrappedPafb f p s t -&gt; p s (f t)
+</span><span id="line-46"></span><span class="hs-keyword">type</span><span> </span><span id="Bifocal"><span class="annot"><a href="Control.Lens.Bifocal.html#Bifocal"><span class="hs-identifier hs-var">Bifocal</span></a></span></span><span> </span><span id="local-6989586621679266191"><span class="annot"><a href="#local-6989586621679266191"><span class="hs-identifier hs-type">s</span></a></span></span><span> </span><span id="local-6989586621679266192"><span class="annot"><a href="#local-6989586621679266192"><span class="hs-identifier hs-type">t</span></a></span></span><span> </span><span id="local-6989586621679266193"><span class="annot"><a href="#local-6989586621679266193"><span class="hs-identifier hs-type">a</span></a></span></span><span> </span><span id="local-6989586621679266194"><span class="annot"><a href="#local-6989586621679266194"><span class="hs-identifier hs-type">b</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">forall</span><span> </span><span id="local-6989586621679266195"><span class="annot"><a href="#local-6989586621679266195"><span class="hs-identifier hs-type">p</span></a></span></span><span> </span><span id="local-6989586621679266196"><span class="annot"><a href="#local-6989586621679266196"><span class="hs-identifier hs-type">f</span></a></span></span><span class="hs-operator">.</span><span>
+</span><span id="line-47"></span><span>  </span><span class="hs-special">(</span><span class="annot"><a href="Data.Profunctor.Distributor.html#Alternator"><span class="hs-identifier hs-type">Alternator</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679266195"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Applicative</span></span><span> </span><span class="annot"><a href="#local-6989586621679266196"><span class="hs-identifier hs-type">f</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Filterable</span></span><span> </span><span class="annot"><a href="#local-6989586621679266196"><span class="hs-identifier hs-type">f</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-48"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679266195"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679266193"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679266196"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679266194"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679266195"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679266191"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679266196"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679266192"><span class="hs-identifier hs-type">t</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-49"></span><span>
+</span><span id="line-50"></span><span class="annot"><span class="hs-comment">{- | `ABifocal` is monomorphically a `Bifocal`. -}</span></span><span>
+</span><span id="line-51"></span><span class="hs-keyword">type</span><span> </span><span id="ABifocal"><span class="annot"><a href="Control.Lens.Bifocal.html#ABifocal"><span class="hs-identifier hs-var">ABifocal</span></a></span></span><span> </span><span id="local-6989586621679266197"><span class="annot"><a href="#local-6989586621679266197"><span class="hs-identifier hs-type">s</span></a></span></span><span> </span><span id="local-6989586621679266198"><span class="annot"><a href="#local-6989586621679266198"><span class="hs-identifier hs-type">t</span></a></span></span><span> </span><span id="local-6989586621679266199"><span class="annot"><a href="#local-6989586621679266199"><span class="hs-identifier hs-type">a</span></a></span></span><span> </span><span id="local-6989586621679266200"><span class="annot"><a href="#local-6989586621679266200"><span class="hs-identifier hs-type">b</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-52"></span><span>  </span><span class="annot"><a href="Control.Lens.Bifocal.html#Binocular"><span class="hs-identifier hs-type">Binocular</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679266199"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679266200"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679266199"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="annot"><a href="#local-6989586621679266200"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Control.Lens.Bifocal.html#Binocular"><span class="hs-identifier hs-type">Binocular</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679266199"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679266200"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679266197"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="annot"><a href="#local-6989586621679266198"><span class="hs-identifier hs-type">t</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-53"></span><span>
+</span><span id="line-54"></span><span class="annot"><span class="hs-comment">{- | Build a `Bifocal` from a concrete t'Binocular'. -}</span></span><span>
+</span><span id="line-55"></span><span id="local-6989586621679265862"><span id="local-6989586621679265863"><span id="local-6989586621679265864"><span id="local-6989586621679265865"><span class="annot"><a href="Control.Lens.Bifocal.html#bifocal"><span class="hs-identifier hs-type">bifocal</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Control.Lens.Bifocal.html#Binocular"><span class="hs-identifier hs-type">Binocular</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265862"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265863"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265864"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265865"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Control.Lens.Bifocal.html#Bifocal"><span class="hs-identifier hs-type">Bifocal</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265864"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265865"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265862"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265863"><span class="hs-identifier hs-type">b</span></a></span></span></span></span></span><span>
+</span><span id="line-56"></span><span id="bifocal"><span class="annot"><span class="annottext">bifocal :: forall a b s t. Binocular a b s t -&gt; Bifocal s t a b
+</span><a href="Control.Lens.Bifocal.html#bifocal"><span class="hs-identifier hs-var hs-var">bifocal</span></a></span></span><span> </span><span id="local-6989586621679266217"><span class="annot"><span class="annottext">Binocular a b s t
+</span><a href="#local-6989586621679266217"><span class="hs-identifier hs-var">bif</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">WrappedPafb f p s t -&gt; p s (f t)
 forall (f :: * -&gt; *) (p :: * -&gt; * -&gt; *) a b.
 WrappedPafb f p a b -&gt; p a (f b)
 </span><span class="hs-identifier hs-var">unwrapPafb</span></span><span> </span><span class="annot"><span class="annottext">(WrappedPafb f p s t -&gt; p s (f t))
@@ -93,7 +66,7 @@ forall (p :: * -&gt; * -&gt; *) a b s t.
 (Alternator p, Filtrator p) =&gt;
 Binocular a b s t -&gt; p a b -&gt; p s t
 </span><a href="Control.Lens.Bifocal.html#runBinocular"><span class="hs-identifier hs-var">runBinocular</span></a></span><span> </span><span class="annot"><span class="annottext">Binocular a b s t
-</span><a href="#local-6989586621679263372"><span class="hs-identifier hs-var">bif</span></a></span><span> </span><span class="annot"><span class="annottext">(WrappedPafb f p a b -&gt; WrappedPafb f p s t)
+</span><a href="#local-6989586621679266217"><span class="hs-identifier hs-var">bif</span></a></span><span> </span><span class="annot"><span class="annottext">(WrappedPafb f p a b -&gt; WrappedPafb f p s t)
 -&gt; (p a (f b) -&gt; WrappedPafb f p a b)
 -&gt; p a (f b)
 -&gt; WrappedPafb f p s t
@@ -102,42 +75,42 @@ forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
 forall (f :: * -&gt; *) (p :: * -&gt; * -&gt; *) a b.
 p a (f b) -&gt; WrappedPafb f p a b
 </span><span class="hs-identifier hs-var">WrapPafb</span></span><span>
-</span><span id="line-84"></span><span>
-</span><span id="line-85"></span><span class="annot"><span class="hs-comment">{- | Action of `ABifocal` on partial `Distributor`s. -}</span></span><span>
-</span><span id="line-86"></span><span id="local-6989586621679262951"><span id="local-6989586621679262952"><span id="local-6989586621679262953"><span id="local-6989586621679262954"><span id="local-6989586621679262955"><span class="annot"><a href="Control.Lens.Bifocal.html#mapBifocal"><span class="hs-identifier hs-type">mapBifocal</span></a></span><span>
-</span><span id="line-87"></span><span>  </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.Profunctor.Distributor.html#Alternator"><span class="hs-identifier hs-type">Alternator</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679262951"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Data.Profunctor.Filtrator.html#Filtrator"><span class="hs-identifier hs-type">Filtrator</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679262951"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">)</span><span>
-</span><span id="line-88"></span><span>  </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Control.Lens.Bifocal.html#ABifocal"><span class="hs-identifier hs-type">ABifocal</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679262952"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679262953"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679262954"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679262955"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679262951"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679262954"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679262955"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679262951"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679262952"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679262953"><span class="hs-identifier hs-type">t</span></a></span></span></span></span></span></span><span>
-</span><span id="line-89"></span><span id="mapBifocal"><span class="annot"><span class="annottext">mapBifocal :: forall (p :: * -&gt; * -&gt; *) s t a b.
+</span><span id="line-57"></span><span>
+</span><span id="line-58"></span><span class="annot"><span class="hs-comment">{- | Action of `ABifocal` on partial `Distributor`s. -}</span></span><span>
+</span><span id="line-59"></span><span id="local-6989586621679265908"><span id="local-6989586621679265909"><span id="local-6989586621679265910"><span id="local-6989586621679265911"><span id="local-6989586621679265912"><span class="annot"><a href="Control.Lens.Bifocal.html#mapBifocal"><span class="hs-identifier hs-type">mapBifocal</span></a></span><span>
+</span><span id="line-60"></span><span>  </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.Profunctor.Distributor.html#Alternator"><span class="hs-identifier hs-type">Alternator</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265908"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Data.Profunctor.Filtrator.html#Filtrator"><span class="hs-identifier hs-type">Filtrator</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265908"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-61"></span><span>  </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Control.Lens.Bifocal.html#ABifocal"><span class="hs-identifier hs-type">ABifocal</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265909"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265910"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265911"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265912"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679265908"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265911"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265912"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679265908"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265909"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265910"><span class="hs-identifier hs-type">t</span></a></span></span></span></span></span></span><span>
+</span><span id="line-62"></span><span id="mapBifocal"><span class="annot"><span class="annottext">mapBifocal :: forall (p :: * -&gt; * -&gt; *) s t a b.
 (Alternator p, Filtrator p) =&gt;
 ABifocal s t a b -&gt; p a b -&gt; p s t
-</span><a href="Control.Lens.Bifocal.html#mapBifocal"><span class="hs-identifier hs-var hs-var">mapBifocal</span></a></span></span><span> </span><span id="local-6989586621679263392"><span class="annot"><span class="annottext">ABifocal s t a b
-</span><a href="#local-6989586621679263392"><span class="hs-identifier hs-var">bif</span></a></span></span><span> </span><span id="local-6989586621679263393"><span class="annot"><span class="annottext">p a b
-</span><a href="#local-6989586621679263393"><span class="hs-identifier hs-var">p</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ABifocal s t a b -&gt; ((s -&gt; Maybe a) -&gt; p s b) -&gt; p s t
+</span><a href="Control.Lens.Bifocal.html#mapBifocal"><span class="hs-identifier hs-var hs-var">mapBifocal</span></a></span></span><span> </span><span id="local-6989586621679266237"><span class="annot"><span class="annottext">ABifocal s t a b
+</span><a href="#local-6989586621679266237"><span class="hs-identifier hs-var">bif</span></a></span></span><span> </span><span id="local-6989586621679266238"><span class="annot"><span class="annottext">p a b
+</span><a href="#local-6989586621679266238"><span class="hs-identifier hs-var">p</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ABifocal s t a b -&gt; ((s -&gt; Maybe a) -&gt; p s b) -&gt; p s t
 forall (f :: * -&gt; *) s t a b.
 (Alternative f, Filterable f) =&gt;
 ABifocal s t a b -&gt; ((s -&gt; Maybe a) -&gt; f b) -&gt; f t
 </span><a href="Control.Lens.Bifocal.html#withBifocal"><span class="hs-identifier hs-var">withBifocal</span></a></span><span> </span><span class="annot"><span class="annottext">ABifocal s t a b
-</span><a href="#local-6989586621679263392"><span class="hs-identifier hs-var">bif</span></a></span><span> </span><span class="annot"><span class="annottext">(((s -&gt; Maybe a) -&gt; p s b) -&gt; p s t)
+</span><a href="#local-6989586621679266237"><span class="hs-identifier hs-var">bif</span></a></span><span> </span><span class="annot"><span class="annottext">(((s -&gt; Maybe a) -&gt; p s b) -&gt; p s t)
 -&gt; ((s -&gt; Maybe a) -&gt; p s b) -&gt; p s t
 forall a b. (a -&gt; b) -&gt; a -&gt; b
-</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679263394"><span class="annot"><span class="annottext">s -&gt; Maybe a
-</span><a href="#local-6989586621679263394"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">(s -&gt; Maybe a) -&gt; (b -&gt; Maybe b) -&gt; p a b -&gt; p s b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679266239"><span class="annot"><span class="annottext">s -&gt; Maybe a
+</span><a href="#local-6989586621679266239"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">(s -&gt; Maybe a) -&gt; (b -&gt; Maybe b) -&gt; p a b -&gt; p s b
 forall (p :: * -&gt; * -&gt; *) s a b t.
 (Choice p, Cochoice p) =&gt;
 (s -&gt; Maybe a) -&gt; (b -&gt; Maybe t) -&gt; p a b -&gt; p s t
 </span><a href="Control.Lens.PartialIso.html#dimapMaybe"><span class="hs-identifier hs-var">dimapMaybe</span></a></span><span> </span><span class="annot"><span class="annottext">s -&gt; Maybe a
-</span><a href="#local-6989586621679263394"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">b -&gt; Maybe b
+</span><a href="#local-6989586621679266239"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">b -&gt; Maybe b
 forall a. a -&gt; Maybe a
 </span><span class="hs-identifier hs-var">Just</span></span><span> </span><span class="annot"><span class="annottext">p a b
-</span><a href="#local-6989586621679263393"><span class="hs-identifier hs-var">p</span></a></span><span>
-</span><span id="line-90"></span><span>
-</span><span id="line-91"></span><span class="annot"><span class="hs-comment">{- | Clone `ABifocal` so that you can reuse the same
+</span><a href="#local-6989586621679266238"><span class="hs-identifier hs-var">p</span></a></span><span>
+</span><span id="line-63"></span><span>
+</span><span id="line-64"></span><span class="annot"><span class="hs-comment">{- | Clone `ABifocal` so that you can reuse the same
 monomorphically typed `Bifocal` for different purposes.
 -}</span></span><span>
-</span><span id="line-94"></span><span id="local-6989586621679262983"><span id="local-6989586621679262984"><span id="local-6989586621679262985"><span id="local-6989586621679262986"><span class="annot"><a href="Control.Lens.Bifocal.html#cloneBifocal"><span class="hs-identifier hs-type">cloneBifocal</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Control.Lens.Bifocal.html#ABifocal"><span class="hs-identifier hs-type">ABifocal</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679262983"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679262984"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679262985"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679262986"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Control.Lens.Bifocal.html#Bifocal"><span class="hs-identifier hs-type">Bifocal</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679262983"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679262984"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679262985"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679262986"><span class="hs-identifier hs-type">b</span></a></span></span></span></span></span><span>
-</span><span id="line-95"></span><span id="cloneBifocal"><span class="annot"><span class="annottext">cloneBifocal :: forall s t a b. ABifocal s t a b -&gt; Bifocal s t a b
-</span><a href="Control.Lens.Bifocal.html#cloneBifocal"><span class="hs-identifier hs-var hs-var">cloneBifocal</span></a></span></span><span> </span><span id="local-6989586621679263409"><span class="annot"><span class="annottext">ABifocal s t a b
-</span><a href="#local-6989586621679263409"><span class="hs-identifier hs-var">bif</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">WrappedPafb f p s t -&gt; p s (f t)
+</span><span id="line-67"></span><span id="local-6989586621679265941"><span id="local-6989586621679265942"><span id="local-6989586621679265943"><span id="local-6989586621679265944"><span class="annot"><a href="Control.Lens.Bifocal.html#cloneBifocal"><span class="hs-identifier hs-type">cloneBifocal</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Control.Lens.Bifocal.html#ABifocal"><span class="hs-identifier hs-type">ABifocal</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265941"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265942"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265943"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265944"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Control.Lens.Bifocal.html#Bifocal"><span class="hs-identifier hs-type">Bifocal</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265941"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265942"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265943"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265944"><span class="hs-identifier hs-type">b</span></a></span></span></span></span></span><span>
+</span><span id="line-68"></span><span id="cloneBifocal"><span class="annot"><span class="annottext">cloneBifocal :: forall s t a b. ABifocal s t a b -&gt; Bifocal s t a b
+</span><a href="Control.Lens.Bifocal.html#cloneBifocal"><span class="hs-identifier hs-var hs-var">cloneBifocal</span></a></span></span><span> </span><span id="local-6989586621679266252"><span class="annot"><span class="annottext">ABifocal s t a b
+</span><a href="#local-6989586621679266252"><span class="hs-identifier hs-var">bif</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">WrappedPafb f p s t -&gt; p s (f t)
 forall (f :: * -&gt; *) (p :: * -&gt; * -&gt; *) a b.
 WrappedPafb f p a b -&gt; p a (f b)
 </span><span class="hs-identifier hs-var">unwrapPafb</span></span><span> </span><span class="annot"><span class="annottext">(WrappedPafb f p s t -&gt; p s (f t))
@@ -148,7 +121,7 @@ forall (p :: * -&gt; * -&gt; *) s t a b.
 (Alternator p, Filtrator p) =&gt;
 ABifocal s t a b -&gt; p a b -&gt; p s t
 </span><a href="Control.Lens.Bifocal.html#mapBifocal"><span class="hs-identifier hs-var">mapBifocal</span></a></span><span> </span><span class="annot"><span class="annottext">ABifocal s t a b
-</span><a href="#local-6989586621679263409"><span class="hs-identifier hs-var">bif</span></a></span><span> </span><span class="annot"><span class="annottext">(WrappedPafb f p a b -&gt; WrappedPafb f p s t)
+</span><a href="#local-6989586621679266252"><span class="hs-identifier hs-var">bif</span></a></span><span> </span><span class="annot"><span class="annottext">(WrappedPafb f p a b -&gt; WrappedPafb f p s t)
 -&gt; (p a (f b) -&gt; WrappedPafb f p a b)
 -&gt; p a (f b)
 -&gt; WrappedPafb f p s t
@@ -157,342 +130,16 @@ forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
 forall (f :: * -&gt; *) (p :: * -&gt; * -&gt; *) a b.
 p a (f b) -&gt; WrappedPafb f p a b
 </span><span class="hs-identifier hs-var">WrapPafb</span></span><span>
-</span><span id="line-96"></span><span>
-</span><span id="line-97"></span><span class="annot"><span class="hs-comment">{- | One or more. -}</span></span><span>
-</span><span id="line-98"></span><span id="local-6989586621679262995"><span id="local-6989586621679262996"><span class="annot"><a href="Control.Lens.Bifocal.html#somed"><span class="hs-identifier hs-type">somed</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Control.Lens.Bifocal.html#Prismoid"><span class="hs-identifier hs-type">Prismoid</span></a></span><span> </span><span class="hs-special">[</span><span class="annot"><a href="#local-6989586621679262995"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">]</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="#local-6989586621679262996"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">]</span><span> </span><span class="annot"><a href="#local-6989586621679262995"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679262996"><span class="hs-identifier hs-type">b</span></a></span></span></span><span>
-</span><span id="line-99"></span><span id="somed"><span class="annot"><span class="annottext">somed :: forall a b (p :: * -&gt; * -&gt; *) (f :: * -&gt; *).
-(Alternator p, Alternative f) =&gt;
-p a (f b) -&gt; p [a] (f [b])
-</span><a href="Control.Lens.Bifocal.html#somed"><span class="hs-identifier hs-var hs-var">somed</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">WrappedPafb f p [a] [b] -&gt; p [a] (f [b])
-forall (f :: * -&gt; *) (p :: * -&gt; * -&gt; *) a b.
-WrappedPafb f p a b -&gt; p a (f b)
-</span><span class="hs-identifier hs-var">unwrapPafb</span></span><span> </span><span class="annot"><span class="annottext">(WrappedPafb f p [a] [b] -&gt; p [a] (f [b]))
--&gt; (p a (f b) -&gt; WrappedPafb f p [a] [b])
--&gt; p a (f b)
--&gt; p [a] (f [b])
-forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
-</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">WrappedPafb f p a b -&gt; WrappedPafb f p [a] [b]
-forall a b. WrappedPafb f p a b -&gt; WrappedPafb f p [a] [b]
-forall (p :: * -&gt; * -&gt; *) a b. Alternator p =&gt; p a b -&gt; p [a] [b]
-</span><a href="Data.Profunctor.Distributor.html#someP"><span class="hs-identifier hs-var">someP</span></a></span><span> </span><span class="annot"><span class="annottext">(WrappedPafb f p a b -&gt; WrappedPafb f p [a] [b])
--&gt; (p a (f b) -&gt; WrappedPafb f p a b)
--&gt; p a (f b)
--&gt; WrappedPafb f p [a] [b]
-forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
-</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">p a (f b) -&gt; WrappedPafb f p a b
-forall (f :: * -&gt; *) (p :: * -&gt; * -&gt; *) a b.
-p a (f b) -&gt; WrappedPafb f p a b
-</span><span class="hs-identifier hs-var">WrapPafb</span></span><span>
-</span><span id="line-100"></span><span>
-</span><span id="line-101"></span><span class="annot"><span class="hs-comment">{- | One or zero with default. -}</span></span><span>
-</span><span id="line-102"></span><span id="local-6989586621679263003"><span id="local-6989586621679263004"><span class="annot"><a href="Control.Lens.Bifocal.html#opted"><span class="hs-identifier hs-type">opted</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">APrism</span></span><span> </span><span class="annot"><a href="#local-6989586621679263003"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679263004"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Control.Lens.Bifocal.html#Prismoid"><span class="hs-identifier hs-type">Prismoid</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679263003"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679263004"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679263003"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679263004"><span class="hs-identifier hs-type">b</span></a></span></span></span><span>
-</span><span id="line-103"></span><span id="opted"><span class="annot"><span class="annottext">opted :: forall a b. APrism a b () () -&gt; Prismoid a b a b
-</span><a href="Control.Lens.Bifocal.html#opted"><span class="hs-identifier hs-var hs-var">opted</span></a></span></span><span> </span><span id="local-6989586621679263419"><span class="annot"><span class="annottext">APrism a b () ()
-</span><a href="#local-6989586621679263419"><span class="hs-identifier hs-var">def</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">WrappedPafb f p a b -&gt; p a (f b)
-forall (f :: * -&gt; *) (p :: * -&gt; * -&gt; *) a b.
-WrappedPafb f p a b -&gt; p a (f b)
-</span><span class="hs-identifier hs-var">unwrapPafb</span></span><span> </span><span class="annot"><span class="annottext">(WrappedPafb f p a b -&gt; p a (f b))
--&gt; (p a (f b) -&gt; WrappedPafb f p a b) -&gt; p a (f b) -&gt; p a (f b)
-forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
-</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">APrism a b () () -&gt; WrappedPafb f p a b -&gt; WrappedPafb f p a b
-forall a b.
-APrism a b () () -&gt; WrappedPafb f p a b -&gt; WrappedPafb f p a b
-forall (p :: * -&gt; * -&gt; *) a b.
-Alternator p =&gt;
-APrism a b () () -&gt; p a b -&gt; p a b
-</span><a href="Data.Profunctor.Distributor.html#optionP"><span class="hs-identifier hs-var">optionP</span></a></span><span> </span><span class="annot"><span class="annottext">APrism a b () ()
-</span><a href="#local-6989586621679263419"><span class="hs-identifier hs-var">def</span></a></span><span> </span><span class="annot"><span class="annottext">(WrappedPafb f p a b -&gt; WrappedPafb f p a b)
--&gt; (p a (f b) -&gt; WrappedPafb f p a b)
--&gt; p a (f b)
--&gt; WrappedPafb f p a b
-forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
-</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">p a (f b) -&gt; WrappedPafb f p a b
-forall (f :: * -&gt; *) (p :: * -&gt; * -&gt; *) a b.
-p a (f b) -&gt; WrappedPafb f p a b
-</span><span class="hs-identifier hs-var">WrapPafb</span></span><span>
-</span><span id="line-104"></span><span>
-</span><span id="line-105"></span><span class="annot"><span class="hs-comment">{- | `lefted` is like `_Left`, except
-with heterogeneous `Right` parameters. -}</span></span><span>
-</span><span id="line-107"></span><span id="local-6989586621679263013"><span id="local-6989586621679263014"><span id="local-6989586621679263015"><span id="local-6989586621679263016"><span class="annot"><a href="Control.Lens.Bifocal.html#lefted"><span class="hs-identifier hs-type">lefted</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Control.Lens.Bifocal.html#Prismoid"><span class="hs-identifier hs-type">Prismoid</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Either</span></span><span> </span><span class="annot"><a href="#local-6989586621679263013"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679263015"><span class="hs-identifier hs-type">c</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Either</span></span><span> </span><span class="annot"><a href="#local-6989586621679263014"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679263016"><span class="hs-identifier hs-type">d</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621679263013"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679263014"><span class="hs-identifier hs-type">b</span></a></span></span></span></span></span><span>
-</span><span id="line-108"></span><span id="lefted"><span class="annot"><span class="annottext">lefted :: forall a c b d (p :: * -&gt; * -&gt; *) (f :: * -&gt; *).
-(Alternator p, Alternative f) =&gt;
-p a (f b) -&gt; p (Either a c) (f (Either b d))
-</span><a href="Control.Lens.Bifocal.html#lefted"><span class="hs-identifier hs-var hs-var">lefted</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">WrappedPafb f p (Either a c) (Either b d)
--&gt; p (Either a c) (f (Either b d))
-forall (f :: * -&gt; *) (p :: * -&gt; * -&gt; *) a b.
-WrappedPafb f p a b -&gt; p a (f b)
-</span><span class="hs-identifier hs-var">unwrapPafb</span></span><span> </span><span class="annot"><span class="annottext">(WrappedPafb f p (Either a c) (Either b d)
- -&gt; p (Either a c) (f (Either b d)))
--&gt; (p a (f b) -&gt; WrappedPafb f p (Either a c) (Either b d))
--&gt; p a (f b)
--&gt; p (Either a c) (f (Either b d))
-forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
-</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Either (WrappedPafb f p a b) (WrappedPafb f p c d)
--&gt; WrappedPafb f p (Either a c) (Either b d)
-forall a b c d.
-Either (WrappedPafb f p a b) (WrappedPafb f p c d)
--&gt; WrappedPafb f p (Either a c) (Either b d)
-forall (p :: * -&gt; * -&gt; *) a b c d.
-CocartesianChoice p =&gt;
-Either (p a b) (p c d) -&gt; p (Either a c) (Either b d)
-</span><a href="Data.Profunctor.Monoidal.Cocartesian.html#alternate"><span class="hs-identifier hs-var">alternate</span></a></span><span> </span><span class="annot"><span class="annottext">(Either (WrappedPafb f p a b) (WrappedPafb f p c d)
- -&gt; WrappedPafb f p (Either a c) (Either b d))
--&gt; (p a (f b)
-    -&gt; Either (WrappedPafb f p a b) (WrappedPafb f p c d))
--&gt; p a (f b)
--&gt; WrappedPafb f p (Either a c) (Either b d)
-forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
-</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">WrappedPafb f p a b
--&gt; Either (WrappedPafb f p a b) (WrappedPafb f p c d)
-forall a b. a -&gt; Either a b
-</span><span class="hs-identifier hs-var">Left</span></span><span> </span><span class="annot"><span class="annottext">(WrappedPafb f p a b
- -&gt; Either (WrappedPafb f p a b) (WrappedPafb f p c d))
--&gt; (p a (f b) -&gt; WrappedPafb f p a b)
--&gt; p a (f b)
--&gt; Either (WrappedPafb f p a b) (WrappedPafb f p c d)
-forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
-</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">p a (f b) -&gt; WrappedPafb f p a b
-forall (f :: * -&gt; *) (p :: * -&gt; * -&gt; *) a b.
-p a (f b) -&gt; WrappedPafb f p a b
-</span><span class="hs-identifier hs-var">WrapPafb</span></span><span>
-</span><span id="line-109"></span><span>
-</span><span id="line-110"></span><span>
-</span><span id="line-111"></span><span class="annot"><span class="hs-comment">{- | `righted` is like `_Right`, except
-with heterogeneous `Left` parameters. -}</span></span><span>
-</span><span id="line-113"></span><span id="local-6989586621679263031"><span id="local-6989586621679263032"><span id="local-6989586621679263033"><span id="local-6989586621679263034"><span class="annot"><a href="Control.Lens.Bifocal.html#righted"><span class="hs-identifier hs-type">righted</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Control.Lens.Bifocal.html#Prismoid"><span class="hs-identifier hs-type">Prismoid</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Either</span></span><span> </span><span class="annot"><a href="#local-6989586621679263033"><span class="hs-identifier hs-type">c</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679263031"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Either</span></span><span> </span><span class="annot"><a href="#local-6989586621679263034"><span class="hs-identifier hs-type">d</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679263032"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621679263031"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679263032"><span class="hs-identifier hs-type">b</span></a></span></span></span></span></span><span>
-</span><span id="line-114"></span><span id="righted"><span class="annot"><span class="annottext">righted :: forall c a d b (p :: * -&gt; * -&gt; *) (f :: * -&gt; *).
-(Alternator p, Alternative f) =&gt;
-p a (f b) -&gt; p (Either c a) (f (Either d b))
-</span><a href="Control.Lens.Bifocal.html#righted"><span class="hs-identifier hs-var hs-var">righted</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">WrappedPafb f p (Either c a) (Either d b)
--&gt; p (Either c a) (f (Either d b))
-forall (f :: * -&gt; *) (p :: * -&gt; * -&gt; *) a b.
-WrappedPafb f p a b -&gt; p a (f b)
-</span><span class="hs-identifier hs-var">unwrapPafb</span></span><span> </span><span class="annot"><span class="annottext">(WrappedPafb f p (Either c a) (Either d b)
- -&gt; p (Either c a) (f (Either d b)))
--&gt; (p a (f b) -&gt; WrappedPafb f p (Either c a) (Either d b))
--&gt; p a (f b)
--&gt; p (Either c a) (f (Either d b))
-forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
-</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Either (WrappedPafb f p c d) (WrappedPafb f p a b)
--&gt; WrappedPafb f p (Either c a) (Either d b)
-forall a b c d.
-Either (WrappedPafb f p a b) (WrappedPafb f p c d)
--&gt; WrappedPafb f p (Either a c) (Either b d)
-forall (p :: * -&gt; * -&gt; *) a b c d.
-CocartesianChoice p =&gt;
-Either (p a b) (p c d) -&gt; p (Either a c) (Either b d)
-</span><a href="Data.Profunctor.Monoidal.Cocartesian.html#alternate"><span class="hs-identifier hs-var">alternate</span></a></span><span> </span><span class="annot"><span class="annottext">(Either (WrappedPafb f p c d) (WrappedPafb f p a b)
- -&gt; WrappedPafb f p (Either c a) (Either d b))
--&gt; (p a (f b)
-    -&gt; Either (WrappedPafb f p c d) (WrappedPafb f p a b))
--&gt; p a (f b)
--&gt; WrappedPafb f p (Either c a) (Either d b)
-forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
-</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">WrappedPafb f p a b
--&gt; Either (WrappedPafb f p c d) (WrappedPafb f p a b)
-forall a b. b -&gt; Either a b
-</span><span class="hs-identifier hs-var">Right</span></span><span> </span><span class="annot"><span class="annottext">(WrappedPafb f p a b
- -&gt; Either (WrappedPafb f p c d) (WrappedPafb f p a b))
--&gt; (p a (f b) -&gt; WrappedPafb f p a b)
--&gt; p a (f b)
--&gt; Either (WrappedPafb f p c d) (WrappedPafb f p a b)
-forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
-</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">p a (f b) -&gt; WrappedPafb f p a b
-forall (f :: * -&gt; *) (p :: * -&gt; * -&gt; *) a b.
-p a (f b) -&gt; WrappedPafb f p a b
-</span><span class="hs-identifier hs-var">WrapPafb</span></span><span>
-</span><span id="line-115"></span><span>
-</span><span id="line-116"></span><span class="annot"><span class="hs-comment">{- | Dual to `lefted`. -}</span></span><span>
-</span><span id="line-117"></span><span id="local-6989586621679263043"><span id="local-6989586621679263044"><span id="local-6989586621679263045"><span id="local-6989586621679263046"><span class="annot"><a href="Control.Lens.Bifocal.html#unlefted"><span class="hs-identifier hs-type">unlefted</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Control.Lens.Bifocal.html#Filtroid"><span class="hs-identifier hs-type">Filtroid</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679263043"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679263045"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Either</span></span><span> </span><span class="annot"><a href="#local-6989586621679263043"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679263044"><span class="hs-identifier hs-type">c</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Either</span></span><span> </span><span class="annot"><a href="#local-6989586621679263045"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679263046"><span class="hs-identifier hs-type">d</span></a></span><span class="hs-special">)</span></span></span></span></span><span>
-</span><span id="line-118"></span><span id="unlefted"><span class="annot"><span class="annottext">unlefted :: forall a b c d (p :: * -&gt; * -&gt; *) (f :: * -&gt; *).
-(Filtrator p, Filterable f) =&gt;
-p (Either a c) (f (Either b d)) -&gt; p a (f b)
-</span><a href="Control.Lens.Bifocal.html#unlefted"><span class="hs-identifier hs-var hs-var">unlefted</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">WrappedPafb f p a b -&gt; p a (f b)
-forall (f :: * -&gt; *) (p :: * -&gt; * -&gt; *) a b.
-WrappedPafb f p a b -&gt; p a (f b)
-</span><span class="hs-identifier hs-var">unwrapPafb</span></span><span> </span><span class="annot"><span class="annottext">(WrappedPafb f p a b -&gt; p a (f b))
--&gt; (p (Either a c) (f (Either b d)) -&gt; WrappedPafb f p a b)
--&gt; p (Either a c) (f (Either b d))
--&gt; p a (f b)
-forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
-</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">(WrappedPafb f p a b, WrappedPafb f p c d) -&gt; WrappedPafb f p a b
-forall a b. (a, b) -&gt; a
-</span><span class="hs-identifier hs-var">fst</span></span><span> </span><span class="annot"><span class="annottext">((WrappedPafb f p a b, WrappedPafb f p c d) -&gt; WrappedPafb f p a b)
--&gt; (p (Either a c) (f (Either b d))
-    -&gt; (WrappedPafb f p a b, WrappedPafb f p c d))
--&gt; p (Either a c) (f (Either b d))
--&gt; WrappedPafb f p a b
-forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
-</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">WrappedPafb f p (Either a c) (Either b d)
--&gt; (WrappedPafb f p a b, WrappedPafb f p c d)
-forall a c b d.
-WrappedPafb f p (Either a c) (Either b d)
--&gt; (WrappedPafb f p a b, WrappedPafb f p c d)
-forall (p :: * -&gt; * -&gt; *) a c b d.
-Filtrator p =&gt;
-p (Either a c) (Either b d) -&gt; (p a b, p c d)
-</span><a href="Data.Profunctor.Filtrator.html#filtrate"><span class="hs-identifier hs-var">filtrate</span></a></span><span> </span><span class="annot"><span class="annottext">(WrappedPafb f p (Either a c) (Either b d)
- -&gt; (WrappedPafb f p a b, WrappedPafb f p c d))
--&gt; (p (Either a c) (f (Either b d))
-    -&gt; WrappedPafb f p (Either a c) (Either b d))
--&gt; p (Either a c) (f (Either b d))
--&gt; (WrappedPafb f p a b, WrappedPafb f p c d)
-forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
-</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">p (Either a c) (f (Either b d))
--&gt; WrappedPafb f p (Either a c) (Either b d)
-forall (f :: * -&gt; *) (p :: * -&gt; * -&gt; *) a b.
-p a (f b) -&gt; WrappedPafb f p a b
-</span><span class="hs-identifier hs-var">WrapPafb</span></span><span>
-</span><span id="line-119"></span><span>
-</span><span id="line-120"></span><span class="annot"><span class="hs-comment">{- | Dual to `righted`. -}</span></span><span>
-</span><span id="line-121"></span><span id="local-6989586621679263061"><span id="local-6989586621679263062"><span id="local-6989586621679263063"><span id="local-6989586621679263064"><span class="annot"><a href="Control.Lens.Bifocal.html#unrighted"><span class="hs-identifier hs-type">unrighted</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Control.Lens.Bifocal.html#Filtroid"><span class="hs-identifier hs-type">Filtroid</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679263062"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679263064"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Either</span></span><span> </span><span class="annot"><a href="#local-6989586621679263061"><span class="hs-identifier hs-type">c</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679263062"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Either</span></span><span> </span><span class="annot"><a href="#local-6989586621679263063"><span class="hs-identifier hs-type">d</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679263064"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span></span></span></span></span><span>
-</span><span id="line-122"></span><span id="unrighted"><span class="annot"><span class="annottext">unrighted :: forall a b c d (p :: * -&gt; * -&gt; *) (f :: * -&gt; *).
-(Filtrator p, Filterable f) =&gt;
-p (Either c a) (f (Either d b)) -&gt; p a (f b)
-</span><a href="Control.Lens.Bifocal.html#unrighted"><span class="hs-identifier hs-var hs-var">unrighted</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">WrappedPafb f p a b -&gt; p a (f b)
-forall (f :: * -&gt; *) (p :: * -&gt; * -&gt; *) a b.
-WrappedPafb f p a b -&gt; p a (f b)
-</span><span class="hs-identifier hs-var">unwrapPafb</span></span><span> </span><span class="annot"><span class="annottext">(WrappedPafb f p a b -&gt; p a (f b))
--&gt; (p (Either c a) (f (Either d b)) -&gt; WrappedPafb f p a b)
--&gt; p (Either c a) (f (Either d b))
--&gt; p a (f b)
-forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
-</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">(WrappedPafb f p c d, WrappedPafb f p a b) -&gt; WrappedPafb f p a b
-forall a b. (a, b) -&gt; b
-</span><span class="hs-identifier hs-var">snd</span></span><span> </span><span class="annot"><span class="annottext">((WrappedPafb f p c d, WrappedPafb f p a b) -&gt; WrappedPafb f p a b)
--&gt; (p (Either c a) (f (Either d b))
-    -&gt; (WrappedPafb f p c d, WrappedPafb f p a b))
--&gt; p (Either c a) (f (Either d b))
--&gt; WrappedPafb f p a b
-forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
-</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">WrappedPafb f p (Either c a) (Either d b)
--&gt; (WrappedPafb f p c d, WrappedPafb f p a b)
-forall a c b d.
-WrappedPafb f p (Either a c) (Either b d)
--&gt; (WrappedPafb f p a b, WrappedPafb f p c d)
-forall (p :: * -&gt; * -&gt; *) a c b d.
-Filtrator p =&gt;
-p (Either a c) (Either b d) -&gt; (p a b, p c d)
-</span><a href="Data.Profunctor.Filtrator.html#filtrate"><span class="hs-identifier hs-var">filtrate</span></a></span><span> </span><span class="annot"><span class="annottext">(WrappedPafb f p (Either c a) (Either d b)
- -&gt; (WrappedPafb f p c d, WrappedPafb f p a b))
--&gt; (p (Either c a) (f (Either d b))
-    -&gt; WrappedPafb f p (Either c a) (Either d b))
--&gt; p (Either c a) (f (Either d b))
--&gt; (WrappedPafb f p c d, WrappedPafb f p a b)
-forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
-</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">p (Either c a) (f (Either d b))
--&gt; WrappedPafb f p (Either c a) (Either d b)
-forall (f :: * -&gt; *) (p :: * -&gt; * -&gt; *) a b.
-p a (f b) -&gt; WrappedPafb f p a b
-</span><span class="hs-identifier hs-var">WrapPafb</span></span><span>
-</span><span id="line-123"></span><span>
-</span><span id="line-124"></span><span class="annot"><span class="hs-comment">{- |
-Associate a binary constructor pattern to sequence one or more times.
--}</span></span><span>
-</span><span id="line-127"></span><span id="local-6989586621679263074"><span id="local-6989586621679263075"><span class="annot"><a href="Control.Lens.Bifocal.html#chained1"><span class="hs-identifier hs-type">chained1</span></a></span><span>
-</span><span id="line-128"></span><span>  </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="hs-keyword">forall</span><span> </span><span id="local-6989586621679263073"><span class="annot"><a href="#local-6989586621679263073"><span class="hs-identifier hs-type">x</span></a></span></span><span class="hs-operator">.</span><span> </span><span class="annot"><a href="#local-6989586621679263073"><span class="hs-identifier hs-type">x</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Either</span></span><span> </span><span class="annot"><a href="#local-6989586621679263073"><span class="hs-identifier hs-type">x</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679263073"><span class="hs-identifier hs-type">x</span></a></span><span class="hs-special">)</span><span>
-</span><span id="line-129"></span><span>  </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Control.Lens.PartialIso.html#APartialIso"><span class="hs-identifier hs-type">APartialIso</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679263074"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679263075"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679263074"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">,</span><span class="annot"><a href="#local-6989586621679263074"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679263075"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">,</span><span class="annot"><a href="#local-6989586621679263075"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span><span>
-</span><span id="line-130"></span><span>  </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Control.Lens.Bifocal.html#Prismoid"><span class="hs-identifier hs-type">Prismoid</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679263074"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679263075"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679263074"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679263075"><span class="hs-identifier hs-type">b</span></a></span></span></span><span>
-</span><span id="line-131"></span><span id="chained1"><span class="annot"><span class="annottext">chained1 :: forall a b.
-(forall x. x -&gt; Either x x)
--&gt; APartialIso a b (a, a) (b, b) -&gt; Prismoid a b a b
-</span><a href="Control.Lens.Bifocal.html#chained1"><span class="hs-identifier hs-var hs-var">chained1</span></a></span></span><span> </span><span id="local-6989586621679263472"><span class="annot"><span class="annottext">forall x. x -&gt; Either x x
-</span><a href="#local-6989586621679263472"><span class="hs-identifier hs-var">assoc</span></a></span></span><span> </span><span id="local-6989586621679263473"><span class="annot"><span class="annottext">APartialIso a b (a, a) (b, b)
-</span><a href="#local-6989586621679263473"><span class="hs-identifier hs-var">binPat</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">WrappedPafb f p a b -&gt; p a (f b)
-forall (f :: * -&gt; *) (p :: * -&gt; * -&gt; *) a b.
-WrappedPafb f p a b -&gt; p a (f b)
-</span><span class="hs-identifier hs-var">unwrapPafb</span></span><span> </span><span class="annot"><span class="annottext">(WrappedPafb f p a b -&gt; p a (f b))
--&gt; (p a (f b) -&gt; WrappedPafb f p a b) -&gt; p a (f b) -&gt; p a (f b)
-forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
-</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">(forall x. x -&gt; Either x x)
--&gt; APartialIso a b (a, a) (b, b)
--&gt; SepBy (WrappedPafb f p () ())
--&gt; WrappedPafb f p a b
--&gt; WrappedPafb f p a b
-forall (p :: * -&gt; * -&gt; *) a b.
-(Distributor p, Choice p) =&gt;
-(forall x. x -&gt; Either x x)
--&gt; APartialIso a b (a, a) (b, b)
--&gt; SepBy (p () ())
--&gt; p a b
--&gt; p a b
-</span><a href="Data.Profunctor.Distributor.html#chain1"><span class="hs-identifier hs-var">chain1</span></a></span><span> </span><span class="annot"><span class="annottext">x -&gt; Either x x
-forall x. x -&gt; Either x x
-</span><a href="#local-6989586621679263472"><span class="hs-identifier hs-var">assoc</span></a></span><span> </span><span class="annot"><span class="annottext">APartialIso a b (a, a) (b, b)
-</span><a href="#local-6989586621679263473"><span class="hs-identifier hs-var">binPat</span></a></span><span> </span><span class="annot"><span class="annottext">SepBy (WrappedPafb f p () ())
-forall (p :: * -&gt; *). Applicative p =&gt; SepBy (p ())
-</span><a href="Data.Profunctor.Distributor.html#noSep"><span class="hs-identifier hs-var">noSep</span></a></span><span> </span><span class="annot"><span class="annottext">(WrappedPafb f p a b -&gt; WrappedPafb f p a b)
--&gt; (p a (f b) -&gt; WrappedPafb f p a b)
--&gt; p a (f b)
--&gt; WrappedPafb f p a b
-forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
-</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">p a (f b) -&gt; WrappedPafb f p a b
-forall (f :: * -&gt; *) (p :: * -&gt; * -&gt; *) a b.
-p a (f b) -&gt; WrappedPafb f p a b
-</span><span class="hs-identifier hs-var">WrapPafb</span></span><span>
-</span><span id="line-132"></span><span>
-</span><span id="line-133"></span><span class="annot"><span class="hs-comment">{- |
-Associate a binary constructor pattern to sequence one or more times,
-or use a nilary constructor pattern to sequence zero times.
--}</span></span><span>
-</span><span id="line-137"></span><span id="local-6989586621679263094"><span id="local-6989586621679263095"><span class="annot"><a href="Control.Lens.Bifocal.html#chained"><span class="hs-identifier hs-type">chained</span></a></span><span>
-</span><span id="line-138"></span><span>  </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="hs-keyword">forall</span><span> </span><span id="local-6989586621679263476"><span class="annot"><a href="#local-6989586621679263476"><span class="hs-identifier hs-type">x</span></a></span></span><span class="hs-operator">.</span><span> </span><span class="annot"><a href="#local-6989586621679263476"><span class="hs-identifier hs-type">x</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Either</span></span><span> </span><span class="annot"><a href="#local-6989586621679263476"><span class="hs-identifier hs-type">x</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679263476"><span class="hs-identifier hs-type">x</span></a></span><span class="hs-special">)</span><span>
-</span><span id="line-139"></span><span>  </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Control.Lens.PartialIso.html#APartialIso"><span class="hs-identifier hs-type">APartialIso</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679263094"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679263095"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679263094"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">,</span><span class="annot"><a href="#local-6989586621679263094"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679263095"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">,</span><span class="annot"><a href="#local-6989586621679263095"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span><span>
-</span><span id="line-140"></span><span>  </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">APrism</span></span><span> </span><span class="annot"><a href="#local-6989586621679263094"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679263095"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
-</span><span id="line-141"></span><span>  </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Control.Lens.Bifocal.html#Prismoid"><span class="hs-identifier hs-type">Prismoid</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679263094"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679263095"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679263094"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679263095"><span class="hs-identifier hs-type">b</span></a></span></span></span><span>
-</span><span id="line-142"></span><span id="chained"><span class="annot"><span class="annottext">chained :: forall a b.
-(forall x. x -&gt; Either x x)
--&gt; APartialIso a b (a, a) (b, b)
--&gt; APrism a b () ()
--&gt; Prismoid a b a b
-</span><a href="Control.Lens.Bifocal.html#chained"><span class="hs-identifier hs-var hs-var">chained</span></a></span></span><span> </span><span id="local-6989586621679263487"><span class="annot"><span class="annottext">forall x. x -&gt; Either x x
-</span><a href="#local-6989586621679263487"><span class="hs-identifier hs-var">assoc</span></a></span></span><span> </span><span id="local-6989586621679263488"><span class="annot"><span class="annottext">APartialIso a b (a, a) (b, b)
-</span><a href="#local-6989586621679263488"><span class="hs-identifier hs-var">binPat</span></a></span></span><span> </span><span id="local-6989586621679263489"><span class="annot"><span class="annottext">APrism a b () ()
-</span><a href="#local-6989586621679263489"><span class="hs-identifier hs-var">nilPat</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">WrappedPafb f p a b -&gt; p a (f b)
-forall (f :: * -&gt; *) (p :: * -&gt; * -&gt; *) a b.
-WrappedPafb f p a b -&gt; p a (f b)
-</span><span class="hs-identifier hs-var">unwrapPafb</span></span><span> </span><span class="annot"><span class="annottext">(WrappedPafb f p a b -&gt; p a (f b))
--&gt; (p a (f b) -&gt; WrappedPafb f p a b) -&gt; p a (f b) -&gt; p a (f b)
-forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
-</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">(forall x. x -&gt; Either x x)
--&gt; APartialIso a b (a, a) (b, b)
--&gt; APrism a b () ()
--&gt; SepBy (WrappedPafb f p () ())
--&gt; WrappedPafb f p a b
--&gt; WrappedPafb f p a b
-forall (p :: * -&gt; * -&gt; *) a b.
-Alternator p =&gt;
-(forall x. x -&gt; Either x x)
--&gt; APartialIso a b (a, a) (b, b)
--&gt; APrism a b () ()
--&gt; SepBy (p () ())
--&gt; p a b
--&gt; p a b
-</span><a href="Data.Profunctor.Distributor.html#chain"><span class="hs-identifier hs-var">chain</span></a></span><span> </span><span class="annot"><span class="annottext">x -&gt; Either x x
-forall x. x -&gt; Either x x
-</span><a href="#local-6989586621679263487"><span class="hs-identifier hs-var">assoc</span></a></span><span> </span><span class="annot"><span class="annottext">APartialIso a b (a, a) (b, b)
-</span><a href="#local-6989586621679263488"><span class="hs-identifier hs-var">binPat</span></a></span><span> </span><span class="annot"><span class="annottext">APrism a b () ()
-</span><a href="#local-6989586621679263489"><span class="hs-identifier hs-var">nilPat</span></a></span><span> </span><span class="annot"><span class="annottext">SepBy (WrappedPafb f p () ())
-forall (p :: * -&gt; *). Applicative p =&gt; SepBy (p ())
-</span><a href="Data.Profunctor.Distributor.html#noSep"><span class="hs-identifier hs-var">noSep</span></a></span><span> </span><span class="annot"><span class="annottext">(WrappedPafb f p a b -&gt; WrappedPafb f p a b)
--&gt; (p a (f b) -&gt; WrappedPafb f p a b)
--&gt; p a (f b)
--&gt; WrappedPafb f p a b
-forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
-</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">p a (f b) -&gt; WrappedPafb f p a b
-forall (f :: * -&gt; *) (p :: * -&gt; * -&gt; *) a b.
-p a (f b) -&gt; WrappedPafb f p a b
-</span><span class="hs-identifier hs-var">WrapPafb</span></span><span>
-</span><span id="line-143"></span><span>
-</span><span id="line-144"></span><span class="annot"><span class="hs-comment">{- | Run `ABifocal` over an `Alternative` &amp; `Filterable`. -}</span></span><span>
-</span><span id="line-145"></span><span id="local-6989586621679262969"><span id="local-6989586621679262970"><span id="local-6989586621679262971"><span id="local-6989586621679262972"><span id="local-6989586621679262973"><span class="annot"><a href="Control.Lens.Bifocal.html#withBifocal"><span class="hs-identifier hs-type">withBifocal</span></a></span><span>
-</span><span id="line-146"></span><span>  </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Alternative</span></span><span> </span><span class="annot"><a href="#local-6989586621679262969"><span class="hs-identifier hs-type">f</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Filterable</span></span><span> </span><span class="annot"><a href="#local-6989586621679262969"><span class="hs-identifier hs-type">f</span></a></span><span class="hs-special">)</span><span>
-</span><span id="line-147"></span><span>  </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Control.Lens.Bifocal.html#ABifocal"><span class="hs-identifier hs-type">ABifocal</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679262970"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679262971"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679262972"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679262973"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679262970"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="annot"><a href="#local-6989586621679262972"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679262969"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679262973"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679262969"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679262971"><span class="hs-identifier hs-type">t</span></a></span></span></span></span></span></span><span>
-</span><span id="line-148"></span><span id="withBifocal"><span class="annot"><span class="annottext">withBifocal :: forall (f :: * -&gt; *) s t a b.
+</span><span id="line-69"></span><span>
+</span><span id="line-70"></span><span class="annot"><span class="hs-comment">{- | Run `ABifocal` over an `Alternative` &amp; `Filterable`. -}</span></span><span>
+</span><span id="line-71"></span><span id="local-6989586621679265927"><span id="local-6989586621679265928"><span id="local-6989586621679265929"><span id="local-6989586621679265930"><span id="local-6989586621679265931"><span class="annot"><a href="Control.Lens.Bifocal.html#withBifocal"><span class="hs-identifier hs-type">withBifocal</span></a></span><span>
+</span><span id="line-72"></span><span>  </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Alternative</span></span><span> </span><span class="annot"><a href="#local-6989586621679265927"><span class="hs-identifier hs-type">f</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Filterable</span></span><span> </span><span class="annot"><a href="#local-6989586621679265927"><span class="hs-identifier hs-type">f</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-73"></span><span>  </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Control.Lens.Bifocal.html#ABifocal"><span class="hs-identifier hs-type">ABifocal</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265928"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265929"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265930"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265931"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679265928"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="annot"><a href="#local-6989586621679265930"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679265927"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265931"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679265927"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265929"><span class="hs-identifier hs-type">t</span></a></span></span></span></span></span></span><span>
+</span><span id="line-74"></span><span id="withBifocal"><span class="annot"><span class="annottext">withBifocal :: forall (f :: * -&gt; *) s t a b.
 (Alternative f, Filterable f) =&gt;
 ABifocal s t a b -&gt; ((s -&gt; Maybe a) -&gt; f b) -&gt; f t
-</span><a href="Control.Lens.Bifocal.html#withBifocal"><span class="hs-identifier hs-var hs-var">withBifocal</span></a></span></span><span> </span><span id="local-6989586621679263499"><span class="annot"><span class="annottext">ABifocal s t a b
-</span><a href="#local-6989586621679263499"><span class="hs-identifier hs-var">bif</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Binocular a b s t
+</span><a href="Control.Lens.Bifocal.html#withBifocal"><span class="hs-identifier hs-var hs-var">withBifocal</span></a></span></span><span> </span><span id="local-6989586621679266261"><span class="annot"><span class="annottext">ABifocal s t a b
+</span><a href="#local-6989586621679266261"><span class="hs-identifier hs-var">bif</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Binocular a b s t
 -&gt; forall (f :: * -&gt; *).
    (Alternative f, Filterable f) =&gt;
    ((s -&gt; Maybe a) -&gt; f b) -&gt; f t
@@ -505,7 +152,7 @@ Binocular a b s t
 forall a. Binocular a b s (Maybe a) -&gt; Binocular a b s a
 forall (f :: * -&gt; *) a. Filterable f =&gt; f (Maybe a) -&gt; f a
 </span><span class="hs-identifier hs-var">catMaybes</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ABifocal s t a b
-</span><a href="#local-6989586621679263499"><span class="hs-identifier hs-var">bif</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">b -&gt; Maybe b
+</span><a href="#local-6989586621679266261"><span class="hs-identifier hs-var">bif</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">b -&gt; Maybe b
 forall a. a -&gt; Maybe a
 </span><span class="hs-identifier hs-var">Just</span></span><span> </span><span class="annot"><span class="annottext">(b -&gt; Maybe b) -&gt; Binocular a b a b -&gt; Binocular a b a (Maybe b)
 forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
@@ -523,28 +170,28 @@ forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">a -&gt; Maybe a
 forall a. a -&gt; Maybe a
 </span><span class="hs-identifier hs-var">Just</span></span><span class="hs-special">)</span><span class="hs-special">)</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
-</span><span id="line-149"></span><span>
-</span><span id="line-150"></span><span class="annot"><span class="hs-comment">{- | t'Binocular' provides an efficient
+</span><span id="line-75"></span><span>
+</span><span id="line-76"></span><span class="annot"><span class="hs-comment">{- | t'Binocular' provides an efficient
 concrete representation of `Bifocal`s. -}</span></span><span>
-</span><span id="line-152"></span><span class="hs-keyword">newtype</span><span> </span><span id="Binocular"><span class="annot"><a href="Control.Lens.Bifocal.html#Binocular"><span class="hs-identifier hs-var">Binocular</span></a></span></span><span> </span><span id="local-6989586621679263116"><span class="annot"><a href="#local-6989586621679263116"><span class="hs-identifier hs-type">a</span></a></span></span><span> </span><span id="local-6989586621679263117"><span class="annot"><a href="#local-6989586621679263117"><span class="hs-identifier hs-type">b</span></a></span></span><span> </span><span id="local-6989586621679263118"><span class="annot"><a href="#local-6989586621679263118"><span class="hs-identifier hs-type">s</span></a></span></span><span> </span><span id="local-6989586621679263119"><span class="annot"><a href="#local-6989586621679263119"><span class="hs-identifier hs-type">t</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="Binocular"><span class="annot"><a href="Control.Lens.Bifocal.html#Binocular"><span class="hs-identifier hs-var">Binocular</span></a></span></span><span>
-</span><span id="line-153"></span><span>  </span><span class="hs-special">{</span><span> </span><span id="unBinocular"><span class="annot"><span class="annottext">forall a b s t.
+</span><span id="line-78"></span><span class="hs-keyword">newtype</span><span> </span><span id="Binocular"><span class="annot"><a href="Control.Lens.Bifocal.html#Binocular"><span class="hs-identifier hs-var">Binocular</span></a></span></span><span> </span><span id="local-6989586621679265963"><span class="annot"><a href="#local-6989586621679265963"><span class="hs-identifier hs-type">a</span></a></span></span><span> </span><span id="local-6989586621679265964"><span class="annot"><a href="#local-6989586621679265964"><span class="hs-identifier hs-type">b</span></a></span></span><span> </span><span id="local-6989586621679265965"><span class="annot"><a href="#local-6989586621679265965"><span class="hs-identifier hs-type">s</span></a></span></span><span> </span><span id="local-6989586621679265966"><span class="annot"><a href="#local-6989586621679265966"><span class="hs-identifier hs-type">t</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="Binocular"><span class="annot"><a href="Control.Lens.Bifocal.html#Binocular"><span class="hs-identifier hs-var">Binocular</span></a></span></span><span>
+</span><span id="line-79"></span><span>  </span><span class="hs-special">{</span><span> </span><span id="unBinocular"><span class="annot"><span class="annottext">forall a b s t.
 Binocular a b s t
 -&gt; forall (f :: * -&gt; *).
    (Alternative f, Filterable f) =&gt;
    ((s -&gt; Maybe a) -&gt; f b) -&gt; f t
 </span><a href="Control.Lens.Bifocal.html#unBinocular"><span class="hs-identifier hs-var hs-var">unBinocular</span></a></span></span><span>
-</span><span id="line-154"></span><span>      </span><span class="hs-glyph">::</span><span> </span><span class="hs-keyword">forall</span><span> </span><span id="local-6989586621679263115"><span class="annot"><a href="#local-6989586621679263115"><span class="hs-identifier hs-type">f</span></a></span></span><span class="hs-operator">.</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Alternative</span></span><span> </span><span class="annot"><a href="#local-6989586621679263115"><span class="hs-identifier hs-type">f</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Filterable</span></span><span> </span><span class="annot"><a href="#local-6989586621679263115"><span class="hs-identifier hs-type">f</span></a></span><span class="hs-special">)</span><span>
-</span><span id="line-155"></span><span>      </span><span class="hs-glyph">=&gt;</span><span> </span><span class="hs-special">(</span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679263118"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="annot"><a href="#local-6989586621679263116"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679263115"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679263117"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679263115"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679263119"><span class="hs-identifier hs-type">t</span></a></span><span>
-</span><span id="line-156"></span><span>  </span><span class="hs-special">}</span><span>
-</span><span id="line-157"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679263156"><span id="local-6989586621679263157"><span id="local-6989586621679263511"><span id="local-6989586621679263515"><span id="local-6989586621679263518"><span id="local-6989586621679263524"><span class="annot"><span class="hs-identifier hs-type">Profunctor</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Bifocal.html#Binocular"><span class="hs-identifier hs-type">Binocular</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679263156"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679263157"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span></span></span></span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-158"></span><span>  </span><span id="local-6989586621679263530"><span class="annot"><span class="annottext">dimap :: forall a b c d.
+</span><span id="line-80"></span><span>      </span><span class="hs-glyph">::</span><span> </span><span class="hs-keyword">forall</span><span> </span><span id="local-6989586621679265962"><span class="annot"><a href="#local-6989586621679265962"><span class="hs-identifier hs-type">f</span></a></span></span><span class="hs-operator">.</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Alternative</span></span><span> </span><span class="annot"><a href="#local-6989586621679265962"><span class="hs-identifier hs-type">f</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Filterable</span></span><span> </span><span class="annot"><a href="#local-6989586621679265962"><span class="hs-identifier hs-type">f</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-81"></span><span>      </span><span class="hs-glyph">=&gt;</span><span> </span><span class="hs-special">(</span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679265965"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="annot"><a href="#local-6989586621679265963"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679265962"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265964"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679265962"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265966"><span class="hs-identifier hs-type">t</span></a></span><span>
+</span><span id="line-82"></span><span>  </span><span class="hs-special">}</span><span>
+</span><span id="line-83"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679266004"><span id="local-6989586621679266005"><span id="local-6989586621679266273"><span id="local-6989586621679266277"><span id="local-6989586621679266280"><span id="local-6989586621679266286"><span class="annot"><span class="hs-identifier hs-type">Profunctor</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Bifocal.html#Binocular"><span class="hs-identifier hs-type">Binocular</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679266004"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679266005"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span></span></span></span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-84"></span><span>  </span><span id="local-6989586621679266292"><span class="annot"><span class="annottext">dimap :: forall a b c d.
 (a -&gt; b) -&gt; (c -&gt; d) -&gt; Binocular a b b c -&gt; Binocular a b a d
-</span><a href="#local-6989586621679263530"><span class="hs-identifier hs-var hs-var hs-var">dimap</span></a></span></span><span> </span><span id="local-6989586621679263532"><span class="annot"><span class="annottext">a -&gt; b
-</span><a href="#local-6989586621679263532"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span id="local-6989586621679263533"><span class="annot"><span class="annottext">c -&gt; d
-</span><a href="#local-6989586621679263533"><span class="hs-identifier hs-var">g</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Bifocal.html#Binocular"><span class="hs-identifier hs-type">Binocular</span></a></span><span> </span><span id="local-6989586621679263534"><span class="annot"><span class="annottext">forall (f :: * -&gt; *).
+</span><a href="#local-6989586621679266292"><span class="hs-identifier hs-var hs-var hs-var">dimap</span></a></span></span><span> </span><span id="local-6989586621679266294"><span class="annot"><span class="annottext">a -&gt; b
+</span><a href="#local-6989586621679266294"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span id="local-6989586621679266295"><span class="annot"><span class="annottext">c -&gt; d
+</span><a href="#local-6989586621679266295"><span class="hs-identifier hs-var">g</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Bifocal.html#Binocular"><span class="hs-identifier hs-type">Binocular</span></a></span><span> </span><span id="local-6989586621679266296"><span class="annot"><span class="annottext">forall (f :: * -&gt; *).
 (Alternative f, Filterable f) =&gt;
 ((b -&gt; Maybe a) -&gt; f b) -&gt; f c
-</span><a href="#local-6989586621679263534"><span class="hs-identifier hs-var">k</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(forall (f :: * -&gt; *).
+</span><a href="#local-6989586621679266296"><span class="hs-identifier hs-var">k</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(forall (f :: * -&gt; *).
  (Alternative f, Filterable f) =&gt;
  ((a -&gt; Maybe a) -&gt; f b) -&gt; f d)
 -&gt; Binocular a b a d
@@ -566,7 +213,7 @@ forall a b. (a -&gt; b) -&gt; a -&gt; b
 forall a b. (a -&gt; b) -&gt; f a -&gt; f b
 forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
 </span><span class="hs-identifier hs-var">fmap</span></span><span> </span><span class="annot"><span class="annottext">c -&gt; d
-</span><a href="#local-6989586621679263533"><span class="hs-identifier hs-var">g</span></a></span><span> </span><span class="annot"><span class="annottext">(f c -&gt; f d)
+</span><a href="#local-6989586621679266295"><span class="hs-identifier hs-var">g</span></a></span><span> </span><span class="annot"><span class="annottext">(f c -&gt; f d)
 -&gt; (((a -&gt; Maybe a) -&gt; f b) -&gt; f c)
 -&gt; ((a -&gt; Maybe a) -&gt; f b)
 -&gt; f d
@@ -575,7 +222,7 @@ forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
 forall (f :: * -&gt; *).
 (Alternative f, Filterable f) =&gt;
 ((b -&gt; Maybe a) -&gt; f b) -&gt; f c
-</span><a href="#local-6989586621679263534"><span class="hs-identifier hs-var">k</span></a></span><span> </span><span class="annot"><span class="annottext">(((b -&gt; Maybe a) -&gt; f b) -&gt; f c)
+</span><a href="#local-6989586621679266296"><span class="hs-identifier hs-var">k</span></a></span><span> </span><span class="annot"><span class="annottext">(((b -&gt; Maybe a) -&gt; f b) -&gt; f c)
 -&gt; (((a -&gt; Maybe a) -&gt; f b) -&gt; (b -&gt; Maybe a) -&gt; f b)
 -&gt; ((a -&gt; Maybe a) -&gt; f b)
 -&gt; f c
@@ -586,18 +233,18 @@ forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
 </span><span class="hs-operator hs-var">.</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(b -&gt; Maybe a) -&gt; (a -&gt; b) -&gt; a -&gt; Maybe a
 forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
 </span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">a -&gt; b
-</span><a href="#local-6989586621679263532"><span class="hs-identifier hs-var">f</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
-</span><span id="line-159"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679263108"><span id="local-6989586621679263109"><span id="local-6989586621679263110"><span id="local-6989586621679263547"><span class="annot"><span class="hs-identifier hs-type">Functor</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Bifocal.html#Binocular"><span class="hs-identifier hs-type">Binocular</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679263108"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679263109"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679263110"><span class="hs-identifier hs-type">s</span></a></span><span class="hs-special">)</span></span></span></span></span><span> </span><span class="hs-keyword">where</span><span> </span><span id="local-6989586621679263551"><span class="annot"><span class="annottext">fmap :: forall a b. (a -&gt; b) -&gt; Binocular a b s a -&gt; Binocular a b s b
+</span><a href="#local-6989586621679266294"><span class="hs-identifier hs-var">f</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-85"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679265955"><span id="local-6989586621679265956"><span id="local-6989586621679265957"><span id="local-6989586621679266310"><span class="annot"><span class="hs-identifier hs-type">Functor</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Bifocal.html#Binocular"><span class="hs-identifier hs-type">Binocular</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265955"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265956"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265957"><span class="hs-identifier hs-type">s</span></a></span><span class="hs-special">)</span></span></span></span></span><span> </span><span class="hs-keyword">where</span><span> </span><span id="local-6989586621679266314"><span class="annot"><span class="annottext">fmap :: forall a b. (a -&gt; b) -&gt; Binocular a b s a -&gt; Binocular a b s b
 </span><span class="hs-identifier hs-var hs-var hs-var">fmap</span></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(a -&gt; b) -&gt; Binocular a b s a -&gt; Binocular a b s b
 forall b c a. (b -&gt; c) -&gt; Binocular a b a b -&gt; Binocular a b a c
 forall (p :: * -&gt; * -&gt; *) b c a.
 Profunctor p =&gt;
 (b -&gt; c) -&gt; p a b -&gt; p a c
 </span><span class="hs-identifier hs-var">rmap</span></span><span>
-</span><span id="line-160"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679263187"><span id="local-6989586621679263188"><span id="local-6989586621679263189"><span id="local-6989586621679263558"><span id="local-6989586621679263562"><span id="local-6989586621679263565"><span class="annot"><span class="hs-identifier hs-type">Applicative</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Bifocal.html#Binocular"><span class="hs-identifier hs-type">Binocular</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679263187"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679263188"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679263189"><span class="hs-identifier hs-type">s</span></a></span><span class="hs-special">)</span></span></span></span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-161"></span><span>  </span><span id="local-6989586621679263568"><span class="annot"><span class="annottext">pure :: forall a. a -&gt; Binocular a b s a
-</span><span class="hs-identifier hs-var hs-var hs-var">pure</span></span></span><span> </span><span id="local-6989586621679263569"><span class="annot"><span class="annottext">a
-</span><a href="#local-6989586621679263569"><span class="hs-identifier hs-var">t</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(forall (f :: * -&gt; *).
+</span><span id="line-86"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679266035"><span id="local-6989586621679266036"><span id="local-6989586621679266037"><span id="local-6989586621679266321"><span id="local-6989586621679266325"><span id="local-6989586621679266328"><span class="annot"><span class="hs-identifier hs-type">Applicative</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Bifocal.html#Binocular"><span class="hs-identifier hs-type">Binocular</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679266035"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679266036"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679266037"><span class="hs-identifier hs-type">s</span></a></span><span class="hs-special">)</span></span></span></span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-87"></span><span>  </span><span id="local-6989586621679266331"><span class="annot"><span class="annottext">pure :: forall a. a -&gt; Binocular a b s a
+</span><span class="hs-identifier hs-var hs-var hs-var">pure</span></span></span><span> </span><span id="local-6989586621679266332"><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679266332"><span class="hs-identifier hs-var">t</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(forall (f :: * -&gt; *).
  (Alternative f, Filterable f) =&gt;
  ((s -&gt; Maybe a) -&gt; f b) -&gt; f a)
 -&gt; Binocular a b s a
@@ -613,16 +260,16 @@ forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
 forall a. a -&gt; f a
 forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
 </span><span class="hs-identifier hs-var">pure</span></span><span> </span><span class="annot"><span class="annottext">a
-</span><a href="#local-6989586621679263569"><span class="hs-identifier hs-var">t</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
-</span><span id="line-162"></span><span>  </span><span class="annot"><a href="Control.Lens.Bifocal.html#Binocular"><span class="hs-identifier hs-type">Binocular</span></a></span><span> </span><span id="local-6989586621679263576"><span class="annot"><span class="annottext">forall (f :: * -&gt; *).
+</span><a href="#local-6989586621679266332"><span class="hs-identifier hs-var">t</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-88"></span><span>  </span><span class="annot"><a href="Control.Lens.Bifocal.html#Binocular"><span class="hs-identifier hs-type">Binocular</span></a></span><span> </span><span id="local-6989586621679266340"><span class="annot"><span class="annottext">forall (f :: * -&gt; *).
 (Alternative f, Filterable f) =&gt;
 ((s -&gt; Maybe a) -&gt; f b) -&gt; f (a -&gt; b)
-</span><a href="#local-6989586621679263576"><span class="hs-identifier hs-var">x</span></a></span></span><span> </span><span id="local-6989586621679263577"><span class="annot"><span class="annottext">&lt;*&gt; :: forall a b.
+</span><a href="#local-6989586621679266340"><span class="hs-identifier hs-var">x</span></a></span></span><span> </span><span id="local-6989586621679266341"><span class="annot"><span class="annottext">&lt;*&gt; :: forall a b.
 Binocular a b s (a -&gt; b) -&gt; Binocular a b s a -&gt; Binocular a b s b
-</span><span class="hs-operator hs-var hs-var hs-var">&lt;*&gt;</span></span></span><span> </span><span class="annot"><a href="Control.Lens.Bifocal.html#Binocular"><span class="hs-identifier hs-type">Binocular</span></a></span><span> </span><span id="local-6989586621679263578"><span class="annot"><span class="annottext">forall (f :: * -&gt; *).
+</span><span class="hs-operator hs-var hs-var hs-var">&lt;*&gt;</span></span></span><span> </span><span class="annot"><a href="Control.Lens.Bifocal.html#Binocular"><span class="hs-identifier hs-type">Binocular</span></a></span><span> </span><span id="local-6989586621679266342"><span class="annot"><span class="annottext">forall (f :: * -&gt; *).
 (Alternative f, Filterable f) =&gt;
 ((s -&gt; Maybe a) -&gt; f b) -&gt; f a
-</span><a href="#local-6989586621679263578"><span class="hs-identifier hs-var">y</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(forall (f :: * -&gt; *).
+</span><a href="#local-6989586621679266342"><span class="hs-identifier hs-var">y</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(forall (f :: * -&gt; *).
  (Alternative f, Filterable f) =&gt;
  ((s -&gt; Maybe a) -&gt; f b) -&gt; f b)
 -&gt; Binocular a b s b
@@ -652,14 +299,14 @@ forall (f :: * -&gt; *) a b. Applicative f =&gt; f (a -&gt; b) -&gt; f a -&gt; f
 forall (f :: * -&gt; *).
 (Alternative f, Filterable f) =&gt;
 ((s -&gt; Maybe a) -&gt; f b) -&gt; f (a -&gt; b)
-</span><a href="#local-6989586621679263576"><span class="hs-identifier hs-var">x</span></a></span><span> </span><span class="annot"><span class="annottext">((s -&gt; Maybe a) -&gt; f b) -&gt; f a
+</span><a href="#local-6989586621679266340"><span class="hs-identifier hs-var">x</span></a></span><span> </span><span class="annot"><span class="annottext">((s -&gt; Maybe a) -&gt; f b) -&gt; f a
 forall (f :: * -&gt; *).
 (Alternative f, Filterable f) =&gt;
 ((s -&gt; Maybe a) -&gt; f b) -&gt; f a
-</span><a href="#local-6989586621679263578"><span class="hs-identifier hs-var">y</span></a></span><span class="hs-special">)</span><span>
-</span><span id="line-163"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679263202"><span id="local-6989586621679263203"><span id="local-6989586621679263204"><span class="annot"><span class="hs-identifier hs-type">Alternative</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Bifocal.html#Binocular"><span class="hs-identifier hs-type">Binocular</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679263202"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679263203"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679263204"><span class="hs-identifier hs-type">s</span></a></span><span class="hs-special">)</span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-164"></span><span>  </span><span id="local-6989586621679263597"><span class="annot"><span class="annottext">empty :: forall a. Binocular a b s a
-</span><a href="#local-6989586621679263597"><span class="hs-identifier hs-var hs-var hs-var">empty</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(forall (f :: * -&gt; *).
+</span><a href="#local-6989586621679266342"><span class="hs-identifier hs-var">y</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-89"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679266051"><span id="local-6989586621679266052"><span id="local-6989586621679266053"><span class="annot"><span class="hs-identifier hs-type">Alternative</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Bifocal.html#Binocular"><span class="hs-identifier hs-type">Binocular</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679266051"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679266052"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679266053"><span class="hs-identifier hs-type">s</span></a></span><span class="hs-special">)</span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-90"></span><span>  </span><span id="local-6989586621679266361"><span class="annot"><span class="annottext">empty :: forall a. Binocular a b s a
+</span><a href="#local-6989586621679266361"><span class="hs-identifier hs-var hs-var hs-var">empty</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(forall (f :: * -&gt; *).
  (Alternative f, Filterable f) =&gt;
  ((s -&gt; Maybe a) -&gt; f b) -&gt; f a)
 -&gt; Binocular a b s a
@@ -675,15 +322,15 @@ forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
 forall a. f a
 forall (f :: * -&gt; *) a. Alternative f =&gt; f a
 </span><span class="hs-identifier hs-var">empty</span></span><span class="hs-special">)</span><span>
-</span><span id="line-165"></span><span>  </span><span class="annot"><a href="Control.Lens.Bifocal.html#Binocular"><span class="hs-identifier hs-type">Binocular</span></a></span><span> </span><span id="local-6989586621679263603"><span class="annot"><span class="annottext">forall (f :: * -&gt; *).
+</span><span id="line-91"></span><span>  </span><span class="annot"><a href="Control.Lens.Bifocal.html#Binocular"><span class="hs-identifier hs-type">Binocular</span></a></span><span> </span><span id="local-6989586621679266367"><span class="annot"><span class="annottext">forall (f :: * -&gt; *).
 (Alternative f, Filterable f) =&gt;
 ((s -&gt; Maybe a) -&gt; f b) -&gt; f a
-</span><a href="#local-6989586621679263603"><span class="hs-identifier hs-var">x</span></a></span></span><span> </span><span id="local-6989586621679263604"><span class="annot"><span class="annottext">&lt;|&gt; :: forall a.
+</span><a href="#local-6989586621679266367"><span class="hs-identifier hs-var">x</span></a></span></span><span> </span><span id="local-6989586621679266368"><span class="annot"><span class="annottext">&lt;|&gt; :: forall a.
 Binocular a b s a -&gt; Binocular a b s a -&gt; Binocular a b s a
-</span><a href="#local-6989586621679263604"><span class="hs-operator hs-var hs-var hs-var">&lt;|&gt;</span></a></span></span><span> </span><span class="annot"><a href="Control.Lens.Bifocal.html#Binocular"><span class="hs-identifier hs-type">Binocular</span></a></span><span> </span><span id="local-6989586621679263606"><span class="annot"><span class="annottext">forall (f :: * -&gt; *).
+</span><a href="#local-6989586621679266368"><span class="hs-operator hs-var hs-var hs-var">&lt;|&gt;</span></a></span></span><span> </span><span class="annot"><a href="Control.Lens.Bifocal.html#Binocular"><span class="hs-identifier hs-type">Binocular</span></a></span><span> </span><span id="local-6989586621679266370"><span class="annot"><span class="annottext">forall (f :: * -&gt; *).
 (Alternative f, Filterable f) =&gt;
 ((s -&gt; Maybe a) -&gt; f b) -&gt; f a
-</span><a href="#local-6989586621679263606"><span class="hs-identifier hs-var">y</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(forall (f :: * -&gt; *).
+</span><a href="#local-6989586621679266370"><span class="hs-identifier hs-var">y</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(forall (f :: * -&gt; *).
  (Alternative f, Filterable f) =&gt;
  ((s -&gt; Maybe a) -&gt; f b) -&gt; f a)
 -&gt; Binocular a b s a
@@ -713,13 +360,13 @@ forall (f :: * -&gt; *) a. Alternative f =&gt; f a -&gt; f a -&gt; f a
 forall (f :: * -&gt; *).
 (Alternative f, Filterable f) =&gt;
 ((s -&gt; Maybe a) -&gt; f b) -&gt; f a
-</span><a href="#local-6989586621679263603"><span class="hs-identifier hs-var">x</span></a></span><span> </span><span class="annot"><span class="annottext">((s -&gt; Maybe a) -&gt; f b) -&gt; f a
+</span><a href="#local-6989586621679266367"><span class="hs-identifier hs-var">x</span></a></span><span> </span><span class="annot"><span class="annottext">((s -&gt; Maybe a) -&gt; f b) -&gt; f a
 forall (f :: * -&gt; *).
 (Alternative f, Filterable f) =&gt;
 ((s -&gt; Maybe a) -&gt; f b) -&gt; f a
-</span><a href="#local-6989586621679263606"><span class="hs-identifier hs-var">y</span></a></span><span class="hs-special">)</span><span>
-</span><span id="line-166"></span><span>  </span><span id="local-6989586621679263618"><span class="annot"><span class="annottext">many :: forall a. Binocular a b s a -&gt; Binocular a b s [a]
-</span><a href="#local-6989586621679263618"><span class="hs-identifier hs-var hs-var hs-var">many</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(s -&gt; [s]) -&gt; Binocular a b [s] [a] -&gt; Binocular a b s [a]
+</span><a href="#local-6989586621679266370"><span class="hs-identifier hs-var">y</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-92"></span><span>  </span><span id="local-6989586621679266382"><span class="annot"><span class="annottext">many :: forall a. Binocular a b s a -&gt; Binocular a b s [a]
+</span><a href="#local-6989586621679266382"><span class="hs-identifier hs-var hs-var hs-var">many</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(s -&gt; [s]) -&gt; Binocular a b [s] [a] -&gt; Binocular a b s [a]
 forall a b c. (a -&gt; b) -&gt; Binocular a b b c -&gt; Binocular a b a c
 forall (p :: * -&gt; * -&gt; *) a b c.
 Profunctor p =&gt;
@@ -735,8 +382,8 @@ forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
 forall a b. Binocular a b a b -&gt; Binocular a b [a] [b]
 forall (p :: * -&gt; * -&gt; *) a b. Distributor p =&gt; p a b -&gt; p [a] [b]
 </span><a href="Data.Profunctor.Distributor.html#manyP"><span class="hs-identifier hs-var">manyP</span></a></span><span>
-</span><span id="line-167"></span><span>  </span><span id="local-6989586621679263626"><span class="annot"><span class="annottext">some :: forall a. Binocular a b s a -&gt; Binocular a b s [a]
-</span><a href="#local-6989586621679263626"><span class="hs-identifier hs-var hs-var hs-var">some</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(s -&gt; [s]) -&gt; Binocular a b [s] [a] -&gt; Binocular a b s [a]
+</span><span id="line-93"></span><span>  </span><span id="local-6989586621679266390"><span class="annot"><span class="annottext">some :: forall a. Binocular a b s a -&gt; Binocular a b s [a]
+</span><a href="#local-6989586621679266390"><span class="hs-identifier hs-var hs-var hs-var">some</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(s -&gt; [s]) -&gt; Binocular a b [s] [a] -&gt; Binocular a b s [a]
 forall a b c. (a -&gt; b) -&gt; Binocular a b b c -&gt; Binocular a b a c
 forall (p :: * -&gt; * -&gt; *) a b c.
 Profunctor p =&gt;
@@ -752,15 +399,15 @@ forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
 forall a b. Binocular a b a b -&gt; Binocular a b [a] [b]
 forall (p :: * -&gt; * -&gt; *) a b. Alternator p =&gt; p a b -&gt; p [a] [b]
 </span><a href="Data.Profunctor.Distributor.html#someP"><span class="hs-identifier hs-var">someP</span></a></span><span>
-</span><span id="line-168"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679263224"><span id="local-6989586621679263225"><span id="local-6989586621679263226"><span id="local-6989586621679263227"><span id="local-6989586621679263629"><span id="local-6989586621679263635"><span class="annot"><a href="Data.Monoid.Disjunctive.html#DisjunctiveMonoid"><span class="hs-identifier hs-type">DisjunctiveMonoid</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Bifocal.html#Binocular"><span class="hs-identifier hs-type">Binocular</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679263224"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679263225"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679263226"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679263227"><span class="hs-identifier hs-type">t</span></a></span><span class="hs-special">)</span></span></span></span></span></span></span><span>
-</span><span id="line-169"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679263111"><span id="local-6989586621679263112"><span id="local-6989586621679263113"><span id="local-6989586621679263645"><span id="local-6989586621679263648"><span class="annot"><span class="hs-identifier hs-type">Filterable</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Bifocal.html#Binocular"><span class="hs-identifier hs-type">Binocular</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679263111"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679263112"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679263113"><span class="hs-identifier hs-type">s</span></a></span><span class="hs-special">)</span></span></span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-170"></span><span>  </span><span id="local-6989586621679263651"><span class="annot"><span class="annottext">mapMaybe :: forall a b.
+</span><span id="line-94"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679266075"><span id="local-6989586621679266076"><span id="local-6989586621679266077"><span id="local-6989586621679266078"><span id="local-6989586621679266394"><span id="local-6989586621679266400"><span class="annot"><a href="Data.Monoid.Disjunctive.html#DisjunctiveMonoid"><span class="hs-identifier hs-type">DisjunctiveMonoid</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Bifocal.html#Binocular"><span class="hs-identifier hs-type">Binocular</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679266075"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679266076"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679266077"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679266078"><span class="hs-identifier hs-type">t</span></a></span><span class="hs-special">)</span></span></span></span></span></span></span><span>
+</span><span id="line-95"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679265958"><span id="local-6989586621679265959"><span id="local-6989586621679265960"><span id="local-6989586621679266410"><span id="local-6989586621679266413"><span class="annot"><span class="hs-identifier hs-type">Filterable</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Bifocal.html#Binocular"><span class="hs-identifier hs-type">Binocular</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265958"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265959"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265960"><span class="hs-identifier hs-type">s</span></a></span><span class="hs-special">)</span></span></span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-96"></span><span>  </span><span id="local-6989586621679266416"><span class="annot"><span class="annottext">mapMaybe :: forall a b.
 (a -&gt; Maybe b) -&gt; Binocular a b s a -&gt; Binocular a b s b
-</span><a href="#local-6989586621679263651"><span class="hs-identifier hs-var hs-var hs-var">mapMaybe</span></a></span></span><span> </span><span id="local-6989586621679263653"><span class="annot"><span class="annottext">a -&gt; Maybe b
-</span><a href="#local-6989586621679263653"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Bifocal.html#Binocular"><span class="hs-identifier hs-type">Binocular</span></a></span><span> </span><span id="local-6989586621679263654"><span class="annot"><span class="annottext">forall (f :: * -&gt; *).
+</span><a href="#local-6989586621679266416"><span class="hs-identifier hs-var hs-var hs-var">mapMaybe</span></a></span></span><span> </span><span id="local-6989586621679266418"><span class="annot"><span class="annottext">a -&gt; Maybe b
+</span><a href="#local-6989586621679266418"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Bifocal.html#Binocular"><span class="hs-identifier hs-type">Binocular</span></a></span><span> </span><span id="local-6989586621679266419"><span class="annot"><span class="annottext">forall (f :: * -&gt; *).
 (Alternative f, Filterable f) =&gt;
 ((s -&gt; Maybe a) -&gt; f b) -&gt; f a
-</span><a href="#local-6989586621679263654"><span class="hs-identifier hs-var">k</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(forall (f :: * -&gt; *).
+</span><a href="#local-6989586621679266419"><span class="hs-identifier hs-var">k</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(forall (f :: * -&gt; *).
  (Alternative f, Filterable f) =&gt;
  ((s -&gt; Maybe a) -&gt; f b) -&gt; f b)
 -&gt; Binocular a b s b
@@ -775,7 +422,7 @@ forall (f :: * -&gt; *) a b.
 Filterable f =&gt;
 (a -&gt; Maybe b) -&gt; f a -&gt; f b
 </span><span class="hs-identifier hs-var">mapMaybe</span></span><span> </span><span class="annot"><span class="annottext">a -&gt; Maybe b
-</span><a href="#local-6989586621679263653"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">(f a -&gt; f b)
+</span><a href="#local-6989586621679266418"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">(f a -&gt; f b)
 -&gt; (((s -&gt; Maybe a) -&gt; f b) -&gt; f a)
 -&gt; ((s -&gt; Maybe a) -&gt; f b)
 -&gt; f b
@@ -784,12 +431,12 @@ forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
 forall (f :: * -&gt; *).
 (Alternative f, Filterable f) =&gt;
 ((s -&gt; Maybe a) -&gt; f b) -&gt; f a
-</span><a href="#local-6989586621679263654"><span class="hs-identifier hs-var">k</span></a></span><span class="hs-special">)</span><span>
-</span><span id="line-171"></span><span>  </span><span id="local-6989586621679263660"><span class="annot"><span class="annottext">catMaybes :: forall a. Binocular a b s (Maybe a) -&gt; Binocular a b s a
-</span><span class="hs-identifier hs-var hs-var hs-var">catMaybes</span></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Bifocal.html#Binocular"><span class="hs-identifier hs-type">Binocular</span></a></span><span> </span><span id="local-6989586621679263661"><span class="annot"><span class="annottext">forall (f :: * -&gt; *).
+</span><a href="#local-6989586621679266419"><span class="hs-identifier hs-var">k</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-97"></span><span>  </span><span id="local-6989586621679266425"><span class="annot"><span class="annottext">catMaybes :: forall a. Binocular a b s (Maybe a) -&gt; Binocular a b s a
+</span><span class="hs-identifier hs-var hs-var hs-var">catMaybes</span></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Bifocal.html#Binocular"><span class="hs-identifier hs-type">Binocular</span></a></span><span> </span><span id="local-6989586621679266426"><span class="annot"><span class="annottext">forall (f :: * -&gt; *).
 (Alternative f, Filterable f) =&gt;
 ((s -&gt; Maybe a) -&gt; f b) -&gt; f (Maybe a)
-</span><a href="#local-6989586621679263661"><span class="hs-identifier hs-var">k</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(forall (f :: * -&gt; *).
+</span><a href="#local-6989586621679266426"><span class="hs-identifier hs-var">k</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(forall (f :: * -&gt; *).
  (Alternative f, Filterable f) =&gt;
  ((s -&gt; Maybe a) -&gt; f b) -&gt; f a)
 -&gt; Binocular a b s a
@@ -810,15 +457,15 @@ forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
 forall (f :: * -&gt; *).
 (Alternative f, Filterable f) =&gt;
 ((s -&gt; Maybe a) -&gt; f b) -&gt; f (Maybe a)
-</span><a href="#local-6989586621679263661"><span class="hs-identifier hs-var">k</span></a></span><span class="hs-special">)</span><span>
-</span><span id="line-172"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679263250"><span id="local-6989586621679263251"><span class="annot"><span class="hs-identifier hs-type">Choice</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Bifocal.html#Binocular"><span class="hs-identifier hs-type">Binocular</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679263250"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679263251"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span></span></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-173"></span><span>  </span><span id="local-6989586621679263673"><span class="annot"><span class="annottext">left' :: forall a b c.
+</span><a href="#local-6989586621679266426"><span class="hs-identifier hs-var">k</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-98"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679266101"><span id="local-6989586621679266102"><span class="annot"><span class="hs-identifier hs-type">Choice</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Bifocal.html#Binocular"><span class="hs-identifier hs-type">Binocular</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679266101"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679266102"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-99"></span><span>  </span><span id="local-6989586621679266438"><span class="annot"><span class="annottext">left' :: forall a b c.
 Binocular a b a b -&gt; Binocular a b (Either a c) (Either b c)
-</span><a href="#local-6989586621679263673"><span class="hs-identifier hs-var hs-var hs-var">left'</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Bifocal.html#Binocular"><span class="hs-identifier hs-type">Binocular</span></a></span><span> </span><span id="local-6989586621679263675"><span class="annot"><span class="annottext">forall (f :: * -&gt; *).
+</span><a href="#local-6989586621679266438"><span class="hs-identifier hs-var hs-var hs-var">left'</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Bifocal.html#Binocular"><span class="hs-identifier hs-type">Binocular</span></a></span><span> </span><span id="local-6989586621679266440"><span class="annot"><span class="annottext">forall (f :: * -&gt; *).
 (Alternative f, Filterable f) =&gt;
 ((a -&gt; Maybe a) -&gt; f b) -&gt; f b
-</span><a href="#local-6989586621679263675"><span class="hs-identifier hs-var">k</span></a></span></span><span class="hs-special">)</span><span>
-</span><span id="line-174"></span><span>    </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(forall (f :: * -&gt; *).
+</span><a href="#local-6989586621679266440"><span class="hs-identifier hs-var">k</span></a></span></span><span class="hs-special">)</span><span>
+</span><span id="line-100"></span><span>    </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(forall (f :: * -&gt; *).
  (Alternative f, Filterable f) =&gt;
  ((Either a c -&gt; Maybe a) -&gt; f b) -&gt; f (Either b c))
 -&gt; Binocular a b (Either a c) (Either b c)
@@ -842,7 +489,7 @@ forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
 </span><span class="hs-identifier hs-var">fmap</span></span><span> </span><span class="annot"><span class="annottext">b -&gt; Either b c
 forall a b. a -&gt; Either a b
 </span><span class="hs-identifier hs-var">Left</span></span><span>
-</span><span id="line-175"></span><span>    </span><span class="annot"><span class="annottext">(f b -&gt; f (Either b c))
+</span><span id="line-101"></span><span>    </span><span class="annot"><span class="annottext">(f b -&gt; f (Either b c))
 -&gt; (((Either a c -&gt; Maybe a) -&gt; f b) -&gt; f b)
 -&gt; ((Either a c -&gt; Maybe a) -&gt; f b)
 -&gt; f (Either b c)
@@ -851,7 +498,7 @@ forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
 forall (f :: * -&gt; *).
 (Alternative f, Filterable f) =&gt;
 ((a -&gt; Maybe a) -&gt; f b) -&gt; f b
-</span><a href="#local-6989586621679263675"><span class="hs-identifier hs-var">k</span></a></span><span> </span><span class="annot"><span class="annottext">(((a -&gt; Maybe a) -&gt; f b) -&gt; f b)
+</span><a href="#local-6989586621679266440"><span class="hs-identifier hs-var">k</span></a></span><span> </span><span class="annot"><span class="annottext">(((a -&gt; Maybe a) -&gt; f b) -&gt; f b)
 -&gt; (((Either a c -&gt; Maybe a) -&gt; f b) -&gt; (a -&gt; Maybe a) -&gt; f b)
 -&gt; ((Either a c -&gt; Maybe a) -&gt; f b)
 -&gt; f b
@@ -861,22 +508,22 @@ forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
 -&gt; (a -&gt; Maybe a)
 -&gt; f b
 forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
-</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span id="local-6989586621679263686"><span class="annot"><span class="annottext">a -&gt; Maybe a
-</span><a href="#local-6989586621679263686"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">(a -&gt; Maybe a) -&gt; (c -&gt; Maybe a) -&gt; Either a c -&gt; Maybe a
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span id="local-6989586621679266451"><span class="annot"><span class="annottext">a -&gt; Maybe a
+</span><a href="#local-6989586621679266451"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">(a -&gt; Maybe a) -&gt; (c -&gt; Maybe a) -&gt; Either a c -&gt; Maybe a
 forall a c b. (a -&gt; c) -&gt; (b -&gt; c) -&gt; Either a b -&gt; c
 </span><span class="hs-identifier hs-var">either</span></span><span> </span><span class="annot"><span class="annottext">a -&gt; Maybe a
-</span><a href="#local-6989586621679263686"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Maybe a -&gt; c -&gt; Maybe a
+</span><a href="#local-6989586621679266451"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Maybe a -&gt; c -&gt; Maybe a
 forall a b. a -&gt; b -&gt; a
 </span><span class="hs-identifier hs-var">const</span></span><span> </span><span class="annot"><span class="annottext">Maybe a
 forall a. Maybe a
 </span><span class="hs-identifier hs-var">Nothing</span></span><span class="hs-special">)</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
-</span><span id="line-176"></span><span>  </span><span id="local-6989586621679263689"><span class="annot"><span class="annottext">right' :: forall a b c.
+</span><span id="line-102"></span><span>  </span><span id="local-6989586621679266454"><span class="annot"><span class="annottext">right' :: forall a b c.
 Binocular a b a b -&gt; Binocular a b (Either c a) (Either c b)
-</span><a href="#local-6989586621679263689"><span class="hs-identifier hs-var hs-var hs-var">right'</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Bifocal.html#Binocular"><span class="hs-identifier hs-type">Binocular</span></a></span><span> </span><span id="local-6989586621679263691"><span class="annot"><span class="annottext">forall (f :: * -&gt; *).
+</span><a href="#local-6989586621679266454"><span class="hs-identifier hs-var hs-var hs-var">right'</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Bifocal.html#Binocular"><span class="hs-identifier hs-type">Binocular</span></a></span><span> </span><span id="local-6989586621679266456"><span class="annot"><span class="annottext">forall (f :: * -&gt; *).
 (Alternative f, Filterable f) =&gt;
 ((a -&gt; Maybe a) -&gt; f b) -&gt; f b
-</span><a href="#local-6989586621679263691"><span class="hs-identifier hs-var">k</span></a></span></span><span class="hs-special">)</span><span>
-</span><span id="line-177"></span><span>    </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(forall (f :: * -&gt; *).
+</span><a href="#local-6989586621679266456"><span class="hs-identifier hs-var">k</span></a></span></span><span class="hs-special">)</span><span>
+</span><span id="line-103"></span><span>    </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(forall (f :: * -&gt; *).
  (Alternative f, Filterable f) =&gt;
  ((Either c a -&gt; Maybe a) -&gt; f b) -&gt; f (Either c b))
 -&gt; Binocular a b (Either c a) (Either c b)
@@ -900,7 +547,7 @@ forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
 </span><span class="hs-identifier hs-var">fmap</span></span><span> </span><span class="annot"><span class="annottext">b -&gt; Either c b
 forall a b. b -&gt; Either a b
 </span><span class="hs-identifier hs-var">Right</span></span><span>
-</span><span id="line-178"></span><span>    </span><span class="annot"><span class="annottext">(f b -&gt; f (Either c b))
+</span><span id="line-104"></span><span>    </span><span class="annot"><span class="annottext">(f b -&gt; f (Either c b))
 -&gt; (((Either c a -&gt; Maybe a) -&gt; f b) -&gt; f b)
 -&gt; ((Either c a -&gt; Maybe a) -&gt; f b)
 -&gt; f (Either c b)
@@ -909,7 +556,7 @@ forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
 forall (f :: * -&gt; *).
 (Alternative f, Filterable f) =&gt;
 ((a -&gt; Maybe a) -&gt; f b) -&gt; f b
-</span><a href="#local-6989586621679263691"><span class="hs-identifier hs-var">k</span></a></span><span> </span><span class="annot"><span class="annottext">(((a -&gt; Maybe a) -&gt; f b) -&gt; f b)
+</span><a href="#local-6989586621679266456"><span class="hs-identifier hs-var">k</span></a></span><span> </span><span class="annot"><span class="annottext">(((a -&gt; Maybe a) -&gt; f b) -&gt; f b)
 -&gt; (((Either c a -&gt; Maybe a) -&gt; f b) -&gt; (a -&gt; Maybe a) -&gt; f b)
 -&gt; ((Either c a -&gt; Maybe a) -&gt; f b)
 -&gt; f b
@@ -919,23 +566,23 @@ forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
 -&gt; (a -&gt; Maybe a)
 -&gt; f b
 forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
-</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span id="local-6989586621679263702"><span class="annot"><span class="annottext">a -&gt; Maybe a
-</span><a href="#local-6989586621679263702"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">(c -&gt; Maybe a) -&gt; (a -&gt; Maybe a) -&gt; Either c a -&gt; Maybe a
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span id="local-6989586621679266467"><span class="annot"><span class="annottext">a -&gt; Maybe a
+</span><a href="#local-6989586621679266467"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">(c -&gt; Maybe a) -&gt; (a -&gt; Maybe a) -&gt; Either c a -&gt; Maybe a
 forall a c b. (a -&gt; c) -&gt; (b -&gt; c) -&gt; Either a b -&gt; c
 </span><span class="hs-identifier hs-var">either</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Maybe a -&gt; c -&gt; Maybe a
 forall a b. a -&gt; b -&gt; a
 </span><span class="hs-identifier hs-var">const</span></span><span> </span><span class="annot"><span class="annottext">Maybe a
 forall a. Maybe a
 </span><span class="hs-identifier hs-var">Nothing</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">a -&gt; Maybe a
-</span><a href="#local-6989586621679263702"><span class="hs-identifier hs-var">f</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
-</span><span id="line-179"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679263275"><span id="local-6989586621679263276"><span class="annot"><span class="hs-identifier hs-type">Cochoice</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Bifocal.html#Binocular"><span class="hs-identifier hs-type">Binocular</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679263275"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679263276"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span></span></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-180"></span><span>  </span><span id="local-6989586621679263709"><span class="annot"><span class="annottext">unleft :: forall a d b.
+</span><a href="#local-6989586621679266467"><span class="hs-identifier hs-var">f</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-105"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679266129"><span id="local-6989586621679266130"><span class="annot"><span class="hs-identifier hs-type">Cochoice</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Bifocal.html#Binocular"><span class="hs-identifier hs-type">Binocular</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679266129"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679266130"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-106"></span><span>  </span><span id="local-6989586621679266474"><span class="annot"><span class="annottext">unleft :: forall a d b.
 Binocular a b (Either a d) (Either b d) -&gt; Binocular a b a b
-</span><a href="#local-6989586621679263709"><span class="hs-identifier hs-var hs-var hs-var">unleft</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Bifocal.html#Binocular"><span class="hs-identifier hs-type">Binocular</span></a></span><span> </span><span id="local-6989586621679263711"><span class="annot"><span class="annottext">forall (f :: * -&gt; *).
+</span><a href="#local-6989586621679266474"><span class="hs-identifier hs-var hs-var hs-var">unleft</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Bifocal.html#Binocular"><span class="hs-identifier hs-type">Binocular</span></a></span><span> </span><span id="local-6989586621679266476"><span class="annot"><span class="annottext">forall (f :: * -&gt; *).
 (Alternative f, Filterable f) =&gt;
 ((Either a d -&gt; Maybe a) -&gt; f b) -&gt; f (Either b d)
-</span><a href="#local-6989586621679263711"><span class="hs-identifier hs-var">k</span></a></span></span><span class="hs-special">)</span><span>
-</span><span id="line-181"></span><span>    </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(forall (f :: * -&gt; *).
+</span><a href="#local-6989586621679266476"><span class="hs-identifier hs-var">k</span></a></span></span><span class="hs-special">)</span><span>
+</span><span id="line-107"></span><span>    </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(forall (f :: * -&gt; *).
  (Alternative f, Filterable f) =&gt;
  ((a -&gt; Maybe a) -&gt; f b) -&gt; f b)
 -&gt; Binocular a b a b
@@ -957,7 +604,7 @@ forall a b. (a -&gt; b) -&gt; a -&gt; b
 forall a. f (Maybe a) -&gt; f a
 forall (f :: * -&gt; *) a. Filterable f =&gt; f (Maybe a) -&gt; f a
 </span><span class="hs-identifier hs-var">catMaybes</span></span><span>
-</span><span id="line-182"></span><span>    </span><span class="annot"><span class="annottext">(f (Maybe b) -&gt; f b)
+</span><span id="line-108"></span><span>    </span><span class="annot"><span class="annottext">(f (Maybe b) -&gt; f b)
 -&gt; (((a -&gt; Maybe a) -&gt; f b) -&gt; f (Maybe b))
 -&gt; ((a -&gt; Maybe a) -&gt; f b)
 -&gt; f b
@@ -974,7 +621,7 @@ forall a b. a -&gt; b -&gt; a
 </span><span class="hs-identifier hs-var">const</span></span><span> </span><span class="annot"><span class="annottext">Maybe b
 forall a. Maybe a
 </span><span class="hs-identifier hs-var">Nothing</span></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
-</span><span id="line-183"></span><span>    </span><span class="annot"><span class="annottext">(f (Either b d) -&gt; f (Maybe b))
+</span><span id="line-109"></span><span>    </span><span class="annot"><span class="annottext">(f (Either b d) -&gt; f (Maybe b))
 -&gt; (((a -&gt; Maybe a) -&gt; f b) -&gt; f (Either b d))
 -&gt; ((a -&gt; Maybe a) -&gt; f b)
 -&gt; f (Maybe b)
@@ -983,7 +630,7 @@ forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
 forall (f :: * -&gt; *).
 (Alternative f, Filterable f) =&gt;
 ((Either a d -&gt; Maybe a) -&gt; f b) -&gt; f (Either b d)
-</span><a href="#local-6989586621679263711"><span class="hs-identifier hs-var">k</span></a></span><span> </span><span class="annot"><span class="annottext">(((Either a d -&gt; Maybe a) -&gt; f b) -&gt; f (Either b d))
+</span><a href="#local-6989586621679266476"><span class="hs-identifier hs-var">k</span></a></span><span> </span><span class="annot"><span class="annottext">(((Either a d -&gt; Maybe a) -&gt; f b) -&gt; f (Either b d))
 -&gt; (((a -&gt; Maybe a) -&gt; f b) -&gt; (Either a d -&gt; Maybe a) -&gt; f b)
 -&gt; ((a -&gt; Maybe a) -&gt; f b)
 -&gt; f (Either b d)
@@ -998,13 +645,13 @@ forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
 </span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">a -&gt; Either a d
 forall a b. a -&gt; Either a b
 </span><span class="hs-identifier hs-var">Left</span></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
-</span><span id="line-184"></span><span>  </span><span id="local-6989586621679263723"><span class="annot"><span class="annottext">unright :: forall d a b.
+</span><span id="line-110"></span><span>  </span><span id="local-6989586621679266488"><span class="annot"><span class="annottext">unright :: forall d a b.
 Binocular a b (Either d a) (Either d b) -&gt; Binocular a b a b
-</span><a href="#local-6989586621679263723"><span class="hs-identifier hs-var hs-var hs-var">unright</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Bifocal.html#Binocular"><span class="hs-identifier hs-type">Binocular</span></a></span><span> </span><span id="local-6989586621679263725"><span class="annot"><span class="annottext">forall (f :: * -&gt; *).
+</span><a href="#local-6989586621679266488"><span class="hs-identifier hs-var hs-var hs-var">unright</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Bifocal.html#Binocular"><span class="hs-identifier hs-type">Binocular</span></a></span><span> </span><span id="local-6989586621679266490"><span class="annot"><span class="annottext">forall (f :: * -&gt; *).
 (Alternative f, Filterable f) =&gt;
 ((Either d a -&gt; Maybe a) -&gt; f b) -&gt; f (Either d b)
-</span><a href="#local-6989586621679263725"><span class="hs-identifier hs-var">k</span></a></span></span><span class="hs-special">)</span><span>
-</span><span id="line-185"></span><span>    </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(forall (f :: * -&gt; *).
+</span><a href="#local-6989586621679266490"><span class="hs-identifier hs-var">k</span></a></span></span><span class="hs-special">)</span><span>
+</span><span id="line-111"></span><span>    </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(forall (f :: * -&gt; *).
  (Alternative f, Filterable f) =&gt;
  ((a -&gt; Maybe a) -&gt; f b) -&gt; f b)
 -&gt; Binocular a b a b
@@ -1026,7 +673,7 @@ forall a b. (a -&gt; b) -&gt; a -&gt; b
 forall a. f (Maybe a) -&gt; f a
 forall (f :: * -&gt; *) a. Filterable f =&gt; f (Maybe a) -&gt; f a
 </span><span class="hs-identifier hs-var">catMaybes</span></span><span>
-</span><span id="line-186"></span><span>    </span><span class="annot"><span class="annottext">(f (Maybe b) -&gt; f b)
+</span><span id="line-112"></span><span>    </span><span class="annot"><span class="annottext">(f (Maybe b) -&gt; f b)
 -&gt; (((a -&gt; Maybe a) -&gt; f b) -&gt; f (Maybe b))
 -&gt; ((a -&gt; Maybe a) -&gt; f b)
 -&gt; f b
@@ -1043,7 +690,7 @@ forall a. Maybe a
 </span><span class="hs-identifier hs-var">Nothing</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">b -&gt; Maybe b
 forall a. a -&gt; Maybe a
 </span><span class="hs-identifier hs-var">Just</span></span><span class="hs-special">)</span><span>
-</span><span id="line-187"></span><span>    </span><span class="annot"><span class="annottext">(f (Either d b) -&gt; f (Maybe b))
+</span><span id="line-113"></span><span>    </span><span class="annot"><span class="annottext">(f (Either d b) -&gt; f (Maybe b))
 -&gt; (((a -&gt; Maybe a) -&gt; f b) -&gt; f (Either d b))
 -&gt; ((a -&gt; Maybe a) -&gt; f b)
 -&gt; f (Maybe b)
@@ -1052,7 +699,7 @@ forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
 forall (f :: * -&gt; *).
 (Alternative f, Filterable f) =&gt;
 ((Either d a -&gt; Maybe a) -&gt; f b) -&gt; f (Either d b)
-</span><a href="#local-6989586621679263725"><span class="hs-identifier hs-var">k</span></a></span><span> </span><span class="annot"><span class="annottext">(((Either d a -&gt; Maybe a) -&gt; f b) -&gt; f (Either d b))
+</span><a href="#local-6989586621679266490"><span class="hs-identifier hs-var">k</span></a></span><span> </span><span class="annot"><span class="annottext">(((Either d a -&gt; Maybe a) -&gt; f b) -&gt; f (Either d b))
 -&gt; (((a -&gt; Maybe a) -&gt; f b) -&gt; (Either d a -&gt; Maybe a) -&gt; f b)
 -&gt; ((a -&gt; Maybe a) -&gt; f b)
 -&gt; f (Either d b)
@@ -1067,39 +714,39 @@ forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
 </span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">a -&gt; Either d a
 forall a b. b -&gt; Either a b
 </span><span class="hs-identifier hs-var">Right</span></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
-</span><span id="line-188"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679263297"><span id="local-6989586621679263298"><span id="local-6989586621679263740"><span id="local-6989586621679263746"><span class="annot"><a href="Data.Profunctor.Monoidal.Cocartesian.html#CocartesianMonoidal"><span class="hs-identifier hs-type">CocartesianMonoidal</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Bifocal.html#Binocular"><span class="hs-identifier hs-type">Binocular</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679263297"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679263298"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span></span></span></span></span><span>
-</span><span id="line-189"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679263209"><span id="local-6989586621679263210"><span id="local-6989586621679263757"><span id="local-6989586621679263760"><span class="annot"><a href="Data.Profunctor.Distributor.html#Distributor"><span class="hs-identifier hs-type">Distributor</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Bifocal.html#Binocular"><span class="hs-identifier hs-type">Binocular</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679263209"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679263210"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span></span></span></span></span><span>
-</span><span id="line-190"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679263295"><span id="local-6989586621679263296"><span id="local-6989586621679263770"><span class="annot"><a href="Data.Profunctor.Monoidal.Cocartesian.html#CocartesianChoice"><span class="hs-identifier hs-type">CocartesianChoice</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Bifocal.html#Binocular"><span class="hs-identifier hs-type">Binocular</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679263295"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679263296"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span></span></span></span><span>
-</span><span id="line-191"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679263215"><span id="local-6989586621679263216"><span id="local-6989586621679263781"><span id="local-6989586621679263784"><span class="annot"><a href="Data.Profunctor.Distributor.html#Alternator"><span class="hs-identifier hs-type">Alternator</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Bifocal.html#Binocular"><span class="hs-identifier hs-type">Binocular</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679263215"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679263216"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span></span></span></span></span><span>
-</span><span id="line-192"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679263311"><span id="local-6989586621679263312"><span id="local-6989586621679263792"><span class="annot"><a href="Data.Profunctor.Filtrator.html#Filtrator"><span class="hs-identifier hs-type">Filtrator</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Bifocal.html#Binocular"><span class="hs-identifier hs-type">Binocular</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679263311"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679263312"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span></span></span></span><span>
-</span><span id="line-193"></span><span>
-</span><span id="line-194"></span><span class="annot"><span class="hs-comment">{- | Run a t'Binocular' on a partial `Distributor`. -}</span></span><span>
-</span><span id="line-195"></span><span id="local-6989586621679262942"><span id="local-6989586621679262943"><span id="local-6989586621679262944"><span id="local-6989586621679262945"><span id="local-6989586621679262946"><span class="annot"><a href="Control.Lens.Bifocal.html#runBinocular"><span class="hs-identifier hs-type">runBinocular</span></a></span><span>
-</span><span id="line-196"></span><span>  </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.Profunctor.Distributor.html#Alternator"><span class="hs-identifier hs-type">Alternator</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679262942"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Data.Profunctor.Filtrator.html#Filtrator"><span class="hs-identifier hs-type">Filtrator</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679262942"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">)</span><span>
-</span><span id="line-197"></span><span>  </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Control.Lens.Bifocal.html#Binocular"><span class="hs-identifier hs-type">Binocular</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679262943"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679262944"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679262945"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679262946"><span class="hs-identifier hs-type">t</span></a></span><span>
-</span><span id="line-198"></span><span>  </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679262942"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679262943"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679262944"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679262942"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679262945"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679262946"><span class="hs-identifier hs-type">t</span></a></span></span></span></span></span></span><span>
-</span><span id="line-199"></span><span id="runBinocular"><span class="annot"><span class="annottext">runBinocular :: forall (p :: * -&gt; * -&gt; *) a b s t.
+</span><span id="line-114"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679266151"><span id="local-6989586621679266152"><span id="local-6989586621679266505"><span id="local-6989586621679266511"><span class="annot"><a href="Data.Profunctor.Monoidal.Cocartesian.html#CocartesianMonoidal"><span class="hs-identifier hs-type">CocartesianMonoidal</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Bifocal.html#Binocular"><span class="hs-identifier hs-type">Binocular</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679266151"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679266152"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span></span></span></span></span><span>
+</span><span id="line-115"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679266058"><span id="local-6989586621679266059"><span id="local-6989586621679266522"><span id="local-6989586621679266525"><span class="annot"><a href="Data.Profunctor.Distributor.html#Distributor"><span class="hs-identifier hs-type">Distributor</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Bifocal.html#Binocular"><span class="hs-identifier hs-type">Binocular</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679266058"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679266059"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span></span></span></span></span><span>
+</span><span id="line-116"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679266149"><span id="local-6989586621679266150"><span id="local-6989586621679266535"><span class="annot"><a href="Data.Profunctor.Monoidal.Cocartesian.html#CocartesianChoice"><span class="hs-identifier hs-type">CocartesianChoice</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Bifocal.html#Binocular"><span class="hs-identifier hs-type">Binocular</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679266149"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679266150"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span></span></span></span><span>
+</span><span id="line-117"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679266064"><span id="local-6989586621679266065"><span id="local-6989586621679266546"><span id="local-6989586621679266549"><span class="annot"><a href="Data.Profunctor.Distributor.html#Alternator"><span class="hs-identifier hs-type">Alternator</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Bifocal.html#Binocular"><span class="hs-identifier hs-type">Binocular</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679266064"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679266065"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span></span></span></span></span><span>
+</span><span id="line-118"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679266176"><span id="local-6989586621679266177"><span id="local-6989586621679266557"><span class="annot"><a href="Data.Profunctor.Filtrator.html#Filtrator"><span class="hs-identifier hs-type">Filtrator</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Bifocal.html#Binocular"><span class="hs-identifier hs-type">Binocular</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679266176"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679266177"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span></span></span></span><span>
+</span><span id="line-119"></span><span>
+</span><span id="line-120"></span><span class="annot"><span class="hs-comment">{- | Run a t'Binocular' on a partial `Distributor`. -}</span></span><span>
+</span><span id="line-121"></span><span id="local-6989586621679265899"><span id="local-6989586621679265900"><span id="local-6989586621679265901"><span id="local-6989586621679265902"><span id="local-6989586621679265903"><span class="annot"><a href="Control.Lens.Bifocal.html#runBinocular"><span class="hs-identifier hs-type">runBinocular</span></a></span><span>
+</span><span id="line-122"></span><span>  </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.Profunctor.Distributor.html#Alternator"><span class="hs-identifier hs-type">Alternator</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265899"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Data.Profunctor.Filtrator.html#Filtrator"><span class="hs-identifier hs-type">Filtrator</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265899"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-123"></span><span>  </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Control.Lens.Bifocal.html#Binocular"><span class="hs-identifier hs-type">Binocular</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265900"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265901"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265902"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265903"><span class="hs-identifier hs-type">t</span></a></span><span>
+</span><span id="line-124"></span><span>  </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679265899"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265900"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265901"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679265899"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265902"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679265903"><span class="hs-identifier hs-type">t</span></a></span></span></span></span></span></span><span>
+</span><span id="line-125"></span><span id="runBinocular"><span class="annot"><span class="annottext">runBinocular :: forall (p :: * -&gt; * -&gt; *) a b s t.
 (Alternator p, Filtrator p) =&gt;
 Binocular a b s t -&gt; p a b -&gt; p s t
-</span><a href="Control.Lens.Bifocal.html#runBinocular"><span class="hs-identifier hs-var hs-var">runBinocular</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Bifocal.html#Binocular"><span class="hs-identifier hs-type">Binocular</span></a></span><span> </span><span id="local-6989586621679263808"><span class="annot"><span class="annottext">forall (f :: * -&gt; *).
+</span><a href="Control.Lens.Bifocal.html#runBinocular"><span class="hs-identifier hs-var hs-var">runBinocular</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Bifocal.html#Binocular"><span class="hs-identifier hs-type">Binocular</span></a></span><span> </span><span id="local-6989586621679266573"><span class="annot"><span class="annottext">forall (f :: * -&gt; *).
 (Alternative f, Filterable f) =&gt;
 ((s -&gt; Maybe a) -&gt; f b) -&gt; f t
-</span><a href="#local-6989586621679263808"><span class="hs-identifier hs-var">k</span></a></span></span><span class="hs-special">)</span><span> </span><span id="local-6989586621679263809"><span class="annot"><span class="annottext">p a b
-</span><a href="#local-6989586621679263809"><span class="hs-identifier hs-var">p</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">((s -&gt; Maybe a) -&gt; p s b) -&gt; p s t
+</span><a href="#local-6989586621679266573"><span class="hs-identifier hs-var">k</span></a></span></span><span class="hs-special">)</span><span> </span><span id="local-6989586621679266574"><span class="annot"><span class="annottext">p a b
+</span><a href="#local-6989586621679266574"><span class="hs-identifier hs-var">p</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">((s -&gt; Maybe a) -&gt; p s b) -&gt; p s t
 forall (f :: * -&gt; *).
 (Alternative f, Filterable f) =&gt;
 ((s -&gt; Maybe a) -&gt; f b) -&gt; f t
-</span><a href="#local-6989586621679263808"><span class="hs-identifier hs-var">k</span></a></span><span> </span><span class="annot"><span class="annottext">(((s -&gt; Maybe a) -&gt; p s b) -&gt; p s t)
+</span><a href="#local-6989586621679266573"><span class="hs-identifier hs-var">k</span></a></span><span> </span><span class="annot"><span class="annottext">(((s -&gt; Maybe a) -&gt; p s b) -&gt; p s t)
 -&gt; ((s -&gt; Maybe a) -&gt; p s b) -&gt; p s t
 forall a b. (a -&gt; b) -&gt; a -&gt; b
-</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679263810"><span class="annot"><span class="annottext">s -&gt; Maybe a
-</span><a href="#local-6989586621679263810"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">(s -&gt; Maybe a) -&gt; (b -&gt; Maybe b) -&gt; p a b -&gt; p s b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679266575"><span class="annot"><span class="annottext">s -&gt; Maybe a
+</span><a href="#local-6989586621679266575"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">(s -&gt; Maybe a) -&gt; (b -&gt; Maybe b) -&gt; p a b -&gt; p s b
 forall (p :: * -&gt; * -&gt; *) s a b t.
 (Choice p, Cochoice p) =&gt;
 (s -&gt; Maybe a) -&gt; (b -&gt; Maybe t) -&gt; p a b -&gt; p s t
 </span><a href="Control.Lens.PartialIso.html#dimapMaybe"><span class="hs-identifier hs-var">dimapMaybe</span></a></span><span> </span><span class="annot"><span class="annottext">s -&gt; Maybe a
-</span><a href="#local-6989586621679263810"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">b -&gt; Maybe b
+</span><a href="#local-6989586621679266575"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">b -&gt; Maybe b
 forall a. a -&gt; Maybe a
 </span><span class="hs-identifier hs-var">Just</span></span><span> </span><span class="annot"><span class="annottext">p a b
-</span><a href="#local-6989586621679263809"><span class="hs-identifier hs-var">p</span></a></span><span>
-</span><span id="line-200"></span></pre></body></html>
+</span><a href="#local-6989586621679266574"><span class="hs-identifier hs-var">p</span></a></span><span>
+</span><span id="line-126"></span></pre></body></html>

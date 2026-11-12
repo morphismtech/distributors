@@ -28,6 +28,23 @@
   `First`, `Last`, `Alt f`, `Ap f` & `IdentityT f`.
 - `Homogeneous` & `Enumerable` instances for `(,) e`, a copy for each tag
   of a `Bounded` `Enum`, summed in a balanced tree.
+- A `Homogeneous` instance for `NonEmpty`.
+- Dual combinators: `copiesComonocle`, the `Prism`s of a `Comonocle`'s
+  copies, exactly one of which matches, & `fociMonocle`, the `Lens`es of
+  a `Monocle`'s foci, every one of which focuses.
+- `Prismoid`s move to their own module, `Control.Lens.Prismoid`, with
+  `somed`, `opted`, `lefted`, `righted`, `chained1` & `chained`.
+- `Plasmoid`s, families of optics separated by a `SepBy`, which are
+  `Prismoid`s by `noSep`: `chained1` & `chained` are `Plasmoid`s, taking a
+  `SepBy`; & new `severaled`, `severaled1` & `intercalated`, separated like
+  `several`, `several1` & `intercalateP`; & `operated`, an expression of
+  an operator table, like `withOperators`.
+- `Prismatoid`, the concrete form of `Prismoid`s, a partial `Dioptrice`,
+  with `APrismoid`, `prismoid`, `withPrismoid`, `mapPrismoid`,
+  `clonePrismoid` & `runPrismatoid`.
+- `PartialExchange` is a `DisjunctiveMonoid`, choosing by first success
+  in either direction, of which `satisfied` is a homomorphism;
+  `withOperators` tries its unary operators by it.
 
 ### Bug Fixes
 
@@ -36,10 +53,28 @@
 
 ### Breaking Changes
 
+- `Bifocal`s need `(Alternator p, Applicative f, Filterable f)`, dropping
+  `Filtrator p` & `Alternative f`, which `Filterable f` provides, as it
+  does `PartialIso`'s `Cochoice`.
+- `Prismoid`s need `(Alternator p, Applicative f)`, rather than an
+  `Alternative f`, failing by their `Alternator` alone, so that they have
+  a concrete form, `Prismatoid`.
+- `Witheroid` & `witherPrism` are removed: a `Witheroid`'s `Alternative f`
+  could fail backwards, without a concrete form, & `witherPrism` is
+  `clonePartialIso`, with `catMaybes (pure Nothing)` for `empty`, as
+  `withered`'s documentation shows.
+
+- `Filtroid`, `unlefted` & `unrighted` are removed: by `Filtrator`'s laws,
+  its `Cochoice` derives from `Profunctor` & `Filterable`, so an optic for
+  `Filtrator`s may only map its source & filter its target, as a
+  `filterPrism` does. Use `filterPrism _Left` & `filterPrism _Right`.
+- `coPrism` is renamed `filterPrism`, a filter pattern of a `Prism`,
+  since the coprism, the action of a reversed `Prism`, is `?<`.
+
 - `PartialIso` drops its `Cochoice` constraint, failing by `Filterable`
   alone, so `preview`, `^?`, `has` & `toListOf` terminate on a
   `PartialIso` which fails to match, rather than looping in `Cochoice (->)`.
-  `partialIso` is the action `dimapMaybe` on @p a (f b)@, like `coPrism`.
+  `partialIso` is the action `dimapMaybe` on @p a (f b)@.
   Its action `>?<` on `Choice` & `Cochoice` profunctors is unchanged.
 - `Filtrator`'s laws are that `filtrate` is a retraction of `alternate`,
   rather than an inverse of `>+<`, which fails for left-biased &

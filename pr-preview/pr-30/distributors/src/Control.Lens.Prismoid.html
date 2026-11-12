@@ -1,0 +1,1239 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="annot"><span class="hs-comment">{- |
+Module      : Control.Lens.Prismoid
+Description : prismoids
+Copyright   : (C) 2026 - Eitan Chatav
+License     : BSD-style (see the file LICENSE)
+Maintainer  : Eitan Chatav &lt;eitan.chatav@gmail.com&gt;
+Stability   : provisional
+Portability : non-portable
+-}</span></span><span>
+</span><span id="line-10"></span><span>
+</span><span id="line-11"></span><span class="hs-keyword">module</span><span> </span><span class="annot"><a href="Control.Lens.Prismoid.html"><span class="hs-identifier">Control.Lens.Prismoid</span></a></span><span>
+</span><span id="line-12"></span><span>  </span><span class="hs-special">(</span><span> </span><span class="annot"><span class="hs-comment">-- * Prismoid</span></span><span>
+</span><span id="line-13"></span><span>    </span><span class="annot"><a href="Control.Lens.Prismoid.html#Prismoid"><span class="hs-identifier">Prismoid</span></a></span><span>
+</span><span id="line-14"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Prismoid.html#APrismoid"><span class="hs-identifier">APrismoid</span></a></span><span>
+</span><span id="line-15"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Prismoid.html#Prismatoid"><span class="hs-identifier">Prismatoid</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Prismoid.html#runPrismatoid"><span class="hs-identifier">runPrismatoid</span></a></span><span>
+</span><span id="line-16"></span><span>    </span><span class="annot"><span class="hs-comment">-- * Combinators</span></span><span>
+</span><span id="line-17"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Prismoid.html#prismoid"><span class="hs-identifier">prismoid</span></a></span><span>
+</span><span id="line-18"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Prismoid.html#withPrismoid"><span class="hs-identifier">withPrismoid</span></a></span><span>
+</span><span id="line-19"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Prismoid.html#clonePrismoid"><span class="hs-identifier">clonePrismoid</span></a></span><span>
+</span><span id="line-20"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Prismoid.html#mapPrismoid"><span class="hs-identifier">mapPrismoid</span></a></span><span>
+</span><span id="line-21"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Prismoid.html#somed"><span class="hs-identifier">somed</span></a></span><span>
+</span><span id="line-22"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Prismoid.html#opted"><span class="hs-identifier">opted</span></a></span><span>
+</span><span id="line-23"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Prismoid.html#lefted"><span class="hs-identifier">lefted</span></a></span><span>
+</span><span id="line-24"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Prismoid.html#righted"><span class="hs-identifier">righted</span></a></span><span>
+</span><span id="line-25"></span><span>    </span><span class="annot"><span class="hs-comment">-- * Plasmoid</span></span><span>
+</span><span id="line-26"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Prismoid.html#Plasmoid"><span class="hs-identifier">Plasmoid</span></a></span><span>
+</span><span id="line-27"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Prismoid.html#chained1"><span class="hs-identifier">chained1</span></a></span><span>
+</span><span id="line-28"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Prismoid.html#chained"><span class="hs-identifier">chained</span></a></span><span>
+</span><span id="line-29"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Prismoid.html#severaled"><span class="hs-identifier">severaled</span></a></span><span>
+</span><span id="line-30"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Prismoid.html#severaled1"><span class="hs-identifier">severaled1</span></a></span><span>
+</span><span id="line-31"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Prismoid.html#intercalated"><span class="hs-identifier">intercalated</span></a></span><span>
+</span><span id="line-32"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Prismoid.html#operated"><span class="hs-identifier">operated</span></a></span><span>
+</span><span id="line-33"></span><span>  </span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-34"></span><span>
+</span><span id="line-35"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Applicative</span></span><span>
+</span><span id="line-36"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Lens</span></span><span>
+</span><span id="line-37"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Lens.Internal.Profunctor</span></span><span>
+</span><span id="line-38"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Control.Lens.PartialIso.html"><span class="hs-identifier">Control.Lens.PartialIso</span></a></span><span>
+</span><span id="line-39"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Data.Monoid.Disjunctive.html"><span class="hs-identifier">Data.Monoid.Disjunctive</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.Monoid.Disjunctive.html#DisjunctiveMonoid"><span class="hs-identifier">DisjunctiveMonoid</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-40"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Data.Profunctor.Distributor.html"><span class="hs-identifier">Data.Profunctor.Distributor</span></a></span><span>
+</span><span id="line-41"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Data.Profunctor.Monoidal.Cocartesian.html"><span class="hs-identifier">Data.Profunctor.Monoidal.Cocartesian</span></a></span><span>
+</span><span id="line-42"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Data.Traversable.Homogeneous.html"><span class="hs-identifier">Data.Traversable.Homogeneous</span></a></span><span>
+</span><span id="line-43"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Void</span></span><span>
+</span><span id="line-44"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">GHC.Exts</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">IsList</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-45"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">GHC.Generics</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Par1</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">U1</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">V1</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-operator">(:*:)</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-operator">(:+:)</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-operator">(:.:)</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-46"></span><span>
+</span><span id="line-47"></span><span class="hs-comment">-- $setup</span><span>
+</span><span id="line-48"></span><span class="hs-comment">-- &gt;&gt;&gt; import Control.Lens (Prism', prism')</span><span>
+</span><span id="line-49"></span><span class="hs-comment">-- &gt;&gt;&gt; import Data.Bifunctor.Joker</span><span>
+</span><span id="line-50"></span><span class="hs-comment">-- &gt;&gt;&gt; import Data.Char (digitToInt, isDigit)</span><span>
+</span><span id="line-51"></span><span class="hs-comment">-- &gt;&gt;&gt; import Data.Functor.Identity (Identity (..))</span><span>
+</span><span id="line-52"></span><span class="hs-comment">-- &gt;&gt;&gt; import Data.Profunctor.Distributor (Assoc (..), Operator (..), noSep, sepBy)</span><span>
+</span><span id="line-53"></span><span class="hs-comment">-- &gt;&gt;&gt; import Text.ParserCombinators.ReadP (ReadP, char, readP_to_S, satisfy)</span><span>
+</span><span id="line-54"></span><span>
+</span><span id="line-55"></span><span class="annot"><span class="hs-comment">{- | `Prismoid`s generalize `Control.Lens.Prism.Prism`s
+&amp; `Control.Lens.Diopter.Diopter`s, combining them,
+matching partially forwards, into a `Homogeneous` shape,
+&amp; building totally backwards. Writing &#8834; for &quot;every one is a&quot;,
+
+`Control.Lens.Prism.Prism` &#8746; `Control.Lens.Diopter.Diopter`
+&#8834; `Prismoid` &#8834; `Control.Lens.Bifocal.Bifocal`.
+
+A `Prismoid` fails by its `Alternator`, never by its `Applicative` @f@,
+so a `Control.Lens.Prism.Prism`, as a `Prismoid`, fails on a mismatch,
+rather than passing it through, by the laws of
+`Data.Profunctor.Monoidal.Cocartesian.CocartesianChoice`,
+as `Control.Lens.PartialIso.clonePartialIso` makes it do in any `Choice`.
+A `Control.Lens.Bifocal.Bifocal` adds failing backwards, by a `Witherable.Filterable` @f@.
+
+`Prismoid`s are isomorphic to t'Prismatoid's.
+-}</span></span><span>
+</span><span id="line-72"></span><span class="hs-keyword">type</span><span> </span><span id="Prismoid"><span class="annot"><a href="Control.Lens.Prismoid.html#Prismoid"><span class="hs-identifier hs-var">Prismoid</span></a></span></span><span> </span><span id="local-6989586621679269000"><span class="annot"><a href="#local-6989586621679269000"><span class="hs-identifier hs-type">s</span></a></span></span><span> </span><span id="local-6989586621679269001"><span class="annot"><a href="#local-6989586621679269001"><span class="hs-identifier hs-type">t</span></a></span></span><span> </span><span id="local-6989586621679269002"><span class="annot"><a href="#local-6989586621679269002"><span class="hs-identifier hs-type">a</span></a></span></span><span> </span><span id="local-6989586621679269003"><span class="annot"><a href="#local-6989586621679269003"><span class="hs-identifier hs-type">b</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">forall</span><span> </span><span id="local-6989586621679268635"><span class="annot"><a href="#local-6989586621679268635"><span class="hs-identifier hs-type">p</span></a></span></span><span> </span><span id="local-6989586621679268636"><span class="annot"><a href="#local-6989586621679268636"><span class="hs-identifier hs-type">f</span></a></span></span><span class="hs-operator">.</span><span>
+</span><span id="line-73"></span><span>  </span><span class="hs-special">(</span><span class="annot"><a href="Data.Profunctor.Distributor.html#Alternator"><span class="hs-identifier hs-type">Alternator</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679268635"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Applicative</span></span><span> </span><span class="annot"><a href="#local-6989586621679268636"><span class="hs-identifier hs-type">f</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-74"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679268635"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679269002"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679268636"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679269003"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679268635"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679269000"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679268636"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679269001"><span class="hs-identifier hs-type">t</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-75"></span><span>
+</span><span id="line-76"></span><span class="annot"><span class="hs-comment">{- | A `Plasmoid` is a family of optics, separated by a t'SepBy',
+which is an optic at the `Alternator` @p@ of its separators.
+
+Its separators are data-free, @p () ()@, so they place effects
+between its foci, but never change what its source or target holds.
+So without separators, by `noSep`, which is polymorphic in @p@,
+a `Plasmoid` is a `Prismoid`, &amp; its data is that `Prismoid`'s;
+for any @plasmoid :: Plasmoid s t a b@,
+@plasmoid noSep :: Prismoid s t a b@.
+
+&gt;&gt;&gt; withPrismoid (severaled1 noSep :: Prismoid String String Char Char) $ \f _ -&gt; fmap length (f &quot;abc&quot;)
+Just 3
+-}</span></span><span>
+</span><span id="line-89"></span><span class="hs-keyword">type</span><span> </span><span id="Plasmoid"><span class="annot"><a href="Control.Lens.Prismoid.html#Plasmoid"><span class="hs-identifier hs-var">Plasmoid</span></a></span></span><span> </span><span id="local-6989586621679269006"><span class="annot"><a href="#local-6989586621679269006"><span class="hs-identifier hs-type">s</span></a></span></span><span> </span><span id="local-6989586621679269007"><span class="annot"><a href="#local-6989586621679269007"><span class="hs-identifier hs-type">t</span></a></span></span><span> </span><span id="local-6989586621679269008"><span class="annot"><a href="#local-6989586621679269008"><span class="hs-identifier hs-type">a</span></a></span></span><span> </span><span id="local-6989586621679269009"><span class="annot"><a href="#local-6989586621679269009"><span class="hs-identifier hs-type">b</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">forall</span><span> </span><span id="local-6989586621679269010"><span class="annot"><a href="#local-6989586621679269010"><span class="hs-identifier hs-type">p</span></a></span></span><span> </span><span id="local-6989586621679269011"><span class="annot"><a href="#local-6989586621679269011"><span class="hs-identifier hs-type">f</span></a></span></span><span class="hs-operator">.</span><span>
+</span><span id="line-90"></span><span>  </span><span class="hs-special">(</span><span class="annot"><a href="Data.Profunctor.Distributor.html#Alternator"><span class="hs-identifier hs-type">Alternator</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679269010"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Applicative</span></span><span> </span><span class="annot"><a href="#local-6989586621679269011"><span class="hs-identifier hs-type">f</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-91"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Data.Profunctor.Distributor.html#SepBy"><span class="hs-identifier hs-type">SepBy</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679269010"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679269010"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679269008"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679269011"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679269009"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679269010"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679269006"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679269011"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679269007"><span class="hs-identifier hs-type">t</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-92"></span><span>
+</span><span id="line-93"></span><span class="annot"><span class="hs-comment">{- | `APrismoid` is monomorphically a `Prismoid`. -}</span></span><span>
+</span><span id="line-94"></span><span class="hs-keyword">type</span><span> </span><span id="APrismoid"><span class="annot"><a href="Control.Lens.Prismoid.html#APrismoid"><span class="hs-identifier hs-var">APrismoid</span></a></span></span><span> </span><span id="local-6989586621679269012"><span class="annot"><a href="#local-6989586621679269012"><span class="hs-identifier hs-type">s</span></a></span></span><span> </span><span id="local-6989586621679269013"><span class="annot"><a href="#local-6989586621679269013"><span class="hs-identifier hs-type">t</span></a></span></span><span> </span><span id="local-6989586621679269014"><span class="annot"><a href="#local-6989586621679269014"><span class="hs-identifier hs-type">a</span></a></span></span><span> </span><span id="local-6989586621679269015"><span class="annot"><a href="#local-6989586621679269015"><span class="hs-identifier hs-type">b</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-95"></span><span>  </span><span class="annot"><a href="Control.Lens.Prismoid.html#Prismatoid"><span class="hs-identifier hs-type">Prismatoid</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679269014"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679269015"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679269014"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Identity</span></span><span> </span><span class="annot"><a href="#local-6989586621679269015"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Control.Lens.Prismoid.html#Prismatoid"><span class="hs-identifier hs-type">Prismatoid</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679269014"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679269015"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679269012"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Identity</span></span><span> </span><span class="annot"><a href="#local-6989586621679269013"><span class="hs-identifier hs-type">t</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-96"></span><span>
+</span><span id="line-97"></span><span class="annot"><span class="hs-comment">{- | Build a `Prismoid` from its partial match forwards, into a
+`Homogeneous` shape, &amp; its total build backwards.
+
+&gt;&gt;&gt; withPrismoid (prismoid (\xs -&gt; if null xs then Nothing else Just xs) id) $ \f _ -&gt; (length &lt;$&gt; f &quot;&quot;, length &lt;$&gt; f &quot;ab&quot;)
+(Nothing,Just 2)
+-}</span></span><span>
+</span><span id="line-103"></span><span id="local-6989586621679268543"><span id="local-6989586621679268545"><span id="local-6989586621679268546"><span id="local-6989586621679268547"><span id="local-6989586621679268548"><span class="annot"><a href="Control.Lens.Prismoid.html#prismoid"><span class="hs-identifier hs-type">prismoid</span></a></span><span>
+</span><span id="line-104"></span><span>  </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Data.Traversable.Homogeneous.html#Homogeneous"><span class="hs-identifier hs-type">Homogeneous</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679268543"><span class="hs-identifier hs-type">h</span></a></span><span>
+</span><span id="line-105"></span><span>  </span><span class="hs-glyph">=&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679268545"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679268543"><span class="hs-identifier hs-type">h</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679268546"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679268543"><span class="hs-identifier hs-type">h</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679268547"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679268548"><span class="hs-identifier hs-type">t</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Control.Lens.Prismoid.html#Prismoid"><span class="hs-identifier hs-type">Prismoid</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679268545"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679268548"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679268546"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679268547"><span class="hs-identifier hs-type">b</span></a></span></span></span></span></span></span><span>
+</span><span id="line-106"></span><span id="prismoid"><span class="annot"><span class="annottext">prismoid :: forall (h :: * -&gt; *) s a b t.
+Homogeneous h =&gt;
+(s -&gt; Maybe (h a)) -&gt; (h b -&gt; t) -&gt; Prismoid s t a b
+</span><a href="Control.Lens.Prismoid.html#prismoid"><span class="hs-identifier hs-var hs-var">prismoid</span></a></span></span><span> </span><span id="local-6989586621679269022"><span class="annot"><span class="annottext">s -&gt; Maybe (h a)
+</span><a href="#local-6989586621679269022"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span id="local-6989586621679269023"><span class="annot"><span class="annottext">h b -&gt; t
+</span><a href="#local-6989586621679269023"><span class="hs-identifier hs-var">g</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">WrappedPafb f p s t -&gt; p s (f t)
+forall (f :: * -&gt; *) (p :: * -&gt; * -&gt; *) a b.
+WrappedPafb f p a b -&gt; p a (f b)
+</span><span class="hs-identifier hs-var">unwrapPafb</span></span><span> </span><span class="annot"><span class="annottext">(WrappedPafb f p s t -&gt; p s (f t))
+-&gt; (p a (f b) -&gt; WrappedPafb f p s t) -&gt; p a (f b) -&gt; p s (f t)
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Prismatoid a b s t -&gt; WrappedPafb f p a b -&gt; WrappedPafb f p s t
+forall (p :: * -&gt; * -&gt; *) a b s t.
+Alternator p =&gt;
+Prismatoid a b s t -&gt; p a b -&gt; p s t
+</span><a href="Control.Lens.Prismoid.html#runPrismatoid"><span class="hs-identifier hs-var">runPrismatoid</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(s -&gt; Maybe (h a)) -&gt; (h b -&gt; t) -&gt; Prismatoid a b s t
+forall (h :: * -&gt; *) s a b t.
+Homogeneous h =&gt;
+(s -&gt; Maybe (h a)) -&gt; (h b -&gt; t) -&gt; Prismatoid a b s t
+</span><a href="Control.Lens.Prismoid.html#Prismatoid"><span class="hs-identifier hs-var">Prismatoid</span></a></span><span> </span><span class="annot"><span class="annottext">s -&gt; Maybe (h a)
+</span><a href="#local-6989586621679269022"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">h b -&gt; t
+</span><a href="#local-6989586621679269023"><span class="hs-identifier hs-var">g</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(WrappedPafb f p a b -&gt; WrappedPafb f p s t)
+-&gt; (p a (f b) -&gt; WrappedPafb f p a b)
+-&gt; p a (f b)
+-&gt; WrappedPafb f p s t
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">p a (f b) -&gt; WrappedPafb f p a b
+forall (f :: * -&gt; *) (p :: * -&gt; * -&gt; *) a b.
+p a (f b) -&gt; WrappedPafb f p a b
+</span><span class="hs-identifier hs-var">WrapPafb</span></span><span>
+</span><span id="line-107"></span><span>
+</span><span id="line-108"></span><span class="annot"><span class="hs-comment">{- | Action of `APrismoid` on `Alternator`s. -}</span></span><span>
+</span><span id="line-109"></span><span id="local-6989586621679268583"><span id="local-6989586621679268584"><span id="local-6989586621679268585"><span id="local-6989586621679268586"><span id="local-6989586621679268587"><span class="annot"><a href="Control.Lens.Prismoid.html#mapPrismoid"><span class="hs-identifier hs-type">mapPrismoid</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Data.Profunctor.Distributor.html#Alternator"><span class="hs-identifier hs-type">Alternator</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679268583"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Control.Lens.Prismoid.html#APrismoid"><span class="hs-identifier hs-type">APrismoid</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679268584"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679268585"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679268586"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679268587"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679268583"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679268586"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679268587"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679268583"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679268584"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679268585"><span class="hs-identifier hs-type">t</span></a></span></span></span></span></span></span><span>
+</span><span id="line-110"></span><span id="mapPrismoid"><span class="annot"><span class="annottext">mapPrismoid :: forall (p :: * -&gt; * -&gt; *) s t a b.
+Alternator p =&gt;
+APrismoid s t a b -&gt; p a b -&gt; p s t
+</span><a href="Control.Lens.Prismoid.html#mapPrismoid"><span class="hs-identifier hs-var hs-var">mapPrismoid</span></a></span></span><span> </span><span id="local-6989586621679269028"><span class="annot"><span class="annottext">APrismoid s t a b
+</span><a href="#local-6989586621679269028"><span class="hs-identifier hs-var">pat</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">APrismoid s t a b
+-&gt; (forall (h :: * -&gt; *).
+    Homogeneous h =&gt;
+    (s -&gt; Maybe (h a)) -&gt; (h b -&gt; t) -&gt; p a b -&gt; p s t)
+-&gt; p a b
+-&gt; p s t
+forall s t a b r.
+APrismoid s t a b
+-&gt; (forall (h :: * -&gt; *).
+    Homogeneous h =&gt;
+    (s -&gt; Maybe (h a)) -&gt; (h b -&gt; t) -&gt; r)
+-&gt; r
+</span><a href="Control.Lens.Prismoid.html#withPrismoid"><span class="hs-identifier hs-var">withPrismoid</span></a></span><span> </span><span class="annot"><span class="annottext">APrismoid s t a b
+</span><a href="#local-6989586621679269028"><span class="hs-identifier hs-var">pat</span></a></span><span> </span><span class="annot"><span class="annottext">((forall (h :: * -&gt; *).
+  Homogeneous h =&gt;
+  (s -&gt; Maybe (h a)) -&gt; (h b -&gt; t) -&gt; p a b -&gt; p s t)
+ -&gt; p a b -&gt; p s t)
+-&gt; (forall (h :: * -&gt; *).
+    Homogeneous h =&gt;
+    (s -&gt; Maybe (h a)) -&gt; (h b -&gt; t) -&gt; p a b -&gt; p s t)
+-&gt; p a b
+-&gt; p s t
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679269034"><span class="annot"><span class="annottext">s -&gt; Maybe (h a)
+</span><a href="#local-6989586621679269034"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span id="local-6989586621679269035"><span class="annot"><span class="annottext">h b -&gt; t
+</span><a href="#local-6989586621679269035"><span class="hs-identifier hs-var">g</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Prismatoid a b s t -&gt; p a b -&gt; p s t
+forall (p :: * -&gt; * -&gt; *) a b s t.
+Alternator p =&gt;
+Prismatoid a b s t -&gt; p a b -&gt; p s t
+</span><a href="Control.Lens.Prismoid.html#runPrismatoid"><span class="hs-identifier hs-var">runPrismatoid</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(s -&gt; Maybe (h a)) -&gt; (h b -&gt; t) -&gt; Prismatoid a b s t
+forall (h :: * -&gt; *) s a b t.
+Homogeneous h =&gt;
+(s -&gt; Maybe (h a)) -&gt; (h b -&gt; t) -&gt; Prismatoid a b s t
+</span><a href="Control.Lens.Prismoid.html#Prismatoid"><span class="hs-identifier hs-var">Prismatoid</span></a></span><span> </span><span class="annot"><span class="annottext">s -&gt; Maybe (h a)
+</span><a href="#local-6989586621679269034"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">h b -&gt; t
+</span><a href="#local-6989586621679269035"><span class="hs-identifier hs-var">g</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-111"></span><span>
+</span><span id="line-112"></span><span class="annot"><span class="hs-comment">{- | Clone `APrismoid` so that you can reuse the same
+monomorphically typed `Prismoid` for different purposes.
+-}</span></span><span>
+</span><span id="line-115"></span><span id="local-6989586621679268606"><span id="local-6989586621679268607"><span id="local-6989586621679268608"><span id="local-6989586621679268609"><span class="annot"><a href="Control.Lens.Prismoid.html#clonePrismoid"><span class="hs-identifier hs-type">clonePrismoid</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Control.Lens.Prismoid.html#APrismoid"><span class="hs-identifier hs-type">APrismoid</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679268606"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679268607"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679268608"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679268609"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Control.Lens.Prismoid.html#Prismoid"><span class="hs-identifier hs-type">Prismoid</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679268606"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679268607"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679268608"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679268609"><span class="hs-identifier hs-type">b</span></a></span></span></span></span></span><span>
+</span><span id="line-116"></span><span id="clonePrismoid"><span class="annot"><span class="annottext">clonePrismoid :: forall s t a b. APrismoid s t a b -&gt; Prismoid s t a b
+</span><a href="Control.Lens.Prismoid.html#clonePrismoid"><span class="hs-identifier hs-var hs-var">clonePrismoid</span></a></span></span><span> </span><span id="local-6989586621679269038"><span class="annot"><span class="annottext">APrismoid s t a b
+</span><a href="#local-6989586621679269038"><span class="hs-identifier hs-var">pat</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">APrismoid s t a b
+-&gt; (forall (h :: * -&gt; *).
+    Homogeneous h =&gt;
+    (s -&gt; Maybe (h a)) -&gt; (h b -&gt; t) -&gt; p a (f b) -&gt; p s (f t))
+-&gt; p a (f b)
+-&gt; p s (f t)
+forall s t a b r.
+APrismoid s t a b
+-&gt; (forall (h :: * -&gt; *).
+    Homogeneous h =&gt;
+    (s -&gt; Maybe (h a)) -&gt; (h b -&gt; t) -&gt; r)
+-&gt; r
+</span><a href="Control.Lens.Prismoid.html#withPrismoid"><span class="hs-identifier hs-var">withPrismoid</span></a></span><span> </span><span class="annot"><span class="annottext">APrismoid s t a b
+</span><a href="#local-6989586621679269038"><span class="hs-identifier hs-var">pat</span></a></span><span> </span><span class="annot"><span class="annottext">(s -&gt; Maybe (h a)) -&gt; (h b -&gt; t) -&gt; p a (f b) -&gt; p s (f t)
+(s -&gt; Maybe (h a)) -&gt; (h b -&gt; t) -&gt; Prismoid s t a b
+forall (h :: * -&gt; *).
+Homogeneous h =&gt;
+(s -&gt; Maybe (h a)) -&gt; (h b -&gt; t) -&gt; p a (f b) -&gt; p s (f t)
+forall (h :: * -&gt; *) s a b t.
+Homogeneous h =&gt;
+(s -&gt; Maybe (h a)) -&gt; (h b -&gt; t) -&gt; Prismoid s t a b
+</span><a href="Control.Lens.Prismoid.html#prismoid"><span class="hs-identifier hs-var">prismoid</span></a></span><span>
+</span><span id="line-117"></span><span>
+</span><span id="line-118"></span><span class="annot"><span class="hs-comment">{- | Convert `APrismoid` to the pair of functions that characterize it.
+
+&gt;&gt;&gt; withPrismoid somed $ \f _ -&gt; (fmap length (f &quot;&quot;), fmap length (f &quot;ab&quot;))
+(Nothing,Just 2)
+-}</span></span><span>
+</span><span id="line-123"></span><span id="local-6989586621679268596"><span id="local-6989586621679268597"><span id="local-6989586621679268598"><span id="local-6989586621679268599"><span id="local-6989586621679268600"><span class="annot"><a href="Control.Lens.Prismoid.html#withPrismoid"><span class="hs-identifier hs-type">withPrismoid</span></a></span><span>
+</span><span id="line-124"></span><span>  </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Control.Lens.Prismoid.html#APrismoid"><span class="hs-identifier hs-type">APrismoid</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679268596"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679268597"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679268598"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679268599"><span class="hs-identifier hs-type">b</span></a></span><span>
+</span><span id="line-125"></span><span>  </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="hs-keyword">forall</span><span> </span><span id="local-6989586621679268594"><span class="annot"><a href="#local-6989586621679268594"><span class="hs-identifier hs-type">h</span></a></span></span><span class="hs-operator">.</span><span> </span><span class="annot"><a href="Data.Traversable.Homogeneous.html#Homogeneous"><span class="hs-identifier hs-type">Homogeneous</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679268594"><span class="hs-identifier hs-type">h</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679268596"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679268594"><span class="hs-identifier hs-type">h</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679268598"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679268594"><span class="hs-identifier hs-type">h</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679268599"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679268597"><span class="hs-identifier hs-type">t</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679268600"><span class="hs-identifier hs-type">r</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-126"></span><span>  </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679268600"><span class="hs-identifier hs-type">r</span></a></span></span></span></span></span></span><span>
+</span><span id="line-127"></span><span id="withPrismoid"><span class="annot"><span class="annottext">withPrismoid :: forall s t a b r.
+APrismoid s t a b
+-&gt; (forall (h :: * -&gt; *).
+    Homogeneous h =&gt;
+    (s -&gt; Maybe (h a)) -&gt; (h b -&gt; t) -&gt; r)
+-&gt; r
+</span><a href="Control.Lens.Prismoid.html#withPrismoid"><span class="hs-identifier hs-var hs-var">withPrismoid</span></a></span></span><span> </span><span id="local-6989586621679269048"><span class="annot"><span class="annottext">APrismoid s t a b
+</span><a href="#local-6989586621679269048"><span class="hs-identifier hs-var">pat</span></a></span></span><span> </span><span id="local-6989586621679269049"><span class="annot"><span class="annottext">forall (h :: * -&gt; *).
+Homogeneous h =&gt;
+(s -&gt; Maybe (h a)) -&gt; (h b -&gt; t) -&gt; r
+</span><a href="#local-6989586621679269049"><span class="hs-identifier hs-var">k</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-128"></span><span>  </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">Identity t -&gt; t
+forall a. Identity a -&gt; a
+</span><span class="hs-identifier hs-var">runIdentity</span></span><span> </span><span class="annot"><span class="annottext">(Identity t -&gt; t)
+-&gt; Prismatoid a b s (Identity t) -&gt; Prismatoid a b s t
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">APrismoid s t a b
+</span><a href="#local-6989586621679269048"><span class="hs-identifier hs-var">pat</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">b -&gt; Identity b
+forall a. a -&gt; Identity a
+</span><span class="hs-identifier hs-var">Identity</span></span><span> </span><span class="annot"><span class="annottext">(b -&gt; Identity b)
+-&gt; Prismatoid a b a b -&gt; Prismatoid a b a (Identity b)
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">(a -&gt; Maybe (Par1 a)) -&gt; (Par1 b -&gt; b) -&gt; Prismatoid a b a b
+forall (h :: * -&gt; *) s a b t.
+Homogeneous h =&gt;
+(s -&gt; Maybe (h a)) -&gt; (h b -&gt; t) -&gt; Prismatoid a b s t
+</span><a href="Control.Lens.Prismoid.html#Prismatoid"><span class="hs-identifier hs-var">Prismatoid</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Par1 a -&gt; Maybe (Par1 a)
+forall a. a -&gt; Maybe a
+</span><span class="hs-identifier hs-var">Just</span></span><span> </span><span class="annot"><span class="annottext">(Par1 a -&gt; Maybe (Par1 a)) -&gt; (a -&gt; Par1 a) -&gt; a -&gt; Maybe (Par1 a)
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">a -&gt; Par1 a
+forall p. p -&gt; Par1 p
+</span><span class="hs-identifier hs-var">Par1</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Par1 b -&gt; b
+forall p. Par1 p -&gt; p
+</span><span class="hs-identifier hs-var">unPar1</span></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-129"></span><span>    </span><span class="annot"><a href="Control.Lens.Prismoid.html#Prismatoid"><span class="hs-identifier hs-type">Prismatoid</span></a></span><span> </span><span id="local-6989586621679269057"><span class="annot"><span class="annottext">s -&gt; Maybe (h a)
+</span><a href="#local-6989586621679269057"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span id="local-6989586621679269058"><span class="annot"><span class="annottext">h b -&gt; t
+</span><a href="#local-6989586621679269058"><span class="hs-identifier hs-var">g</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">(s -&gt; Maybe (h a)) -&gt; (h b -&gt; t) -&gt; r
+forall (h :: * -&gt; *).
+Homogeneous h =&gt;
+(s -&gt; Maybe (h a)) -&gt; (h b -&gt; t) -&gt; r
+</span><a href="#local-6989586621679269049"><span class="hs-identifier hs-var">k</span></a></span><span> </span><span class="annot"><span class="annottext">s -&gt; Maybe (h a)
+</span><a href="#local-6989586621679269057"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">h b -&gt; t
+</span><a href="#local-6989586621679269058"><span class="hs-identifier hs-var">g</span></a></span><span>
+</span><span id="line-130"></span><span>
+</span><span id="line-131"></span><span class="annot"><span class="hs-comment">{- | One or more, like `someP`. -}</span></span><span>
+</span><span id="line-132"></span><span id="local-6989586621679268637"><span id="local-6989586621679268638"><span class="annot"><a href="Control.Lens.Prismoid.html#somed"><span class="hs-identifier hs-type">somed</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Control.Lens.Prismoid.html#Prismoid"><span class="hs-identifier hs-type">Prismoid</span></a></span><span> </span><span class="hs-special">[</span><span class="annot"><a href="#local-6989586621679268637"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">]</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="#local-6989586621679268638"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">]</span><span> </span><span class="annot"><a href="#local-6989586621679268637"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679268638"><span class="hs-identifier hs-type">b</span></a></span></span></span><span>
+</span><span id="line-133"></span><span id="somed"><span class="annot"><span class="annottext">somed :: forall a b (p :: * -&gt; * -&gt; *) (f :: * -&gt; *).
+(Alternator p, Applicative f) =&gt;
+p a (f b) -&gt; p [a] (f [b])
+</span><a href="Control.Lens.Prismoid.html#somed"><span class="hs-identifier hs-var hs-var">somed</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">WrappedPafb f p [a] [b] -&gt; p [a] (f [b])
+forall (f :: * -&gt; *) (p :: * -&gt; * -&gt; *) a b.
+WrappedPafb f p a b -&gt; p a (f b)
+</span><span class="hs-identifier hs-var">unwrapPafb</span></span><span> </span><span class="annot"><span class="annottext">(WrappedPafb f p [a] [b] -&gt; p [a] (f [b]))
+-&gt; (p a (f b) -&gt; WrappedPafb f p [a] [b])
+-&gt; p a (f b)
+-&gt; p [a] (f [b])
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">WrappedPafb f p a b -&gt; WrappedPafb f p [a] [b]
+forall a b. WrappedPafb f p a b -&gt; WrappedPafb f p [a] [b]
+forall (p :: * -&gt; * -&gt; *) a b. Alternator p =&gt; p a b -&gt; p [a] [b]
+</span><a href="Data.Profunctor.Distributor.html#someP"><span class="hs-identifier hs-var">someP</span></a></span><span> </span><span class="annot"><span class="annottext">(WrappedPafb f p a b -&gt; WrappedPafb f p [a] [b])
+-&gt; (p a (f b) -&gt; WrappedPafb f p a b)
+-&gt; p a (f b)
+-&gt; WrappedPafb f p [a] [b]
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">p a (f b) -&gt; WrappedPafb f p a b
+forall (f :: * -&gt; *) (p :: * -&gt; * -&gt; *) a b.
+p a (f b) -&gt; WrappedPafb f p a b
+</span><span class="hs-identifier hs-var">WrapPafb</span></span><span>
+</span><span id="line-134"></span><span>
+</span><span id="line-135"></span><span class="annot"><span class="hs-comment">{- | Zero or more, separated by a t'SepBy', like `several`. -}</span></span><span>
+</span><span id="line-136"></span><span id="local-6989586621679268646"><span id="local-6989586621679268647"><span class="annot"><a href="Control.Lens.Prismoid.html#severaled"><span class="hs-identifier hs-type">severaled</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">IsList</span></span><span> </span><span class="annot"><a href="#local-6989586621679268646"><span class="hs-identifier hs-type">s</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IsList</span></span><span> </span><span class="annot"><a href="#local-6989586621679268647"><span class="hs-identifier hs-type">t</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Control.Lens.Prismoid.html#Plasmoid"><span class="hs-identifier hs-type">Plasmoid</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679268646"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679268647"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Item</span></span><span> </span><span class="annot"><a href="#local-6989586621679268646"><span class="hs-identifier hs-type">s</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Item</span></span><span> </span><span class="annot"><a href="#local-6989586621679268647"><span class="hs-identifier hs-type">t</span></a></span><span class="hs-special">)</span></span></span><span>
+</span><span id="line-137"></span><span id="severaled"><span class="annot"><span class="annottext">severaled :: forall s t. (IsList s, IsList t) =&gt; Plasmoid s t (Item s) (Item t)
+</span><a href="Control.Lens.Prismoid.html#severaled"><span class="hs-identifier hs-var hs-var">severaled</span></a></span></span><span> </span><span id="local-6989586621679269081"><span class="annot"><span class="annottext">SepBy (p () ())
+</span><a href="#local-6989586621679269081"><span class="hs-identifier hs-var">sep</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">WrappedPafb f p s t -&gt; p s (f t)
+forall (f :: * -&gt; *) (p :: * -&gt; * -&gt; *) a b.
+WrappedPafb f p a b -&gt; p a (f b)
+</span><span class="hs-identifier hs-var">unwrapPafb</span></span><span> </span><span class="annot"><span class="annottext">(WrappedPafb f p s t -&gt; p s (f t))
+-&gt; (p (Item s) (f (Item t)) -&gt; WrappedPafb f p s t)
+-&gt; p (Item s) (f (Item t))
+-&gt; p s (f t)
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">SepBy (WrappedPafb f p () ())
+-&gt; WrappedPafb f p (Item s) (Item t) -&gt; WrappedPafb f p s t
+forall s t (p :: * -&gt; * -&gt; *).
+(IsList s, IsList t, Distributor p) =&gt;
+SepBy (p () ()) -&gt; p (Item s) (Item t) -&gt; p s t
+</span><a href="Data.Profunctor.Distributor.html#several"><span class="hs-identifier hs-var">several</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(p () () -&gt; WrappedPafb f p () ())
+-&gt; SepBy (p () ()) -&gt; SepBy (WrappedPafb f p () ())
+forall a b. (a -&gt; b) -&gt; SepBy a -&gt; SepBy b
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">fmap</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">p () (f ()) -&gt; WrappedPafb f p () ()
+forall (f :: * -&gt; *) (p :: * -&gt; * -&gt; *) a b.
+p a (f b) -&gt; WrappedPafb f p a b
+</span><span class="hs-identifier hs-var">WrapPafb</span></span><span> </span><span class="annot"><span class="annottext">(p () (f ()) -&gt; WrappedPafb f p () ())
+-&gt; (p () () -&gt; p () (f ())) -&gt; p () () -&gt; WrappedPafb f p () ()
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">(() -&gt; f ()) -&gt; p () () -&gt; p () (f ())
+forall b c a. (b -&gt; c) -&gt; p a b -&gt; p a c
+forall (p :: * -&gt; * -&gt; *) b c a.
+Profunctor p =&gt;
+(b -&gt; c) -&gt; p a b -&gt; p a c
+</span><span class="hs-identifier hs-var">rmap</span></span><span> </span><span class="annot"><span class="annottext">() -&gt; f ()
+forall a. a -&gt; f a
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><span class="hs-identifier hs-var">pure</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">SepBy (p () ())
+</span><a href="#local-6989586621679269081"><span class="hs-identifier hs-var">sep</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(WrappedPafb f p (Item s) (Item t) -&gt; WrappedPafb f p s t)
+-&gt; (p (Item s) (f (Item t)) -&gt; WrappedPafb f p (Item s) (Item t))
+-&gt; p (Item s) (f (Item t))
+-&gt; WrappedPafb f p s t
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">p (Item s) (f (Item t)) -&gt; WrappedPafb f p (Item s) (Item t)
+forall (f :: * -&gt; *) (p :: * -&gt; * -&gt; *) a b.
+p a (f b) -&gt; WrappedPafb f p a b
+</span><span class="hs-identifier hs-var">WrapPafb</span></span><span>
+</span><span id="line-138"></span><span>
+</span><span id="line-139"></span><span class="annot"><span class="hs-comment">{- | One or more, separated by a t'SepBy', like `several1`.
+
+&gt;&gt;&gt; let digits = runJoker (severaled1 (sepBy (Joker (() &lt;$ char ','))) (Joker (Identity &lt;$&gt; satisfy isDigit)) :: Joker ReadP String (Identity String))
+&gt;&gt;&gt; [ds | (Identity ds, &quot;&quot;) &lt;- readP_to_S digits &quot;1,2,3&quot;]
+[&quot;123&quot;]
+-}</span></span><span>
+</span><span id="line-145"></span><span id="local-6989586621679269084"><span id="local-6989586621679269085"><span class="annot"><a href="Control.Lens.Prismoid.html#severaled1"><span class="hs-identifier hs-type">severaled1</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">IsList</span></span><span> </span><span class="annot"><a href="#local-6989586621679269084"><span class="hs-identifier hs-type">s</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IsList</span></span><span> </span><span class="annot"><a href="#local-6989586621679269085"><span class="hs-identifier hs-type">t</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Control.Lens.Prismoid.html#Plasmoid"><span class="hs-identifier hs-type">Plasmoid</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679269084"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679269085"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Item</span></span><span> </span><span class="annot"><a href="#local-6989586621679269084"><span class="hs-identifier hs-type">s</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Item</span></span><span> </span><span class="annot"><a href="#local-6989586621679269085"><span class="hs-identifier hs-type">t</span></a></span><span class="hs-special">)</span></span></span><span>
+</span><span id="line-146"></span><span id="severaled1"><span class="annot"><span class="annottext">severaled1 :: forall s t. (IsList s, IsList t) =&gt; Plasmoid s t (Item s) (Item t)
+</span><a href="Control.Lens.Prismoid.html#severaled1"><span class="hs-identifier hs-var hs-var">severaled1</span></a></span></span><span> </span><span id="local-6989586621679269105"><span class="annot"><span class="annottext">SepBy (p () ())
+</span><a href="#local-6989586621679269105"><span class="hs-identifier hs-var">sep</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">WrappedPafb f p s t -&gt; p s (f t)
+forall (f :: * -&gt; *) (p :: * -&gt; * -&gt; *) a b.
+WrappedPafb f p a b -&gt; p a (f b)
+</span><span class="hs-identifier hs-var">unwrapPafb</span></span><span> </span><span class="annot"><span class="annottext">(WrappedPafb f p s t -&gt; p s (f t))
+-&gt; (p (Item s) (f (Item t)) -&gt; WrappedPafb f p s t)
+-&gt; p (Item s) (f (Item t))
+-&gt; p s (f t)
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">SepBy (WrappedPafb f p () ())
+-&gt; WrappedPafb f p (Item s) (Item t) -&gt; WrappedPafb f p s t
+forall s t (p :: * -&gt; * -&gt; *).
+(IsList s, IsList t, Distributor p, Choice p) =&gt;
+SepBy (p () ()) -&gt; p (Item s) (Item t) -&gt; p s t
+</span><a href="Data.Profunctor.Distributor.html#several1"><span class="hs-identifier hs-var">several1</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(p () () -&gt; WrappedPafb f p () ())
+-&gt; SepBy (p () ()) -&gt; SepBy (WrappedPafb f p () ())
+forall a b. (a -&gt; b) -&gt; SepBy a -&gt; SepBy b
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">fmap</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">p () (f ()) -&gt; WrappedPafb f p () ()
+forall (f :: * -&gt; *) (p :: * -&gt; * -&gt; *) a b.
+p a (f b) -&gt; WrappedPafb f p a b
+</span><span class="hs-identifier hs-var">WrapPafb</span></span><span> </span><span class="annot"><span class="annottext">(p () (f ()) -&gt; WrappedPafb f p () ())
+-&gt; (p () () -&gt; p () (f ())) -&gt; p () () -&gt; WrappedPafb f p () ()
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">(() -&gt; f ()) -&gt; p () () -&gt; p () (f ())
+forall b c a. (b -&gt; c) -&gt; p a b -&gt; p a c
+forall (p :: * -&gt; * -&gt; *) b c a.
+Profunctor p =&gt;
+(b -&gt; c) -&gt; p a b -&gt; p a c
+</span><span class="hs-identifier hs-var">rmap</span></span><span> </span><span class="annot"><span class="annottext">() -&gt; f ()
+forall a. a -&gt; f a
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><span class="hs-identifier hs-var">pure</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">SepBy (p () ())
+</span><a href="#local-6989586621679269105"><span class="hs-identifier hs-var">sep</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(WrappedPafb f p (Item s) (Item t) -&gt; WrappedPafb f p s t)
+-&gt; (p (Item s) (f (Item t)) -&gt; WrappedPafb f p (Item s) (Item t))
+-&gt; p (Item s) (f (Item t))
+-&gt; WrappedPafb f p s t
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">p (Item s) (f (Item t)) -&gt; WrappedPafb f p (Item s) (Item t)
+forall (f :: * -&gt; *) (p :: * -&gt; * -&gt; *) a b.
+p a (f b) -&gt; WrappedPafb f p a b
+</span><span class="hs-identifier hs-var">WrapPafb</span></span><span>
+</span><span id="line-147"></span><span>
+</span><span id="line-148"></span><span class="annot"><span class="hs-comment">{- | Exactly some number of times, separated by a t'SepBy',
+like `intercalateP`, or without separators, by `noSep`, like
+`Data.Profunctor.Monoidal.replicateP`. -}</span></span><span>
+</span><span id="line-151"></span><span id="local-6989586621679268686"><span id="local-6989586621679268688"><span class="annot"><a href="Control.Lens.Prismoid.html#intercalated"><span class="hs-identifier hs-type">intercalated</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">AsEmpty</span></span><span> </span><span class="annot"><a href="#local-6989586621679268686"><span class="hs-identifier hs-type">s</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Cons</span></span><span> </span><span class="annot"><a href="#local-6989586621679268686"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679268686"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679268688"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679268688"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Control.Lens.Prismoid.html#Plasmoid"><span class="hs-identifier hs-type">Plasmoid</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679268686"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679268686"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679268688"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679268688"><span class="hs-identifier hs-type">a</span></a></span></span></span><span>
+</span><span id="line-152"></span><span id="intercalated"><span class="annot"><span class="annottext">intercalated :: forall s a. (AsEmpty s, Cons s s a a) =&gt; Int -&gt; Plasmoid s s a a
+</span><a href="Control.Lens.Prismoid.html#intercalated"><span class="hs-identifier hs-var hs-var">intercalated</span></a></span></span><span> </span><span id="local-6989586621679269129"><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679269129"><span class="hs-identifier hs-var">n</span></a></span></span><span> </span><span id="local-6989586621679269130"><span class="annot"><span class="annottext">SepBy (p () ())
+</span><a href="#local-6989586621679269130"><span class="hs-identifier hs-var">sep</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-153"></span><span>  </span><span class="annot"><span class="annottext">WrappedPafb f p s s -&gt; p s (f s)
+forall (f :: * -&gt; *) (p :: * -&gt; * -&gt; *) a b.
+WrappedPafb f p a b -&gt; p a (f b)
+</span><span class="hs-identifier hs-var">unwrapPafb</span></span><span> </span><span class="annot"><span class="annottext">(WrappedPafb f p s s -&gt; p s (f s))
+-&gt; (p a (f a) -&gt; WrappedPafb f p s s) -&gt; p a (f a) -&gt; p s (f s)
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Int
+-&gt; SepBy (WrappedPafb f p () ())
+-&gt; WrappedPafb f p a a
+-&gt; WrappedPafb f p s s
+forall (p :: * -&gt; * -&gt; *) s a.
+(Monoidal p, Choice p, AsEmpty s, Cons s s a a) =&gt;
+Int -&gt; SepBy (p () ()) -&gt; p a a -&gt; p s s
+</span><a href="Data.Profunctor.Distributor.html#intercalateP"><span class="hs-identifier hs-var">intercalateP</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679269129"><span class="hs-identifier hs-var">n</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(p () () -&gt; WrappedPafb f p () ())
+-&gt; SepBy (p () ()) -&gt; SepBy (WrappedPafb f p () ())
+forall a b. (a -&gt; b) -&gt; SepBy a -&gt; SepBy b
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">fmap</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">p () (f ()) -&gt; WrappedPafb f p () ()
+forall (f :: * -&gt; *) (p :: * -&gt; * -&gt; *) a b.
+p a (f b) -&gt; WrappedPafb f p a b
+</span><span class="hs-identifier hs-var">WrapPafb</span></span><span> </span><span class="annot"><span class="annottext">(p () (f ()) -&gt; WrappedPafb f p () ())
+-&gt; (p () () -&gt; p () (f ())) -&gt; p () () -&gt; WrappedPafb f p () ()
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">(() -&gt; f ()) -&gt; p () () -&gt; p () (f ())
+forall b c a. (b -&gt; c) -&gt; p a b -&gt; p a c
+forall (p :: * -&gt; * -&gt; *) b c a.
+Profunctor p =&gt;
+(b -&gt; c) -&gt; p a b -&gt; p a c
+</span><span class="hs-identifier hs-var">rmap</span></span><span> </span><span class="annot"><span class="annottext">() -&gt; f ()
+forall a. a -&gt; f a
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><span class="hs-identifier hs-var">pure</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">SepBy (p () ())
+</span><a href="#local-6989586621679269130"><span class="hs-identifier hs-var">sep</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(WrappedPafb f p a a -&gt; WrappedPafb f p s s)
+-&gt; (p a (f a) -&gt; WrappedPafb f p a a)
+-&gt; p a (f a)
+-&gt; WrappedPafb f p s s
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">p a (f a) -&gt; WrappedPafb f p a a
+forall (f :: * -&gt; *) (p :: * -&gt; * -&gt; *) a b.
+p a (f b) -&gt; WrappedPafb f p a b
+</span><span class="hs-identifier hs-var">WrapPafb</span></span><span>
+</span><span id="line-154"></span><span>
+</span><span id="line-155"></span><span class="annot"><span class="hs-comment">{- | An expression of `Operator`s, from a table of them, ordered from
+highest to lowest precedence, like `withOperators`. An operator table,
+like a t'SepBy', is of an `Alternator` @p@, its symbols data-free.
+
+&gt;&gt;&gt; :{
+data Sum = Digit Int | Plus Sum Sum deriving Show
+_Plus :: Prism' Sum (Sum, Sum)
+_Plus = prism' (uncurry Plus) (\case Plus x y -&gt; Just (x, y); _ -&gt; Nothing)
+:}
+
+&gt;&gt;&gt; let plus = Infix LeftAssoc _Plus (Joker (() &lt;$ char '+'))
+&gt;&gt;&gt; let digit = Joker (Identity . Digit . digitToInt &lt;$&gt; satisfy isDigit)
+&gt;&gt;&gt; [e | (Identity e, &quot;&quot;) &lt;- readP_to_S (runJoker (operated [[plus]] digit)) &quot;1+2+3&quot;]
+[Plus (Plus (Digit 1) (Digit 2)) (Digit 3)]
+-}</span></span><span>
+</span><span id="line-170"></span><span id="local-6989586621679268700"><span id="local-6989586621679268701"><span id="local-6989586621679268702"><span id="local-6989586621679268703"><span class="annot"><a href="Control.Lens.Prismoid.html#operated"><span class="hs-identifier hs-type">operated</span></a></span><span>
+</span><span id="line-171"></span><span>  </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.Profunctor.Distributor.html#Alternator"><span class="hs-identifier hs-type">Alternator</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679268700"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Applicative</span></span><span> </span><span class="annot"><a href="#local-6989586621679268701"><span class="hs-identifier hs-type">f</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-172"></span><span>  </span><span class="hs-glyph">=&gt;</span><span> </span><span class="hs-special">[</span><span class="hs-special">[</span><span class="annot"><a href="Data.Profunctor.Distributor.html#Operator"><span class="hs-identifier hs-type">Operator</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679268700"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679268702"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679268703"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">]</span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679268700"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679268702"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679268701"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679268703"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679268700"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679268702"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679268701"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679268703"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span></span></span></span></span><span>
+</span><span id="line-173"></span><span id="operated"><span class="annot"><span class="annottext">operated :: forall (p :: * -&gt; * -&gt; *) (f :: * -&gt; *) a b.
+(Alternator p, Applicative f) =&gt;
+[[Operator p a b]] -&gt; p a (f b) -&gt; p a (f b)
+</span><a href="Control.Lens.Prismoid.html#operated"><span class="hs-identifier hs-var hs-var">operated</span></a></span></span><span> </span><span id="local-6989586621679269140"><span class="annot"><span class="annottext">[[Operator p a b]]
+</span><a href="#local-6989586621679269140"><span class="hs-identifier hs-var">table</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-174"></span><span>  </span><span class="annot"><span class="annottext">WrappedPafb f p a b -&gt; p a (f b)
+forall (f :: * -&gt; *) (p :: * -&gt; * -&gt; *) a b.
+WrappedPafb f p a b -&gt; p a (f b)
+</span><span class="hs-identifier hs-var">unwrapPafb</span></span><span> </span><span class="annot"><span class="annottext">(WrappedPafb f p a b -&gt; p a (f b))
+-&gt; (p a (f b) -&gt; WrappedPafb f p a b) -&gt; p a (f b) -&gt; p a (f b)
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">[[Operator (WrappedPafb f p) a b]]
+-&gt; WrappedPafb f p a b -&gt; WrappedPafb f p a b
+forall (p :: * -&gt; * -&gt; *) a b.
+Alternator p =&gt;
+[[Operator p a b]] -&gt; p a b -&gt; p a b
+</span><a href="Data.Profunctor.Distributor.html#withOperators"><span class="hs-identifier hs-var">withOperators</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">([Operator p a b] -&gt; [Operator (WrappedPafb f p) a b])
+-&gt; [[Operator p a b]] -&gt; [[Operator (WrappedPafb f p) a b]]
+forall a b. (a -&gt; b) -&gt; [a] -&gt; [b]
+</span><span class="hs-identifier hs-var">map</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(Operator p a b -&gt; Operator (WrappedPafb f p) a b)
+-&gt; [Operator p a b] -&gt; [Operator (WrappedPafb f p) a b]
+forall a b. (a -&gt; b) -&gt; [a] -&gt; [b]
+</span><span class="hs-identifier hs-var">map</span></span><span> </span><span class="annot"><span class="annottext">Operator p a b -&gt; Operator (WrappedPafb f p) a b
+forall {a} {b}. Operator p a b -&gt; Operator (WrappedPafb f p) a b
+</span><a href="#local-6989586621679269141"><span class="hs-identifier hs-var">wrapping</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">[[Operator p a b]]
+</span><a href="#local-6989586621679269140"><span class="hs-identifier hs-var">table</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(WrappedPafb f p a b -&gt; WrappedPafb f p a b)
+-&gt; (p a (f b) -&gt; WrappedPafb f p a b)
+-&gt; p a (f b)
+-&gt; WrappedPafb f p a b
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">p a (f b) -&gt; WrappedPafb f p a b
+forall (f :: * -&gt; *) (p :: * -&gt; * -&gt; *) a b.
+p a (f b) -&gt; WrappedPafb f p a b
+</span><span class="hs-identifier hs-var">WrapPafb</span></span><span>
+</span><span id="line-175"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-176"></span><span>    </span><span id="local-6989586621679269141"><span class="annot"><span class="annottext">wrapping :: Operator p a b -&gt; Operator (WrappedPafb f p) a b
+</span><a href="#local-6989586621679269141"><span class="hs-identifier hs-var hs-var">wrapping</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span>
+</span><span id="line-177"></span><span>      </span><span class="annot"><a href="Data.Profunctor.Distributor.html#Infix"><span class="hs-identifier hs-type">Infix</span></a></span><span> </span><span id="local-6989586621679269150"><span class="annot"><span class="annottext">Assoc
+</span><a href="#local-6989586621679269150"><span class="hs-identifier hs-var">assoc</span></a></span></span><span> </span><span id="local-6989586621679269151"><span class="annot"><span class="annottext">APrism a b (a, a) (b, b)
+</span><a href="#local-6989586621679269151"><span class="hs-identifier hs-var">pat</span></a></span></span><span> </span><span id="local-6989586621679269152"><span class="annot"><span class="annottext">p () ()
+</span><a href="#local-6989586621679269152"><span class="hs-identifier hs-var">sym</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Assoc
+-&gt; APrism a b (a, a) (b, b)
+-&gt; WrappedPafb f p () ()
+-&gt; Operator (WrappedPafb f p) a b
+forall a b (p :: * -&gt; * -&gt; *).
+Assoc -&gt; APrism a b (a, a) (b, b) -&gt; p () () -&gt; Operator p a b
+</span><a href="Data.Profunctor.Distributor.html#Infix"><span class="hs-identifier hs-var">Infix</span></a></span><span> </span><span class="annot"><span class="annottext">Assoc
+</span><a href="#local-6989586621679269150"><span class="hs-identifier hs-var">assoc</span></a></span><span> </span><span class="annot"><span class="annottext">APrism a b (a, a) (b, b)
+</span><a href="#local-6989586621679269151"><span class="hs-identifier hs-var">pat</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">p () (f ()) -&gt; WrappedPafb f p () ()
+forall (f :: * -&gt; *) (p :: * -&gt; * -&gt; *) a b.
+p a (f b) -&gt; WrappedPafb f p a b
+</span><span class="hs-identifier hs-var">WrapPafb</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(() -&gt; f ()) -&gt; p () () -&gt; p () (f ())
+forall b c a. (b -&gt; c) -&gt; p a b -&gt; p a c
+forall (p :: * -&gt; * -&gt; *) b c a.
+Profunctor p =&gt;
+(b -&gt; c) -&gt; p a b -&gt; p a c
+</span><span class="hs-identifier hs-var">rmap</span></span><span> </span><span class="annot"><span class="annottext">() -&gt; f ()
+forall a. a -&gt; f a
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><span class="hs-identifier hs-var">pure</span></span><span> </span><span class="annot"><span class="annottext">p () ()
+</span><a href="#local-6989586621679269152"><span class="hs-identifier hs-var">sym</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-178"></span><span>      </span><span class="annot"><a href="Data.Profunctor.Distributor.html#Prefix"><span class="hs-identifier hs-type">Prefix</span></a></span><span> </span><span id="local-6989586621679269154"><span class="annot"><span class="annottext">APrism a b a b
+</span><a href="#local-6989586621679269154"><span class="hs-identifier hs-var">pat</span></a></span></span><span> </span><span id="local-6989586621679269155"><span class="annot"><span class="annottext">p () ()
+</span><a href="#local-6989586621679269155"><span class="hs-identifier hs-var">sym</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">APrism a b a b
+-&gt; WrappedPafb f p () () -&gt; Operator (WrappedPafb f p) a b
+forall a b (p :: * -&gt; * -&gt; *).
+APrism a b a b -&gt; p () () -&gt; Operator p a b
+</span><a href="Data.Profunctor.Distributor.html#Prefix"><span class="hs-identifier hs-var">Prefix</span></a></span><span> </span><span class="annot"><span class="annottext">APrism a b a b
+</span><a href="#local-6989586621679269154"><span class="hs-identifier hs-var">pat</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">p () (f ()) -&gt; WrappedPafb f p () ()
+forall (f :: * -&gt; *) (p :: * -&gt; * -&gt; *) a b.
+p a (f b) -&gt; WrappedPafb f p a b
+</span><span class="hs-identifier hs-var">WrapPafb</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(() -&gt; f ()) -&gt; p () () -&gt; p () (f ())
+forall b c a. (b -&gt; c) -&gt; p a b -&gt; p a c
+forall (p :: * -&gt; * -&gt; *) b c a.
+Profunctor p =&gt;
+(b -&gt; c) -&gt; p a b -&gt; p a c
+</span><span class="hs-identifier hs-var">rmap</span></span><span> </span><span class="annot"><span class="annottext">() -&gt; f ()
+forall a. a -&gt; f a
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><span class="hs-identifier hs-var">pure</span></span><span> </span><span class="annot"><span class="annottext">p () ()
+</span><a href="#local-6989586621679269155"><span class="hs-identifier hs-var">sym</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-179"></span><span>      </span><span class="annot"><a href="Data.Profunctor.Distributor.html#Postfix"><span class="hs-identifier hs-type">Postfix</span></a></span><span> </span><span id="local-6989586621679269157"><span class="annot"><span class="annottext">APrism a b a b
+</span><a href="#local-6989586621679269157"><span class="hs-identifier hs-var">pat</span></a></span></span><span> </span><span id="local-6989586621679269158"><span class="annot"><span class="annottext">p () ()
+</span><a href="#local-6989586621679269158"><span class="hs-identifier hs-var">sym</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">APrism a b a b
+-&gt; WrappedPafb f p () () -&gt; Operator (WrappedPafb f p) a b
+forall a b (p :: * -&gt; * -&gt; *).
+APrism a b a b -&gt; p () () -&gt; Operator p a b
+</span><a href="Data.Profunctor.Distributor.html#Postfix"><span class="hs-identifier hs-var">Postfix</span></a></span><span> </span><span class="annot"><span class="annottext">APrism a b a b
+</span><a href="#local-6989586621679269157"><span class="hs-identifier hs-var">pat</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">p () (f ()) -&gt; WrappedPafb f p () ()
+forall (f :: * -&gt; *) (p :: * -&gt; * -&gt; *) a b.
+p a (f b) -&gt; WrappedPafb f p a b
+</span><span class="hs-identifier hs-var">WrapPafb</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(() -&gt; f ()) -&gt; p () () -&gt; p () (f ())
+forall b c a. (b -&gt; c) -&gt; p a b -&gt; p a c
+forall (p :: * -&gt; * -&gt; *) b c a.
+Profunctor p =&gt;
+(b -&gt; c) -&gt; p a b -&gt; p a c
+</span><span class="hs-identifier hs-var">rmap</span></span><span> </span><span class="annot"><span class="annottext">() -&gt; f ()
+forall a. a -&gt; f a
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><span class="hs-identifier hs-var">pure</span></span><span> </span><span class="annot"><span class="annottext">p () ()
+</span><a href="#local-6989586621679269158"><span class="hs-identifier hs-var">sym</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-180"></span><span>
+</span><span id="line-181"></span><span class="annot"><span class="hs-comment">{- | One or zero with default. -}</span></span><span>
+</span><span id="line-182"></span><span id="local-6989586621679268721"><span id="local-6989586621679268722"><span class="annot"><a href="Control.Lens.Prismoid.html#opted"><span class="hs-identifier hs-type">opted</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">APrism</span></span><span> </span><span class="annot"><a href="#local-6989586621679268721"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679268722"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Control.Lens.Prismoid.html#Prismoid"><span class="hs-identifier hs-type">Prismoid</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679268721"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679268722"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679268721"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679268722"><span class="hs-identifier hs-type">b</span></a></span></span></span><span>
+</span><span id="line-183"></span><span id="opted"><span class="annot"><span class="annottext">opted :: forall a b. APrism a b () () -&gt; Prismoid a b a b
+</span><a href="Control.Lens.Prismoid.html#opted"><span class="hs-identifier hs-var hs-var">opted</span></a></span></span><span> </span><span id="local-6989586621679269162"><span class="annot"><span class="annottext">APrism a b () ()
+</span><a href="#local-6989586621679269162"><span class="hs-identifier hs-var">def</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">WrappedPafb f p a b -&gt; p a (f b)
+forall (f :: * -&gt; *) (p :: * -&gt; * -&gt; *) a b.
+WrappedPafb f p a b -&gt; p a (f b)
+</span><span class="hs-identifier hs-var">unwrapPafb</span></span><span> </span><span class="annot"><span class="annottext">(WrappedPafb f p a b -&gt; p a (f b))
+-&gt; (p a (f b) -&gt; WrappedPafb f p a b) -&gt; p a (f b) -&gt; p a (f b)
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">APrism a b () () -&gt; WrappedPafb f p a b -&gt; WrappedPafb f p a b
+forall a b.
+APrism a b () () -&gt; WrappedPafb f p a b -&gt; WrappedPafb f p a b
+forall (p :: * -&gt; * -&gt; *) a b.
+Alternator p =&gt;
+APrism a b () () -&gt; p a b -&gt; p a b
+</span><a href="Data.Profunctor.Distributor.html#optionP"><span class="hs-identifier hs-var">optionP</span></a></span><span> </span><span class="annot"><span class="annottext">APrism a b () ()
+</span><a href="#local-6989586621679269162"><span class="hs-identifier hs-var">def</span></a></span><span> </span><span class="annot"><span class="annottext">(WrappedPafb f p a b -&gt; WrappedPafb f p a b)
+-&gt; (p a (f b) -&gt; WrappedPafb f p a b)
+-&gt; p a (f b)
+-&gt; WrappedPafb f p a b
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">p a (f b) -&gt; WrappedPafb f p a b
+forall (f :: * -&gt; *) (p :: * -&gt; * -&gt; *) a b.
+p a (f b) -&gt; WrappedPafb f p a b
+</span><span class="hs-identifier hs-var">WrapPafb</span></span><span>
+</span><span id="line-184"></span><span>
+</span><span id="line-185"></span><span class="annot"><span class="hs-comment">{- | `lefted` is like `_Left`, except
+with heterogeneous `Right` parameters. -}</span></span><span>
+</span><span id="line-187"></span><span id="local-6989586621679268729"><span id="local-6989586621679268730"><span id="local-6989586621679268731"><span id="local-6989586621679268732"><span class="annot"><a href="Control.Lens.Prismoid.html#lefted"><span class="hs-identifier hs-type">lefted</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Control.Lens.Prismoid.html#Prismoid"><span class="hs-identifier hs-type">Prismoid</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Either</span></span><span> </span><span class="annot"><a href="#local-6989586621679268729"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679268731"><span class="hs-identifier hs-type">c</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Either</span></span><span> </span><span class="annot"><a href="#local-6989586621679268730"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679268732"><span class="hs-identifier hs-type">d</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621679268729"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679268730"><span class="hs-identifier hs-type">b</span></a></span></span></span></span></span><span>
+</span><span id="line-188"></span><span id="lefted"><span class="annot"><span class="annottext">lefted :: forall a c b d (p :: * -&gt; * -&gt; *) (f :: * -&gt; *).
+(Alternator p, Applicative f) =&gt;
+p a (f b) -&gt; p (Either a c) (f (Either b d))
+</span><a href="Control.Lens.Prismoid.html#lefted"><span class="hs-identifier hs-var hs-var">lefted</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">WrappedPafb f p (Either a c) (Either b d)
+-&gt; p (Either a c) (f (Either b d))
+forall (f :: * -&gt; *) (p :: * -&gt; * -&gt; *) a b.
+WrappedPafb f p a b -&gt; p a (f b)
+</span><span class="hs-identifier hs-var">unwrapPafb</span></span><span> </span><span class="annot"><span class="annottext">(WrappedPafb f p (Either a c) (Either b d)
+ -&gt; p (Either a c) (f (Either b d)))
+-&gt; (p a (f b) -&gt; WrappedPafb f p (Either a c) (Either b d))
+-&gt; p a (f b)
+-&gt; p (Either a c) (f (Either b d))
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Either (WrappedPafb f p a b) (WrappedPafb f p c d)
+-&gt; WrappedPafb f p (Either a c) (Either b d)
+forall a b c d.
+Either (WrappedPafb f p a b) (WrappedPafb f p c d)
+-&gt; WrappedPafb f p (Either a c) (Either b d)
+forall (p :: * -&gt; * -&gt; *) a b c d.
+CocartesianChoice p =&gt;
+Either (p a b) (p c d) -&gt; p (Either a c) (Either b d)
+</span><a href="Data.Profunctor.Monoidal.Cocartesian.html#alternate"><span class="hs-identifier hs-var">alternate</span></a></span><span> </span><span class="annot"><span class="annottext">(Either (WrappedPafb f p a b) (WrappedPafb f p c d)
+ -&gt; WrappedPafb f p (Either a c) (Either b d))
+-&gt; (p a (f b)
+    -&gt; Either (WrappedPafb f p a b) (WrappedPafb f p c d))
+-&gt; p a (f b)
+-&gt; WrappedPafb f p (Either a c) (Either b d)
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">WrappedPafb f p a b
+-&gt; Either (WrappedPafb f p a b) (WrappedPafb f p c d)
+forall a b. a -&gt; Either a b
+</span><span class="hs-identifier hs-var">Left</span></span><span> </span><span class="annot"><span class="annottext">(WrappedPafb f p a b
+ -&gt; Either (WrappedPafb f p a b) (WrappedPafb f p c d))
+-&gt; (p a (f b) -&gt; WrappedPafb f p a b)
+-&gt; p a (f b)
+-&gt; Either (WrappedPafb f p a b) (WrappedPafb f p c d)
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">p a (f b) -&gt; WrappedPafb f p a b
+forall (f :: * -&gt; *) (p :: * -&gt; * -&gt; *) a b.
+p a (f b) -&gt; WrappedPafb f p a b
+</span><span class="hs-identifier hs-var">WrapPafb</span></span><span>
+</span><span id="line-189"></span><span>
+</span><span id="line-190"></span><span>
+</span><span id="line-191"></span><span class="annot"><span class="hs-comment">{- | `righted` is like `_Right`, except
+with heterogeneous `Left` parameters. -}</span></span><span>
+</span><span id="line-193"></span><span id="local-6989586621679268747"><span id="local-6989586621679268748"><span id="local-6989586621679268749"><span id="local-6989586621679268750"><span class="annot"><a href="Control.Lens.Prismoid.html#righted"><span class="hs-identifier hs-type">righted</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Control.Lens.Prismoid.html#Prismoid"><span class="hs-identifier hs-type">Prismoid</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Either</span></span><span> </span><span class="annot"><a href="#local-6989586621679268749"><span class="hs-identifier hs-type">c</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679268747"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Either</span></span><span> </span><span class="annot"><a href="#local-6989586621679268750"><span class="hs-identifier hs-type">d</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679268748"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621679268747"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679268748"><span class="hs-identifier hs-type">b</span></a></span></span></span></span></span><span>
+</span><span id="line-194"></span><span id="righted"><span class="annot"><span class="annottext">righted :: forall c a d b (p :: * -&gt; * -&gt; *) (f :: * -&gt; *).
+(Alternator p, Applicative f) =&gt;
+p a (f b) -&gt; p (Either c a) (f (Either d b))
+</span><a href="Control.Lens.Prismoid.html#righted"><span class="hs-identifier hs-var hs-var">righted</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">WrappedPafb f p (Either c a) (Either d b)
+-&gt; p (Either c a) (f (Either d b))
+forall (f :: * -&gt; *) (p :: * -&gt; * -&gt; *) a b.
+WrappedPafb f p a b -&gt; p a (f b)
+</span><span class="hs-identifier hs-var">unwrapPafb</span></span><span> </span><span class="annot"><span class="annottext">(WrappedPafb f p (Either c a) (Either d b)
+ -&gt; p (Either c a) (f (Either d b)))
+-&gt; (p a (f b) -&gt; WrappedPafb f p (Either c a) (Either d b))
+-&gt; p a (f b)
+-&gt; p (Either c a) (f (Either d b))
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Either (WrappedPafb f p c d) (WrappedPafb f p a b)
+-&gt; WrappedPafb f p (Either c a) (Either d b)
+forall a b c d.
+Either (WrappedPafb f p a b) (WrappedPafb f p c d)
+-&gt; WrappedPafb f p (Either a c) (Either b d)
+forall (p :: * -&gt; * -&gt; *) a b c d.
+CocartesianChoice p =&gt;
+Either (p a b) (p c d) -&gt; p (Either a c) (Either b d)
+</span><a href="Data.Profunctor.Monoidal.Cocartesian.html#alternate"><span class="hs-identifier hs-var">alternate</span></a></span><span> </span><span class="annot"><span class="annottext">(Either (WrappedPafb f p c d) (WrappedPafb f p a b)
+ -&gt; WrappedPafb f p (Either c a) (Either d b))
+-&gt; (p a (f b)
+    -&gt; Either (WrappedPafb f p c d) (WrappedPafb f p a b))
+-&gt; p a (f b)
+-&gt; WrappedPafb f p (Either c a) (Either d b)
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">WrappedPafb f p a b
+-&gt; Either (WrappedPafb f p c d) (WrappedPafb f p a b)
+forall a b. b -&gt; Either a b
+</span><span class="hs-identifier hs-var">Right</span></span><span> </span><span class="annot"><span class="annottext">(WrappedPafb f p a b
+ -&gt; Either (WrappedPafb f p c d) (WrappedPafb f p a b))
+-&gt; (p a (f b) -&gt; WrappedPafb f p a b)
+-&gt; p a (f b)
+-&gt; Either (WrappedPafb f p c d) (WrappedPafb f p a b)
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">p a (f b) -&gt; WrappedPafb f p a b
+forall (f :: * -&gt; *) (p :: * -&gt; * -&gt; *) a b.
+p a (f b) -&gt; WrappedPafb f p a b
+</span><span class="hs-identifier hs-var">WrapPafb</span></span><span>
+</span><span id="line-195"></span><span>
+</span><span id="line-196"></span><span class="annot"><span class="hs-comment">{- |
+Associate a binary constructor pattern to sequence one or more times.
+-}</span></span><span>
+</span><span id="line-199"></span><span id="local-6989586621679268758"><span id="local-6989586621679268759"><span class="annot"><a href="Control.Lens.Prismoid.html#chained1"><span class="hs-identifier hs-type">chained1</span></a></span><span>
+</span><span id="line-200"></span><span>  </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="hs-keyword">forall</span><span> </span><span id="local-6989586621679268757"><span class="annot"><a href="#local-6989586621679268757"><span class="hs-identifier hs-type">x</span></a></span></span><span class="hs-operator">.</span><span> </span><span class="annot"><a href="#local-6989586621679268757"><span class="hs-identifier hs-type">x</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Either</span></span><span> </span><span class="annot"><a href="#local-6989586621679268757"><span class="hs-identifier hs-type">x</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679268757"><span class="hs-identifier hs-type">x</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-201"></span><span>  </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Control.Lens.PartialIso.html#APartialIso"><span class="hs-identifier hs-type">APartialIso</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679268758"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679268759"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679268758"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">,</span><span class="annot"><a href="#local-6989586621679268758"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679268759"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">,</span><span class="annot"><a href="#local-6989586621679268759"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-202"></span><span>  </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Control.Lens.Prismoid.html#Plasmoid"><span class="hs-identifier hs-type">Plasmoid</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679268758"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679268759"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679268758"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679268759"><span class="hs-identifier hs-type">b</span></a></span></span></span><span>
+</span><span id="line-203"></span><span id="chained1"><span class="annot"><span class="annottext">chained1 :: forall a b.
+(forall x. x -&gt; Either x x)
+-&gt; APartialIso a b (a, a) (b, b) -&gt; Plasmoid a b a b
+</span><a href="Control.Lens.Prismoid.html#chained1"><span class="hs-identifier hs-var hs-var">chained1</span></a></span></span><span> </span><span id="local-6989586621679269188"><span class="annot"><span class="annottext">forall x. x -&gt; Either x x
+</span><a href="#local-6989586621679269188"><span class="hs-identifier hs-var">assoc</span></a></span></span><span> </span><span id="local-6989586621679269189"><span class="annot"><span class="annottext">APartialIso a b (a, a) (b, b)
+</span><a href="#local-6989586621679269189"><span class="hs-identifier hs-var">binPat</span></a></span></span><span> </span><span id="local-6989586621679269190"><span class="annot"><span class="annottext">SepBy (p () ())
+</span><a href="#local-6989586621679269190"><span class="hs-identifier hs-var">sep</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-204"></span><span>  </span><span class="annot"><span class="annottext">WrappedPafb f p a b -&gt; p a (f b)
+forall (f :: * -&gt; *) (p :: * -&gt; * -&gt; *) a b.
+WrappedPafb f p a b -&gt; p a (f b)
+</span><span class="hs-identifier hs-var">unwrapPafb</span></span><span> </span><span class="annot"><span class="annottext">(WrappedPafb f p a b -&gt; p a (f b))
+-&gt; (p a (f b) -&gt; WrappedPafb f p a b) -&gt; p a (f b) -&gt; p a (f b)
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">(forall x. x -&gt; Either x x)
+-&gt; APartialIso a b (a, a) (b, b)
+-&gt; SepBy (WrappedPafb f p () ())
+-&gt; WrappedPafb f p a b
+-&gt; WrappedPafb f p a b
+forall (p :: * -&gt; * -&gt; *) a b.
+(Distributor p, Choice p) =&gt;
+(forall x. x -&gt; Either x x)
+-&gt; APartialIso a b (a, a) (b, b)
+-&gt; SepBy (p () ())
+-&gt; p a b
+-&gt; p a b
+</span><a href="Data.Profunctor.Distributor.html#chain1"><span class="hs-identifier hs-var">chain1</span></a></span><span> </span><span class="annot"><span class="annottext">x -&gt; Either x x
+forall x. x -&gt; Either x x
+</span><a href="#local-6989586621679269188"><span class="hs-identifier hs-var">assoc</span></a></span><span> </span><span class="annot"><span class="annottext">APartialIso a b (a, a) (b, b)
+</span><a href="#local-6989586621679269189"><span class="hs-identifier hs-var">binPat</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(p () () -&gt; WrappedPafb f p () ())
+-&gt; SepBy (p () ()) -&gt; SepBy (WrappedPafb f p () ())
+forall a b. (a -&gt; b) -&gt; SepBy a -&gt; SepBy b
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">fmap</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">p () (f ()) -&gt; WrappedPafb f p () ()
+forall (f :: * -&gt; *) (p :: * -&gt; * -&gt; *) a b.
+p a (f b) -&gt; WrappedPafb f p a b
+</span><span class="hs-identifier hs-var">WrapPafb</span></span><span> </span><span class="annot"><span class="annottext">(p () (f ()) -&gt; WrappedPafb f p () ())
+-&gt; (p () () -&gt; p () (f ())) -&gt; p () () -&gt; WrappedPafb f p () ()
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">(() -&gt; f ()) -&gt; p () () -&gt; p () (f ())
+forall b c a. (b -&gt; c) -&gt; p a b -&gt; p a c
+forall (p :: * -&gt; * -&gt; *) b c a.
+Profunctor p =&gt;
+(b -&gt; c) -&gt; p a b -&gt; p a c
+</span><span class="hs-identifier hs-var">rmap</span></span><span> </span><span class="annot"><span class="annottext">() -&gt; f ()
+forall a. a -&gt; f a
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><span class="hs-identifier hs-var">pure</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">SepBy (p () ())
+</span><a href="#local-6989586621679269190"><span class="hs-identifier hs-var">sep</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(WrappedPafb f p a b -&gt; WrappedPafb f p a b)
+-&gt; (p a (f b) -&gt; WrappedPafb f p a b)
+-&gt; p a (f b)
+-&gt; WrappedPafb f p a b
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">p a (f b) -&gt; WrappedPafb f p a b
+forall (f :: * -&gt; *) (p :: * -&gt; * -&gt; *) a b.
+p a (f b) -&gt; WrappedPafb f p a b
+</span><span class="hs-identifier hs-var">WrapPafb</span></span><span>
+</span><span id="line-205"></span><span>
+</span><span id="line-206"></span><span class="annot"><span class="hs-comment">{- |
+Associate a binary constructor pattern to sequence one or more times,
+or use a nilary constructor pattern to sequence zero times.
+-}</span></span><span>
+</span><span id="line-210"></span><span id="local-6989586621679268769"><span id="local-6989586621679268770"><span class="annot"><a href="Control.Lens.Prismoid.html#chained"><span class="hs-identifier hs-type">chained</span></a></span><span>
+</span><span id="line-211"></span><span>  </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="hs-keyword">forall</span><span> </span><span id="local-6989586621679269192"><span class="annot"><a href="#local-6989586621679269192"><span class="hs-identifier hs-type">x</span></a></span></span><span class="hs-operator">.</span><span> </span><span class="annot"><a href="#local-6989586621679269192"><span class="hs-identifier hs-type">x</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Either</span></span><span> </span><span class="annot"><a href="#local-6989586621679269192"><span class="hs-identifier hs-type">x</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679269192"><span class="hs-identifier hs-type">x</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-212"></span><span>  </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Control.Lens.PartialIso.html#APartialIso"><span class="hs-identifier hs-type">APartialIso</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679268769"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679268770"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679268769"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">,</span><span class="annot"><a href="#local-6989586621679268769"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679268770"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">,</span><span class="annot"><a href="#local-6989586621679268770"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-213"></span><span>  </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">APrism</span></span><span> </span><span class="annot"><a href="#local-6989586621679268769"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679268770"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-214"></span><span>  </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Control.Lens.Prismoid.html#Plasmoid"><span class="hs-identifier hs-type">Plasmoid</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679268769"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679268770"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679268769"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679268770"><span class="hs-identifier hs-type">b</span></a></span></span></span><span>
+</span><span id="line-215"></span><span id="chained"><span class="annot"><span class="annottext">chained :: forall a b.
+(forall x. x -&gt; Either x x)
+-&gt; APartialIso a b (a, a) (b, b)
+-&gt; APrism a b () ()
+-&gt; Plasmoid a b a b
+</span><a href="Control.Lens.Prismoid.html#chained"><span class="hs-identifier hs-var hs-var">chained</span></a></span></span><span> </span><span id="local-6989586621679269202"><span class="annot"><span class="annottext">forall x. x -&gt; Either x x
+</span><a href="#local-6989586621679269202"><span class="hs-identifier hs-var">assoc</span></a></span></span><span> </span><span id="local-6989586621679269203"><span class="annot"><span class="annottext">APartialIso a b (a, a) (b, b)
+</span><a href="#local-6989586621679269203"><span class="hs-identifier hs-var">binPat</span></a></span></span><span> </span><span id="local-6989586621679269204"><span class="annot"><span class="annottext">APrism a b () ()
+</span><a href="#local-6989586621679269204"><span class="hs-identifier hs-var">nilPat</span></a></span></span><span> </span><span id="local-6989586621679269205"><span class="annot"><span class="annottext">SepBy (p () ())
+</span><a href="#local-6989586621679269205"><span class="hs-identifier hs-var">sep</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-216"></span><span>  </span><span class="annot"><span class="annottext">WrappedPafb f p a b -&gt; p a (f b)
+forall (f :: * -&gt; *) (p :: * -&gt; * -&gt; *) a b.
+WrappedPafb f p a b -&gt; p a (f b)
+</span><span class="hs-identifier hs-var">unwrapPafb</span></span><span> </span><span class="annot"><span class="annottext">(WrappedPafb f p a b -&gt; p a (f b))
+-&gt; (p a (f b) -&gt; WrappedPafb f p a b) -&gt; p a (f b) -&gt; p a (f b)
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">(forall x. x -&gt; Either x x)
+-&gt; APartialIso a b (a, a) (b, b)
+-&gt; APrism a b () ()
+-&gt; SepBy (WrappedPafb f p () ())
+-&gt; WrappedPafb f p a b
+-&gt; WrappedPafb f p a b
+forall (p :: * -&gt; * -&gt; *) a b.
+Alternator p =&gt;
+(forall x. x -&gt; Either x x)
+-&gt; APartialIso a b (a, a) (b, b)
+-&gt; APrism a b () ()
+-&gt; SepBy (p () ())
+-&gt; p a b
+-&gt; p a b
+</span><a href="Data.Profunctor.Distributor.html#chain"><span class="hs-identifier hs-var">chain</span></a></span><span> </span><span class="annot"><span class="annottext">x -&gt; Either x x
+forall x. x -&gt; Either x x
+</span><a href="#local-6989586621679269202"><span class="hs-identifier hs-var">assoc</span></a></span><span> </span><span class="annot"><span class="annottext">APartialIso a b (a, a) (b, b)
+</span><a href="#local-6989586621679269203"><span class="hs-identifier hs-var">binPat</span></a></span><span> </span><span class="annot"><span class="annottext">APrism a b () ()
+</span><a href="#local-6989586621679269204"><span class="hs-identifier hs-var">nilPat</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(p () () -&gt; WrappedPafb f p () ())
+-&gt; SepBy (p () ()) -&gt; SepBy (WrappedPafb f p () ())
+forall a b. (a -&gt; b) -&gt; SepBy a -&gt; SepBy b
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">fmap</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">p () (f ()) -&gt; WrappedPafb f p () ()
+forall (f :: * -&gt; *) (p :: * -&gt; * -&gt; *) a b.
+p a (f b) -&gt; WrappedPafb f p a b
+</span><span class="hs-identifier hs-var">WrapPafb</span></span><span> </span><span class="annot"><span class="annottext">(p () (f ()) -&gt; WrappedPafb f p () ())
+-&gt; (p () () -&gt; p () (f ())) -&gt; p () () -&gt; WrappedPafb f p () ()
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">(() -&gt; f ()) -&gt; p () () -&gt; p () (f ())
+forall b c a. (b -&gt; c) -&gt; p a b -&gt; p a c
+forall (p :: * -&gt; * -&gt; *) b c a.
+Profunctor p =&gt;
+(b -&gt; c) -&gt; p a b -&gt; p a c
+</span><span class="hs-identifier hs-var">rmap</span></span><span> </span><span class="annot"><span class="annottext">() -&gt; f ()
+forall a. a -&gt; f a
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><span class="hs-identifier hs-var">pure</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">SepBy (p () ())
+</span><a href="#local-6989586621679269205"><span class="hs-identifier hs-var">sep</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(WrappedPafb f p a b -&gt; WrappedPafb f p a b)
+-&gt; (p a (f b) -&gt; WrappedPafb f p a b)
+-&gt; p a (f b)
+-&gt; WrappedPafb f p a b
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">p a (f b) -&gt; WrappedPafb f p a b
+forall (f :: * -&gt; *) (p :: * -&gt; * -&gt; *) a b.
+p a (f b) -&gt; WrappedPafb f p a b
+</span><span class="hs-identifier hs-var">WrapPafb</span></span><span>
+</span><span id="line-217"></span><span>
+</span><span id="line-218"></span><span class="annot"><span class="hs-comment">{- | A t'Prismatoid' provides efficient access
+to the pair of functions that make up a `Prismoid`,
+like a t'Control.Lens.Diopter.Dioptrice' which may fail to match.
+-}</span></span><span>
+</span><span id="line-222"></span><span class="hs-keyword">data</span><span> </span><span id="Prismatoid"><span class="annot"><a href="Control.Lens.Prismoid.html#Prismatoid"><span class="hs-identifier hs-var">Prismatoid</span></a></span></span><span> </span><span id="local-6989586621679269207"><span class="annot"><a href="#local-6989586621679269207"><span class="hs-identifier hs-type">a</span></a></span></span><span> </span><span id="local-6989586621679269208"><span class="annot"><a href="#local-6989586621679269208"><span class="hs-identifier hs-type">b</span></a></span></span><span> </span><span id="local-6989586621679269209"><span class="annot"><a href="#local-6989586621679269209"><span class="hs-identifier hs-type">s</span></a></span></span><span> </span><span id="local-6989586621679269210"><span class="annot"><a href="#local-6989586621679269210"><span class="hs-identifier hs-type">t</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-223"></span><span>  </span><span id="local-6989586621679268575"><span id="local-6989586621679268576"><span id="local-6989586621679268577"><span id="local-6989586621679268578"><span id="local-6989586621679269211"><span id="Prismatoid"><span class="annot"><a href="Control.Lens.Prismoid.html#Prismatoid"><span class="hs-identifier hs-var">Prismatoid</span></a></span></span><span>
+</span><span id="line-224"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Data.Traversable.Homogeneous.html#Homogeneous"><span class="hs-identifier hs-type">Homogeneous</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679269211"><span class="hs-identifier hs-type">h</span></a></span><span>
+</span><span id="line-225"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679268575"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679269211"><span class="hs-identifier hs-type">h</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679268576"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-226"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679269211"><span class="hs-identifier hs-type">h</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679268577"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679268578"><span class="hs-identifier hs-type">t</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-227"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Control.Lens.Prismoid.html#Prismatoid"><span class="hs-identifier hs-type">Prismatoid</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679268576"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679268577"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679268575"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679268578"><span class="hs-identifier hs-type">t</span></a></span></span></span></span></span></span><span>
+</span><span id="line-228"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679268801"><span id="local-6989586621679268802"><span id="local-6989586621679269214"><span id="local-6989586621679269218"><span id="local-6989586621679269221"><span id="local-6989586621679269227"><span class="annot"><span class="hs-identifier hs-type">Profunctor</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Prismoid.html#Prismatoid"><span class="hs-identifier hs-type">Prismatoid</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679268801"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679268802"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span></span></span></span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-229"></span><span>  </span><span id="local-6989586621679269233"><span class="annot"><span class="annottext">dimap :: forall a b c d.
+(a -&gt; b) -&gt; (c -&gt; d) -&gt; Prismatoid a b b c -&gt; Prismatoid a b a d
+</span><a href="#local-6989586621679269233"><span class="hs-identifier hs-var hs-var hs-var">dimap</span></a></span></span><span> </span><span id="local-6989586621679269235"><span class="annot"><span class="annottext">a -&gt; b
+</span><a href="#local-6989586621679269235"><span class="hs-identifier hs-var">f'</span></a></span></span><span> </span><span id="local-6989586621679269236"><span class="annot"><span class="annottext">c -&gt; d
+</span><a href="#local-6989586621679269236"><span class="hs-identifier hs-var">g'</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Prismoid.html#Prismatoid"><span class="hs-identifier hs-type">Prismatoid</span></a></span><span> </span><span id="local-6989586621679269239"><span class="annot"><span class="annottext">b -&gt; Maybe (h a)
+</span><a href="#local-6989586621679269239"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span id="local-6989586621679269240"><span class="annot"><span class="annottext">h b -&gt; c
+</span><a href="#local-6989586621679269240"><span class="hs-identifier hs-var">g</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(a -&gt; Maybe (h a)) -&gt; (h b -&gt; d) -&gt; Prismatoid a b a d
+forall (h :: * -&gt; *) s a b t.
+Homogeneous h =&gt;
+(s -&gt; Maybe (h a)) -&gt; (h b -&gt; t) -&gt; Prismatoid a b s t
+</span><a href="Control.Lens.Prismoid.html#Prismatoid"><span class="hs-identifier hs-var">Prismatoid</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">b -&gt; Maybe (h a)
+</span><a href="#local-6989586621679269239"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">(b -&gt; Maybe (h a)) -&gt; (a -&gt; b) -&gt; a -&gt; Maybe (h a)
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">a -&gt; b
+</span><a href="#local-6989586621679269235"><span class="hs-identifier hs-var">f'</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">c -&gt; d
+</span><a href="#local-6989586621679269236"><span class="hs-identifier hs-var">g'</span></a></span><span> </span><span class="annot"><span class="annottext">(c -&gt; d) -&gt; (h b -&gt; c) -&gt; h b -&gt; d
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">h b -&gt; c
+</span><a href="#local-6989586621679269240"><span class="hs-identifier hs-var">g</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-230"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679268620"><span id="local-6989586621679268621"><span id="local-6989586621679268622"><span id="local-6989586621679269243"><span class="annot"><span class="hs-identifier hs-type">Functor</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Prismoid.html#Prismatoid"><span class="hs-identifier hs-type">Prismatoid</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679268620"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679268621"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679268622"><span class="hs-identifier hs-type">s</span></a></span><span class="hs-special">)</span></span></span></span></span><span> </span><span class="hs-keyword">where</span><span> </span><span id="local-6989586621679269247"><span class="annot"><span class="annottext">fmap :: forall a b. (a -&gt; b) -&gt; Prismatoid a b s a -&gt; Prismatoid a b s b
+</span><span class="hs-identifier hs-var hs-var hs-var">fmap</span></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(a -&gt; b) -&gt; Prismatoid a b s a -&gt; Prismatoid a b s b
+forall b c a. (b -&gt; c) -&gt; Prismatoid a b a b -&gt; Prismatoid a b a c
+forall (p :: * -&gt; * -&gt; *) b c a.
+Profunctor p =&gt;
+(b -&gt; c) -&gt; p a b -&gt; p a c
+</span><span class="hs-identifier hs-var">rmap</span></span><span>
+</span><span id="line-231"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679268827"><span id="local-6989586621679268828"><span id="local-6989586621679268829"><span id="local-6989586621679269254"><span id="local-6989586621679269258"><span class="annot"><span class="hs-identifier hs-type">Applicative</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Prismoid.html#Prismatoid"><span class="hs-identifier hs-type">Prismatoid</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679268827"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679268828"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679268829"><span class="hs-identifier hs-type">s</span></a></span><span class="hs-special">)</span></span></span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-232"></span><span>  </span><span id="local-6989586621679269263"><span class="annot"><span class="annottext">pure :: forall a. a -&gt; Prismatoid a b s a
+</span><span class="hs-identifier hs-var hs-var hs-var">pure</span></span></span><span> </span><span id="local-6989586621679269264"><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679269264"><span class="hs-identifier hs-var">t</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(s -&gt; Maybe (U1 a)) -&gt; (U1 b -&gt; a) -&gt; Prismatoid a b s a
+forall (h :: * -&gt; *) s a b t.
+Homogeneous h =&gt;
+(s -&gt; Maybe (h a)) -&gt; (h b -&gt; t) -&gt; Prismatoid a b s t
+</span><a href="Control.Lens.Prismoid.html#Prismatoid"><span class="hs-identifier hs-var">Prismatoid</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Maybe (U1 a) -&gt; s -&gt; Maybe (U1 a)
+forall a b. a -&gt; b -&gt; a
+</span><span class="hs-identifier hs-var">const</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">U1 a -&gt; Maybe (U1 a)
+forall a. a -&gt; Maybe a
+</span><span class="hs-identifier hs-var">Just</span></span><span> </span><span class="annot"><span class="annottext">U1 a
+forall k (p :: k). U1 p
+</span><span class="hs-identifier hs-var">U1</span></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">a -&gt; U1 b -&gt; a
+forall a b. a -&gt; b -&gt; a
+</span><span class="hs-identifier hs-var">const</span></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679269264"><span class="hs-identifier hs-var">t</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-233"></span><span>  </span><span id="local-6989586621679269267"><span class="annot"><span class="annottext">liftA2 :: forall a b c.
+(a -&gt; b -&gt; c)
+-&gt; Prismatoid a b s a -&gt; Prismatoid a b s b -&gt; Prismatoid a b s c
+</span><a href="#local-6989586621679269267"><span class="hs-identifier hs-var hs-var hs-var">liftA2</span></a></span></span><span> </span><span id="local-6989586621679269269"><span class="annot"><span class="annottext">a -&gt; b -&gt; c
+</span><a href="#local-6989586621679269269"><span class="hs-identifier hs-var">h</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Prismoid.html#Prismatoid"><span class="hs-identifier hs-type">Prismatoid</span></a></span><span> </span><span id="local-6989586621679269271"><span class="annot"><span class="annottext">s -&gt; Maybe (h a)
+</span><a href="#local-6989586621679269271"><span class="hs-identifier hs-var">f0</span></a></span></span><span> </span><span id="local-6989586621679269272"><span class="annot"><span class="annottext">h b -&gt; a
+</span><a href="#local-6989586621679269272"><span class="hs-identifier hs-var">g0</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Prismoid.html#Prismatoid"><span class="hs-identifier hs-type">Prismatoid</span></a></span><span> </span><span id="local-6989586621679269278"><span class="annot"><span class="annottext">s -&gt; Maybe (h a)
+</span><a href="#local-6989586621679269278"><span class="hs-identifier hs-var">f1</span></a></span></span><span> </span><span id="local-6989586621679269279"><span class="annot"><span class="annottext">h b -&gt; b
+</span><a href="#local-6989586621679269279"><span class="hs-identifier hs-var">g1</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(s -&gt; Maybe ((:*:) h h a))
+-&gt; ((:*:) h h b -&gt; c) -&gt; Prismatoid a b s c
+forall (h :: * -&gt; *) s a b t.
+Homogeneous h =&gt;
+(s -&gt; Maybe (h a)) -&gt; (h b -&gt; t) -&gt; Prismatoid a b s t
+</span><a href="Control.Lens.Prismoid.html#Prismatoid"><span class="hs-identifier hs-var">Prismatoid</span></a></span><span>
+</span><span id="line-234"></span><span>    </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span id="local-6989586621679269280"><span class="annot"><span class="annottext">s
+</span><a href="#local-6989586621679269280"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">(h a -&gt; h a -&gt; (:*:) h h a)
+-&gt; Maybe (h a) -&gt; Maybe (h a) -&gt; Maybe ((:*:) h h a)
+forall a b c. (a -&gt; b -&gt; c) -&gt; Maybe a -&gt; Maybe b -&gt; Maybe c
+forall (f :: * -&gt; *) a b c.
+Applicative f =&gt;
+(a -&gt; b -&gt; c) -&gt; f a -&gt; f b -&gt; f c
+</span><span class="hs-identifier hs-var">liftA2</span></span><span> </span><span class="annot"><span class="annottext">h a -&gt; h a -&gt; (:*:) h h a
+forall k (f :: k -&gt; *) (g :: k -&gt; *) (p :: k).
+f p -&gt; g p -&gt; (:*:) f g p
+</span><span class="hs-operator hs-var">(:*:)</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">s -&gt; Maybe (h a)
+</span><a href="#local-6989586621679269271"><span class="hs-identifier hs-var">f0</span></a></span><span> </span><span class="annot"><span class="annottext">s
+</span><a href="#local-6989586621679269280"><span class="hs-identifier hs-var">s</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">s -&gt; Maybe (h a)
+</span><a href="#local-6989586621679269278"><span class="hs-identifier hs-var">f1</span></a></span><span> </span><span class="annot"><span class="annottext">s
+</span><a href="#local-6989586621679269280"><span class="hs-identifier hs-var">s</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-235"></span><span>    </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span class="hs-special">(</span><span id="local-6989586621679269282"><span class="annot"><span class="annottext">h b
+</span><a href="#local-6989586621679269282"><span class="hs-identifier hs-var">x</span></a></span></span><span> </span><span class="annot"><span class="hs-operator hs-type">:*:</span></span><span> </span><span id="local-6989586621679269283"><span class="annot"><span class="annottext">h b
+</span><a href="#local-6989586621679269283"><span class="hs-identifier hs-var">y</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">a -&gt; b -&gt; c
+</span><a href="#local-6989586621679269269"><span class="hs-identifier hs-var">h</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">h b -&gt; a
+</span><a href="#local-6989586621679269272"><span class="hs-identifier hs-var">g0</span></a></span><span> </span><span class="annot"><span class="annottext">h b
+</span><a href="#local-6989586621679269282"><span class="hs-identifier hs-var">x</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">h b -&gt; b
+</span><a href="#local-6989586621679269279"><span class="hs-identifier hs-var">g1</span></a></span><span> </span><span class="annot"><span class="annottext">h b
+</span><a href="#local-6989586621679269283"><span class="hs-identifier hs-var">y</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-236"></span><span>  </span><span id="local-6989586621679269285"><span class="annot"><span class="annottext">&lt;*&gt; :: forall a b.
+Prismatoid a b s (a -&gt; b)
+-&gt; Prismatoid a b s a -&gt; Prismatoid a b s b
+</span><span class="hs-operator hs-var hs-var hs-var">(&lt;*&gt;)</span></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">((a -&gt; b) -&gt; a -&gt; b)
+-&gt; Prismatoid a b s (a -&gt; b)
+-&gt; Prismatoid a b s a
+-&gt; Prismatoid a b s b
+forall a b c.
+(a -&gt; b -&gt; c)
+-&gt; Prismatoid a b s a -&gt; Prismatoid a b s b -&gt; Prismatoid a b s c
+forall (f :: * -&gt; *) a b c.
+Applicative f =&gt;
+(a -&gt; b -&gt; c) -&gt; f a -&gt; f b -&gt; f c
+</span><span class="hs-identifier hs-var">liftA2</span></span><span> </span><span class="annot"><span class="annottext">(a -&gt; b) -&gt; a -&gt; b
+forall a. a -&gt; a
+</span><span class="hs-identifier hs-var">id</span></span><span>
+</span><span id="line-237"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679268857"><span id="local-6989586621679268858"><span id="local-6989586621679268859"><span id="local-6989586621679269292"><span id="local-6989586621679269296"><span class="annot"><span class="hs-identifier hs-type">Alternative</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Prismoid.html#Prismatoid"><span class="hs-identifier hs-type">Prismatoid</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679268857"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679268858"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679268859"><span class="hs-identifier hs-type">s</span></a></span><span class="hs-special">)</span></span></span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-238"></span><span>  </span><span id="local-6989586621679269301"><span class="annot"><span class="annottext">empty :: forall a. Prismatoid a b s a
+</span><a href="#local-6989586621679269301"><span class="hs-identifier hs-var hs-var hs-var">empty</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(s -&gt; Maybe (V1 a)) -&gt; (V1 b -&gt; a) -&gt; Prismatoid a b s a
+forall (h :: * -&gt; *) s a b t.
+Homogeneous h =&gt;
+(s -&gt; Maybe (h a)) -&gt; (h b -&gt; t) -&gt; Prismatoid a b s t
+</span><a href="Control.Lens.Prismoid.html#Prismatoid"><span class="hs-identifier hs-var">Prismatoid</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Maybe (V1 a) -&gt; s -&gt; Maybe (V1 a)
+forall a b. a -&gt; b -&gt; a
+</span><span class="hs-identifier hs-var">const</span></span><span> </span><span class="annot"><span class="annottext">Maybe (V1 a)
+forall a. Maybe a
+</span><span class="hs-identifier hs-var">Nothing</span></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span class="hs-special">(</span><span id="local-6989586621679269303"><span class="annot"><span class="annottext">V1 b
+</span><a href="#local-6989586621679269303"><span class="hs-identifier hs-var">v</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">V1</span></span><span> </span><span class="annot"><a href="#local-6989586621679268858"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">V1 b
+</span><a href="#local-6989586621679269303"><span class="hs-identifier hs-var">v</span></a></span><span> </span><span class="hs-keyword">of</span><span> </span><span class="hs-special">{</span><span class="hs-special">}</span><span class="hs-special">)</span><span>
+</span><span id="line-239"></span><span>  </span><span class="annot"><a href="Control.Lens.Prismoid.html#Prismatoid"><span class="hs-identifier hs-type">Prismatoid</span></a></span><span> </span><span id="local-6989586621679269305"><span class="annot"><span class="annottext">s -&gt; Maybe (h a)
+</span><a href="#local-6989586621679269305"><span class="hs-identifier hs-var">f0</span></a></span></span><span> </span><span id="local-6989586621679269306"><span class="annot"><span class="annottext">h b -&gt; a
+</span><a href="#local-6989586621679269306"><span class="hs-identifier hs-var">g0</span></a></span></span><span> </span><span id="local-6989586621679269307"><span class="annot"><span class="annottext">&lt;|&gt; :: forall a.
+Prismatoid a b s a -&gt; Prismatoid a b s a -&gt; Prismatoid a b s a
+</span><a href="#local-6989586621679269307"><span class="hs-operator hs-var hs-var hs-var">&lt;|&gt;</span></a></span></span><span> </span><span class="annot"><a href="Control.Lens.Prismoid.html#Prismatoid"><span class="hs-identifier hs-type">Prismatoid</span></a></span><span> </span><span id="local-6989586621679269317"><span class="annot"><span class="annottext">s -&gt; Maybe (h a)
+</span><a href="#local-6989586621679269317"><span class="hs-identifier hs-var">f1</span></a></span></span><span> </span><span id="local-6989586621679269318"><span class="annot"><span class="annottext">h b -&gt; a
+</span><a href="#local-6989586621679269318"><span class="hs-identifier hs-var">g1</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(s -&gt; Maybe ((:+:) h h a))
+-&gt; ((:+:) h h b -&gt; a) -&gt; Prismatoid a b s a
+forall (h :: * -&gt; *) s a b t.
+Homogeneous h =&gt;
+(s -&gt; Maybe (h a)) -&gt; (h b -&gt; t) -&gt; Prismatoid a b s t
+</span><a href="Control.Lens.Prismoid.html#Prismatoid"><span class="hs-identifier hs-var">Prismatoid</span></a></span><span>
+</span><span id="line-240"></span><span>    </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span id="local-6989586621679269319"><span class="annot"><span class="annottext">s
+</span><a href="#local-6989586621679269319"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">h a -&gt; (:+:) h h a
+forall k (f :: k -&gt; *) (g :: k -&gt; *) (p :: k). f p -&gt; (:+:) f g p
+</span><span class="hs-identifier hs-var">L1</span></span><span> </span><span class="annot"><span class="annottext">(h a -&gt; (:+:) h h a) -&gt; Maybe (h a) -&gt; Maybe ((:+:) h h a)
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">s -&gt; Maybe (h a)
+</span><a href="#local-6989586621679269305"><span class="hs-identifier hs-var">f0</span></a></span><span> </span><span class="annot"><span class="annottext">s
+</span><a href="#local-6989586621679269319"><span class="hs-identifier hs-var">s</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Maybe ((:+:) h h a) -&gt; Maybe ((:+:) h h a) -&gt; Maybe ((:+:) h h a)
+forall a. Maybe a -&gt; Maybe a -&gt; Maybe a
+forall (f :: * -&gt; *) a. Alternative f =&gt; f a -&gt; f a -&gt; f a
+</span><span class="hs-operator hs-var">&lt;|&gt;</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">h a -&gt; (:+:) h h a
+forall k (f :: k -&gt; *) (g :: k -&gt; *) (p :: k). g p -&gt; (:+:) f g p
+</span><span class="hs-identifier hs-var">R1</span></span><span> </span><span class="annot"><span class="annottext">(h a -&gt; (:+:) h h a) -&gt; Maybe (h a) -&gt; Maybe ((:+:) h h a)
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">s -&gt; Maybe (h a)
+</span><a href="#local-6989586621679269317"><span class="hs-identifier hs-var">f1</span></a></span><span> </span><span class="annot"><span class="annottext">s
+</span><a href="#local-6989586621679269319"><span class="hs-identifier hs-var">s</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-241"></span><span>    </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span> </span><span class="hs-special">{</span><span class="annot"><span class="hs-identifier hs-type">L1</span></span><span> </span><span id="local-6989586621679269322"><span class="annot"><span class="annottext">h b
+</span><a href="#local-6989586621679269322"><span class="hs-identifier hs-var">x</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">h b -&gt; a
+</span><a href="#local-6989586621679269306"><span class="hs-identifier hs-var">g0</span></a></span><span> </span><span class="annot"><span class="annottext">h b
+</span><a href="#local-6989586621679269322"><span class="hs-identifier hs-var">x</span></a></span><span class="hs-special">;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">R1</span></span><span> </span><span id="local-6989586621679269323"><span class="annot"><span class="annottext">h b
+</span><a href="#local-6989586621679269323"><span class="hs-identifier hs-var">y</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">h b -&gt; a
+</span><a href="#local-6989586621679269318"><span class="hs-identifier hs-var">g1</span></a></span><span> </span><span class="annot"><span class="annottext">h b
+</span><a href="#local-6989586621679269323"><span class="hs-identifier hs-var">y</span></a></span><span class="hs-special">}</span><span class="hs-special">)</span><span>
+</span><span id="line-242"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679268876"><span id="local-6989586621679268877"><span id="local-6989586621679268878"><span id="local-6989586621679268879"><span id="local-6989586621679269325"><span id="local-6989586621679269331"><span class="annot"><a href="Data.Monoid.Disjunctive.html#DisjunctiveMonoid"><span class="hs-identifier hs-type">DisjunctiveMonoid</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Prismoid.html#Prismatoid"><span class="hs-identifier hs-type">Prismatoid</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679268876"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679268877"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679268878"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679268879"><span class="hs-identifier hs-type">t</span></a></span><span class="hs-special">)</span></span></span></span></span></span></span><span>
+</span><span id="line-243"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679268888"><span id="local-6989586621679268889"><span class="annot"><a href="Data.Profunctor.Monoidal.Cocartesian.html#CocartesianMonoidal"><span class="hs-identifier hs-type">CocartesianMonoidal</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Prismoid.html#Prismatoid"><span class="hs-identifier hs-type">Prismatoid</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679268888"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679268889"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-244"></span><span>  </span><span id="local-6989586621679269343"><span class="annot"><span class="annottext">zeroP :: Prismatoid a b Void Void
+</span><a href="#local-6989586621679269343"><span class="hs-identifier hs-var hs-var hs-var">zeroP</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(Void -&gt; Maybe (V1 a))
+-&gt; (V1 b -&gt; Void) -&gt; Prismatoid a b Void Void
+forall (h :: * -&gt; *) s a b t.
+Homogeneous h =&gt;
+(s -&gt; Maybe (h a)) -&gt; (h b -&gt; t) -&gt; Prismatoid a b s t
+</span><a href="Control.Lens.Prismoid.html#Prismatoid"><span class="hs-identifier hs-var">Prismatoid</span></a></span><span> </span><span class="annot"><span class="annottext">Void -&gt; Maybe (V1 a)
+forall a. Void -&gt; a
+</span><span class="hs-identifier hs-var">absurd</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span class="hs-special">(</span><span id="local-6989586621679269346"><span class="annot"><span class="annottext">V1 b
+</span><a href="#local-6989586621679269346"><span class="hs-identifier hs-var">v</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">V1</span></span><span> </span><span class="annot"><a href="#local-6989586621679268889"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">V1 b
+</span><a href="#local-6989586621679269346"><span class="hs-identifier hs-var">v</span></a></span><span> </span><span class="hs-keyword">of</span><span> </span><span class="hs-special">{</span><span class="hs-special">}</span><span class="hs-special">)</span><span>
+</span><span id="line-245"></span><span>  </span><span class="annot"><a href="Control.Lens.Prismoid.html#Prismatoid"><span class="hs-identifier hs-type">Prismatoid</span></a></span><span> </span><span id="local-6989586621679269348"><span class="annot"><span class="annottext">a -&gt; Maybe (h a)
+</span><a href="#local-6989586621679269348"><span class="hs-identifier hs-var">f0</span></a></span></span><span> </span><span id="local-6989586621679269349"><span class="annot"><span class="annottext">h b -&gt; b
+</span><a href="#local-6989586621679269349"><span class="hs-identifier hs-var">g0</span></a></span></span><span> </span><span id="local-6989586621679269350"><span class="annot"><span class="annottext">&gt;+&lt; :: forall a b c d.
+Prismatoid a b a b
+-&gt; Prismatoid a b c d -&gt; Prismatoid a b (Either a c) (Either b d)
+</span><a href="#local-6989586621679269350"><span class="hs-operator hs-var hs-var hs-var">&gt;+&lt;</span></a></span></span><span> </span><span class="annot"><a href="Control.Lens.Prismoid.html#Prismatoid"><span class="hs-identifier hs-type">Prismatoid</span></a></span><span> </span><span id="local-6989586621679269356"><span class="annot"><span class="annottext">c -&gt; Maybe (h a)
+</span><a href="#local-6989586621679269356"><span class="hs-identifier hs-var">f1</span></a></span></span><span> </span><span id="local-6989586621679269357"><span class="annot"><span class="annottext">h b -&gt; d
+</span><a href="#local-6989586621679269357"><span class="hs-identifier hs-var">g1</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(Either a c -&gt; Maybe ((:+:) h h a))
+-&gt; ((:+:) h h b -&gt; Either b d)
+-&gt; Prismatoid a b (Either a c) (Either b d)
+forall (h :: * -&gt; *) s a b t.
+Homogeneous h =&gt;
+(s -&gt; Maybe (h a)) -&gt; (h b -&gt; t) -&gt; Prismatoid a b s t
+</span><a href="Control.Lens.Prismoid.html#Prismatoid"><span class="hs-identifier hs-var">Prismatoid</span></a></span><span>
+</span><span id="line-246"></span><span>    </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(a -&gt; Maybe ((:+:) h h a))
+-&gt; (c -&gt; Maybe ((:+:) h h a)) -&gt; Either a c -&gt; Maybe ((:+:) h h a)
+forall a c b. (a -&gt; c) -&gt; (b -&gt; c) -&gt; Either a b -&gt; c
+</span><span class="hs-identifier hs-var">either</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(h a -&gt; (:+:) h h a) -&gt; Maybe (h a) -&gt; Maybe ((:+:) h h a)
+forall a b. (a -&gt; b) -&gt; Maybe a -&gt; Maybe b
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">fmap</span></span><span> </span><span class="annot"><span class="annottext">h a -&gt; (:+:) h h a
+forall k (f :: k -&gt; *) (g :: k -&gt; *) (p :: k). f p -&gt; (:+:) f g p
+</span><span class="hs-identifier hs-var">L1</span></span><span> </span><span class="annot"><span class="annottext">(Maybe (h a) -&gt; Maybe ((:+:) h h a))
+-&gt; (a -&gt; Maybe (h a)) -&gt; a -&gt; Maybe ((:+:) h h a)
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">a -&gt; Maybe (h a)
+</span><a href="#local-6989586621679269348"><span class="hs-identifier hs-var">f0</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(h a -&gt; (:+:) h h a) -&gt; Maybe (h a) -&gt; Maybe ((:+:) h h a)
+forall a b. (a -&gt; b) -&gt; Maybe a -&gt; Maybe b
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">fmap</span></span><span> </span><span class="annot"><span class="annottext">h a -&gt; (:+:) h h a
+forall k (f :: k -&gt; *) (g :: k -&gt; *) (p :: k). g p -&gt; (:+:) f g p
+</span><span class="hs-identifier hs-var">R1</span></span><span> </span><span class="annot"><span class="annottext">(Maybe (h a) -&gt; Maybe ((:+:) h h a))
+-&gt; (c -&gt; Maybe (h a)) -&gt; c -&gt; Maybe ((:+:) h h a)
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">c -&gt; Maybe (h a)
+</span><a href="#local-6989586621679269356"><span class="hs-identifier hs-var">f1</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-247"></span><span>    </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span> </span><span class="hs-special">{</span><span class="annot"><span class="hs-identifier hs-type">L1</span></span><span> </span><span id="local-6989586621679269359"><span class="annot"><span class="annottext">h b
+</span><a href="#local-6989586621679269359"><span class="hs-identifier hs-var">x</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">b -&gt; Either b d
+forall a b. a -&gt; Either a b
+</span><span class="hs-identifier hs-var">Left</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">h b -&gt; b
+</span><a href="#local-6989586621679269349"><span class="hs-identifier hs-var">g0</span></a></span><span> </span><span class="annot"><span class="annottext">h b
+</span><a href="#local-6989586621679269359"><span class="hs-identifier hs-var">x</span></a></span><span class="hs-special">)</span><span class="hs-special">;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">R1</span></span><span> </span><span id="local-6989586621679269360"><span class="annot"><span class="annottext">h b
+</span><a href="#local-6989586621679269360"><span class="hs-identifier hs-var">y</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">d -&gt; Either b d
+forall a b. b -&gt; Either a b
+</span><span class="hs-identifier hs-var">Right</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">h b -&gt; d
+</span><a href="#local-6989586621679269357"><span class="hs-identifier hs-var">g1</span></a></span><span> </span><span class="annot"><span class="annottext">h b
+</span><a href="#local-6989586621679269360"><span class="hs-identifier hs-var">y</span></a></span><span class="hs-special">)</span><span class="hs-special">}</span><span class="hs-special">)</span><span>
+</span><span id="line-248"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679268909"><span id="local-6989586621679268910"><span class="annot"><span class="hs-identifier hs-type">Choice</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Prismoid.html#Prismatoid"><span class="hs-identifier hs-type">Prismatoid</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679268909"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679268910"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-249"></span><span>  </span><span id="local-6989586621679269369"><span class="annot"><span class="annottext">left' :: forall a b c.
+Prismatoid a b a b -&gt; Prismatoid a b (Either a c) (Either b c)
+</span><a href="#local-6989586621679269369"><span class="hs-identifier hs-var hs-var hs-var">left'</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Either (Prismatoid a b a b) (Prismatoid a b c c)
+-&gt; Prismatoid a b (Either a c) (Either b c)
+forall a b c d.
+Either (Prismatoid a b a b) (Prismatoid a b c d)
+-&gt; Prismatoid a b (Either a c) (Either b d)
+forall (p :: * -&gt; * -&gt; *) a b c d.
+CocartesianChoice p =&gt;
+Either (p a b) (p c d) -&gt; p (Either a c) (Either b d)
+</span><a href="Data.Profunctor.Monoidal.Cocartesian.html#alternate"><span class="hs-identifier hs-var">alternate</span></a></span><span> </span><span class="annot"><span class="annottext">(Either (Prismatoid a b a b) (Prismatoid a b c c)
+ -&gt; Prismatoid a b (Either a c) (Either b c))
+-&gt; (Prismatoid a b a b
+    -&gt; Either (Prismatoid a b a b) (Prismatoid a b c c))
+-&gt; Prismatoid a b a b
+-&gt; Prismatoid a b (Either a c) (Either b c)
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Prismatoid a b a b
+-&gt; Either (Prismatoid a b a b) (Prismatoid a b c c)
+forall a b. a -&gt; Either a b
+</span><span class="hs-identifier hs-var">Left</span></span><span>
+</span><span id="line-250"></span><span>  </span><span id="local-6989586621679269372"><span class="annot"><span class="annottext">right' :: forall a b c.
+Prismatoid a b a b -&gt; Prismatoid a b (Either c a) (Either c b)
+</span><a href="#local-6989586621679269372"><span class="hs-identifier hs-var hs-var hs-var">right'</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Either (Prismatoid a b c c) (Prismatoid a b a b)
+-&gt; Prismatoid a b (Either c a) (Either c b)
+forall a b c d.
+Either (Prismatoid a b a b) (Prismatoid a b c d)
+-&gt; Prismatoid a b (Either a c) (Either b d)
+forall (p :: * -&gt; * -&gt; *) a b c d.
+CocartesianChoice p =&gt;
+Either (p a b) (p c d) -&gt; p (Either a c) (Either b d)
+</span><a href="Data.Profunctor.Monoidal.Cocartesian.html#alternate"><span class="hs-identifier hs-var">alternate</span></a></span><span> </span><span class="annot"><span class="annottext">(Either (Prismatoid a b c c) (Prismatoid a b a b)
+ -&gt; Prismatoid a b (Either c a) (Either c b))
+-&gt; (Prismatoid a b a b
+    -&gt; Either (Prismatoid a b c c) (Prismatoid a b a b))
+-&gt; Prismatoid a b a b
+-&gt; Prismatoid a b (Either c a) (Either c b)
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Prismatoid a b a b
+-&gt; Either (Prismatoid a b c c) (Prismatoid a b a b)
+forall a b. b -&gt; Either a b
+</span><span class="hs-identifier hs-var">Right</span></span><span>
+</span><span id="line-251"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679268911"><span id="local-6989586621679268912"><span class="annot"><a href="Data.Profunctor.Monoidal.Cocartesian.html#CocartesianChoice"><span class="hs-identifier hs-type">CocartesianChoice</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Prismoid.html#Prismatoid"><span class="hs-identifier hs-type">Prismatoid</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679268911"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679268912"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-252"></span><span>  </span><span id="local-6989586621679269382"><span class="annot"><span class="annottext">alternate :: forall a b c d.
+Either (Prismatoid a b a b) (Prismatoid a b c d)
+-&gt; Prismatoid a b (Either a c) (Either b d)
+</span><a href="Data.Profunctor.Monoidal.Cocartesian.html#alternate"><span class="hs-identifier hs-var hs-var hs-var">alternate</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span>
+</span><span id="line-253"></span><span>    </span><span class="annot"><span class="hs-identifier hs-type">Left</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Prismoid.html#Prismatoid"><span class="hs-identifier hs-type">Prismatoid</span></a></span><span> </span><span id="local-6989586621679269385"><span class="annot"><span class="annottext">a -&gt; Maybe (h a)
+</span><a href="#local-6989586621679269385"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span id="local-6989586621679269386"><span class="annot"><span class="annottext">h b -&gt; b
+</span><a href="#local-6989586621679269386"><span class="hs-identifier hs-var">g</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">(Either a c -&gt; Maybe (h a))
+-&gt; (h b -&gt; Either b d) -&gt; Prismatoid a b (Either a c) (Either b d)
+forall (h :: * -&gt; *) s a b t.
+Homogeneous h =&gt;
+(s -&gt; Maybe (h a)) -&gt; (h b -&gt; t) -&gt; Prismatoid a b s t
+</span><a href="Control.Lens.Prismoid.html#Prismatoid"><span class="hs-identifier hs-var">Prismatoid</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(a -&gt; Maybe (h a))
+-&gt; (c -&gt; Maybe (h a)) -&gt; Either a c -&gt; Maybe (h a)
+forall a c b. (a -&gt; c) -&gt; (b -&gt; c) -&gt; Either a b -&gt; c
+</span><span class="hs-identifier hs-var">either</span></span><span> </span><span class="annot"><span class="annottext">a -&gt; Maybe (h a)
+</span><a href="#local-6989586621679269385"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Maybe (h a) -&gt; c -&gt; Maybe (h a)
+forall a b. a -&gt; b -&gt; a
+</span><span class="hs-identifier hs-var">const</span></span><span> </span><span class="annot"><span class="annottext">Maybe (h a)
+forall a. Maybe a
+</span><span class="hs-identifier hs-var">Nothing</span></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">b -&gt; Either b d
+forall a b. a -&gt; Either a b
+</span><span class="hs-identifier hs-var">Left</span></span><span> </span><span class="annot"><span class="annottext">(b -&gt; Either b d) -&gt; (h b -&gt; b) -&gt; h b -&gt; Either b d
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">h b -&gt; b
+</span><a href="#local-6989586621679269386"><span class="hs-identifier hs-var">g</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-254"></span><span>    </span><span class="annot"><span class="hs-identifier hs-type">Right</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Prismoid.html#Prismatoid"><span class="hs-identifier hs-type">Prismatoid</span></a></span><span> </span><span id="local-6989586621679269389"><span class="annot"><span class="annottext">c -&gt; Maybe (h a)
+</span><a href="#local-6989586621679269389"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span id="local-6989586621679269390"><span class="annot"><span class="annottext">h b -&gt; d
+</span><a href="#local-6989586621679269390"><span class="hs-identifier hs-var">g</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">(Either a c -&gt; Maybe (h a))
+-&gt; (h b -&gt; Either b d) -&gt; Prismatoid a b (Either a c) (Either b d)
+forall (h :: * -&gt; *) s a b t.
+Homogeneous h =&gt;
+(s -&gt; Maybe (h a)) -&gt; (h b -&gt; t) -&gt; Prismatoid a b s t
+</span><a href="Control.Lens.Prismoid.html#Prismatoid"><span class="hs-identifier hs-var">Prismatoid</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(a -&gt; Maybe (h a))
+-&gt; (c -&gt; Maybe (h a)) -&gt; Either a c -&gt; Maybe (h a)
+forall a c b. (a -&gt; c) -&gt; (b -&gt; c) -&gt; Either a b -&gt; c
+</span><span class="hs-identifier hs-var">either</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Maybe (h a) -&gt; a -&gt; Maybe (h a)
+forall a b. a -&gt; b -&gt; a
+</span><span class="hs-identifier hs-var">const</span></span><span> </span><span class="annot"><span class="annottext">Maybe (h a)
+forall a. Maybe a
+</span><span class="hs-identifier hs-var">Nothing</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">c -&gt; Maybe (h a)
+</span><a href="#local-6989586621679269389"><span class="hs-identifier hs-var">f</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">d -&gt; Either b d
+forall a b. b -&gt; Either a b
+</span><span class="hs-identifier hs-var">Right</span></span><span> </span><span class="annot"><span class="annottext">(d -&gt; Either b d) -&gt; (h b -&gt; d) -&gt; h b -&gt; Either b d
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">h b -&gt; d
+</span><a href="#local-6989586621679269390"><span class="hs-identifier hs-var">g</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-255"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679268935"><span id="local-6989586621679268936"><span class="annot"><a href="Data.Profunctor.Distributor.html#Distributor"><span class="hs-identifier hs-type">Distributor</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Prismoid.html#Prismatoid"><span class="hs-identifier hs-type">Prismatoid</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679268935"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679268936"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-256"></span><span>  </span><span id="local-6989586621679269401"><span class="annot"><span class="annottext">optionalP :: forall a b.
+Prismatoid a b a b -&gt; Prismatoid a b (Maybe a) (Maybe b)
+</span><a href="#local-6989586621679269401"><span class="hs-identifier hs-var hs-var hs-var">optionalP</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Prismoid.html#Prismatoid"><span class="hs-identifier hs-type">Prismatoid</span></a></span><span> </span><span id="local-6989586621679269413"><span class="annot"><span class="annottext">a -&gt; Maybe (h a)
+</span><a href="#local-6989586621679269413"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span id="local-6989586621679269414"><span class="annot"><span class="annottext">h b -&gt; b
+</span><a href="#local-6989586621679269414"><span class="hs-identifier hs-var">g</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-257"></span><span>    </span><span class="annot"><span class="annottext">(Maybe a -&gt; Maybe ((:.:) Maybe h a))
+-&gt; ((:.:) Maybe h b -&gt; Maybe b)
+-&gt; Prismatoid a b (Maybe a) (Maybe b)
+forall (h :: * -&gt; *) s a b t.
+Homogeneous h =&gt;
+(s -&gt; Maybe (h a)) -&gt; (h b -&gt; t) -&gt; Prismatoid a b s t
+</span><a href="Control.Lens.Prismoid.html#Prismatoid"><span class="hs-identifier hs-var">Prismatoid</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(Maybe (h a) -&gt; (:.:) Maybe h a)
+-&gt; Maybe (Maybe (h a)) -&gt; Maybe ((:.:) Maybe h a)
+forall a b. (a -&gt; b) -&gt; Maybe a -&gt; Maybe b
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">fmap</span></span><span> </span><span class="annot"><span class="annottext">Maybe (h a) -&gt; (:.:) Maybe h a
+forall k2 k1 (f :: k2 -&gt; *) (g :: k1 -&gt; k2) (p :: k1).
+f (g p) -&gt; (:.:) f g p
+</span><span class="hs-identifier hs-var">Comp1</span></span><span> </span><span class="annot"><span class="annottext">(Maybe (Maybe (h a)) -&gt; Maybe ((:.:) Maybe h a))
+-&gt; (Maybe a -&gt; Maybe (Maybe (h a)))
+-&gt; Maybe a
+-&gt; Maybe ((:.:) Maybe h a)
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">(a -&gt; Maybe (h a)) -&gt; Maybe a -&gt; Maybe (Maybe (h a))
+forall (t :: * -&gt; *) (f :: * -&gt; *) a b.
+(Traversable t, Applicative f) =&gt;
+(a -&gt; f b) -&gt; t a -&gt; f (t b)
+forall (f :: * -&gt; *) a b.
+Applicative f =&gt;
+(a -&gt; f b) -&gt; Maybe a -&gt; f (Maybe b)
+</span><span class="hs-identifier hs-var">traverse</span></span><span> </span><span class="annot"><span class="annottext">a -&gt; Maybe (h a)
+</span><a href="#local-6989586621679269413"><span class="hs-identifier hs-var">f</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(h b -&gt; b) -&gt; Maybe (h b) -&gt; Maybe b
+forall a b. (a -&gt; b) -&gt; Maybe a -&gt; Maybe b
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">fmap</span></span><span> </span><span class="annot"><span class="annottext">h b -&gt; b
+</span><a href="#local-6989586621679269414"><span class="hs-identifier hs-var">g</span></a></span><span> </span><span class="annot"><span class="annottext">(Maybe (h b) -&gt; Maybe b)
+-&gt; ((:.:) Maybe h b -&gt; Maybe (h b)) -&gt; (:.:) Maybe h b -&gt; Maybe b
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">(:.:) Maybe h b -&gt; Maybe (h b)
+forall k2 k1 (f :: k2 -&gt; *) (g :: k1 -&gt; k2) (p :: k1).
+(:.:) f g p -&gt; f (g p)
+</span><span class="hs-identifier hs-var">unComp1</span></span><span class="hs-special">)</span><span>
+</span><span id="line-258"></span><span>  </span><span id="local-6989586621679269418"><span class="annot"><span class="annottext">manyP :: forall a b. Prismatoid a b a b -&gt; Prismatoid a b [a] [b]
+</span><a href="#local-6989586621679269418"><span class="hs-identifier hs-var hs-var hs-var">manyP</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Prismoid.html#Prismatoid"><span class="hs-identifier hs-type">Prismatoid</span></a></span><span> </span><span id="local-6989586621679269430"><span class="annot"><span class="annottext">a -&gt; Maybe (h a)
+</span><a href="#local-6989586621679269430"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span id="local-6989586621679269431"><span class="annot"><span class="annottext">h b -&gt; b
+</span><a href="#local-6989586621679269431"><span class="hs-identifier hs-var">g</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-259"></span><span>    </span><span class="annot"><span class="annottext">([a] -&gt; Maybe ((:.:) [] h a))
+-&gt; ((:.:) [] h b -&gt; [b]) -&gt; Prismatoid a b [a] [b]
+forall (h :: * -&gt; *) s a b t.
+Homogeneous h =&gt;
+(s -&gt; Maybe (h a)) -&gt; (h b -&gt; t) -&gt; Prismatoid a b s t
+</span><a href="Control.Lens.Prismoid.html#Prismatoid"><span class="hs-identifier hs-var">Prismatoid</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">([h a] -&gt; (:.:) [] h a) -&gt; Maybe [h a] -&gt; Maybe ((:.:) [] h a)
+forall a b. (a -&gt; b) -&gt; Maybe a -&gt; Maybe b
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">fmap</span></span><span> </span><span class="annot"><span class="annottext">[h a] -&gt; (:.:) [] h a
+forall k2 k1 (f :: k2 -&gt; *) (g :: k1 -&gt; k2) (p :: k1).
+f (g p) -&gt; (:.:) f g p
+</span><span class="hs-identifier hs-var">Comp1</span></span><span> </span><span class="annot"><span class="annottext">(Maybe [h a] -&gt; Maybe ((:.:) [] h a))
+-&gt; ([a] -&gt; Maybe [h a]) -&gt; [a] -&gt; Maybe ((:.:) [] h a)
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">(a -&gt; Maybe (h a)) -&gt; [a] -&gt; Maybe [h a]
+forall (t :: * -&gt; *) (f :: * -&gt; *) a b.
+(Traversable t, Applicative f) =&gt;
+(a -&gt; f b) -&gt; t a -&gt; f (t b)
+forall (f :: * -&gt; *) a b.
+Applicative f =&gt;
+(a -&gt; f b) -&gt; [a] -&gt; f [b]
+</span><span class="hs-identifier hs-var">traverse</span></span><span> </span><span class="annot"><span class="annottext">a -&gt; Maybe (h a)
+</span><a href="#local-6989586621679269430"><span class="hs-identifier hs-var">f</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(h b -&gt; b) -&gt; [h b] -&gt; [b]
+forall a b. (a -&gt; b) -&gt; [a] -&gt; [b]
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">fmap</span></span><span> </span><span class="annot"><span class="annottext">h b -&gt; b
+</span><a href="#local-6989586621679269431"><span class="hs-identifier hs-var">g</span></a></span><span> </span><span class="annot"><span class="annottext">([h b] -&gt; [b]) -&gt; ((:.:) [] h b -&gt; [h b]) -&gt; (:.:) [] h b -&gt; [b]
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">(:.:) [] h b -&gt; [h b]
+forall k2 k1 (f :: k2 -&gt; *) (g :: k1 -&gt; k2) (p :: k1).
+(:.:) f g p -&gt; f (g p)
+</span><span class="hs-identifier hs-var">unComp1</span></span><span class="hs-special">)</span><span>
+</span><span id="line-260"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679268962"><span id="local-6989586621679268963"><span id="local-6989586621679269439"><span id="local-6989586621679269443"><span class="annot"><a href="Data.Profunctor.Distributor.html#Alternator"><span class="hs-identifier hs-type">Alternator</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Prismoid.html#Prismatoid"><span class="hs-identifier hs-type">Prismatoid</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679268962"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679268963"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span></span></span></span></span><span>
+</span><span id="line-261"></span><span>
+</span><span id="line-262"></span><span class="annot"><span class="hs-comment">{- | Run a t'Prismatoid' on an `Alternator`,
+failing by `falseP` where it doesn't match. -}</span></span><span>
+</span><span id="line-264"></span><span id="local-6989586621679268569"><span id="local-6989586621679268570"><span id="local-6989586621679268571"><span id="local-6989586621679268572"><span id="local-6989586621679268573"><span class="annot"><a href="Control.Lens.Prismoid.html#runPrismatoid"><span class="hs-identifier hs-type">runPrismatoid</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Data.Profunctor.Distributor.html#Alternator"><span class="hs-identifier hs-type">Alternator</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679268569"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Control.Lens.Prismoid.html#Prismatoid"><span class="hs-identifier hs-type">Prismatoid</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679268570"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679268571"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679268572"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679268573"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679268569"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679268570"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679268571"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679268569"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679268572"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679268573"><span class="hs-identifier hs-type">t</span></a></span></span></span></span></span></span><span>
+</span><span id="line-265"></span><span id="runPrismatoid"><span class="annot"><span class="annottext">runPrismatoid :: forall (p :: * -&gt; * -&gt; *) a b s t.
+Alternator p =&gt;
+Prismatoid a b s t -&gt; p a b -&gt; p s t
+</span><a href="Control.Lens.Prismoid.html#runPrismatoid"><span class="hs-identifier hs-var hs-var">runPrismatoid</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Prismoid.html#Prismatoid"><span class="hs-identifier hs-type">Prismatoid</span></a></span><span> </span><span id="local-6989586621679269459"><span class="annot"><span class="annottext">s -&gt; Maybe (h a)
+</span><a href="#local-6989586621679269459"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span id="local-6989586621679269460"><span class="annot"><span class="annottext">h b -&gt; t
+</span><a href="#local-6989586621679269460"><span class="hs-identifier hs-var">g</span></a></span></span><span class="hs-special">)</span><span> </span><span id="local-6989586621679269461"><span class="annot"><span class="annottext">p a b
+</span><a href="#local-6989586621679269461"><span class="hs-identifier hs-var">p</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-266"></span><span>  </span><span class="annot"><span class="annottext">(s -&gt; Either () (h a))
+-&gt; (t -&gt; t) -&gt; (h b -&gt; t) -&gt; p () t -&gt; p (h a) (h b) -&gt; p s t
+forall (p :: * -&gt; * -&gt; *) s a c b t d.
+CocartesianMonoidal p =&gt;
+(s -&gt; Either a c)
+-&gt; (b -&gt; t) -&gt; (d -&gt; t) -&gt; p a b -&gt; p c d -&gt; p s t
+</span><a href="Data.Profunctor.Monoidal.Cocartesian.html#dialt"><span class="hs-identifier hs-var">dialt</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Either () (h a)
+-&gt; (h a -&gt; Either () (h a)) -&gt; Maybe (h a) -&gt; Either () (h a)
+forall b a. b -&gt; (a -&gt; b) -&gt; Maybe a -&gt; b
+</span><span class="hs-identifier hs-var">maybe</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">() -&gt; Either () (h a)
+forall a b. a -&gt; Either a b
+</span><span class="hs-identifier hs-var">Left</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">h a -&gt; Either () (h a)
+forall a b. b -&gt; Either a b
+</span><span class="hs-identifier hs-var">Right</span></span><span> </span><span class="annot"><span class="annottext">(Maybe (h a) -&gt; Either () (h a))
+-&gt; (s -&gt; Maybe (h a)) -&gt; s -&gt; Either () (h a)
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">s -&gt; Maybe (h a)
+</span><a href="#local-6989586621679269459"><span class="hs-identifier hs-var">f</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">t -&gt; t
+forall a. a -&gt; a
+</span><span class="hs-identifier hs-var">id</span></span><span> </span><span class="annot"><span class="annottext">h b -&gt; t
+</span><a href="#local-6989586621679269460"><span class="hs-identifier hs-var">g</span></a></span><span> </span><span class="annot"><span class="annottext">p () t
+forall a. DisjunctiveMonoid a =&gt; a
+</span><a href="Data.Monoid.Disjunctive.html#falseP"><span class="hs-identifier hs-var">falseP</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">p a b -&gt; p (h a) (h b)
+forall (t :: * -&gt; *) (p :: * -&gt; * -&gt; *) a b.
+(Homogeneous t, Distributor p) =&gt;
+p a b -&gt; p (t a) (t b)
+forall (p :: * -&gt; * -&gt; *) a b.
+Distributor p =&gt;
+p a b -&gt; p (h a) (h b)
+</span><a href="Data.Traversable.Homogeneous.html#homogeneously"><span class="hs-identifier hs-var">homogeneously</span></a></span><span> </span><span class="annot"><span class="annottext">p a b
+</span><a href="#local-6989586621679269461"><span class="hs-identifier hs-var">p</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-267"></span></pre></body></html>
