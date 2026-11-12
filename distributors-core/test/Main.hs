@@ -6,10 +6,12 @@ import Data.Profunctor.Types (Star (..))
 import Test.Hspec
 
 import Properties.Homogeneous
+import Properties.PartialIso
 
 main :: IO ()
 main = hspec $ do
   describe "Homogeneous" homogeneousProperties
+  describe "PartialIso" partialIsoProperties
   describe "meander" meanderProperties
 
 meanderProperties :: Spec

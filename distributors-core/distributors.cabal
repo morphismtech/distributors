@@ -179,6 +179,7 @@ test-suite test
   main-is: Main.hs
   other-modules:
       Properties.Homogeneous
+      Properties.PartialIso
       Paths_distributors
   autogen-modules:
       Paths_distributors

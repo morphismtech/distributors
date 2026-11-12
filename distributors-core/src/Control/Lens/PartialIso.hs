@@ -63,6 +63,9 @@ import Control.Monad
 import Data.Profunctor
 import Witherable
 
+-- $setup
+-- >>> import Control.Lens
+
 {- | The `dimapMaybe` function endows
 `Choice` & `Cochoice` "partial profunctors"
 with an action `>?<` of `PartialIso`s.
@@ -82,12 +85,94 @@ dimapMaybe f g =
 similar to how `Control.Lens.Prism.Prism` is a first class exhaustive pattern,
 by combining `Control.Lens.Prism.Prism`s and `coPrism`s.
 
-Every `Control.Lens.Iso.Iso` & `Control.Lens.Prism.Prism` is `APartialIso`.
+Every `Control.Lens.Iso.Iso`, `Control.Lens.Prism.Prism` & `coPrism`
+is a `PartialIso`.
 
-`PartialIso`s are isomorphic to t'PartialExchange's.
+__N.B.__ t'PartialExchange' is a retract of `PartialIso`:
+`withPartialIso` is a retraction, with `partialIso` its section,
+recovering the partial functions which build a `PartialIso`.
+
+> prop> withPartialIso (partialIso f g) PartialExchange = PartialExchange f g
+
+But they aren't isomorphic, since a `PartialIso` may be more than
+its partial functions, as a `Control.Lens.Prism.Prism` is, below.
+Rebuilding a `PartialIso` from its partial functions,
+by `clonePartialIso`, is idempotent, but not the identity.
+
+> prop> clonePartialIso pattern = withPartialIso pattern partialIso
+> prop> clonePartialIso (clonePartialIso pattern) = clonePartialIso pattern
+
+A `PartialIso` chooses whether its pattern matches by `Choice`,
+& fails in either direction by `Filterable`,
+emptying with @`catMaybes` (`pure` `Nothing`)@ & filtering with `mapMaybe`.
+So it needs no `Cochoice` of its own, unlike its action `>?<`
+on a `Choice` & `Cochoice` partial profunctor,
+which has no `Filterable` to fail by.
+
+>>> :{
+let halve :: PartialIso' Int Int
+    halve = partialIso
+      (\n -> if even n then Just (n `div` 2) else Nothing)
+      (Just . (* 2))
+:}
+
+Forwards, a `PartialIso` folds at most one focus,
+so `preview`, `^?`, `has` & `toListOf` match by it.
+
+>>> preview halve 6
+Just 3
+>>> 7 ^? halve
+Nothing
+>>> has halve 7
+False
+>>> toListOf halve 6
+[3]
+
+Backwards, a `PartialIso` folds forwards by `coPartialIso`.
+
+>>> preview (coPartialIso halve) 3
+Just 6
+
+`withPartialIso` converts a `PartialIso` to both directions.
+
+>>> withPartialIso halve $ \match build -> (match 6, build 3)
+(Just 3,Just 6)
+
+Since it may fail to build, as well as to match, a `PartialIso`
+modifies by `traverseOf` with a `Filterable` `Applicative` like `Maybe`,
+in place of `over` & `set`.
+
+>>> traverseOf halve (Just . succ) 6
+Just 8
+>>> traverseOf halve (Just . succ) 7
+Nothing
+
+A `Control.Lens.Prism.Prism` is exhaustive though,
+passing a mismatched source through, where its partial functions,
+cloned by `clonePartialIso`, fail; so it isn't its own clone.
+
+>>> traverseOf _Just (Just . succ) Nothing
+Just Nothing
+>>> traverseOf (clonePartialIso _Just) (Just . succ) Nothing
+Nothing
+
+Neither `review`, `over` nor `set` applies to a `PartialIso`,
+since t'Data.Functor.Identity.Identity' can't fail, so isn't `Filterable`;
+& `view` applies only to a `Monoid`al focus, as for a
+`Control.Lens.Fold.Fold`, by t'Data.Functor.Const.Const'.
+
+`PartialIso`s compose by `.`, with each other,
+& with `Control.Lens.Iso.Iso`s, `Control.Lens.Prism.Prism`s & `coPrism`s.
+
+>>> preview (halve . halve) 12
+Just 3
+>>> preview (_Just . halve) (Just 4)
+Just 2
+>>> preview (halve . coPrism _Just) 6
+Just (Just 3)
 -}
 type PartialIso s t a b = forall p f.
-  (Choice p, Cochoice p, Applicative f, Filterable f)
+  (Choice p, Applicative f, Filterable f)
     => p a (f b) -> p s (f t)
 
 {- |
@@ -140,10 +225,13 @@ instance Cochoice (PartialExchange a b) where
   unright (PartialExchange f g) =
     PartialExchange (f . Right) (either (pure Nothing) Just <=< g)
 
-{- | Build a `PartialIso`. -}
+{- | Build a `PartialIso` from its partial functions,
+matching forwards & building backwards,
+as the action `dimapMaybe` on @p a (f b)@,
+like `coPrism` is the action `?<`.
+-}
 partialIso :: (s -> Maybe a) -> (b -> Maybe t) -> PartialIso s t a b
-partialIso f g =
-  unright . iso (maybe (Left ()) Right . f =<<) (mapMaybe g) . right'
+partialIso f g = unwrapPafb . dimapMaybe f g . WrapPafb
 
 {- | Given a partial function that is its own inverse,
 this gives you a `PartialIso'` using it in both directions. -}

@@ -190,7 +190,7 @@ data Ditraversal a b s t where
 instance Profunctor (Ditraversal a b) where
   dimap f g (Ditraversal split merge) = Ditraversal (split . f) (g . merge)
 instance Functor (Ditraversal a b s) where fmap = rmap
-{- | Shapes multiply by `:*:`, with unit `U1`,
+{- | Shapes multiply by t':*:', with unit t'U1',
 since products of powers add, \(a^m \times a^n = a^{m+n}\).
 -}
 instance Applicative (Ditraversal a b s) where

@@ -51,7 +51,6 @@ import Numeric.Natural (Natural)
 
 -- $setup
 -- >>> import Control.Lens
--- >>> import Control.Lens.PartialIso (withPartialIso)
 -- >>> import Data.Functor.Identity
 
 {- | `Comonocle`s are an optic dual to `Control.Lens.Monocle.Monocle`s, by sums,
@@ -205,9 +204,9 @@ countComonocle mon = withComonocle mon $ \split _ -> copies split
 {- | The next copy of `AComonocle`, holding the same focus,
 if there is one, like `succ`, & conversely, the previous copy, like `pred`.
 
->>> withPartialIso (succComonocle _BoundedEnum) const EQ
+>>> preview (succComonocle _BoundedEnum) EQ
 Just GT
->>> withPartialIso (succComonocle _BoundedEnum) const GT
+>>> preview (succComonocle _BoundedEnum) GT
 Nothing
 -}
 succComonocle :: AComonocle s s a a -> PartialIso' s s
@@ -221,9 +220,9 @@ succComonocle mon =
 {- | The previous copy of `AComonocle`, holding the same focus,
 if there is one, like `pred`, & conversely, the next copy, like `succ`.
 
->>> withPartialIso (predComonocle _BoundedEnum) const EQ
+>>> preview (predComonocle _BoundedEnum) EQ
 Just LT
->>> withPartialIso (predComonocle _BoundedEnum) const LT
+>>> preview (predComonocle _BoundedEnum) LT
 Nothing
 -}
 predComonocle :: AComonocle s s a a -> PartialIso' s s

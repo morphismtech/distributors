@@ -43,7 +43,6 @@ import Data.Traversable.Homogeneous
 
 -- $setup
 -- >>> import Control.Lens (preview, review)
--- >>> import Control.Lens.PartialIso (withPartialIso)
 
 {- | A class of `Enumerable` countable sums of single copies,
 which are `Homogeneous`, & sequenced by sums alone.
@@ -176,9 +175,9 @@ fromEnumerable = prism' (liftA2 (,) from' extract') to'
 {- | The next copy of an `Enumerable` sum, if there is one, like `succ`,
 & conversely, the previous copy, like `pred`.
 
->>> withPartialIso succEnumerable const (EQ, 'x')
+>>> preview succEnumerable (EQ, 'x')
 Just (GT,'x')
->>> withPartialIso succEnumerable const (GT, 'x')
+>>> preview succEnumerable (GT, 'x')
 Nothing
 -}
 succEnumerable :: Enumerable f => PartialIso' (f a) (f a)
@@ -196,9 +195,9 @@ succEnumerable = partialIso succ' pred'
 {- | The previous copy of an `Enumerable` sum, if there is one, like `pred`,
 & conversely, the next copy, like `succ`.
 
->>> withPartialIso predEnumerable const (EQ, 'x')
+>>> preview predEnumerable (EQ, 'x')
 Just (LT,'x')
->>> withPartialIso predEnumerable const (LT, 'x')
+>>> preview predEnumerable (LT, 'x')
 Nothing
 -}
 predEnumerable :: Enumerable f => PartialIso' (f a) (f a)
