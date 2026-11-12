@@ -14,6 +14,9 @@
 - `AComonocle`, `withComonocle`, `cloneComonocle`, `mapComonocle`,
   `altComonocle`, `crossComonocle`, `indexComonocle` &
   `zipWithComonocle`; & `crossMonocle`.
+- `Ditraversal`s, a secondary concrete representation of `Monocle`s,
+  by `Traversable` & `Distributive` homogeneous products,
+  with `ditraversal` & `withDitraversal`.
 - Enum-like optics & functions of `Enumerable`s: the prism
   `fromEnumerable`, the partial isos `succEnumerable` & `predEnumerable`,
   `enumerateFrom`, `enumerateFromThen`, `enumerateFromTo` &
@@ -33,6 +36,11 @@
 
 ### Breaking Changes
 
+- `PartialIso` drops its `Cochoice` constraint, failing by `Filterable`
+  alone, so `preview`, `^?`, `has` & `toListOf` terminate on a
+  `PartialIso` which fails to match, rather than looping in `Cochoice (->)`.
+  `partialIso` is the action `dimapMaybe` on @p a (f b)@, like `coPrism`.
+  Its action `>?<` on `Choice` & `Cochoice` profunctors is unchanged.
 - `Enumerable`, its functions & `Indexing`, renamed `Enumerator`, move from
   `Data.Traversable.Homogeneous` to `Data.Traversable.Homogeneous.Enumerable`.
 - `Comonocle`s & their combinators move from `Control.Lens.Monocle` to
