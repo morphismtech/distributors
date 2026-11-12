@@ -14,6 +14,9 @@
 - `AComonocle`, `withComonocle`, `cloneComonocle`, `mapComonocle`,
   `altComonocle`, `crossComonocle`, `indexComonocle` &
   `zipWithComonocle`; & `crossMonocle`.
+- `Ditraversal`s, a secondary concrete representation of `Monocle`s,
+  by `Traversable` & `Distributive` homogeneous products,
+  with `ditraversal` & `withDitraversal`.
 - Enum-like optics & functions of `Enumerable`s: the prism
   `fromEnumerable`, the partial isos `succEnumerable` & `predEnumerable`,
   `enumerateFrom`, `enumerateFromThen`, `enumerateFromTo` &

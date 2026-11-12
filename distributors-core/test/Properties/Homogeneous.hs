@@ -9,7 +9,7 @@ module Properties.Homogeneous (homogeneousProperties) where
 
 import Control.Applicative
 import Control.Arrow ((+++))
-import Control.Lens (iview, preview, review, toListOf, traverseOf)
+import Control.Lens (iview, over, preview, review, toListOf, traverseOf)
 import Control.Lens.Diopter
 import Control.Lens.Comonocle
 import Control.Lens.Grate (cotraverseOf)
@@ -313,6 +313,22 @@ homogeneousProperties = do
     prop "replicateMonocle ditraversed is replicateM 2" $ \(xs :: [Int]) ->
       map (toListOf ditraversed) (replicateMonocle ditraversed xs :: [Complex Int])
         === sequenceA [xs, xs]
+    prop "withDitraversal splits into the foci, in order" $
+      \(s :: (Int, Complex Int)) ->
+        withDitraversal (crossMonocle id ditraversed)
+          (\split _ -> toList (split s))
+          === toListOf (crossMonocle id ditraversed) s
+    prop "ditraversal inverts withDitraversal" $
+      \(s :: (Int, Complex Int)) (Fun _ f :: Fun Int Int) ->
+        withDitraversal (crossMonocle id ditraversed)
+          (\split merge -> over (ditraversal (Ditraversal split merge)) f s)
+          === over (crossMonocle id ditraversed) f s
+    prop "withDitraversal inverts ditraversal" $
+      \(x :: Int) y (Fun _ f :: Fun Int Int) ->
+        let d = Ditraversal (uncurry (:+)) (\(u :+ v) -> (u, v))
+        in withDitraversal (ditraversal d)
+            (\split merge -> (toList (split (x, y)), merge (f <$> split (x, y))))
+          === ([x, y], (f x, f y))
     it "tabulateMonocle numbers foci left to right" $
       toListOf ditraversed (tabulateMonocle ditraversed id :: Complex Natural)
         `shouldBe` [0, 1]

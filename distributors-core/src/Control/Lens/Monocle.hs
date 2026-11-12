@@ -30,6 +30,8 @@ module Control.Lens.Monocle
   , tabulateMonocle
     -- * Monocular
   , Monocular (..), runMonocular
+    -- * Ditraversal
+  , Ditraversal (..), ditraversal, withDitraversal
   ) where
 
 import Control.Lens hiding (Traversing)
@@ -37,11 +39,13 @@ import Control.Lens.Internal.Profunctor
 import Control.Monad.Trans.State.Lazy (evalState, state)
 import Data.Distributive
 import Data.Profunctor.Monoidal
+import GHC.Generics (Par1 (..), U1 (..), (:*:) (..))
 import Numeric.Natural (Natural)
 
 -- $setup
 -- >>> import Control.Lens
 -- >>> import Data.Complex
+-- >>> import Data.Foldable (toList)
 -- >>> import Data.Functor.Identity
 
 {- | `Monocle`s are an optic that generalizes
@@ -171,3 +175,57 @@ instance Applicative (Monocular a b s) where
 {- | Run a t'Monocular' on a `Monoidal` `Profunctor`. -}
 runMonocular :: Monoidal p => Monocular a b s t -> p a b -> p s t
 runMonocular (Monocular k) p = k $ \f -> lmap f p
+
+{- | t'Ditraversal' is a secondary concrete representation of `Monocle`s,
+by homogeneous products: a `Traversable` & `Distributive` shape,
+into which a source splits its foci, & from which a target merges them.
+
+`Monocle`s with finitely many foci are isomorphic to t'Ditraversal's,
+by `ditraversal` & `withDitraversal`.
+-}
+data Ditraversal a b s t where
+  Ditraversal
+    :: (Distributive f, Traversable f)
+    => (s -> f a) -> (f b -> t) -> Ditraversal a b s t
+instance Profunctor (Ditraversal a b) where
+  dimap f g (Ditraversal split merge) = Ditraversal (split . f) (g . merge)
+instance Functor (Ditraversal a b s) where fmap = rmap
+{- | Shapes multiply by `:*:`, with unit `U1`,
+since products of powers add, \(a^m \times a^n = a^{m+n}\).
+-}
+instance Applicative (Ditraversal a b s) where
+  pure t = Ditraversal (const U1) (const t)
+  liftA2 h (Ditraversal split0 merge0) (Ditraversal split1 merge1) =
+    Ditraversal
+      (\s -> split0 s :*: split1 s)
+      (\(b0 :*: b1) -> h (merge0 b0) (merge1 b1))
+  (<*>) = liftA2 id
+
+{- | Build a `Monocle` from a t'Ditraversal'.
+
+>>> over (ditraversal (Ditraversal (uncurry (:+)) (\(x :+ y) -> (x, y)))) negate (1, 2)
+(-1,-2)
+-}
+ditraversal :: Ditraversal a b s t -> Monocle s t a b
+ditraversal (Ditraversal split merge) =
+  dimap split (fmap merge) . ditraversed
+
+{- | Convert `AMonocle` to the pair of functions that characterize it,
+splitting into & merging from a homogeneous product of its foci.
+It diverges for infinitely many foci, like those of `forevered`.
+
+>>> withDitraversal (crossMonocle id ditraversed) $ \split _ -> toList (split (1, 2 :+ 3))
+[1,2,3]
+>>> withDitraversal ditraversed (\split merge -> merge (negate <$> split (1 :+ 2))) :: Complex Int
+(-1) :+ (-2)
+-}
+withDitraversal
+  :: AMonocle s t a b
+  -> (forall f. (Distributive f, Traversable f)
+      => (s -> f a) -> (f b -> t) -> r)
+  -> r
+withDitraversal mon k =
+  case runMonocular monocular (Ditraversal Par1 unPar1) of
+    Ditraversal split merge -> k split merge
+  where
+    monocular = runIdentity <$> mon (Identity <$> Monocular ($ id))
