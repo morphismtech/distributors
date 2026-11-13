@@ -8,9 +8,9 @@
   & `Data.Profunctor.Grammar.Parsector`.
 - `Control.Lens.Grammar` re-exports `Control.Lens.Prismoid` &
   `Control.Lens.Diopter`, so grammars separate by `sepBy`, of
-  `several`, `atLeast`, `chain1` & `exactly`, with a `terminal`
-  separator, delimiters composing around a `sepBy` grammar by `>*` &
-  `*<`.
+  `several`, `atLeast`, `chain1` & `exactly`, & `Control.Lens.Grammar.Symbol`
+  exports `sepWith`, `sepBy` of a `terminal` separator, delimiters
+  composing around a separated grammar by `>*` & `*<`.
 - `Grammor` defines `manyTillP` as @starK p <> q@, without recursing, so
   `sepBy` grammars, even of shapes without foci, have finite
   regular expressions & `Bnf`s.

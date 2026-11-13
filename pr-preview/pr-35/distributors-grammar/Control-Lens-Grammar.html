@@ -38,7 +38,7 @@ semverGrammar = _SemVer
   &gt;*&lt; optionP _Empty (terminal &quot;+&quot; &gt;* identifiersG)
   where
     numberG = iso show read &gt;~ someP (asIn @Char DecimalNumber)
-    identifiersG = sepBy (terminal &quot;.&quot;) (atLeast 1) (someP charG)
+    identifiersG = sepWith &quot;.&quot; (atLeast 1) (someP charG)
     charG = asIn LowercaseLetter
       &gt;|&lt; asIn UppercaseLetter
       &gt;|&lt; asIn DecimalNumber
@@ -173,9 +173,9 @@ with <code><a href="Control-Lens-Grammar-BackusNaur.html#v:ruleRec" title="Contr
 arithGrammar = ruleRec &quot;arith&quot; sumG
   where
     sumG arith = rule &quot;sum&quot; $
-      sepBy (terminal &quot;+&quot;) (chain1 Left _Add) (prodG arith)
+      sepWith &quot;+&quot; (chain1 Left _Add) (prodG arith)
     prodG arith = rule &quot;product&quot; $
-      sepBy (terminal &quot;*&quot;) (chain1 Left _Mul) (factorG arith)
+      sepWith &quot;*&quot; (chain1 Left _Mul) (factorG arith)
     factorG arith = rule &quot;factor&quot; $
       numberG &gt;|&lt; terminal &quot;(&quot; &gt;* arith *&lt; terminal &quot;)&quot;
     numberG = rule &quot;number&quot; $
@@ -371,7 +371,7 @@ _LenVec = iso (\LenVec {..} -&gt; (length, vector)) (\(length, vector) -&gt; Len
 lenvecGrammar = _LenVec &gt;? P.do
   let
     numberG = iso show read &gt;~ someP (asIn @Char DecimalNumber)
-    vectorG n = sepBy (terminal &quot;,&quot;) (exactly n) numberG
+    vectorG n = sepWith &quot;,&quot; (exactly n) numberG
   len &lt;- numberG             -- bonds to _LenVec
   terminal &quot;;&quot;               -- doesn't bond
   vectorG (fromIntegral len) -- bonds to _LenVec

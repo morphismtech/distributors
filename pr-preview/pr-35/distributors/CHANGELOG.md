@@ -150,8 +150,10 @@
 - `MonadicTry` moves from `Data.Profunctor.Monadic` to
   `Control.Monad.Fail.Try`, which `Data.Profunctor.Monadic` no longer
   imports, & `Data.Profunctor.Monadic` no longer re-exports `try`.
-- `sepWith`, `beginWith` & `endWith` are removed: a separator is a
-  `terminal`, & delimiters compose around `sepBy` by `>*` & `*<`.
+- `sepWith` moves to `Control.Lens.Grammar.Symbol` & takes a `Prismoid`,
+  `sepWith str = sepBy (terminal str)`, so `several1 (sepWith ",") p` is
+  `sepWith "," (atLeast 1) p`; `beginWith` & `endWith` are removed, as
+  delimiters compose around it by `>*` & `*<`.
 
 ## 0.6.0.0 - 2026-04-24
 
