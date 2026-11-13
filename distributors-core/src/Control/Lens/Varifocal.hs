@@ -18,6 +18,9 @@ module Control.Lens.Varifocal
   , runVarifocus
   , runVarifocusT
   , cloneVarifocal
+  , crossVarifocal
+  , altVarifocal
+  , bindVarifocal
     -- * Applicator
   , contextually
   , contextuallyT
@@ -40,7 +43,7 @@ import Data.Profunctor.Distributor
 import Data.Profunctor.Filtrator (Filtrator (..), mfiltrate)
 import Data.Profunctor.Monadic (Monadic, MonadicTrans (..))
 import qualified Data.Profunctor.Monadic.Do as P
-import Data.Profunctor.Monoidal (asEmpty)
+import Data.Profunctor.Monoidal (asEmpty, (>*<))
 import Data.Profunctor.Monoidal.Cocartesian
 import Witherable (Filterable (..))
 
@@ -224,6 +227,35 @@ monomorphically typed `Varifocal` for different purposes.
 cloneVarifocal :: AVarifocal s t a b -> Varifocal s t a b
 cloneVarifocal vari q = rmap pure (runVarifocusT (varifocus vari) (joinP q))
 
+{- | Two `AVarifocal`s of the same foci, side by side, on a pair. -}
+crossVarifocal
+  :: AVarifocal s t a b
+  -> AVarifocal u v a b
+  -> Varifocal (s,u) (t,v) a b
+crossVarifocal x y q = rmap (uncurry (liftA2 (,)))
+  (cloneVarifocal x q >*< cloneVarifocal y q)
+
+{- | Two `AVarifocal`s of the same foci, one or the other, on a sum. -}
+altVarifocal
+  :: AVarifocal s t a b
+  -> AVarifocal u v a b
+  -> Varifocal (Either s u) (Either t v) a b
+altVarifocal x y q = rmap (either (fmap Left) (fmap Right))
+  (cloneVarifocal x q >+< cloneVarifocal y q)
+
+{- | An `AVarifocal`, then another, chosen by what the first built,
+on a pair, as only `Varifocal`s can,
+like a netstring's length, then that many foci.
+
+> prop> bindVarifocal x (const y) = crossVarifocal x y
+-}
+bindVarifocal
+  :: AVarifocal s t a b
+  -> (t -> AVarifocal u v a b)
+  -> Varifocal (s,u) (t,v) a b
+bindVarifocal x k q = rmap pure
+  (joinP (cloneVarifocal x q) P.>>= \t -> joinP (cloneVarifocal (k t) q))
+
 {- | Action of `AVarifocal` on `Monadic` `Alternator`s,
 like a @Control.Lens.Grammar.CtxGrammar@'s, by its t'Varifocus',
 whose choices & failures are the `Alternator`'s own,
@@ -256,10 +288,12 @@ stepping :: st -> (st -> a -> Either Bool st) -> Varifocal' [a] a
 stepping st0 step q = rmap pure (go st0)
   where
     focus = joinP q
-    go st = _Cons >? (focus P.>>= \b -> case step st b of
-      Right st' -> go st'
-      Left True -> asEmpty
-      Left False -> empty)
+    go st = _Cons >? P.do
+      b <- focus
+      case step st b of
+        Right st' -> go st'
+        Left True -> asEmpty
+        Left False -> empty
 
 {- | Zero or more foci, then one which @end@s them, deciding by
 each focus built, like a sentinel-terminated sequence, a C string's.

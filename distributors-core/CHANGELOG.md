@@ -48,7 +48,8 @@
   `Monadic` `Alternator`, like a `CtxGrammar`, by its free concrete form
   `Varifocus`, & `contextuallyT`, on a `MonadicTrans` profunctor;
   `AVarifocal`, `varifocus`, `runVarifocus`, `runVarifocusT` &
-  `cloneVarifocal`; & `stepping`, a deterministic machine over foci,
+  `cloneVarifocal`; `crossVarifocal`, `altVarifocal` & `bindVarifocal`,
+  the last choosing a second by what the first built, like a netstring; & `stepping`, a deterministic machine over foci,
   deciding by each built whether to continue, stop or reject, with its
   instances `terminatedBy`, `delimited`, `balanced` & `countPrefixed`:
   sentinel-terminated, matching-delimited, nested & count-prefixed

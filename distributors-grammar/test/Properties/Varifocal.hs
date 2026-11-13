@@ -3,6 +3,8 @@ module Properties.Varifocal (varifocalProperties) where
 import Control.Lens.Grammar
 import Data.Char (digitToInt, isDigit)
 import Data.Foldable (for_)
+import Data.Maybe (fromMaybe)
+import Text.Read (readMaybe)
 import Examples.Heredoc
 import Test.Hspec
 import Test.Hspec.QuickCheck (prop)
@@ -72,6 +74,35 @@ varifocalProperties = do
           strs = ["(a(b)c)", "(a(b)", "a", "((x))"]
       map (printed cloned) strs `shouldBe` map (printed nested) strs
       map (parsed cloned) strs `shouldBe` map (parsed nested) strs
+  describe "crossVarifocal, altVarifocal & bindVarifocal" $ do
+    let
+      printedG :: Varifocal' s Char -> s -> Maybe String
+      printedG v x =
+        ($ "") <$> printP (contextuallyT v (anyToken :: Printor String Maybe Char Char)) x
+      parsedG :: Varifocal' s Char -> String -> Maybe (s, String)
+      parsedG v = parseP (contextuallyT v (anyToken :: Parsor String Maybe Char Char))
+      crossed :: Varifocal' (String, String) Char
+      crossed = crossVarifocal (terminatedBy (== '.')) (delimited (==))
+      alted :: Varifocal' (Either String String) Char
+      alted = altVarifocal (terminatedBy (== '.')) (balanced (== '(') (== ')'))
+      netstring :: Varifocal' (String, String) Char
+      netstring = bindVarifocal (terminatedBy (== ':'))
+        (\header -> exactly (fromMaybe 0 (readMaybe (init header))))
+    it "crosses side by side" $ do
+      printedG crossed ("ab.", "xyx") `shouldBe` Just "ab.xyx"
+      parsedG crossed "ab.xyxrest" `shouldBe` Just (("ab.", "xyx"), "rest")
+    it "alts one or the other" $ do
+      printedG alted (Left "ab.") `shouldBe` Just "ab."
+      printedG alted (Right "(a)") `shouldBe` Just "(a)"
+      parsedG alted "ab." `shouldBe` Just (Left "ab.", "")
+      parsedG alted "(a)" `shouldBe` Just (Right "(a)", "")
+    prop "binds a netstring's length to its payload" $ \(payload :: String) ->
+      let header = show (length payload) ++ ":"
+      in printedG netstring (header, payload) === Just (header ++ payload)
+        .&&. parsedG netstring (header ++ payload ++ "rest")
+          === Just ((header, payload), "rest")
+    it "won't print a netstring whose length isn't its payload's" $
+      printedG netstring ("3:", "ab") `shouldBe` Nothing
   describe "cloneVarifocal, by its free Varifocus" $ do
     prop "clones terminatedBy, printing & parsing as it does" $
       forAll plain $ \s -> forAll plain $ \t ->
