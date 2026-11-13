@@ -129,8 +129,8 @@ kleeneProperties = do
         bounded lo hi s = lo <= length s && length s <= hi
       prop "inRange lo hi prints & parses exactly lo to hi tokens" $
         \(s :: String) -> forAll (choose (0, 4)) $ \lo -> forAll (choose (0, 4)) $ \hi ->
-          printed (inRange lo hi) s === (if bounded lo hi s then Just s else Nothing)
-            .&&. (if bounded lo hi s then parsed (inRange lo hi) s === Just (s, "") else property True)
+          printed (inRange lo (Just hi)) s === (if bounded lo hi s then Just s else Nothing)
+            .&&. (if bounded lo hi s then parsed (inRange lo (Just hi)) s === Just (s, "") else property True)
       prop "atMost n prints & parses at most n tokens" $
         \(s :: String) -> forAll (choose (0, 4)) $ \n ->
           printed (atMost n) s === (if length s <= n then Just s else Nothing)

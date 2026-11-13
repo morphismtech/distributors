@@ -72,7 +72,7 @@ parsingProperties = do
           === parses (rmap Identity (replicateP n plainDigit :: Joker ReadP String String)) ds
     prop "inRange lo hi parses exactly the digit strings of lo to hi" $
       \(Digits ds) (Small a) (Small b) -> let lo = abs a `mod` 6; hi = abs b `mod` 6 in
-        parses (rmap Identity (inRange lo hi >?* plainDigit)) ds
+        parses (rmap Identity (inRange lo (Just hi) >?* plainDigit)) ds
           === [ds | lo <= length ds, length ds <= hi]
     prop "sepBy sep (atLeast n) & (atMost n) bound separated digits" $
       \(Digits ds) (Small k) -> let n = abs k `mod` 6; str = bracketed ds in

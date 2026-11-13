@@ -45,9 +45,9 @@
   sequencing actions forwards & none backwards, like whitespace or a
   trailing separator, which a parser accepts & a printer omits; & their
   `Diopter`s, `skippedMany` & `skippedOptional`.
-- `atLeast`, `atMost` & `inRange`, `Prismoid`s of at least, at most, &
-  between, some numbers of times, like a regular expression's @{n,}@,
-  @{0,n}@ & @{lo,hi}@.
+- `inRange lo hi`, a `Prismoid` of between some numbers of times, at least
+  @lo@ & at most @hi@, if @Just@, like a regular expression's @{lo,hi}@ or
+  @{lo,}@; & its intervals `exactly`, `atLeast` & `atMost`.
 - `manyTillP`, an `Alternator` method, zero or more, then the rest,
   @p* q@, trying the rest first, like parsec's @manyTill@, which a static
   `Alternator` defines without recursing, as @starK p <> q@.

@@ -147,16 +147,17 @@ withPrismoid pat k =
 
 {- | Exactly some number of times, or separated by `sepBy`.
 
-> prop> exactly n = inRange n n
+> prop> exactly n = inRange n (Just n)
 > prop> exactly n >?* p = replicateP n p
 -}
 exactly :: Int -> Prismoid [a] [b] a b
-exactly n = inRange n n
+exactly n = inRange n (Just n)
 
 {- | At least some number of times, or separated by `sepBy`,
 ending with the `Alternator`'s own `someP`, or, for at least none,
 its own `manyP`.
 
+> prop> atLeast n = inRange n Nothing
 > prop> atLeast 0 = several
 > prop> atLeast 1 >?* p = someP p
 
@@ -167,12 +168,12 @@ its own `manyP`.
 []
 -}
 atLeast :: Int -> Prismoid [a] [b] a b
-atLeast n = unwrapPafb . repetitions n Nothing . WrapPafb
+atLeast n = inRange n Nothing
 
 {- | At most some number of times, trying more first,
 or separated by `sepBy`.
 
-> prop> atMost n = inRange 0 n
+> prop> atMost n = inRange 0 (Just n)
 
 >>> let digits n = runJoker (atMost n >?* Joker (satisfy isDigit)) :: ReadP String
 >>> [ds | (ds, "") <- readP_to_S (digits 2) "12"]
@@ -181,34 +182,35 @@ or separated by `sepBy`.
 []
 -}
 atMost :: Int -> Prismoid [a] [b] a b
-atMost = inRange 0
+atMost n = inRange 0 (Just n)
 
-{- | Between some numbers of times, inclusive, trying more first,
-like a regular expression's @{lo,hi}@, or separated by `sepBy`.
+{- | Between some numbers of times, inclusive, at least a lower bound,
+& at most an upper bound, if there's one, like a regular expression's
+@{lo,hi}@, or @{lo,}@, or separated by `sepBy`.
+It takes the mandatory times first, then, unbounded,
+the `Alternator`'s own `someP` or `manyP`, or, bounded,
+the optional times, trying more first.
 It never matches where @lo > hi@.
 
 >>> let digits lo hi = runJoker (inRange lo hi >?* Joker (satisfy isDigit)) :: ReadP String
->>> [ds | (ds, "") <- readP_to_S (digits 2 3) "123"]
+>>> [ds | (ds, "") <- readP_to_S (digits 2 (Just 3)) "123"]
 ["123"]
->>> [ds | n <- [1 .. 4], (ds, "") <- readP_to_S (digits 2 3) (take n "1234")]
+>>> [ds | n <- [1 .. 4], (ds, "") <- readP_to_S (digits 2 (Just 3)) (take n "1234")]
 ["12","123"]
 -}
-inRange :: Int -> Int -> Prismoid [a] [b] a b
-inRange lo hi = unwrapPafb . repetitions lo (Just hi) . WrapPafb
-
--- At least @l@ times, & at most @h@, if bounded: the mandatory copies,
--- then, unbounded, the `Alternator`'s own `someP` or `manyP`,
--- or, bounded, optional copies, trying more first.
-repetitions :: Alternator p => Int -> Maybe Int -> p a b -> p [a] [b]
-repetitions l h p
-  | maybe False (l >) h = empty
-  | l > 1 || (l == 1 && isJust h) = p >:< repetitions (l - 1) (subtract 1 <$> h) p
-  | l == 1 = someP p
-  | otherwise = case h of
-      Nothing -> manyP p
-      Just m
-        | m <= 0 -> eotList . swapped >~ empty >+< oneP
-        | otherwise -> eotList . swapped >~ p >*< repetitions 0 (Just (m - 1)) p >+< oneP
+inRange :: Int -> Maybe Int -> Prismoid [a] [b] a b
+inRange lo hi = unwrapPafb . go lo hi . WrapPafb
+  where
+    go :: Alternator p => Int -> Maybe Int -> p a b -> p [a] [b]
+    go l h p
+      | maybe False (l >) h = empty
+      | l > 1 || (l == 1 && isJust h) = p >:< go (l - 1) (subtract 1 <$> h) p
+      | l == 1 = someP p
+      | otherwise = case h of
+          Nothing -> manyP p
+          Just m
+            | m <= 0 -> eotList . swapped >~ empty >+< oneP
+            | otherwise -> eotList . swapped >~ p >*< go 0 (Just (m - 1)) p >+< oneP
 
 {- | One or zero with default. -}
 opted :: APrism a b () () -> Prismoid a b a b
