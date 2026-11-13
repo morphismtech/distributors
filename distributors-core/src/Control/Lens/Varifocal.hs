@@ -18,7 +18,7 @@ module Control.Lens.Varifocal
   , runVarifocus
   , cloneVarifocal
     -- * Applicator
-  , (>?=<)
+  , contextually
     -- * Combinators
   , terminatedBy
   , delimited
@@ -194,13 +194,12 @@ cloneVarifocal vari q = rmap pure (runVarifocus (varifocus vari) (joinP q))
 {- | Action of a `Varifocal` on `MonadicTrans` `Alternator`s,
 absorbing its monad by `joinP`.
 
-> prop> vari >?=< p = joinP (vari (rmap pure p))
+> prop> contextually vari p = joinP (vari (rmap pure p))
 -}
-(>?=<)
+contextually
   :: (MonadicTrans p, Alternator (p m), MonadPlus m, Filterable m)
   => Varifocal s t a b -> p m a b -> p m s t
-vari >?=< p = joinP (vari (rmap pure p))
-infixl 4 >?=<
+contextually vari p = joinP (vari (rmap pure p))
 
 {- | Zero or more foci, then one which @end@s them, deciding by
 each focus built, as no `Control.Lens.Bifocal.Bifocal` can,

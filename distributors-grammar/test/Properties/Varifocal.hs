@@ -12,9 +12,9 @@ varifocalProperties = do
   let
     printed :: Varifocal' String Char -> String -> Maybe String
     printed v s =
-      ($ "") <$> printP (v >?=< (anyToken :: Printor String Maybe Char Char)) s
+      ($ "") <$> printP (contextually v (anyToken :: Printor String Maybe Char Char)) s
     parsed :: Varifocal' String Char -> String -> Maybe (String, String)
-    parsed v = parseP (v >?=< (anyToken :: Parsor String Maybe Char Char))
+    parsed v = parseP (contextually v (anyToken :: Parsor String Maybe Char Char))
     ended :: Varifocal' String Char
     ended = terminatedBy (== '.')
     plain = Prelude.filter (/= '.') <$> arbitrary
@@ -84,16 +84,16 @@ varifocalProperties = do
       composite = _Right . ended
       printedE :: Varifocal' (Either Int String) Char -> Either Int String -> Maybe String
       printedE v e =
-        ($ "") <$> printP (v >?=< (anyToken :: Printor String Maybe Char Char)) e
+        ($ "") <$> printP (contextually v (anyToken :: Printor String Maybe Char Char)) e
       parsedE :: Varifocal' (Either Int String) Char -> String -> Maybe (Either Int String, String)
-      parsedE v = parseP (v >?=< (anyToken :: Parsor String Maybe Char Char))
+      parsedE v = parseP (contextually v (anyToken :: Parsor String Maybe Char Char))
     prop "prints & parses as the composite does" $
       forAll plain $ \s -> \(n :: Int) ->
         let es = [Left n, Right s, Right (s ++ ".")]
         in map (printedE (cloneVarifocal composite)) es === map (printedE composite) es
           .&&. parsedE (cloneVarifocal composite) (s ++ ".") === parsedE composite (s ++ ".")
   describe "Bifocal ⊂ Varifocal" $
-    prop "a Prismoid applies by >?=< as by >?*" $ \(s :: String) ->
+    prop "a Prismoid applies contextually as by >?*" $ \(s :: String) ->
       parsed (atLeast 1) s
         === parseP (atLeast 1 >?* (anyToken :: Parsor String Maybe Char Char)) s
       .&&. printed (atLeast 1) s

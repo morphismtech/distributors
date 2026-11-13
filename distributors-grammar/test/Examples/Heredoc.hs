@@ -28,7 +28,7 @@ heredocP
      ( MonadicTrans p, Alternator (p m), MonadPlus m, Filterable m
      , Tokenized Char (p m Char Char), TerminalSymbol Char (p m () ()) )
   => p m Heredoc Heredoc
-heredocP = heredocLines >~ symbol "<<" >* (delimited (==) >?=< lineP)
+heredocP = heredocLines >~ symbol "<<" >* contextually (delimited (==)) lineP
   where
     symbol :: String -> p m () ()
     symbol = terminal
