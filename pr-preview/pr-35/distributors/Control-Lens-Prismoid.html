@@ -49,7 +49,7 @@ prop&gt; sepBy sep several p = p &gt;:&lt; manyP (sep &gt;* p) &lt;|&gt; asEmpty
 lists, binary constructor patterns, or a number of repetitions;
 &amp; separating a <code><a href="Control-Lens-Monocle.html#v:Monocle" title="Control.Lens.Monocle">Monocle</a></code>, like
 <code><a href="Control-Lens-Monocle.html#v:ditraversed" title="Control.Lens.Monocle">ditraversed</a></code>, the positions of a fixed product.
-Other <code class="inline-code">IsList</code>s are lists by <code class="inline-code"><code><a href="https://hackage.haskell.org/package/lens-5.3.6/docs/Control-Lens-Iso.html#v:iso" title="Control.Lens.Iso">iso</a></code> <code class="inline-code">toList</code> <code class="inline-code">fromList</code></code>.</p><pre class="screen"><code class="prompt">&gt;&gt;&gt; </code><strong class="userinput"><code>let comma = Joker (() &lt;$ char ',')
+Other <code class="inline-code">IsList</code>s act as lists by <code class="inline-code"><code><a href="Control-Lens-PartialIso.html#v:listed" title="Control.Lens.PartialIso">listed</a></code> ~&lt;</code>.</p><pre class="screen"><code class="prompt">&gt;&gt;&gt; </code><strong class="userinput"><code>let comma = Joker (() &lt;$ char ',')
 </code></strong><code class="prompt">&gt;&gt;&gt; </code><strong class="userinput"><code>let digit = Joker (satisfy isDigit)
 </code></strong><code class="prompt">&gt;&gt;&gt; </code><strong class="userinput"><code>let digits = runJoker (sepBy comma (atLeast 1) digit) :: ReadP String
 </code></strong><code class="prompt">&gt;&gt;&gt; </code><strong class="userinput"><code>[ds | (ds, &quot;&quot;) &lt;- readP_to_S digits &quot;1,2,3&quot;]
