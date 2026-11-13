@@ -126,7 +126,7 @@ using <code><a href="https://hackage.haskell.org/package/distributors-0.7.0.0/do
 Since context-free <code><a href="Control-Lens-Grammar.html#t:Grammar" title="Control.Lens.Grammar">Grammar</a></code>s and <code><a href="Control-Lens-Grammar.html#t:CtxGrammar" title="Control.Lens.Grammar">CtxGrammar</a></code>s aren't necessarily regular,
 the type system will prevent <code><a href="Control-Lens-Grammar.html#v:regstringG" title="Control.Lens.Grammar">regstringG</a></code> from being applied to them.</p></div></div><div class="top"><p class="src"><a id="v:regexGrammar" class="def">regexGrammar</a> :: <a href="Control-Lens-Grammar.html#t:Grammar" title="Control.Lens.Grammar">Grammar</a> <a href="https://hackage.haskell.org/package/base-4.21.2.0/docs/Data-Char.html#t:Char" title="Data.Char">Char</a> <a href="Control-Lens-Grammar.html#t:RegString" title="Control.Lens.Grammar">RegString</a> <a href="src/Control.Lens.Grammar.html#regexGrammar" class="link">Source</a> <a href="#v:regexGrammar" class="selflink">#</a></p><div class="doc"><p><code><a href="Control-Lens-Grammar.html#v:regexGrammar" title="Control.Lens.Grammar">regexGrammar</a></code> is a context-free <code><a href="Control-Lens-Grammar.html#t:Grammar" title="Control.Lens.Grammar">Grammar</a></code> for <code><a href="Control-Lens-Grammar.html#t:RegString" title="Control.Lens.Grammar">RegString</a></code>s.
 It can't be a <code><a href="Control-Lens-Grammar.html#t:RegGrammar" title="Control.Lens.Grammar">RegGrammar</a></code>, since <code><a href="Control-Lens-Grammar.html#t:RegString" title="Control.Lens.Grammar">RegString</a></code>s include parenthesization.
-But <a href="https://en.wikipedia.org/wiki/Dyck_language">balanced parentheses</a>
+But <a href="https://en.wikipedia.org/wiki/Dyck_language">balanceBy parentheses</a>
 are a context-free language.</p><pre class="screen"><code class="prompt">&gt;&gt;&gt; </code><strong class="userinput"><code>putStringLn (regbnfG regexGrammar)
 </code></strong>{start} = \q{regex}
 {alternate} = \q{sequence}(\|\q{sequence})*
@@ -422,11 +422,11 @@ whose shape depends on the foci it builds, as no <code class="inline-code">Bifoc
 applied in a <code><a href="Control-Lens-Grammar.html#t:CtxGrammar" title="Control.Lens.Grammar">CtxGrammar</a></code> by <code><a href="https://hackage.haskell.org/package/distributors-0.7.0.0/docs/Control-Lens-Varifocal.html#v:contextually" title="Control.Lens.Varifocal">contextually</a></code>,
 or on a <code><a href="https://hackage.haskell.org/package/distributors-0.7.0.0/docs/Data-Profunctor-Monadic.html#t:MonadicTrans" title="Data.Profunctor.Monadic">MonadicTrans</a></code> profunctor, by <code><a href="https://hackage.haskell.org/package/distributors-0.7.0.0/docs/Control-Lens-Varifocal.html#v:contextuallyT" title="Control.Lens.Varifocal">contextuallyT</a></code>.
 A <a href="https://en.wikipedia.org/wiki/Here_document">heredoc</a>'s lines are its foci,
-its tag, its body, &amp; its tag again, <code><a href="https://hackage.haskell.org/package/distributors-0.7.0.0/docs/Control-Lens-Varifocal.html#v:delimited" title="Control.Lens.Varifocal">delimited</a></code> by the first line
+its tag, its body, &amp; its tag again, <code><a href="https://hackage.haskell.org/package/distributors-0.7.0.0/docs/Control-Lens-Varifocal.html#v:delimitBy" title="Control.Lens.Varifocal">delimitBy</a></code> by the first line
 equal to the opening tag, a language which isn't context-free.</p><pre class="screen"><code class="prompt">&gt;&gt;&gt; </code><strong class="userinput"><code>:{
 </code></strong>data Heredoc = Heredoc String [String] deriving (Eq, Show)
 heredocG :: CtxGrammar Char Heredoc
-heredocG = lined &gt;~ terminal &quot;&lt;&lt;&quot; &gt;* contextually (delimited (==)) lineG
+heredocG = lined &gt;~ terminal &quot;&lt;&lt;&quot; &gt;* contextually (delimitBy (==)) lineG
   where
     lineG = manyP (notOneOf &quot;\n&quot;) *&lt; terminal &quot;\n&quot;
     lined = iso

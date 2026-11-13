@@ -27,7 +27,7 @@
 - `Homogeneous` & `Enumerable` instances for `Down`, `Min`, `Max`,
   `First`, `Last`, `Alt f`, `Ap f` & `IdentityT f`.
 - `Homogeneous` & `Enumerable` instances for `(,) e`, a copy for each tag
-  of a `Bounded` `Enum`, summed in a balanced tree.
+  of a `Bounded` `Enum`, summed in a balanceBy tree.
 - A `Homogeneous` instance for `NonEmpty`.
 - Dual combinators: `copiesComonocle`, the `Prism`s of a `Comonocle`'s
   copies, exactly one of which matches, & `fociMonocle`, the `Lens`es of
@@ -52,8 +52,8 @@
   & `bindVarifocal`,
   the last choosing a second by what the first built, like a netstring; & `stepping`, a deterministic machine over foci,
   deciding by each built whether to continue, stop or reject, with its
-  instances `terminatedBy`, `delimited`, `balanced` & `countPrefixed`:
-  sentinel-terminated, matching-delimited, nested & count-prefixed
+  instances `terminateBy`, `delimitBy`, `balanceBy` & `countWith`:
+  sentinel-terminated, matching-delimitBy, nested & count-prefixed
   sequences, which no `Bifocal` can express.
 - Combinators of optics with the same foci: `crossPrismoid`,
   `crossBifocal`, `crossDiopter` & `crossGrate`, on pairs; `altPrismoid`,
@@ -91,6 +91,17 @@
 - `satisfied` is a homomorphism of predicates' `BooleanAlgebra`s, to the
   `DisjunctiveMonoid` of partial functions, choosing by first success in
   either direction, by which `withOperators` tries its unary operators.
+- `orPartialIso`, the union of two patterns, trying the first, then the
+  second, in either direction, with its unit `falsePartialIso`.
+
+### Performance
+
+- `exactly`, `atLeast`, `atMost` & `inRange` sequence their foci at the
+  target itself, & its `Applicative` once: 25-34% faster printing &
+  Parsector parsing of counted repetitions.
+- `withOperators` prints left-associated chains in linear time, not
+  quadratic.
+- `Distributor`'s default `manyP` ties its knot, building its action once.
 
 ### Bug Fixes
 
@@ -99,7 +110,10 @@
 
 ### Breaking Changes
 
-- `altPartialIso` & `crossPartialIso` keep a `Prism`'s passing a mismatch
+- `crossPartialIso` ~> `alongsidePartialIso` & `altPartialIso` ~>
+  `withoutPartialIso`, after lens's `alongside` & `without`, since they
+  pair & sum differing foci, unlike the crosses & alts of the same foci.
+- `withoutPartialIso` & `alongsidePartialIso` keep a `Prism`'s passing a mismatch
   through, a pair only where both components pass through.
 - `>?<` passes a mismatch through by `Choice`, as `>?` does, so a
   `Prism` acts by `>?<` as by `>?`.
