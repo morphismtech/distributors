@@ -33,18 +33,28 @@
   copies, exactly one of which matches, & `fociMonocle`, the `Lens`es of
   a `Monocle`'s foci, every one of which focuses.
 - `Prismoid`s move to their own module, `Control.Lens.Prismoid`, with
-  `somed`, `opted`, `lefted`, `righted`, `chained1` & `chained`.
-- `Plasmoid`s, families of optics separated by a `SepBy`, which are
-  `Prismoid`s by `noSep`: `chained1` & `chained` are `Plasmoid`s, taking a
-  `SepBy`; & new `severaled`, `severaled1` & `intercalated`, separated like
-  `several`, `several1` & `intercalateP`; & `operated`, an expression of
-  an operator table, like `withOperators`.
+  `somed`, `opted`, `lefted`, `righted`, `chained1` & `chained`; & new
+  `intercalated`, like `replicateP`, & `operated`, an expression of an
+  operator table, like `withOperators`.
+- `separated`, running any `APrismoid` with a `SepBy`, its separator
+  between consecutive foci, & its delimiters around them, so
+  `separated somed = several1`, `separated manied = several`,
+  `separated (intercalated n) = intercalateP n` &
+  `separated (chained1 assoc pat) = chain1 assoc pat`.
 - `Prismatoid`, the concrete form of `Prismoid`s, a partial `Dioptrice`,
   with `APrismoid`, `prismoid`, `withPrismoid`, `mapPrismoid`,
   `clonePrismoid` & `runPrismatoid`.
-- `PartialExchange` is a `DisjunctiveMonoid`, choosing by first success
-  in either direction, of which `satisfied` is a homomorphism;
-  `withOperators` tries its unary operators by it.
+- Secondary concrete representations: `Prismocular`s of `Prismoid`s,
+  probing by `Alternative`s, with `runPrismocular`, `prismocular` &
+  `withPrismocular`; `Spectacle`s of `Bifocal`s, by `Homogeneous`
+  shapes with partial merges, with `runSpectacle`, `spectacle` &
+  `withSpectacle`; & `Diffraction`s of `Grate`s, by `Distributive`
+  shapes, with `diffraction` & `withDiffraction`.
+- `lengthPrepend`, in `Data.Profunctor.Monadic`, a count, then that many
+  repetitions, which depend on the count built.
+- `satisfied` is a homomorphism of predicates' `BooleanAlgebra`s, to the
+  `DisjunctiveMonoid` of partial functions, choosing by first success in
+  either direction, by which `withOperators` tries its unary operators.
 
 ### Bug Fixes
 
@@ -53,9 +63,22 @@
 
 ### Breaking Changes
 
+- `altPartialIso` & `crossPartialIso` keep a `Prism`'s passing a mismatch
+  through, a pair only where both components pass through.
+- `>?<` passes a mismatch through by `Choice`, as `>?` does, so a
+  `Prism` acts by `>?<` as by `>?`.
+- `PartialExchange` is removed. `APartialIso` is by `PartialMarket`s,
+  so `clonePartialIso` is the identity, keeping a `Prism`'s passing a
+  mismatch through; `withPartialIso pattern partialIso` rebuilds a
+  `PartialIso` from its partial functions, failing on a mismatch instead.
 - `Bifocal`s need `(Alternator p, Applicative f, Filterable f)`, dropping
   `Filtrator p` & `Alternative f`, which `Filterable f` provides, as it
   does `PartialIso`'s `Cochoice`.
+- `ABifocal` is by `Spectacle`s, matching shapes once, rather than by
+  `Binocular`s, whose probes rematch from the source, quadratically, &
+  unroll repetition, so `cloneBifocal` & `mapBifocal` of repeating
+  `Bifocal`s like `somed` diverged at static `Profunctor`s.
+- The `base` lower bound is 4.20 (GHC 9.10).
 - `Prismoid`s need `(Alternator p, Applicative f)`, rather than an
   `Alternative f`, failing by their `Alternator` alone, so that they have
   a concrete form, `Prismatoid`.
