@@ -255,7 +255,7 @@ It never matches where @lo > hi@.
 ["12","123"]
 -}
 inRange :: Int -> Maybe Int -> Prismoid [a] [b] a b
-inRange lo hi = unwrapPafb . go lo hi . WrapPafb
+inRange lo hi = rmap sequenceA . go lo hi
   where
     go :: Alternator p => Int -> Maybe Int -> p a b -> p [a] [b]
     go l h p
@@ -636,15 +636,15 @@ withOperators table p = foldl makeLevel p table
 
         -- the exact inverse of `go`: decompose a value into a seed and the
         -- list of tagged steps that `go` would fold back into that value
-        fwd x = decompose x
+        fwd x = decompose x []
           where
-            decompose y = case tryTags y of
-              Nothing -> (y, [])
+            -- decompose y steps = (seed, the steps of y ++ steps)
+            decompose y steps = case tryTags y of
+              Nothing -> (y, steps)
               Just (i,l,r) -> case assocOf i of
                 RightAssoc ->
-                  let (r0, rest) = decompose r in (l, (i,r0) : rest)
-                _ ->
-                  let (l0, prior) = decompose l in (l0, prior ++ [(i,r)])
+                  let (r0, rest) = decompose r steps in (l, (i,r0) : rest)
+                _ -> decompose l ((i,r) : steps)
             tryTags y = orP
               [ (\(l,r) -> (i,l,r)) <$> f y
               | (i,(_,f,_)) <- zip [0 :: Int ..] fns ]

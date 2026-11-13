@@ -67,7 +67,7 @@ class (Monoidal p, CocartesianMonoidal p) => Distributor p where
 
   {- | Zero or more. -}
   manyP :: p a b -> p [a] [b]
-  manyP p = eotList . swapped >~ p >*< manyP p >+< oneP
+  manyP p = let ps = eotList . swapped >~ p >*< ps >+< oneP in ps
 
 instance Distributor (->)
 instance Monoid s => Distributor (Forget s)
