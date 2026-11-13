@@ -16,9 +16,11 @@ module Control.Lens.Varifocal
   , Varifocus (..)
   , varifocus
   , runVarifocus
+  , runVarifocusT
   , cloneVarifocal
     -- * Applicator
   , contextually
+  , contextuallyT
     -- * Combinators
   , terminatedBy
   , delimited
@@ -32,7 +34,7 @@ import Data.Monoid.Disjunctive (DisjunctiveMonoid)
 import Data.Profunctor (Cochoice (..))
 import Data.Profunctor.Distributor
 import Data.Profunctor.Filtrator (Filtrator (..), mfiltrate)
-import Data.Profunctor.Monadic (MonadicTrans (..))
+import Data.Profunctor.Monadic (Monadic, MonadicTrans (..))
 import qualified Data.Profunctor.Monadic.Do as P
 import Data.Profunctor.Monoidal (asEmpty)
 import Data.Profunctor.Monoidal.Cocartesian
@@ -161,13 +163,40 @@ varifocus vari = go (joinP (vari (rmap pure FocusP)))
       OptionP d x -> OptionP d (go x)
       ManyTillP x y -> ManyTillP (go x) (go y)
 
+{- | Run a t'Varifocus' of the list monad on a `Monadic` `Alternator`,
+interpreting each constructor by its method,
+& its lists of choices by the `Alternator`'s own.
+-}
+runVarifocus
+  :: forall p a b s t. (Monadic p, Alternator p)
+  => Varifocus a b [] s t -> p a b -> p s t
+runVarifocus v p = go v
+  where
+    go :: Varifocus a b [] s' t' -> p s' t'
+    go = \case
+      FocusP -> p
+      LiftP xs -> case map pure xs of
+        [] -> empty
+        ys -> foldr1 (<|>) ys
+      BindP x k -> go x >>= go . k
+      LmapP f x -> lmap f (go x)
+      AltsP xs -> case map go xs of
+        [] -> empty
+        ys -> foldr1 (<|>) ys
+      AlternateP e -> alternate (either (Left . go) (Right . go) e)
+      ManyP x -> manyP (go x)
+      OptionalP x -> optionalP (go x)
+      SomeP x -> someP (go x)
+      OptionP d x -> optionP d (go x)
+      ManyTillP x y -> manyTillP (go x) (go y)
+
 {- | Run a t'Varifocus' on a `MonadicTrans` `Alternator`,
 interpreting each constructor by its method.
 -}
-runVarifocus
+runVarifocusT
   :: forall p m a b s t. (MonadicTrans p, Alternator (p m), Monad m)
   => Varifocus a b m s t -> p m a b -> p m s t
-runVarifocus v p = go v
+runVarifocusT v p = go v
   where
     go :: Varifocus a b m s' t' -> p m s' t'
     go = \case
@@ -189,17 +218,29 @@ runVarifocus v p = go v
 monomorphically typed `Varifocal` for different purposes.
 -}
 cloneVarifocal :: AVarifocal s t a b -> Varifocal s t a b
-cloneVarifocal vari q = rmap pure (runVarifocus (varifocus vari) (joinP q))
+cloneVarifocal vari q = rmap pure (runVarifocusT (varifocus vari) (joinP q))
 
-{- | Action of a `Varifocal` on `MonadicTrans` `Alternator`s,
-absorbing its monad by `joinP`.
+{- | Action of `AVarifocal` on `Monadic` `Alternator`s,
+like a @Control.Lens.Grammar.CtxGrammar@'s, by its t'Varifocus',
+whose choices & failures are the `Alternator`'s own,
+so that it backtracks as the `Alternator` does.
 
-> prop> contextually vari p = joinP (vari (rmap pure p))
+> prop> contextually vari = runVarifocus (varifocus vari)
 -}
 contextually
+  :: (Monadic p, Alternator p)
+  => AVarifocal s t a b -> p a b -> p s t
+contextually vari = runVarifocus (varifocus vari)
+
+{- | Action of a `Varifocal` on `MonadicTrans` `Alternator`s,
+absorbing its monad by `joinP`, applying it directly.
+
+> prop> contextuallyT vari p = joinP (vari (rmap pure p))
+-}
+contextuallyT
   :: (MonadicTrans p, Alternator (p m), MonadPlus m, Filterable m)
   => Varifocal s t a b -> p m a b -> p m s t
-contextually vari p = joinP (vari (rmap pure p))
+contextuallyT vari p = joinP (vari (rmap pure p))
 
 {- | Zero or more foci, then one which @end@s them, deciding by
 each focus built, as no `Control.Lens.Bifocal.Bifocal` can,

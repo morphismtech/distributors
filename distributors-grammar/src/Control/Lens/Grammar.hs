@@ -439,24 +439,18 @@ which can recognize the larger class of recursively enumerable languages.
 
 Context-sensitivity can also be optical. A `Varifocal` is an optic
 whose shape depends on the foci it builds, as no `Bifocal` can,
-run `contextually` on a `MonadicTrans` profunctor,
-like a t'Printor' or t'Parsor'.
+applied in a `CtxGrammar` by `contextually`,
+or on a `MonadicTrans` profunctor, by `contextuallyT`.
 A [heredoc](https://en.wikipedia.org/wiki/Here_document)'s lines are its foci,
 its tag, its body, & its tag again, `delimited` by the first line
 equal to the opening tag, a language which isn't context-free.
 
 >>> :{
 data Heredoc = Heredoc String [String] deriving (Eq, Show)
-heredocP
-  :: forall p m.
-     ( MonadicTrans p, Alternator (p m), MonadPlus m, Filterable m
-     , Tokenized Char (p m Char Char), TerminalSymbol Char (p m () ()) )
-  => p m Heredoc Heredoc
-heredocP = lined >~ symbol "<<" >* contextually (delimited (==)) lineP
+heredocG :: CtxGrammar Char Heredoc
+heredocG = lined >~ terminal "<<" >* contextually (delimited (==)) lineG
   where
-    symbol :: String -> p m () ()
-    symbol = terminal
-    lineP = manyP (notOneOf "\n") *< symbol "\n"
+    lineG = manyP (notOneOf "\n") *< terminal "\n"
     lined = iso
       (\(Heredoc tag body) -> tag : body ++ [tag])
       (\case
@@ -464,12 +458,14 @@ heredocP = lined >~ symbol "<<" >* contextually (delimited (==)) lineP
         [] -> Heredoc "" [])
 :}
 
->>> ($ "") <$> printP (heredocP :: Printor String Maybe Heredoc Heredoc) (Heredoc "EOF" ["hi"])
-Just "<<EOF\nhi\nEOF\n"
->>> parseP (heredocP :: Parsor String Maybe Heredoc Heredoc) "<<EOF\nhi\nEOF\nrest"
-Just (Heredoc "EOF" ["hi"],"rest")
->>> ($ "") <$> printP (heredocP :: Printor String Maybe Heredoc Heredoc) (Heredoc "EOF" ["EOF"])
-Nothing
+>>> [pr "" | pr <- printG heredocG (Heredoc "EOF" ["hi"])] :: [String]
+["<<EOF\nhi\nEOF\n"]
+>>> [h | (h, "") <- parseG heredocG "<<EOF\nhi\nEOF\n"]
+[Heredoc "EOF" ["hi"]]
+>>> parsecResult (parsecG heredocG "<<EOF\nhi\nEOF\n")
+Just (Heredoc "EOF" ["hi"])
+>>> [pr "" | pr <- printG heredocG (Heredoc "EOF" ["EOF"])] :: [String]
+[]
 
 Finally, `CtxGrammar`s support failure reporting and backtracking.
 This has no effect on `Control.Lens.Grammar.printG`,

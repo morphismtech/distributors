@@ -1,6 +1,7 @@
 module Examples.Heredoc
   ( Heredoc (..)
   , heredocP
+  , heredocG
   , heredocExamples
   ) where
 
@@ -28,11 +29,18 @@ heredocP
      ( MonadicTrans p, Alternator (p m), MonadPlus m, Filterable m
      , Tokenized Char (p m Char Char), TerminalSymbol Char (p m () ()) )
   => p m Heredoc Heredoc
-heredocP = heredocLines >~ symbol "<<" >* contextually (delimited (==)) lineP
+heredocP = heredocLines >~ symbol "<<" >* contextuallyT (delimited (==)) lineP
   where
     symbol :: String -> p m () ()
     symbol = terminal
     lineP = manyP (notOneOf "\n") *< symbol "\n"
+
+-- | Heredocs as a `CtxGrammar`, applying `delimited` `contextually`,
+-- so it runs as any `CtxGrammar` does, by `Parsector` too.
+heredocG :: CtxGrammar Char Heredoc
+heredocG = heredocLines >~ terminal "<<" >* contextually (delimited (==)) lineG
+  where
+    lineG = manyP (notOneOf "\n") *< terminal "\n"
 
 heredocExamples :: [(Heredoc, String)]
 heredocExamples =

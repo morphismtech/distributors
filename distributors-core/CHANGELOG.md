@@ -44,8 +44,10 @@
 - `Varifocal`s, in `Control.Lens.Varifocal`, context-sensitive optics
   whose shape may depend on the foci they build: `Bifocal` ⊂ `Varifocal`,
   their `Applicative` the monad of a `MonadicTrans` profunctor, absorbed
-  by `joinP`; with `Varifocal'`, the applicator `contextually`, the free concrete
-  form `Varifocus`, `AVarifocal`, `varifocus`, `runVarifocus` &
+  by `joinP`; with `Varifocal'`; the applicators `contextually`, in any
+  `Monadic` `Alternator`, like a `CtxGrammar`, by its free concrete form
+  `Varifocus`, & `contextuallyT`, on a `MonadicTrans` profunctor;
+  `AVarifocal`, `varifocus`, `runVarifocus`, `runVarifocusT` &
   `cloneVarifocal`; & `terminatedBy` & `delimited`, sentinel-terminated &
   matching-delimited sequences, which no `Bifocal` can express.
 - `MonadicTrans`, in `Data.Profunctor.Monadic`, profunctors transforming a

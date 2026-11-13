@@ -12,9 +12,9 @@ varifocalProperties = do
   let
     printed :: Varifocal' String Char -> String -> Maybe String
     printed v s =
-      ($ "") <$> printP (contextually v (anyToken :: Printor String Maybe Char Char)) s
+      ($ "") <$> printP (contextuallyT v (anyToken :: Printor String Maybe Char Char)) s
     parsed :: Varifocal' String Char -> String -> Maybe (String, String)
-    parsed v = parseP (contextually v (anyToken :: Parsor String Maybe Char Char))
+    parsed v = parseP (contextuallyT v (anyToken :: Parsor String Maybe Char Char))
     ended :: Varifocal' String Char
     ended = terminatedBy (== '.')
     plain = Prelude.filter (/= '.') <$> arbitrary
@@ -84,16 +84,27 @@ varifocalProperties = do
       composite = _Right . ended
       printedE :: Varifocal' (Either Int String) Char -> Either Int String -> Maybe String
       printedE v e =
-        ($ "") <$> printP (contextually v (anyToken :: Printor String Maybe Char Char)) e
+        ($ "") <$> printP (contextuallyT v (anyToken :: Printor String Maybe Char Char)) e
       parsedE :: Varifocal' (Either Int String) Char -> String -> Maybe (Either Int String, String)
-      parsedE v = parseP (contextually v (anyToken :: Parsor String Maybe Char Char))
+      parsedE v = parseP (contextuallyT v (anyToken :: Parsor String Maybe Char Char))
     prop "prints & parses as the composite does" $
       forAll plain $ \s -> \(n :: Int) ->
         let es = [Left n, Right s, Right (s ++ ".")]
         in map (printedE (cloneVarifocal composite)) es === map (printedE composite) es
           .&&. parsedE (cloneVarifocal composite) (s ++ ".") === parsedE composite (s ++ ".")
+  describe "contextually, in a CtxGrammar" $ do
+    for_ heredocExamples $ \(h, str) ->
+      it ("parses, prints & parsecs " <> show str <> " as heredocP does") $ do
+        [x | (x, "") <- parseG heredocG str] `shouldBe` [h]
+        [pr "" | pr <- printG heredocG h] `shouldBe` [str]
+        parsecResult (parsecG heredocG str) `shouldBe` Just h
+        parsecResult (unparsecG heredocG h "") `shouldBe` Just h
+    it "doesn't print a body line equal to its tag" $
+      [pr "" | pr <- printG heredocG (Heredoc "EOF" ["EOF"])] `shouldBe` []
+    it "backtracks by Parsector, closing at the first line equal to its tag" $
+      parsecResult (parsecG heredocG "<<A\nb\nA\n") `shouldBe` Just (Heredoc "A" ["b"])
   describe "Bifocal ⊂ Varifocal" $
-    prop "a Prismoid applies contextually as by >?*" $ \(s :: String) ->
+    prop "a Prismoid applies contextuallyT as by >?*" $ \(s :: String) ->
       parsed (atLeast 1) s
         === parseP (atLeast 1 >?* (anyToken :: Parsor String Maybe Char Char)) s
       .&&. printed (atLeast 1) s
