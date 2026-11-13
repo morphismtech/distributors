@@ -48,8 +48,11 @@
   `Monadic` `Alternator`, like a `CtxGrammar`, by its free concrete form
   `Varifocus`, & `contextuallyT`, on a `MonadicTrans` profunctor;
   `AVarifocal`, `varifocus`, `runVarifocus`, `runVarifocusT` &
-  `cloneVarifocal`; & `terminatedBy` & `delimited`, sentinel-terminated &
-  matching-delimited sequences, which no `Bifocal` can express.
+  `cloneVarifocal`; & `stepping`, a deterministic machine over foci,
+  deciding by each built whether to continue, stop or reject, with its
+  instances `terminatedBy`, `delimited`, `balanced` & `countPrefixed`:
+  sentinel-terminated, matching-delimited, nested & count-prefixed
+  sequences, which no `Bifocal` can express.
 - `MonadicTrans`, in `Data.Profunctor.Monadic`, profunctors transforming a
   monad, lifting its effects by `liftP` & absorbing them by `joinP`.
 - `skipManyP` & `skipOptionalP`, zero or more, & zero or one, skipped:

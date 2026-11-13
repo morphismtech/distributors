@@ -1,6 +1,7 @@
 module Properties.Varifocal (varifocalProperties) where
 
 import Control.Lens.Grammar
+import Data.Char (digitToInt, isDigit)
 import Data.Foldable (for_)
 import Examples.Heredoc
 import Test.Hspec
@@ -46,6 +47,31 @@ varifocalProperties = do
     prop "doesn't print an early end" $
       forAll plain $ \s -> forAll plain $ \t ->
         printed ended (s ++ "." ++ t ++ ".") === Nothing
+  describe "balanced & countPrefixed, by stepping" $ do
+    let
+      nested :: Varifocal' String Char
+      nested = balanced (== '(') (== ')')
+      counted :: Varifocal' String Char
+      counted = countPrefixed (\c -> if isDigit c then digitToInt c else 0)
+    it "balanced parses a nested block, leaving the rest" $
+      parsed nested "(a(b)c)rest" `shouldBe` Just ("(a(b)c)", "rest")
+    it "balanced prints only a balanced block" $ do
+      printed nested "(a(b)c)" `shouldBe` Just "(a(b)c)"
+      map (printed nested) ["(a(b)", "(a)b", "a", ")", ""] `shouldBe` replicate 5 Nothing
+    prop "balanced round-trips nesting of any depth" $
+      forAll (choose (1, 6)) $ \n -> let str = replicate n '(' ++ replicate n ')' in
+        printed nested str === Just str .&&. parsed nested (str ++ ")") === Just (str, ")")
+    it "countPrefixed reads as many as its first focus counts" $ do
+      parsed counted "3abcd" `shouldBe` Just ("3abc", "d")
+      parsed counted "0x" `shouldBe` Just ("0", "x")
+      printed counted "2ab" `shouldBe` Just "2ab"
+      map (printed counted) ["3ab", "1ab"] `shouldBe` [Nothing, Nothing]
+    it "clones balanced, as it does" $ do
+      let cloned :: Varifocal' String Char
+          cloned = cloneVarifocal nested
+          strs = ["(a(b)c)", "(a(b)", "a", "((x))"]
+      map (printed cloned) strs `shouldBe` map (printed nested) strs
+      map (parsed cloned) strs `shouldBe` map (parsed nested) strs
   describe "cloneVarifocal, by its free Varifocus" $ do
     prop "clones terminatedBy, printing & parsing as it does" $
       forAll plain $ \s -> forAll plain $ \t ->

@@ -22,8 +22,11 @@ module Control.Lens.Varifocal
   , contextually
   , contextuallyT
     -- * Combinators
+  , stepping
   , terminatedBy
   , delimited
+  , balanced
+  , countPrefixed
   ) where
 
 import Control.Applicative (Alternative (..))
@@ -242,26 +245,63 @@ contextuallyT
   => Varifocal s t a b -> p m a b -> p m s t
 contextuallyT vari p = joinP (vari (rmap pure p))
 
-{- | Zero or more foci, then one which @end@s them, deciding by
-each focus built, as no `Control.Lens.Bifocal.Bifocal` can,
-like a sentinel-terminated sequence, a C string's.
-A list which doesn't end by its first ending focus doesn't match.
+{- | Foci stepped through by a deterministic machine, from a state,
+deciding by each focus built whether to continue, @`Right` state@,
+to stop there, @`Left` `True`@, or to reject, @`Left` `False`@,
+as no `Control.Lens.Bifocal.Bifocal` can.
+A list matches when its last focus, & no earlier one, stops it.
 -}
-terminatedBy :: (a -> Bool) -> Varifocal' [a] a
-terminatedBy end q = rmap pure go
+stepping :: st -> (st -> a -> Either Bool st) -> Varifocal' [a] a
+stepping st0 step q = rmap pure (go st0)
   where
     focus = joinP q
-    go = _Cons >? (focus P.>>= \b -> if end b then asEmpty else go)
+    go st = _Cons >? (focus P.>>= \b -> case step st b of
+      Right st' -> go st'
+      Left True -> asEmpty
+      Left False -> empty)
+
+{- | Zero or more foci, then one which @end@s them, deciding by
+each focus built, like a sentinel-terminated sequence, a C string's.
+A list which doesn't end by its first ending focus doesn't match.
+
+> prop> terminatedBy end = stepping () (\() b -> if end b then Left True else Right ())
+-}
+terminatedBy :: (a -> Bool) -> Varifocal' [a] a
+terminatedBy end = stepping () (\() b -> if end b then Left True else Right ())
 
 {- | Foci opened by the first, & closed by the first after it
 which matches it, deciding by the opening focus built,
 like a [heredoc](https://en.wikipedia.org/wiki/Here_document)'s tag,
-or a fenced code block's fence,
-which no `Control.Lens.Bifocal.Bifocal` can, since its language,
+or a fenced code block's fence, whose language,
 of matching delimiters, isn't context-free.
 A list which doesn't close by its first match doesn't match.
-After its first focus, @open@, it's @`terminatedBy` (same open)@.
 -}
 delimited :: (a -> a -> Bool) -> Varifocal' [a] a
-delimited same q = rmap pure
-  (_Cons >? (joinP q P.>>= \open -> joinP (terminatedBy (same open) q)))
+delimited same = stepping Nothing $ \st b -> case st of
+  Nothing -> Right (Just b)
+  Just open -> if same open b then Left True else Right st
+
+{- | Foci opened by one which @open@s, & closed by the one which @close@s,
+at the same nesting depth, like nested comments, @/* /* */ */@,
+or a balanced block, whose language, of nested pairs, isn't regular.
+A focus may not both @open@ & @close@.
+A list which doesn't open first, or close only last, doesn't match.
+-}
+balanced :: (a -> Bool) -> (a -> Bool) -> Varifocal' [a] a
+balanced open close = stepping (0 :: Int) step
+  where
+    step depth b
+      | open b = Right (depth + 1)
+      | close b && depth == 1 = Left True
+      | close b && depth > 1 = Right (depth - 1)
+      | depth > 0 = Right depth
+      | otherwise = Left False
+
+{- | A focus counting how many foci follow it, then those,
+like a length-prefixed record of bytes in a binary format.
+A list which doesn't have as many as its first focus counts doesn't match.
+-}
+countPrefixed :: (a -> Int) -> Varifocal' [a] a
+countPrefixed count = stepping Nothing $ \st b -> case st of
+  Nothing -> if count b <= 0 then Left True else Right (Just (count b))
+  Just n -> if n <= 1 then Left True else Right (Just (n - 1))
