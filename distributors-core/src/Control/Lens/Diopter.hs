@@ -19,7 +19,9 @@ module Control.Lens.Diopter
   , cloneDiopter
   , mapDiopter
   , optioned
-  , manied
+  , several
+  , skippedMany
+  , skippedOptional
   , homogenized
   , zipDiopter
   , zipWithDiopter
@@ -34,6 +36,12 @@ import Data.Profunctor.Monoidal.Cocartesian
 import Data.Traversable.Homogeneous
 import Data.Void
 import GHC.Generics
+
+-- $setup
+-- >>> import Control.Lens.Prismoid ((>?*))
+-- >>> import Data.Bifunctor.Joker (Joker (..))
+-- >>> import Data.Profunctor.Monoidal ((*<))
+-- >>> import Text.ParserCombinators.ReadP (char, readP_to_S)
 
 {- | `Diopter`s are an optic that generalizes
 `Control.Lens.Monocle.Monocle`s, of products,
@@ -88,8 +96,26 @@ optioned :: Diopter (Maybe a) (Maybe b) a b
 optioned = unwrapPafb . optionalP . WrapPafb
 
 {- | Zero or more. -}
-manied :: Diopter [a] [b] a b
-manied = unwrapPafb . manyP . WrapPafb
+several :: Diopter [a] [b] a b
+several = unwrapPafb . manyP . WrapPafb
+
+{- | Zero or more, skipped, like `skipManyP`: sequencing any number
+of foci forwards, & none backwards.
+
+>>> [r | (r, "") <- readP_to_S (runJoker ((skippedMany >?* Joker (char ' ')) *< Joker (char 'x'))) "   x"]
+[()]
+-}
+skippedMany :: Diopter () () a b
+skippedMany = unwrapPafb . skipManyP . WrapPafb
+
+{- | Zero or one, skipped, like `skipOptionalP`: sequencing one focus
+or none forwards, & none backwards.
+
+>>> [r | (r, "") <- readP_to_S (runJoker (Joker (char 'x') *< (skippedOptional >?* Joker (char ',')))) "x,"]
+"x"
+-}
+skippedOptional :: Diopter () () a b
+skippedOptional = unwrapPafb . skipOptionalP . WrapPafb
 
 {- | Build a `Diopter` from a `Homogeneous`
 countable sum of countable products.
@@ -103,9 +129,9 @@ homogenized = unwrapPafb . homogeneously . WrapPafb
 {- | Zip sources of `ADiopter` in the positions of a `Traversable`,
 when they have the same shape, or else `Control.Applicative.empty`.
 
->>> zipDiopter manied (Just . sum) [[1, 2], [3, 4], [5, 6 :: Int]]
+>>> zipDiopter several (Just . sum) [[1, 2], [3, 4], [5, 6 :: Int]]
 Just [9,12]
->>> zipDiopter manied (Just . sum) [[1, 2], [3 :: Int]]
+>>> zipDiopter several (Just . sum) [[1, 2], [3 :: Int]]
 Nothing
 -}
 zipDiopter
@@ -128,7 +154,7 @@ zipWithDiopter dio f s0 s1 =
 {- | Transpose sources of `ADiopter` in the positions of a `Traversable`,
 when they have the same shape.
 
->>> transposeDiopter manied [[1, 2, 3], [4, 5, 6 :: Int]]
+>>> transposeDiopter several [[1, 2, 3], [4, 5, 6 :: Int]]
 Just [[1,4],[2,5],[3,6]]
 -}
 transposeDiopter :: Traversable f => ADiopter s t a (f a) -> f s -> Maybe t

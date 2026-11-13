@@ -32,18 +32,32 @@
 - Dual combinators: `copiesComonocle`, the `Prism`s of a `Comonocle`'s
   copies, exactly one of which matches, & `fociMonocle`, the `Lens`es of
   a `Monocle`'s foci, every one of which focuses.
-- `Prismoid`s move to their own module, `Control.Lens.Prismoid`, with
-  `somed`, `opted`, `lefted`, `righted`, `chained1` & `chained`; & new
-  `intercalated`, like `replicateP`, & `operated`, an expression of an
-  operator table, like `withOperators`.
-- `separated`, running any `APrismoid` with a `SepBy`, its separator
-  between consecutive foci, & its delimiters around them, so
-  `separated somed = several1`, `separated manied = several`,
-  `separated (intercalated n) = intercalateP n` &
-  `separated (chained1 assoc pat) = chain1 assoc pat`.
+- `Prismoid`s move to their own module, `Control.Lens.Prismoid`, from
+  `Control.Lens.Bifocal`, with `opted`, `lefted`, `righted`, `chain1` &
+  `chain`; & new `exactly`, `atLeast`, `atMost` & `inRange`.
+- `sepBy sep pat p`, running any `Prismoid` with a separator between
+  consecutive foci, by the `Alternator`'s own `manyP`, `someP`,
+  `optionalP` & `optionP`, preferring foci, greedily; so
+  `sepBy sep several`, `sepBy sep (atLeast 1)`, `sepBy sep (chain1 assoc pat)`
+  & `sepBy sep (exactly n)` sequence lists, binary constructor
+  patterns & repetitions, separated. Delimiters compose around it.
+- `skipManyP` & `skipOptionalP`, zero or more, & zero or one, skipped:
+  sequencing actions forwards & none backwards, like whitespace or a
+  trailing separator, which a parser accepts & a printer omits; & their
+  `Diopter`s, `skippedMany` & `skippedOptional`.
+- `inRange lo hi`, a `Prismoid` of between some numbers of times, at least
+  @lo@ & at most @hi@, if @Just@, like a regular expression's @{lo,hi}@ or
+  @{lo,}@; & its intervals `exactly`, `atLeast` & `atMost`.
+- `listed`, in `Control.Lens.PartialIso`, a list of items as an `IsList`,
+  `iso fromList toList`: act on an `IsList` as on lists by `listed ~< p`.
+- `manyTillP`, an `Alternator` method, zero or more, then the rest,
+  @p* q@, trying the rest first, like parsec's @manyTill@, which a static
+  `Alternator` defines without recursing, as @starK p <> q@.
+- `>?*`, the action of a `Prismoid` on `Alternator`s, applying it directly,
+  without a concrete form, so the `Alternator`'s own methods act.
 - `Prismatoid`, the concrete form of `Prismoid`s, a partial `Dioptrice`,
-  with `APrismoid`, `prismoid`, `withPrismoid`, `mapPrismoid`,
-  `clonePrismoid` & `runPrismatoid`.
+  with `APrismoid`, `prismoid`, `withPrismoid`, `clonePrismoid` &
+  `runPrismatoid`.
 - Secondary concrete representations: `Prismocular`s of `Prismoid`s,
   probing by `Alternative`s, with `runPrismocular`, `prismocular` &
   `withPrismocular`; `Spectacle`s of `Bifocal`s, by `Homogeneous`
@@ -77,7 +91,7 @@
 - `ABifocal` is by `Spectacle`s, matching shapes once, rather than by
   `Binocular`s, whose probes rematch from the source, quadratically, &
   unroll repetition, so `cloneBifocal` & `mapBifocal` of repeating
-  `Bifocal`s like `somed` diverged at static `Profunctor`s.
+  `Bifocal`s like `atLeast 1` diverged at static `Profunctor`s.
 - The `base` lower bound is 4.20 (GHC 9.10).
 - `Prismoid`s need `(Alternator p, Applicative f)`, rather than an
   `Alternative f`, failing by their `Alternator` alone, so that they have
@@ -111,8 +125,20 @@
   `Data.Traversable.Homogeneous` to `Data.Traversable.Homogeneous.Enumerable`.
 - `Comonocle`s & their combinators move from `Control.Lens.Monocle` to
   their own module, `Control.Lens.Comonocle`.
-- `Data.Profunctor.Separator` merges into `Data.Profunctor.Distributor`:
-  `SepBy`, `several`, `chain`, `intercalateP`, `withOperators` & so on.
+- `Data.Profunctor.Separator` merges into `Control.Lens.Prismoid`:
+  `Operator`, `Assoc` & `withOperators`.
+- `manied`, `chained1` & `chained` are renamed `several`, `chain1` &
+  `chain`, & `somed` is `atLeast 1`, replacing the `SepBy` combinators
+  `several`, `chain1` & `chain`, which `sepBy` of them replaces:
+  `several sep p` is `sepBy sep several p`, of lists, &
+  `listed ~< sepBy sep several p` of other `IsList`s;
+  `several1 sep p` is `sepBy sep (atLeast 1) p`;
+  `chain1 assoc pat sep p` is `sepBy sep (chain1 assoc pat) p`; &
+  `intercalateP n sep p` is `sepBy sep (exactly n) p`.
+- `SepBy` & `noSep` are removed, & `sepBy` is now the action of a
+  `Prismoid` with a separator, rather than a `SepBy` smart constructor:
+  delimiters compose around it, `beg >* sepBy sep pat p *< end`; with
+  no separator, `sepBy oneP pat = (pat >?*)`.
 - The grammars move to their own package, `distributors-grammar`:
   `Control.Lens.Grammar` & its `BackusNaur`, `Machine`, `RegEx`, `Symbol`
   & `Token` modules, `Control.Monad.Fail.Try`, `Data.Profunctor.Grammar`
@@ -126,9 +152,10 @@
 - `MonadicTry` moves from `Data.Profunctor.Monadic` to
   `Control.Monad.Fail.Try`, which `Data.Profunctor.Monadic` no longer
   imports, & `Data.Profunctor.Monadic` no longer re-exports `try`.
-- `sepWith`, `beginWith` & `endWith` move from `Data.Profunctor.Separator`
-  to `Control.Lens.Grammar.Symbol`, beside `terminal`, so that
-  `Data.Profunctor.Separator` needn't import grammar symbols.
+- `sepWith` moves to `Control.Lens.Grammar.Symbol` & takes a `Prismoid`,
+  `sepWith str = sepBy (terminal str)`, so `several1 (sepWith ",") p` is
+  `sepWith "," (atLeast 1) p`; `beginWith` & `endWith` are removed, as
+  delimiters compose around it by `>*` & `*<`.
 
 ## 0.6.0.0 - 2026-04-24
 

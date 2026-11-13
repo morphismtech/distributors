@@ -688,7 +688,7 @@ data JsonError = JsonError
 
 -- | How a t'JsonError' failed, so that alternatives report the closest.
 data JsonErrorSort
-  = JsonLiteral
+  = JsonIlliteral
   -- ^ a string literal mismatch; the alternative doesn't apply
   | JsonMismatch
   -- ^ the value was rejected as a whole
@@ -775,8 +775,8 @@ jsonOrElse err1 err2
     , jsonErrorSort = max (jsonErrorSort err1) (jsonErrorSort err2)
     , jsonErrorRules = jsonErrorRules err1 <> jsonErrorRules err2
     }
-  | jsonErrorSort err2 == JsonLiteral
-  , jsonErrorSort err1 /= JsonLiteral = err1
+  | jsonErrorSort err2 == JsonIlliteral
+  , jsonErrorSort err1 /= JsonIlliteral = err1
   | otherwise = err2
   where
     depth1 = length (jsonErrorPath err1)
@@ -839,14 +839,14 @@ mapParsing f parsor = JsonParsor
 dispatching :: Dispatch b -> Value -> Either JsonError b
 dispatching (Dispatch Nothing table) = \case
   v@(String t) | Just p <- Map.lookup t table -> p v
-  v -> Left (JsonError [] (literals table) (Just (Right v)) JsonLiteral [])
+  v -> Left (JsonError [] (literals table) (Just (Right v)) JsonIlliteral [])
 dispatching (Dispatch (Just key) table) = \case
   v@(Object o) -> case KeyMap.lookup key o of
     Nothing -> jsonMissing ("key " <> showKey key) (Just v)
     Just (String t) | Just p <- Map.lookup t table -> p v
     Just tag ->
       Left $ JsonError [Key key] (literals table) (Just (Right tag))
-        JsonLiteral []
+        JsonIlliteral []
   v -> jsonMismatch "object" v
 
 literals :: Map Text a -> [String]
@@ -937,7 +937,7 @@ instance (x ~ (), y ~ ()) => IsString (JsonParsor x y) where
       literal = Text.pack s
       parse = \case
         String t | t == literal -> Right ()
-        v -> Left (JsonError [] [show s] (Just (Right v)) JsonLiteral [])
+        v -> Left (JsonError [] [show s] (Just (Right v)) JsonIlliteral [])
 instance JsonStr JsonParsor where
   jsonText = (primitiveParsor "string" $ \case
     String t -> Just t
@@ -2009,7 +2009,7 @@ data JsonType
   | JsonBoolean -- ^ @true@ or @false@
   | JsonNumber -- ^ numbers
   | JsonString -- ^ strings
-  | JsonStringLiteral Text -- ^ a string
+  | JsonLiteral Text -- ^ a string
   | JsonSubtype JsonType -- ^ some values of a type
   | JsonArray JsonElements -- ^ arrays of elements
   | JsonObject [JsonProperty] -- ^ objects of properties
@@ -2111,7 +2111,7 @@ by their qualified names.
 >>> jsonType (type Bool)
 Bnf {startBnf = JsonBoolean, rulesBnf = fromList []}
 >>> jsonType (Maybe Ordering)
-Bnf {startBnf = JsonUnion [JsonNull,JsonRule "GHC.Types.Ordering"], rulesBnf = fromList [("GHC.Types.Ordering",JsonUnion [JsonStringLiteral "LT",JsonStringLiteral "EQ",JsonStringLiteral "GT"])]}
+Bnf {startBnf = JsonUnion [JsonNull,JsonRule "GHC.Types.Ordering"], rulesBnf = fromList [("GHC.Types.Ordering",JsonUnion [JsonLiteral "LT",JsonLiteral "EQ",JsonLiteral "GT"])]}
 -}
 jsonType :: forall (a :: Type) -> Json a => Bnf JsonType
 jsonType a = Bnf start (Set.fromList (Map.toList rules))
@@ -2219,11 +2219,11 @@ instance BackusNaurForm (JsonTypor a b) where
   rule = typeRule
   ruleRec name f = rule name (f (typeRule name falseP))
 instance (x ~ (), y ~ ()) => IsString (JsonTypor x y) where
-  fromString = typing . JsonStringLiteral . Text.pack
+  fromString = typing . JsonLiteral . Text.pack
 instance JsonStr JsonTypor where
   jsonText = typing JsonString
   jsonEnumWith _ table =
-    typing (jsonUnion [JsonStringLiteral literal | (literal, _) <- table])
+    typing (jsonUnion [JsonLiteral literal | (literal, _) <- table])
 instance JsonVal JsonTypor where
   jsonNull = typing JsonNull
   jsonBool = typing JsonBoolean
@@ -2383,7 +2383,7 @@ tsType rules names = typeNode
       JsonBoolean -> KeywordType BooleanKeyword
       JsonNumber -> KeywordType NumberKeyword
       JsonString -> KeywordType StringKeyword
-      JsonStringLiteral text -> LiteralType (TextLiteral text)
+      JsonLiteral text -> LiteralType (TextLiteral text)
       JsonSubtype t -> typeNode t
       t@(JsonArray _) -> typeNode (JsonUnion [t])
       JsonObject props -> object props
@@ -2433,7 +2433,7 @@ tsType rules names = typeNode
           [ MappedType Nothing "key" base exclusion (Just QuestionToken) (typeNode t)
           | (keyType, keyAlternatives, t) <- dicts
           , let
-              literalKeys = [l | JsonStringLiteral l <- keyAlternatives]
+              literalKeys = [l | JsonLiteral l <- keyAlternatives]
               excluded = [l | l <- literalKeys, l `elem` keys]
               base
                 | length literalKeys == length keyAlternatives = typeNode keyType

@@ -75,7 +75,7 @@ powGrammar = ruleRec "pow" $ \e ->
       nat >|< terminal "(" >* e *< terminal ")"
     nat = rule "nat" $
       _Nat . iso show read >? someP (asIn @Char DecimalNumber)
-  in chain1 (\x -> Right x) _Exp (sepWith "^") atom
+  in sepWith "^" (chain1 Right _Exp) atom
 
 powExamples :: [(Expr, String)]
 powExamples =

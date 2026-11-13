@@ -41,7 +41,7 @@ semverGrammar = _SemVer
   >*< optionP _Empty (terminal "+" >* identifiersG)
   where
     numberG = iso show read >~ someP (asIn @Char DecimalNumber)
-    identifiersG = several1 (sepWith ".") (someP charG)
+    identifiersG = sepWith "." (atLeast 1) (someP charG)
     charG = asIn LowercaseLetter
       >|< asIn UppercaseLetter
       >|< asIn DecimalNumber
@@ -52,7 +52,7 @@ semverCtxGrammar :: CtxGrammar Char SemVer
 semverCtxGrammar = _SemVer >? P.do
   let
     numberG = iso show read >~ someP (asIn @Char DecimalNumber)
-    identifiersG = several1 (sepWith ".") (someP charG)
+    identifiersG = sepWith "." (atLeast 1) (someP charG)
     charG = asIn LowercaseLetter
       >|< asIn UppercaseLetter
       >|< asIn DecimalNumber

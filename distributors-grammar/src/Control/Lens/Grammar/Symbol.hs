@@ -14,17 +14,16 @@ module Control.Lens.Grammar.Symbol
   , NonTerminalSymbol (..)
     -- * Separators
   , sepWith
-  , beginWith
-  , endWith
   ) where
 
 import Control.Lens
 import Control.Lens.PartialIso
 import Control.Lens.Grammar.Token
+import Control.Lens.Prismoid (Prismoid, sepBy)
 import Data.Bifunctor.Joker
 import Data.Profunctor
+import Data.Profunctor.Distributor (Alternator)
 import Data.Profunctor.Monoidal
-import Data.Profunctor.Distributor (SepBy (..), sepBy)
 import Text.ParserCombinators.ReadP (ReadP, string)
 
 -- | A `terminal` symbol in a grammar.
@@ -35,28 +34,19 @@ class TerminalSymbol token s | s -> token where
     => [token] -> s
   terminal str = only str ?< tokens str
 
+{- | `sepBy` a `terminal` separator, so a grammar separates foci
+of a `Prismoid` by symbols.
+
+> prop> sepWith str = sepBy (terminal str)
+-}
+sepWith
+  :: (Alternator p, TerminalSymbol c (p () ()))
+  => [c] -> Prismoid s t a b -> p a b -> p s t
+sepWith = sepBy . terminal
+
 -- | A `nonTerminal` symbol in a grammar.
 class NonTerminalSymbol s where
   nonTerminal :: String -> s
-
-{- | A t'SepBy' smart constructor like `sepBy`,
-with a `terminal` argument.
-Beginning and ending delimiters will be no-ops,
-except by applying smart modifiers `beginWith` or `endWith`. -}
-sepWith
-  :: (Applicative p, TerminalSymbol c (p ()))
-  => [c] -> SepBy (p ())
-sepWith = sepBy . terminal
-
-{- | A t'SepBy' smart modifier like `beginBy`,
-with a `terminal` argument. -}
-beginWith :: TerminalSymbol c p => [c] -> SepBy p -> SepBy p
-beginWith str separator = separator {beginBy = terminal str}
-
-{- | A t'SepBy' smart modifier like `endBy`,
-with a `terminal` argument. -}
-endWith :: TerminalSymbol c p => [c] -> SepBy p -> SepBy p
-endWith str separator = separator {endBy = terminal str}
 
 -- instances
 instance TerminalSymbol token (f ())
