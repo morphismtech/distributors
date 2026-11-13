@@ -153,7 +153,7 @@ varifocalProperties = do
       parsedE :: Varifocal' (Either Int String) Char -> String -> Maybe (Either Int String, String)
       parsedE v = parseP (contextuallyT v (anyToken :: Parsor String Maybe Char Char))
     prop "prints & parses as the composite does" $
-      forAll plain $ \s -> \(n :: Int) ->
+      forAll plain $ \s (n :: Int) ->
         let es = [Left n, Right s, Right (s ++ ".")]
         in map (printedE (cloneVarifocal composite)) es === map (printedE composite) es
           .&&. parsedE (cloneVarifocal composite) (s ++ ".") === parsedE composite (s ++ ".")
