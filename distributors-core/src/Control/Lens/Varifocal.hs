@@ -141,23 +141,38 @@ instance Monad m => Filtrator (Varifocus a b m) where
 instance MonadicTrans (Varifocus a b) where
   liftP = LiftP
 
-{- | The t'Varifocus' of `AVarifocal`. -}
-varifocus :: AVarifocal s t a b -> Varifocus a b [] s t
-varifocus vari = joinP (vari (rmap pure FocusP))
+{- | The t'Varifocus' of `AVarifocal`, at any `MonadPlus`,
+into which its list monad's choices embed.
+-}
+varifocus :: MonadPlus m => AVarifocal s t a b -> Varifocus a b m s t
+varifocus vari = go (joinP (vari (rmap pure FocusP)))
+  where
+    go :: MonadPlus m => Varifocus a b [] s' t' -> Varifocus a b m s' t'
+    go = \case
+      FocusP -> FocusP
+      LiftP xs -> LiftP (foldr (mplus . pure) mzero xs)
+      BindP x k -> BindP (go x) (go . k)
+      LmapP f x -> LmapP f (go x)
+      AltsP xs -> AltsP (map go xs)
+      AlternateP e -> AlternateP (either (Left . go) (Right . go) e)
+      ManyP x -> ManyP (go x)
+      OptionalP x -> OptionalP (go x)
+      SomeP x -> SomeP (go x)
+      OptionP d x -> OptionP d (go x)
+      ManyTillP x y -> ManyTillP (go x) (go y)
 
 {- | Run a t'Varifocus' on a `MonadicTrans` `Alternator`,
-interpreting each constructor by its method,
-& its lists as the `MonadPlus`'s choices.
+interpreting each constructor by its method.
 -}
 runVarifocus
-  :: forall p m a b s t. (MonadicTrans p, Alternator (p m), MonadPlus m)
-  => Varifocus a b [] s t -> p m a b -> p m s t
+  :: forall p m a b s t. (MonadicTrans p, Alternator (p m), Monad m)
+  => Varifocus a b m s t -> p m a b -> p m s t
 runVarifocus v p = go v
   where
-    go :: Varifocus a b [] s' t' -> p m s' t'
+    go :: Varifocus a b m s' t' -> p m s' t'
     go = \case
       FocusP -> p
-      LiftP xs -> liftP (foldr (mplus . pure) mzero xs)
+      LiftP mt -> liftP mt
       BindP x k -> go x >>= go . k
       LmapP f x -> lmap f (go x)
       AltsP xs -> case map go xs of
