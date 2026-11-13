@@ -107,7 +107,7 @@ repeats =
   , Workload "exactly" (exactly size >?* digitG) digits digits
   , Workload "replicateP" (replicateP size digitG) digits digits
   , Workload "clonePrismoid atLeast 1" (clonePrismoid (atLeast 1) >?* digitG) digits digits
-  , Workload "manyTillP" (manyTillP digitG (terminal "." >* asEmpty)) (digits <> ".") digits
+  , Workload "manyTillP" (manyTillP digitG (asEmpty *< terminal ".")) (digits <> ".") digits
   , Workload "skipManyP" (skipManyP (terminal " ")) (replicate size ' ') ()
   ]
 

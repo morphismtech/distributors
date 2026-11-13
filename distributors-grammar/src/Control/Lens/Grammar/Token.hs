@@ -137,8 +137,10 @@ tokens = foldr ((>:<) . token) asEmpty
 instance Categorized token => Tokenized token (token -> Bool) where
   anyToken _ = True
   token = (==)
-  oneOf = flip elem
-  notOneOf = flip notElem
+  -- Tokens are collected into a `Set` once, & tested logarithmically.
+  oneOf xs = (`Set.member` members) where members = Set.fromList (toList xs)
+  notOneOf xs = (`Set.notMember` members)
+    where members = Set.fromList (toList xs)
   asIn = lmap categorize . (==)
   notAsIn = lmap categorize . (/=)
 instance Tokenized token (f token)
@@ -283,12 +285,14 @@ class Tokenized token p => TokenAlgebra token p where
   default tokenClass
     :: (p ~ q token token, Alternator q, Cochoice q)
     => TokenClass token -> p
+  -- Sets of tokens are tested by `Set.member`, logarithmically,
+  -- rather than by `oneOf`'s & `notOneOf`'s `Foldable`, linearly.
   tokenClass = foldTokenClass $ \case
-    OneOf chars -> oneOf chars
+    OneOf chars -> satisfy (`Set.member` chars)
     NotOneOf chars (AndAsIn cat) ->
-      satisfy (notOneOf chars >&< asIn cat)
+      satisfy ((`Set.notMember` chars) >&< asIn cat)
     NotOneOf chars (AndNotAsIn cats) ->
-      satisfy (notOneOf chars >&< allP notAsIn cats)
+      satisfy ((`Set.notMember` chars) >&< allP notAsIn cats)
     Alternate p q ps -> foldr1 (>|<) (p : q : ps)
 
 deriving stock instance Generic (TokenExam token alg)

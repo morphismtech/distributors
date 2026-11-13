@@ -1009,6 +1009,9 @@ the type system will allow `unparseG` to be applied to them.
 Running the printer on a syntax value and an input string
 `snoc`s tokens at the end of the string, from left to right,
 returning the output string.
+Print to a string with a constant time `snoc`, like a
+@Data.Sequence.Seq@, since a list's `snoc` is linear,
+making printing to a `String` quadratic.
 -}
 unparseG
   :: (Cons string string token token, Snoc string string token token)
@@ -1046,6 +1049,9 @@ Running the printer on a syntax value and an input string
 `snoc`s tokens at the end of the string, from left to right,
 returning `parsecResult` as `Nothing` on failure or `Just`
 the input syntax value, with print success stored in `parsecStream`.
+Print to a string with a constant time `snoc`, like a
+@Data.Sequence.Seq@, since a list's `snoc` is linear,
+making printing to a `String` quadratic.
 -}
 unparsecG
   :: (Cons string string token token, Snoc string string token token)
