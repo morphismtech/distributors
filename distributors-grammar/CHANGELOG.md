@@ -6,6 +6,14 @@
   `Control.Lens.Grammar` & its `BackusNaur`, `Machine`, `RegEx`, `Symbol`
   & `Token` modules, `Control.Monad.Fail.Try`, `Data.Profunctor.Grammar`
   & `Data.Profunctor.Grammar.Parsector`.
+- `Control.Lens.Grammar` re-exports `Control.Lens.Prismoid` &
+  `Control.Lens.Diopter`, so grammars separate by `sepBy`, of
+  `several`, `atLeast`, `chain1` & `exactly`, with a `terminal`
+  separator, delimiters composing around a `sepBy` grammar by `>*` &
+  `*<`.
+- `Grammor` defines `manyTillP` as @starK p <> q@, without recursing, so
+  `sepBy` grammars, even of shapes without foci, have finite
+  regular expressions & `Bnf`s.
 - `RegExam`, the type, is renamed `TokenExam`, & moves with `TokenClass`,
   `TokenAlgebra` & `CategoryTest` to `Control.Lens.Grammar.Token`;
   `RegEx`'s `RegExam` constructor keeps its name. `foldTokenClass` folds a

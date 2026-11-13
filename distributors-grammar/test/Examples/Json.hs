@@ -57,7 +57,7 @@ jsonGrammar = rule "json" elementG
 
     -- members = member | member ',' members
     membersG json = rule "members" $
-      several1 (sepWith ",") (memberG json)
+      sepBy (terminal ",") (atLeast 1) (memberG json)
 
     -- member = ws string ws ':' element
     memberG json = rule "member" $
@@ -71,7 +71,7 @@ jsonGrammar = rule "json" elementG
 
     -- elements = element | element ',' elements
     elementsG json = rule "elements" $
-      several1 (sepWith ",") json
+      sepBy (terminal ",") (atLeast 1) json
 
     -- string = '"' characters '"'
     stringG = rule "string" $
@@ -100,7 +100,7 @@ jsonGrammar = rule "json" elementG
 
     -- Simplified: zero or more whitespace characters
     ws = rule "ws" $
-      iso (\() -> "") (\_ -> ()) >~ manyP (token @Char ' ')
+      skipManyP (token @Char ' ')
 
 -- | Example JSON values for testing
 jsonExamples :: [(Json, String)]

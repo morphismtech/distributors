@@ -74,6 +74,8 @@ import Control.Lens.Grammar.RegEx as X
 import Control.Lens.Grammar.Symbol as X
 import Control.Lens.Grammar.Token as X
 import Control.Lens.PartialIso as X
+import Control.Lens.Diopter as X
+import Control.Lens.Prismoid as X
 import Control.Monad.Fail.Try as X
 import Data.Monoid.Disjunctive as X
 import Data.Profunctor.Distributor as X
@@ -143,7 +145,7 @@ semverGrammar = _SemVer
   >*< optionP _Empty (terminal "+" >* identifiersG)
   where
     numberG = iso show read >~ someP (asIn @Char DecimalNumber)
-    identifiersG = several1 (sepWith ".") (someP charG)
+    identifiersG = sepBy (terminal ".") (atLeast 1) (someP charG)
     charG = asIn LowercaseLetter
       >|< asIn UppercaseLetter
       >|< asIn DecimalNumber
@@ -256,9 +258,9 @@ arithGrammar :: Grammar Char Arith
 arithGrammar = ruleRec "arith" sumG
   where
     sumG arith = rule "sum" $
-      chain1 Left _Add (sepWith "+") (prodG arith)
+      sepBy (terminal "+") (chain1 Left _Add) (prodG arith)
     prodG arith = rule "product" $
-      chain1 Left _Mul (sepWith "*") (factorG arith)
+      sepBy (terminal "*") (chain1 Left _Mul) (factorG arith)
     factorG arith = rule "factor" $
       numberG >|< terminal "(" >* arith *< terminal ")"
     numberG = rule "number" $
@@ -378,7 +380,7 @@ lenvecGrammar :: CtxGrammar Char LenVec
 lenvecGrammar = _LenVec >? P.do
   let
     numberG = iso show read >~ someP (asIn @Char DecimalNumber)
-    vectorG n = intercalateP n (sepWith ",") numberG
+    vectorG n = sepBy (terminal ",") (exactly n) numberG
   len <- numberG             -- bonds to _LenVec
   terminal ";"               -- doesn't bond
   vectorG (fromIntegral len) -- bonds to _LenVec
@@ -666,7 +668,7 @@ regexGrammar = _RegString >~ ruleRec "regex" altG
   where
     altG rex = rule "alternate" $
       iso alternativesOf (foldr1 (>|<) :: [RegEx Char] -> RegEx Char)
-        >~ several1 (sepWith "|") (seqG rex)
+        >~ sepBy (terminal "|") (atLeast 1) (seqG rex)
 
     seqG rex = rule "sequence" $
       iso itemsOf mconcat >~ manyP (exprG rex)
@@ -733,19 +735,18 @@ regexGrammar = _RegString >~ ruleRec "regex" altG
 
     classCatG = rule "class-category" $ orP
       [ _AndAsIn >? terminal "\\p{" >* categoryG *< terminal "}"
-      , _AndNotAsIn >? several1
-          (sepWith "|" & beginWith "\\P{" & endWith "}")
-          categoryG
+      , _AndNotAsIn . iso toList fromList >?
+          terminal "\\P{" >* sepBy (terminal "|") (atLeast 1) categoryG *< terminal "}"
       ]
 
     classOneOfG = rule "class-one-of" $ orP
       [ onlyOne charG
-      , terminal "[" >* several noSep charG *< terminal "]"
+      , terminal "[" >* (iso toList fromList >~ manyP charG) *< terminal "]"
       ]
 
     classNotOneOfG = rule "class-not-one-of" $ orP
       [ asEmpty >*< classCatG
-      , terminal "[^" >* several noSep charG >*<
+      , terminal "[^" >* (iso toList fromList >~ manyP charG) >*<
           optionP (_AndNotAsIn . _Empty) classCatG *< terminal "]"
       ]
 
@@ -855,8 +856,8 @@ That means that it can generate a self-hosted definition.
 -}
 regbnfGrammar :: Grammar Char RegBnf
 regbnfGrammar = rule "regbnf" $ _RegBnf . _Bnf >~
-  terminal "{start} = " >* regexGrammar >*< several noSep
-    (terminal "\n" >* nonterminalG *< terminal " = " >*< regexGrammar)
+  terminal "{start} = " >* regexGrammar >*< (iso toList fromList >~ manyP
+    (terminal "\n" >* nonterminalG *< terminal " = " >*< regexGrammar))
 
 
 {- | `regstringG` generates a t'RegString' from a regular grammar.

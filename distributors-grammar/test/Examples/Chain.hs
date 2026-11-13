@@ -19,7 +19,7 @@ chainGrammar :: Grammar Char Chain
 chainGrammar = ruleRec "chain" seqG
   where
     seqG chn = rule "seq" $
-      chain Left _Seq _Emp noSep (atomG chn)
+      chain Left _Seq _Emp >?* atomG chn
     atomG chn = rule "atom" $
       _Char >? charG >|< terminal "(" >* chn *< terminal ")"
     charG = notOneOf "()\\"

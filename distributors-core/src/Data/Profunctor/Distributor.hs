@@ -11,22 +11,10 @@ Portability : non-portable
 module Data.Profunctor.Distributor
   ( -- * Distributor
     Distributor (..)
+  , skipManyP
+  , skipOptionalP
     -- * Alternator
   , Alternator (..)
-    -- * SepBy
-  , SepBy (..)
-  , sepBy
-  , noSep
-    -- * SepBy Combinators
-  , several
-  , several1
-  , chain
-  , chain1
-  , intercalateP
-    -- * Operator Expressions
-  , Operator (..)
-  , Assoc (..)
-  , withOperators
   ) where
 
 import Control.Applicative hiding (WrappedArrow)
@@ -49,7 +37,11 @@ import Data.Profunctor.Monad
 import Data.Profunctor.Monoidal
 import Data.Profunctor.Yoneda
 import Data.Profunctor.Monoidal.Cocartesian
-import GHC.Exts (IsList (..))
+
+-- $setup
+-- >>> import Data.Bifunctor.Joker (Joker (..))
+-- >>> import Data.Profunctor.Monoidal ((*<))
+-- >>> import Text.ParserCombinators.ReadP (char, readP_to_S)
 
 -- Distributor --
 
@@ -120,6 +112,28 @@ instance Distributor p => Distributor (Coyoneda p) where
   optionalP = proreturn . optionalP . proextract
   manyP = proreturn . manyP . proextract
 
+{- | Zero or more, skipped: sequencing any number of actions forwards,
+& none backwards, like whitespace that a parser accepts
+& a printer omits.
+
+> prop> skipManyP p = dimap (const []) (const ()) (manyP p)
+
+>>> [r | (r, "") <- readP_to_S (runJoker (skipManyP (Joker (char ' ')) *< Joker (char 'x'))) "   x"]
+[()]
+-}
+skipManyP :: Distributor p => p a b -> p () ()
+skipManyP p = dimap (const []) (const ()) (manyP p)
+
+{- | Zero or one, skipped: sequencing one action or none forwards,
+& none backwards, like a trailing separator that a parser accepts
+& a printer omits.
+
+>>> [r | (r, "") <- readP_to_S (runJoker (Joker (char 'x') *< skipOptionalP (Joker (char ',')))) "x,"]
+"x"
+-}
+skipOptionalP :: Distributor p => p a b -> p () ()
+skipOptionalP p = dimap (const Nothing) (const ()) (optionalP p)
+
 -- Alternator --
 
 {- | The `Alternator` class co-extends `CocartesianChoice` and `Distributor`,
@@ -162,6 +176,23 @@ class (Distributor p, CocartesianChoice p, forall x. Alternative (p x))
     optionP :: APrism a b () () {- ^ default -} -> p a b -> p a b
     optionP def p = p >|< pureP def
 
+    {- | Zero or more, then the rest, @p* q@, trying the rest first,
+    like @manyTill@ of [parsec](https://hackage.haskell.org/package/parsec),
+    the least solution of its unfolding.
+
+    > prop> manyTillP p q = q >|< p >:< manyTillP p q
+    > prop> manyTillP falseP q = q
+
+    It mirrors a `KleeneStarAlgebra`'s @starK x <> y@, so that
+    a static `Alternator`, which sequences no input, may define it
+    without recursing, as an input-consuming one, like a parser
+    or printer, can't, since only consuming finds where @q@ begins.
+    It recognizes what @manyP p@ does with @q = `asEmpty`@,
+    but trying fewer @p@s first, rather than more.
+    -}
+    manyTillP :: p a b -> p [a] [b] -> p [a] [b]
+    manyTillP p q = let r = q >|< p >:< r in r
+
 instance (Alternator p, Applicative f)
   => Alternator (WrappedPafb f p) where
     someP (WrapPafb x) = WrapPafb (rmap sequenceA (someP x))
@@ -169,203 +200,12 @@ instance (Alternator p, Applicative f)
 instance Alternator p => Alternator (Coyoneda p) where
   someP = proreturn . someP . proextract
   optionP def = proreturn . optionP def . proextract
+  manyTillP p q = proreturn (manyTillP (proextract p) (proextract q))
 instance Alternator p => Alternator (Yoneda p) where
   someP = proreturn . someP . proextract
   optionP def = proreturn . optionP def . proextract
+  manyTillP p q = proreturn (manyTillP (proextract p) (proextract q))
 instance Alternative f => Alternator (Joker f) where
   someP (Joker x) = Joker (some x)
   optionP def (Joker x) =
     Joker (x <|> withPrism def (\f _ -> pure (f ())))
-
--- Separators --
-
-{- | Used to sequence multiple times,
-separated by a `separateBy`,
-begun by a `beginBy`,
-and ended by an `endBy`. -}
-data SepBy p = SepBy
-  { beginBy :: p
-  , endBy :: p
-  , separateBy :: p
-  } deriving stock
-    ( Functor, Foldable, Traversable
-    , Eq, Ord, Show, Read
-    )
-
-{- | A t'SepBy' smart constructor,
-setting the `separateBy` field.
-Beginning and ending delimiters will be no-ops,
-except by modifier record updates `beginBy` or `endBy`. -}
-sepBy :: Applicative p => p () -> SepBy (p ())
-sepBy = SepBy (pure ()) (pure ())
-
-{- | A t'SepBy' smart constructor for no separator,
-beginning or ending delimiters. -}
-noSep :: Applicative p => SepBy (p ())
-noSep = sepBy (pure ())
-
-{- |
-> prop> several noSep = manyP
--}
-several
-  :: (IsList s, IsList t, Distributor p)
-  => SepBy (p () ()) -> p (Item s) (Item t) -> p s t
-several (SepBy beg end sep) p = iso toList fromList . eotList . swapped >~
-  beg >* (p >*< manyP (sep >* p) >+< oneP) *< end
-
-{- |
-> prop> several1 noSep = someP
--}
-several1
-  :: (IsList s, IsList t, Distributor p, Choice p)
-  => SepBy (p () ()) -> p (Item s) (Item t) -> p s t
-several1 (SepBy beg end sep) p = iso toList fromList . _Cons >?
-  beg >* (p >*< manyP (sep >* p)) *< end
-
-{- | Use a nilary constructor pattern to sequence zero times, or
-associate a binary constructor pattern to sequence one or more times. -}
-chain
-  :: Alternator p
-  => (forall x. x -> Either x x) -- ^ `Left` or `Right` associate
-  -> APartialIso a b (a,a) (b,b) -- ^ binary constructor pattern
-  -> APrism a b () () -- ^ nilary constructor pattern
-  -> SepBy (p () ()) -> p a b -> p a b
-chain association pat2 pat0 (SepBy beg end sep) p =
-  beg >* optionP pat0 (chain1 association pat2 (sepBy sep) p) *< end
-
-{- | Associate a binary constructor pattern to sequence one or more times. -}
-chain1
-  :: (Distributor p, Choice p)
-  => (forall x. x -> Either x x) -- ^ `Left` or `Right` associate
-  -> APartialIso a b (a,a) (b,b) -- ^ binary constructor pattern
-  -> SepBy (p () ()) -> p a b -> p a b
-chain1 association pat (SepBy beg end sep) = leftOrRight chainl1 chainr1
-  where
-    leftOrRight a b = case association () of Left _ -> a; Right _ -> b
-    chainl1 p = difoldl pat >? beg >* p >*< manyP (sep >* p) *< end
-    chainr1 p = difoldr pat >? beg >* manyP (p *< sep) >*< p *< end
-
-{- | Add a t'SepBy' to `replicateP` using `intercalateP`. -}
-intercalateP
-  :: (Monoidal p, Choice p, AsEmpty s, Cons s s a a)
-  => Int {- ^ number of repetitions -}
-  -> SepBy (p () ()) -> p a a -> p s s
-intercalateP n (SepBy beg end _) _ | n <= 0 =
-  beg >* asEmpty *< end
-intercalateP n (SepBy beg end comma) p =
-  beg >* p >:< replicateP (n-1) (comma >* p) *< end
-
-{- | An operator at some level of an operator table, for use with
-`withOperators`. `Infix` takes an `Assoc` to distinguish binary operators;
-`Prefix` & `Postfix` are for unary operators. -}
-data Operator p a b where
-  Infix
-    :: Assoc -- ^ `NonAssoc`, `LeftAssoc`, `RightAssoc`
-    -> APrism a b (a,a) (b,b) -- ^ binary constructor pattern
-    -> p () () -- ^ operator symbol
-    -> Operator p a b
-  Prefix
-    :: APrism a b a b -- ^ unary constructor pattern
-    -> p () () -- ^ operator symbol
-    -> Operator p a b
-  Postfix
-    :: APrism a b a b -- ^ unary constructor pattern
-    -> p () () -- ^ operator symbol
-    -> Operator p a b
-
-{- | The associativity of an `Infix` binary operator. -}
-data Assoc = NonAssoc | LeftAssoc | RightAssoc
-  deriving stock (Eq, Ord, Show, Read)
-
-{- | Build an expression `Alternator` from a table of `Operator`s and
-an atomic term `Alternator`, analogous to @buildExpressionParser@ from
-[parsec](https://hackage.haskell.org/package/parsec).
-
-The operator table is a list of list of operators, ordered from highest to lowest precedence.
-Each level is a list of `Operator`s which share precedence.
-Within a level, `Infix` takes an `Assoc` to set left, right or non-associativity for binary operators,
-while `Prefix` & `Postfix` are for unary operators.
-
-For an example, see the expression grammar in "Control.Lens.Grammar",
-of natural numbers with postfix, right-associative & left-associative operators.
--}
-withOperators
-  :: Alternator p
-  => [[Operator p a b]] -- ^ operator table
-  -> p a b -- ^ atomic term
-  -> p a b -- ^ expression
-withOperators table p = foldl makeLevel p table
-  where
-    makeLevel term ops =
-      let
-        (infixes, pres, posts) = foldr splitOp ([],[],[]) ops
-        termP = withPostP posts (withPreP pres term)
-      in
-        infixP infixes termP
-
-    splitOp oper (infixes, pres, posts) = case oper of
-      Infix associativity pat sym -> ((associativity,pat,sym):infixes, pres, posts)
-      Prefix pat sym -> (infixes, (pat,sym):pres, posts)
-      Postfix pat sym -> (infixes, pres, (pat,sym):posts)
-
-    tagSepP syms = orP [only i >? sym | (i, sym) <- zip [0 :: Int ..] syms]
-
-    withPreP ops inner =
-      difoldr (taggedP (,) id (fst <$> ops))
-        >? manyP (tagSepP (snd <$> ops)) >*< inner
-
-    withPostP ops inner =
-      difoldl (taggedP (flip (,)) (\(y,i) -> (i,y)) (fst <$> ops))
-        >? inner >*< manyP (tagSepP (snd <$> ops))
-
-    -- unary operators' patterns, tagged by their positions,
-    -- & tried in turn, as one partial isomorphism
-    taggedP
-      :: (Int -> x -> c) -- ^ tag a match
-      -> (d -> (Int, y)) -- ^ untag a build
-      -> [APrism x y x y] -> PartialIso x y c d
-    taggedP tag untag pats =
-      let (fwd, bwd) = orP (zipWith exchange [0 ..] pats) in partialIso fwd bwd
-      where
-        exchange i pat = let (match, build) = patternFns pat in
-          (fmap (tag i) . match, \d -> case untag d of
-            (j, y) | j == i -> Just (build y)
-            _ -> Nothing)
-
-    -- An operand, then @(operator, operand)@ steps, folded by each
-    -- operator's associativity, like parsec's @buildExpressionParser@:
-    -- https://hackage.haskell.org/package/parsec/docs/src/Text.Parsec.Expr.html
-    infixP infixes term =
-      prism (uncurry go) (Right . fwd) >? term >*< manyP (tagSepP syms >*< term)
-      where
-        syms = [sym | (_,_,sym) <- infixes]
-        fns = [(associativity,f,g) | (associativity,pat,_) <- infixes, let (f,g) = patternFns pat]
-
-        assocOf i = let (associativity,_,_) = fns !! i in associativity
-        applyTag i (l,r) = let (_,_,g) = fns !! i in g (l,r)
-
-        -- fold a shared seed together with a left-to-right list of tagged
-        -- steps, dispatching on each step's `Assoc`iativity in turn
-        go l [] = l
-        go l ((i,r):more) = case assocOf i of
-          RightAssoc -> applyTag i (l, go r more)
-          _          -> go (applyTag i (l,r)) more
-
-        -- the exact inverse of `go`: decompose a value into a seed and the
-        -- list of tagged steps that `go` would fold back into that value
-        fwd x = decompose x
-          where
-            decompose y = case tryTags y of
-              Nothing -> (y, [])
-              Just (i,l,r) -> case assocOf i of
-                RightAssoc ->
-                  let (r0, rest) = decompose r in (l, (i,r0) : rest)
-                _ ->
-                  let (l0, prior) = decompose l in (l0, prior ++ [(i,r)])
-            tryTags y = orP
-              [ (\(l,r) -> (i,l,r)) <$> f y
-              | (i,(_,f,_)) <- zip [0 :: Int ..] fns ]
-
-    -- an operator's constructor pattern, matching partially & building totally
-    patternFns pat = withPrism pat $ \construct match ->
-      (either (const Nothing) Just . match, construct)

@@ -11,7 +11,7 @@ import Control.Applicative
 import Control.Arrow ((+++))
 import Control.Lens (ReifiedLens (..), ReifiedPrism (..), _Just, iview, over, preview, review, set, toListOf, traverseOf, view)
 import Control.Lens.Diopter
-import Control.Lens.Prismoid (APrismoid, Prismocular (..), clonePrismoid, lefted, mapPrismoid, prismocular, somed, withPrismocular, withPrismoid)
+import Control.Lens.Prismoid (APrismoid, Prismocular (..), clonePrismoid, lefted, prismocular, atLeast, withPrismocular, withPrismoid, (>?*))
 import Control.Lens.Bifocal (ABifocal, Spectacle (..), cloneBifocal, spectacle, withBifocal, withSpectacle)
 import Control.Lens.PartialIso (clonePartialIso, satisfied)
 import Control.Lens.Comonocle
@@ -363,10 +363,10 @@ homogeneousProperties = do
           roundTrip :: APrismoid s s Int Int -> s -> Maybe s
           roundTrip o s = withPrismoid o $ \match build -> build . fmap k <$> match s
         in
-          roundTrip (clonePrismoid somed) xs === roundTrip somed xs
+          roundTrip (clonePrismoid (atLeast 1)) xs === roundTrip (atLeast 1) xs
             .&&. roundTrip (clonePrismoid lefted) e === roundTrip lefted e
             .&&. roundTrip (clonePrismoid _Just) m === roundTrip _Just m
-            .&&. roundTrip (clonePrismoid manied) xs === roundTrip manied xs
+            .&&. roundTrip (clonePrismoid several) xs === roundTrip several xs
     prop "a Prism, as a Prismoid, fails on a mismatch" $ \(m :: Maybe Int) ->
       withPrismoid (_Just :: APrismoid (Maybe Int) (Maybe Int) Int Int)
         (\match _ -> toList <$> match m)
@@ -388,14 +388,14 @@ homogeneousProperties = do
           shaping :: APrismoid s s Int Int -> s -> Maybe s
           shaping o s = withPrismoid o $ \match build -> build . fmap f <$> match s
         in
-          probing somed xs === shaping somed xs
+          probing (atLeast 1) xs === shaping (atLeast 1) xs
             .&&. probing lefted e === shaping lefted e
             .&&. probing _Just m === shaping _Just m
-            .&&. probing manied xs === shaping manied xs
+            .&&. probing several xs === shaping several xs
     prop "prismocular inverts withPrismocular, without repetition" $
       \(e :: Either Int Char) (Fun _ f :: Fun Int Int) ->
         let l = lefted :: APrismoid (Either Int Char) (Either Int Char) Int Int
-        in withPrismoid (prismocular (mapPrismoid l (Prismocular ($ Just))))
+        in withPrismoid (prismocular (clonePrismoid l >?* Prismocular ($ Just)))
           (\match build -> build . fmap f <$> match e)
           === withPrismoid l (\match build -> build . fmap f <$> match e)
     prop "withSpectacle agrees with withBifocal" $
@@ -409,10 +409,10 @@ homogeneousProperties = do
           probing lefted e === shaping lefted e
             .&&. probing (clonePartialIso _Just) m === shaping (clonePartialIso _Just) m
             .&&. probing (satisfied even) (length xs) === shaping (satisfied even) (length xs)
-            .&&. probing somed xs === shaping somed xs
-            .&&. probing manied xs === shaping manied xs
-    prop "cloneBifocal somed matches one or more" $ \(xs :: [Int]) ->
-      withSpectacle (cloneBifocal somed) (\match _ -> toList <$> match xs)
+            .&&. probing (atLeast 1) xs === shaping (atLeast 1) xs
+            .&&. probing several xs === shaping several xs
+    prop "cloneBifocal (atLeast 1) matches one or more" $ \(xs :: [Int]) ->
+      withSpectacle (cloneBifocal (atLeast 1)) (\match _ -> toList <$> match xs)
         === if null xs then Nothing else Just xs
     prop "spectacle inverts withSpectacle" $
       \(m :: Maybe Int) (Fun _ f :: Fun Int Int) ->
@@ -420,14 +420,14 @@ homogeneousProperties = do
           (\match build -> withSpectacle (spectacle (Spectacle match build))
             (\match' build' -> match' m >>= build' . fmap f))
           === withSpectacle (clonePartialIso _Just) (\match build -> match m >>= build . fmap f)
-    prop "somed matches one or more" $ \(xs :: [Int]) ->
-      withPrismoid somed (\match _ -> toList <$> match xs)
+    prop "atLeast 1 matches one or more" $ \(xs :: [Int]) ->
+      withPrismoid (atLeast 1) (\match _ -> toList <$> match xs)
         === if null xs then Nothing else Just xs
     prop "zipDiopter homogenized is zipHomogeneous" $ \(xss :: [[Int]]) ->
       zipDiopter homogenized (Just . sum) ([1, 2] : xss)
         === zipHomogeneous (Just . sum) ([1, 2 :: Int] : xss)
-    prop "zipWithDiopter manied is zipWithHomogeneous" $ \(xs :: [Int]) ys ->
-      zipWithDiopter manied (+) xs ys === zipWithHomogeneous (+) xs ys
+    prop "zipWithDiopter several is zipWithHomogeneous" $ \(xs :: [Int]) ys ->
+      zipWithDiopter several (+) xs ys === zipWithHomogeneous (+) xs ys
   describe "Enumerable & Homogeneous" $ do
     let tagged = map (fst :: (Int8, Char) -> Int8)
     prop "enumerateFromThen is enumFromThen" $ \(e :: Int8) e' c ->
