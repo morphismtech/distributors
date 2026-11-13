@@ -33,6 +33,7 @@ import Control.Applicative (Alternative (..))
 import Control.Lens
 import Control.Lens.PartialIso ((>?))
 import Control.Monad (MonadPlus (..), ap)
+import Data.Bool (bool)
 import Data.Monoid.Disjunctive (DisjunctiveMonoid)
 import Data.Profunctor (Cochoice (..))
 import Data.Profunctor.Distributor
@@ -264,10 +265,10 @@ stepping st0 step q = rmap pure (go st0)
 each focus built, like a sentinel-terminated sequence, a C string's.
 A list which doesn't end by its first ending focus doesn't match.
 
-> prop> terminatedBy end = stepping () (\() b -> if end b then Left True else Right ())
+> prop> terminatedBy end = stepping () (\() -> bool (Right ()) (Left True) . end)
 -}
 terminatedBy :: (a -> Bool) -> Varifocal' [a] a
-terminatedBy end = stepping () (\() b -> if end b then Left True else Right ())
+terminatedBy end = stepping () (\() -> bool (Right ()) (Left True) . end)
 
 {- | Foci opened by the first, & closed by the first after it
 which matches it, deciding by the opening focus built,
@@ -279,7 +280,7 @@ A list which doesn't close by its first match doesn't match.
 delimited :: (a -> a -> Bool) -> Varifocal' [a] a
 delimited same = stepping Nothing $ \st b -> case st of
   Nothing -> Right (Just b)
-  Just open -> if same open b then Left True else Right st
+  Just open -> bool (Right st) (Left True) (same open b)
 
 {- | Foci opened by one which @open@s, & closed by the one which @close@s,
 at the same nesting depth, like nested comments, @/* /* */ */@,
