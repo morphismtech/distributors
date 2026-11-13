@@ -6,6 +6,9 @@
   `tokenClass`'s default & in `oneOf` & `notOneOf` of predicates, rather
   than linearly by `Foldable`: parsing the JSON example, whose characters
   are a class of over a million tokens, is hundreds of times faster.
+- `Parsor`'s `manyP` & `optionalP` parse & print their elements in turn,
+  rather than by `Distributor`'s defaults, through isomorphisms & sums:
+  parsing repetitions is ~40% faster, & the test examples 10-50%.
 - `unparseG` & `unparsecG` document that printing `snoc`s, so a `String`
   prints quadratically, & a `Data.Sequence.Seq` linearly.
 - Benchmarks, `bench:core`, of `distributors`' combinators & the test
