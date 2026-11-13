@@ -16,7 +16,7 @@ module Control.Lens.PartialIso
     PartialIso
   , PartialIso'
   , APartialIso
-  , PartialExchange (PartialExchange)
+  , PartialMarket (..), partialMarket, withPartialMarket
     -- * Combinators
   , partialIso
   , partialInvoluted
@@ -25,6 +25,8 @@ module Control.Lens.PartialIso
   , coPartialIso
   , crossPartialIso
   , altPartialIso
+  , orPartialIso
+  , emptyPartialIso
     -- * Applicators
   , dimapMaybe
   , (>?)
@@ -33,8 +35,8 @@ module Control.Lens.PartialIso
   , (>~)
   , (~<)
   , (!=)
-  , filterPrism
     -- * Patterns
+  , filterPrism
   , satisfied
   , nulled
   , notNulled
@@ -59,6 +61,7 @@ import Control.Lens.Internal.Distributor.NestedPrismTH
 import Control.Lens.Internal.Profunctor
 import Control.Lens.Iso
 import Control.Lens.Prism
+import Control.Applicative
 import Control.Monad
 import Data.Monoid.Disjunctive
 import Data.Profunctor
@@ -66,6 +69,7 @@ import Witherable
 
 -- $setup
 -- >>> import Control.Lens
+-- >>> import Data.Monoid.Disjunctive ((>|<))
 
 {- | The `dimapMaybe` function endows
 `Choice` & `Cochoice` "partial profunctors"
@@ -87,24 +91,42 @@ similar to how `Control.Lens.Prism.Prism` is a first class exhaustive pattern,
 by combining `Control.Lens.Prism.Prism`s, constructor patterns,
 with `filterPrism`s, filter patterns.
 
-Writing ⊂ for "every one is a",
-
 `Control.Lens.Iso.Iso` ∪ `Control.Lens.Prism.Prism` ∪ `filterPrism`
 ⊂ `PartialIso` ⊂ `Control.Lens.Bifocal.Bifocal`.
 
-__N.B.__ t'PartialExchange' is a retract of `PartialIso`:
-`withPartialIso` is a retraction, with `partialIso` its section,
-recovering the partial functions which build a `PartialIso`.
+Applied to a value, a pattern does one of three things.
+It __matches__, focusing on part of the value, to work on & rebuild.
+Or it doesn't match, & either __passes the value through__, untouched,
+as a `Control.Lens.Prism.Prism` does, so there is nothing to work on,
+but nothing goes wrong; or it __fails__, rejecting the value,
+as a filter does. A `PartialIso` may do any of the three.
 
-> prop> withPartialIso (partialIso f g) PartialExchange = PartialExchange f g
+>>> traverseOf _Just (Just . succ) (Just 1)
+Just (Just 2)
+>>> traverseOf _Just (Just . succ) Nothing
+Just Nothing
+>>> traverseOf (satisfied even) (Just . succ) 3
+Nothing
 
-But they aren't isomorphic, since a `PartialIso` may be more than
-its partial functions, as a `Control.Lens.Prism.Prism` is, below.
-Rebuilding a `PartialIso` from its partial functions,
-by `clonePartialIso`, is idempotent, but not the identity.
+Here `_Just` matches @Just 1@, & passes @Nothing@ through,
+while @`satisfied` `even`@ fails on @3@.
+Passing through & failing can only be told apart where a result
+can succeed with nothing done, like `traverseOf`'s; a parser can't,
+since a value that doesn't match isn't parsed, so it fails.
 
-> prop> clonePartialIso pattern = withPartialIso pattern partialIso
-> prop> clonePartialIso (clonePartialIso pattern) = clonePartialIso pattern
+`PartialIso`s are the compositions of `Control.Lens.Prism.Prism`s,
+which pass a mismatch through, & `filterPrism`s, which fail,
+forwards where they reject what a `Control.Lens.Prism.Prism` passes through.
+Each is a `filterPrism` after a `Control.Lens.Prism.Prism`,
+
+> prop> partialMarket build match = filterPrism _Just . prism build (maybe (Left Nothing) match)
+
+& isomorphic to a t'PartialMarket', so `clonePartialIso` is the identity.
+
+> prop> clonePartialIso pattern = pattern
+
+Its partial functions, by `withPartialIso`, forget passing through,
+which @`withPartialIso` pattern `partialIso`@ rebuilds from, failing instead.
 
 A `PartialIso` chooses whether its pattern matches by `Choice`,
 & fails in either direction by `Filterable`,
@@ -152,12 +174,14 @@ Just 8
 Nothing
 
 A `Control.Lens.Prism.Prism` is exhaustive though,
-passing a mismatched source through, where its partial functions,
-cloned by `clonePartialIso`, fail; so it isn't its own clone.
+passing a mismatched source through, as does its clone,
+where its partial functions, rebuilt by `partialIso`, fail.
 
 >>> traverseOf _Just (Just . succ) Nothing
 Just Nothing
 >>> traverseOf (clonePartialIso _Just) (Just . succ) Nothing
+Just Nothing
+>>> traverseOf (withPartialIso _Just partialIso) (Just . succ) Nothing
 Nothing
 
 Neither `review`, `over` nor `set` applies to a `PartialIso`,
@@ -183,18 +207,18 @@ type PartialIso s t a b = forall p f.
 A simple `PartialIso'` @s a@ is an identification of
 a subset of @s@ with a subset of @a@.
 
-Given a simple `PartialIso'`, @partialIso f g@, has properties:
+A proper `PartialIso'`, with partial functions @match@ & @build@,
+by `withPartialIso`, inverts what it matches & what it builds.
 
-> prop> Just = f <=< g
-> prop> Just = g <=< f
+> prop> match s = Just a  ==>  build a = Just s
+> prop> build a = Just s  ==>  match s = Just a
 
-These are left and right inverse laws for proper `PartialIso'`s.
-However, sometimes an improper `PartialIso'` will be useful.
-For an improper `PartialIso'`, only the left inverse law holds.
+However, sometimes an improper `PartialIso'` will be useful,
+matching what it builds, but not necessarily rebuilding what it matches.
 
-> prop> Just = f <=< g
+> prop> build a = Just s  ==>  match s = Just a
 
-For an improper `PartialIso'`, @norm = g <=< f@ is an idempotent
+For an improper `PartialIso'`, @norm = build <=< match@ is an idempotent
 
 > prop> norm = norm <=< norm
 
@@ -203,47 +227,120 @@ some equivalence class of terms.
 -}
 type PartialIso' s a = PartialIso s s a a
 
-{- | `APartialIso` is monomorphically a `PartialIso`. -}
+{- | `APartialIso` is monomorphically a `PartialIso`.
+
+> prop> PartialIso s t a b ⊂ APartialIso s t a b
+-}
 type APartialIso s t a b =
-  PartialExchange a b a (Maybe b) -> PartialExchange a b s (Maybe t)
+  PartialMarket a b a (Maybe b) -> PartialMarket a b s (Maybe t)
 
-{- | A t'PartialExchange' provides efficient access
-to the two functions that make up a `PartialIso`.
+{- | A t'PartialMarket' is the concrete form of a `PartialIso`,
+isomorphic to it, a `Control.Lens.Internal.Prism.Market` which may fail
+in either direction: building backwards, partially;
+& matching forwards, either its focus,
+or, where its pattern doesn't match, `Nothing`, failing,
+or `Just` a target, passing through, as a `Control.Lens.Prism.Prism` does.
+
+> prop> withPartialMarket (partialMarket build match) k = k build match
+> prop> withPartialMarket pattern partialMarket = pattern
+
+Its functions are those of a `Control.Lens.Prism.Prism` with a @Maybe t@
+target, a `PartialIso` failing in its target, rather than in its `Filterable`,
+& the conversions are inverse.
+
+> prop> withPrism (withPartialMarket pattern prism :: Prism s (Maybe t) a b) partialMarket = (clonePartialIso pattern :: PartialIso s t a b)
+> prop> withPartialMarket (withPrism prsm partialMarket :: PartialIso s t a b) prism = (clonePrism prsm :: Prism s (Maybe t) a b)
+
+So lens's `over` & `set` apply to a `PartialIso` as such a `Control.Lens.Prism.Prism`.
+
+>>> over (withPartialMarket (satisfied even) prism :: Prism Int (Maybe Int) Int Int) (* 2) 4
+Just 8
+>>> over (withPartialMarket (satisfied even) prism :: Prism Int (Maybe Int) Int Int) (* 2) 3
+Nothing
+>>> over (withPartialMarket _Just prism :: Prism (Maybe Int) (Maybe (Maybe Int)) Int Int) succ Nothing
+Just Nothing
+
+Only a `Choice` which isn't
+`Data.Profunctor.Monoidal.Cocartesian.CocartesianChoice`
+can tell passing through from failing,
+like @(->)@, by `Control.Lens.Traversal.traverseOf`.
+
+>>> withPartialMarket _Left $ \_ match -> (match (Left 'x'), match (Right 'y') :: Either (Maybe (Either Char Char)) Char)
+(Right 'x',Left (Just (Right 'y')))
 -}
-data PartialExchange a b s t =
-  PartialExchange (s -> Maybe a) (b -> Maybe t)
-instance Functor (PartialExchange a b s) where fmap = rmap
-instance Filterable (PartialExchange a b s) where
-  mapMaybe = dimapMaybe Just
-instance Profunctor (PartialExchange a b) where
-  dimap f' g' (PartialExchange f g) =
-    PartialExchange (f . f') (fmap g' . g)
-instance Choice (PartialExchange a b) where
-  left' (PartialExchange f g) =
-    PartialExchange (either f (pure Nothing)) ((Left <$>) . g)
-  right' (PartialExchange f g) =
-    PartialExchange (either (pure Nothing) f) ((Right <$>) . g)
-instance Cochoice (PartialExchange a b) where
-  unleft (PartialExchange f g) =
-    PartialExchange (f . Left) (either Just (pure Nothing) <=< g)
-  unright (PartialExchange f g) =
-    PartialExchange (f . Right) (either (pure Nothing) Just <=< g)
-{- | t'PartialExchange's choose by first success, in either direction,
-& `falseP` fails in both, so `Data.Monoid.Disjunctive.orP` tries
-the partial functions of `PartialIso`s in turn.
-
-`satisfied` is a homomorphism of `Data.Monoid.Disjunctive.BooleanAlgebra`s
-of predicates, from `>|<` to `>|<`, & from `>&<` to composition.
-
-> prop> withPartialIso (satisfied (p >|< q)) PartialExchange = withPartialIso (satisfied p) PartialExchange >|< withPartialIso (satisfied q) PartialExchange
-> prop> withPartialIso (satisfied falseP) PartialExchange = falseP
-> prop> satisfied (p >&< q) = satisfied p . satisfied q
-> prop> satisfied trueP = id
+data PartialMarket a b s t =
+  PartialMarket (b -> Maybe t) (s -> Either (Maybe t) a)
+instance Functor (PartialMarket a b s) where fmap = rmap
+instance Filterable (PartialMarket a b s) where
+  mapMaybe h (PartialMarket build match) =
+    PartialMarket (h <=< build) (either (Left . (h =<<)) Right . match)
+instance Profunctor (PartialMarket a b) where
+  dimap f g (PartialMarket build match) =
+    PartialMarket (fmap g . build) (either (Left . fmap g) Right . match . f)
+instance Choice (PartialMarket a b) where
+  left' (PartialMarket build match) = PartialMarket
+    (fmap Left . build)
+    (either (either (Left . fmap Left) Right . match) (Left . Just . Right))
+  right' (PartialMarket build match) = PartialMarket
+    (fmap Right . build)
+    (either (Left . Just . Left) (either (Left . fmap Right) Right . match))
+instance Cochoice (PartialMarket a b) where
+  unleft = lmap Left . mapMaybe (either Just (const Nothing))
+  unright = lmap Right . mapMaybe (either (const Nothing) Just)
+{- | t'PartialMarket's choose by first success, in either direction,
+& forwards, on a mismatch of both, pass through the first target passed through,
+& `falseP` fails in both directions.
 -}
-instance DisjunctiveMonoid (PartialExchange a b s t) where
-  falseP = PartialExchange falseP falseP
-  PartialExchange f g >|< PartialExchange f' g' =
-    PartialExchange (f >|< f') (g >|< g')
+instance DisjunctiveMonoid (PartialMarket a b s t) where
+  falseP = PartialMarket (const Nothing) (const (Left Nothing))
+  PartialMarket build0 match0 >|< PartialMarket build1 match1 = PartialMarket
+    (\b -> build0 b <|> build1 b)
+    (\s -> case match0 s of
+      Right a -> Right a
+      Left t0 -> case match1 s of
+        Right a -> Right a
+        Left t1 -> Left (t0 <|> t1))
+
+{- | Build a `PartialIso` from the functions of a t'PartialMarket',
+building backwards, partially, & matching forwards, like `prism`,
+either its focus, or on a mismatch, `Just` a target to pass through,
+or `Nothing` to fail.
+
+`partialIso` builds a `PartialIso` from partial functions,
+whose mismatches always fail; it is `partialMarket`
+without passing through,
+
+> prop> partialIso match build = partialMarket build (maybe (Left Nothing) Right . match)
+
+so every `PartialIso` is a `partialMarket`, but not every one a `partialIso`,
+like a `Control.Lens.Prism.Prism`, which passes a mismatch through.
+They differ only at a `Choice` which can tell passing through from failing,
+like @(->)@, by `traverseOf`.
+
+>>> traverseOf (partialMarket (Just . Just) (maybe (Left (Just Nothing)) Right)) (Just . succ) (Nothing :: Maybe Int)
+Just Nothing
+>>> traverseOf (partialIso id (Just . Just)) (Just . succ) (Nothing :: Maybe Int)
+Nothing
+-}
+partialMarket
+  :: (b -> Maybe t) -> (s -> Either (Maybe t) a)
+  -> PartialIso s t a b
+partialMarket build match =
+  dimap
+    (either (Left . maybe (catMaybes (pure Nothing)) pure) Right . match)
+    (either id (mapMaybe build))
+  . right'
+
+{- | Convert `APartialIso` to the pair of functions that characterize it,
+of its t'PartialMarket', building backwards,
+& matching forwards, passing through or failing, like `withPrism`. -}
+withPartialMarket
+  :: APartialIso s t a b
+  -> ((b -> Maybe t) -> (s -> Either (Maybe t) a) -> r)
+  -> r
+withPartialMarket pattern k =
+  case catMaybes (pattern (PartialMarket (Just . Just) Right)) of
+    PartialMarket build match -> k build match
 
 {- | Build a `PartialIso` from its partial functions,
 matching forwards & building backwards,
@@ -258,43 +355,94 @@ this gives you a `PartialIso'` using it in both directions. -}
 partialInvoluted :: (a -> Maybe a) -> PartialIso' a a
 partialInvoluted f = partialIso f f
 
-{- | Convert `APartialIso` to the pair of functions that characterize it. -}
+{- | Convert `APartialIso` to its partial functions,
+matching forwards & building backwards, like `withIso`.
+They forget passing through, failing on a mismatch which a
+`Control.Lens.Prism.Prism` passes through, so they characterize
+only a `PartialIso` which never passes through, one built by `partialIso`;
+its t'PartialMarket', by `withPartialMarket`, characterizes any.
+
+> prop> withPartialIso (partialIso match build) k = k match build
+-}
 withPartialIso
   :: APartialIso s t a b
   -> ((s -> Maybe a) -> (b -> Maybe t) -> r)
   -> r
-withPartialIso pattern k =
-  case pattern (PartialExchange Just (Just . Just)) of
-    PartialExchange f g -> k f (join . g)
+withPartialIso pattern k = withPartialMarket pattern $ \build match ->
+  k (either (const Nothing) Just . match) build
 
 {- | Clone `APartialIso` so that you can reuse the same
 monomorphically typed partial isomorphism for different purposes.
+It keeps a `Control.Lens.Prism.Prism`'s passing a mismatch through,
+unlike rebuilding it from its partial functions,
+by @`withPartialIso` pattern `partialIso`@, which fails on a mismatch instead.
+They agree at every `Data.Profunctor.Monoidal.Cocartesian.CocartesianChoice`,
+like a parser's, which can't tell passing through from failing,
+& differ at a `Choice` which can, like @(->)@, by `traverseOf`.
+
+> prop> clonePartialIso pattern = pattern
+
+>>> traverseOf (clonePartialIso _Just) (Just . succ) Nothing
+Just Nothing
+>>> traverseOf (withPartialIso _Just partialIso) (Just . succ) Nothing
+Nothing
 -}
 clonePartialIso
   :: APartialIso s t a b
   -> PartialIso s t a b
-clonePartialIso pattern = withPartialIso pattern $ \f g -> partialIso f g
+clonePartialIso pattern =
+  withPartialMarket pattern partialMarket
 
-{- | Clone and invert `APartialIso`. -}
+{- | Clone and invert `APartialIso`, by its partial functions.
+Only matching forwards can pass a value through, building backwards can't,
+so the inverse of a `PartialIso` which passes through fails instead.
+`coPartialIso` is its own inverse on `PartialIso`s which never pass through,
+those rebuilt from their partial functions,
+& inverts any other as that rebuilding.
+
+> prop> coPartialIso pattern = coPartialIso (withPartialIso pattern partialIso)
+> prop> coPartialIso (coPartialIso pattern) = withPartialIso pattern partialIso
+-}
 coPartialIso
   :: APartialIso b a t s
   -> PartialIso s t a b
 coPartialIso pattern =
   withPartialIso pattern $ \f g -> partialIso g f
 
-{- | Construct a `PartialIso` on pairs from components. -}
+{- | Construct a `PartialIso` on pairs from components,
+passing a pair through where both components pass through,
+& otherwise failing on a mismatch, since a pair passed through
+needs a target from each component.
+
+>>> traverseOf (crossPartialIso _Just _Just) (\(x, y) -> Just (x + y, x * y)) (Just 2, Just 3 :: Maybe Int)
+Just (Just 5,Just 6)
+>>> traverseOf (crossPartialIso _Just _Just) (Just . id) (Nothing, Nothing :: Maybe Int)
+Just (Nothing,Nothing)
+>>> traverseOf (crossPartialIso _Just _Just) (Just . id) (Just 2, Nothing :: Maybe Int)
+Nothing
+-}
 crossPartialIso
   :: APartialIso s t a b
   -> APartialIso u v c d
   -> PartialIso (s,u) (t,v) (a,c) (b,d)
 crossPartialIso x y =
-  withPartialIso x $ \e f ->
-  withPartialIso y $ \g h ->
-    partialIso
-      (\(s,u) -> (,) <$> e s <*> g u)
-      (\(t,v) -> (,) <$> f t <*> h v)
+  withPartialMarket x $ \build0 match0 ->
+  withPartialMarket y $ \build1 match1 ->
+    partialMarket
+      (\(b,d) -> (,) <$> build0 b <*> build1 d)
+      (\(s,u) -> case (match0 s, match1 u) of
+        (Right a, Right c) -> Right (a,c)
+        (Left t, Left v) -> Left ((,) <$> t <*> v)
+        _ -> Left Nothing)
 
-{- | Construct a `PartialIso` on `Either`s from components. -}
+{- | Construct a `PartialIso` on `Either`s from components,
+passing a mismatch through from either.
+
+>>> traverseOf (altPartialIso _Just _Just) (Just . either (Left . succ) (Right . pred)) (Left (Just 1) :: Either (Maybe Int) (Maybe Int))
+Just (Left (Just 2))
+>>> traverseOf (altPartialIso _Just _Just) (Just . either (Left . succ) (Right . pred)) (Left Nothing :: Either (Maybe Int) (Maybe Int))
+Just (Left Nothing)
+-}
 altPartialIso
   :: APartialIso s t a b
   -> APartialIso u v c d
@@ -302,11 +450,51 @@ altPartialIso
       (Either s u) (Either t v)
       (Either a c) (Either b d)
 altPartialIso x y =
-  withPartialIso x $ \e f ->
-  withPartialIso y $ \g h ->
-    partialIso
-      (either ((Left <$>) . e) ((Right <$>) . g))
-      (either ((Left <$>) . f) ((Right <$>) . h))
+  withPartialMarket x $ \build0 match0 ->
+  withPartialMarket y $ \build1 match1 ->
+    partialMarket
+      (either (fmap Left . build0) (fmap Right . build1))
+      (either
+        (either (Left . fmap Left) (Right . Left) . match0)
+        (either (Left . fmap Right) (Right . Right) . match1))
+
+{- | The union of two patterns, trying the first, then the second,
+in either direction, & on a mismatch of both,
+passing through the first target passed through,
+by the `DisjunctiveMonoid` of their t'PartialMarket's.
+
+>>> [traverseOf (orPartialIso (satisfied even) (satisfied odd)) Just n | n <- [2, 3 :: Int]]
+[Just 2,Just 3]
+
+__N.B.__ `>|<` on `APartialIso`s typechecks, pointwise, but is wrong:
+it chooses within @PartialMarket a b s (Maybe t)@, whose @`Just` `Nothing`@
+is a failure, which it takes for a success.
+
+>>> [traverseOf (clonePartialIso (satisfied even >|< satisfied odd)) Just n | n <- [2, 3 :: Int]]
+[Just 2,Nothing]
+-}
+orPartialIso
+  :: APartialIso s t a b
+  -> APartialIso s t a b
+  -> PartialIso s t a b
+orPartialIso x y =
+  withPartialMarket x $ \build0 match0 ->
+  withPartialMarket y $ \build1 match1 ->
+    case PartialMarket build0 match0 >|< PartialMarket build1 match1 of
+      PartialMarket build match -> partialMarket build match
+
+{- | The pattern which never matches & never builds,
+failing in both directions, the identity of `orPartialIso`.
+
+> prop> orPartialIso emptyPartialIso pattern = clonePartialIso pattern
+> prop> orPartialIso pattern emptyPartialIso = clonePartialIso pattern
+> prop> satisfied (const False) = emptyPartialIso
+
+>>> preview emptyPartialIso 'x' :: Maybe Char
+Nothing
+-}
+emptyPartialIso :: PartialIso s t a b
+emptyPartialIso = partialMarket (const Nothing) (const (Left Nothing))
 
 {- | Action of `APrism` on `Choice` `Profunctor`s. -}
 (>?)
@@ -333,13 +521,31 @@ whose `Cochoice` by a `Filterable` @f@ filters the residual out.
 (?<) pat = withPrism pat $ \f g -> unright . dimap (either id f) g
 infixl 4 ?<
 
-{- | Action of `APartialIso` on `Choice` & `Cochoice` partial profunctors. -}
+{- | Action of `APartialIso` on `Choice` & `Cochoice` partial profunctors,
+passing a mismatch through by `Choice`, as `>?` does,
+& failing by `Cochoice`, as `dimapMaybe` does,
+so it acts on a `Control.Lens.Prism.Prism` as `>?` does,
+& on partial functions as `dimapMaybe` does.
+
+> prop> prsm >?< p = prsm >? p
+> prop> partialIso match build >?< p = dimapMaybe match build p
+
+A `Control.Lens.Prism.Prism` with a @Maybe t@ target acts,
+by its `PartialIso`, as it does, filtering its target,
+on a `Data.Profunctor.Filtrator.Filtrator`.
+
+> prop> withPrism prsm partialMarket >?< p = catMaybes (prsm >? p)
+-}
 (>?<)
   :: (Choice p, Cochoice p)
   => APartialIso s t a b
   -> p a b
   -> p s t
-(>?<) pat = withPartialIso pat dimapMaybe
+(>?<) pat = withPartialMarket pat $ \build match ->
+  unright . dimap
+    (either (const (Left Nothing)) match)
+    (either (maybe (Left ()) Right) (maybe (Left ()) Right . build))
+  . right'
 infixl 4 >?<
 
 {- | Action of `AnIso` on `Profunctor`s. -}
@@ -398,7 +604,18 @@ filterPrism
 filterPrism p = unwrapPafb . (?<) p . WrapPafb
 
 {- | `satisfied` is the prototypical proper partial isomorphism,
-identifying a subset which satisfies a predicate. -}
+identifying a subset which satisfies a predicate.
+
+It is a homomorphism of `Data.Monoid.Disjunctive.BooleanAlgebra`s
+of predicates, from `>|<` to `>|<` of its partial functions,
+which choose by first success, in either direction,
+& from `>&<` to composition.
+
+> prop> withPartialIso (satisfied (p >|< q)) (,) = withPartialIso (satisfied p) (,) >|< withPartialIso (satisfied q) (,)
+> prop> withPartialIso (satisfied falseP) (,) = falseP
+> prop> satisfied (p >&< q) = satisfied p . satisfied q
+> prop> satisfied trueP = id
+-}
 satisfied :: (a -> Bool) -> PartialIso' a a
 satisfied f = partialInvoluted satiate where
   satiate a = if f a then Just a else Nothing

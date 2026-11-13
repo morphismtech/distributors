@@ -39,8 +39,6 @@ import GHC.Generics
 `Control.Lens.Monocle.Monocle`s, of products,
 & `Control.Lens.Comonocle.Comonocle`s, of sums,
 to countable sums of countable products.
-Writing ⊂ for "every one is a",
-
 `Control.Lens.Monocle.Monocle` ∪ `Control.Lens.Comonocle.Comonocle`
 ⊂ `Diopter` ⊂
 `Control.Lens.Traversal.Traversal` ∩ `Control.Lens.Prismoid.Prismoid`.
@@ -56,7 +54,10 @@ type Diopter s t a b = forall p f.
   (Distributor p, Applicative f)
     => p a (f b) -> p s (f t)
 
-{- | `ADiopter` is monomorphically a `Diopter`. -}
+{- | `ADiopter` is monomorphically a `Diopter`.
+
+> prop> Diopter s t a b ⊂ ADiopter s t a b
+-}
 type ADiopter s t a b =
   Dioptrice a b a (Identity b) -> Dioptrice a b s (Identity t)
 

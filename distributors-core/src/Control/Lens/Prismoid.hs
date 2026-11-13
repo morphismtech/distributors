@@ -13,6 +13,7 @@ module Control.Lens.Prismoid
     Prismoid
   , APrismoid
   , Prismatoid (..), runPrismatoid
+  , Prismocular (..), runPrismocular, prismocular, withPrismocular
     -- * Combinators
   , prismoid
   , withPrismoid
@@ -22,14 +23,11 @@ module Control.Lens.Prismoid
   , opted
   , lefted
   , righted
-    -- * Plasmoid
-  , Plasmoid
   , chained1
   , chained
-  , severaled
-  , severaled1
   , intercalated
   , operated
+  , separated
   ) where
 
 import Control.Applicative
@@ -38,13 +36,14 @@ import Control.Lens.Internal.Profunctor
 import Control.Lens.PartialIso
 import Data.Monoid.Disjunctive (DisjunctiveMonoid (..))
 import Data.Profunctor.Distributor
+import Data.Profunctor.Monoidal ((>*), (*<), replicateP)
 import Data.Profunctor.Monoidal.Cocartesian
 import Data.Traversable.Homogeneous
 import Data.Void
-import GHC.Exts (IsList (..))
 import GHC.Generics (Par1 (..), U1 (..), V1, (:*:) (..), (:+:) (..), (:.:) (..))
 
 -- $setup
+-- >>> import Control.Applicative (empty)
 -- >>> import Control.Lens (Prism', prism')
 -- >>> import Data.Bifunctor.Joker
 -- >>> import Data.Char (digitToInt, isDigit)
@@ -55,7 +54,7 @@ import GHC.Generics (Par1 (..), U1 (..), V1, (:*:) (..), (:+:) (..), (:.:) (..))
 {- | `Prismoid`s generalize `Control.Lens.Prism.Prism`s
 & `Control.Lens.Diopter.Diopter`s, combining them,
 matching partially forwards, into a `Homogeneous` shape,
-& building totally backwards. Writing ⊂ for "every one is a",
+& building totally backwards.
 
 `Control.Lens.Prism.Prism` ∪ `Control.Lens.Diopter.Diopter`
 ⊂ `Prismoid` ⊂ `Control.Lens.Bifocal.Bifocal`.
@@ -64,33 +63,22 @@ A `Prismoid` fails by its `Alternator`, never by its `Applicative` @f@,
 so a `Control.Lens.Prism.Prism`, as a `Prismoid`, fails on a mismatch,
 rather than passing it through, by the laws of
 `Data.Profunctor.Monoidal.Cocartesian.CocartesianChoice`,
-as `Control.Lens.PartialIso.clonePartialIso` makes it do in any `Choice`.
+as rebuilding it from its partial functions,
+by `Control.Lens.PartialIso.withPartialIso` & `Control.Lens.PartialIso.partialIso`,
+makes it do in any `Choice`.
 A `Control.Lens.Bifocal.Bifocal` adds failing backwards, by a `Witherable.Filterable` @f@.
 
-`Prismoid`s are isomorphic to t'Prismatoid's.
+`Prismoid`s are isomorphic to t'Prismatoid's,
+by `Homogeneous` shapes, & to t'Prismocular's, by partial probes.
 -}
 type Prismoid s t a b = forall p f.
   (Alternator p, Applicative f)
     => p a (f b) -> p s (f t)
 
-{- | A `Plasmoid` is a family of optics, separated by a t'SepBy',
-which is an optic at the `Alternator` @p@ of its separators.
+{- | `APrismoid` is monomorphically a `Prismoid`.
 
-Its separators are data-free, @p () ()@, so they place effects
-between its foci, but never change what its source or target holds.
-So without separators, by `noSep`, which is polymorphic in @p@,
-a `Plasmoid` is a `Prismoid`, & its data is that `Prismoid`'s;
-for any @plasmoid :: Plasmoid s t a b@,
-@plasmoid noSep :: Prismoid s t a b@.
-
->>> withPrismoid (severaled1 noSep :: Prismoid String String Char Char) $ \f _ -> fmap length (f "abc")
-Just 3
+> prop> Prismoid s t a b ⊂ APrismoid s t a b
 -}
-type Plasmoid s t a b = forall p f.
-  (Alternator p, Applicative f)
-    => SepBy (p () ()) -> p a (f b) -> p s (f t)
-
-{- | `APrismoid` is monomorphically a `Prismoid`. -}
 type APrismoid s t a b =
   Prismatoid a b a (Identity b) -> Prismatoid a b s (Identity t)
 
@@ -132,25 +120,11 @@ withPrismoid pat k =
 somed :: Prismoid [a] [b] a b
 somed = unwrapPafb . someP . WrapPafb
 
-{- | Zero or more, separated by a t'SepBy', like `several`. -}
-severaled :: (IsList s, IsList t) => Plasmoid s t (Item s) (Item t)
-severaled sep = unwrapPafb . several (fmap (WrapPafb . rmap pure) sep) . WrapPafb
-
-{- | One or more, separated by a t'SepBy', like `several1`.
-
->>> let digits = runJoker (severaled1 (sepBy (Joker (() <$ char ','))) (Joker (Identity <$> satisfy isDigit)) :: Joker ReadP String (Identity String))
->>> [ds | (Identity ds, "") <- readP_to_S digits "1,2,3"]
-["123"]
--}
-severaled1 :: (IsList s, IsList t) => Plasmoid s t (Item s) (Item t)
-severaled1 sep = unwrapPafb . several1 (fmap (WrapPafb . rmap pure) sep) . WrapPafb
-
-{- | Exactly some number of times, separated by a t'SepBy',
-like `intercalateP`, or without separators, by `noSep`, like
-`Data.Profunctor.Monoidal.replicateP`. -}
-intercalated :: (AsEmpty s, Cons s s a a) => Int -> Plasmoid s s a a
-intercalated n sep =
-  unwrapPafb . intercalateP n (fmap (WrapPafb . rmap pure) sep) . WrapPafb
+{- | Exactly some number of times, like
+`Data.Profunctor.Monoidal.replicateP`,
+or, `separated` by a t'SepBy', like `intercalateP`. -}
+intercalated :: (AsEmpty s, Cons s s a a) => Int -> Prismoid s s a a
+intercalated n = unwrapPafb . replicateP n . WrapPafb
 
 {- | An expression of `Operator`s, from a table of them, ordered from
 highest to lowest precedence, like `withOperators`. An operator table,
@@ -163,20 +137,12 @@ _Plus = prism' (uncurry Plus) (\case Plus x y -> Just (x, y); _ -> Nothing)
 :}
 
 >>> let plus = Infix LeftAssoc _Plus (Joker (() <$ char '+'))
->>> let digit = Joker (Identity . Digit . digitToInt <$> satisfy isDigit)
->>> [e | (Identity e, "") <- readP_to_S (runJoker (operated [[plus]] digit)) "1+2+3"]
+>>> let digit = Joker (Digit . digitToInt <$> satisfy isDigit)
+>>> [e | (e, "") <- readP_to_S (runJoker (operated [[plus]] digit)) "1+2+3"]
 [Plus (Plus (Digit 1) (Digit 2)) (Digit 3)]
 -}
-operated
-  :: (Alternator p, Applicative f)
-  => [[Operator p a b]] -> p a (f b) -> p a (f b)
-operated table =
-  unwrapPafb . withOperators (map (map wrapping) table) . WrapPafb
-  where
-    wrapping = \case
-      Infix assoc pat sym -> Infix assoc pat (WrapPafb (rmap pure sym))
-      Prefix pat sym -> Prefix pat (WrapPafb (rmap pure sym))
-      Postfix pat sym -> Postfix pat (WrapPafb (rmap pure sym))
+operated :: Alternator p => [[Operator p a b]] -> p a b -> p a b
+operated = withOperators
 
 {- | One or zero with default. -}
 opted :: APrism a b () () -> Prismoid a b a b
@@ -194,26 +160,28 @@ righted :: Prismoid (Either c a) (Either d b) a b
 righted = unwrapPafb . alternate . Right . WrapPafb
 
 {- |
-Associate a binary constructor pattern to sequence one or more times.
+Associate a binary constructor pattern to sequence one or more times,
+like `chain1`, or, `separated` by a t'SepBy', with separators.
 -}
 chained1
   :: (forall x. x -> Either x x)
   -> APartialIso a b (a,a) (b,b)
-  -> Plasmoid a b a b
-chained1 assoc binPat sep =
-  unwrapPafb . chain1 assoc binPat (fmap (WrapPafb . rmap pure) sep) . WrapPafb
+  -> Prismoid a b a b
+chained1 assoc binPat =
+  unwrapPafb . chain1 assoc binPat noSep . WrapPafb
 
 {- |
 Associate a binary constructor pattern to sequence one or more times,
-or use a nilary constructor pattern to sequence zero times.
+or use a nilary constructor pattern to sequence zero times,
+like `chain`, or, `separated` by a t'SepBy', with separators.
 -}
 chained
   :: (forall x. x -> Either x x)
   -> APartialIso a b (a,a) (b,b)
   -> APrism a b () ()
-  -> Plasmoid a b a b
-chained assoc binPat nilPat sep =
-  unwrapPafb . chain assoc binPat nilPat (fmap (WrapPafb . rmap pure) sep) . WrapPafb
+  -> Prismoid a b a b
+chained assoc binPat nilPat =
+  unwrapPafb . chain assoc binPat nilPat noSep . WrapPafb
 
 {- | A t'Prismatoid' provides efficient access
 to the pair of functions that make up a `Prismoid`,
@@ -264,3 +232,119 @@ failing by `falseP` where it doesn't match. -}
 runPrismatoid :: Alternator p => Prismatoid a b s t -> p a b -> p s t
 runPrismatoid (Prismatoid f g) p =
   dialt (maybe (Left ()) Right . f) id g falseP (homogeneously p)
+
+{- | t'Prismocular' is a secondary concrete representation of `Prismoid`s,
+by partial probes of a source, run in an `Alternative`,
+as a t'Control.Lens.Bifocal.Binocular' is of
+`Control.Lens.Bifocal.Bifocal`s, without filtering.
+-}
+newtype Prismocular a b s t = Prismocular
+  { unPrismocular
+      :: forall f. Alternative f => ((s -> Maybe a) -> f b) -> f t
+  }
+instance Profunctor (Prismocular a b) where
+  dimap f g (Prismocular k) = Prismocular $ fmap g . k . (. (. f))
+instance Functor (Prismocular a b s) where fmap = rmap
+instance Applicative (Prismocular a b s) where
+  pure t = Prismocular (pure (pure t))
+  Prismocular x <*> Prismocular y = Prismocular (liftA2 (<*>) x y)
+instance Alternative (Prismocular a b s) where
+  empty = Prismocular (pure empty)
+  Prismocular x <|> Prismocular y = Prismocular (liftA2 (<|>) x y)
+  many = lmap repeat . manyP
+  some = lmap repeat . someP
+instance DisjunctiveMonoid (Prismocular a b s t)
+instance Choice (Prismocular a b) where
+  left' = alternate . Left
+  right' = alternate . Right
+instance CocartesianMonoidal (Prismocular a b)
+instance CocartesianChoice (Prismocular a b) where
+  alternate = \case
+    Left (Prismocular k) -> Prismocular $
+      fmap Left . k . (. (\f -> either f (const Nothing)))
+    Right (Prismocular k) -> Prismocular $
+      fmap Right . k . (. (\f -> either (const Nothing) f))
+instance Distributor (Prismocular a b)
+instance Alternator (Prismocular a b)
+
+{- | Run a t'Prismocular' on an `Alternator`,
+failing by `falseP` where a probe doesn't match. -}
+runPrismocular :: Alternator p => Prismocular a b s t -> p a b -> p s t
+runPrismocular (Prismocular k) p =
+  k $ \probe -> dialt (maybe (Left ()) Right . probe) id id falseP p
+
+{- | Build a `Prismoid` from a t'Prismocular'. -}
+prismocular :: Prismocular a b s t -> Prismoid s t a b
+prismocular pm = unwrapPafb . runPrismocular pm . WrapPafb
+
+{- | Run `APrismoid` by partial probes in an `Alternative`.
+
+>>> withPrismocular somed (\probe -> maybe empty pure (probe "")) :: Maybe String
+Nothing
+>>> withPrismocular somed (\probe -> maybe empty pure (probe "ab")) :: Maybe String
+Just "ab"
+-}
+withPrismocular
+  :: Alternative g
+  => APrismoid s t a b -> ((s -> Maybe a) -> g b) -> g t
+withPrismocular pat = unPrismocular (mapPrismoid pat (Prismocular ($ Just)))
+
+{- | Action of `APrismoid` on `Alternator`s, like `mapPrismoid`,
+with a t'SepBy', its separator
+between consecutive foci, & its delimiters around them all.
+A shape of @n@ foci gets @n - 1@ separators, like `Data.List.intersperse`.
+
+> prop> separated pat noSep = clonePrismoid pat
+> prop> separated pat (SepBy beg end sep) p = beg >* separated pat (sepBy sep) p *< end
+> prop> separated somed = several1
+> prop> separated manied = several
+> prop> separated (intercalated n) = intercalateP n
+> prop> separated (chained1 assoc pat) = chain1 assoc pat
+
+>>> let digits = runJoker (separated somed (sepBy (Joker (() <$ char ','))) (Joker (satisfy isDigit)) :: Joker ReadP String String)
+>>> [ds | (ds, "") <- readP_to_S digits "1,2,3"]
+["123"]
+-}
+separated
+  :: Alternator p
+  => APrismoid s t a b -> SepBy (p () ()) -> p a b -> p s t
+separated pat (SepBy beg end sep) p =
+  case mapPrismoid pat (Interspersing empty p (sep >* p)) of
+    Interspersing noFoci firstFoci _ -> beg >* (noFoci <|> firstFoci) *< end
+
+{- | An `Alternator` which separates the foci it sequences,
+from either of two states: before any focus, or after one.
+Before any focus, an action either sequences no focus,
+or some, its first unseparated; after one, it separates every focus.
+Those are its three fields, in order.
+-}
+data Interspersing p a b = Interspersing (p a b) (p a b) (p a b)
+instance Profunctor p => Profunctor (Interspersing p) where
+  dimap f g ~(Interspersing n x y) = Interspersing (dimap f g n) (dimap f g x) (dimap f g y)
+instance Alternator p => Functor (Interspersing p a) where fmap = rmap
+instance Alternator p => Applicative (Interspersing p a) where
+  pure b = Interspersing (pure b) empty (pure b)
+  liftA2 h ~(Interspersing xn xf xl) ~(Interspersing yn yf yl) = Interspersing
+    (liftA2 h xn yn)
+    (liftA2 h xn yf <|> liftA2 h xf yl)
+    (liftA2 h xl yl)
+instance Alternator p => Alternative (Interspersing p a) where
+  empty = Interspersing empty empty empty
+  ~(Interspersing xn xf xl) <|> ~(Interspersing yn yf yl) =
+    Interspersing (xn <|> yn) (xf <|> yf) (xl <|> yl)
+instance Alternator p => DisjunctiveMonoid (Interspersing p a b)
+instance Alternator p => Choice (Interspersing p) where
+  left' = alternate . Left
+  right' = alternate . Right
+instance Alternator p => CocartesianMonoidal (Interspersing p) where
+  zeroP = Interspersing zeroP zeroP zeroP
+  ~(Interspersing xn xf xl) >+< ~(Interspersing yn yf yl) =
+    Interspersing (xn >+< yn) (xf >+< yf) (xl >+< yl)
+instance Alternator p => CocartesianChoice (Interspersing p) where
+  alternate = \case
+    Left ~(Interspersing n x y) ->
+      Interspersing (alternate (Left n)) (alternate (Left x)) (alternate (Left y))
+    Right ~(Interspersing n x y) ->
+      Interspersing (alternate (Right n)) (alternate (Right x)) (alternate (Right y))
+instance Alternator p => Distributor (Interspersing p)
+instance Alternator p => Alternator (Interspersing p)

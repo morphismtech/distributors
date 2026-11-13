@@ -16,6 +16,7 @@ module Control.Lens.Grate
     Grate
   , AGrate
   , Grating (..)
+  , Diffraction (..), diffraction, withDiffraction
     -- * Combinators
   , grate
   , withGrate
@@ -36,20 +37,26 @@ import Data.Functor.Rep
 import Data.Profunctor
 import Data.Profunctor.Monoidal
 
+-- $setup
+-- >>> import Control.Lens (over)
+-- >>> import Data.Complex
+
 {- | `Grate`s are an optic that are dual to
 `Control.Lens.Traversal.Traversal`s, as `Distributive` is `Traversable`.
 
-Writing ⊂ for "every one is a",
-
 `Control.Lens.Iso.Iso` ⊂ `Control.Lens.Monocle.Monocle` ⊂ `Grate`.
 
-`Grate`s are isomorphic to t'Grating's.
+`Grate`s are isomorphic to t'Grating's, & to t'Diffraction's,
+whose shapes are `Distributive`.
 -}
 type Grate s t a b = forall p f.
   (Closed p, Monoidal p, Distributive f, Applicative f)
     => p a (f b) -> p s (f t)
 
-{- | `AGrate` is monomorphically a `Grate`. -}
+{- | `AGrate` is monomorphically a `Grate`.
+
+> prop> Grate s t a b ⊂ AGrate s t a b
+-}
 type AGrate s t a b =
   Grating a b a (Identity b) -> Grating a b s (Identity t)
 
@@ -119,3 +126,40 @@ instance Representable (Grating a b s) where
   type Rep (Grating a b s) = (s -> a) -> b
   index (Grating k) f = k f
   tabulate = Grating
+
+{- | t'Diffraction' is a secondary concrete representation of `Grate`s,
+by `Distributive` shapes, into which a source splits its foci,
+& from which a target merges them, as
+t'Control.Lens.Monocle.Ditraversal's are of
+`Control.Lens.Monocle.Monocle`s, by `Traversable` & `Distributive` shapes.
+
+>>> over (diffraction (Diffraction (uncurry (:+)) (\(x :+ y) -> (x, y)))) negate (1, 2)
+(-1,-2)
+-}
+data Diffraction a b s t where
+  Diffraction
+    :: Distributive f
+    => (s -> f a) -> (f b -> t) -> Diffraction a b s t
+instance Profunctor (Diffraction a b) where
+  dimap f g (Diffraction split merge) = Diffraction (split . f) (g . merge)
+instance Functor (Diffraction a b s) where fmap = rmap
+
+{- | Build a `Grate` from a t'Diffraction',
+getting each focus of its shape by `distribute`.
+-}
+diffraction :: Diffraction a b s t -> Grate s t a b
+diffraction (Diffraction split merge) =
+  grate $ \get -> merge (fmap get (distribute split))
+
+{- | Convert `AGrate` to the pair of functions that characterize it,
+splitting into & merging from a `Distributive` shape,
+the functions of getters, as a t'Grating' is.
+
+>>> withDiffraction cotraversed $ \split merge -> merge (fmap (+ 1) (split (1 :+ 2))) :: Complex Int
+2 :+ 3
+-}
+withDiffraction
+  :: AGrate s t a b
+  -> (forall f. Distributive f => (s -> f a) -> (f b -> t) -> r)
+  -> r
+withDiffraction grt k = k (\s get -> get s) (withGrate grt)

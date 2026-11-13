@@ -11,9 +11,11 @@ import Control.Applicative
 import Control.Arrow ((+++))
 import Control.Lens (ReifiedLens (..), ReifiedPrism (..), _Just, iview, over, preview, review, set, toListOf, traverseOf, view)
 import Control.Lens.Diopter
-import Control.Lens.Prismoid (APrismoid, clonePrismoid, lefted, severaled, severaled1, somed, withPrismoid)
+import Control.Lens.Prismoid (APrismoid, Prismocular (..), clonePrismoid, lefted, mapPrismoid, prismocular, somed, withPrismocular, withPrismoid)
+import Control.Lens.Bifocal (ABifocal, Spectacle (..), cloneBifocal, spectacle, withBifocal, withSpectacle)
+import Control.Lens.PartialIso (clonePartialIso, satisfied)
 import Control.Lens.Comonocle
-import Control.Lens.Grate (cotraverseOf)
+import Control.Lens.Grate (Diffraction (..), diffraction, cotraversed, cotraverseOf, withDiffraction)
 import Control.Lens.Monocle
 import Control.Lens.PartialIso (withPartialIso)
 import Control.Monad ((<=<))
@@ -26,7 +28,6 @@ import Data.Int (Int8)
 import Data.Maybe (fromMaybe)
 import Data.Monoid.Disjunctive
 import Data.Profunctor
-import Data.Profunctor.Distributor (noSep)
 import Data.Profunctor.Monadic (Monadic)
 import Data.Profunctor.Monoidal (Monoidal)
 import Data.Profunctor.Monoidal.Cocartesian
@@ -370,11 +371,55 @@ homogeneousProperties = do
       withPrismoid (_Just :: APrismoid (Maybe Int) (Maybe Int) Int Int)
         (\match _ -> toList <$> match m)
         === fmap pure m
-    prop "severaled1 noSep is somed, & severaled noSep is manied" $ \(xs :: [Int]) ->
-      withPrismoid (severaled1 noSep :: APrismoid [Int] [Int] Int Int) (\match _ -> toList <$> match xs)
-        === withPrismoid somed (\match _ -> toList <$> match xs)
-        .&&. withPrismoid (severaled noSep :: APrismoid [Int] [Int] Int Int) (\match _ -> toList <$> match xs)
-          === withPrismoid manied (\match _ -> toList <$> match xs)
+    prop "withDiffraction is over a Grate" $
+      \(z :: Complex Int) (Fun _ f :: Fun Int Int) ->
+        withDiffraction cotraversed (\split merge -> merge (fmap f (split z)))
+          === over cotraversed f z
+    prop "diffraction inverts withDiffraction" $
+      \(z :: Complex Int) (Fun _ f :: Fun Int Int) ->
+        withDiffraction cotraversed
+          (\split merge -> over (diffraction (Diffraction split merge)) f z)
+          === over cotraversed f z
+    prop "withPrismocular agrees with withPrismoid" $
+      \(xs :: [Int]) (e :: Either Int Char) (m :: Maybe Int) (Fun _ f :: Fun Int Int) ->
+        let
+          probing :: APrismoid s s Int Int -> s -> Maybe s
+          probing o s = withPrismocular o (\probe -> f <$> probe s)
+          shaping :: APrismoid s s Int Int -> s -> Maybe s
+          shaping o s = withPrismoid o $ \match build -> build . fmap f <$> match s
+        in
+          probing somed xs === shaping somed xs
+            .&&. probing lefted e === shaping lefted e
+            .&&. probing _Just m === shaping _Just m
+            .&&. probing manied xs === shaping manied xs
+    prop "prismocular inverts withPrismocular, without repetition" $
+      \(e :: Either Int Char) (Fun _ f :: Fun Int Int) ->
+        let l = lefted :: APrismoid (Either Int Char) (Either Int Char) Int Int
+        in withPrismoid (prismocular (mapPrismoid l (Prismocular ($ Just))))
+          (\match build -> build . fmap f <$> match e)
+          === withPrismoid l (\match build -> build . fmap f <$> match e)
+    prop "withSpectacle agrees with withBifocal" $
+      \(xs :: [Int]) (e :: Either Int Char) (m :: Maybe Int) (Fun _ f :: Fun Int Int) ->
+        let
+          probing :: ABifocal s s Int Int -> s -> Maybe s
+          probing o s = withBifocal o (\probe -> maybe Nothing (Just . f) (probe s))
+          shaping :: ABifocal s s Int Int -> s -> Maybe s
+          shaping o s = withSpectacle o $ \match build -> match s >>= build . fmap f
+        in
+          probing lefted e === shaping lefted e
+            .&&. probing (clonePartialIso _Just) m === shaping (clonePartialIso _Just) m
+            .&&. probing (satisfied even) (length xs) === shaping (satisfied even) (length xs)
+            .&&. probing somed xs === shaping somed xs
+            .&&. probing manied xs === shaping manied xs
+    prop "cloneBifocal somed matches one or more" $ \(xs :: [Int]) ->
+      withSpectacle (cloneBifocal somed) (\match _ -> toList <$> match xs)
+        === if null xs then Nothing else Just xs
+    prop "spectacle inverts withSpectacle" $
+      \(m :: Maybe Int) (Fun _ f :: Fun Int Int) ->
+        withSpectacle (clonePartialIso _Just)
+          (\match build -> withSpectacle (spectacle (Spectacle match build))
+            (\match' build' -> match' m >>= build' . fmap f))
+          === withSpectacle (clonePartialIso _Just) (\match build -> match m >>= build . fmap f)
     prop "somed matches one or more" $ \(xs :: [Int]) ->
       withPrismoid somed (\match _ -> toList <$> match xs)
         === if null xs then Nothing else Just xs

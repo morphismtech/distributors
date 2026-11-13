@@ -86,7 +86,7 @@ library
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints
   build-depends:
       aeson >=2.2 && <3
-    , base >=4.15 && <5
+    , base >=4.20 && <5
     , bytestring >=0.11 && <1
     , containers >=0.6 && <1
     , data-fix >=0.3 && <1
@@ -164,7 +164,7 @@ test-suite doctests
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded
   build-depends:
       aeson >=2.2 && <3
-    , base >=4.15 && <5
+    , base >=4.20 && <5
     , bytestring >=0.11 && <1
     , containers >=0.6 && <1
     , data-fix >=0.3 && <1
@@ -247,7 +247,7 @@ test-suite test
   build-depends:
       QuickCheck >=2.14 && <3
     , aeson >=2.2 && <3
-    , base >=4.15 && <5
+    , base >=4.20 && <5
     , bytestring >=0.11 && <1
     , containers >=0.6 && <1
     , data-fix >=0.3 && <1
@@ -329,7 +329,7 @@ benchmark json
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -O2 -rtsopts
   build-depends:
       aeson >=2.2 && <3
-    , base >=4.15 && <5
+    , base >=4.20 && <5
     , bytestring >=0.11 && <1
     , containers >=0.6 && <1
     , data-fix >=0.3 && <1

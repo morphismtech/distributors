@@ -34,11 +34,9 @@ import Witherable
 -- $setup
 -- >>> import Control.Applicative (Alternative (..))
 -- >>> import Control.Lens
--- >>> import Control.Lens.PartialIso (clonePartialIso)
+-- >>> import Control.Lens.PartialIso (partialIso, withPartialIso)
 
 {- | `Wither`s extend `Control.Lens.Traversal.Traversal`s by filtering.
-Writing ⊂ for "every one is a",
-
 `Control.Lens.Traversal.Traversal` ⊂ `Wither`,
 
 so every `Control.Lens.Iso.Iso`, `Control.Lens.Lens.Lens`
@@ -46,7 +44,10 @@ so every `Control.Lens.Iso.Iso`, `Control.Lens.Lens.Lens`
 -}
 type Wither s t a b = forall f. Alternative f => (a -> f b) -> s -> f t
 
-{- | `AWither` is monomorphically a `Wither`. -}
+{- | `AWither` is monomorphically a `Wither`.
+
+> prop> Wither s t a b ⊂ AWither s t a b
+-}
 type AWither s t a b = (a -> Altar a b b) -> s -> Altar a b t
 
 {- | Clone `AWither` so that you can reuse the same
@@ -73,11 +74,12 @@ witherPrism prsm = withPrism prsm $ \embed match ->
 >>> (withered . witherPrism _Just) (\x -> Just (x + 1)) [Just 1, Nothing, Just 2]
 Just [Just 2,Just 3]
 
-With @catMaybes (pure Nothing)@ in place of `empty`,
-@witherPrism@ is `Control.Lens.PartialIso.clonePartialIso`,
-a `Control.Lens.PartialIso.PartialIso`, for a `Filterable` @f@.
+With @catMaybes (pure Nothing)@ in place of `empty`, for a `Filterable` @f@,
+@witherPrism@ is @withPartialIso prsm partialIso@,
+rebuilding a `Control.Lens.PartialIso.PartialIso`
+from the partial functions of a `Control.Lens.Prism.Prism`.
 
->>> (withered . clonePartialIso _Just) (\x -> Just (x + 1)) [Just 1, Nothing, Just 2]
+>>> (withered . withPartialIso _Just partialIso) (\x -> Just (x + 1)) [Just 1, Nothing, Just 2]
 Just [Just 2,Just 3]
 -}
 withered :: Witherable t => Wither (t a) (t b) a b

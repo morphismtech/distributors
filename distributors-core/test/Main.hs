@@ -7,11 +7,13 @@ import Test.Hspec
 
 import Properties.Homogeneous
 import Properties.PartialIso
+import Properties.Parsing
 
 main :: IO ()
 main = hspec $ do
   describe "Homogeneous" homogeneousProperties
   describe "PartialIso" partialIsoProperties
+  describe "Parsing" parsingProperties
   describe "meander" meanderProperties
 
 meanderProperties :: Spec

@@ -50,8 +50,6 @@ import Numeric.Natural (Natural)
 {- | `Monocle`s are an optic which is both
 a `Control.Lens.Traversal.Traversal` & a `Control.Lens.Grate.Grate`,
 focusing on a number of foci fixed by the optic, not its source.
-Writing ⊂ for "every one is a",
-
 `Control.Lens.Iso.Iso` ⊂ `Monocle` ⊂
 `Control.Lens.Traversal.Traversal` ∩ `Control.Lens.Grate.Grate`.
 
@@ -64,7 +62,10 @@ type Monocle s t a b = forall p f.
   (Monoidal p, Applicative f)
     => p a (f b) -> p s (f t)
 
-{- | `AMonocle` is monomorphically a `Monocle`. -}
+{- | `AMonocle` is monomorphically a `Monocle`.
+
+> prop> Monocle s t a b ⊂ AMonocle s t a b
+-}
 type AMonocle s t a b =
   Monocular a b a (Identity b) -> Monocular a b s (Identity t)
 

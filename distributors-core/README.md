@@ -42,3 +42,47 @@ Some optics in this library are [grates, a new kind of optic](https://r6research
 ## contributing
 
 Contributors are welcome. The [Issues](https://github.com/morphismtech/distributors/issues) page is a good place to communicate.
+
+## diagram
+
+[Fold]                        [Setter]    [Wither]      [Review]      [Bifocal]
+ ^ ^                           ^    ^       ^                ^          ^  ^
+ | |                           |    |       |                |          |  |
+ | |                   +-------+    |       |                |          |  |
+ | |                   |   +--------|-------+                |          |  |
+ +-|---------------+   |   |        |                        |          |  |
+   |               |   |   |        |                        |          |  |
+[Fold1]           [Traversal]       |                        |          |  |
+  ^ ^               ^ ^ ^           |                        |          |  |
+  | |               | | |           |                        |          |  |
+  | |               | | |           |                    +---|----------|--+
+  | |               | | |           |                    |   |          |
+  | +------+    +---+ | |           |                    |   |          |
+  |        |    |     | |           |                    |   |          |
+[Getter] [Traversal1] | |           |             [Prismoid] |          |
+   ^        ^         | |           |               ^  ^     |          |
+   |        |         | |           |               |  |     |          |
+   |        |         | +-----------|-------------+ |  |     |          |
+   |        |         |             |             | |  |     |          |
+   |  +-----+         |   +---------|-------------|-|--+     |          |
+   |  |               |   |         |             | |        |          |
+  [Lens]            [Diopter]   [Grate]           | |        |    [PartialIso]
+    ^                  ^  ^        ^              | |        |        ^
+    |                  |  |        |              | |        |        |
+    |                  |  |        |              | |        |        |
+    |                  |  +-+      |              | |+-------+        |
+    +-+    +-----------+    |     ++              | ||+---------------+
+      |    |                |     |               | |||
+    [Comonocle]            [Monocle]             [Prism]
+         ^                      ^                  ^
+         |                      |                  |
+         |                      |                  |
+         +---------------------+|                  |
+                               ||+-----------------+
+                              [Iso]
+                                ^
+                                |
+                                |
+                                |
+                                |
+                            [Equality]

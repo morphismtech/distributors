@@ -12,6 +12,7 @@ module Control.Lens.Bifocal
   ( -- * Bifocal
     Bifocal
   , ABifocal
+  , Spectacle (..), runSpectacle, spectacle, withSpectacle
   , Binocular (..), runBinocular
     -- * Combinators
   , bifocal
@@ -24,16 +25,22 @@ import Control.Applicative
 import Control.Lens
 import Control.Lens.Internal.Profunctor
 import Control.Lens.PartialIso
-import Data.Monoid.Disjunctive (DisjunctiveMonoid)
+import Control.Monad ((>=>))
+import Data.Monoid.Disjunctive (DisjunctiveMonoid (..))
 import Data.Profunctor
 import Data.Profunctor.Distributor
 import Data.Profunctor.Monoidal.Cocartesian
 import Data.Profunctor.Filtrator
+import Data.Traversable.Homogeneous
+import Data.Void
+import GHC.Generics (Par1 (..), U1 (..), V1, (:*:) (..), (:+:) (..), (:.:) (..))
 import Witherable
 
-{- | `Bifocal`s are bidirectional parser optics.
-Writing ⊂ for "every one is a",
+-- $setup
+-- >>> import Control.Lens (_Just)
+-- >>> import Control.Lens.PartialIso (clonePartialIso)
 
+{- | `Bifocal`s are bidirectional parser optics.
 `Control.Lens.Prismoid.Prismoid` ∪ `Control.Lens.PartialIso.PartialIso` ⊂ `Bifocal`,
 
 so every `Control.Lens.Iso.Iso`, `Control.Lens.Prism.Prism`,
@@ -41,15 +48,19 @@ so every `Control.Lens.Iso.Iso`, `Control.Lens.Prism.Prism`,
 `Control.Lens.Comonocle.Comonocle` & `Control.Lens.Diopter.Diopter`
 is a `Bifocal` too.
 
-`Bifocal`s are isomorphic to t'Binocular's.
+`Bifocal`s are isomorphic to t'Spectacle's, by `Homogeneous` shapes,
+& to t'Binocular's, by partial probes.
 -}
 type Bifocal s t a b = forall p f.
   (Alternator p, Applicative f, Filterable f)
     => p a (f b) -> p s (f t)
 
-{- | `ABifocal` is monomorphically a `Bifocal`. -}
+{- | `ABifocal` is monomorphically a `Bifocal`.
+
+> prop> Bifocal s t a b ⊂ ABifocal s t a b
+-}
 type ABifocal s t a b =
-  Binocular a b a (Maybe b) -> Binocular a b s (Maybe t)
+  Spectacle a b a (Maybe b) -> Spectacle a b s (Maybe t)
 
 {- | Build a `Bifocal` from a concrete t'Binocular'. -}
 bifocal :: Binocular a b s t -> Bifocal s t a b
@@ -59,7 +70,7 @@ bifocal bif = unwrapPafb . runBinocular bif . WrapPafb
 mapBifocal
   :: (Alternator p, Filtrator p)
   => ABifocal s t a b -> p a b -> p s t
-mapBifocal bif p = withBifocal bif $ \f -> dimapMaybe f Just p
+mapBifocal bif = runSpectacle (catMaybes (bif (Just <$> Spectacle (Just . Par1) (Just . unPar1))))
 
 {- | Clone `ABifocal` so that you can reuse the same
 monomorphically typed `Bifocal` for different purposes.
@@ -67,14 +78,15 @@ monomorphically typed `Bifocal` for different purposes.
 cloneBifocal :: ABifocal s t a b -> Bifocal s t a b
 cloneBifocal bif = unwrapPafb . mapBifocal bif . WrapPafb
 
-{- | Run `ABifocal` over an `Alternative` & `Filterable`. -}
+{- | Run `ABifocal` over an `Alternative` & `Filterable`,
+by partial probes. -}
 withBifocal
   :: (Alternative f, Filterable f)
   => ABifocal s t a b -> ((s -> Maybe a) -> f b) -> f t
-withBifocal bif = unBinocular (catMaybes (bif (Just <$> Binocular ($ Just))))
+withBifocal bif = unBinocular (mapBifocal bif (Binocular ($ Just)))
 
-{- | t'Binocular' provides an efficient
-concrete representation of `Bifocal`s. -}
+{- | t'Binocular' is a secondary concrete representation of `Bifocal`s,
+by partial probes, each of which matches from the source anew. -}
 newtype Binocular a b s t = Binocular
   { unBinocular
       :: forall f. (Alternative f, Filterable f)
@@ -123,3 +135,85 @@ runBinocular
   => Binocular a b s t
   -> p a b -> p s t
 runBinocular (Binocular k) p = k $ \f -> dimapMaybe f Just p
+
+{- | t'Spectacle' provides an efficient
+concrete representation of `Bifocal`s, by `Homogeneous` shapes, matching partially forwards
+& building partially backwards, a
+t'Control.Lens.Prismoid.Prismatoid' which may also fail to build.
+-}
+data Spectacle a b s t where
+  Spectacle
+    :: Homogeneous h
+    => (s -> Maybe (h a))
+    -> (h b -> Maybe t)
+    -> Spectacle a b s t
+instance Profunctor (Spectacle a b) where
+  dimap f' g' (Spectacle f g) = Spectacle (f . f') (fmap g' . g)
+instance Functor (Spectacle a b s) where fmap = rmap
+instance Applicative (Spectacle a b s) where
+  pure t = Spectacle (const (Just U1)) (const (Just t))
+  liftA2 h (Spectacle f0 g0) (Spectacle f1 g1) = Spectacle
+    (\s -> liftA2 (:*:) (f0 s) (f1 s))
+    (\(x :*: y) -> liftA2 h (g0 x) (g1 y))
+  (<*>) = liftA2 id
+instance Alternative (Spectacle a b s) where
+  empty = Spectacle (const Nothing) (\(v :: V1 b) -> case v of {})
+  Spectacle f0 g0 <|> Spectacle f1 g1 = Spectacle
+    (\s -> (L1 <$> f0 s) <|> (R1 <$> f1 s))
+    (\case {L1 x -> g0 x; R1 y -> g1 y})
+instance DisjunctiveMonoid (Spectacle a b s t)
+instance Filterable (Spectacle a b s) where
+  mapMaybe h (Spectacle f g) = Spectacle f (g >=> h)
+instance CocartesianMonoidal (Spectacle a b) where
+  zeroP = Spectacle absurd (\(v :: V1 b) -> case v of {})
+  Spectacle f0 g0 >+< Spectacle f1 g1 = Spectacle
+    (either (fmap L1 . f0) (fmap R1 . f1))
+    (\case {L1 x -> Left <$> g0 x; R1 y -> Right <$> g1 y})
+instance Choice (Spectacle a b) where
+  left' = alternate . Left
+  right' = alternate . Right
+instance Cochoice (Spectacle a b) where
+  unleft (Spectacle f g) =
+    Spectacle (f . Left) (g >=> either Just (const Nothing))
+  unright (Spectacle f g) =
+    Spectacle (f . Right) (g >=> either (const Nothing) Just)
+instance CocartesianChoice (Spectacle a b) where
+  alternate = \case
+    Left (Spectacle f g) ->
+      Spectacle (either f (const Nothing)) (fmap Left . g)
+    Right (Spectacle f g) ->
+      Spectacle (either (const Nothing) f) (fmap Right . g)
+instance Distributor (Spectacle a b) where
+  optionalP (Spectacle f g) =
+    Spectacle (fmap Comp1 . traverse f) (traverse g . unComp1)
+  manyP (Spectacle f g) =
+    Spectacle (fmap Comp1 . traverse f) (traverse g . unComp1)
+instance Alternator (Spectacle a b)
+instance Filtrator (Spectacle a b)
+
+{- | Run a t'Spectacle' on a partial `Distributor`,
+failing by `falseP` where it doesn't match,
+& by `mapMaybe` where it doesn't build. -}
+runSpectacle
+  :: (Alternator p, Filtrator p)
+  => Spectacle a b s t -> p a b -> p s t
+runSpectacle (Spectacle f g) p =
+  dialt (maybe (Left ()) Right . f) id id falseP (mapMaybe g (homogeneously p))
+
+{- | Build a `Bifocal` from a t'Spectacle'. -}
+spectacle :: Spectacle a b s t -> Bifocal s t a b
+spectacle sp = unwrapPafb . runSpectacle sp . WrapPafb
+
+{- | Convert `ABifocal` to the pair of functions that characterize it,
+matching into & building from a `Homogeneous` shape.
+
+>>> withSpectacle (clonePartialIso _Just) $ \match build -> (match Nothing >>= build, match (Just 'x') >>= build . fmap succ)
+(Nothing,Just (Just 'y'))
+-}
+withSpectacle
+  :: ABifocal s t a b
+  -> (forall h. Homogeneous h => (s -> Maybe (h a)) -> (h b -> Maybe t) -> r)
+  -> r
+withSpectacle bif k =
+  case catMaybes (bif (Just <$> Spectacle (Just . Par1) (Just . unPar1))) of
+    Spectacle f g -> k f g

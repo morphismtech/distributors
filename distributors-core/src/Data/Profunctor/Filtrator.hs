@@ -111,11 +111,7 @@ instance Filtrator p => Filtrator (Yoneda p) where
     in (proreturn q, proreturn r)
 instance Filtrator (Forget r) where
   filtrate (Forget f) = (Forget (f . Left), Forget (f . Right))
-instance Filtrator (PartialExchange a b) where
-  filtrate (PartialExchange f g) =
-    ( PartialExchange (f . Left) (either Just (pure Nothing) <=< g)
-    , PartialExchange (f . Right) (either (pure Nothing) Just <=< g)
-    )
+instance Filtrator (PartialMarket a b)
 instance Filterable f => Filtrator (Joker f) where
   filtrate (Joker x) =
     ( Joker (mapMaybe (either Just (const Nothing)) x)

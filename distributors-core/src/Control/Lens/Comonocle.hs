@@ -56,8 +56,6 @@ import Numeric.Natural (Natural)
 {- | `Comonocle`s are an optic dual to `Control.Lens.Monocle.Monocle`s, by sums,
 which focus on the one copy that an `Enumerable` sum holds.
 
-Writing ⊂ for "every one is a",
-
 `Control.Lens.Iso.Iso` ⊂ `Comonocle` ⊂
 `Control.Lens.Lens.Lens` ∩ `Control.Lens.Diopter.Diopter`,
 
@@ -74,7 +72,10 @@ type Comonocle s t a b = forall p f.
   (CocartesianMonoidal p, Functor f)
     => p a (f b) -> p s (f t)
 
-{- | `AComonocle` is monomorphically a `Comonocle`. -}
+{- | `AComonocle` is monomorphically a `Comonocle`.
+
+> prop> Comonocle s t a b ⊂ AComonocle s t a b
+-}
 type AComonocle s t a b =
   Comonocular a b a (Identity b) -> Comonocular a b s (Identity t)
 

@@ -19,7 +19,7 @@ description:
   Its grammars are in @distributors-grammar@.
 
 dependencies:
-- base >= 4.15 && < 5
+- base >= 4.20 && < 5
 - adjunctions >= 4.4 && < 5
 - bifunctors >= 5.5 && < 6
 - containers >= 0.6 && < 1

@@ -325,13 +325,12 @@ withOperators table p = foldl makeLevel p table
       -> (d -> (Int, y)) -- ^ untag a build
       -> [APrism x y x y] -> PartialIso x y c d
     taggedP tag untag pats =
-      case orP (zipWith exchange [0 ..] pats) of
-        PartialExchange fwd bwd -> partialIso fwd bwd
+      let (fwd, bwd) = orP (zipWith exchange [0 ..] pats) in partialIso fwd bwd
       where
         exchange i pat = let (match, build) = patternFns pat in
-          PartialExchange (fmap (tag i) . match) $ \d -> case untag d of
+          (fmap (tag i) . match, \d -> case untag d of
             (j, y) | j == i -> Just (build y)
-            _ -> Nothing
+            _ -> Nothing)
 
     -- An operand, then @(operator, operand)@ steps, folded by each
     -- operator's associativity, like parsec's @buildExpressionParser@:
