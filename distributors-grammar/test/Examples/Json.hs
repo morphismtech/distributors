@@ -57,7 +57,7 @@ jsonGrammar = rule "json" elementG
 
     -- members = member | member ',' members
     membersG json = rule "members" $
-      sepBy (terminal ",") (atLeast 1) (memberG json)
+      sepWith "," (atLeast 1) (memberG json)
 
     -- member = ws string ws ':' element
     memberG json = rule "member" $
@@ -71,7 +71,7 @@ jsonGrammar = rule "json" elementG
 
     -- elements = element | element ',' elements
     elementsG json = rule "elements" $
-      sepBy (terminal ",") (atLeast 1) json
+      sepWith "," (atLeast 1) json
 
     -- string = '"' characters '"'
     stringG = rule "string" $

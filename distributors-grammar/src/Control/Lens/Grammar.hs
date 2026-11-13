@@ -145,7 +145,7 @@ semverGrammar = _SemVer
   >*< optionP _Empty (terminal "+" >* identifiersG)
   where
     numberG = iso show read >~ someP (asIn @Char DecimalNumber)
-    identifiersG = sepBy (terminal ".") (atLeast 1) (someP charG)
+    identifiersG = sepWith "." (atLeast 1) (someP charG)
     charG = asIn LowercaseLetter
       >|< asIn UppercaseLetter
       >|< asIn DecimalNumber
@@ -258,9 +258,9 @@ arithGrammar :: Grammar Char Arith
 arithGrammar = ruleRec "arith" sumG
   where
     sumG arith = rule "sum" $
-      sepBy (terminal "+") (chain1 Left _Add) (prodG arith)
+      sepWith "+" (chain1 Left _Add) (prodG arith)
     prodG arith = rule "product" $
-      sepBy (terminal "*") (chain1 Left _Mul) (factorG arith)
+      sepWith "*" (chain1 Left _Mul) (factorG arith)
     factorG arith = rule "factor" $
       numberG >|< terminal "(" >* arith *< terminal ")"
     numberG = rule "number" $
@@ -380,7 +380,7 @@ lenvecGrammar :: CtxGrammar Char LenVec
 lenvecGrammar = _LenVec >? P.do
   let
     numberG = iso show read >~ someP (asIn @Char DecimalNumber)
-    vectorG n = sepBy (terminal ",") (exactly n) numberG
+    vectorG n = sepWith "," (exactly n) numberG
   len <- numberG             -- bonds to _LenVec
   terminal ";"               -- doesn't bond
   vectorG (fromIntegral len) -- bonds to _LenVec
@@ -668,7 +668,7 @@ regexGrammar = _RegString >~ ruleRec "regex" altG
   where
     altG rex = rule "alternate" $
       iso alternativesOf (foldr1 (>|<) :: [RegEx Char] -> RegEx Char)
-        >~ sepBy (terminal "|") (atLeast 1) (seqG rex)
+        >~ sepWith "|" (atLeast 1) (seqG rex)
 
     seqG rex = rule "sequence" $
       iso itemsOf mconcat >~ manyP (exprG rex)
@@ -736,7 +736,7 @@ regexGrammar = _RegString >~ ruleRec "regex" altG
     classCatG = rule "class-category" $ orP
       [ _AndAsIn >? terminal "\\p{" >* categoryG *< terminal "}"
       , _AndNotAsIn . iso toList fromList >?
-          terminal "\\P{" >* sepBy (terminal "|") (atLeast 1) categoryG *< terminal "}"
+          terminal "\\P{" >* sepWith "|" (atLeast 1) categoryG *< terminal "}"
       ]
 
     classOneOfG = rule "class-one-of" $ orP

@@ -12,13 +12,17 @@ module Control.Lens.Grammar.Symbol
   ( -- * Symbol
     TerminalSymbol (..)
   , NonTerminalSymbol (..)
+    -- * Separators
+  , sepWith
   ) where
 
 import Control.Lens
 import Control.Lens.PartialIso
 import Control.Lens.Grammar.Token
+import Control.Lens.Prismoid (Prismoid, sepBy)
 import Data.Bifunctor.Joker
 import Data.Profunctor
+import Data.Profunctor.Distributor (Alternator)
 import Data.Profunctor.Monoidal
 import Text.ParserCombinators.ReadP (ReadP, string)
 
@@ -29,6 +33,16 @@ class TerminalSymbol token s | s -> token where
     :: (p () () ~ s, Tokenized token (p token token), Monoidal p, Choice p, Cochoice p)
     => [token] -> s
   terminal str = only str ?< tokens str
+
+{- | `sepBy` a `terminal` separator, so a grammar separates foci
+of a `Prismoid` by symbols.
+
+> prop> sepWith str = sepBy (terminal str)
+-}
+sepWith
+  :: (Alternator p, TerminalSymbol c (p () ()))
+  => [c] -> Prismoid s t a b -> p a b -> p s t
+sepWith = sepBy . terminal
 
 -- | A `nonTerminal` symbol in a grammar.
 class NonTerminalSymbol s where
