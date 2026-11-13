@@ -19,7 +19,7 @@ varifocalProperties = do
     parsed :: Varifocal' String Char -> String -> Maybe (String, String)
     parsed v = parseP (contextuallyT v (anyToken :: Parsor String Maybe Char Char))
     ended :: Varifocal' String Char
-    ended = terminatedBy (== '.')
+    ended = terminateBy (== '.')
     plain = Prelude.filter (/= '.') <$> arbitrary
   describe "MonadicTrans laws, at Printor & Parsor" $ do
     let
@@ -39,7 +39,7 @@ varifocalProperties = do
     prop "joinP (fmap pure p) = p" $ \(c :: Char) (str :: String) ->
       printing (joinP (fmap pure prToken)) c === printing prToken c
         .&&. parsing (joinP (fmap pure paToken)) str === parsing paToken str
-  describe "terminatedBy" $ do
+  describe "terminateBy" $ do
     prop "prints & parses up to its first end" $
       forAll plain $ \s -> forAll plain $ \rest ->
         printed ended (s ++ ".") === Just (s ++ ".")
@@ -49,26 +49,26 @@ varifocalProperties = do
     prop "doesn't print an early end" $
       forAll plain $ \s -> forAll plain $ \t ->
         printed ended (s ++ "." ++ t ++ ".") === Nothing
-  describe "balanced & countPrefixed, by stepping" $ do
+  describe "balanceBy & countWith, by stepping" $ do
     let
       nested :: Varifocal' String Char
-      nested = balanced (== '(') (== ')')
+      nested = balanceBy (== '(') (== ')')
       counted :: Varifocal' String Char
-      counted = countPrefixed (\c -> if isDigit c then digitToInt c else 0)
-    it "balanced parses a nested block, leaving the rest" $
+      counted = countWith (\c -> if isDigit c then digitToInt c else 0)
+    it "balanceBy parses a nested block, leaving the rest" $
       parsed nested "(a(b)c)rest" `shouldBe` Just ("(a(b)c)", "rest")
-    it "balanced prints only a balanced block" $ do
+    it "balanceBy prints only a balanceBy block" $ do
       printed nested "(a(b)c)" `shouldBe` Just "(a(b)c)"
       map (printed nested) ["(a(b)", "(a)b", "a", ")", ""] `shouldBe` replicate 5 Nothing
-    prop "balanced round-trips nesting of any depth" $
+    prop "balanceBy round-trips nesting of any depth" $
       forAll (choose (1, 6)) $ \n -> let str = replicate n '(' ++ replicate n ')' in
         printed nested str === Just str .&&. parsed nested (str ++ ")") === Just (str, ")")
-    it "countPrefixed reads as many as its first focus counts" $ do
+    it "countWith reads as many as its first focus counts" $ do
       parsed counted "3abcd" `shouldBe` Just ("3abc", "d")
       parsed counted "0x" `shouldBe` Just ("0", "x")
       printed counted "2ab" `shouldBe` Just "2ab"
       map (printed counted) ["3ab", "1ab"] `shouldBe` [Nothing, Nothing]
-    it "clones balanced, as it does" $ do
+    it "clones balanceBy, as it does" $ do
       let cloned :: Varifocal' String Char
           cloned = cloneVarifocal nested
           strs = ["(a(b)c)", "(a(b)", "a", "((x))"]
@@ -82,11 +82,11 @@ varifocalProperties = do
       parsedG :: Varifocal' s Char -> String -> Maybe (s, String)
       parsedG v = parseP (contextuallyT v (anyToken :: Parsor String Maybe Char Char))
       crossed :: Varifocal' (String, String) Char
-      crossed = crossVarifocal (terminatedBy (== '.')) (delimited (==))
+      crossed = crossVarifocal (terminateBy (== '.')) (delimitBy (==))
       alted :: Varifocal' (Either String String) Char
-      alted = altVarifocal (terminatedBy (== '.')) (balanced (== '(') (== ')'))
+      alted = altVarifocal (terminateBy (== '.')) (balanceBy (== '(') (== ')'))
       netstring :: Varifocal' (String, String) Char
-      netstring = bindVarifocal (terminatedBy (== ':'))
+      netstring = bindVarifocal (terminateBy (== ':'))
         (\header -> exactly (fromMaybe 0 (readMaybe (init header))))
     it "crosses side by side" $ do
       printedG crossed ("ab.", "xyx") `shouldBe` Just "ab.xyx"
@@ -105,14 +105,14 @@ varifocalProperties = do
       printedG netstring ("3:", "ab") `shouldBe` Nothing
     it "ors one, else the other, with falseOptic as its unit" $ do
       let ored, emptied :: Varifocal' String Char
-          ored = orVarifocal (terminatedBy (== '.')) (balanced (== '(') (== ')'))
-          emptied = orVarifocal falseOptic (terminatedBy (== '.'))
+          ored = orVarifocal (terminateBy (== '.')) (balanceBy (== '(') (== ')'))
+          emptied = orVarifocal falseOptic (terminateBy (== '.'))
       map (printed ored) ["ab.", "(a)", "ab"] `shouldBe` [Just "ab.", Just "(a)", Nothing]
       map (parsed ored) ["ab.c", "(a)c"] `shouldBe` [Just ("ab.", "c"), Just ("(a)", "c")]
       map (printed emptied) ["ab.", "ab"] `shouldBe` map (printed ended) ["ab.", "ab"]
       printed falseOptic "ab." `shouldBe` Nothing
   describe "cloneVarifocal, by its free Varifocus" $ do
-    prop "clones terminatedBy, printing & parsing as it does" $
+    prop "clones terminateBy, printing & parsing as it does" $
       forAll plain $ \s -> forAll plain $ \t ->
         let cloned :: Varifocal' String Char
             cloned = cloneVarifocal ended
@@ -125,7 +125,7 @@ varifocalProperties = do
             range = inRange lo (Just hi)
         in printed (cloneVarifocal range) s === printed range s
           .&&. parsed (cloneVarifocal range) s === parsed range s
-  describe "heredocs, by delimited" $ do
+  describe "heredocs, by delimitBy" $ do
     let
       printedH h =
         ($ "") <$> printP (heredocP :: Printor String Maybe Heredoc Heredoc) h

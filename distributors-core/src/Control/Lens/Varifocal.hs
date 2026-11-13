@@ -27,10 +27,10 @@ module Control.Lens.Varifocal
   , contextuallyT
     -- * Combinators
   , stepping
-  , terminatedBy
-  , delimited
-  , balanced
-  , countPrefixed
+  , terminateBy
+  , delimitBy
+  , balanceBy
+  , countWith
   ) where
 
 import Control.Applicative (Alternative (..))
@@ -299,9 +299,8 @@ A list matches when its last focus, & no earlier one, stops it.
 stepping :: st -> (st -> a -> Either Bool st) -> Varifocal' [a] a
 stepping st0 step q = rmap pure (go st0)
   where
-    focus = joinP q
     go st = _Cons >? P.do
-      b <- focus
+      b <- joinP q
       case step st b of
         Right st' -> go st'
         Left True -> asEmpty
@@ -311,10 +310,10 @@ stepping st0 step q = rmap pure (go st0)
 each focus built, like a sentinel-terminated sequence, a C string's.
 A list which doesn't end by its first ending focus doesn't match.
 
-> prop> terminatedBy end = stepping () (\() -> bool (Right ()) (Left True) . end)
+> prop> terminateBy end = stepping () (\() -> bool (Right ()) (Left True) . end)
 -}
-terminatedBy :: (a -> Bool) -> Varifocal' [a] a
-terminatedBy end = stepping () (\() -> bool (Right ()) (Left True) . end)
+terminateBy :: (a -> Bool) -> Varifocal' [a] a
+terminateBy end = stepping () (\() -> bool (Right ()) (Left True) . end)
 
 {- | Foci opened by the first, & closed by the first after it
 which matches it, deciding by the opening focus built,
@@ -323,19 +322,19 @@ or a fenced code block's fence, whose language,
 of matching delimiters, isn't context-free.
 A list which doesn't close by its first match doesn't match.
 -}
-delimited :: (a -> a -> Bool) -> Varifocal' [a] a
-delimited same = stepping Nothing $ \st b -> case st of
+delimitBy :: (a -> a -> Bool) -> Varifocal' [a] a
+delimitBy same = stepping Nothing $ \st b -> case st of
   Nothing -> Right (Just b)
   Just open -> bool (Right st) (Left True) (same open b)
 
 {- | Foci opened by one which @open@s, & closed by the one which @close@s,
 at the same nesting depth, like nested comments, @/* /* */ */@,
-or a balanced block, whose language, of nested pairs, isn't regular.
+or a balanceBy block, whose language, of nested pairs, isn't regular.
 A focus may not both @open@ & @close@.
 A list which doesn't open first, or close only last, doesn't match.
 -}
-balanced :: (a -> Bool) -> (a -> Bool) -> Varifocal' [a] a
-balanced open close = stepping (0 :: Int) step
+balanceBy :: (a -> Bool) -> (a -> Bool) -> Varifocal' [a] a
+balanceBy open close = stepping (0 :: Int) step
   where
     step depth b
       | open b = Right (depth + 1)
@@ -348,7 +347,7 @@ balanced open close = stepping (0 :: Int) step
 like a length-prefixed record of bytes in a binary format.
 A list which doesn't have as many as its first focus counts doesn't match.
 -}
-countPrefixed :: (a -> Int) -> Varifocal' [a] a
-countPrefixed count = stepping Nothing $ \st b -> case st of
+countWith :: (a -> Int) -> Varifocal' [a] a
+countWith count = stepping Nothing $ \st b -> case st of
   Nothing -> if count b <= 0 then Left True else Right (Just (count b))
   Just n -> if n <= 1 then Left True else Right (Just (n - 1))

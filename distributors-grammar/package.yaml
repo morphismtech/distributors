@@ -102,3 +102,25 @@ tests:
       - hspec >= 2.7 && < 3
       - megaparsec >= 9.0 && < 10
       - QuickCheck >= 2.14 && < 3
+
+benchmarks:
+  core:
+    main: Main.hs
+    source-dirs:
+      - bench
+      - test
+    other-modules:
+      - Examples.Arithmetic
+      - Examples.Expression
+      - Examples.Heredoc
+      - Examples.Json
+      - Examples.Lambda
+      - Examples.SemVer
+      - Examples.SExpr
+    ghc-options:
+      - -O2
+      - -rtsopts
+    dependencies:
+      - distributors
+      - distributors-grammar
+      - tasty-bench >= 0.3 && < 1

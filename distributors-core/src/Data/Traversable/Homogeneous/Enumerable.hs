@@ -126,7 +126,7 @@ instance Enumerable f => Enumerable (Rec1 f) where
   enumerably = dimap unRec1 Rec1 . enumerably
 {- | A copy tagged by a finite enumeration is a copy for each tag,
 numbered by its tag's `fromEnum`, from `minBound`,
-& summed in a balanced tree, built lazily.
+& summed in a balanceBy tree, built lazily.
 
 >>> map (review fromEnumerable) [(False, 'a'), (True, 'b')]
 [(0,'a'),(1,'b')]

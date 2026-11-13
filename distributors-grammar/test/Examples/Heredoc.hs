@@ -22,23 +22,23 @@ heredocLines = iso
     tag : rest -> Heredoc tag (if null rest then [] else init rest)
     [] -> Heredoc "" [])
 
--- | Heredocs, by their lines, `delimited` by their tag,
+-- | Heredocs, by their lines, `delimitBy` by their tag,
 -- a context-sensitive grammar, which needs a `Varifocal`.
 heredocP
   :: forall p m.
      ( MonadicTrans p, Alternator (p m), MonadPlus m, Filterable m
      , Tokenized Char (p m Char Char), TerminalSymbol Char (p m () ()) )
   => p m Heredoc Heredoc
-heredocP = heredocLines >~ symbol "<<" >* contextuallyT (delimited (==)) lineP
+heredocP = heredocLines >~ symbol "<<" >* contextuallyT (delimitBy (==)) lineP
   where
     symbol :: String -> p m () ()
     symbol = terminal
     lineP = manyP (notOneOf "\n") *< symbol "\n"
 
--- | Heredocs as a `CtxGrammar`, applying `delimited` `contextually`,
+-- | Heredocs as a `CtxGrammar`, applying `delimitBy` `contextually`,
 -- so it runs as any `CtxGrammar` does, by `Parsector` too.
 heredocG :: CtxGrammar Char Heredoc
-heredocG = heredocLines >~ terminal "<<" >* contextually (delimited (==)) lineG
+heredocG = heredocLines >~ terminal "<<" >* contextually (delimitBy (==)) lineG
   where
     lineG = manyP (notOneOf "\n") *< terminal "\n"
 

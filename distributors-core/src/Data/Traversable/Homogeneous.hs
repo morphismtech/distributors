@@ -198,7 +198,7 @@ instance Homogeneous Tree where
   homogeneously p = dimap2 rootLabel subForest Node p (manyP (homogeneously p))
 
 {- | A copy tagged by a finite enumeration is a copy for each tag,
-summed in a balanced tree, built lazily.
+summed in a balanceBy tree, built lazily.
 
 >>> zipWithHomogeneous (+) (True, 1) (True, 2 :: Int)
 Just (True,3)

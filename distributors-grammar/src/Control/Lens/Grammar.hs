@@ -442,13 +442,13 @@ whose shape depends on the foci it builds, as no `Bifocal` can,
 applied in a `CtxGrammar` by `contextually`,
 or on a `MonadicTrans` profunctor, by `contextuallyT`.
 A [heredoc](https://en.wikipedia.org/wiki/Here_document)'s lines are its foci,
-its tag, its body, & its tag again, `delimited` by the first line
+its tag, its body, & its tag again, `delimitBy` by the first line
 equal to the opening tag, a language which isn't context-free.
 
 >>> :{
 data Heredoc = Heredoc String [String] deriving (Eq, Show)
 heredocG :: CtxGrammar Char Heredoc
-heredocG = lined >~ terminal "<<" >* contextually (delimited (==)) lineG
+heredocG = lined >~ terminal "<<" >* contextually (delimitBy (==)) lineG
   where
     lineG = manyP (notOneOf "\n") *< terminal "\n"
     lined = iso
@@ -674,7 +674,7 @@ makeNestedPrisms ''RegBnf
 
 {- | `regexGrammar` is a context-free `Grammar` for t'RegString's.
 It can't be a `RegGrammar`, since t'RegString's include parenthesization.
-But [balanced parentheses](https://en.wikipedia.org/wiki/Dyck_language)
+But [balanceBy parentheses](https://en.wikipedia.org/wiki/Dyck_language)
 are a context-free language.
 
 >>> putStringLn (regbnfG regexGrammar)

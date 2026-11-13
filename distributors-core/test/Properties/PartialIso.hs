@@ -69,13 +69,13 @@ partialIsoProperties = do
         withPartialMarket _Just (\build match -> (either (const Nothing) Just (match m), build b))
           === withPartialIso _Just (\match' build' -> (match' m, build' b))
   describe "combinators keep passing through" $ do
-    prop "altPartialIso of Prisms is their sum" $
+    prop "withoutPartialIso of Prisms is their sum" $
       \(Fun _ f :: Fun Int (Maybe Int)) (e :: Either (Maybe Int) (Maybe Int)) -> within second $
-        traverseOf (altPartialIso _Just _Just) (either (fmap Left . f) (fmap Right . f)) e
+        traverseOf (withoutPartialIso _Just _Just) (either (fmap Left . f) (fmap Right . f)) e
           === either (fmap Left . traverseOf _Just f) (fmap Right . traverseOf _Just f) e
-    prop "crossPartialIso of Prisms passes through where both do" $
+    prop "alongsidePartialIso of Prisms passes through where both do" $
       \(Fun _ f :: Fun (Int, Int) (Maybe (Int, Int))) (m :: Maybe Int) (n :: Maybe Int) -> within second $
-        traverseOf (crossPartialIso _Just _Just) f (m, n)
+        traverseOf (alongsidePartialIso _Just _Just) f (m, n)
           === case (m, n) of
             (Just x, Just y) -> f (x, y) >>= \(x', y') -> Just (Just x', Just y')
             (Nothing, Nothing) -> Just (Nothing, Nothing)
@@ -83,10 +83,10 @@ partialIsoProperties = do
     prop "orPartialIso is the union of patterns" $
       \(n :: Int) -> within second $
         traverseOf (orPartialIso (satisfied even) (satisfied odd)) Just n === Just n
-    prop "emptyPartialIso is orPartialIso's identity" $
+    prop "falsePartialIso is orPartialIso's identity" $
       \(Fun _ f :: Fun Int (Maybe Int)) (m :: Maybe Int) -> within second $
-        traverseOf (orPartialIso emptyPartialIso _Just) f m === traverseOf _Just f m
-          .&&. traverseOf (orPartialIso _Just emptyPartialIso) f m === traverseOf _Just f m
+        traverseOf (orPartialIso falsePartialIso _Just) f m === traverseOf _Just f m
+          .&&. traverseOf (orPartialIso _Just falsePartialIso) f m === traverseOf _Just f m
     prop "coPartialIso twice rebuilds from partial functions" $
       \(Fun _ f :: Fun Int (Maybe Int)) (m :: Maybe Int) -> within second $
         traverseOf (coPartialIso (coPartialIso _Just)) f m

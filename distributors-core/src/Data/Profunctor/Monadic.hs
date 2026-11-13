@@ -34,13 +34,11 @@ may run effects of @m@ forwards, by `liftP`,
 & absorb them backwards, by `joinP`.
 
 `liftP` is a monad morphism.
-
-> prop> liftP . pure = pure
-> prop> liftP (m >>= k) = liftP m >>= liftP . k
-> prop> joinP (fmap pure p) = p
-> prop> joinP = join . fmap liftP
 -}
-class (forall m x. Monad m => Monad (p m x)) => MonadicTrans p where
+class
+  ( forall m x. Monad m => Monad (p m x)
+  , forall m. Monad m => Profunctor (p m)
+  ) => MonadicTrans p where
   liftP :: Monad m => m b -> p m a b
   liftP = joinP . return
   joinP :: Monad m => p m a (m b) -> p m a b

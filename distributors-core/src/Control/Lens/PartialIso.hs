@@ -23,10 +23,10 @@ module Control.Lens.PartialIso
   , withPartialIso
   , clonePartialIso
   , coPartialIso
-  , crossPartialIso
-  , altPartialIso
+  , alongsidePartialIso
+  , withoutPartialIso
   , orPartialIso
-  , emptyPartialIso
+  , falsePartialIso
     -- * Applicators
   , dimapMaybe
   , (>?)
@@ -414,22 +414,23 @@ coPartialIso pattern =
   withPartialIso pattern $ \f g -> partialIso g f
 
 {- | Construct a `PartialIso` on pairs from components,
+pairing their foci, as `Control.Lens.Lens.alongside` does,
 passing a pair through where both components pass through,
 & otherwise failing on a mismatch, since a pair passed through
 needs a target from each component.
 
->>> traverseOf (crossPartialIso _Just _Just) (\(x, y) -> Just (x + y, x * y)) (Just 2, Just 3 :: Maybe Int)
+>>> traverseOf (alongsidePartialIso _Just _Just) (\(x, y) -> Just (x + y, x * y)) (Just 2, Just 3 :: Maybe Int)
 Just (Just 5,Just 6)
->>> traverseOf (crossPartialIso _Just _Just) (Just . id) (Nothing, Nothing :: Maybe Int)
+>>> traverseOf (alongsidePartialIso _Just _Just) (Just . id) (Nothing, Nothing :: Maybe Int)
 Just (Nothing,Nothing)
->>> traverseOf (crossPartialIso _Just _Just) (Just . id) (Just 2, Nothing :: Maybe Int)
+>>> traverseOf (alongsidePartialIso _Just _Just) (Just . id) (Just 2, Nothing :: Maybe Int)
 Nothing
 -}
-crossPartialIso
+alongsidePartialIso
   :: APartialIso s t a b
   -> APartialIso u v c d
   -> PartialIso (s,u) (t,v) (a,c) (b,d)
-crossPartialIso x y =
+alongsidePartialIso x y =
   withPartialMarket x $ \build0 match0 ->
   withPartialMarket y $ \build1 match1 ->
     partialMarket
@@ -440,20 +441,21 @@ crossPartialIso x y =
         _ -> Left Nothing)
 
 {- | Construct a `PartialIso` on `Either`s from components,
+summing their foci, as `Control.Lens.Prism.without` does,
 passing a mismatch through from either.
 
->>> traverseOf (altPartialIso _Just _Just) (Just . either (Left . succ) (Right . pred)) (Left (Just 1) :: Either (Maybe Int) (Maybe Int))
+>>> traverseOf (withoutPartialIso _Just _Just) (Just . either (Left . succ) (Right . pred)) (Left (Just 1) :: Either (Maybe Int) (Maybe Int))
 Just (Left (Just 2))
->>> traverseOf (altPartialIso _Just _Just) (Just . either (Left . succ) (Right . pred)) (Left Nothing :: Either (Maybe Int) (Maybe Int))
+>>> traverseOf (withoutPartialIso _Just _Just) (Just . either (Left . succ) (Right . pred)) (Left Nothing :: Either (Maybe Int) (Maybe Int))
 Just (Left Nothing)
 -}
-altPartialIso
+withoutPartialIso
   :: APartialIso s t a b
   -> APartialIso u v c d
   -> PartialIso
       (Either s u) (Either t v)
       (Either a c) (Either b d)
-altPartialIso x y =
+withoutPartialIso x y =
   withPartialMarket x $ \build0 match0 ->
   withPartialMarket y $ \build1 match1 ->
     partialMarket
@@ -490,15 +492,15 @@ orPartialIso x y =
 {- | The pattern which never matches & never builds,
 failing in both directions, the identity of `orPartialIso`.
 
-> prop> orPartialIso emptyPartialIso pattern = clonePartialIso pattern
-> prop> orPartialIso pattern emptyPartialIso = clonePartialIso pattern
-> prop> satisfied (const False) = emptyPartialIso
+> prop> orPartialIso falsePartialIso pattern = clonePartialIso pattern
+> prop> orPartialIso pattern falsePartialIso = clonePartialIso pattern
+> prop> satisfied (const False) = falsePartialIso
 
->>> preview emptyPartialIso 'x' :: Maybe Char
+>>> preview falsePartialIso 'x' :: Maybe Char
 Nothing
 -}
-emptyPartialIso :: PartialIso s t a b
-emptyPartialIso = partialMarket (const Nothing) (const (Left Nothing))
+falsePartialIso :: PartialIso s t a b
+falsePartialIso = partialMarket (const Nothing) (const (Left Nothing))
 
 {- | Action of `APrism` on `Choice` `Profunctor`s. -}
 (>?)
@@ -681,9 +683,9 @@ difoldl1 pattern =
       (\(c,(a,s)) -> ((c,a),s))
       (\((d,b),t) -> (d,(b,t)))
     step
-      = crossPartialIso id _Cons
+      = alongsidePartialIso id _Cons
       . associate
-      . crossPartialIso (coPartialIso pattern) id
+      . alongsidePartialIso (coPartialIso pattern) id
   in from (iterating step)
 
 {- | Right fold & unfold `APartialIso` to an `Control.Lens.Iso.Iso`. -}
@@ -697,9 +699,9 @@ difoldr1 pattern =
       (\((s,a),c) -> (s,(a,c)))
       (\(t,(b,d)) -> ((t,b),d))
     step
-      = crossPartialIso _Snoc id
+      = alongsidePartialIso _Snoc id
       . reorder
-      . crossPartialIso id (coPartialIso pattern)
+      . alongsidePartialIso id (coPartialIso pattern)
   in from (iterating step)
 
 {- | Left fold & unfold `APartialIso` to a `Control.Lens.Prism.Prism`. -}
