@@ -42,6 +42,7 @@ module Control.Lens.PartialIso
   , notNulled
   , eotMaybe
   , eotList
+  , listed
     -- * Iterators
   , iterating
   , difoldl1
@@ -66,10 +67,13 @@ import Control.Monad
 import Data.Monoid.Disjunctive
 import Data.Profunctor
 import Witherable
+import GHC.IsList (IsList (..))
 
 -- $setup
 -- >>> import Control.Lens
 -- >>> import Data.Monoid.Disjunctive ((>|<))
+-- >>> import Data.Sequence (Seq)
+-- >>> import GHC.IsList (fromList)
 
 {- | The `dimapMaybe` function endows
 `Choice` & `Cochoice` "partial profunctors"
@@ -648,6 +652,16 @@ eotList
 eotList = iso
   (maybe (Left ()) Right . uncons)
   (either (const Empty) (review _Cons))
+
+{- | A list of items as an `IsList`, like lens's @List@ pattern.
+Act on an `IsList` as on lists by @listed ~< p@;
+optically, into its items by @from listed@.
+
+>>> review listed (fromList "abc" :: Seq Char)
+"abc"
+-}
+listed :: (IsList s, IsList t) => Iso [Item s] [Item t] s t
+listed = iso fromList toList
 
 {- | Iterate the application of a partial isomorphism,
 useful for constructing fold/unfold isomorphisms. -}

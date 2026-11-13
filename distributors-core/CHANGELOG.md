@@ -48,6 +48,8 @@
 - `inRange lo hi`, a `Prismoid` of between some numbers of times, at least
   @lo@ & at most @hi@, if @Just@, like a regular expression's @{lo,hi}@ or
   @{lo,}@; & its intervals `exactly`, `atLeast` & `atMost`.
+- `listed`, in `Control.Lens.PartialIso`, a list of items as an `IsList`,
+  `iso fromList toList`: act on an `IsList` as on lists by `listed ~< p`.
 - `manyTillP`, an `Alternator` method, zero or more, then the rest,
   @p* q@, trying the rest first, like parsec's @manyTill@, which a static
   `Alternator` defines without recursing, as @starK p <> q@.
@@ -129,7 +131,7 @@
   `chain`, & `somed` is `atLeast 1`, replacing the `SepBy` combinators
   `several`, `chain1` & `chain`, which `sepBy` of them replaces:
   `several sep p` is `sepBy sep several p`, of lists, &
-  `iso toList fromList >~ sepBy sep several p` of other `IsList`s;
+  `listed ~< sepBy sep several p` of other `IsList`s;
   `several1 sep p` is `sepBy sep (atLeast 1) p`;
   `chain1 assoc pat sep p` is `sepBy sep (chain1 assoc pat) p`; &
   `intercalateP n sep p` is `sepBy sep (exactly n) p`.

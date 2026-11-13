@@ -382,7 +382,7 @@ Separating `Control.Lens.Diopter.several`, `atLeast`, `atMost`, `inRange`,
 lists, binary constructor patterns, or a number of repetitions;
 & separating a `Control.Lens.Monocle.Monocle`, like
 `Control.Lens.Monocle.ditraversed`, the positions of a fixed product.
-Other `IsList`s are lists by @`iso` `toList` `fromList`@.
+Other `IsList`s act as lists by @`Control.Lens.PartialIso.listed` ~<@.
 
 >>> let comma = Joker (() <$ char ',')
 >>> let digit = Joker (satisfy isDigit)

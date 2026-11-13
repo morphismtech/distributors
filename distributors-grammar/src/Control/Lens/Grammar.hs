@@ -735,18 +735,18 @@ regexGrammar = _RegString >~ ruleRec "regex" altG
 
     classCatG = rule "class-category" $ orP
       [ _AndAsIn >? terminal "\\p{" >* categoryG *< terminal "}"
-      , _AndNotAsIn . iso toList fromList >?
+      , _AndNotAsIn . from listed >?
           terminal "\\P{" >* sepWith "|" (atLeast 1) categoryG *< terminal "}"
       ]
 
     classOneOfG = rule "class-one-of" $ orP
       [ onlyOne charG
-      , terminal "[" >* (iso toList fromList >~ manyP charG) *< terminal "]"
+      , terminal "[" >* (listed ~< manyP charG) *< terminal "]"
       ]
 
     classNotOneOfG = rule "class-not-one-of" $ orP
       [ asEmpty >*< classCatG
-      , terminal "[^" >* (iso toList fromList >~ manyP charG) >*<
+      , terminal "[^" >* (listed ~< manyP charG) >*<
           optionP (_AndNotAsIn . _Empty) classCatG *< terminal "]"
       ]
 
@@ -856,7 +856,7 @@ That means that it can generate a self-hosted definition.
 -}
 regbnfGrammar :: Grammar Char RegBnf
 regbnfGrammar = rule "regbnf" $ _RegBnf . _Bnf >~
-  terminal "{start} = " >* regexGrammar >*< (iso toList fromList >~ manyP
+  terminal "{start} = " >* regexGrammar >*< (listed ~< manyP
     (terminal "\n" >* nonterminalG *< terminal " = " >*< regexGrammar))
 
 
