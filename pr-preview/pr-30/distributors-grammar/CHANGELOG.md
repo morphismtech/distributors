@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- Token classes test their sets of tokens logarithmically, by `Set`, in
+  `tokenClass`'s default & in `oneOf` & `notOneOf` of predicates, rather
+  than linearly by `Foldable`: parsing the JSON example, whose characters
+  are a class of over a million tokens, is hundreds of times faster.
+- `unparseG` & `unparsecG` document that printing `snoc`s, so a `String`
+  prints quadratically, & a `Data.Sequence.Seq` linearly.
+- Benchmarks, `bench:core`, of `distributors`' combinators & the test
+  examples, at parsing, printing & `Parsector`.
 - The grammars of `distributors` 0.6, split into their own package:
   `Control.Lens.Grammar` & its `BackusNaur`, `Machine`, `RegEx`, `Symbol`
   & `Token` modules, `Control.Monad.Fail.Try`, `Data.Profunctor.Grammar`
