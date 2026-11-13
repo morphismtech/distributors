@@ -20,6 +20,7 @@ module Control.Lens.Varifocal
   , cloneVarifocal
   , crossVarifocal
   , altVarifocal
+  , orVarifocal
   , bindVarifocal
     -- * Applicator
   , contextually
@@ -37,7 +38,7 @@ import Control.Lens
 import Control.Lens.PartialIso ((>?))
 import Control.Monad (MonadPlus (..), ap)
 import Data.Bool (bool)
-import Data.Monoid.Disjunctive (DisjunctiveMonoid)
+import Data.Monoid.Disjunctive (DisjunctiveMonoid (..))
 import Data.Profunctor (Cochoice (..))
 import Data.Profunctor.Distributor
 import Data.Profunctor.Filtrator (Filtrator (..), mfiltrate)
@@ -242,6 +243,17 @@ altVarifocal
   -> Varifocal (Either s u) (Either t v) a b
 altVarifocal x y q = rmap (either (fmap Left) (fmap Right))
   (cloneVarifocal x q >+< cloneVarifocal y q)
+
+{- | Two `AVarifocal`s of the same source, disjoined by `>|<`.
+
+> prop> orVarifocal x falseOptic = cloneVarifocal x
+> prop> orVarifocal falseOptic y = cloneVarifocal y
+-}
+orVarifocal
+  :: AVarifocal s t a b
+  -> AVarifocal s t a b
+  -> Varifocal s t a b
+orVarifocal x y q = cloneVarifocal x q >|< cloneVarifocal y q
 
 {- | An `AVarifocal`, then another, chosen by what the first built,
 on a pair, as only `Varifocal`s can,

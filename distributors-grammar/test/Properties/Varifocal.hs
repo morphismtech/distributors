@@ -103,6 +103,14 @@ varifocalProperties = do
           === Just ((header, payload), "rest")
     it "won't print a netstring whose length isn't its payload's" $
       printedG netstring ("3:", "ab") `shouldBe` Nothing
+    it "ors one, else the other, with falseOptic as its unit" $ do
+      let ored, emptied :: Varifocal' String Char
+          ored = orVarifocal (terminatedBy (== '.')) (balanced (== '(') (== ')'))
+          emptied = orVarifocal falseOptic (terminatedBy (== '.'))
+      map (printed ored) ["ab.", "(a)", "ab"] `shouldBe` [Just "ab.", Just "(a)", Nothing]
+      map (parsed ored) ["ab.c", "(a)c"] `shouldBe` [Just ("ab.", "c"), Just ("(a)", "c")]
+      map (printed emptied) ["ab.", "ab"] `shouldBe` map (printed ended) ["ab.", "ab"]
+      printed falseOptic "ab." `shouldBe` Nothing
   describe "cloneVarifocal, by its free Varifocus" $ do
     prop "clones terminatedBy, printing & parsing as it does" $
       forAll plain $ \s -> forAll plain $ \t ->

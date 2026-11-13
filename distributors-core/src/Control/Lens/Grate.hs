@@ -21,6 +21,7 @@ module Control.Lens.Grate
   , grate
   , withGrate
   , cloneGrate
+  , crossGrate
   , mapGrate
   , cotraversed
   , represented
@@ -81,6 +82,19 @@ monomorphically typed `Grate` for different purposes.
 -}
 cloneGrate :: AGrate s t a b -> Grate s t a b
 cloneGrate = grate . withGrate
+
+{- | Construct a `Grate` on pairs from components, with the same foci,
+as `Control.Lens.Monocle.crossMonocle` does `Control.Lens.Monocle.Monocle`s.
+
+>>> over (crossGrate cotraversed cotraversed) negate (1 :+ 2, 3 :+ 4)
+((-1) :+ (-2),(-3) :+ (-4))
+-}
+crossGrate
+  :: AGrate s t a b
+  -> AGrate u v a b
+  -> Grate (s,u) (t,v) a b
+crossGrate x y p =
+  rmap (uncurry (liftA2 (,))) (cloneGrate x p >*< cloneGrate y p)
 
 {- | Run `AGrate`. -}
 withGrate :: AGrate s t a b -> ((s -> a) -> b) -> t
