@@ -111,7 +111,29 @@ instance Filterable f => Filtrator (Parsor s f) where
         (p (fmap Right ma) s)
     )
 instance (Alternative m, Monad m) => CocartesianMonoidal (Parsor s m)
-instance (Alternative m, Monad m) => Distributor (Parsor s m)
+{- | `manyP` & `optionalP` parse & print their elements in turn,
+rather than through isomorphisms & sums, parsing more before fewer.
+-}
+instance (Alternative m, Monad m) => Distributor (Parsor s m) where
+  manyP (Parsor p) = Parsor $ \ma s -> case ma of
+    Nothing -> parsing s
+    Just as -> printing as s
+    where
+      parsing s =
+        (do
+          (b, s') <- p Nothing s
+          (bs, s'') <- parsing s'
+          pure (b : bs, s''))
+        <|> pure ([], s)
+      printing [] s = pure ([], s)
+      printing (a : as) s = do
+        (b, s') <- p (Just a) s
+        (bs, s'') <- printing as s'
+        pure (b : bs, s'')
+  optionalP (Parsor p) = Parsor $ \ma s -> case ma of
+    Nothing -> fmap (first' Just) (p Nothing s) <|> pure (Nothing, s)
+    Just Nothing -> pure (Nothing, s)
+    Just (Just a) -> fmap (first' Just) (p (Just a) s)
 instance (Alternative m, Monad m) => Choice (Parsor s m) where
   left' = alternate . Left
   right' = alternate . Right
