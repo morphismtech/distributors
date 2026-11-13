@@ -214,7 +214,8 @@ terminatedBy end q = rmap pure go
 
 {- | Foci opened by the first, & closed by the first after it
 which matches it, deciding by the opening focus built,
-like a heredoc's tag, or a fenced code block's fence,
+like a [heredoc](https://en.wikipedia.org/wiki/Here_document)'s tag,
+or a fenced code block's fence,
 which no `Control.Lens.Bifocal.Bifocal` can, since its language,
 of matching delimiters, isn't context-free.
 A list which doesn't close by its first match doesn't match.

@@ -440,7 +440,8 @@ which can recognize the larger class of recursively enumerable languages.
 Context-sensitivity can also be optical. A `Varifocal` is an optic
 whose shape depends on the foci it builds, as no `Bifocal` can,
 run `contextually` on a `MonadicTrans` profunctor,
-like a t'Printor' or t'Parsor'. A heredoc's lines are its foci,
+like a t'Printor' or t'Parsor'.
+A [heredoc](https://en.wikipedia.org/wiki/Here_document)'s lines are its foci,
 its tag, its body, & its tag again, `delimited` by the first line
 equal to the opening tag, a language which isn't context-free.
 
