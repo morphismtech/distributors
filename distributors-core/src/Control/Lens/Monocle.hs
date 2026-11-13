@@ -22,8 +22,8 @@ module Control.Lens.Monocle
   , withMonocle
   , cloneMonocle
   , mapMonocle
-  , imprism
   , crossMonocle
+  , oneOptic
   , ditraversed
   , forevered
   , zipMonocle
@@ -83,15 +83,16 @@ monomorphically typed `Monocle` for different purposes.
 cloneMonocle :: AMonocle s t a b -> Monocle s t a b
 cloneMonocle mon = unwrapPafb . mapMonocle mon . WrapPafb
 
-{- | Convert a `Monocle` to an improper `Control.Lens.Prism.Prism`.
+{- | The `Monocle` without foci, the unit of the crosses,
+like `crossMonocle`, up to the unitor @(s,()) ≅ s@,
+as `oneP` is of `>*<`, & by inclusion an optic of every
+kind which crosses.
 
->>> review (imprism ditraversed) 1 :: Complex Int
-1 :+ 1
->>> preview (imprism ditraversed) (1 :+ 2 :: Complex Int)
-Just 1
+>>> toListOf oneOptic () :: [Int]
+[]
 -}
-imprism :: Monocle s t a b -> Prism s t a b
-imprism mon = clonePrism mon
+oneOptic :: Monocle () () a b
+oneOptic _ = pure (pure ())
 
 {- | Construct a `Monocle` on pairs from components, with the same foci,
 since products of powers add, \(a^m \times a^n = a^{m+n}\),

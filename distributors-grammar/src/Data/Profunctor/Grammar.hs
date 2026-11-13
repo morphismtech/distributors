@@ -39,6 +39,7 @@ import Data.Profunctor.Distributor
 import Data.Profunctor.Monoidal.Cocartesian
 import Data.Profunctor.Filtrator
 import Data.Profunctor.Monoidal
+import Data.Profunctor.Monadic (MonadicTrans (..))
 import Data.Void
 import Prelude hiding (id, (.))
 import GHC.Exts
@@ -88,6 +89,8 @@ instance Monad m => Monad (Parsor s m a) where
   Parsor p >>= f = Parsor $ \ma s -> do
     (a, s') <- p ma s
     runParsor (f a) ma s'
+instance MonadicTrans (Parsor s) where
+  liftP mb = Parsor (\_ s -> (, s) <$> mb)
 instance (Alternative m, Monad m) => Alternative (Parsor s m a) where
   empty = Parsor (\_ _ -> empty)
   Parsor p <|> Parsor q = Parsor $ \ma s -> p ma s <|> q ma s
@@ -216,6 +219,8 @@ instance Monad f => Monad (Printor s f a) where
     (b,h) <- runPrintor (f a1) a
     return (b, g . h)
 instance (Alternative f, Monad f) => MonadPlus (Printor s f a)
+instance MonadicTrans (Printor s) where
+  liftP mb = Printor (\_ -> (, id) <$> mb)
 instance Functor f => CocartesianMonoidal (Printor s f) where
   zeroP = Printor absurd
   Printor p >+< Printor q = Printor $

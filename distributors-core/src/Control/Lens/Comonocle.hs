@@ -19,7 +19,8 @@ module Control.Lens.Comonocle
   , cloneComonocle
   , mapComonocle
   , altComonocle
-  , crossComonocle
+  , zeroOptic
+  , alongsideComonocle
   , indexComonocle
   , countComonocle
   , copiesComonocle
@@ -105,6 +106,14 @@ mapComonocle
 mapComonocle mon = withComonocle mon $ \split merge ->
   dimap split merge . enumerably
 
+{- | The `Comonocle` without copies, the unit of the alts,
+like `altComonocle`, up to the unitor @Either s Void ≅ s@,
+as `zeroP` is of `>+<`, & by inclusion an optic of every
+kind which alts.
+-}
+zeroOptic :: Comonocle Void Void a b
+zeroOptic _ = rmap absurd zeroP
+
 {- | Construct a `Comonocle` on `Either`s from components, with the same foci,
 since sums of copies add, \(m a + n a = (m+n) a\),
 as `Control.Lens.Lens.choosing` does `Control.Lens.Lens.Lens`es.
@@ -123,14 +132,14 @@ altComonocle x y p = rmap (either (fmap Left) (fmap Right))
 since products of sums of copies distribute,
 \(m a \times n c = (m n) (a \times c)\).
 
->>> over (crossComonocle _Enumerable id) (\(a, c) -> (a + c, show c)) (Identity 1, 2)
+>>> over (alongsideComonocle _Enumerable id) (\(a, c) -> (a + c, show c)) (Identity 1, 2)
 (Identity 3,"2")
 -}
-crossComonocle
+alongsideComonocle
   :: AComonocle s t a b
   -> AComonocle u v c d
   -> Comonocle (s,u) (t,v) (a,c) (b,d)
-crossComonocle x y =
+alongsideComonocle x y =
   withComonocle x $ \e f ->
   withComonocle y $ \g h ->
     comonocle $ Comonocular

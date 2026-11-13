@@ -17,6 +17,8 @@ module Control.Lens.Diopter
   , diopter
   , withDiopter
   , cloneDiopter
+  , crossDiopter
+  , altDiopter
   , mapDiopter
   , optioned
   , several
@@ -32,12 +34,14 @@ import Control.Applicative (Alternative)
 import Control.Lens
 import Control.Lens.Internal.Profunctor
 import Data.Profunctor.Distributor
+import Data.Profunctor.Monoidal ((>*<))
 import Data.Profunctor.Monoidal.Cocartesian
 import Data.Traversable.Homogeneous
 import Data.Void
 import GHC.Generics
 
 -- $setup
+-- >>> import Control.Lens (over)
 -- >>> import Control.Lens.Prismoid ((>?*))
 -- >>> import Data.Bifunctor.Joker (Joker (..))
 -- >>> import Data.Profunctor.Monoidal ((*<))
@@ -90,6 +94,32 @@ monomorphically typed `Diopter` for different purposes.
 -}
 cloneDiopter :: ADiopter s t a b -> Diopter s t a b
 cloneDiopter dio = withDiopter dio diopter
+
+{- | Construct a `Diopter` on pairs from components, with the same foci,
+as `Control.Lens.Monocle.crossMonocle` does `Control.Lens.Monocle.Monocle`s.
+
+>>> over (crossDiopter several optioned) negate ([1, 2], Just 3)
+([-1,-2],Just (-3))
+-}
+crossDiopter
+  :: ADiopter s t a b
+  -> ADiopter u v a b
+  -> Diopter (s,u) (t,v) a b
+crossDiopter x y p =
+  rmap (uncurry (liftA2 (,))) (cloneDiopter x p >*< cloneDiopter y p)
+
+{- | Construct a `Diopter` on `Either`s from components, with the same foci,
+as `Control.Lens.Comonocle.altComonocle` does `Control.Lens.Comonocle.Comonocle`s.
+
+>>> over (altDiopter several optioned) negate (Left [1, 2])
+Left [-1,-2]
+-}
+altDiopter
+  :: ADiopter s t a b
+  -> ADiopter u v a b
+  -> Diopter (Either s u) (Either t v) a b
+altDiopter x y p = rmap (either (fmap Left) (fmap Right))
+  (cloneDiopter x p >+< cloneDiopter y p)
 
 {- | One or none. -}
 optioned :: Diopter (Maybe a) (Maybe b) a b

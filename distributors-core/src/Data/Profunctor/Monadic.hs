@@ -10,54 +10,39 @@ Portability : non-portable
 See Li-yao Xia, [Monadic profunctors for bidirectional programming]
 (https://blog.poisson.chat/posts/2017-01-01-monadic-profunctors.html)
 
-This module can provide qualified do-notation for `Monadic` profunctors.
-
->>> :set -XQualifiedDo
->>> import qualified Data.Profunctor.Monadic as P
-
-See "Control.Lens.Grammar#t:CtxGrammar" for
-an example of how to use qualified do-notation
-with pattern bonding.
+For qualified do-notation, with pattern bonding,
+import "Data.Profunctor.Monadic.Do" qualified;
+this module has no names which conflict with the "Prelude".
 -}
 
 module Data.Profunctor.Monadic
   ( -- * Monadic
     Monadic
-  , (>>=)
-  , (>>)
-  , return
-  , fail
+    -- * MonadicTrans
+  , MonadicTrans (..)
   ) where
 
-import Control.Lens
-import Control.Monad hiding ((>>=), (>>), return)
-import Data.Profunctor.Monoidal
-import Prelude hiding ((>>=), (>>), return)
+import Control.Monad (join)
+import Data.Profunctor (Profunctor)
 
 {- | A `Profunctor` which is also a `Monad`. -}
 type Monadic p = (Profunctor p, forall x. Monad (p x))
 
-{- | The pair bonding operator @P.@`>>=` is a context-sensitive
-version of `>*<`.
+{- | A `MonadicTrans` profunctor transforms a monad @m@,
+like a `Control.Monad.Trans.Class.MonadTrans`, so that its actions
+may run effects of @m@ forwards, by `liftP`,
+& absorb them backwards, by `joinP`.
 
-> prop> x >*< y = x P.>>= (\_ -> y)
+`liftP` is a monad morphism.
+
+> prop> liftP . pure = pure
+> prop> liftP (m >>= k) = liftP m >>= liftP . k
+> prop> joinP (fmap pure p) = p
+> prop> joinP = join . fmap liftP
 -}
-(>>=) :: Monadic p => p a b -> (b -> p c d) -> p (a,c) (b,d)
-infixl 1 >>=
-p >>= f = do
-  b <- lmap fst p
-  d <- lmap snd (f b)
-  pure (b,d)
-
-{- | @P.@`>>` sequences actions. -}
-(>>) :: Monadic p => p () c -> p a b -> p a b
-infixl 1 >>
-x >> y = do _ <- lmap (const ()) x; y
-
-{- | @P.@`return` is a `Monadic`-restricted
-version of `pureP`.
-
-> prop> pureP = P.return
--}
-return :: (Monadic p, Choice p) => APrism a b () () -> p a b
-return = pureP
+class (forall m x. Monad m => Monad (p m x)) => MonadicTrans p where
+  liftP :: Monad m => m b -> p m a b
+  liftP = joinP . return
+  joinP :: Monad m => p m a (m b) -> p m a b
+  joinP = join . fmap liftP
+  {-# MINIMAL liftP | joinP #-}

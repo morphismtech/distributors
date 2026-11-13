@@ -22,6 +22,10 @@ module Control.Lens.Prismoid
   , prismoid
   , withPrismoid
   , clonePrismoid
+  , crossPrismoid
+  , altPrismoid
+  , orPrismoid
+  , falseOptic
   , opted
   , lefted
   , righted
@@ -131,6 +135,58 @@ monomorphically typed `Prismoid` for different purposes.
 -}
 clonePrismoid :: APrismoid s t a b -> Prismoid s t a b
 clonePrismoid pat = withPrismoid pat prismoid
+
+{- | Construct a `Prismoid` on pairs from components, with the same foci,
+sequencing the first's foci, then the second's.
+
+>>> let p = runJoker (crossPrismoid (exactly 1) (atLeast 1) >?* Joker (satisfy isDigit))
+>>> [r | (r, "") <- readP_to_S p "123"]
+[("1","23")]
+-}
+crossPrismoid
+  :: APrismoid s t a b
+  -> APrismoid u v a b
+  -> Prismoid (s,u) (t,v) a b
+crossPrismoid x y p =
+  rmap (uncurry (liftA2 (,))) (clonePrismoid x p >*< clonePrismoid y p)
+
+{- | Construct a `Prismoid` on `Either`s from components, with the same foci.
+
+>>> let p = runJoker (altPrismoid (exactly 2) (exactly 1) >?* Joker (satisfy isDigit))
+>>> [r | (r, "") <- readP_to_S p "12"]
+[Left "12"]
+-}
+altPrismoid
+  :: APrismoid s t a b
+  -> APrismoid u v a b
+  -> Prismoid (Either s u) (Either t v) a b
+altPrismoid x y p = rmap (either (fmap Left) (fmap Right))
+  (clonePrismoid x p >+< clonePrismoid y p)
+
+{- | Disjoin two `Prismoid`s on the same source, by `>|<`.
+
+> prop> orPrismoid x falseOptic = clonePrismoid x
+> prop> orPrismoid falseOptic y = clonePrismoid y
+
+>>> let p = runJoker (orPrismoid (exactly 2) (exactly 1) >?* Joker (satisfy isDigit))
+>>> [r | (r, "") <- readP_to_S p "1"]
+["1"]
+-}
+orPrismoid
+  :: APrismoid s t a b
+  -> APrismoid s t a b
+  -> Prismoid s t a b
+orPrismoid x y p = clonePrismoid x p >|< clonePrismoid y p
+
+{- | The `Prismoid` which never matches, nor builds, the unit of the ors,
+like `orPrismoid`, as `falseP` is of `>|<`, & by inclusion an optic
+of every kind which ors.
+
+>>> [r | (r, "") <- readP_to_S (runJoker (falseOptic >?* Joker (char 'a'))) "a"] :: [String]
+[]
+-}
+falseOptic :: Prismoid s t a b
+falseOptic _ = falseP
 
 {- | Convert `APrismoid` to the pair of functions that characterize it.
 

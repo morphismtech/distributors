@@ -12,7 +12,7 @@
   `Comonocular`s, with `runComonocular`.
 - `WrappedPafb f p` is `CocartesianMonoidal` for any `Functor f`.
 - `AComonocle`, `withComonocle`, `cloneComonocle`, `mapComonocle`,
-  `altComonocle`, `crossComonocle`, `indexComonocle` &
+  `altComonocle`, `alongsideComonocle`, `indexComonocle` &
   `zipWithComonocle`; & `crossMonocle`.
 - `Ditraversal`s, a secondary concrete representation of `Monocle`s,
   by `Traversable` & `Distributive` homogeneous products,
@@ -41,6 +41,28 @@
   `sepBy sep several`, `sepBy sep (atLeast 1)`, `sepBy sep (chain1 assoc pat)`
   & `sepBy sep (exactly n)` sequence lists, binary constructor
   patterns & repetitions, separated. Delimiters compose around it.
+- `Varifocal`s, in `Control.Lens.Varifocal`, context-sensitive optics
+  whose shape may depend on the foci they build: `Bifocal` ⊂ `Varifocal`,
+  their `Applicative` the monad of a `MonadicTrans` profunctor, absorbed
+  by `joinP`; with `Varifocal'`; the applicators `contextually`, in any
+  `Monadic` `Alternator`, like a `CtxGrammar`, by its free concrete form
+  `Varifocus`, & `contextuallyT`, on a `MonadicTrans` profunctor;
+  `AVarifocal`, `varifocus`, `runVarifocus`, `runVarifocusT` &
+  `cloneVarifocal`; `crossVarifocal`, `altVarifocal`, `orVarifocal`
+  & `bindVarifocal`,
+  the last choosing a second by what the first built, like a netstring; & `stepping`, a deterministic machine over foci,
+  deciding by each built whether to continue, stop or reject, with its
+  instances `terminatedBy`, `delimited`, `balanced` & `countPrefixed`:
+  sentinel-terminated, matching-delimited, nested & count-prefixed
+  sequences, which no `Bifocal` can express.
+- Combinators of optics with the same foci: `crossPrismoid`,
+  `crossBifocal`, `crossDiopter` & `crossGrate`, on pairs; `altPrismoid`,
+  `altBifocal` & `altDiopter`, on `Either`s; & `orPrismoid` & `orBifocal`,
+  disjoining two on the same source by `>|<`, with the units
+  `oneOptic`, `zeroOptic` & `falseOptic`, of the crosses, alts & ors,
+  by inclusion, of every optic which has them.
+- `MonadicTrans`, in `Data.Profunctor.Monadic`, profunctors transforming a
+  monad, lifting its effects by `liftP` & absorbing them by `joinP`.
 - `skipManyP` & `skipOptionalP`, zero or more, & zero or one, skipped:
   sequencing actions forwards & none backwards, like whitespace or a
   trailing separator, which a parser accepts & a printer omits; & their
@@ -101,6 +123,10 @@
   `clonePartialIso`, with `catMaybes (pure Nothing)` for `empty`, as
   `withered`'s documentation shows.
 
+- `imprism` & the orphan `Applicative (Market a b s)` are removed: a
+  `Monocle` without foci made an improper `Prism` breaking even
+  @preview l (review l b) = Just b@.
+
 - `Filtroid`, `unlefted` & `unrighted` are removed: by `Filtrator`'s laws,
   its `Cochoice` derives from `Profunctor` & `Filterable`, so an optic for
   `Filtrator`s may only map its source & filter its target, as a
@@ -149,6 +175,10 @@
 - `Operator`'s `Infix`, `Prefix` & `Postfix` take `APrism`s, rather than
   `APartialIso`s, so that `withOperators` builds every operator it parses,
   rather than failing by `error`, or dropping prefix & postfix operators.
+- `Data.Profunctor.Monadic` splits: its qualified do-notation, `>>=`,
+  `>>`, `return` & `fail`, moves to `Data.Profunctor.Monadic.Do`, to import
+  qualified, leaving `Monadic` to import unqualified, with no names
+  conflicting with the `Prelude`.
 - `MonadicTry` moves from `Data.Profunctor.Monadic` to
   `Control.Monad.Fail.Try`, which `Data.Profunctor.Monadic` no longer
   imports, & `Data.Profunctor.Monadic` no longer re-exports `try`.

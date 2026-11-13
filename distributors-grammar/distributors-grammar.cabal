@@ -169,6 +169,7 @@ test-suite test
       Examples.Arithmetic
       Examples.Chain
       Examples.Expression
+      Examples.Heredoc
       Examples.Json
       Examples.Lambda
       Examples.LenVec
@@ -176,6 +177,7 @@ test-suite test
       Examples.SemVer
       Examples.SExpr
       Properties.Kleene
+      Properties.Varifocal
       Paths_distributors_grammar
   autogen-modules:
       Paths_distributors_grammar

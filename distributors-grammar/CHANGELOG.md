@@ -11,6 +11,10 @@
   `several`, `atLeast`, `chain1` & `exactly`, & `Control.Lens.Grammar.Symbol`
   exports `sepWith`, `sepBy` of a `terminal` separator, delimiters
   composing around a separated grammar by `>*` & `*<`.
+- `Printor s` & `Parsor s` are `MonadicTrans`, so `Varifocal`s run on
+  them, as the heredoc example grammar does; `Control.Lens.Grammar`
+  re-exports `Control.Lens.Varifocal` &
+  `Data.Profunctor.Monadic`.
 - `Grammor` defines `manyTillP` as @starK p <> q@, without recursing, so
   `sepBy` grammars, even of shapes without foci, have finite
   regular expressions & `Bnf`s.

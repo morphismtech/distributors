@@ -46,7 +46,7 @@ import Prelude
 -- by use of the applicator `Control.Lens.PartialIso.>?`
 -- to `Data.Profunctor.Monoidal.Monoidal` idiom notation
 -- with `Data.Profunctor.Monoidal.>*<`,
--- or to `Data.Profunctor.Monadic.Monadic` qualified do-notation.
+-- or to "Data.Profunctor.Monadic.Do" qualified do-notation.
 --
 -- /e.g./
 --

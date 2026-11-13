@@ -55,7 +55,7 @@ import Data.Monoid.Disjunctive
 import Data.Profunctor.Distributor
 import Data.Profunctor.Monoidal.Cocartesian
 import Data.Profunctor.Filtrator
-import Data.Profunctor.Monadic
+import Data.Profunctor.Monadic as X
 import Data.Profunctor.Monoidal
 import Data.Profunctor.Grammar
 import Data.Profunctor.Grammar.Parsector
@@ -76,6 +76,7 @@ import Control.Lens.Grammar.Token as X
 import Control.Lens.PartialIso as X
 import Control.Lens.Diopter as X
 import Control.Lens.Prismoid as X
+import Control.Lens.Varifocal as X
 import Control.Monad.Fail.Try as X
 import Data.Monoid.Disjunctive as X
 import Data.Profunctor.Distributor as X
@@ -358,7 +359,7 @@ type Grammar token a = forall p.
   ) => p a a
 
 {- | For context-sensitivity,
-the `Monadic` interface is used by importing "Data.Profunctor.Monadic"
+the `Monadic` interface is used by importing "Data.Profunctor.Monadic.Do"
 qualified and using a "bonding" notation which mixes
 "idiom" style with qualified do-notation.
 Let's use length-encoded vectors of numbers as an example.
@@ -374,7 +375,7 @@ _LenVec = iso (\LenVec {..} -> (length, vector)) (\(length, vector) -> LenVec {.
 :}
 
 >>> :set -XQualifiedDo
->>> import qualified Data.Profunctor.Monadic as P
+>>> import qualified Data.Profunctor.Monadic.Do as P
 >>> :{
 lenvecGrammar :: CtxGrammar Char LenVec
 lenvecGrammar = _LenVec >? P.do
@@ -387,7 +388,7 @@ lenvecGrammar = _LenVec >? P.do
 :}
 
 The qualified do-notation changes the signature of
-@P.@`Data.Profunctor.Monadic.>>=`,
+@P.@`Data.Profunctor.Monadic.Do.>>=`,
 so that we must apply the constructor pattern @_LenVec@
 to the do-block with the `>?` applicator.
 Any scoped bound action, @var <- action@,
@@ -435,6 +436,36 @@ and `Filtrator` has a default definition for `Monadic` `Alternator`s,
 the context-sensitivity of `CtxGrammar` implies
 unrestricted filtration of grammars by computable predicates,
 which can recognize the larger class of recursively enumerable languages.
+
+Context-sensitivity can also be optical. A `Varifocal` is an optic
+whose shape depends on the foci it builds, as no `Bifocal` can,
+applied in a `CtxGrammar` by `contextually`,
+or on a `MonadicTrans` profunctor, by `contextuallyT`.
+A [heredoc](https://en.wikipedia.org/wiki/Here_document)'s lines are its foci,
+its tag, its body, & its tag again, `delimited` by the first line
+equal to the opening tag, a language which isn't context-free.
+
+>>> :{
+data Heredoc = Heredoc String [String] deriving (Eq, Show)
+heredocG :: CtxGrammar Char Heredoc
+heredocG = lined >~ terminal "<<" >* contextually (delimited (==)) lineG
+  where
+    lineG = manyP (notOneOf "\n") *< terminal "\n"
+    lined = iso
+      (\(Heredoc tag body) -> tag : body ++ [tag])
+      (\case
+        tag : rest -> Heredoc tag (if null rest then [] else init rest)
+        [] -> Heredoc "" [])
+:}
+
+>>> [pr "" | pr <- printG heredocG (Heredoc "EOF" ["hi"])] :: [String]
+["<<EOF\nhi\nEOF\n"]
+>>> [h | (h, "") <- parseG heredocG "<<EOF\nhi\nEOF\n"]
+[Heredoc "EOF" ["hi"]]
+>>> parsecResult (parsecG heredocG "<<EOF\nhi\nEOF\n")
+Just (Heredoc "EOF" ["hi"])
+>>> [pr "" | pr <- printG heredocG (Heredoc "EOF" ["EOF"])] :: [String]
+[]
 
 Finally, `CtxGrammar`s support failure reporting and backtracking.
 This has no effect on `Control.Lens.Grammar.printG`,

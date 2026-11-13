@@ -19,6 +19,9 @@ module Control.Lens.Bifocal
   , withBifocal
   , cloneBifocal
   , mapBifocal
+  , crossBifocal
+  , altBifocal
+  , orBifocal
   ) where
 
 import Control.Applicative
@@ -29,6 +32,7 @@ import Control.Monad ((>=>))
 import Data.Monoid.Disjunctive (DisjunctiveMonoid (..))
 import Data.Profunctor
 import Data.Profunctor.Distributor
+import Data.Profunctor.Monoidal ((>*<))
 import Data.Profunctor.Monoidal.Cocartesian
 import Data.Profunctor.Filtrator
 import Data.Traversable.Homogeneous
@@ -37,7 +41,7 @@ import GHC.Generics (Par1 (..), U1 (..), V1, (:*:) (..), (:+:) (..), (:.:) (..))
 import Witherable
 
 -- $setup
--- >>> import Control.Lens (_Just)
+-- >>> import Control.Lens (_Just, _Left, _Right)
 -- >>> import Control.Lens.PartialIso (clonePartialIso)
 
 {- | `Bifocal`s are bidirectional parser optics.
@@ -77,6 +81,44 @@ monomorphically typed `Bifocal` for different purposes.
 -}
 cloneBifocal :: ABifocal s t a b -> Bifocal s t a b
 cloneBifocal bif = unwrapPafb . mapBifocal bif . WrapPafb
+
+{- | Construct a `Bifocal` on pairs from components, with the same foci.
+
+>>> withSpectacle (crossBifocal _Just _Just) $ \match build -> (match (Just 1, Just 2) >>= build . fmap negate, match (Just 1, Nothing) >>= build)
+(Just (Just (-1),Just (-2)),Nothing)
+-}
+crossBifocal
+  :: ABifocal s t a b
+  -> ABifocal u v a b
+  -> Bifocal (s,u) (t,v) a b
+crossBifocal x y p =
+  rmap (uncurry (liftA2 (,))) (cloneBifocal x p >*< cloneBifocal y p)
+
+{- | Construct a `Bifocal` on `Either`s from components, with the same foci.
+
+>>> withSpectacle (altBifocal _Just _Just) $ \match build -> (match (Left (Just 'x')) >>= build . fmap succ, match (Right Nothing) >>= build)
+(Just (Left (Just 'y')),Nothing)
+-}
+altBifocal
+  :: ABifocal s t a b
+  -> ABifocal u v a b
+  -> Bifocal (Either s u) (Either t v) a b
+altBifocal x y p = rmap (either (fmap Left) (fmap Right))
+  (cloneBifocal x p >+< cloneBifocal y p)
+
+{- | Disjoin two `Bifocal`s on the same source, by `>|<`.
+
+> prop> orBifocal x falseOptic = cloneBifocal x
+> prop> orBifocal falseOptic y = cloneBifocal y
+
+>>> withSpectacle (orBifocal _Left _Right) $ \match build -> (match (Left 'x') >>= build . fmap succ, match (Right 'x') >>= build . fmap succ)
+(Just (Left 'y'),Just (Right 'y'))
+-}
+orBifocal
+  :: ABifocal s t a b
+  -> ABifocal s t a b
+  -> Bifocal s t a b
+orBifocal x y p = cloneBifocal x p >|< cloneBifocal y p
 
 {- | Run `ABifocal` over an `Alternative` & `Filterable`,
 by partial probes. -}
