@@ -1,0 +1,1309 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="annot"><span class="hs-comment">{- |
+Module      : Control.Lens.Comonocle
+Description : comonocles
+Copyright   : (C) 2026 - Eitan Chatav
+License     : BSD-style (see the file LICENSE)
+Maintainer  : Eitan Chatav &lt;eitan.chatav@gmail.com&gt;
+Stability   : provisional
+Portability : non-portable
+-}</span></span><span>
+</span><span id="line-10"></span><span>
+</span><span id="line-11"></span><span class="hs-keyword">module</span><span> </span><span class="annot"><a href="Control.Lens.Comonocle.html"><span class="hs-identifier">Control.Lens.Comonocle</span></a></span><span>
+</span><span id="line-12"></span><span>  </span><span class="hs-special">(</span><span> </span><span class="annot"><span class="hs-comment">-- * Comonocle</span></span><span>
+</span><span id="line-13"></span><span>    </span><span class="annot"><a href="Control.Lens.Comonocle.html#Comonocle"><span class="hs-identifier">Comonocle</span></a></span><span>
+</span><span id="line-14"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Comonocle.html#AComonocle"><span class="hs-identifier">AComonocle</span></a></span><span>
+</span><span id="line-15"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Comonocle.html#Comonocular"><span class="hs-identifier">Comonocular</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Comonocle.html#runComonocular"><span class="hs-identifier">runComonocular</span></a></span><span>
+</span><span id="line-16"></span><span>    </span><span class="annot"><span class="hs-comment">-- * Combinators</span></span><span>
+</span><span id="line-17"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Comonocle.html#comonocle"><span class="hs-identifier">comonocle</span></a></span><span>
+</span><span id="line-18"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Comonocle.html#withComonocle"><span class="hs-identifier">withComonocle</span></a></span><span>
+</span><span id="line-19"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Comonocle.html#cloneComonocle"><span class="hs-identifier">cloneComonocle</span></a></span><span>
+</span><span id="line-20"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Comonocle.html#mapComonocle"><span class="hs-identifier">mapComonocle</span></a></span><span>
+</span><span id="line-21"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Comonocle.html#altComonocle"><span class="hs-identifier">altComonocle</span></a></span><span>
+</span><span id="line-22"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Comonocle.html#crossComonocle"><span class="hs-identifier">crossComonocle</span></a></span><span>
+</span><span id="line-23"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Comonocle.html#indexComonocle"><span class="hs-identifier">indexComonocle</span></a></span><span>
+</span><span id="line-24"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Comonocle.html#countComonocle"><span class="hs-identifier">countComonocle</span></a></span><span>
+</span><span id="line-25"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Comonocle.html#copiesComonocle"><span class="hs-identifier">copiesComonocle</span></a></span><span>
+</span><span id="line-26"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Comonocle.html#fromComonocle"><span class="hs-identifier">fromComonocle</span></a></span><span>
+</span><span id="line-27"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Comonocle.html#succComonocle"><span class="hs-identifier">succComonocle</span></a></span><span>
+</span><span id="line-28"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Comonocle.html#predComonocle"><span class="hs-identifier">predComonocle</span></a></span><span>
+</span><span id="line-29"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Comonocle.html#enumerateComonocle"><span class="hs-identifier">enumerateComonocle</span></a></span><span>
+</span><span id="line-30"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Comonocle.html#enumerateFromThenComonocle"><span class="hs-identifier">enumerateFromThenComonocle</span></a></span><span>
+</span><span id="line-31"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Comonocle.html#enumerateFromToComonocle"><span class="hs-identifier">enumerateFromToComonocle</span></a></span><span>
+</span><span id="line-32"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Comonocle.html#enumerateFromThenToComonocle"><span class="hs-identifier">enumerateFromThenToComonocle</span></a></span><span>
+</span><span id="line-33"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Comonocle.html#zipComonocle"><span class="hs-identifier">zipComonocle</span></a></span><span>
+</span><span id="line-34"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Comonocle.html#zipWithComonocle"><span class="hs-identifier">zipWithComonocle</span></a></span><span>
+</span><span id="line-35"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Comonocle.html#_Enumerable"><span class="hs-identifier">_Enumerable</span></a></span><span>
+</span><span id="line-36"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Comonocle.html#_BoundedEnum"><span class="hs-identifier">_BoundedEnum</span></a></span><span>
+</span><span id="line-37"></span><span>  </span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-38"></span><span>
+</span><span id="line-39"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Applicative</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Alternative</span></span><span class="hs-special">)</span><span>
+</span><span id="line-40"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Lens</span></span><span> </span><span class="hs-keyword">hiding</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Traversing</span></span><span class="hs-special">)</span><span>
+</span><span id="line-41"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Control.Lens.PartialIso.html"><span class="hs-identifier">Control.Lens.PartialIso</span></a></span><span>
+</span><span id="line-42"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Lens.Internal.Profunctor</span></span><span>
+</span><span id="line-43"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Functor.Compose</span></span><span>
+</span><span id="line-44"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Data.Profunctor.Monoidal.html"><span class="hs-identifier">Data.Profunctor.Monoidal</span></a></span><span>
+</span><span id="line-45"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Data.Profunctor.Monoidal.Cocartesian.html"><span class="hs-identifier">Data.Profunctor.Monoidal.Cocartesian</span></a></span><span>
+</span><span id="line-46"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Data.Traversable.Homogeneous.html"><span class="hs-identifier">Data.Traversable.Homogeneous</span></a></span><span>
+</span><span id="line-47"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Data.Traversable.Homogeneous.Enumerable.html"><span class="hs-identifier">Data.Traversable.Homogeneous.Enumerable</span></a></span><span>
+</span><span id="line-48"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Void</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Void</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">absurd</span></span><span class="hs-special">)</span><span>
+</span><span id="line-49"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">GHC.Generics</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Par1</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">V1</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-operator">(:+:)</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-operator">(:*:)</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-50"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Numeric.Natural</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Natural</span></span><span class="hs-special">)</span><span>
+</span><span id="line-51"></span><span>
+</span><span id="line-52"></span><span class="hs-comment">-- $setup</span><span>
+</span><span id="line-53"></span><span class="hs-comment">-- &gt;&gt;&gt; import Control.Lens</span><span>
+</span><span id="line-54"></span><span class="hs-comment">-- &gt;&gt;&gt; import Data.Functor.Identity</span><span>
+</span><span id="line-55"></span><span>
+</span><span id="line-56"></span><span class="annot"><span class="hs-comment">{- | `Comonocle`s are an optic dual to `Control.Lens.Monocle.Monocle`s, by sums,
+which focus on the one copy that an `Enumerable` sum holds.
+
+`Control.Lens.Iso.Iso` &#8834; `Comonocle` &#8834;
+`Control.Lens.Lens.Lens` &#8745; `Control.Lens.Diopter.Diopter`,
+
+a `Comonocle` being a `Control.Lens.Lens.Lens`
+whose residue is which copy is held.
+
+&gt;&gt;&gt; view _Enumerable (Identity 'a')
+'a'
+
+`Comonocle`s are isomorphic to t'Comonocular's,
+whose shapes are `Enumerable`.
+-}</span></span><span>
+</span><span id="line-71"></span><span class="hs-keyword">type</span><span> </span><span id="Comonocle"><span class="annot"><a href="Control.Lens.Comonocle.html#Comonocle"><span class="hs-identifier hs-var">Comonocle</span></a></span></span><span> </span><span id="local-6989586621679270473"><span class="annot"><a href="#local-6989586621679270473"><span class="hs-identifier hs-type">s</span></a></span></span><span> </span><span id="local-6989586621679270474"><span class="annot"><a href="#local-6989586621679270474"><span class="hs-identifier hs-type">t</span></a></span></span><span> </span><span id="local-6989586621679270475"><span class="annot"><a href="#local-6989586621679270475"><span class="hs-identifier hs-type">a</span></a></span></span><span> </span><span id="local-6989586621679270476"><span class="annot"><a href="#local-6989586621679270476"><span class="hs-identifier hs-type">b</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">forall</span><span> </span><span id="local-6989586621679270477"><span class="annot"><a href="#local-6989586621679270477"><span class="hs-identifier hs-type">p</span></a></span></span><span> </span><span id="local-6989586621679270478"><span class="annot"><a href="#local-6989586621679270478"><span class="hs-identifier hs-type">f</span></a></span></span><span class="hs-operator">.</span><span>
+</span><span id="line-72"></span><span>  </span><span class="hs-special">(</span><span class="annot"><a href="Data.Profunctor.Monoidal.Cocartesian.html#CocartesianMonoidal"><span class="hs-identifier hs-type">CocartesianMonoidal</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270477"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Functor</span></span><span> </span><span class="annot"><a href="#local-6989586621679270478"><span class="hs-identifier hs-type">f</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-73"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679270477"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270475"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679270478"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270476"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679270477"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270473"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679270478"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270474"><span class="hs-identifier hs-type">t</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-74"></span><span>
+</span><span id="line-75"></span><span class="annot"><span class="hs-comment">{- | `AComonocle` is monomorphically a `Comonocle`.
+
+&gt; prop&gt; Comonocle s t a b &#8834; AComonocle s t a b
+-}</span></span><span>
+</span><span id="line-79"></span><span class="hs-keyword">type</span><span> </span><span id="AComonocle"><span class="annot"><a href="Control.Lens.Comonocle.html#AComonocle"><span class="hs-identifier hs-var">AComonocle</span></a></span></span><span> </span><span id="local-6989586621679270479"><span class="annot"><a href="#local-6989586621679270479"><span class="hs-identifier hs-type">s</span></a></span></span><span> </span><span id="local-6989586621679270480"><span class="annot"><a href="#local-6989586621679270480"><span class="hs-identifier hs-type">t</span></a></span></span><span> </span><span id="local-6989586621679270481"><span class="annot"><a href="#local-6989586621679270481"><span class="hs-identifier hs-type">a</span></a></span></span><span> </span><span id="local-6989586621679270482"><span class="annot"><a href="#local-6989586621679270482"><span class="hs-identifier hs-type">b</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-80"></span><span>  </span><span class="annot"><a href="Control.Lens.Comonocle.html#Comonocular"><span class="hs-identifier hs-type">Comonocular</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270481"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270482"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270481"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Identity</span></span><span> </span><span class="annot"><a href="#local-6989586621679270482"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Control.Lens.Comonocle.html#Comonocular"><span class="hs-identifier hs-type">Comonocular</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270481"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270482"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270479"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Identity</span></span><span> </span><span class="annot"><a href="#local-6989586621679270480"><span class="hs-identifier hs-type">t</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-81"></span><span>
+</span><span id="line-82"></span><span class="annot"><span class="hs-comment">{- | Build a `Comonocle` from a concrete t'Comonocular'. -}</span></span><span>
+</span><span id="line-83"></span><span id="local-6989586621679270004"><span id="local-6989586621679270005"><span id="local-6989586621679270006"><span id="local-6989586621679270007"><span class="annot"><a href="Control.Lens.Comonocle.html#comonocle"><span class="hs-identifier hs-type">comonocle</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Control.Lens.Comonocle.html#Comonocular"><span class="hs-identifier hs-type">Comonocular</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270004"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270005"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270006"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270007"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Control.Lens.Comonocle.html#Comonocle"><span class="hs-identifier hs-type">Comonocle</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270006"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270007"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270004"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270005"><span class="hs-identifier hs-type">b</span></a></span></span></span></span></span><span>
+</span><span id="line-84"></span><span id="comonocle"><span class="annot"><span class="annottext">comonocle :: forall a b s t. Comonocular a b s t -&gt; Comonocle s t a b
+</span><a href="Control.Lens.Comonocle.html#comonocle"><span class="hs-identifier hs-var hs-var">comonocle</span></a></span></span><span> </span><span id="local-6989586621679270487"><span class="annot"><span class="annottext">Comonocular a b s t
+</span><a href="#local-6989586621679270487"><span class="hs-identifier hs-var">mon</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">WrappedPafb f p s t -&gt; p s (f t)
+forall (f :: * -&gt; *) (p :: * -&gt; * -&gt; *) a b.
+WrappedPafb f p a b -&gt; p a (f b)
+</span><span class="hs-identifier hs-var">unwrapPafb</span></span><span> </span><span class="annot"><span class="annottext">(WrappedPafb f p s t -&gt; p s (f t))
+-&gt; (p a (f b) -&gt; WrappedPafb f p s t) -&gt; p a (f b) -&gt; p s (f t)
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Comonocular a b s t -&gt; WrappedPafb f p a b -&gt; WrappedPafb f p s t
+forall (p :: * -&gt; * -&gt; *) a b s t.
+CocartesianMonoidal p =&gt;
+Comonocular a b s t -&gt; p a b -&gt; p s t
+</span><a href="Control.Lens.Comonocle.html#runComonocular"><span class="hs-identifier hs-var">runComonocular</span></a></span><span> </span><span class="annot"><span class="annottext">Comonocular a b s t
+</span><a href="#local-6989586621679270487"><span class="hs-identifier hs-var">mon</span></a></span><span> </span><span class="annot"><span class="annottext">(WrappedPafb f p a b -&gt; WrappedPafb f p s t)
+-&gt; (p a (f b) -&gt; WrappedPafb f p a b)
+-&gt; p a (f b)
+-&gt; WrappedPafb f p s t
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">p a (f b) -&gt; WrappedPafb f p a b
+forall (f :: * -&gt; *) (p :: * -&gt; * -&gt; *) a b.
+p a (f b) -&gt; WrappedPafb f p a b
+</span><span class="hs-identifier hs-var">WrapPafb</span></span><span>
+</span><span id="line-85"></span><span>
+</span><span id="line-86"></span><span class="annot"><span class="hs-comment">{- | Convert `AComonocle` to the pair of functions that characterize it. -}</span></span><span>
+</span><span id="line-87"></span><span id="local-6989586621679270036"><span id="local-6989586621679270037"><span id="local-6989586621679270038"><span id="local-6989586621679270039"><span id="local-6989586621679270043"><span class="annot"><a href="Control.Lens.Comonocle.html#withComonocle"><span class="hs-identifier hs-type">withComonocle</span></a></span><span>
+</span><span id="line-88"></span><span>  </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Control.Lens.Comonocle.html#AComonocle"><span class="hs-identifier hs-type">AComonocle</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270036"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270037"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270038"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270039"><span class="hs-identifier hs-type">b</span></a></span><span>
+</span><span id="line-89"></span><span>  </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="hs-keyword">forall</span><span> </span><span id="local-6989586621679270041"><span class="annot"><a href="#local-6989586621679270041"><span class="hs-identifier hs-type">f</span></a></span></span><span class="hs-operator">.</span><span> </span><span class="annot"><a href="Data.Traversable.Homogeneous.Enumerable.html#Enumerable"><span class="hs-identifier hs-type">Enumerable</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270041"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679270036"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679270041"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270038"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679270041"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270039"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679270037"><span class="hs-identifier hs-type">t</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679270043"><span class="hs-identifier hs-type">r</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-90"></span><span>  </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679270043"><span class="hs-identifier hs-type">r</span></a></span></span></span></span></span></span><span>
+</span><span id="line-91"></span><span id="withComonocle"><span class="annot"><span class="annottext">withComonocle :: forall s t a b r.
+AComonocle s t a b
+-&gt; (forall (f :: * -&gt; *).
+    Enumerable f =&gt;
+    (s -&gt; f a) -&gt; (f b -&gt; t) -&gt; r)
+-&gt; r
+</span><a href="Control.Lens.Comonocle.html#withComonocle"><span class="hs-identifier hs-var hs-var">withComonocle</span></a></span></span><span> </span><span id="local-6989586621679270496"><span class="annot"><span class="annottext">AComonocle s t a b
+</span><a href="#local-6989586621679270496"><span class="hs-identifier hs-var">mon</span></a></span></span><span> </span><span id="local-6989586621679270497"><span class="annot"><span class="annottext">forall (f :: * -&gt; *). Enumerable f =&gt; (s -&gt; f a) -&gt; (f b -&gt; t) -&gt; r
+</span><a href="#local-6989586621679270497"><span class="hs-identifier hs-var">k</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-92"></span><span>  </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">(Identity t -&gt; t)
+-&gt; Comonocular a b s (Identity t) -&gt; Comonocular a b s t
+forall b c a.
+(b -&gt; c) -&gt; Comonocular a b a b -&gt; Comonocular a b a c
+forall (p :: * -&gt; * -&gt; *) b c a.
+Profunctor p =&gt;
+(b -&gt; c) -&gt; p a b -&gt; p a c
+</span><span class="hs-identifier hs-var">rmap</span></span><span> </span><span class="annot"><span class="annottext">Identity t -&gt; t
+forall a. Identity a -&gt; a
+</span><span class="hs-identifier hs-var">runIdentity</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">AComonocle s t a b
+</span><a href="#local-6989586621679270496"><span class="hs-identifier hs-var">mon</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(b -&gt; Identity b)
+-&gt; Comonocular a b a b -&gt; Comonocular a b a (Identity b)
+forall b c a.
+(b -&gt; c) -&gt; Comonocular a b a b -&gt; Comonocular a b a c
+forall (p :: * -&gt; * -&gt; *) b c a.
+Profunctor p =&gt;
+(b -&gt; c) -&gt; p a b -&gt; p a c
+</span><span class="hs-identifier hs-var">rmap</span></span><span> </span><span class="annot"><span class="annottext">b -&gt; Identity b
+forall a. a -&gt; Identity a
+</span><span class="hs-identifier hs-var">Identity</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(a -&gt; Par1 a) -&gt; (Par1 b -&gt; b) -&gt; Comonocular a b a b
+forall (f :: * -&gt; *) s a b t.
+Enumerable f =&gt;
+(s -&gt; f a) -&gt; (f b -&gt; t) -&gt; Comonocular a b s t
+</span><a href="Control.Lens.Comonocle.html#Comonocular"><span class="hs-identifier hs-var">Comonocular</span></a></span><span> </span><span class="annot"><span class="annottext">a -&gt; Par1 a
+forall p. p -&gt; Par1 p
+</span><span class="hs-identifier hs-var">Par1</span></span><span> </span><span class="annot"><span class="annottext">Par1 b -&gt; b
+forall p. Par1 p -&gt; p
+</span><span class="hs-identifier hs-var">unPar1</span></span><span class="hs-special">)</span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-93"></span><span>    </span><span class="annot"><a href="Control.Lens.Comonocle.html#Comonocular"><span class="hs-identifier hs-type">Comonocular</span></a></span><span> </span><span id="local-6989586621679270505"><span class="annot"><span class="annottext">s -&gt; f a
+</span><a href="#local-6989586621679270505"><span class="hs-identifier hs-var">split</span></a></span></span><span> </span><span id="local-6989586621679270506"><span class="annot"><span class="annottext">f b -&gt; t
+</span><a href="#local-6989586621679270506"><span class="hs-identifier hs-var">merge</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">(s -&gt; f a) -&gt; (f b -&gt; t) -&gt; r
+forall (f :: * -&gt; *). Enumerable f =&gt; (s -&gt; f a) -&gt; (f b -&gt; t) -&gt; r
+</span><a href="#local-6989586621679270497"><span class="hs-identifier hs-var">k</span></a></span><span> </span><span class="annot"><span class="annottext">s -&gt; f a
+</span><a href="#local-6989586621679270505"><span class="hs-identifier hs-var">split</span></a></span><span> </span><span class="annot"><span class="annottext">f b -&gt; t
+</span><a href="#local-6989586621679270506"><span class="hs-identifier hs-var">merge</span></a></span><span>
+</span><span id="line-94"></span><span>
+</span><span id="line-95"></span><span class="annot"><span class="hs-comment">{- | Clone `AComonocle` so that you can reuse the same
+monomorphically typed `Comonocle` for different purposes.
+-}</span></span><span>
+</span><span id="line-98"></span><span id="local-6989586621679270067"><span id="local-6989586621679270068"><span id="local-6989586621679270069"><span id="local-6989586621679270070"><span class="annot"><a href="Control.Lens.Comonocle.html#cloneComonocle"><span class="hs-identifier hs-type">cloneComonocle</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Control.Lens.Comonocle.html#AComonocle"><span class="hs-identifier hs-type">AComonocle</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270067"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270068"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270069"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270070"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Control.Lens.Comonocle.html#Comonocle"><span class="hs-identifier hs-type">Comonocle</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270067"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270068"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270069"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270070"><span class="hs-identifier hs-type">b</span></a></span></span></span></span></span><span>
+</span><span id="line-99"></span><span id="cloneComonocle"><span class="annot"><span class="annottext">cloneComonocle :: forall s t a b. AComonocle s t a b -&gt; Comonocle s t a b
+</span><a href="Control.Lens.Comonocle.html#cloneComonocle"><span class="hs-identifier hs-var hs-var">cloneComonocle</span></a></span></span><span> </span><span id="local-6989586621679270509"><span class="annot"><span class="annottext">AComonocle s t a b
+</span><a href="#local-6989586621679270509"><span class="hs-identifier hs-var">mon</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">AComonocle s t a b
+-&gt; (forall (f :: * -&gt; *).
+    Enumerable f =&gt;
+    (s -&gt; f a) -&gt; (f b -&gt; t) -&gt; p a (f b) -&gt; p s (f t))
+-&gt; p a (f b)
+-&gt; p s (f t)
+forall s t a b r.
+AComonocle s t a b
+-&gt; (forall (f :: * -&gt; *).
+    Enumerable f =&gt;
+    (s -&gt; f a) -&gt; (f b -&gt; t) -&gt; r)
+-&gt; r
+</span><a href="Control.Lens.Comonocle.html#withComonocle"><span class="hs-identifier hs-var">withComonocle</span></a></span><span> </span><span class="annot"><span class="annottext">AComonocle s t a b
+</span><a href="#local-6989586621679270509"><span class="hs-identifier hs-var">mon</span></a></span><span> </span><span class="annot"><span class="annottext">((forall (f :: * -&gt; *).
+  Enumerable f =&gt;
+  (s -&gt; f a) -&gt; (f b -&gt; t) -&gt; p a (f b) -&gt; p s (f t))
+ -&gt; p a (f b) -&gt; p s (f t))
+-&gt; (forall (f :: * -&gt; *).
+    Enumerable f =&gt;
+    (s -&gt; f a) -&gt; (f b -&gt; t) -&gt; p a (f b) -&gt; p s (f t))
+-&gt; p a (f b)
+-&gt; p s (f t)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679270516"><span class="annot"><span class="annottext">s -&gt; f a
+</span><a href="#local-6989586621679270516"><span class="hs-identifier hs-var">split</span></a></span></span><span> </span><span id="local-6989586621679270517"><span class="annot"><span class="annottext">f b -&gt; t
+</span><a href="#local-6989586621679270517"><span class="hs-identifier hs-var">merge</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-100"></span><span>  </span><span class="annot"><span class="annottext">Comonocular a b s t -&gt; Comonocle s t a b
+forall a b s t. Comonocular a b s t -&gt; Comonocle s t a b
+</span><a href="Control.Lens.Comonocle.html#comonocle"><span class="hs-identifier hs-var">comonocle</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(s -&gt; f a) -&gt; (f b -&gt; t) -&gt; Comonocular a b s t
+forall (f :: * -&gt; *) s a b t.
+Enumerable f =&gt;
+(s -&gt; f a) -&gt; (f b -&gt; t) -&gt; Comonocular a b s t
+</span><a href="Control.Lens.Comonocle.html#Comonocular"><span class="hs-identifier hs-var">Comonocular</span></a></span><span> </span><span class="annot"><span class="annottext">s -&gt; f a
+</span><a href="#local-6989586621679270516"><span class="hs-identifier hs-var">split</span></a></span><span> </span><span class="annot"><span class="annottext">f b -&gt; t
+</span><a href="#local-6989586621679270517"><span class="hs-identifier hs-var">merge</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-101"></span><span>
+</span><span id="line-102"></span><span class="annot"><span class="hs-comment">{- | Action of `AComonocle` on `CocartesianMonoidal` `Profunctor`s. -}</span></span><span>
+</span><span id="line-103"></span><span id="local-6989586621679270083"><span id="local-6989586621679270084"><span id="local-6989586621679270085"><span id="local-6989586621679270086"><span id="local-6989586621679270087"><span class="annot"><a href="Control.Lens.Comonocle.html#mapComonocle"><span class="hs-identifier hs-type">mapComonocle</span></a></span><span>
+</span><span id="line-104"></span><span>  </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Data.Profunctor.Monoidal.Cocartesian.html#CocartesianMonoidal"><span class="hs-identifier hs-type">CocartesianMonoidal</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270083"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Control.Lens.Comonocle.html#AComonocle"><span class="hs-identifier hs-type">AComonocle</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270084"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270085"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270086"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270087"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679270083"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270086"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270087"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679270083"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270084"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270085"><span class="hs-identifier hs-type">t</span></a></span></span></span></span></span></span><span>
+</span><span id="line-105"></span><span id="mapComonocle"><span class="annot"><span class="annottext">mapComonocle :: forall (p :: * -&gt; * -&gt; *) s t a b.
+CocartesianMonoidal p =&gt;
+AComonocle s t a b -&gt; p a b -&gt; p s t
+</span><a href="Control.Lens.Comonocle.html#mapComonocle"><span class="hs-identifier hs-var hs-var">mapComonocle</span></a></span></span><span> </span><span id="local-6989586621679270521"><span class="annot"><span class="annottext">AComonocle s t a b
+</span><a href="#local-6989586621679270521"><span class="hs-identifier hs-var">mon</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">AComonocle s t a b
+-&gt; (forall (f :: * -&gt; *).
+    Enumerable f =&gt;
+    (s -&gt; f a) -&gt; (f b -&gt; t) -&gt; p a b -&gt; p s t)
+-&gt; p a b
+-&gt; p s t
+forall s t a b r.
+AComonocle s t a b
+-&gt; (forall (f :: * -&gt; *).
+    Enumerable f =&gt;
+    (s -&gt; f a) -&gt; (f b -&gt; t) -&gt; r)
+-&gt; r
+</span><a href="Control.Lens.Comonocle.html#withComonocle"><span class="hs-identifier hs-var">withComonocle</span></a></span><span> </span><span class="annot"><span class="annottext">AComonocle s t a b
+</span><a href="#local-6989586621679270521"><span class="hs-identifier hs-var">mon</span></a></span><span> </span><span class="annot"><span class="annottext">((forall (f :: * -&gt; *).
+  Enumerable f =&gt;
+  (s -&gt; f a) -&gt; (f b -&gt; t) -&gt; p a b -&gt; p s t)
+ -&gt; p a b -&gt; p s t)
+-&gt; (forall (f :: * -&gt; *).
+    Enumerable f =&gt;
+    (s -&gt; f a) -&gt; (f b -&gt; t) -&gt; p a b -&gt; p s t)
+-&gt; p a b
+-&gt; p s t
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679270528"><span class="annot"><span class="annottext">s -&gt; f a
+</span><a href="#local-6989586621679270528"><span class="hs-identifier hs-var">split</span></a></span></span><span> </span><span id="local-6989586621679270529"><span class="annot"><span class="annottext">f b -&gt; t
+</span><a href="#local-6989586621679270529"><span class="hs-identifier hs-var">merge</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-106"></span><span>  </span><span class="annot"><span class="annottext">(s -&gt; f a) -&gt; (f b -&gt; t) -&gt; p (f a) (f b) -&gt; p s t
+forall a b c d. (a -&gt; b) -&gt; (c -&gt; d) -&gt; p b c -&gt; p a d
+forall (p :: * -&gt; * -&gt; *) a b c d.
+Profunctor p =&gt;
+(a -&gt; b) -&gt; (c -&gt; d) -&gt; p b c -&gt; p a d
+</span><span class="hs-identifier hs-var">dimap</span></span><span> </span><span class="annot"><span class="annottext">s -&gt; f a
+</span><a href="#local-6989586621679270528"><span class="hs-identifier hs-var">split</span></a></span><span> </span><span class="annot"><span class="annottext">f b -&gt; t
+</span><a href="#local-6989586621679270529"><span class="hs-identifier hs-var">merge</span></a></span><span> </span><span class="annot"><span class="annottext">(p (f a) (f b) -&gt; p s t)
+-&gt; (p a b -&gt; p (f a) (f b)) -&gt; p a b -&gt; p s t
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">p a b -&gt; p (f a) (f b)
+forall (f :: * -&gt; *) (p :: * -&gt; * -&gt; *) a b.
+(Enumerable f, CocartesianMonoidal p) =&gt;
+p a b -&gt; p (f a) (f b)
+forall (p :: * -&gt; * -&gt; *) a b.
+CocartesianMonoidal p =&gt;
+p a b -&gt; p (f a) (f b)
+</span><a href="Data.Traversable.Homogeneous.Enumerable.html#enumerably"><span class="hs-identifier hs-var">enumerably</span></a></span><span>
+</span><span id="line-107"></span><span>
+</span><span id="line-108"></span><span class="annot"><span class="hs-comment">{- | Construct a `Comonocle` on `Either`s from components, with the same foci,
+since sums of copies add, \(m a + n a = (m+n) a\),
+as `Control.Lens.Lens.choosing` does `Control.Lens.Lens.Lens`es.
+
+&gt;&gt;&gt; set (altComonocle id _Enumerable) 'x' (Right (Identity 'y'))
+Right (Identity 'x')
+-}</span></span><span>
+</span><span id="line-115"></span><span id="local-6989586621679270104"><span id="local-6989586621679270105"><span id="local-6989586621679270106"><span id="local-6989586621679270107"><span id="local-6989586621679270108"><span id="local-6989586621679270109"><span class="annot"><a href="Control.Lens.Comonocle.html#altComonocle"><span class="hs-identifier hs-type">altComonocle</span></a></span><span>
+</span><span id="line-116"></span><span>  </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Control.Lens.Comonocle.html#AComonocle"><span class="hs-identifier hs-type">AComonocle</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270104"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270105"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270106"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270107"><span class="hs-identifier hs-type">b</span></a></span><span>
+</span><span id="line-117"></span><span>  </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Control.Lens.Comonocle.html#AComonocle"><span class="hs-identifier hs-type">AComonocle</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270108"><span class="hs-identifier hs-type">u</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270109"><span class="hs-identifier hs-type">v</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270106"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270107"><span class="hs-identifier hs-type">b</span></a></span><span>
+</span><span id="line-118"></span><span>  </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Control.Lens.Comonocle.html#Comonocle"><span class="hs-identifier hs-type">Comonocle</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Either</span></span><span> </span><span class="annot"><a href="#local-6989586621679270104"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270108"><span class="hs-identifier hs-type">u</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Either</span></span><span> </span><span class="annot"><a href="#local-6989586621679270105"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270109"><span class="hs-identifier hs-type">v</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621679270106"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270107"><span class="hs-identifier hs-type">b</span></a></span></span></span></span></span></span></span><span>
+</span><span id="line-119"></span><span id="altComonocle"><span class="annot"><span class="annottext">altComonocle :: forall s t a b u v.
+AComonocle s t a b
+-&gt; AComonocle u v a b -&gt; Comonocle (Either s u) (Either t v) a b
+</span><a href="Control.Lens.Comonocle.html#altComonocle"><span class="hs-identifier hs-var hs-var">altComonocle</span></a></span></span><span> </span><span id="local-6989586621679270543"><span class="annot"><span class="annottext">AComonocle s t a b
+</span><a href="#local-6989586621679270543"><span class="hs-identifier hs-var">x</span></a></span></span><span> </span><span id="local-6989586621679270544"><span class="annot"><span class="annottext">AComonocle u v a b
+</span><a href="#local-6989586621679270544"><span class="hs-identifier hs-var">y</span></a></span></span><span> </span><span id="local-6989586621679270545"><span class="annot"><span class="annottext">p a (f b)
+</span><a href="#local-6989586621679270545"><span class="hs-identifier hs-var">p</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(Either (f t) (f v) -&gt; f (Either t v))
+-&gt; p (Either s u) (Either (f t) (f v))
+-&gt; p (Either s u) (f (Either t v))
+forall b c a. (b -&gt; c) -&gt; p a b -&gt; p a c
+forall (p :: * -&gt; * -&gt; *) b c a.
+Profunctor p =&gt;
+(b -&gt; c) -&gt; p a b -&gt; p a c
+</span><span class="hs-identifier hs-var">rmap</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(f t -&gt; f (Either t v))
+-&gt; (f v -&gt; f (Either t v)) -&gt; Either (f t) (f v) -&gt; f (Either t v)
+forall a c b. (a -&gt; c) -&gt; (b -&gt; c) -&gt; Either a b -&gt; c
+</span><span class="hs-identifier hs-var">either</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(t -&gt; Either t v) -&gt; f t -&gt; f (Either t v)
+forall a b. (a -&gt; b) -&gt; f a -&gt; f b
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">fmap</span></span><span> </span><span class="annot"><span class="annottext">t -&gt; Either t v
+forall a b. a -&gt; Either a b
+</span><span class="hs-identifier hs-var">Left</span></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(v -&gt; Either t v) -&gt; f v -&gt; f (Either t v)
+forall a b. (a -&gt; b) -&gt; f a -&gt; f b
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">fmap</span></span><span> </span><span class="annot"><span class="annottext">v -&gt; Either t v
+forall a b. b -&gt; Either a b
+</span><span class="hs-identifier hs-var">Right</span></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-120"></span><span>  </span><span class="hs-special">(</span><span class="annot"><span class="annottext">AComonocle s t a b -&gt; Comonocle s t a b
+forall s t a b. AComonocle s t a b -&gt; Comonocle s t a b
+</span><a href="Control.Lens.Comonocle.html#cloneComonocle"><span class="hs-identifier hs-var">cloneComonocle</span></a></span><span> </span><span class="annot"><span class="annottext">AComonocle s t a b
+</span><a href="#local-6989586621679270543"><span class="hs-identifier hs-var">x</span></a></span><span> </span><span class="annot"><span class="annottext">p a (f b)
+</span><a href="#local-6989586621679270545"><span class="hs-identifier hs-var">p</span></a></span><span> </span><span class="annot"><span class="annottext">p s (f t) -&gt; p u (f v) -&gt; p (Either s u) (Either (f t) (f v))
+forall a b c d. p a b -&gt; p c d -&gt; p (Either a c) (Either b d)
+forall (p :: * -&gt; * -&gt; *) a b c d.
+CocartesianMonoidal p =&gt;
+p a b -&gt; p c d -&gt; p (Either a c) (Either b d)
+</span><a href="Data.Profunctor.Monoidal.Cocartesian.html#%3E%2B%3C"><span class="hs-operator hs-var">&gt;+&lt;</span></a></span><span> </span><span class="annot"><span class="annottext">AComonocle u v a b -&gt; Comonocle u v a b
+forall s t a b. AComonocle s t a b -&gt; Comonocle s t a b
+</span><a href="Control.Lens.Comonocle.html#cloneComonocle"><span class="hs-identifier hs-var">cloneComonocle</span></a></span><span> </span><span class="annot"><span class="annottext">AComonocle u v a b
+</span><a href="#local-6989586621679270544"><span class="hs-identifier hs-var">y</span></a></span><span> </span><span class="annot"><span class="annottext">p a (f b)
+</span><a href="#local-6989586621679270545"><span class="hs-identifier hs-var">p</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-121"></span><span>
+</span><span id="line-122"></span><span class="annot"><span class="hs-comment">{- | Construct a `Comonocle` on pairs from components,
+since products of sums of copies distribute,
+\(m a \times n c = (m n) (a \times c)\).
+
+&gt;&gt;&gt; over (crossComonocle _Enumerable id) (\(a, c) -&gt; (a + c, show c)) (Identity 1, 2)
+(Identity 3,&quot;2&quot;)
+-}</span></span><span>
+</span><span id="line-129"></span><span id="local-6989586621679270130"><span id="local-6989586621679270131"><span id="local-6989586621679270132"><span id="local-6989586621679270133"><span id="local-6989586621679270134"><span id="local-6989586621679270135"><span id="local-6989586621679270136"><span id="local-6989586621679270137"><span class="annot"><a href="Control.Lens.Comonocle.html#crossComonocle"><span class="hs-identifier hs-type">crossComonocle</span></a></span><span>
+</span><span id="line-130"></span><span>  </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Control.Lens.Comonocle.html#AComonocle"><span class="hs-identifier hs-type">AComonocle</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270130"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270131"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270132"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270133"><span class="hs-identifier hs-type">b</span></a></span><span>
+</span><span id="line-131"></span><span>  </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Control.Lens.Comonocle.html#AComonocle"><span class="hs-identifier hs-type">AComonocle</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270134"><span class="hs-identifier hs-type">u</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270135"><span class="hs-identifier hs-type">v</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270136"><span class="hs-identifier hs-type">c</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270137"><span class="hs-identifier hs-type">d</span></a></span><span>
+</span><span id="line-132"></span><span>  </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Control.Lens.Comonocle.html#Comonocle"><span class="hs-identifier hs-type">Comonocle</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679270130"><span class="hs-identifier hs-type">s</span></a></span><span class="hs-special">,</span><span class="annot"><a href="#local-6989586621679270134"><span class="hs-identifier hs-type">u</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679270131"><span class="hs-identifier hs-type">t</span></a></span><span class="hs-special">,</span><span class="annot"><a href="#local-6989586621679270135"><span class="hs-identifier hs-type">v</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679270132"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">,</span><span class="annot"><a href="#local-6989586621679270136"><span class="hs-identifier hs-type">c</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679270133"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">,</span><span class="annot"><a href="#local-6989586621679270137"><span class="hs-identifier hs-type">d</span></a></span><span class="hs-special">)</span></span></span></span></span></span></span></span></span><span>
+</span><span id="line-133"></span><span id="crossComonocle"><span class="annot"><span class="annottext">crossComonocle :: forall s t a b u v c d.
+AComonocle s t a b
+-&gt; AComonocle u v c d -&gt; Comonocle (s, u) (t, v) (a, c) (b, d)
+</span><a href="Control.Lens.Comonocle.html#crossComonocle"><span class="hs-identifier hs-var hs-var">crossComonocle</span></a></span></span><span> </span><span id="local-6989586621679270550"><span class="annot"><span class="annottext">AComonocle s t a b
+</span><a href="#local-6989586621679270550"><span class="hs-identifier hs-var">x</span></a></span></span><span> </span><span id="local-6989586621679270551"><span class="annot"><span class="annottext">AComonocle u v c d
+</span><a href="#local-6989586621679270551"><span class="hs-identifier hs-var">y</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-134"></span><span>  </span><span class="annot"><span class="annottext">AComonocle s t a b
+-&gt; (forall (f :: * -&gt; *).
+    Enumerable f =&gt;
+    (s -&gt; f a)
+    -&gt; (f b -&gt; t) -&gt; p (a, c) (f (b, d)) -&gt; p (s, u) (f (t, v)))
+-&gt; p (a, c) (f (b, d))
+-&gt; p (s, u) (f (t, v))
+forall s t a b r.
+AComonocle s t a b
+-&gt; (forall (f :: * -&gt; *).
+    Enumerable f =&gt;
+    (s -&gt; f a) -&gt; (f b -&gt; t) -&gt; r)
+-&gt; r
+</span><a href="Control.Lens.Comonocle.html#withComonocle"><span class="hs-identifier hs-var">withComonocle</span></a></span><span> </span><span class="annot"><span class="annottext">AComonocle s t a b
+</span><a href="#local-6989586621679270550"><span class="hs-identifier hs-var">x</span></a></span><span> </span><span class="annot"><span class="annottext">((forall (f :: * -&gt; *).
+  Enumerable f =&gt;
+  (s -&gt; f a)
+  -&gt; (f b -&gt; t) -&gt; p (a, c) (f (b, d)) -&gt; p (s, u) (f (t, v)))
+ -&gt; p (a, c) (f (b, d)) -&gt; p (s, u) (f (t, v)))
+-&gt; (forall (f :: * -&gt; *).
+    Enumerable f =&gt;
+    (s -&gt; f a)
+    -&gt; (f b -&gt; t) -&gt; p (a, c) (f (b, d)) -&gt; p (s, u) (f (t, v)))
+-&gt; p (a, c) (f (b, d))
+-&gt; p (s, u) (f (t, v))
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679270566"><span class="annot"><span class="annottext">s -&gt; f a
+</span><a href="#local-6989586621679270566"><span class="hs-identifier hs-var">e</span></a></span></span><span> </span><span id="local-6989586621679270567"><span class="annot"><span class="annottext">f b -&gt; t
+</span><a href="#local-6989586621679270567"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-135"></span><span>  </span><span class="annot"><span class="annottext">AComonocle u v c d
+-&gt; (forall (f :: * -&gt; *).
+    Enumerable f =&gt;
+    (u -&gt; f c)
+    -&gt; (f d -&gt; v) -&gt; p (a, c) (f (b, d)) -&gt; p (s, u) (f (t, v)))
+-&gt; p (a, c) (f (b, d))
+-&gt; p (s, u) (f (t, v))
+forall s t a b r.
+AComonocle s t a b
+-&gt; (forall (f :: * -&gt; *).
+    Enumerable f =&gt;
+    (s -&gt; f a) -&gt; (f b -&gt; t) -&gt; r)
+-&gt; r
+</span><a href="Control.Lens.Comonocle.html#withComonocle"><span class="hs-identifier hs-var">withComonocle</span></a></span><span> </span><span class="annot"><span class="annottext">AComonocle u v c d
+</span><a href="#local-6989586621679270551"><span class="hs-identifier hs-var">y</span></a></span><span> </span><span class="annot"><span class="annottext">((forall (f :: * -&gt; *).
+  Enumerable f =&gt;
+  (u -&gt; f c)
+  -&gt; (f d -&gt; v) -&gt; p (a, c) (f (b, d)) -&gt; p (s, u) (f (t, v)))
+ -&gt; p (a, c) (f (b, d)) -&gt; p (s, u) (f (t, v)))
+-&gt; (forall (f :: * -&gt; *).
+    Enumerable f =&gt;
+    (u -&gt; f c)
+    -&gt; (f d -&gt; v) -&gt; p (a, c) (f (b, d)) -&gt; p (s, u) (f (t, v)))
+-&gt; p (a, c) (f (b, d))
+-&gt; p (s, u) (f (t, v))
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679270608"><span class="annot"><span class="annottext">u -&gt; f c
+</span><a href="#local-6989586621679270608"><span class="hs-identifier hs-var">g</span></a></span></span><span> </span><span id="local-6989586621679270609"><span class="annot"><span class="annottext">f d -&gt; v
+</span><a href="#local-6989586621679270609"><span class="hs-identifier hs-var">h</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-136"></span><span>    </span><span class="annot"><span class="annottext">Comonocular (a, c) (b, d) (s, u) (t, v)
+-&gt; p (a, c) (f (b, d)) -&gt; p (s, u) (f (t, v))
+Comonocular (a, c) (b, d) (s, u) (t, v)
+-&gt; Comonocle (s, u) (t, v) (a, c) (b, d)
+forall a b s t. Comonocular a b s t -&gt; Comonocle s t a b
+</span><a href="Control.Lens.Comonocle.html#comonocle"><span class="hs-identifier hs-var">comonocle</span></a></span><span> </span><span class="annot"><span class="annottext">(Comonocular (a, c) (b, d) (s, u) (t, v)
+ -&gt; Comonocle (s, u) (t, v) (a, c) (b, d))
+-&gt; Comonocular (a, c) (b, d) (s, u) (t, v)
+-&gt; Comonocle (s, u) (t, v) (a, c) (b, d)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">((s, u) -&gt; Compose f f (a, c))
+-&gt; (Compose f f (b, d) -&gt; (t, v))
+-&gt; Comonocular (a, c) (b, d) (s, u) (t, v)
+forall (f :: * -&gt; *) s a b t.
+Enumerable f =&gt;
+(s -&gt; f a) -&gt; (f b -&gt; t) -&gt; Comonocular a b s t
+</span><a href="Control.Lens.Comonocle.html#Comonocular"><span class="hs-identifier hs-var">Comonocular</span></a></span><span>
+</span><span id="line-137"></span><span>      </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span class="hs-special">(</span><span id="local-6989586621679270614"><span class="annot"><span class="annottext">s
+</span><a href="#local-6989586621679270614"><span class="hs-identifier hs-var">s</span></a></span></span><span class="hs-special">,</span><span id="local-6989586621679270615"><span class="annot"><span class="annottext">u
+</span><a href="#local-6989586621679270615"><span class="hs-identifier hs-var">u</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">f (f (a, c)) -&gt; Compose f f (a, c)
+forall {k} {k1} (f :: k -&gt; *) (g :: k1 -&gt; k) (a :: k1).
+f (g a) -&gt; Compose f g a
+</span><span class="hs-identifier hs-var">Compose</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(a -&gt; f (a, c)) -&gt; f a -&gt; f (f (a, c))
+forall a b. (a -&gt; b) -&gt; f a -&gt; f b
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">fmap</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span id="local-6989586621679270617"><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679270617"><span class="hs-identifier hs-var">a</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">(c -&gt; (a, c)) -&gt; f c -&gt; f (a, c)
+forall a b. (a -&gt; b) -&gt; f a -&gt; f b
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">fmap</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679270617"><span class="hs-identifier hs-var">a</span></a></span><span class="hs-special">,</span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">u -&gt; f c
+</span><a href="#local-6989586621679270608"><span class="hs-identifier hs-var">g</span></a></span><span> </span><span class="annot"><span class="annottext">u
+</span><a href="#local-6989586621679270615"><span class="hs-identifier hs-var">u</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">s -&gt; f a
+</span><a href="#local-6989586621679270566"><span class="hs-identifier hs-var">e</span></a></span><span> </span><span class="annot"><span class="annottext">s
+</span><a href="#local-6989586621679270614"><span class="hs-identifier hs-var">s</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-138"></span><span>      </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Compose</span></span><span> </span><span id="local-6989586621679270618"><span class="annot"><span class="annottext">f (f (b, d))
+</span><a href="#local-6989586621679270618"><span class="hs-identifier hs-var">i</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">f b -&gt; t
+</span><a href="#local-6989586621679270567"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">(f b -&gt; t) -&gt; (f d -&gt; v) -&gt; (f b, f d) -&gt; (t, v)
+forall (p :: * -&gt; * -&gt; *) a b c d.
+Monoidal p =&gt;
+p a b -&gt; p c d -&gt; p (a, c) (b, d)
+</span><a href="Data.Profunctor.Monoidal.html#%3E%2A%3C"><span class="hs-operator hs-var">&gt;*&lt;</span></a></span><span> </span><span class="annot"><span class="annottext">f d -&gt; v
+</span><a href="#local-6989586621679270609"><span class="hs-identifier hs-var">h</span></a></span><span> </span><span class="annot"><span class="annottext">((f b, f d) -&gt; (t, v)) -&gt; (f b, f d) -&gt; (t, v)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span>
+</span><span id="line-139"></span><span>          </span><span class="hs-keyword">let</span><span>
+</span><span id="line-140"></span><span>            </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Natural
+</span><span class="hs-identifier">_</span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679270620"><span class="annot"><span class="annottext">f (b, d)
+</span><a href="#local-6989586621679270620"><span class="hs-identifier hs-var">j</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">AReview (Natural, f (b, d)) (f (f (b, d)))
+-&gt; f (f (b, d)) -&gt; (Natural, f (b, d))
+forall b (m :: * -&gt; *) t. MonadReader b m =&gt; AReview t b -&gt; m t
+</span><span class="hs-identifier hs-var">review</span></span><span> </span><span class="annot"><span class="annottext">AReview (Natural, f (b, d)) (f (f (b, d)))
+forall (f :: * -&gt; *) a. Enumerable f =&gt; Prism' (Natural, a) (f a)
+Prism' (Natural, f (b, d)) (f (f (b, d)))
+</span><a href="Data.Traversable.Homogeneous.Enumerable.html#fromEnumerable"><span class="hs-identifier hs-var">fromEnumerable</span></a></span><span> </span><span class="annot"><span class="annottext">f (f (b, d))
+</span><a href="#local-6989586621679270618"><span class="hs-identifier hs-var">i</span></a></span><span>
+</span><span id="line-141"></span><span>            </span><span id="local-6989586621679270623"><span class="annot"><span class="annottext">k :: f (Natural, (b, d))
+</span><a href="#local-6989586621679270623"><span class="hs-identifier hs-var hs-var">k</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(f (b, d) -&gt; (Natural, (b, d)))
+-&gt; f (f (b, d)) -&gt; f (Natural, (b, d))
+forall a b. (a -&gt; b) -&gt; f a -&gt; f b
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">fmap</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">AReview (Natural, (b, d)) (f (b, d))
+-&gt; f (b, d) -&gt; (Natural, (b, d))
+forall b (m :: * -&gt; *) t. MonadReader b m =&gt; AReview t b -&gt; m t
+</span><span class="hs-identifier hs-var">review</span></span><span> </span><span class="annot"><span class="annottext">AReview (Natural, (b, d)) (f (b, d))
+forall (f :: * -&gt; *) a. Enumerable f =&gt; Prism' (Natural, a) (f a)
+Prism' (Natural, (b, d)) (f (b, d))
+</span><a href="Data.Traversable.Homogeneous.Enumerable.html#fromEnumerable"><span class="hs-identifier hs-var">fromEnumerable</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">f (f (b, d))
+</span><a href="#local-6989586621679270618"><span class="hs-identifier hs-var">i</span></a></span><span>
+</span><span id="line-142"></span><span>          </span><span class="hs-keyword">in</span><span>
+</span><span id="line-143"></span><span>            </span><span class="hs-special">(</span><span class="annot"><span class="annottext">((Natural, (b, d)) -&gt; b) -&gt; f (Natural, (b, d)) -&gt; f b
+forall a b. (a -&gt; b) -&gt; f a -&gt; f b
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">fmap</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(b, d) -&gt; b
+forall a b. (a, b) -&gt; a
+</span><span class="hs-identifier hs-var">fst</span></span><span> </span><span class="annot"><span class="annottext">((b, d) -&gt; b)
+-&gt; ((Natural, (b, d)) -&gt; (b, d)) -&gt; (Natural, (b, d)) -&gt; b
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">(Natural, (b, d)) -&gt; (b, d)
+forall a b. (a, b) -&gt; b
+</span><span class="hs-identifier hs-var">snd</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">f (Natural, (b, d))
+</span><a href="#local-6989586621679270623"><span class="hs-identifier hs-var">k</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">((b, d) -&gt; d) -&gt; f (b, d) -&gt; f d
+forall a b. (a -&gt; b) -&gt; f a -&gt; f b
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">fmap</span></span><span> </span><span class="annot"><span class="annottext">(b, d) -&gt; d
+forall a b. (a, b) -&gt; b
+</span><span class="hs-identifier hs-var">snd</span></span><span> </span><span class="annot"><span class="annottext">f (b, d)
+</span><a href="#local-6989586621679270620"><span class="hs-identifier hs-var">j</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-144"></span><span>      </span><span class="hs-special">)</span><span>
+</span><span id="line-145"></span><span>
+</span><span id="line-146"></span><span class="annot"><span class="hs-comment">{- | The `Control.Lens.Indexed.IndexedLens` of `AComonocle`,
+indexed by which copy is held, numbered from 0, left to right.
+Numbering diverges past a summand of infinitely many copies.
+
+&gt;&gt;&gt; iview (indexComonocle (altComonocle id id)) (Right 'a' :: Either Char Char)
+(1,'a')
+-}</span></span><span>
+</span><span id="line-153"></span><span id="local-6989586621679270191"><span id="local-6989586621679270192"><span id="local-6989586621679270193"><span id="local-6989586621679270194"><span class="annot"><a href="Control.Lens.Comonocle.html#indexComonocle"><span class="hs-identifier hs-type">indexComonocle</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Control.Lens.Comonocle.html#AComonocle"><span class="hs-identifier hs-type">AComonocle</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270191"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270192"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270193"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270194"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IndexedLens</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Natural</span></span><span> </span><span class="annot"><a href="#local-6989586621679270191"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270192"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270193"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270194"><span class="hs-identifier hs-type">b</span></a></span></span></span></span></span><span>
+</span><span id="line-154"></span><span id="indexComonocle"><span class="annot"><span class="annottext">indexComonocle :: forall s t a b. AComonocle s t a b -&gt; IndexedLens Natural s t a b
+</span><a href="Control.Lens.Comonocle.html#indexComonocle"><span class="hs-identifier hs-var hs-var">indexComonocle</span></a></span></span><span> </span><span id="local-6989586621679270628"><span class="annot"><span class="annottext">AComonocle s t a b
+</span><a href="#local-6989586621679270628"><span class="hs-identifier hs-var">mon</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">AComonocle s t a b
+-&gt; (forall (f :: * -&gt; *).
+    Enumerable f =&gt;
+    (s -&gt; f a) -&gt; (f b -&gt; t) -&gt; p a (f b) -&gt; s -&gt; f t)
+-&gt; p a (f b)
+-&gt; s
+-&gt; f t
+forall s t a b r.
+AComonocle s t a b
+-&gt; (forall (f :: * -&gt; *).
+    Enumerable f =&gt;
+    (s -&gt; f a) -&gt; (f b -&gt; t) -&gt; r)
+-&gt; r
+</span><a href="Control.Lens.Comonocle.html#withComonocle"><span class="hs-identifier hs-var">withComonocle</span></a></span><span> </span><span class="annot"><span class="annottext">AComonocle s t a b
+</span><a href="#local-6989586621679270628"><span class="hs-identifier hs-var">mon</span></a></span><span> </span><span class="annot"><span class="annottext">((forall (f :: * -&gt; *).
+  Enumerable f =&gt;
+  (s -&gt; f a) -&gt; (f b -&gt; t) -&gt; p a (f b) -&gt; s -&gt; f t)
+ -&gt; p a (f b) -&gt; s -&gt; f t)
+-&gt; (forall (f :: * -&gt; *).
+    Enumerable f =&gt;
+    (s -&gt; f a) -&gt; (f b -&gt; t) -&gt; p a (f b) -&gt; s -&gt; f t)
+-&gt; p a (f b)
+-&gt; s
+-&gt; f t
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679270642"><span class="annot"><span class="annottext">s -&gt; f a
+</span><a href="#local-6989586621679270642"><span class="hs-identifier hs-var">split</span></a></span></span><span> </span><span id="local-6989586621679270643"><span class="annot"><span class="annottext">f b -&gt; t
+</span><a href="#local-6989586621679270643"><span class="hs-identifier hs-var">merge</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">(s -&gt; (Natural, a)) -&gt; (s -&gt; b -&gt; t) -&gt; IndexedLens Natural s t a b
+forall s i a b t.
+(s -&gt; (i, a)) -&gt; (s -&gt; b -&gt; t) -&gt; IndexedLens i s t a b
+</span><span class="hs-identifier hs-var">ilens</span></span><span>
+</span><span id="line-155"></span><span>  </span><span class="hs-special">(</span><span class="annot"><span class="annottext">AReview (Natural, a) (f a) -&gt; f a -&gt; (Natural, a)
+forall b (m :: * -&gt; *) t. MonadReader b m =&gt; AReview t b -&gt; m t
+</span><span class="hs-identifier hs-var">review</span></span><span> </span><span class="annot"><span class="annottext">AReview (Natural, a) (f a)
+forall (f :: * -&gt; *) a. Enumerable f =&gt; Prism' (Natural, a) (f a)
+Prism' (Natural, a) (f a)
+</span><a href="Data.Traversable.Homogeneous.Enumerable.html#fromEnumerable"><span class="hs-identifier hs-var">fromEnumerable</span></a></span><span> </span><span class="annot"><span class="annottext">(f a -&gt; (Natural, a)) -&gt; (s -&gt; f a) -&gt; s -&gt; (Natural, a)
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">s -&gt; f a
+</span><a href="#local-6989586621679270642"><span class="hs-identifier hs-var">split</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-156"></span><span>  </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span id="local-6989586621679270645"><span class="annot"><span class="annottext">s
+</span><a href="#local-6989586621679270645"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span id="local-6989586621679270646"><span class="annot"><span class="annottext">b
+</span><a href="#local-6989586621679270646"><span class="hs-identifier hs-var">b</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">f b -&gt; t
+</span><a href="#local-6989586621679270643"><span class="hs-identifier hs-var">merge</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">b
+</span><a href="#local-6989586621679270646"><span class="hs-identifier hs-var">b</span></a></span><span> </span><span class="annot"><span class="annottext">b -&gt; f a -&gt; f b
+forall a b. a -&gt; f b -&gt; f a
+forall (f :: * -&gt; *) a b. Functor f =&gt; a -&gt; f b -&gt; f a
+</span><span class="hs-operator hs-var">&lt;$</span></span><span> </span><span class="annot"><span class="annottext">s -&gt; f a
+</span><a href="#local-6989586621679270642"><span class="hs-identifier hs-var">split</span></a></span><span> </span><span class="annot"><span class="annottext">s
+</span><a href="#local-6989586621679270645"><span class="hs-identifier hs-var">s</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-157"></span><span>
+</span><span id="line-158"></span><span class="annot"><span class="hs-comment">{- | The copy of `AComonocle` at an index, holding a focus, if there is one,
+like `toEnum`, &amp; inverse to `indexComonocle`.
+
+&gt;&gt;&gt; preview (fromComonocle _BoundedEnum) (2, ()) :: Maybe Ordering
+Just GT
+&gt;&gt;&gt; preview (fromComonocle _BoundedEnum) (3, ()) :: Maybe Ordering
+Nothing
+-}</span></span><span>
+</span><span id="line-166"></span><span id="local-6989586621679270212"><span id="local-6989586621679270213"><span class="annot"><a href="Control.Lens.Comonocle.html#fromComonocle"><span class="hs-identifier hs-type">fromComonocle</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Control.Lens.Comonocle.html#AComonocle"><span class="hs-identifier hs-type">AComonocle</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270212"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270212"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270213"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270213"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Prism'</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Natural</span></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="#local-6989586621679270213"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621679270212"><span class="hs-identifier hs-type">s</span></a></span></span></span><span>
+</span><span id="line-167"></span><span id="fromComonocle"><span class="annot"><span class="annottext">fromComonocle :: forall s a. AComonocle s s a a -&gt; Prism' (Natural, a) s
+</span><a href="Control.Lens.Comonocle.html#fromComonocle"><span class="hs-identifier hs-var hs-var">fromComonocle</span></a></span></span><span> </span><span id="local-6989586621679270651"><span class="annot"><span class="annottext">AComonocle s s a a
+</span><a href="#local-6989586621679270651"><span class="hs-identifier hs-var">mon</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">AComonocle s s a a
+-&gt; (forall (f :: * -&gt; *).
+    Enumerable f =&gt;
+    (s -&gt; f a)
+    -&gt; (f a -&gt; s) -&gt; p s (f s) -&gt; p (Natural, a) (f (Natural, a)))
+-&gt; p s (f s)
+-&gt; p (Natural, a) (f (Natural, a))
+forall s t a b r.
+AComonocle s t a b
+-&gt; (forall (f :: * -&gt; *).
+    Enumerable f =&gt;
+    (s -&gt; f a) -&gt; (f b -&gt; t) -&gt; r)
+-&gt; r
+</span><a href="Control.Lens.Comonocle.html#withComonocle"><span class="hs-identifier hs-var">withComonocle</span></a></span><span> </span><span class="annot"><span class="annottext">AComonocle s s a a
+</span><a href="#local-6989586621679270651"><span class="hs-identifier hs-var">mon</span></a></span><span> </span><span class="annot"><span class="annottext">((forall (f :: * -&gt; *).
+  Enumerable f =&gt;
+  (s -&gt; f a)
+  -&gt; (f a -&gt; s) -&gt; p s (f s) -&gt; p (Natural, a) (f (Natural, a)))
+ -&gt; p s (f s) -&gt; p (Natural, a) (f (Natural, a)))
+-&gt; (forall (f :: * -&gt; *).
+    Enumerable f =&gt;
+    (s -&gt; f a)
+    -&gt; (f a -&gt; s) -&gt; p s (f s) -&gt; p (Natural, a) (f (Natural, a)))
+-&gt; p s (f s)
+-&gt; p (Natural, a) (f (Natural, a))
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679270671"><span class="annot"><span class="annottext">s -&gt; f a
+</span><a href="#local-6989586621679270671"><span class="hs-identifier hs-var">split</span></a></span></span><span> </span><span id="local-6989586621679270672"><span class="annot"><span class="annottext">f a -&gt; s
+</span><a href="#local-6989586621679270672"><span class="hs-identifier hs-var">merge</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">(s -&gt; (Natural, a))
+-&gt; ((Natural, a) -&gt; Maybe s) -&gt; Prism (Natural, a) (Natural, a) s s
+forall b s a. (b -&gt; s) -&gt; (s -&gt; Maybe a) -&gt; Prism s s a b
+</span><span class="hs-identifier hs-var">prism'</span></span><span>
+</span><span id="line-168"></span><span>  </span><span class="hs-special">(</span><span class="annot"><span class="annottext">AReview (Natural, a) (f a) -&gt; f a -&gt; (Natural, a)
+forall b (m :: * -&gt; *) t. MonadReader b m =&gt; AReview t b -&gt; m t
+</span><span class="hs-identifier hs-var">review</span></span><span> </span><span class="annot"><span class="annottext">AReview (Natural, a) (f a)
+forall (f :: * -&gt; *) a. Enumerable f =&gt; Prism' (Natural, a) (f a)
+Prism' (Natural, a) (f a)
+</span><a href="Data.Traversable.Homogeneous.Enumerable.html#fromEnumerable"><span class="hs-identifier hs-var">fromEnumerable</span></a></span><span> </span><span class="annot"><span class="annottext">(f a -&gt; (Natural, a)) -&gt; (s -&gt; f a) -&gt; s -&gt; (Natural, a)
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">s -&gt; f a
+</span><a href="#local-6989586621679270671"><span class="hs-identifier hs-var">split</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-169"></span><span>  </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(f a -&gt; s) -&gt; Maybe (f a) -&gt; Maybe s
+forall a b. (a -&gt; b) -&gt; Maybe a -&gt; Maybe b
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">fmap</span></span><span> </span><span class="annot"><span class="annottext">f a -&gt; s
+</span><a href="#local-6989586621679270672"><span class="hs-identifier hs-var">merge</span></a></span><span> </span><span class="annot"><span class="annottext">(Maybe (f a) -&gt; Maybe s)
+-&gt; ((Natural, a) -&gt; Maybe (f a)) -&gt; (Natural, a) -&gt; Maybe s
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Getting (First (f a)) (Natural, a) (f a)
+-&gt; (Natural, a) -&gt; Maybe (f a)
+forall s (m :: * -&gt; *) a.
+MonadReader s m =&gt;
+Getting (First a) s a -&gt; m (Maybe a)
+</span><span class="hs-identifier hs-var">preview</span></span><span> </span><span class="annot"><span class="annottext">Getting (First (f a)) (Natural, a) (f a)
+forall (f :: * -&gt; *) a. Enumerable f =&gt; Prism' (Natural, a) (f a)
+Prism' (Natural, a) (f a)
+</span><a href="Data.Traversable.Homogeneous.Enumerable.html#fromEnumerable"><span class="hs-identifier hs-var">fromEnumerable</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-170"></span><span>
+</span><span id="line-171"></span><span class="annot"><span class="hs-comment">{- | Zip two sources of `AComonocle`, when they hold the same copy,
+dual to `Control.Lens.Grate.cotraverseOf`, which zips every `Control.Lens.Monocle.Monocle`.
+
+&gt;&gt;&gt; zipWithComonocle (altComonocle id id) (+) (Left 1) (Left 2 :: Either Int Int)
+Just (Left 3)
+&gt;&gt;&gt; zipWithComonocle (altComonocle id id) (+) (Left 1) (Right 2 :: Either Int Int)
+Nothing
+-}</span></span><span>
+</span><span id="line-179"></span><span id="local-6989586621679270232"><span id="local-6989586621679270233"><span id="local-6989586621679270234"><span id="local-6989586621679270235"><span class="annot"><a href="Control.Lens.Comonocle.html#zipWithComonocle"><span class="hs-identifier hs-type">zipWithComonocle</span></a></span><span>
+</span><span id="line-180"></span><span>  </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Control.Lens.Comonocle.html#AComonocle"><span class="hs-identifier hs-type">AComonocle</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270232"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270233"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270234"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270235"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679270234"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679270234"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679270235"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679270232"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679270232"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="annot"><a href="#local-6989586621679270233"><span class="hs-identifier hs-type">t</span></a></span></span></span></span></span><span>
+</span><span id="line-181"></span><span id="zipWithComonocle"><span class="annot"><span class="annottext">zipWithComonocle :: forall s t a b.
+AComonocle s t a b -&gt; (a -&gt; a -&gt; b) -&gt; s -&gt; s -&gt; Maybe t
+</span><a href="Control.Lens.Comonocle.html#zipWithComonocle"><span class="hs-identifier hs-var hs-var">zipWithComonocle</span></a></span></span><span> </span><span id="local-6989586621679270682"><span class="annot"><span class="annottext">AComonocle s t a b
+</span><a href="#local-6989586621679270682"><span class="hs-identifier hs-var">mon</span></a></span></span><span> </span><span id="local-6989586621679270683"><span class="annot"><span class="annottext">a -&gt; a -&gt; b
+</span><a href="#local-6989586621679270683"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span id="local-6989586621679270684"><span class="annot"><span class="annottext">s
+</span><a href="#local-6989586621679270684"><span class="hs-identifier hs-var">s0</span></a></span></span><span> </span><span id="local-6989586621679270685"><span class="annot"><span class="annottext">s
+</span><a href="#local-6989586621679270685"><span class="hs-identifier hs-var">s1</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-182"></span><span>  </span><span class="annot"><span class="annottext">AComonocle s t a b
+-&gt; ((:*:) Par1 Par1 a -&gt; Maybe b) -&gt; (:*:) Par1 Par1 s -&gt; Maybe t
+forall (f :: * -&gt; *) (g :: * -&gt; *) s t a b.
+(Traversable f, Alternative g) =&gt;
+AComonocle s t a b -&gt; (f a -&gt; g b) -&gt; f s -&gt; g t
+</span><a href="Control.Lens.Comonocle.html#zipComonocle"><span class="hs-identifier hs-var">zipComonocle</span></a></span><span> </span><span class="annot"><span class="annottext">AComonocle s t a b
+</span><a href="#local-6989586621679270682"><span class="hs-identifier hs-var">mon</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Par1</span></span><span> </span><span id="local-6989586621679270686"><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679270686"><span class="hs-identifier hs-var">a0</span></a></span></span><span> </span><span class="annot"><span class="hs-operator hs-type">:*:</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Par1</span></span><span> </span><span id="local-6989586621679270688"><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679270688"><span class="hs-identifier hs-var">a1</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">b -&gt; Maybe b
+forall a. a -&gt; Maybe a
+</span><span class="hs-identifier hs-var">Just</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">a -&gt; a -&gt; b
+</span><a href="#local-6989586621679270683"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679270686"><span class="hs-identifier hs-var">a0</span></a></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679270688"><span class="hs-identifier hs-var">a1</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">s -&gt; Par1 s
+forall p. p -&gt; Par1 p
+</span><span class="hs-identifier hs-var">Par1</span></span><span> </span><span class="annot"><span class="annottext">s
+</span><a href="#local-6989586621679270684"><span class="hs-identifier hs-var">s0</span></a></span><span> </span><span class="annot"><span class="annottext">Par1 s -&gt; Par1 s -&gt; (:*:) Par1 Par1 s
+forall k (f :: k -&gt; *) (g :: k -&gt; *) (p :: k).
+f p -&gt; g p -&gt; (:*:) f g p
+</span><span class="hs-operator hs-var">:*:</span></span><span> </span><span class="annot"><span class="annottext">s -&gt; Par1 s
+forall p. p -&gt; Par1 p
+</span><span class="hs-identifier hs-var">Par1</span></span><span> </span><span class="annot"><span class="annottext">s
+</span><a href="#local-6989586621679270685"><span class="hs-identifier hs-var">s1</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-183"></span><span>
+</span><span id="line-184"></span><span class="annot"><span class="hs-comment">{- | Zip sources of `AComonocle` in the positions of a `Traversable`,
+when they all hold the same copy, or else `Control.Applicative.empty`.
+
+&gt;&gt;&gt; zipComonocle (altComonocle id id) (Just . sum) [Left 1, Left 2, Left 3 :: Either Int Int]
+Just (Left 6)
+&gt;&gt;&gt; zipComonocle (altComonocle id id) (Just . sum) [Left 1, Right 2 :: Either Int Int]
+Nothing
+-}</span></span><span>
+</span><span id="line-192"></span><span id="local-6989586621679270243"><span id="local-6989586621679270244"><span id="local-6989586621679270245"><span id="local-6989586621679270246"><span id="local-6989586621679270247"><span id="local-6989586621679270248"><span class="annot"><a href="Control.Lens.Comonocle.html#zipComonocle"><span class="hs-identifier hs-type">zipComonocle</span></a></span><span>
+</span><span id="line-193"></span><span>  </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Traversable</span></span><span> </span><span class="annot"><a href="#local-6989586621679270243"><span class="hs-identifier hs-type">f</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Alternative</span></span><span> </span><span class="annot"><a href="#local-6989586621679270244"><span class="hs-identifier hs-type">g</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-194"></span><span>  </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Control.Lens.Comonocle.html#AComonocle"><span class="hs-identifier hs-type">AComonocle</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270245"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270246"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270247"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270248"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679270243"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270247"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679270244"><span class="hs-identifier hs-type">g</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270248"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679270243"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270245"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679270244"><span class="hs-identifier hs-type">g</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270246"><span class="hs-identifier hs-type">t</span></a></span></span></span></span></span></span></span><span>
+</span><span id="line-195"></span><span id="zipComonocle"><span class="annot"><span class="annottext">zipComonocle :: forall (f :: * -&gt; *) (g :: * -&gt; *) s t a b.
+(Traversable f, Alternative g) =&gt;
+AComonocle s t a b -&gt; (f a -&gt; g b) -&gt; f s -&gt; g t
+</span><a href="Control.Lens.Comonocle.html#zipComonocle"><span class="hs-identifier hs-var hs-var">zipComonocle</span></a></span></span><span> </span><span id="local-6989586621679270697"><span class="annot"><span class="annottext">AComonocle s t a b
+</span><a href="#local-6989586621679270697"><span class="hs-identifier hs-var">mon</span></a></span></span><span> </span><span id="local-6989586621679270698"><span class="annot"><span class="annottext">f a -&gt; g b
+</span><a href="#local-6989586621679270698"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Zipporah (-&gt;) f g s t -&gt; f s -&gt; g t
+forall (p :: * -&gt; * -&gt; *) (f :: * -&gt; *) (g :: * -&gt; *) a b.
+Zipporah p f g a b -&gt; p (f a) (g b)
+</span><a href="Data.Traversable.Homogeneous.html#runZipporah"><span class="hs-identifier hs-var">runZipporah</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">AComonocle s t a b
+-&gt; Zipporah (-&gt;) f g a b -&gt; Zipporah (-&gt;) f g s t
+forall (p :: * -&gt; * -&gt; *) s t a b.
+CocartesianMonoidal p =&gt;
+AComonocle s t a b -&gt; p a b -&gt; p s t
+</span><a href="Control.Lens.Comonocle.html#mapComonocle"><span class="hs-identifier hs-var">mapComonocle</span></a></span><span> </span><span class="annot"><span class="annottext">AComonocle s t a b
+</span><a href="#local-6989586621679270697"><span class="hs-identifier hs-var">mon</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(f a -&gt; g b) -&gt; Zipporah (-&gt;) f g a b
+forall (p :: * -&gt; * -&gt; *) (f :: * -&gt; *) (g :: * -&gt; *) a b.
+p (f a) (g b) -&gt; Zipporah p f g a b
+</span><a href="Data.Traversable.Homogeneous.html#Zipporah"><span class="hs-identifier hs-var">Zipporah</span></a></span><span> </span><span class="annot"><span class="annottext">f a -&gt; g b
+</span><a href="#local-6989586621679270698"><span class="hs-identifier hs-var">f</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-196"></span><span>
+</span><span id="line-197"></span><span class="annot"><span class="hs-comment">{- | How many copies `AComonocle` has, like the size of a `Bounded` `Enum`.
+It diverges for infinitely many copies, &amp; takes time linear in their number.
+
+&gt;&gt;&gt; countComonocle (_BoundedEnum @Ordering)
+3
+-}</span></span><span>
+</span><span id="line-203"></span><span id="local-6989586621679270273"><span id="local-6989586621679270274"><span id="local-6989586621679270275"><span id="local-6989586621679270276"><span class="annot"><a href="Control.Lens.Comonocle.html#countComonocle"><span class="hs-identifier hs-type">countComonocle</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Control.Lens.Comonocle.html#AComonocle"><span class="hs-identifier hs-type">AComonocle</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270273"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270274"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270275"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270276"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Natural</span></span></span></span></span></span><span>
+</span><span id="line-204"></span><span id="countComonocle"><span class="annot"><span class="annottext">countComonocle :: forall s t a b. AComonocle s t a b -&gt; Natural
+</span><a href="Control.Lens.Comonocle.html#countComonocle"><span class="hs-identifier hs-var hs-var">countComonocle</span></a></span></span><span> </span><span id="local-6989586621679270701"><span class="annot"><span class="annottext">AComonocle s t a b
+</span><a href="#local-6989586621679270701"><span class="hs-identifier hs-var">mon</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">AComonocle s t a b
+-&gt; (forall (f :: * -&gt; *).
+    Enumerable f =&gt;
+    (s -&gt; f a) -&gt; (f b -&gt; t) -&gt; Natural)
+-&gt; Natural
+forall s t a b r.
+AComonocle s t a b
+-&gt; (forall (f :: * -&gt; *).
+    Enumerable f =&gt;
+    (s -&gt; f a) -&gt; (f b -&gt; t) -&gt; r)
+-&gt; r
+</span><a href="Control.Lens.Comonocle.html#withComonocle"><span class="hs-identifier hs-var">withComonocle</span></a></span><span> </span><span class="annot"><span class="annottext">AComonocle s t a b
+</span><a href="#local-6989586621679270701"><span class="hs-identifier hs-var">mon</span></a></span><span> </span><span class="annot"><span class="annottext">((forall (f :: * -&gt; *).
+  Enumerable f =&gt;
+  (s -&gt; f a) -&gt; (f b -&gt; t) -&gt; Natural)
+ -&gt; Natural)
+-&gt; (forall (f :: * -&gt; *).
+    Enumerable f =&gt;
+    (s -&gt; f a) -&gt; (f b -&gt; t) -&gt; Natural)
+-&gt; Natural
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679270706"><span class="annot"><span class="annottext">s -&gt; f a
+</span><a href="#local-6989586621679270706"><span class="hs-identifier hs-var">split</span></a></span></span><span> </span><span class="annot"><span class="annottext">f b -&gt; t
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">(s -&gt; f a) -&gt; Natural
+forall (f :: * -&gt; *) x y. Enumerable f =&gt; (x -&gt; f y) -&gt; Natural
+</span><a href="#local-6989586621679270707"><span class="hs-identifier hs-var">copies</span></a></span><span> </span><span class="annot"><span class="annottext">s -&gt; f a
+</span><a href="#local-6989586621679270706"><span class="hs-identifier hs-var">split</span></a></span><span>
+</span><span id="line-205"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-206"></span><span>    </span><span class="annot"><a href="#local-6989586621679270707"><span class="hs-identifier hs-type">copies</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-keyword">forall</span><span> </span><span id="local-6989586621679270283"><span class="annot"><a href="#local-6989586621679270283"><span class="hs-identifier hs-type">f</span></a></span></span><span> </span><span id="local-6989586621679270284"><span class="annot"><a href="#local-6989586621679270284"><span class="hs-identifier hs-type">x</span></a></span></span><span> </span><span id="local-6989586621679270285"><span class="annot"><a href="#local-6989586621679270285"><span class="hs-identifier hs-type">y</span></a></span></span><span class="hs-operator">.</span><span> </span><span class="annot"><a href="Data.Traversable.Homogeneous.Enumerable.html#Enumerable"><span class="hs-identifier hs-type">Enumerable</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270283"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679270284"><span class="hs-identifier hs-type">x</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679270283"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270285"><span class="hs-identifier hs-type">y</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Natural</span></span><span>
+</span><span id="line-207"></span><span>    </span><span id="local-6989586621679270707"><span class="annot"><span class="annottext">copies :: forall (f :: * -&gt; *) x y. Enumerable f =&gt; (x -&gt; f y) -&gt; Natural
+</span><a href="#local-6989586621679270707"><span class="hs-identifier hs-var hs-var">copies</span></a></span></span><span> </span><span class="annot"><span class="annottext">x -&gt; f y
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">Enumerator () () -&gt; Enumerator (f ()) (f ())
+forall (f :: * -&gt; *) (p :: * -&gt; * -&gt; *) a b.
+(Enumerable f, CocartesianMonoidal p) =&gt;
+p a b -&gt; p (f a) (f b)
+forall (p :: * -&gt; * -&gt; *) a b.
+CocartesianMonoidal p =&gt;
+p a b -&gt; p (f a) (f b)
+</span><a href="Data.Traversable.Homogeneous.Enumerable.html#enumerably"><span class="hs-identifier hs-var">enumerably</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">() -&gt; Enumerator () ()
+forall a. a -&gt; Enumerator () a
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><span class="hs-identifier hs-var">pure</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Data.Traversable.Homogeneous.Enumerable.html#Enumerator"><span class="hs-identifier hs-type">Enumerator</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Data.Traversable.Homogeneous.Enumerable.html#Enumerator"><span class="hs-identifier hs-type">Enumerator</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679270283"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679270283"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-208"></span><span>      </span><span class="annot"><a href="Data.Traversable.Homogeneous.Enumerable.html#Enumerator"><span class="hs-identifier hs-type">Enumerator</span></a></span><span> </span><span id="local-6989586621679270715"><span class="annot"><span class="annottext">Natural
+</span><a href="#local-6989586621679270715"><span class="hs-identifier hs-var">count</span></a></span></span><span> </span><span class="annot"><span class="annottext">f () -&gt; Natural
+</span><span class="hs-identifier">_</span></span><span> </span><span class="annot"><span class="annottext">Natural -&gt; Maybe (f ())
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Natural
+</span><a href="#local-6989586621679270715"><span class="hs-identifier hs-var">count</span></a></span><span>
+</span><span id="line-209"></span><span>
+</span><span id="line-210"></span><span class="annot"><span class="hs-comment">{- | The `Control.Lens.Prism.Prism`s of the copies of `AComonocle`,
+numbered from 0, left to right, exactly one of which matches a source.
+
+Dual to `Control.Lens.Monocle.fociMonocle`: a sum of copies has
+a `Control.Lens.Prism.Prism` for each copy, exactly one of which matches,
+as a product of foci has a `Control.Lens.Lens.Lens` for each focus,
+every one of which focuses.
+
+&gt;&gt;&gt; [preview (runPrism copy) EQ | copy &lt;- copiesComonocle _BoundedEnum]
+[Nothing,Just (),Nothing]
+&gt;&gt;&gt; [review (runPrism copy) () | copy &lt;- copiesComonocle _BoundedEnum] :: [Ordering]
+[LT,EQ,GT]
+-}</span></span><span>
+</span><span id="line-223"></span><span class="annot"><a href="Control.Lens.Comonocle.html#copiesComonocle"><span class="hs-identifier hs-type">copiesComonocle</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-keyword">forall</span><span> </span><span id="local-6989586621679270293"><span class="annot"><a href="#local-6989586621679270293"><span class="hs-identifier hs-type">s</span></a></span></span><span> </span><span id="local-6989586621679270294"><span class="annot"><a href="#local-6989586621679270294"><span class="hs-identifier hs-type">a</span></a></span></span><span class="hs-operator">.</span><span> </span><span class="annot"><a href="Control.Lens.Comonocle.html#AComonocle"><span class="hs-identifier hs-type">AComonocle</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270293"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270293"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270294"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270294"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">ReifiedPrism'</span></span><span> </span><span class="annot"><a href="#local-6989586621679270293"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270294"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">]</span><span>
+</span><span id="line-224"></span><span id="copiesComonocle"><span class="annot"><span class="annottext">copiesComonocle :: forall s a. AComonocle s s a a -&gt; [ReifiedPrism' s a]
+</span><a href="Control.Lens.Comonocle.html#copiesComonocle"><span class="hs-identifier hs-var hs-var">copiesComonocle</span></a></span></span><span> </span><span id="local-6989586621679270716"><span class="annot"><span class="annottext">AComonocle s s a a
+</span><a href="#local-6989586621679270716"><span class="hs-identifier hs-var">mon</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">AComonocle s s a a
+-&gt; (forall (f :: * -&gt; *).
+    Enumerable f =&gt;
+    (s -&gt; f a) -&gt; (f a -&gt; s) -&gt; [ReifiedPrism' s a])
+-&gt; [ReifiedPrism' s a]
+forall s t a b r.
+AComonocle s t a b
+-&gt; (forall (f :: * -&gt; *).
+    Enumerable f =&gt;
+    (s -&gt; f a) -&gt; (f b -&gt; t) -&gt; r)
+-&gt; r
+</span><a href="Control.Lens.Comonocle.html#withComonocle"><span class="hs-identifier hs-var">withComonocle</span></a></span><span> </span><span class="annot"><span class="annottext">AComonocle s s a a
+</span><a href="#local-6989586621679270716"><span class="hs-identifier hs-var">mon</span></a></span><span> </span><span class="annot"><span class="annottext">(s -&gt; f a) -&gt; (f a -&gt; s) -&gt; [ReifiedPrism' s a]
+forall (f :: * -&gt; *).
+Enumerable f =&gt;
+(s -&gt; f a) -&gt; (f a -&gt; s) -&gt; [ReifiedPrism' s a]
+</span><a href="#local-6989586621679270717"><span class="hs-identifier hs-var">copiesOf</span></a></span><span>
+</span><span id="line-225"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-226"></span><span>    </span><span class="annot"><a href="#local-6989586621679270717"><span class="hs-identifier hs-type">copiesOf</span></a></span><span>
+</span><span id="line-227"></span><span>      </span><span class="hs-glyph">::</span><span> </span><span class="hs-keyword">forall</span><span> </span><span id="local-6989586621679270720"><span class="annot"><a href="#local-6989586621679270720"><span class="hs-identifier hs-type">f</span></a></span></span><span class="hs-operator">.</span><span> </span><span class="annot"><a href="Data.Traversable.Homogeneous.Enumerable.html#Enumerable"><span class="hs-identifier hs-type">Enumerable</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270720"><span class="hs-identifier hs-type">f</span></a></span><span>
+</span><span id="line-228"></span><span>      </span><span class="hs-glyph">=&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679270293"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679270720"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270294"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679270720"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270294"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679270293"><span class="hs-identifier hs-type">s</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">ReifiedPrism'</span></span><span> </span><span class="annot"><a href="#local-6989586621679270293"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270294"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">]</span><span>
+</span><span id="line-229"></span><span>    </span><span id="local-6989586621679270717"><span class="annot"><span class="annottext">copiesOf :: forall (f :: * -&gt; *).
+Enumerable f =&gt;
+(s -&gt; f a) -&gt; (f a -&gt; s) -&gt; [ReifiedPrism' s a]
+</span><a href="#local-6989586621679270717"><span class="hs-identifier hs-var hs-var">copiesOf</span></a></span></span><span> </span><span id="local-6989586621679270736"><span class="annot"><span class="annottext">s -&gt; f a
+</span><a href="#local-6989586621679270736"><span class="hs-identifier hs-var">split</span></a></span></span><span> </span><span id="local-6989586621679270737"><span class="annot"><span class="annottext">f a -&gt; s
+</span><a href="#local-6989586621679270737"><span class="hs-identifier hs-var">merge</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-230"></span><span>      </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">Enumerator () () -&gt; Enumerator (f ()) (f ())
+forall (f :: * -&gt; *) (p :: * -&gt; * -&gt; *) a b.
+(Enumerable f, CocartesianMonoidal p) =&gt;
+p a b -&gt; p (f a) (f b)
+forall (p :: * -&gt; * -&gt; *) a b.
+CocartesianMonoidal p =&gt;
+p a b -&gt; p (f a) (f b)
+</span><a href="Data.Traversable.Homogeneous.Enumerable.html#enumerably"><span class="hs-identifier hs-var">enumerably</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">() -&gt; Enumerator () ()
+forall a. a -&gt; Enumerator () a
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><span class="hs-identifier hs-var">pure</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Data.Traversable.Homogeneous.Enumerable.html#Enumerator"><span class="hs-identifier hs-type">Enumerator</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Data.Traversable.Homogeneous.Enumerable.html#Enumerator"><span class="hs-identifier hs-type">Enumerator</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679270720"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679270720"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-231"></span><span>        </span><span class="annot"><a href="Data.Traversable.Homogeneous.Enumerable.html#Enumerator"><span class="hs-identifier hs-type">Enumerator</span></a></span><span> </span><span class="annot"><span class="annottext">Natural
+</span><span class="hs-identifier">_</span></span><span> </span><span class="annot"><span class="annottext">f () -&gt; Natural
+</span><span class="hs-identifier">_</span></span><span> </span><span id="local-6989586621679270738"><span class="annot"><span class="annottext">Natural -&gt; Maybe (f ())
+</span><a href="#local-6989586621679270738"><span class="hs-identifier hs-var">select</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-232"></span><span>          </span><span class="hs-keyword">let</span><span>
+</span><span id="line-233"></span><span>            </span><span id="local-6989586621679270739"><span class="annot"><span class="annottext">go :: Natural -&gt; [ReifiedPrism' s a]
+</span><a href="#local-6989586621679270739"><span class="hs-identifier hs-var hs-var">go</span></a></span></span><span> </span><span id="local-6989586621679270740"><span class="annot"><span class="annottext">Natural
+</span><a href="#local-6989586621679270740"><span class="hs-identifier hs-var">i</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">Natural -&gt; Maybe (f ())
+</span><a href="#local-6989586621679270738"><span class="hs-identifier hs-var">select</span></a></span><span> </span><span class="annot"><span class="annottext">Natural
+</span><a href="#local-6989586621679270740"><span class="hs-identifier hs-var">i</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-234"></span><span>              </span><span class="annot"><span class="annottext">Maybe (f ())
+</span><span class="hs-identifier hs-var">Nothing</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span>
+</span><span id="line-235"></span><span>              </span><span class="annot"><span class="hs-identifier hs-type">Just</span></span><span> </span><span id="local-6989586621679270741"><span class="annot"><span class="annottext">f ()
+</span><a href="#local-6989586621679270741"><span class="hs-identifier hs-var">copy</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Natural -&gt; f () -&gt; ReifiedPrism' s a
+</span><a href="#local-6989586621679270742"><span class="hs-identifier hs-var">copyAt</span></a></span><span> </span><span class="annot"><span class="annottext">Natural
+</span><a href="#local-6989586621679270740"><span class="hs-identifier hs-var">i</span></a></span><span> </span><span class="annot"><span class="annottext">f ()
+</span><a href="#local-6989586621679270741"><span class="hs-identifier hs-var">copy</span></a></span><span> </span><span class="annot"><span class="annottext">ReifiedPrism' s a -&gt; [ReifiedPrism' s a] -&gt; [ReifiedPrism' s a]
+forall a. a -&gt; [a] -&gt; [a]
+</span><span class="hs-glyph hs-var">:</span></span><span> </span><span class="annot"><span class="annottext">Natural -&gt; [ReifiedPrism' s a]
+</span><a href="#local-6989586621679270739"><span class="hs-identifier hs-var">go</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Natural
+</span><a href="#local-6989586621679270740"><span class="hs-identifier hs-var">i</span></a></span><span> </span><span class="annot"><span class="annottext">Natural -&gt; Natural -&gt; Natural
+forall a. Num a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">+</span></span><span> </span><span class="annot"><span class="annottext">Natural
+</span><span class="hs-number">1</span></span><span class="hs-special">)</span><span>
+</span><span id="line-236"></span><span>          </span><span class="hs-keyword">in</span><span>
+</span><span id="line-237"></span><span>            </span><span class="annot"><span class="annottext">Natural -&gt; [ReifiedPrism' s a]
+</span><a href="#local-6989586621679270739"><span class="hs-identifier hs-var">go</span></a></span><span> </span><span class="annot"><span class="annottext">Natural
+</span><span class="hs-number">0</span></span><span>
+</span><span id="line-238"></span><span>      </span><span class="hs-keyword">where</span><span>
+</span><span id="line-239"></span><span>        </span><span id="local-6989586621679270742"><span class="annot"><span class="annottext">copyAt :: Natural -&gt; f () -&gt; ReifiedPrism' s a
+</span><a href="#local-6989586621679270742"><span class="hs-identifier hs-var hs-var">copyAt</span></a></span></span><span> </span><span id="local-6989586621679270744"><span class="annot"><span class="annottext">Natural
+</span><a href="#local-6989586621679270744"><span class="hs-identifier hs-var">i</span></a></span></span><span> </span><span id="local-6989586621679270745"><span class="annot"><span class="annottext">f ()
+</span><a href="#local-6989586621679270745"><span class="hs-identifier hs-var">copy</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Prism s s a a -&gt; ReifiedPrism' s a
+forall s t a b. Prism s t a b -&gt; ReifiedPrism s t a b
+</span><span class="hs-identifier hs-var">Prism</span></span><span> </span><span class="annot"><span class="annottext">(Prism s s a a -&gt; ReifiedPrism' s a)
+-&gt; Prism s s a a -&gt; ReifiedPrism' s a
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">(a -&gt; s) -&gt; (s -&gt; Either s a) -&gt; Prism s s a a
+forall b t s a. (b -&gt; t) -&gt; (s -&gt; Either t a) -&gt; Prism s t a b
+</span><span class="hs-identifier hs-var">prism</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span id="local-6989586621679270774"><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679270774"><span class="hs-identifier hs-var">a</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">f a -&gt; s
+</span><a href="#local-6989586621679270737"><span class="hs-identifier hs-var">merge</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679270774"><span class="hs-identifier hs-var">a</span></a></span><span> </span><span class="annot"><span class="annottext">a -&gt; f () -&gt; f a
+forall a b. a -&gt; f b -&gt; f a
+forall (f :: * -&gt; *) a b. Functor f =&gt; a -&gt; f b -&gt; f a
+</span><span class="hs-operator hs-var">&lt;$</span></span><span> </span><span class="annot"><span class="annottext">f ()
+</span><a href="#local-6989586621679270745"><span class="hs-identifier hs-var">copy</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">((s -&gt; Either s a) -&gt; Prism s s a a)
+-&gt; (s -&gt; Either s a) -&gt; Prism s s a a
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679270775"><span class="annot"><span class="annottext">s
+</span><a href="#local-6989586621679270775"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-240"></span><span>          </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">AReview (Natural, a) (f a) -&gt; f a -&gt; (Natural, a)
+forall b (m :: * -&gt; *) t. MonadReader b m =&gt; AReview t b -&gt; m t
+</span><span class="hs-identifier hs-var">review</span></span><span> </span><span class="annot"><span class="annottext">AReview (Natural, a) (f a)
+forall (f :: * -&gt; *) a. Enumerable f =&gt; Prism' (Natural, a) (f a)
+Prism' (Natural, a) (f a)
+</span><a href="Data.Traversable.Homogeneous.Enumerable.html#fromEnumerable"><span class="hs-identifier hs-var">fromEnumerable</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">s -&gt; f a
+</span><a href="#local-6989586621679270736"><span class="hs-identifier hs-var">split</span></a></span><span> </span><span class="annot"><span class="annottext">s
+</span><a href="#local-6989586621679270775"><span class="hs-identifier hs-var">s</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-241"></span><span>            </span><span class="hs-special">(</span><span id="local-6989586621679270776"><span class="annot"><span class="annottext">Natural
+</span><a href="#local-6989586621679270776"><span class="hs-identifier hs-var">j</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679270777"><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679270777"><span class="hs-identifier hs-var">a</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">Natural
+</span><a href="#local-6989586621679270776"><span class="hs-identifier hs-var">j</span></a></span><span> </span><span class="annot"><span class="annottext">Natural -&gt; Natural -&gt; Bool
+forall a. Eq a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">==</span></span><span> </span><span class="annot"><span class="annottext">Natural
+</span><a href="#local-6989586621679270744"><span class="hs-identifier hs-var">i</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">a -&gt; Either s a
+forall a b. b -&gt; Either a b
+</span><span class="hs-identifier hs-var">Right</span></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679270777"><span class="hs-identifier hs-var">a</span></a></span><span>
+</span><span id="line-242"></span><span>            </span><span class="annot"><span class="annottext">(Natural, a)
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">s -&gt; Either s a
+forall a b. a -&gt; Either a b
+</span><span class="hs-identifier hs-var">Left</span></span><span> </span><span class="annot"><span class="annottext">s
+</span><a href="#local-6989586621679270775"><span class="hs-identifier hs-var">s</span></a></span><span>
+</span><span id="line-243"></span><span>
+</span><span id="line-244"></span><span class="annot"><span class="hs-comment">{- | The next copy of `AComonocle`, holding the same focus,
+if there is one, like `succ`, &amp; conversely, the previous copy, like `pred`.
+
+&gt;&gt;&gt; preview (succComonocle _BoundedEnum) EQ
+Just GT
+&gt;&gt;&gt; preview (succComonocle _BoundedEnum) GT
+Nothing
+-}</span></span><span>
+</span><span id="line-252"></span><span id="local-6989586621679270317"><span id="local-6989586621679270318"><span class="annot"><a href="Control.Lens.Comonocle.html#succComonocle"><span class="hs-identifier hs-type">succComonocle</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Control.Lens.Comonocle.html#AComonocle"><span class="hs-identifier hs-type">AComonocle</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270317"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270317"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270318"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270318"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Control.Lens.PartialIso.html#PartialIso%27"><span class="hs-identifier hs-type">PartialIso'</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270317"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270317"><span class="hs-identifier hs-type">s</span></a></span></span></span><span>
+</span><span id="line-253"></span><span id="succComonocle"><span class="annot"><span class="annottext">succComonocle :: forall s a. AComonocle s s a a -&gt; PartialIso' s s
+</span><a href="Control.Lens.Comonocle.html#succComonocle"><span class="hs-identifier hs-var hs-var">succComonocle</span></a></span></span><span> </span><span id="local-6989586621679270783"><span class="annot"><span class="annottext">AComonocle s s a a
+</span><a href="#local-6989586621679270783"><span class="hs-identifier hs-var">mon</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-254"></span><span>  </span><span class="annot"><span class="annottext">AComonocle s s a a
+-&gt; (forall (f :: * -&gt; *).
+    Enumerable f =&gt;
+    (s -&gt; f a) -&gt; (f a -&gt; s) -&gt; p s (f s) -&gt; p s (f s))
+-&gt; p s (f s)
+-&gt; p s (f s)
+forall s t a b r.
+AComonocle s t a b
+-&gt; (forall (f :: * -&gt; *).
+    Enumerable f =&gt;
+    (s -&gt; f a) -&gt; (f b -&gt; t) -&gt; r)
+-&gt; r
+</span><a href="Control.Lens.Comonocle.html#withComonocle"><span class="hs-identifier hs-var">withComonocle</span></a></span><span> </span><span class="annot"><span class="annottext">AComonocle s s a a
+</span><a href="#local-6989586621679270783"><span class="hs-identifier hs-var">mon</span></a></span><span> </span><span class="annot"><span class="annottext">((forall (f :: * -&gt; *).
+  Enumerable f =&gt;
+  (s -&gt; f a) -&gt; (f a -&gt; s) -&gt; p s (f s) -&gt; p s (f s))
+ -&gt; p s (f s) -&gt; p s (f s))
+-&gt; (forall (f :: * -&gt; *).
+    Enumerable f =&gt;
+    (s -&gt; f a) -&gt; (f a -&gt; s) -&gt; p s (f s) -&gt; p s (f s))
+-&gt; p s (f s)
+-&gt; p s (f s)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679270799"><span class="annot"><span class="annottext">s -&gt; f a
+</span><a href="#local-6989586621679270799"><span class="hs-identifier hs-var">split</span></a></span></span><span> </span><span id="local-6989586621679270800"><span class="annot"><span class="annottext">f a -&gt; s
+</span><a href="#local-6989586621679270800"><span class="hs-identifier hs-var">merge</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-255"></span><span>  </span><span class="annot"><span class="annottext">APartialIso (f a) (f a) (f a) (f a)
+-&gt; ((f a -&gt; Maybe (f a))
+    -&gt; (f a -&gt; Maybe (f a)) -&gt; p s (f s) -&gt; p s (f s))
+-&gt; p s (f s)
+-&gt; p s (f s)
+forall s t a b r.
+APartialIso s t a b -&gt; ((s -&gt; Maybe a) -&gt; (b -&gt; Maybe t) -&gt; r) -&gt; r
+</span><a href="Control.Lens.PartialIso.html#withPartialIso"><span class="hs-identifier hs-var">withPartialIso</span></a></span><span> </span><span class="annot"><span class="annottext">APartialIso (f a) (f a) (f a) (f a)
+forall (f :: * -&gt; *) a. Enumerable f =&gt; PartialIso' (f a) (f a)
+PartialIso' (f a) (f a)
+</span><a href="Data.Traversable.Homogeneous.Enumerable.html#succEnumerable"><span class="hs-identifier hs-var">succEnumerable</span></a></span><span> </span><span class="annot"><span class="annottext">(((f a -&gt; Maybe (f a))
+  -&gt; (f a -&gt; Maybe (f a)) -&gt; p s (f s) -&gt; p s (f s))
+ -&gt; p s (f s) -&gt; p s (f s))
+-&gt; ((f a -&gt; Maybe (f a))
+    -&gt; (f a -&gt; Maybe (f a)) -&gt; p s (f s) -&gt; p s (f s))
+-&gt; p s (f s)
+-&gt; p s (f s)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679270803"><span class="annot"><span class="annottext">f a -&gt; Maybe (f a)
+</span><a href="#local-6989586621679270803"><span class="hs-identifier hs-var">hither</span></a></span></span><span> </span><span id="local-6989586621679270804"><span class="annot"><span class="annottext">f a -&gt; Maybe (f a)
+</span><a href="#local-6989586621679270804"><span class="hs-identifier hs-var">thither</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-256"></span><span>    </span><span class="annot"><span class="annottext">(s -&gt; Maybe s) -&gt; (s -&gt; Maybe s) -&gt; PartialIso s s s s
+forall s a b t.
+(s -&gt; Maybe a) -&gt; (b -&gt; Maybe t) -&gt; PartialIso s t a b
+</span><a href="Control.Lens.PartialIso.html#partialIso"><span class="hs-identifier hs-var">partialIso</span></a></span><span> </span><span>
+</span><span id="line-257"></span><span>      </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(f a -&gt; s) -&gt; Maybe (f a) -&gt; Maybe s
+forall a b. (a -&gt; b) -&gt; Maybe a -&gt; Maybe b
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">fmap</span></span><span> </span><span class="annot"><span class="annottext">f a -&gt; s
+</span><a href="#local-6989586621679270800"><span class="hs-identifier hs-var">merge</span></a></span><span> </span><span class="annot"><span class="annottext">(Maybe (f a) -&gt; Maybe s) -&gt; (s -&gt; Maybe (f a)) -&gt; s -&gt; Maybe s
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">f a -&gt; Maybe (f a)
+</span><a href="#local-6989586621679270803"><span class="hs-identifier hs-var">hither</span></a></span><span> </span><span class="annot"><span class="annottext">(f a -&gt; Maybe (f a)) -&gt; (s -&gt; f a) -&gt; s -&gt; Maybe (f a)
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">s -&gt; f a
+</span><a href="#local-6989586621679270799"><span class="hs-identifier hs-var">split</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-258"></span><span>      </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(f a -&gt; s) -&gt; Maybe (f a) -&gt; Maybe s
+forall a b. (a -&gt; b) -&gt; Maybe a -&gt; Maybe b
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">fmap</span></span><span> </span><span class="annot"><span class="annottext">f a -&gt; s
+</span><a href="#local-6989586621679270800"><span class="hs-identifier hs-var">merge</span></a></span><span> </span><span class="annot"><span class="annottext">(Maybe (f a) -&gt; Maybe s) -&gt; (s -&gt; Maybe (f a)) -&gt; s -&gt; Maybe s
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">f a -&gt; Maybe (f a)
+</span><a href="#local-6989586621679270804"><span class="hs-identifier hs-var">thither</span></a></span><span> </span><span class="annot"><span class="annottext">(f a -&gt; Maybe (f a)) -&gt; (s -&gt; f a) -&gt; s -&gt; Maybe (f a)
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">s -&gt; f a
+</span><a href="#local-6989586621679270799"><span class="hs-identifier hs-var">split</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-259"></span><span>
+</span><span id="line-260"></span><span class="annot"><span class="hs-comment">{- | The previous copy of `AComonocle`, holding the same focus,
+if there is one, like `pred`, &amp; conversely, the next copy, like `succ`.
+
+&gt;&gt;&gt; preview (predComonocle _BoundedEnum) EQ
+Just LT
+&gt;&gt;&gt; preview (predComonocle _BoundedEnum) LT
+Nothing
+-}</span></span><span>
+</span><span id="line-268"></span><span id="local-6989586621679270806"><span id="local-6989586621679270807"><span class="annot"><a href="Control.Lens.Comonocle.html#predComonocle"><span class="hs-identifier hs-type">predComonocle</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Control.Lens.Comonocle.html#AComonocle"><span class="hs-identifier hs-type">AComonocle</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270806"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270806"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270807"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270807"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Control.Lens.PartialIso.html#PartialIso%27"><span class="hs-identifier hs-type">PartialIso'</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270806"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270806"><span class="hs-identifier hs-type">s</span></a></span></span></span><span>
+</span><span id="line-269"></span><span id="predComonocle"><span class="annot"><span class="annottext">predComonocle :: forall s a. AComonocle s s a a -&gt; PartialIso' s s
+</span><a href="Control.Lens.Comonocle.html#predComonocle"><span class="hs-identifier hs-var hs-var">predComonocle</span></a></span></span><span> </span><span id="local-6989586621679270817"><span class="annot"><span class="annottext">AComonocle s s a a
+</span><a href="#local-6989586621679270817"><span class="hs-identifier hs-var">mon</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">APartialIso s s s s -&gt; PartialIso s s s s
+forall b a t s. APartialIso b a t s -&gt; PartialIso s t a b
+</span><a href="Control.Lens.PartialIso.html#coPartialIso"><span class="hs-identifier hs-var">coPartialIso</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">AComonocle s s a a -&gt; PartialIso s s s s
+forall s a. AComonocle s s a a -&gt; PartialIso' s s
+</span><a href="Control.Lens.Comonocle.html#succComonocle"><span class="hs-identifier hs-var">succComonocle</span></a></span><span> </span><span class="annot"><span class="annottext">AComonocle s s a a
+</span><a href="#local-6989586621679270817"><span class="hs-identifier hs-var">mon</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-270"></span><span>
+</span><span id="line-271"></span><span class="annot"><span class="hs-comment">{- | The copies of `AComonocle` from one onward, holding the same focus,
+like `enumFrom`.
+
+&gt;&gt;&gt; enumerateComonocle _BoundedEnum False
+[False,True]
+&gt;&gt;&gt; enumerateComonocle (altComonocle id id) (Left 'x' :: Either Char Char)
+[Left 'x',Right 'x']
+-}</span></span><span>
+</span><span id="line-279"></span><span id="local-6989586621679270351"><span id="local-6989586621679270352"><span class="annot"><a href="Control.Lens.Comonocle.html#enumerateComonocle"><span class="hs-identifier hs-type">enumerateComonocle</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Control.Lens.Comonocle.html#AComonocle"><span class="hs-identifier hs-type">AComonocle</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270351"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270351"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270352"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270352"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679270351"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="#local-6989586621679270351"><span class="hs-identifier hs-type">s</span></a></span><span class="hs-special">]</span></span></span><span>
+</span><span id="line-280"></span><span id="enumerateComonocle"><span class="annot"><span class="annottext">enumerateComonocle :: forall s a. AComonocle s s a a -&gt; s -&gt; [s]
+</span><a href="Control.Lens.Comonocle.html#enumerateComonocle"><span class="hs-identifier hs-var hs-var">enumerateComonocle</span></a></span></span><span> </span><span id="local-6989586621679270819"><span class="annot"><span class="annottext">AComonocle s s a a
+</span><a href="#local-6989586621679270819"><span class="hs-identifier hs-var">mon</span></a></span></span><span> </span><span id="local-6989586621679270820"><span class="annot"><span class="annottext">s
+</span><a href="#local-6989586621679270820"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-281"></span><span>  </span><span class="annot"><span class="annottext">AComonocle s s a a
+-&gt; (forall (f :: * -&gt; *).
+    Enumerable f =&gt;
+    (s -&gt; f a) -&gt; (f a -&gt; s) -&gt; [s])
+-&gt; [s]
+forall s t a b r.
+AComonocle s t a b
+-&gt; (forall (f :: * -&gt; *).
+    Enumerable f =&gt;
+    (s -&gt; f a) -&gt; (f b -&gt; t) -&gt; r)
+-&gt; r
+</span><a href="Control.Lens.Comonocle.html#withComonocle"><span class="hs-identifier hs-var">withComonocle</span></a></span><span> </span><span class="annot"><span class="annottext">AComonocle s s a a
+</span><a href="#local-6989586621679270819"><span class="hs-identifier hs-var">mon</span></a></span><span> </span><span class="annot"><span class="annottext">((forall (f :: * -&gt; *).
+  Enumerable f =&gt;
+  (s -&gt; f a) -&gt; (f a -&gt; s) -&gt; [s])
+ -&gt; [s])
+-&gt; (forall (f :: * -&gt; *).
+    Enumerable f =&gt;
+    (s -&gt; f a) -&gt; (f a -&gt; s) -&gt; [s])
+-&gt; [s]
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679270827"><span class="annot"><span class="annottext">s -&gt; f a
+</span><a href="#local-6989586621679270827"><span class="hs-identifier hs-var">split</span></a></span></span><span> </span><span id="local-6989586621679270828"><span class="annot"><span class="annottext">f a -&gt; s
+</span><a href="#local-6989586621679270828"><span class="hs-identifier hs-var">merge</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">f a -&gt; s
+</span><a href="#local-6989586621679270828"><span class="hs-identifier hs-var">merge</span></a></span><span> </span><span class="annot"><span class="annottext">(f a -&gt; s) -&gt; [f a] -&gt; [s]
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">f a -&gt; [f a]
+forall (f :: * -&gt; *) a. Enumerable f =&gt; f a -&gt; [f a]
+</span><a href="Data.Traversable.Homogeneous.Enumerable.html#enumerateFrom"><span class="hs-identifier hs-var">enumerateFrom</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">s -&gt; f a
+</span><a href="#local-6989586621679270827"><span class="hs-identifier hs-var">split</span></a></span><span> </span><span class="annot"><span class="annottext">s
+</span><a href="#local-6989586621679270820"><span class="hs-identifier hs-var">s</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-282"></span><span>
+</span><span id="line-283"></span><span class="annot"><span class="hs-comment">{- | The copies of `AComonocle` from one onward, holding its focus,
+stepping by the copy of another, like `enumFromThen`.
+
+&gt;&gt;&gt; enumerateFromThenComonocle _BoundedEnum GT EQ
+[GT,EQ,LT]
+-}</span></span><span>
+</span><span id="line-289"></span><span id="local-6989586621679270362"><span id="local-6989586621679270363"><span class="annot"><a href="Control.Lens.Comonocle.html#enumerateFromThenComonocle"><span class="hs-identifier hs-type">enumerateFromThenComonocle</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Control.Lens.Comonocle.html#AComonocle"><span class="hs-identifier hs-type">AComonocle</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270362"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270362"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270363"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270363"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679270362"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679270362"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="#local-6989586621679270362"><span class="hs-identifier hs-type">s</span></a></span><span class="hs-special">]</span></span></span><span>
+</span><span id="line-290"></span><span id="enumerateFromThenComonocle"><span class="annot"><span class="annottext">enumerateFromThenComonocle :: forall s a. AComonocle s s a a -&gt; s -&gt; s -&gt; [s]
+</span><a href="Control.Lens.Comonocle.html#enumerateFromThenComonocle"><span class="hs-identifier hs-var hs-var">enumerateFromThenComonocle</span></a></span></span><span> </span><span id="local-6989586621679270831"><span class="annot"><span class="annottext">AComonocle s s a a
+</span><a href="#local-6989586621679270831"><span class="hs-identifier hs-var">mon</span></a></span></span><span> </span><span id="local-6989586621679270832"><span class="annot"><span class="annottext">s
+</span><a href="#local-6989586621679270832"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span id="local-6989586621679270833"><span class="annot"><span class="annottext">s
+</span><a href="#local-6989586621679270833"><span class="hs-identifier hs-var">s'</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">AComonocle s s a a
+-&gt; (forall (f :: * -&gt; *).
+    Enumerable f =&gt;
+    (s -&gt; f a) -&gt; (f a -&gt; s) -&gt; [s])
+-&gt; [s]
+forall s t a b r.
+AComonocle s t a b
+-&gt; (forall (f :: * -&gt; *).
+    Enumerable f =&gt;
+    (s -&gt; f a) -&gt; (f b -&gt; t) -&gt; r)
+-&gt; r
+</span><a href="Control.Lens.Comonocle.html#withComonocle"><span class="hs-identifier hs-var">withComonocle</span></a></span><span> </span><span class="annot"><span class="annottext">AComonocle s s a a
+</span><a href="#local-6989586621679270831"><span class="hs-identifier hs-var">mon</span></a></span><span> </span><span class="annot"><span class="annottext">((forall (f :: * -&gt; *).
+  Enumerable f =&gt;
+  (s -&gt; f a) -&gt; (f a -&gt; s) -&gt; [s])
+ -&gt; [s])
+-&gt; (forall (f :: * -&gt; *).
+    Enumerable f =&gt;
+    (s -&gt; f a) -&gt; (f a -&gt; s) -&gt; [s])
+-&gt; [s]
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679270839"><span class="annot"><span class="annottext">s -&gt; f a
+</span><a href="#local-6989586621679270839"><span class="hs-identifier hs-var">split</span></a></span></span><span> </span><span id="local-6989586621679270840"><span class="annot"><span class="annottext">f a -&gt; s
+</span><a href="#local-6989586621679270840"><span class="hs-identifier hs-var">merge</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-291"></span><span>  </span><span class="annot"><span class="annottext">f a -&gt; s
+</span><a href="#local-6989586621679270840"><span class="hs-identifier hs-var">merge</span></a></span><span> </span><span class="annot"><span class="annottext">(f a -&gt; s) -&gt; [f a] -&gt; [s]
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">f a -&gt; f a -&gt; [f a]
+forall (f :: * -&gt; *) a b. Enumerable f =&gt; f a -&gt; f b -&gt; [f a]
+</span><a href="Data.Traversable.Homogeneous.Enumerable.html#enumerateFromThen"><span class="hs-identifier hs-var">enumerateFromThen</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">s -&gt; f a
+</span><a href="#local-6989586621679270839"><span class="hs-identifier hs-var">split</span></a></span><span> </span><span class="annot"><span class="annottext">s
+</span><a href="#local-6989586621679270832"><span class="hs-identifier hs-var">s</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">s -&gt; f a
+</span><a href="#local-6989586621679270839"><span class="hs-identifier hs-var">split</span></a></span><span> </span><span class="annot"><span class="annottext">s
+</span><a href="#local-6989586621679270833"><span class="hs-identifier hs-var">s'</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-292"></span><span>
+</span><span id="line-293"></span><span class="annot"><span class="hs-comment">{- | The copies of `AComonocle` from one to the copy of another,
+holding its focus, like `enumFromTo`.
+
+&gt;&gt;&gt; enumerateFromToComonocle _BoundedEnum LT EQ
+[LT,EQ]
+-}</span></span><span>
+</span><span id="line-299"></span><span id="local-6989586621679270842"><span id="local-6989586621679270843"><span class="annot"><a href="Control.Lens.Comonocle.html#enumerateFromToComonocle"><span class="hs-identifier hs-type">enumerateFromToComonocle</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Control.Lens.Comonocle.html#AComonocle"><span class="hs-identifier hs-type">AComonocle</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270842"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270842"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270843"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270843"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679270842"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679270842"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="#local-6989586621679270842"><span class="hs-identifier hs-type">s</span></a></span><span class="hs-special">]</span></span></span><span>
+</span><span id="line-300"></span><span id="enumerateFromToComonocle"><span class="annot"><span class="annottext">enumerateFromToComonocle :: forall s a. AComonocle s s a a -&gt; s -&gt; s -&gt; [s]
+</span><a href="Control.Lens.Comonocle.html#enumerateFromToComonocle"><span class="hs-identifier hs-var hs-var">enumerateFromToComonocle</span></a></span></span><span> </span><span id="local-6989586621679270844"><span class="annot"><span class="annottext">AComonocle s s a a
+</span><a href="#local-6989586621679270844"><span class="hs-identifier hs-var">mon</span></a></span></span><span> </span><span id="local-6989586621679270845"><span class="annot"><span class="annottext">s
+</span><a href="#local-6989586621679270845"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span id="local-6989586621679270846"><span class="annot"><span class="annottext">s
+</span><a href="#local-6989586621679270846"><span class="hs-identifier hs-var">s''</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">AComonocle s s a a
+-&gt; (forall (f :: * -&gt; *).
+    Enumerable f =&gt;
+    (s -&gt; f a) -&gt; (f a -&gt; s) -&gt; [s])
+-&gt; [s]
+forall s t a b r.
+AComonocle s t a b
+-&gt; (forall (f :: * -&gt; *).
+    Enumerable f =&gt;
+    (s -&gt; f a) -&gt; (f b -&gt; t) -&gt; r)
+-&gt; r
+</span><a href="Control.Lens.Comonocle.html#withComonocle"><span class="hs-identifier hs-var">withComonocle</span></a></span><span> </span><span class="annot"><span class="annottext">AComonocle s s a a
+</span><a href="#local-6989586621679270844"><span class="hs-identifier hs-var">mon</span></a></span><span> </span><span class="annot"><span class="annottext">((forall (f :: * -&gt; *).
+  Enumerable f =&gt;
+  (s -&gt; f a) -&gt; (f a -&gt; s) -&gt; [s])
+ -&gt; [s])
+-&gt; (forall (f :: * -&gt; *).
+    Enumerable f =&gt;
+    (s -&gt; f a) -&gt; (f a -&gt; s) -&gt; [s])
+-&gt; [s]
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679270852"><span class="annot"><span class="annottext">s -&gt; f a
+</span><a href="#local-6989586621679270852"><span class="hs-identifier hs-var">split</span></a></span></span><span> </span><span id="local-6989586621679270853"><span class="annot"><span class="annottext">f a -&gt; s
+</span><a href="#local-6989586621679270853"><span class="hs-identifier hs-var">merge</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-301"></span><span>  </span><span class="annot"><span class="annottext">f a -&gt; s
+</span><a href="#local-6989586621679270853"><span class="hs-identifier hs-var">merge</span></a></span><span> </span><span class="annot"><span class="annottext">(f a -&gt; s) -&gt; [f a] -&gt; [s]
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">f a -&gt; f a -&gt; [f a]
+forall (f :: * -&gt; *) a b. Enumerable f =&gt; f a -&gt; f b -&gt; [f a]
+</span><a href="Data.Traversable.Homogeneous.Enumerable.html#enumerateFromTo"><span class="hs-identifier hs-var">enumerateFromTo</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">s -&gt; f a
+</span><a href="#local-6989586621679270852"><span class="hs-identifier hs-var">split</span></a></span><span> </span><span class="annot"><span class="annottext">s
+</span><a href="#local-6989586621679270845"><span class="hs-identifier hs-var">s</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">s -&gt; f a
+</span><a href="#local-6989586621679270852"><span class="hs-identifier hs-var">split</span></a></span><span> </span><span class="annot"><span class="annottext">s
+</span><a href="#local-6989586621679270846"><span class="hs-identifier hs-var">s''</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-302"></span><span>
+</span><span id="line-303"></span><span class="annot"><span class="hs-comment">{- | The copies of `AComonocle` from one to the copy of another,
+holding its focus, stepping by the copy of a third, like `enumFromThenTo`.
+
+&gt;&gt;&gt; enumerateFromThenToComonocle _BoundedEnum LT GT LT
+[LT]
+-}</span></span><span>
+</span><span id="line-309"></span><span id="local-6989586621679270375"><span id="local-6989586621679270376"><span class="annot"><a href="Control.Lens.Comonocle.html#enumerateFromThenToComonocle"><span class="hs-identifier hs-type">enumerateFromThenToComonocle</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Control.Lens.Comonocle.html#AComonocle"><span class="hs-identifier hs-type">AComonocle</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270375"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270375"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270376"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270376"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679270375"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679270375"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679270375"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="#local-6989586621679270375"><span class="hs-identifier hs-type">s</span></a></span><span class="hs-special">]</span></span></span><span>
+</span><span id="line-310"></span><span id="enumerateFromThenToComonocle"><span class="annot"><span class="annottext">enumerateFromThenToComonocle :: forall s a. AComonocle s s a a -&gt; s -&gt; s -&gt; s -&gt; [s]
+</span><a href="Control.Lens.Comonocle.html#enumerateFromThenToComonocle"><span class="hs-identifier hs-var hs-var">enumerateFromThenToComonocle</span></a></span></span><span> </span><span id="local-6989586621679270855"><span class="annot"><span class="annottext">AComonocle s s a a
+</span><a href="#local-6989586621679270855"><span class="hs-identifier hs-var">mon</span></a></span></span><span> </span><span id="local-6989586621679270856"><span class="annot"><span class="annottext">s
+</span><a href="#local-6989586621679270856"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span id="local-6989586621679270857"><span class="annot"><span class="annottext">s
+</span><a href="#local-6989586621679270857"><span class="hs-identifier hs-var">s'</span></a></span></span><span> </span><span id="local-6989586621679270858"><span class="annot"><span class="annottext">s
+</span><a href="#local-6989586621679270858"><span class="hs-identifier hs-var">s''</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">AComonocle s s a a
+-&gt; (forall (f :: * -&gt; *).
+    Enumerable f =&gt;
+    (s -&gt; f a) -&gt; (f a -&gt; s) -&gt; [s])
+-&gt; [s]
+forall s t a b r.
+AComonocle s t a b
+-&gt; (forall (f :: * -&gt; *).
+    Enumerable f =&gt;
+    (s -&gt; f a) -&gt; (f b -&gt; t) -&gt; r)
+-&gt; r
+</span><a href="Control.Lens.Comonocle.html#withComonocle"><span class="hs-identifier hs-var">withComonocle</span></a></span><span> </span><span class="annot"><span class="annottext">AComonocle s s a a
+</span><a href="#local-6989586621679270855"><span class="hs-identifier hs-var">mon</span></a></span><span> </span><span class="annot"><span class="annottext">((forall (f :: * -&gt; *).
+  Enumerable f =&gt;
+  (s -&gt; f a) -&gt; (f a -&gt; s) -&gt; [s])
+ -&gt; [s])
+-&gt; (forall (f :: * -&gt; *).
+    Enumerable f =&gt;
+    (s -&gt; f a) -&gt; (f a -&gt; s) -&gt; [s])
+-&gt; [s]
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679270864"><span class="annot"><span class="annottext">s -&gt; f a
+</span><a href="#local-6989586621679270864"><span class="hs-identifier hs-var">split</span></a></span></span><span> </span><span id="local-6989586621679270865"><span class="annot"><span class="annottext">f a -&gt; s
+</span><a href="#local-6989586621679270865"><span class="hs-identifier hs-var">merge</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-311"></span><span>  </span><span class="annot"><span class="annottext">f a -&gt; s
+</span><a href="#local-6989586621679270865"><span class="hs-identifier hs-var">merge</span></a></span><span> </span><span class="annot"><span class="annottext">(f a -&gt; s) -&gt; [f a] -&gt; [s]
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">f a -&gt; f a -&gt; f a -&gt; [f a]
+forall (f :: * -&gt; *) a b c.
+Enumerable f =&gt;
+f a -&gt; f b -&gt; f c -&gt; [f a]
+</span><a href="Data.Traversable.Homogeneous.Enumerable.html#enumerateFromThenTo"><span class="hs-identifier hs-var">enumerateFromThenTo</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">s -&gt; f a
+</span><a href="#local-6989586621679270864"><span class="hs-identifier hs-var">split</span></a></span><span> </span><span class="annot"><span class="annottext">s
+</span><a href="#local-6989586621679270856"><span class="hs-identifier hs-var">s</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">s -&gt; f a
+</span><a href="#local-6989586621679270864"><span class="hs-identifier hs-var">split</span></a></span><span> </span><span class="annot"><span class="annottext">s
+</span><a href="#local-6989586621679270857"><span class="hs-identifier hs-var">s'</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">s -&gt; f a
+</span><a href="#local-6989586621679270864"><span class="hs-identifier hs-var">split</span></a></span><span> </span><span class="annot"><span class="annottext">s
+</span><a href="#local-6989586621679270858"><span class="hs-identifier hs-var">s''</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-312"></span><span>
+</span><span id="line-313"></span><span class="annot"><span class="hs-comment">{- | The `Comonocle` of an `Enumerable` sum's copy.
+
+&gt;&gt;&gt; over _Enumerable (+ 1) (Identity 1)
+Identity 2
+-}</span></span><span>
+</span><span id="line-318"></span><span id="local-6989586621679270385"><span id="local-6989586621679270386"><span id="local-6989586621679270387"><span class="annot"><a href="Control.Lens.Comonocle.html#_Enumerable"><span class="hs-identifier hs-type">_Enumerable</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Data.Traversable.Homogeneous.Enumerable.html#Enumerable"><span class="hs-identifier hs-type">Enumerable</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270385"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Control.Lens.Comonocle.html#Comonocle"><span class="hs-identifier hs-type">Comonocle</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679270385"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270386"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679270385"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270387"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621679270386"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270387"><span class="hs-identifier hs-type">b</span></a></span></span></span></span><span>
+</span><span id="line-319"></span><span id="_Enumerable"><span class="annot"><span class="annottext">_Enumerable :: forall (f :: * -&gt; *) a b. Enumerable f =&gt; Comonocle (f a) (f b) a b
+</span><a href="Control.Lens.Comonocle.html#_Enumerable"><span class="hs-identifier hs-var hs-var">_Enumerable</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">WrappedPafb f p (f a) (f b) -&gt; p (f a) (f (f b))
+forall (f :: * -&gt; *) (p :: * -&gt; * -&gt; *) a b.
+WrappedPafb f p a b -&gt; p a (f b)
+</span><span class="hs-identifier hs-var">unwrapPafb</span></span><span> </span><span class="annot"><span class="annottext">(WrappedPafb f p (f a) (f b) -&gt; p (f a) (f (f b)))
+-&gt; (p a (f b) -&gt; WrappedPafb f p (f a) (f b))
+-&gt; p a (f b)
+-&gt; p (f a) (f (f b))
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">WrappedPafb f p a b -&gt; WrappedPafb f p (f a) (f b)
+forall (f :: * -&gt; *) (p :: * -&gt; * -&gt; *) a b.
+(Enumerable f, CocartesianMonoidal p) =&gt;
+p a b -&gt; p (f a) (f b)
+forall (p :: * -&gt; * -&gt; *) a b.
+CocartesianMonoidal p =&gt;
+p a b -&gt; p (f a) (f b)
+</span><a href="Data.Traversable.Homogeneous.Enumerable.html#enumerably"><span class="hs-identifier hs-var">enumerably</span></a></span><span> </span><span class="annot"><span class="annottext">(WrappedPafb f p a b -&gt; WrappedPafb f p (f a) (f b))
+-&gt; (p a (f b) -&gt; WrappedPafb f p a b)
+-&gt; p a (f b)
+-&gt; WrappedPafb f p (f a) (f b)
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">p a (f b) -&gt; WrappedPafb f p a b
+forall (f :: * -&gt; *) (p :: * -&gt; * -&gt; *) a b.
+p a (f b) -&gt; WrappedPafb f p a b
+</span><span class="hs-identifier hs-var">WrapPafb</span></span><span>
+</span><span id="line-320"></span><span>
+</span><span id="line-321"></span><span class="annot"><span class="hs-comment">{- | The `Comonocle` of a `Bounded` `Enum`, as copies of @()@,
+numbered by `fromEnum` from `minBound`.
+
+&gt;&gt;&gt; iview (indexComonocle _BoundedEnum) True
+(1,())
+-}</span></span><span>
+</span><span id="line-327"></span><span id="local-6989586621679270393"><span class="annot"><a href="Control.Lens.Comonocle.html#_BoundedEnum"><span class="hs-identifier hs-type">_BoundedEnum</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Bounded</span></span><span> </span><span class="annot"><a href="#local-6989586621679270393"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Enum</span></span><span> </span><span class="annot"><a href="#local-6989586621679270393"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Control.Lens.Comonocle.html#Comonocle"><span class="hs-identifier hs-type">Comonocle</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270393"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270393"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span><span>
+</span><span id="line-328"></span><span id="_BoundedEnum"><span class="annot"><span class="annottext">_BoundedEnum :: forall a. (Bounded a, Enum a) =&gt; Comonocle a a () ()
+</span><a href="Control.Lens.Comonocle.html#_BoundedEnum"><span class="hs-identifier hs-var hs-var">_BoundedEnum</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(a -&gt; (a, ())) -&gt; ((a, ()) -&gt; a) -&gt; Iso a a (a, ()) (a, ())
+forall s a b t. (s -&gt; a) -&gt; (b -&gt; t) -&gt; Iso s t a b
+</span><span class="hs-identifier hs-var">iso</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span id="local-6989586621679270886"><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679270886"><span class="hs-identifier hs-var">x</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679270886"><span class="hs-identifier hs-var">x</span></a></span><span class="hs-special">,</span><span class="hs-special">(</span><span class="hs-special">)</span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span class="hs-special">(</span><span id="local-6989586621679270887"><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679270887"><span class="hs-identifier hs-var">x</span></a></span></span><span class="hs-special">,</span><span class="hs-special">(</span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679270887"><span class="hs-identifier hs-var">x</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(p (a, ()) (f (a, ())) -&gt; p a (f a))
+-&gt; (p () (f ()) -&gt; p (a, ()) (f (a, ())))
+-&gt; p () (f ())
+-&gt; p a (f a)
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">p () (f ()) -&gt; p (a, ()) (f (a, ()))
+forall (f :: * -&gt; *) a b. Enumerable f =&gt; Comonocle (f a) (f b) a b
+Comonocle (a, ()) (a, ()) () ()
+</span><a href="Control.Lens.Comonocle.html#_Enumerable"><span class="hs-identifier hs-var">_Enumerable</span></a></span><span>
+</span><span id="line-329"></span><span>
+</span><span id="line-330"></span><span class="annot"><span class="hs-comment">{- | t'Comonocular' provides a concrete representation of `Comonocle`s,
+by an `Enumerable` sum of copies.
+-}</span></span><span>
+</span><span id="line-333"></span><span class="hs-keyword">data</span><span> </span><span id="Comonocular"><span class="annot"><a href="Control.Lens.Comonocle.html#Comonocular"><span class="hs-identifier hs-var">Comonocular</span></a></span></span><span> </span><span id="local-6989586621679270888"><span class="annot"><a href="#local-6989586621679270888"><span class="hs-identifier hs-type">a</span></a></span></span><span> </span><span id="local-6989586621679270889"><span class="annot"><a href="#local-6989586621679270889"><span class="hs-identifier hs-type">b</span></a></span></span><span> </span><span id="local-6989586621679270890"><span class="annot"><a href="#local-6989586621679270890"><span class="hs-identifier hs-type">s</span></a></span></span><span> </span><span id="local-6989586621679270891"><span class="annot"><a href="#local-6989586621679270891"><span class="hs-identifier hs-type">t</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-334"></span><span>  </span><span id="local-6989586621679270060"><span id="local-6989586621679270061"><span id="local-6989586621679270062"><span id="local-6989586621679270063"><span id="local-6989586621679270892"><span id="Comonocular"><span class="annot"><a href="Control.Lens.Comonocle.html#Comonocular"><span class="hs-identifier hs-var">Comonocular</span></a></span></span><span>
+</span><span id="line-335"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Data.Traversable.Homogeneous.Enumerable.html#Enumerable"><span class="hs-identifier hs-type">Enumerable</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270892"><span class="hs-identifier hs-type">f</span></a></span><span>
+</span><span id="line-336"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679270060"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679270892"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270061"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-337"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679270892"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270062"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679270063"><span class="hs-identifier hs-type">t</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-338"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Control.Lens.Comonocle.html#Comonocular"><span class="hs-identifier hs-type">Comonocular</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270061"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270062"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270060"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270063"><span class="hs-identifier hs-type">t</span></a></span></span></span></span></span></span><span>
+</span><span id="line-339"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679270047"><span id="local-6989586621679270048"><span id="local-6989586621679270895"><span id="local-6989586621679270898"><span id="local-6989586621679270901"><span id="local-6989586621679270907"><span class="annot"><span class="hs-identifier hs-type">Profunctor</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Comonocle.html#Comonocular"><span class="hs-identifier hs-type">Comonocular</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270047"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270048"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span></span></span></span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-340"></span><span>  </span><span id="local-6989586621679270913"><span class="annot"><span class="annottext">dimap :: forall a b c d.
+(a -&gt; b) -&gt; (c -&gt; d) -&gt; Comonocular a b b c -&gt; Comonocular a b a d
+</span><span class="hs-identifier hs-var hs-var hs-var">dimap</span></span></span><span> </span><span id="local-6989586621679270914"><span class="annot"><span class="annottext">a -&gt; b
+</span><a href="#local-6989586621679270914"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span id="local-6989586621679270915"><span class="annot"><span class="annottext">c -&gt; d
+</span><a href="#local-6989586621679270915"><span class="hs-identifier hs-var">g</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Comonocle.html#Comonocular"><span class="hs-identifier hs-type">Comonocular</span></a></span><span> </span><span id="local-6989586621679270918"><span class="annot"><span class="annottext">b -&gt; f a
+</span><a href="#local-6989586621679270918"><span class="hs-identifier hs-var">split</span></a></span></span><span> </span><span id="local-6989586621679270919"><span class="annot"><span class="annottext">f b -&gt; c
+</span><a href="#local-6989586621679270919"><span class="hs-identifier hs-var">merge</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(a -&gt; f a) -&gt; (f b -&gt; d) -&gt; Comonocular a b a d
+forall (f :: * -&gt; *) s a b t.
+Enumerable f =&gt;
+(s -&gt; f a) -&gt; (f b -&gt; t) -&gt; Comonocular a b s t
+</span><a href="Control.Lens.Comonocle.html#Comonocular"><span class="hs-identifier hs-var">Comonocular</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">b -&gt; f a
+</span><a href="#local-6989586621679270918"><span class="hs-identifier hs-var">split</span></a></span><span> </span><span class="annot"><span class="annottext">(b -&gt; f a) -&gt; (a -&gt; b) -&gt; a -&gt; f a
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">a -&gt; b
+</span><a href="#local-6989586621679270914"><span class="hs-identifier hs-var">f</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">c -&gt; d
+</span><a href="#local-6989586621679270915"><span class="hs-identifier hs-var">g</span></a></span><span> </span><span class="annot"><span class="annottext">(c -&gt; d) -&gt; (f b -&gt; c) -&gt; f b -&gt; d
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">f b -&gt; c
+</span><a href="#local-6989586621679270919"><span class="hs-identifier hs-var">merge</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-341"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679270428"><span id="local-6989586621679270429"><span class="annot"><a href="Data.Profunctor.Monoidal.Cocartesian.html#CocartesianMonoidal"><span class="hs-identifier hs-type">CocartesianMonoidal</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Comonocle.html#Comonocular"><span class="hs-identifier hs-type">Comonocular</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270428"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270429"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-342"></span><span>  </span><span id="local-6989586621679270928"><span class="annot"><span class="annottext">zeroP :: Comonocular a b Void Void
+</span><a href="#local-6989586621679270928"><span class="hs-identifier hs-var hs-var hs-var">zeroP</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(Void -&gt; V1 a) -&gt; (V1 b -&gt; Void) -&gt; Comonocular a b Void Void
+forall (f :: * -&gt; *) s a b t.
+Enumerable f =&gt;
+(s -&gt; f a) -&gt; (f b -&gt; t) -&gt; Comonocular a b s t
+</span><a href="Control.Lens.Comonocle.html#Comonocular"><span class="hs-identifier hs-var">Comonocular</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Void -&gt; V1 a
+forall a. Void -&gt; a
+</span><span class="hs-identifier hs-var">absurd</span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Void</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">V1</span></span><span> </span><span class="annot"><a href="#local-6989586621679270428"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span class="hs-special">)</span><span>
+</span><span id="line-343"></span><span>  </span><span class="annot"><a href="Control.Lens.Comonocle.html#Comonocular"><span class="hs-identifier hs-type">Comonocular</span></a></span><span> </span><span id="local-6989586621679270931"><span class="annot"><span class="annottext">a -&gt; f a
+</span><a href="#local-6989586621679270931"><span class="hs-identifier hs-var">split0</span></a></span></span><span> </span><span id="local-6989586621679270932"><span class="annot"><span class="annottext">f b -&gt; b
+</span><a href="#local-6989586621679270932"><span class="hs-identifier hs-var">merge0</span></a></span></span><span> </span><span id="local-6989586621679270933"><span class="annot"><span class="annottext">&gt;+&lt; :: forall a b c d.
+Comonocular a b a b
+-&gt; Comonocular a b c d -&gt; Comonocular a b (Either a c) (Either b d)
+</span><a href="Data.Profunctor.Monoidal.Cocartesian.html#%3E%2B%3C"><span class="hs-operator hs-var hs-var hs-var">&gt;+&lt;</span></a></span></span><span> </span><span class="annot"><a href="Control.Lens.Comonocle.html#Comonocular"><span class="hs-identifier hs-type">Comonocular</span></a></span><span> </span><span id="local-6989586621679270937"><span class="annot"><span class="annottext">c -&gt; f a
+</span><a href="#local-6989586621679270937"><span class="hs-identifier hs-var">split1</span></a></span></span><span> </span><span id="local-6989586621679270938"><span class="annot"><span class="annottext">f b -&gt; d
+</span><a href="#local-6989586621679270938"><span class="hs-identifier hs-var">merge1</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(Either a c -&gt; (:+:) f f a)
+-&gt; ((:+:) f f b -&gt; Either b d)
+-&gt; Comonocular a b (Either a c) (Either b d)
+forall (f :: * -&gt; *) s a b t.
+Enumerable f =&gt;
+(s -&gt; f a) -&gt; (f b -&gt; t) -&gt; Comonocular a b s t
+</span><a href="Control.Lens.Comonocle.html#Comonocular"><span class="hs-identifier hs-var">Comonocular</span></a></span><span>
+</span><span id="line-344"></span><span>    </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(a -&gt; (:+:) f f a)
+-&gt; (c -&gt; (:+:) f f a) -&gt; Either a c -&gt; (:+:) f f a
+forall a c b. (a -&gt; c) -&gt; (b -&gt; c) -&gt; Either a b -&gt; c
+</span><span class="hs-identifier hs-var">either</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">f a -&gt; (:+:) f f a
+forall k (f :: k -&gt; *) (g :: k -&gt; *) (p :: k). f p -&gt; (:+:) f g p
+</span><span class="hs-identifier hs-var">L1</span></span><span> </span><span class="annot"><span class="annottext">(f a -&gt; (:+:) f f a) -&gt; (a -&gt; f a) -&gt; a -&gt; (:+:) f f a
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">a -&gt; f a
+</span><a href="#local-6989586621679270931"><span class="hs-identifier hs-var">split0</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">f a -&gt; (:+:) f f a
+forall k (f :: k -&gt; *) (g :: k -&gt; *) (p :: k). g p -&gt; (:+:) f g p
+</span><span class="hs-identifier hs-var">R1</span></span><span> </span><span class="annot"><span class="annottext">(f a -&gt; (:+:) f f a) -&gt; (c -&gt; f a) -&gt; c -&gt; (:+:) f f a
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">c -&gt; f a
+</span><a href="#local-6989586621679270937"><span class="hs-identifier hs-var">split1</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-345"></span><span>    </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span> </span><span class="annot"><span class="hs-identifier hs-type">L1</span></span><span> </span><span id="local-6989586621679270941"><span class="annot"><span class="annottext">f b
+</span><a href="#local-6989586621679270941"><span class="hs-identifier hs-var">x</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">b -&gt; Either b d
+forall a b. a -&gt; Either a b
+</span><span class="hs-identifier hs-var">Left</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">f b -&gt; b
+</span><a href="#local-6989586621679270932"><span class="hs-identifier hs-var">merge0</span></a></span><span> </span><span class="annot"><span class="annottext">f b
+</span><a href="#local-6989586621679270941"><span class="hs-identifier hs-var">x</span></a></span><span class="hs-special">)</span><span class="hs-special">;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">R1</span></span><span> </span><span id="local-6989586621679270942"><span class="annot"><span class="annottext">f b
+</span><a href="#local-6989586621679270942"><span class="hs-identifier hs-var">y</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">d -&gt; Either b d
+forall a b. b -&gt; Either a b
+</span><span class="hs-identifier hs-var">Right</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">f b -&gt; d
+</span><a href="#local-6989586621679270938"><span class="hs-identifier hs-var">merge1</span></a></span><span> </span><span class="annot"><span class="annottext">f b
+</span><a href="#local-6989586621679270942"><span class="hs-identifier hs-var">y</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-346"></span><span>
+</span><span id="line-347"></span><span class="annot"><span class="hs-comment">{- | Run a t'Comonocular' on a `CocartesianMonoidal` `Profunctor`. -}</span></span><span>
+</span><span id="line-348"></span><span id="local-6989586621679270027"><span id="local-6989586621679270028"><span id="local-6989586621679270029"><span id="local-6989586621679270030"><span id="local-6989586621679270031"><span class="annot"><a href="Control.Lens.Comonocle.html#runComonocular"><span class="hs-identifier hs-type">runComonocular</span></a></span><span>
+</span><span id="line-349"></span><span>  </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Data.Profunctor.Monoidal.Cocartesian.html#CocartesianMonoidal"><span class="hs-identifier hs-type">CocartesianMonoidal</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270027"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Control.Lens.Comonocle.html#Comonocular"><span class="hs-identifier hs-type">Comonocular</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270028"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270029"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270030"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270031"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679270027"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270028"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270029"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679270027"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270030"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679270031"><span class="hs-identifier hs-type">t</span></a></span></span></span></span></span></span><span>
+</span><span id="line-350"></span><span id="runComonocular"><span class="annot"><span class="annottext">runComonocular :: forall (p :: * -&gt; * -&gt; *) a b s t.
+CocartesianMonoidal p =&gt;
+Comonocular a b s t -&gt; p a b -&gt; p s t
+</span><a href="Control.Lens.Comonocle.html#runComonocular"><span class="hs-identifier hs-var hs-var">runComonocular</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Comonocle.html#Comonocular"><span class="hs-identifier hs-type">Comonocular</span></a></span><span> </span><span id="local-6989586621679270949"><span class="annot"><span class="annottext">s -&gt; f a
+</span><a href="#local-6989586621679270949"><span class="hs-identifier hs-var">split</span></a></span></span><span> </span><span id="local-6989586621679270950"><span class="annot"><span class="annottext">f b -&gt; t
+</span><a href="#local-6989586621679270950"><span class="hs-identifier hs-var">merge</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(s -&gt; f a) -&gt; (f b -&gt; t) -&gt; p (f a) (f b) -&gt; p s t
+forall a b c d. (a -&gt; b) -&gt; (c -&gt; d) -&gt; p b c -&gt; p a d
+forall (p :: * -&gt; * -&gt; *) a b c d.
+Profunctor p =&gt;
+(a -&gt; b) -&gt; (c -&gt; d) -&gt; p b c -&gt; p a d
+</span><span class="hs-identifier hs-var">dimap</span></span><span> </span><span class="annot"><span class="annottext">s -&gt; f a
+</span><a href="#local-6989586621679270949"><span class="hs-identifier hs-var">split</span></a></span><span> </span><span class="annot"><span class="annottext">f b -&gt; t
+</span><a href="#local-6989586621679270950"><span class="hs-identifier hs-var">merge</span></a></span><span> </span><span class="annot"><span class="annottext">(p (f a) (f b) -&gt; p s t)
+-&gt; (p a b -&gt; p (f a) (f b)) -&gt; p a b -&gt; p s t
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">p a b -&gt; p (f a) (f b)
+forall (f :: * -&gt; *) (p :: * -&gt; * -&gt; *) a b.
+(Enumerable f, CocartesianMonoidal p) =&gt;
+p a b -&gt; p (f a) (f b)
+forall (p :: * -&gt; * -&gt; *) a b.
+CocartesianMonoidal p =&gt;
+p a b -&gt; p (f a) (f b)
+</span><a href="Data.Traversable.Homogeneous.Enumerable.html#enumerably"><span class="hs-identifier hs-var">enumerably</span></a></span><span>
+</span><span id="line-351"></span></pre></body></html>

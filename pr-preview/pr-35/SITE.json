@@ -1,0 +1,18 @@
+{
+  "commit": "f9505ef18470cfaba6c0f3e2bf8d4569c6d1e042",
+  "built": "2026-11-13 09:06 UTC",
+  "packages": [
+    {
+      "name": "distributors",
+      "synopsis": "Profunctor algebra & optics for invertible syntax"
+    },
+    {
+      "name": "distributors-grammar",
+      "synopsis": "Unifying Parsers, Printers & Grammars"
+    },
+    {
+      "name": "distributors-json",
+      "synopsis": "JSON grammars, compatible with aeson & typed in TypeScript"
+    }
+  ]
+}

@@ -1,0 +1,404 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="annot"><span class="hs-comment">{-|
+Module      : Data.Profunctor.Filtrator
+Description : filtrators
+Copyright   : (C) 2026 - Eitan Chatav
+License     : BSD-style (see the file LICENSE)
+Maintainer  : Eitan Chatav &lt;eitan.chatav@gmail.com&gt;
+Stability   : provisional
+Portability : non-portable
+-}</span></span><span>
+</span><span id="line-10"></span><span>
+</span><span id="line-11"></span><span class="hs-keyword">module</span><span> </span><span class="annot"><a href="Data.Profunctor.Filtrator.html"><span class="hs-identifier">Data.Profunctor.Filtrator</span></a></span><span>
+</span><span id="line-12"></span><span>  </span><span class="hs-special">(</span><span> </span><span class="annot"><span class="hs-comment">-- * Filtrator</span></span><span>
+</span><span id="line-13"></span><span>    </span><span class="annot"><a href="Data.Profunctor.Filtrator.html#Filtrator"><span class="hs-identifier">Filtrator</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.Profunctor.Filtrator.html#filtrate"><span class="hs-identifier">filtrate</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-14"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Data.Profunctor.Filtrator.html#mfiltrate"><span class="hs-identifier">mfiltrate</span></a></span><span>
+</span><span id="line-15"></span><span>  </span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-16"></span><span>
+</span><span id="line-17"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Arrow</span></span><span>
+</span><span id="line-18"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Control.Lens.PartialIso.html"><span class="hs-identifier">Control.Lens.PartialIso</span></a></span><span>
+</span><span id="line-19"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Lens.Internal.Profunctor</span></span><span>
+</span><span id="line-20"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Monad</span></span><span>
+</span><span id="line-21"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Bifunctor.Joker</span></span><span>
+</span><span id="line-22"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Data.Monoid.Disjunctive.html"><span class="hs-identifier">Data.Monoid.Disjunctive</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.Monoid.Disjunctive.html#falseP"><span class="hs-identifier">falseP</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-23"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Profunctor</span></span><span>
+</span><span id="line-24"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Data.Profunctor.Distributor.html"><span class="hs-identifier">Data.Profunctor.Distributor</span></a></span><span>
+</span><span id="line-25"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Profunctor.Monad</span></span><span>
+</span><span id="line-26"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Data.Profunctor.Monadic.html"><span class="hs-identifier">Data.Profunctor.Monadic</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.Profunctor.Monadic.html#Monadic"><span class="hs-identifier">Monadic</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-27"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Profunctor.Yoneda</span></span><span>
+</span><span id="line-28"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Witherable</span></span><span>
+</span><span id="line-29"></span><span>
+</span><span id="line-30"></span><span class="annot"><span class="hs-comment">{- | The `Filtrator` class extends `Cochoice`,
+as well as `Filterable`, adding the `filtrate` method,
+which projects a profunctor of sums onto its summands.
+
+For a `Data.Profunctor.Monoidal.Cocartesian.CocartesianChoice`,
+`filtrate` is a retraction of `Data.Profunctor.Monoidal.Cocartesian.alternate`,
+projecting a summand back out of its injection,
+
+&gt; prop&gt; fst (filtrate (alternate (Left p))) = p
+&gt; prop&gt; snd (filtrate (alternate (Right p))) = p
+
+that is, since `unleft` is @fst . filtrate@ &amp; `left'` is @alternate . Left@,
+
+&gt; prop&gt; unleft . left' = id
+&gt; prop&gt; unright . right' = id
+
+`filtrate` isn't a retraction of
+`Data.Profunctor.Monoidal.Cocartesian.&gt;+&lt;` in general, though,
+since it tries its summands in turn, &amp; the second summand
+of a left-biased or predictive one,
+like the @Parsor s Maybe@ or @Parsector@ parsers of @distributors-grammar@,
+is lost where the first applies. Nor is `Data.Profunctor.Monoidal.Cocartesian.&gt;+&lt;`
+a retraction of `filtrate`, since a profunctor of sums may cross summands,
+as @rmap (either Right Left)@ does.
+-}</span></span><span>
+</span><span id="line-55"></span><span class="hs-keyword">class</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Cochoice</span></span><span> </span><span class="annot"><a href="#local-6989586621679262101"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">,</span><span> </span><span class="hs-keyword">forall</span><span> </span><span id="local-6989586621679262104"><span class="annot"><a href="#local-6989586621679262104"><span class="hs-identifier hs-type">x</span></a></span></span><span class="hs-operator">.</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Filterable</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679262101"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679262104"><span class="hs-identifier hs-type">x</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-56"></span><span>  </span><span class="hs-glyph">=&gt;</span><span> </span><span id="Filtrator"><span class="annot"><a href="Data.Profunctor.Filtrator.html#Filtrator"><span class="hs-identifier hs-var">Filtrator</span></a></span></span><span> </span><span id="local-6989586621679262101"><span class="annot"><a href="#local-6989586621679262101"><span class="hs-identifier hs-type">p</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-57"></span><span>
+</span><span id="line-58"></span><span>    </span><span class="hs-comment">{- |
+    &gt; prop&gt; unleft = fst . filtrate
+    &gt; prop&gt; unleft = lmap Left . mapMaybe (either Just (const Nothing))
+    &gt; prop&gt; unright = snd . filtrate
+    &gt; prop&gt; unright = lmap Right . mapMaybe (either (const Nothing) Just)
+
+    `filtrate` is a distant relative to `Data.Either.partitionEithers`.
+    `filtrate` can be given a default value for `Monadic`
+    `Alternator`s via `mfiltrate`.
+
+    &gt; prop&gt; filtrate = mfiltrate
+
+    `filtrate` has a default for `Choice` &amp; `Cochoice` partial profunctors.
+    -}</span><span>
+</span><span id="line-72"></span><span>    </span><span id="filtrate"><span class="annot"><a href="Data.Profunctor.Filtrator.html#filtrate"><span class="hs-identifier hs-type">filtrate</span></a></span></span><span>
+</span><span id="line-73"></span><span>      </span><span class="hs-glyph">::</span><span> </span><span id="local-6989586621679262172"><span id="local-6989586621679262173"><span id="local-6989586621679262174"><span id="local-6989586621679262175"><span class="annot"><a href="#local-6989586621679262101"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Either</span></span><span> </span><span class="annot"><a href="#local-6989586621679262172"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679262173"><span class="hs-identifier hs-type">c</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Either</span></span><span> </span><span class="annot"><a href="#local-6989586621679262174"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679262175"><span class="hs-identifier hs-type">d</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-74"></span><span>      </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679262101"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679262172"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679262174"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="#local-6989586621679262101"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679262173"><span class="hs-identifier hs-type">c</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679262175"><span class="hs-identifier hs-type">d</span></a></span><span class="hs-special">)</span></span></span></span></span><span>
+</span><span id="line-75"></span><span>    </span><span class="hs-keyword">default</span><span> </span><span id="filtrate"><span class="annot"><a href="Data.Profunctor.Filtrator.html#filtrate"><span class="hs-identifier hs-type">filtrate</span></a></span></span><span>
+</span><span id="line-76"></span><span>      </span><span class="hs-glyph">::</span><span> </span><span id="local-6989586621679262107"><span id="local-6989586621679262108"><span id="local-6989586621679262109"><span id="local-6989586621679262110"><span class="annot"><span class="hs-identifier hs-type">Choice</span></span><span> </span><span class="annot"><a href="#local-6989586621679262101"><span class="hs-identifier hs-type">p</span></a></span><span>
+</span><span id="line-77"></span><span>      </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679262101"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Either</span></span><span> </span><span class="annot"><a href="#local-6989586621679262107"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679262108"><span class="hs-identifier hs-type">c</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Either</span></span><span> </span><span class="annot"><a href="#local-6989586621679262109"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679262110"><span class="hs-identifier hs-type">d</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-78"></span><span>      </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679262101"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679262107"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679262109"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="#local-6989586621679262101"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679262108"><span class="hs-identifier hs-type">c</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679262110"><span class="hs-identifier hs-type">d</span></a></span><span class="hs-special">)</span></span></span></span></span><span>
+</span><span id="line-79"></span><span>    </span><span id="local-6989586621679262262"><span class="annot"><a href="Data.Profunctor.Filtrator.html#filtrate"><span class="hs-identifier hs-var hs-var">filtrate</span></a></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-80"></span><span>      </span><span class="annot"><span class="annottext">(a -&gt; Maybe (Either a c))
+-&gt; (Either b d -&gt; Maybe b) -&gt; p (Either a c) (Either b d) -&gt; p a b
+forall (p :: * -&gt; * -&gt; *) s a b t.
+(Choice p, Cochoice p) =&gt;
+(s -&gt; Maybe a) -&gt; (b -&gt; Maybe t) -&gt; p a b -&gt; p s t
+</span><a href="Control.Lens.PartialIso.html#dimapMaybe"><span class="hs-identifier hs-var">dimapMaybe</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Either a c -&gt; Maybe (Either a c)
+forall a. a -&gt; Maybe a
+</span><span class="hs-identifier hs-var">Just</span></span><span> </span><span class="annot"><span class="annottext">(Either a c -&gt; Maybe (Either a c))
+-&gt; (a -&gt; Either a c) -&gt; a -&gt; Maybe (Either a c)
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">a -&gt; Either a c
+forall a b. a -&gt; Either a b
+</span><span class="hs-identifier hs-var">Left</span></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(b -&gt; Maybe b) -&gt; (d -&gt; Maybe b) -&gt; Either b d -&gt; Maybe b
+forall a c b. (a -&gt; c) -&gt; (b -&gt; c) -&gt; Either a b -&gt; c
+</span><span class="hs-identifier hs-var">either</span></span><span> </span><span class="annot"><span class="annottext">b -&gt; Maybe b
+forall a. a -&gt; Maybe a
+</span><span class="hs-identifier hs-var">Just</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Maybe b -&gt; d -&gt; Maybe b
+forall a b. a -&gt; b -&gt; a
+</span><span class="hs-identifier hs-var">const</span></span><span> </span><span class="annot"><span class="annottext">Maybe b
+forall a. Maybe a
+</span><span class="hs-identifier hs-var">Nothing</span></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-81"></span><span>      </span><span class="annot"><span class="annottext">(p (Either a c) (Either b d) -&gt; p a b)
+-&gt; (p (Either a c) (Either b d) -&gt; p c d)
+-&gt; p (Either a c) (Either b d)
+-&gt; (p a b, p c d)
+forall b c c'. (b -&gt; c) -&gt; (b -&gt; c') -&gt; b -&gt; (c, c')
+forall (a :: * -&gt; * -&gt; *) b c c'.
+Arrow a =&gt;
+a b c -&gt; a b c' -&gt; a b (c, c')
+</span><span class="hs-operator hs-var">&amp;&amp;&amp;</span></span><span>
+</span><span id="line-82"></span><span>      </span><span class="annot"><span class="annottext">(c -&gt; Maybe (Either a c))
+-&gt; (Either b d -&gt; Maybe d) -&gt; p (Either a c) (Either b d) -&gt; p c d
+forall (p :: * -&gt; * -&gt; *) s a b t.
+(Choice p, Cochoice p) =&gt;
+(s -&gt; Maybe a) -&gt; (b -&gt; Maybe t) -&gt; p a b -&gt; p s t
+</span><a href="Control.Lens.PartialIso.html#dimapMaybe"><span class="hs-identifier hs-var">dimapMaybe</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Either a c -&gt; Maybe (Either a c)
+forall a. a -&gt; Maybe a
+</span><span class="hs-identifier hs-var">Just</span></span><span> </span><span class="annot"><span class="annottext">(Either a c -&gt; Maybe (Either a c))
+-&gt; (c -&gt; Either a c) -&gt; c -&gt; Maybe (Either a c)
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">c -&gt; Either a c
+forall a b. b -&gt; Either a b
+</span><span class="hs-identifier hs-var">Right</span></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(b -&gt; Maybe d) -&gt; (d -&gt; Maybe d) -&gt; Either b d -&gt; Maybe d
+forall a c b. (a -&gt; c) -&gt; (b -&gt; c) -&gt; Either a b -&gt; c
+</span><span class="hs-identifier hs-var">either</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Maybe d -&gt; b -&gt; Maybe d
+forall a b. a -&gt; b -&gt; a
+</span><span class="hs-identifier hs-var">const</span></span><span> </span><span class="annot"><span class="annottext">Maybe d
+forall a. Maybe a
+</span><span class="hs-identifier hs-var">Nothing</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">d -&gt; Maybe d
+forall a. a -&gt; Maybe a
+</span><span class="hs-identifier hs-var">Just</span></span><span class="hs-special">)</span></span><span>
+</span><span id="line-83"></span><span>
+</span><span id="line-84"></span><span class="hs-comment">-- | A `Monadic` `Alternator` has</span><span>
+</span><span id="line-85"></span><span class="hs-comment">-- an equivalent to `filtrate`, given by `mfiltrate`.</span><span>
+</span><span id="line-86"></span><span class="hs-comment">--</span><span>
+</span><span id="line-87"></span><span class="hs-comment">-- &gt; prop&gt; filtrate = mfiltrate</span><span>
+</span><span id="line-88"></span><span class="hs-comment">--</span><span>
+</span><span id="line-89"></span><span id="local-6989586621679262136"><span id="local-6989586621679262139"><span id="local-6989586621679262140"><span id="local-6989586621679262141"><span id="local-6989586621679262142"><span class="annot"><a href="Data.Profunctor.Filtrator.html#mfiltrate"><span class="hs-identifier hs-type">mfiltrate</span></a></span><span>
+</span><span id="line-90"></span><span>  </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.Profunctor.Monadic.html#Monadic"><span class="hs-identifier hs-type">Monadic</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679262136"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Data.Profunctor.Distributor.html#Alternator"><span class="hs-identifier hs-type">Alternator</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679262136"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-91"></span><span>  </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679262136"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Either</span></span><span> </span><span class="annot"><a href="#local-6989586621679262139"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679262140"><span class="hs-identifier hs-type">c</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Either</span></span><span> </span><span class="annot"><a href="#local-6989586621679262141"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679262142"><span class="hs-identifier hs-type">d</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="hs-comment">-- ^ partition `Either`</span></span><span>
+</span><span id="line-92"></span><span>  </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679262136"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679262139"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679262141"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="#local-6989586621679262136"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679262140"><span class="hs-identifier hs-type">c</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679262142"><span class="hs-identifier hs-type">d</span></a></span><span class="hs-special">)</span></span></span></span></span></span><span>
+</span><span id="line-93"></span><span id="mfiltrate"><span class="annot"><span class="annottext">mfiltrate :: forall (p :: * -&gt; * -&gt; *) a c b d.
+(Monadic p, Alternator p) =&gt;
+p (Either a c) (Either b d) -&gt; (p a b, p c d)
+</span><a href="Data.Profunctor.Filtrator.html#mfiltrate"><span class="hs-identifier hs-var hs-var">mfiltrate</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-94"></span><span>  </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(a -&gt; Either a c)
+-&gt; p (Either a c) (Either b d) -&gt; p a (Either b d)
+forall a b c. (a -&gt; b) -&gt; p b c -&gt; p a c
+forall (p :: * -&gt; * -&gt; *) a b c.
+Profunctor p =&gt;
+(a -&gt; b) -&gt; p b c -&gt; p a c
+</span><span class="hs-identifier hs-var">lmap</span></span><span> </span><span class="annot"><span class="annottext">a -&gt; Either a c
+forall a b. a -&gt; Either a b
+</span><span class="hs-identifier hs-var">Left</span></span><span> </span><span class="annot"><span class="annottext">(p (Either a c) (Either b d) -&gt; p a (Either b d))
+-&gt; (Either b d -&gt; p a b) -&gt; p (Either a c) (Either b d) -&gt; p a b
+forall (m :: * -&gt; *) a b c.
+Monad m =&gt;
+(a -&gt; m b) -&gt; (b -&gt; m c) -&gt; a -&gt; m c
+</span><span class="hs-operator hs-var">&gt;=&gt;</span></span><span> </span><span class="annot"><span class="annottext">(b -&gt; p a b) -&gt; (d -&gt; p a b) -&gt; Either b d -&gt; p a b
+forall a c b. (a -&gt; c) -&gt; (b -&gt; c) -&gt; Either a b -&gt; c
+</span><span class="hs-identifier hs-var">either</span></span><span> </span><span class="annot"><span class="annottext">b -&gt; p a b
+forall a. a -&gt; p a a
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><span class="hs-identifier hs-var">pure</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">p a b -&gt; d -&gt; p a b
+forall a b. a -&gt; b -&gt; a
+</span><span class="hs-identifier hs-var">const</span></span><span> </span><span class="annot"><span class="annottext">p a b
+forall a. DisjunctiveMonoid a =&gt; a
+</span><a href="Data.Monoid.Disjunctive.html#falseP"><span class="hs-identifier hs-var">falseP</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-95"></span><span>  </span><span class="annot"><span class="annottext">(p (Either a c) (Either b d) -&gt; p a b)
+-&gt; (p (Either a c) (Either b d) -&gt; p c d)
+-&gt; p (Either a c) (Either b d)
+-&gt; (p a b, p c d)
+forall b c c'. (b -&gt; c) -&gt; (b -&gt; c') -&gt; b -&gt; (c, c')
+forall (a :: * -&gt; * -&gt; *) b c c'.
+Arrow a =&gt;
+a b c -&gt; a b c' -&gt; a b (c, c')
+</span><span class="hs-operator hs-var">&amp;&amp;&amp;</span></span><span>
+</span><span id="line-96"></span><span>  </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(c -&gt; Either a c)
+-&gt; p (Either a c) (Either b d) -&gt; p c (Either b d)
+forall a b c. (a -&gt; b) -&gt; p b c -&gt; p a c
+forall (p :: * -&gt; * -&gt; *) a b c.
+Profunctor p =&gt;
+(a -&gt; b) -&gt; p b c -&gt; p a c
+</span><span class="hs-identifier hs-var">lmap</span></span><span> </span><span class="annot"><span class="annottext">c -&gt; Either a c
+forall a b. b -&gt; Either a b
+</span><span class="hs-identifier hs-var">Right</span></span><span> </span><span class="annot"><span class="annottext">(p (Either a c) (Either b d) -&gt; p c (Either b d))
+-&gt; (Either b d -&gt; p c d) -&gt; p (Either a c) (Either b d) -&gt; p c d
+forall (m :: * -&gt; *) a b c.
+Monad m =&gt;
+(a -&gt; m b) -&gt; (b -&gt; m c) -&gt; a -&gt; m c
+</span><span class="hs-operator hs-var">&gt;=&gt;</span></span><span> </span><span class="annot"><span class="annottext">(b -&gt; p c d) -&gt; (d -&gt; p c d) -&gt; Either b d -&gt; p c d
+forall a c b. (a -&gt; c) -&gt; (b -&gt; c) -&gt; Either a b -&gt; c
+</span><span class="hs-identifier hs-var">either</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">p c d -&gt; b -&gt; p c d
+forall a b. a -&gt; b -&gt; a
+</span><span class="hs-identifier hs-var">const</span></span><span> </span><span class="annot"><span class="annottext">p c d
+forall a. DisjunctiveMonoid a =&gt; a
+</span><a href="Data.Monoid.Disjunctive.html#falseP"><span class="hs-identifier hs-var">falseP</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">d -&gt; p c d
+forall a. a -&gt; p c a
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><span class="hs-identifier hs-var">pure</span></span><span class="hs-special">)</span><span>
+</span><span id="line-97"></span><span>
+</span><span id="line-98"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679262179"><span id="local-6989586621679262180"><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Profunctor</span></span><span> </span><span class="annot"><a href="#local-6989586621679262179"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">,</span><span> </span><span class="hs-keyword">forall</span><span> </span><span id="local-6989586621679262176"><span class="annot"><a href="#local-6989586621679262176"><span class="hs-identifier hs-type">x</span></a></span></span><span class="hs-operator">.</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Functor</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679262179"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679262176"><span class="hs-identifier hs-type">x</span></a></span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Filterable</span></span><span> </span><span class="annot"><a href="#local-6989586621679262180"><span class="hs-identifier hs-type">f</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-99"></span><span>  </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Data.Profunctor.Filtrator.html#Filtrator"><span class="hs-identifier hs-type">Filtrator</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">WrappedPafb</span></span><span> </span><span class="annot"><a href="#local-6989586621679262180"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679262179"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">)</span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-100"></span><span>    </span><span id="local-6989586621679262312"><span class="annot"><span class="annottext">filtrate :: forall a c b d.
+WrappedPafb f p (Either a c) (Either b d)
+-&gt; (WrappedPafb f p a b, WrappedPafb f p c d)
+</span><a href="Data.Profunctor.Filtrator.html#filtrate"><span class="hs-identifier hs-var hs-var hs-var">filtrate</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">WrapPafb</span></span><span> </span><span id="local-6989586621679262314"><span class="annot"><span class="annottext">p (Either a c) (f (Either b d))
+</span><a href="#local-6989586621679262314"><span class="hs-identifier hs-var">p</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-101"></span><span>      </span><span class="hs-special">(</span><span> </span><span class="annot"><span class="annottext">p a (f b) -&gt; WrappedPafb f p a b
+forall (f :: * -&gt; *) (p :: * -&gt; * -&gt; *) a b.
+p a (f b) -&gt; WrappedPafb f p a b
+</span><span class="hs-identifier hs-var">WrapPafb</span></span><span> </span><span class="annot"><span class="annottext">(p a (f b) -&gt; WrappedPafb f p a b)
+-&gt; p a (f b) -&gt; WrappedPafb f p a b
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">(a -&gt; Either a c)
+-&gt; (f (Either b d) -&gt; f b)
+-&gt; p (Either a c) (f (Either b d))
+-&gt; p a (f b)
+forall a b c d. (a -&gt; b) -&gt; (c -&gt; d) -&gt; p b c -&gt; p a d
+forall (p :: * -&gt; * -&gt; *) a b c d.
+Profunctor p =&gt;
+(a -&gt; b) -&gt; (c -&gt; d) -&gt; p b c -&gt; p a d
+</span><span class="hs-identifier hs-var">dimap</span></span><span> </span><span class="annot"><span class="annottext">a -&gt; Either a c
+forall a b. a -&gt; Either a b
+</span><span class="hs-identifier hs-var">Left</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(Either b d -&gt; Maybe b) -&gt; f (Either b d) -&gt; f b
+forall a b. (a -&gt; Maybe b) -&gt; f a -&gt; f b
+forall (f :: * -&gt; *) a b.
+Filterable f =&gt;
+(a -&gt; Maybe b) -&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">mapMaybe</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(b -&gt; Maybe b) -&gt; (d -&gt; Maybe b) -&gt; Either b d -&gt; Maybe b
+forall a c b. (a -&gt; c) -&gt; (b -&gt; c) -&gt; Either a b -&gt; c
+</span><span class="hs-identifier hs-var">either</span></span><span> </span><span class="annot"><span class="annottext">b -&gt; Maybe b
+forall a. a -&gt; Maybe a
+</span><span class="hs-identifier hs-var">Just</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Maybe b -&gt; d -&gt; Maybe b
+forall a b. a -&gt; b -&gt; a
+</span><span class="hs-identifier hs-var">const</span></span><span> </span><span class="annot"><span class="annottext">Maybe b
+forall a. Maybe a
+</span><span class="hs-identifier hs-var">Nothing</span></span><span class="hs-special">)</span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">p (Either a c) (f (Either b d))
+</span><a href="#local-6989586621679262314"><span class="hs-identifier hs-var">p</span></a></span><span>
+</span><span id="line-102"></span><span>      </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">p c (f d) -&gt; WrappedPafb f p c d
+forall (f :: * -&gt; *) (p :: * -&gt; * -&gt; *) a b.
+p a (f b) -&gt; WrappedPafb f p a b
+</span><span class="hs-identifier hs-var">WrapPafb</span></span><span> </span><span class="annot"><span class="annottext">(p c (f d) -&gt; WrappedPafb f p c d)
+-&gt; p c (f d) -&gt; WrappedPafb f p c d
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">(c -&gt; Either a c)
+-&gt; (f (Either b d) -&gt; f d)
+-&gt; p (Either a c) (f (Either b d))
+-&gt; p c (f d)
+forall a b c d. (a -&gt; b) -&gt; (c -&gt; d) -&gt; p b c -&gt; p a d
+forall (p :: * -&gt; * -&gt; *) a b c d.
+Profunctor p =&gt;
+(a -&gt; b) -&gt; (c -&gt; d) -&gt; p b c -&gt; p a d
+</span><span class="hs-identifier hs-var">dimap</span></span><span> </span><span class="annot"><span class="annottext">c -&gt; Either a c
+forall a b. b -&gt; Either a b
+</span><span class="hs-identifier hs-var">Right</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(Either b d -&gt; Maybe d) -&gt; f (Either b d) -&gt; f d
+forall a b. (a -&gt; Maybe b) -&gt; f a -&gt; f b
+forall (f :: * -&gt; *) a b.
+Filterable f =&gt;
+(a -&gt; Maybe b) -&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">mapMaybe</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(b -&gt; Maybe d) -&gt; (d -&gt; Maybe d) -&gt; Either b d -&gt; Maybe d
+forall a c b. (a -&gt; c) -&gt; (b -&gt; c) -&gt; Either a b -&gt; c
+</span><span class="hs-identifier hs-var">either</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Maybe d -&gt; b -&gt; Maybe d
+forall a b. a -&gt; b -&gt; a
+</span><span class="hs-identifier hs-var">const</span></span><span> </span><span class="annot"><span class="annottext">Maybe d
+forall a. Maybe a
+</span><span class="hs-identifier hs-var">Nothing</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">d -&gt; Maybe d
+forall a. a -&gt; Maybe a
+</span><span class="hs-identifier hs-var">Just</span></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">p (Either a c) (f (Either b d))
+</span><a href="#local-6989586621679262314"><span class="hs-identifier hs-var">p</span></a></span><span>
+</span><span id="line-103"></span><span>      </span><span class="hs-special">)</span><span>
+</span><span id="line-104"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679262204"><span class="annot"><a href="Data.Profunctor.Filtrator.html#Filtrator"><span class="hs-identifier hs-type">Filtrator</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679262204"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Data.Profunctor.Filtrator.html#Filtrator"><span class="hs-identifier hs-type">Filtrator</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Coyoneda</span></span><span> </span><span class="annot"><a href="#local-6989586621679262204"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">)</span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-105"></span><span>  </span><span id="local-6989586621679262338"><span class="annot"><span class="annottext">filtrate :: forall a c b d.
+Coyoneda p (Either a c) (Either b d)
+-&gt; (Coyoneda p a b, Coyoneda p c d)
+</span><a href="Data.Profunctor.Filtrator.html#filtrate"><span class="hs-identifier hs-var hs-var hs-var">filtrate</span></a></span></span><span> </span><span id="local-6989586621679262339"><span class="annot"><span class="annottext">Coyoneda p (Either a c) (Either b d)
+</span><a href="#local-6989586621679262339"><span class="hs-identifier hs-var">p</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-106"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span class="hs-special">(</span><span id="local-6989586621679262340"><span class="annot"><span class="annottext">p a b
+</span><a href="#local-6989586621679262340"><span class="hs-identifier hs-var">q</span></a></span></span><span class="hs-special">,</span><span id="local-6989586621679262341"><span class="annot"><span class="annottext">p c d
+</span><a href="#local-6989586621679262341"><span class="hs-identifier hs-var">r</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">p (Either a c) (Either b d) -&gt; (p a b, p c d)
+forall a c b d. p (Either a c) (Either b d) -&gt; (p a b, p c d)
+forall (p :: * -&gt; * -&gt; *) a c b d.
+Filtrator p =&gt;
+p (Either a c) (Either b d) -&gt; (p a b, p c d)
+</span><a href="Data.Profunctor.Filtrator.html#filtrate"><span class="hs-identifier hs-var">filtrate</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Coyoneda p (Either a c) (Either b d) -&gt; p (Either a c) (Either b d)
+Coyoneda p :-&gt; p
+forall (p :: * -&gt; * -&gt; *). Profunctor p =&gt; Coyoneda p :-&gt; p
+forall (t :: (* -&gt; * -&gt; *) -&gt; * -&gt; * -&gt; *) (p :: * -&gt; * -&gt; *).
+(ProfunctorComonad t, Profunctor p) =&gt;
+t p :-&gt; p
+</span><span class="hs-identifier hs-var">proextract</span></span><span> </span><span class="annot"><span class="annottext">Coyoneda p (Either a c) (Either b d)
+</span><a href="#local-6989586621679262339"><span class="hs-identifier hs-var">p</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-107"></span><span>    </span><span class="hs-keyword">in</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">p a b -&gt; Coyoneda p a b
+p :-&gt; Coyoneda p
+forall (p :: * -&gt; * -&gt; *). Profunctor p =&gt; p :-&gt; Coyoneda p
+forall (t :: (* -&gt; * -&gt; *) -&gt; * -&gt; * -&gt; *) (p :: * -&gt; * -&gt; *).
+(ProfunctorMonad t, Profunctor p) =&gt;
+p :-&gt; t p
+</span><span class="hs-identifier hs-var">proreturn</span></span><span> </span><span class="annot"><span class="annottext">p a b
+</span><a href="#local-6989586621679262340"><span class="hs-identifier hs-var">q</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">p c d -&gt; Coyoneda p c d
+p :-&gt; Coyoneda p
+forall (p :: * -&gt; * -&gt; *). Profunctor p =&gt; p :-&gt; Coyoneda p
+forall (t :: (* -&gt; * -&gt; *) -&gt; * -&gt; * -&gt; *) (p :: * -&gt; * -&gt; *).
+(ProfunctorMonad t, Profunctor p) =&gt;
+p :-&gt; t p
+</span><span class="hs-identifier hs-var">proreturn</span></span><span> </span><span class="annot"><span class="annottext">p c d
+</span><a href="#local-6989586621679262341"><span class="hs-identifier hs-var">r</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-108"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679262219"><span class="annot"><a href="Data.Profunctor.Filtrator.html#Filtrator"><span class="hs-identifier hs-type">Filtrator</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679262219"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Data.Profunctor.Filtrator.html#Filtrator"><span class="hs-identifier hs-type">Filtrator</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Yoneda</span></span><span> </span><span class="annot"><a href="#local-6989586621679262219"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">)</span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-109"></span><span>  </span><span id="local-6989586621679262364"><span class="annot"><span class="annottext">filtrate :: forall a c b d.
+Yoneda p (Either a c) (Either b d) -&gt; (Yoneda p a b, Yoneda p c d)
+</span><a href="Data.Profunctor.Filtrator.html#filtrate"><span class="hs-identifier hs-var hs-var hs-var">filtrate</span></a></span></span><span> </span><span id="local-6989586621679262365"><span class="annot"><span class="annottext">Yoneda p (Either a c) (Either b d)
+</span><a href="#local-6989586621679262365"><span class="hs-identifier hs-var">p</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-110"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span class="hs-special">(</span><span id="local-6989586621679262366"><span class="annot"><span class="annottext">p a b
+</span><a href="#local-6989586621679262366"><span class="hs-identifier hs-var">q</span></a></span></span><span class="hs-special">,</span><span id="local-6989586621679262367"><span class="annot"><span class="annottext">p c d
+</span><a href="#local-6989586621679262367"><span class="hs-identifier hs-var">r</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">p (Either a c) (Either b d) -&gt; (p a b, p c d)
+forall a c b d. p (Either a c) (Either b d) -&gt; (p a b, p c d)
+forall (p :: * -&gt; * -&gt; *) a c b d.
+Filtrator p =&gt;
+p (Either a c) (Either b d) -&gt; (p a b, p c d)
+</span><a href="Data.Profunctor.Filtrator.html#filtrate"><span class="hs-identifier hs-var">filtrate</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Yoneda p (Either a c) (Either b d) -&gt; p (Either a c) (Either b d)
+Yoneda p :-&gt; p
+forall (p :: * -&gt; * -&gt; *). Profunctor p =&gt; Yoneda p :-&gt; p
+forall (t :: (* -&gt; * -&gt; *) -&gt; * -&gt; * -&gt; *) (p :: * -&gt; * -&gt; *).
+(ProfunctorComonad t, Profunctor p) =&gt;
+t p :-&gt; p
+</span><span class="hs-identifier hs-var">proextract</span></span><span> </span><span class="annot"><span class="annottext">Yoneda p (Either a c) (Either b d)
+</span><a href="#local-6989586621679262365"><span class="hs-identifier hs-var">p</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-111"></span><span>    </span><span class="hs-keyword">in</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">p a b -&gt; Yoneda p a b
+p :-&gt; Yoneda p
+forall (p :: * -&gt; * -&gt; *). Profunctor p =&gt; p :-&gt; Yoneda p
+forall (t :: (* -&gt; * -&gt; *) -&gt; * -&gt; * -&gt; *) (p :: * -&gt; * -&gt; *).
+(ProfunctorMonad t, Profunctor p) =&gt;
+p :-&gt; t p
+</span><span class="hs-identifier hs-var">proreturn</span></span><span> </span><span class="annot"><span class="annottext">p a b
+</span><a href="#local-6989586621679262366"><span class="hs-identifier hs-var">q</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">p c d -&gt; Yoneda p c d
+p :-&gt; Yoneda p
+forall (p :: * -&gt; * -&gt; *). Profunctor p =&gt; p :-&gt; Yoneda p
+forall (t :: (* -&gt; * -&gt; *) -&gt; * -&gt; * -&gt; *) (p :: * -&gt; * -&gt; *).
+(ProfunctorMonad t, Profunctor p) =&gt;
+p :-&gt; t p
+</span><span class="hs-identifier hs-var">proreturn</span></span><span> </span><span class="annot"><span class="annottext">p c d
+</span><a href="#local-6989586621679262367"><span class="hs-identifier hs-var">r</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-112"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679262226"><span class="annot"><a href="Data.Profunctor.Filtrator.html#Filtrator"><span class="hs-identifier hs-type">Filtrator</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Forget</span></span><span> </span><span class="annot"><a href="#local-6989586621679262226"><span class="hs-identifier hs-type">r</span></a></span><span class="hs-special">)</span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-113"></span><span>  </span><span id="local-6989586621679262375"><span class="annot"><span class="annottext">filtrate :: forall a c b d.
+Forget r (Either a c) (Either b d) -&gt; (Forget r a b, Forget r c d)
+</span><a href="Data.Profunctor.Filtrator.html#filtrate"><span class="hs-identifier hs-var hs-var hs-var">filtrate</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Forget</span></span><span> </span><span id="local-6989586621679262377"><span class="annot"><span class="annottext">Either a c -&gt; r
+</span><a href="#local-6989586621679262377"><span class="hs-identifier hs-var">f</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(a -&gt; r) -&gt; Forget r a b
+forall {k} r a (b :: k). (a -&gt; r) -&gt; Forget r a b
+</span><span class="hs-identifier hs-var">Forget</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Either a c -&gt; r
+</span><a href="#local-6989586621679262377"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">(Either a c -&gt; r) -&gt; (a -&gt; Either a c) -&gt; a -&gt; r
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">a -&gt; Either a c
+forall a b. a -&gt; Either a b
+</span><span class="hs-identifier hs-var">Left</span></span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">(c -&gt; r) -&gt; Forget r c d
+forall {k} r a (b :: k). (a -&gt; r) -&gt; Forget r a b
+</span><span class="hs-identifier hs-var">Forget</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Either a c -&gt; r
+</span><a href="#local-6989586621679262377"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">(Either a c -&gt; r) -&gt; (c -&gt; Either a c) -&gt; c -&gt; r
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">c -&gt; Either a c
+forall a b. b -&gt; Either a b
+</span><span class="hs-identifier hs-var">Right</span></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-114"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679262240"><span id="local-6989586621679262241"><span id="local-6989586621679262384"><span class="annot"><a href="Data.Profunctor.Filtrator.html#Filtrator"><span class="hs-identifier hs-type">Filtrator</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.PartialIso.html#PartialMarket"><span class="hs-identifier hs-type">PartialMarket</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679262240"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679262241"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span></span></span></span><span>
+</span><span id="line-115"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679262244"><span class="annot"><span class="hs-identifier hs-type">Filterable</span></span><span> </span><span class="annot"><a href="#local-6989586621679262244"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Data.Profunctor.Filtrator.html#Filtrator"><span class="hs-identifier hs-type">Filtrator</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Joker</span></span><span> </span><span class="annot"><a href="#local-6989586621679262244"><span class="hs-identifier hs-type">f</span></a></span><span class="hs-special">)</span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-116"></span><span>  </span><span id="local-6989586621679262399"><span class="annot"><span class="annottext">filtrate :: forall a c b d.
+Joker f (Either a c) (Either b d) -&gt; (Joker f a b, Joker f c d)
+</span><a href="Data.Profunctor.Filtrator.html#filtrate"><span class="hs-identifier hs-var hs-var hs-var">filtrate</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Joker</span></span><span> </span><span id="local-6989586621679262401"><span class="annot"><span class="annottext">f (Either b d)
+</span><a href="#local-6989586621679262401"><span class="hs-identifier hs-var">x</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-117"></span><span>    </span><span class="hs-special">(</span><span> </span><span class="annot"><span class="annottext">f b -&gt; Joker f a b
+forall {k} {k1} (g :: k -&gt; *) (a :: k1) (b :: k).
+g b -&gt; Joker g a b
+</span><span class="hs-identifier hs-var">Joker</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(Either b d -&gt; Maybe b) -&gt; f (Either b d) -&gt; f b
+forall a b. (a -&gt; Maybe b) -&gt; f a -&gt; f b
+forall (f :: * -&gt; *) a b.
+Filterable f =&gt;
+(a -&gt; Maybe b) -&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">mapMaybe</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(b -&gt; Maybe b) -&gt; (d -&gt; Maybe b) -&gt; Either b d -&gt; Maybe b
+forall a c b. (a -&gt; c) -&gt; (b -&gt; c) -&gt; Either a b -&gt; c
+</span><span class="hs-identifier hs-var">either</span></span><span> </span><span class="annot"><span class="annottext">b -&gt; Maybe b
+forall a. a -&gt; Maybe a
+</span><span class="hs-identifier hs-var">Just</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Maybe b -&gt; d -&gt; Maybe b
+forall a b. a -&gt; b -&gt; a
+</span><span class="hs-identifier hs-var">const</span></span><span> </span><span class="annot"><span class="annottext">Maybe b
+forall a. Maybe a
+</span><span class="hs-identifier hs-var">Nothing</span></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">f (Either b d)
+</span><a href="#local-6989586621679262401"><span class="hs-identifier hs-var">x</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-118"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">f d -&gt; Joker f c d
+forall {k} {k1} (g :: k -&gt; *) (a :: k1) (b :: k).
+g b -&gt; Joker g a b
+</span><span class="hs-identifier hs-var">Joker</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(Either b d -&gt; Maybe d) -&gt; f (Either b d) -&gt; f d
+forall a b. (a -&gt; Maybe b) -&gt; f a -&gt; f b
+forall (f :: * -&gt; *) a b.
+Filterable f =&gt;
+(a -&gt; Maybe b) -&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">mapMaybe</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(b -&gt; Maybe d) -&gt; (d -&gt; Maybe d) -&gt; Either b d -&gt; Maybe d
+forall a c b. (a -&gt; c) -&gt; (b -&gt; c) -&gt; Either a b -&gt; c
+</span><span class="hs-identifier hs-var">either</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Maybe d -&gt; b -&gt; Maybe d
+forall a b. a -&gt; b -&gt; a
+</span><span class="hs-identifier hs-var">const</span></span><span> </span><span class="annot"><span class="annottext">Maybe d
+forall a. Maybe a
+</span><span class="hs-identifier hs-var">Nothing</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">d -&gt; Maybe d
+forall a. a -&gt; Maybe a
+</span><span class="hs-identifier hs-var">Just</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">f (Either b d)
+</span><a href="#local-6989586621679262401"><span class="hs-identifier hs-var">x</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-119"></span><span>    </span><span class="hs-special">)</span><span>
+</span><span id="line-120"></span></pre></body></html>
