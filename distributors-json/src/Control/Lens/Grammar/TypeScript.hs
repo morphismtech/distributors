@@ -67,7 +67,7 @@ import Control.Lens
 import Control.Lens.Grammar
 import Data.Char (chr, ord)
 import Data.Maybe (fromMaybe, listToMaybe)
-import Data.Profunctor.Monadic qualified as P
+import Data.Profunctor.Monadic.Do qualified as P
 import Data.Text (Text)
 import Data.Text qualified as Text
 import Numeric (readHex, showHex)
@@ -561,7 +561,7 @@ as the compiler's parser rescans it.
 
 It's a `CtxGrammar` by monadic bonding: each token is scanned in the
 context of the tokens before it, whose braces & templates bond, by
-@P.@`Data.Profunctor.Monadic.>>=`, the depths that a @}@ is scanned by.
+@P.@`Data.Profunctor.Monadic.Do.>>=`, the depths that a @}@ is scanned by.
 -}
 tsTokensGrammar :: CtxGrammar Char [TsToken]
 tsTokensGrammar = rmap

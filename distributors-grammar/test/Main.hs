@@ -20,6 +20,7 @@ import Examples.RegString
 import Examples.SemVer
 import Examples.SExpr
 import Properties.Kleene
+import Properties.Varifocal
 
 main :: IO ()
 main = hspec $ do
@@ -38,6 +39,7 @@ main = hspec $ do
   describe "parseForest" parseForestTests
   describe "Parsector try rollback" tryRollbackTests
   describe "Kleene" kleeneProperties
+  describe "Varifocal" varifocalProperties
 
 parseForestTests :: Spec
 parseForestTests = do

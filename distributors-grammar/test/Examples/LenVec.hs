@@ -5,7 +5,7 @@ module Examples.LenVec
   ) where
 
 import Control.Lens.Grammar
-import qualified Data.Profunctor.Monadic as P
+import qualified Data.Profunctor.Monadic.Do as P
 import Numeric.Natural
 
 data LenVec = LenVec {length :: Natural, vector :: [Natural]}

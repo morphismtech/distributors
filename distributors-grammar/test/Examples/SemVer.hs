@@ -7,7 +7,7 @@ module Examples.SemVer
 
 import Control.Lens
 import Control.Lens.Grammar
-import qualified Data.Profunctor.Monadic as P
+import qualified Data.Profunctor.Monadic.Do as P
 import Numeric.Natural
 
 -- | Semantic version structure following semver.org specification

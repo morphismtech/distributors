@@ -41,6 +41,15 @@
   `sepBy sep several`, `sepBy sep (atLeast 1)`, `sepBy sep (chain1 assoc pat)`
   & `sepBy sep (exactly n)` sequence lists, binary constructor
   patterns & repetitions, separated. Delimiters compose around it.
+- `Varifocal`s, in `Control.Lens.Varifocal`, context-sensitive optics
+  whose shape may depend on the foci they build: `Bifocal` ⊂ `Varifocal`,
+  their `Applicative` the monad of a `MonadicTrans` profunctor, absorbed
+  by `joinP`; with `Varifocal'`, the applicator `>?=<`, the free concrete
+  form `Varifocus`, `AVarifocal`, `varifocus`, `runVarifocus` &
+  `cloneVarifocal`; & `terminatedBy` & `delimited`, sentinel-terminated &
+  matching-delimited sequences, which no `Bifocal` can express.
+- `MonadicTrans`, in `Data.Profunctor.Monadic`, profunctors transforming a
+  monad, lifting its effects by `liftP` & absorbing them by `joinP`.
 - `skipManyP` & `skipOptionalP`, zero or more, & zero or one, skipped:
   sequencing actions forwards & none backwards, like whitespace or a
   trailing separator, which a parser accepts & a printer omits; & their
@@ -149,6 +158,10 @@
 - `Operator`'s `Infix`, `Prefix` & `Postfix` take `APrism`s, rather than
   `APartialIso`s, so that `withOperators` builds every operator it parses,
   rather than failing by `error`, or dropping prefix & postfix operators.
+- `Data.Profunctor.Monadic` splits: its qualified do-notation, `>>=`,
+  `>>`, `return` & `fail`, moves to `Data.Profunctor.Monadic.Do`, to import
+  qualified, leaving `Monadic` to import unqualified, with no names
+  conflicting with the `Prelude`.
 - `MonadicTry` moves from `Data.Profunctor.Monadic` to
   `Control.Monad.Fail.Try`, which `Data.Profunctor.Monadic` no longer
   imports, & `Data.Profunctor.Monadic` no longer re-exports `try`.
