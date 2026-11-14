@@ -42,6 +42,15 @@
   negative numbers parenthesized above precedence 6, as `showsPrec` does, &
   read bare at any, as `read` does. Property tested against `showsPrec` &
   `readsPrec`, at each precedence. Haskell types have no `Grammar` instances.
+- `PrecGrammar` defaults, by `GHC.Generics`, to derived `Read` & `Show`
+  instances' syntax: nullary & prefix constructors, at precedence 10,
+  records, read bare at 11 & shown within parentheses there, with operator
+  fields, infix constructors, symbolic & backquoted, at their fixities, &
+  symbolic constructors in prefix. Instances for `Bool`, `Ordering`, `Maybe`
+  & `Either`, by it, & for `()` & tuples. `Lookahead`, negative lookahead
+  by `notAhead`, which `PrecGrammatical` requires, so that identifiers,
+  symbols & numbers are munched maximally, & whitespace skipped greedily,
+  as `read`'s lexer does.
 - `Predicate`s are `Tokenized` & `TokenAlgebra`s, as predicates are; &
   `ReadPrec` runs grammars as `ReadP` does, `Tokenized`, a `TokenAlgebra`,
   `TerminalSymbol`, `Ruled`, `BackusNaurForm` & `Tried`.
