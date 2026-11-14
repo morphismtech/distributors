@@ -81,9 +81,10 @@ regexRangeTryTests = do
 
 tokenRangeTests :: Spec
 tokenRangeTests = do
-  prop "tokenRange lo hi = oneOf [lo .. hi], as TokenClass" $ \(lo :: Char) hi ->
+  let near = choose ('\0', '\x3FF')
+  prop "tokenRange lo hi = oneOf [lo .. hi], as TokenClass" $ forAll near $ \lo -> forAll near $ \hi ->
     (tokenRange lo hi :: TokenClass Char) === oneOf [lo .. hi]
-  prop "tokenRange lo hi = oneOf [lo .. hi], as a predicate" $ \(lo :: Char) hi x ->
+  prop "tokenRange lo hi = oneOf [lo .. hi], as a predicate" $ forAll near $ \lo -> forAll near $ \hi -> forAll near $ \x ->
     tokenRange lo hi x === (oneOf [lo .. hi] :: Char -> Bool) x
   it "renders as a range, & parses so" $ do
     toList (tokenRange 'a' 'z' :: RegEx Char) `shouldBe` "[a-z]"

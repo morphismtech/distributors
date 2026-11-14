@@ -32,6 +32,7 @@ import Data.Bifunctor.Joker
 import Data.Char
 import Data.Foldable
 import Data.List (nub)
+import Data.Maybe (fromMaybe)
 import Data.Profunctor
 import Data.Monoid.Disjunctive
 import Data.Profunctor.Distributor
@@ -443,7 +444,12 @@ deriving via (token -> Bool) instance Categorized token
   => TokenAlgebra token (Predicate token)
 instance (Categorized token, Arbitrary token) => TokenAlgebra token (Gen token) where
   tokenClass = foldTokenClass $ \case
-    OneOf xs -> oneOf (Exts.toList xs)
+    -- a small set is chosen of uniformly, & a large one, by trying
+    -- arbitrary tokens, or else its least tokens, never listing it all
+    OneOf xs -> case splitAt 256 (Exts.toList xs) of
+      (few, []) -> Gen.elements few
+      (few, _) -> fromMaybe <$> Gen.elements few
+        <*> arbitrary `Gen.suchThatMaybe` (`tokenMember` xs)
     NotOneOf xs (AndAsIn cat) -> arbitrary `Gen.suchThat`
       (\x -> not (tokenMember x xs) && categorize x == cat)
     NotOneOf xs (AndNotAsIn cats) -> arbitrary `Gen.suchThat`
@@ -500,9 +506,9 @@ instance Categorized token
   NotOneOf xs (AndAsIn y) >&< OneOf zs = OneOf
     (filterTokens (\z -> categorize z == y) (tokenDifference zs xs))
   OneOf xs >&< NotOneOf ys (AndNotAsIn zs) = OneOf
-    (filterTokens (\x -> categorize x `notElem` zs) (tokenDifference xs ys))
+    (notInCategories zs (tokenDifference xs ys))
   NotOneOf xs (AndNotAsIn ys) >&< OneOf zs = OneOf
-    (filterTokens (\z -> categorize z `notElem` ys) (tokenDifference zs xs))
+    (notInCategories ys (tokenDifference zs xs))
   NotOneOf xs (AndAsIn y) >&< NotOneOf ws (AndAsIn z) =
     if y /= z then failExam else NotOneOf
       (filterTokens (\x -> categorize x == y) (xs >|< ws)) (AndAsIn y)
@@ -518,7 +524,7 @@ instance Categorized token
       yzs = Set.union ys zs
     in
       NotOneOf
-        (filterTokens (\x -> categorize x `notElem` yzs) xws)
+        (notInCategories yzs xws)
         (AndNotAsIn yzs)
 deriving stock instance
   (Categorized token, Read (TokenSet token), Read alg, Read (Categorize token))
@@ -543,3 +549,12 @@ deriving stock instance
 -- | The tokens of a set satisfying a predicate.
 filterTokens :: Categorized token => (token -> Bool) -> TokenSet token -> TokenSet token
 filterTokens p = Exts.fromList . filter p . Exts.toList
+
+-- | The tokens of a set not in any of some categories,
+-- not listing the set where there are none.
+notInCategories
+  :: Categorized token
+  => Set (Categorize token) -> TokenSet token -> TokenSet token
+notInCategories cats
+  | Set.null cats = id
+  | otherwise = filterTokens (\x -> categorize x `Set.notMember` cats)
