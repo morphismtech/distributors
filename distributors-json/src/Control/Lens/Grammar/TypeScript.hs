@@ -66,11 +66,10 @@ module Control.Lens.Grammar.TypeScript
 import Control.Lens
 import Control.Lens.Grammar
 import Data.Char (chr, ord)
-import Data.Maybe (fromMaybe, listToMaybe)
+import Data.Maybe (fromMaybe)
 import Data.Profunctor.Monadic.Do qualified as P
 import Data.Text (Text)
 import Data.Text qualified as Text
-import Numeric (readHex, showHex)
 
 -- $setup
 -- >>> import Control.Lens.Grammar
@@ -540,11 +539,9 @@ stringChar quote = orP
       , only '\b' >? terminal "b", only '\f' >? terminal "f"
       , only '\n' >? terminal "n", only '\r' >? terminal "r"
       , only '\t' >? terminal "t"
-      , terminal "u" >* (_HexCode >? replicateP 4 (oneOf @Char hexDigits))
+      , terminal "u" >* (_HexCode >? replicateP 4 (digit (16 :: Int)))
       ]
   ]
-  where
-    hexDigits = "0123456789abcdefABCDEF" :: String
 
 templateChar :: RegGrammatical Char p => p Char Char
 templateChar = orP
@@ -685,14 +682,12 @@ _Template = prism'
     templates =
       [NoSubstitutionTemplateLiteral, TemplateHead, TemplateMiddle, TemplateTail]
 
--- | A character, by the hexadecimal digits of a @\\u@ escape.
-_HexCode :: Prism' Char String
+-- | A character, by the four hexadecimal digits of a @\\u@ escape.
+_HexCode :: Prism' Char [Int]
 _HexCode = prism'
-  (\digits -> chr (maybe 0 fst (listToMaybe (readHex digits))))
+  (chr . foldl' (\n d -> n * 16 + d) 0)
   (\c -> if ord c < 0x10000
-    then Just (pad (showHex (ord c) "")) else Nothing)
-  where
-    pad digits = replicate (4 - length digits) '0' <> digits
+    then Just [ord c `div` 16 ^ k `mod` 16 | k <- [3, 2, 1, 0 :: Int]] else Nothing)
 
 -- Syntax --
 

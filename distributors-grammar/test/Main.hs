@@ -68,6 +68,10 @@ regexRangeTryTests = do
   it "renders a huge class by its runs" $
     toList (tokenClass (oneOf ['\x20' .. '\x10FFFF'] >&< notOneOf "\"\\") :: RegEx Char)
       `shouldSatisfy` ((< 40) . length)
+  it "escapes controls by hexadecimal codes, unambiguously" $ do
+    toList (token '\SO' <> token 'H' :: RegEx Char) `shouldBe` "\\x{e}H"
+    (fromString "\\x{E}H" :: RegEx Char) `shouldBe` (token '\SO' <> token 'H')
+    (fromString "\\x{e}" :: RegEx Char) `shouldBe` token '\SO'
   it "records try, rendering it" $ do
     let rex = try (terminal "ab") >|< terminal "ac" :: RegEx Char
     toList rex `shouldBe` "\\t{ab}|ac"

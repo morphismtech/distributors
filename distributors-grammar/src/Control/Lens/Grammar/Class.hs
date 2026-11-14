@@ -15,6 +15,9 @@ module Control.Lens.Grammar.Class
   ( RegGrammar (..)
   , Grammar (..)
   , CtxGrammar (..)
+    -- * Numerals
+  , digit
+  , numeral
   ) where
 
 import Control.Lens
@@ -23,7 +26,7 @@ import Control.Lens.Grammar.BackusNaur
 import Control.Lens.Grammar.Symbol
 import Control.Lens.Grammar.Token
 import Data.Bits (Bits, toIntegralSized)
-import Data.Char (isDigit)
+import Data.Char (isDigit, isLetter, ord, toLower, toUpper)
 import Data.Int (Int8, Int16, Int32, Int64)
 import Data.Maybe (isJust)
 import Data.Profunctor.Distributor
@@ -31,6 +34,9 @@ import Data.Profunctor.Monoidal
 import Data.Profunctor.Monoidal.Cocartesian
 import Data.Word (Word8, Word16, Word32, Word64)
 import Numeric.Natural (Natural)
+
+-- $setup
+-- >>> import Control.Lens.Grammar
 
 {- | A type's regular grammar, over its tokens, which is also its
 context-free & context-sensitive grammar. -}
@@ -91,7 +97,7 @@ instance CtxGrammar Char Word16 where ctxGrammar = rule "Word16" sizedG
 instance CtxGrammar Char Word32 where ctxGrammar = rule "Word32" sizedG
 instance CtxGrammar Char Word64 where ctxGrammar = rule "Word64" sizedG
 
--- ASCII decimal digits, at least one.
+-- ASCII decimal digits, at least one, of floating point numbers.
 decimalG :: RegGrammatical Char p => p String String
 decimalG = someP (oneOf ['0' .. '9'])
 
@@ -100,16 +106,48 @@ negativeG :: RegGrammatical Char p => p Bool Bool
 negativeG = iso (\b -> if b then Just () else Nothing) isJust
   >~ optionalP (terminal "-")
 
--- Printing canonically, parsing leading zeros too, an improper iso.
+-- Printing canonically, parsing leading zeros too.
 naturalG :: RegGrammatical Char p => p Natural Natural
-naturalG = iso show read >~ decimalG
+naturalG = numeral 10
 
 -- Printing canonically, parsing leading zeros & -0 too, an improper iso.
 integerG :: RegGrammatical Char p => p Integer Integer
 integerG = iso
-  (\n -> (n < 0, show (abs n)))
-  (\(negative, digits) -> (if negative then negate else id) (read digits))
-  >~ negativeG >*< decimalG
+  (\n -> (n < 0, abs n))
+  (\(negative, n) -> if negative then negate n else n)
+  >~ negativeG >*< numeral 10
+
+{- | A digit in a base, from 2 to 36, by its value: -9@, then letters,
+printing in lowercase, & parsing either case.
+
+>>> [d | (d, "") <- parseP (digit (16 :: Int) :: Parsor String [] Int Int) "F"]
+[15]
+-}
+digit :: (Integral n, Choice p, Tokenized Char (p Char Char)) => n -> p n n
+digit base = prism' valueOf charOf >? oneOf chars
+  where
+    values = take (fromIntegral base) (['0' .. '9'] <> ['a' .. 'z'])
+    chars = values <> [toUpper c | c <- values, isLetter c]
+    valueOf c
+      | isDigit c = fromIntegral (ord c - ord '0')
+      | otherwise = fromIntegral (ord (toLower c) - ord 'a' + 10)
+    charOf d
+      | 0 <= d && d < base = Just (values !! fromIntegral d)
+      | otherwise = Nothing
+
+{- | A natural number in a base, from 2 to 36, by its digits, most
+significant first, printing without leading zeros, & parsing them too,
+an improper iso.
+
+>>> ($ "") <$> printP (numeral (16 :: Integer) :: Printor String Maybe Integer Integer) 255
+Just "ff"
+-}
+numeral :: (Integral n, Alternator p, Tokenized Char (p Char Char)) => n -> p n n
+numeral base = iso digitsOf (foldl' (\n d -> n * base + d) 0) >~ someP (digit base)
+  where
+    digitsOf n
+      | n < base = [n]
+      | otherwise = let (q, r) = n `quotRem` base in digitsOf q <> [r]
 
 -- Integers in a range, failing to build out of it.
 sizedG

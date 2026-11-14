@@ -31,6 +31,7 @@ import Control.Lens.Grammar.BackusNaur
 import Control.Lens.Grammar.Class
 import Control.Lens.Grammar.Symbol
 import Control.Lens.Grammar.Token
+import Data.Char (generalCategory)
 import Data.Coerce
 import Data.Bifunctor.Joker
 import Data.Foldable
@@ -569,7 +570,7 @@ Ill-formed regular expression strings normalize to failure.
 {bounds} = \q{count}(,\q{count}?)?
 {category} = Ll|Lu|Lt|Lm|Lo|Mn|Mc|Me|Nd|Nl|No|Pc|Pd|Ps|Pe|Pi|Pf|Po|Sm|Sc|Sk|So|Zs|Zl|Zp|Cc|Cf|Cs|Co|Cn
 {char} = [^\(\)\*\+\?\[\\\]\^\{\|\}\P{Cc}]|\\\q{char-escaped}
-{char-control} = NUL|SOH|STX|ETX|EOT|ENQ|ACK|BEL|BS|HT|LF|VT|FF|CR|SO|SI|DLE|DC1|DC2|DC3|DC4|NAK|SYN|ETB|CAN|EM|SUB|ESC|FS|GS|RS|US|DEL|PAD|HOP|BPH|NBH|IND|NEL|SSA|ESA|HTS|HTJ|VTS|PLD|PLU|RI|SS2|SS3|DCS|PU1|PU2|STS|CCH|MW|SPA|EPA|SOS|SGCI|SCI|CSI|ST|OSC|PM|APC
+{char-control} = x\{[0-9A-Fa-f]+\}
 {char-escaped} = [\(\)\*\+\?\[\\\]\^\{\|\}]|\q{char-control}
 {class} = \q{class-one-of}|\q{class-not-one-of}
 {class-category} = \\p\{\q{category}\}|\\P\{\q{category}(\|\q{category})*\}
@@ -625,7 +626,7 @@ regexGrammar = ruleRec "regex" altG
       >~ countG >*< optionalP (terminal "," >* optionalP countG)
     bounded (lo, hi) = if hi == Just lo then (lo, Nothing) else (lo, Just hi)
     unbounded (lo, hi) = (lo, fromMaybe (Just lo) hi)
-    countG = rule "count" $ iso show read >~ someP (oneOf ['0' .. '9'])
+    countG = rule "count" $ numeral (10 :: Int)
 
     atomG rex = rule "atom" $ orP
       [ _NonTerminal >? terminal "\\q" >* nonterminalG
@@ -748,73 +749,12 @@ charWith name reserved = rule name $
     (oneOf reserved >|< charControlG)
 
 charControlG :: Grammatical Char p => p Char Char
-charControlG = rule "char-control" $ orP
-      [ only '\NUL' >? terminal "NUL"
-      , only '\SOH' >? terminal "SOH"
-      , only '\STX' >? terminal "STX"
-      , only '\ETX' >? terminal "ETX"
-      , only '\EOT' >? terminal "EOT"
-      , only '\ENQ' >? terminal "ENQ"
-      , only '\ACK' >? terminal "ACK"
-      , only '\BEL' >? terminal "BEL"
-      , only '\BS' >? terminal "BS"
-      , only '\HT' >? terminal "HT"
-      , only '\LF' >? terminal "LF"
-      , only '\VT' >? terminal "VT"
-      , only '\FF' >? terminal "FF"
-      , only '\CR' >? terminal "CR"
-      , only '\SO' >? terminal "SO"
-      , only '\SI' >? terminal "SI"
-      , only '\DLE' >? terminal "DLE"
-      , only '\DC1' >? terminal "DC1"
-      , only '\DC2' >? terminal "DC2"
-      , only '\DC3' >? terminal "DC3"
-      , only '\DC4' >? terminal "DC4"
-      , only '\NAK' >? terminal "NAK"
-      , only '\SYN' >? terminal "SYN"
-      , only '\ETB' >? terminal "ETB"
-      , only '\CAN' >? terminal "CAN"
-      , only '\EM' >? terminal "EM"
-      , only '\SUB' >? terminal "SUB"
-      , only '\ESC' >? terminal "ESC"
-      , only '\FS' >? terminal "FS"
-      , only '\GS' >? terminal "GS"
-      , only '\RS' >? terminal "RS"
-      , only '\US' >? terminal "US"
-      , only '\DEL' >? terminal "DEL"
-      , only '\x80' >? terminal "PAD"
-      , only '\x81' >? terminal "HOP"
-      , only '\x82' >? terminal "BPH"
-      , only '\x83' >? terminal "NBH"
-      , only '\x84' >? terminal "IND"
-      , only '\x85' >? terminal "NEL"
-      , only '\x86' >? terminal "SSA"
-      , only '\x87' >? terminal "ESA"
-      , only '\x88' >? terminal "HTS"
-      , only '\x89' >? terminal "HTJ"
-      , only '\x8A' >? terminal "VTS"
-      , only '\x8B' >? terminal "PLD"
-      , only '\x8C' >? terminal "PLU"
-      , only '\x8D' >? terminal "RI"
-      , only '\x8E' >? terminal "SS2"
-      , only '\x8F' >? terminal "SS3"
-      , only '\x90' >? terminal "DCS"
-      , only '\x91' >? terminal "PU1"
-      , only '\x92' >? terminal "PU2"
-      , only '\x93' >? terminal "STS"
-      , only '\x94' >? terminal "CCH"
-      , only '\x95' >? terminal "MW"
-      , only '\x96' >? terminal "SPA"
-      , only '\x97' >? terminal "EPA"
-      , only '\x98' >? terminal "SOS"
-      , only '\x99' >? terminal "SGCI"
-      , only '\x9A' >? terminal "SCI"
-      , only '\x9B' >? terminal "CSI"
-      , only '\x9C' >? terminal "ST"
-      , only '\x9D' >? terminal "OSC"
-      , only '\x9E' >? terminal "PM"
-      , only '\x9F' >? terminal "APC"
-      ]
+charControlG = rule "char-control" $
+  prism' fromCode controlCode >? terminal "x{" >* numeral 16 *< terminal "}"
+  where
+    -- control characters print by their hexadecimal codes, & any parses so
+    controlCode c = if generalCategory c == Control then Just (fromEnum c) else Nothing
+    fromCode code = toEnum (min (fromEnum (maxBound :: Char)) code)
 
 {- |
 The context-free `Grammar`
@@ -863,7 +803,7 @@ But they also support `BackusNaurForm` `rule`s and `ruleRec`s.
 {bounds} = \q{count}(,\q{count}?)?
 {category} = Ll|Lu|Lt|Lm|Lo|Mn|Mc|Me|Nd|Nl|No|Pc|Pd|Ps|Pe|Pi|Pf|Po|Sm|Sc|Sk|So|Zs|Zl|Zp|Cc|Cf|Cs|Co|Cn
 {char} = [^\(\)\*\+\?\[\\\]\^\{\|\}\P{Cc}]|\\\q{char-escaped}
-{char-control} = NUL|SOH|STX|ETX|EOT|ENQ|ACK|BEL|BS|HT|LF|VT|FF|CR|SO|SI|DLE|DC1|DC2|DC3|DC4|NAK|SYN|ETB|CAN|EM|SUB|ESC|FS|GS|RS|US|DEL|PAD|HOP|BPH|NBH|IND|NEL|SSA|ESA|HTS|HTJ|VTS|PLD|PLU|RI|SS2|SS3|DCS|PU1|PU2|STS|CCH|MW|SPA|EPA|SOS|SGCI|SCI|CSI|ST|OSC|PM|APC
+{char-control} = x\{[0-9A-Fa-f]+\}
 {char-escaped} = [\(\)\*\+\?\[\\\]\^\{\|\}]|\q{char-control}
 {class} = \q{class-one-of}|\q{class-not-one-of}
 {class-category} = \\p\{\q{category}\}|\\P\{\q{category}(\|\q{category})*\}
@@ -875,7 +815,7 @@ But they also support `BackusNaurForm` `rule`s and `ruleRec`s.
 {count} = [0-9]+
 {expression} = \q{atom}\?|\q{atom}\*|\q{atom}\+|\q{atom}\{\q{bounds}\}|\q{atom}
 {nonterminal} = \{\q{char}*\}
-{regbnf} = \{start\} = \q{regex}(\LF\q{nonterminal} = \q{regex})*
+{regbnf} = \{start\} = \q{regex}(\x{a}\q{nonterminal} = \q{regex})*
 {regex} = \q{alternate}
 {sequence} = \q{expression}*
 -}

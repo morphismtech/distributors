@@ -26,7 +26,7 @@ arithGrammar = ruleRec "arith" sumG
     factorG arith = rule "factor" $
       number >|< terminal "(" >* arith *< terminal ")"
     number = rule "number" $
-      _Num . iso show read >? someP (asIn @Char DecimalNumber)
+      _Num >? numeral 10
 
 arithExamples :: [(Arith, String)]
 arithExamples =

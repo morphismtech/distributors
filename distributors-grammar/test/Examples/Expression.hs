@@ -38,7 +38,7 @@ exprGrammar = ruleRec "expr" $ \expr ->
     atom = rule "atom" $
       nat >|< terminal "(" >* expr *< terminal ")"
     nat = rule "nat" $
-      _Nat . iso show read >? someP (asIn @Char DecimalNumber)
+      _Nat >? numeral 10
   in withOperators
     [ [ Postfix _Fac (terminal "!") ]
     , [ Infix RightAssoc _Exp (terminal "^") ]
@@ -74,7 +74,7 @@ powGrammar = ruleRec "pow" $ \e ->
     atom = rule "atom" $
       nat >|< terminal "(" >* e *< terminal ")"
     nat = rule "nat" $
-      _Nat . iso show read >? someP (asIn @Char DecimalNumber)
+      _Nat >? numeral 10
   in sepWith "^" (chain1 Right _Exp) atom
 
 powExamples :: [(Expr, String)]
@@ -94,7 +94,7 @@ leftGrammar = ruleRec "expr" $ \expr ->
     atom = rule "atom" $
       nat >|< terminal "(" >* expr *< terminal ")"
     nat = rule "nat" $
-      _Nat . iso show read >? someP (asIn @Char DecimalNumber)
+      _Nat >? numeral 10
   in withOperators
     [ [ Infix LeftAssoc _Mul (terminal "*"), Infix LeftAssoc _Div (terminal "/") ]
     , [ Infix LeftAssoc _Add (terminal "+"), Infix LeftAssoc _Sub (terminal "-") ]

@@ -36,6 +36,9 @@ module Control.Lens.Grammar
   , unparsecG
   , readG
   , monadG
+    -- * Numerals
+  , digit
+  , numeral
     -- * Utility
   , putStringLn
     -- * Re-exports
@@ -94,7 +97,7 @@ import Data.Traversable.Homogeneous as X
 import Data.Traversable.Homogeneous.Enumerable as X
 
 -- $setup
--- >>> :set -XRequiredTypeArguments -XExplicitNamespaces -XTypeApplications
+-- >>> :set -XRequiredTypeArguments -XExplicitNamespaces -XTypeApplications -XMonoLocalBinds
 -- >>> import Data.String (fromString)
 -- >>> import GHC.Exts (toList)
 
@@ -152,7 +155,7 @@ semverGrammar = _SemVer
   >*< optionP _Empty (terminal "-" >* identifiersG)
   >*< optionP _Empty (terminal "+" >* identifiersG)
   where
-    numberG = iso show read >~ someP (asIn @Char DecimalNumber)
+    numberG = numeral 10
     identifiersG = sepWith "." (atLeast 1) (someP charG)
     charG = asIn LowercaseLetter
       >|< asIn UppercaseLetter
@@ -205,7 +208,7 @@ You can generate a regular expression string, a `RegEx`, from a `RegGrammar`
 with `Control.Lens.Grammar.regexG`.
 
 >>> putStringLn (regexG (type SemVer))
-\p{Nd}+.\p{Nd}+.\p{Nd}+(-(\p{Ll}|\p{Lu}|\p{Nd}|-)+(.(\p{Ll}|\p{Lu}|\p{Nd}|-)+)*)?(\+(\p{Ll}|\p{Lu}|\p{Nd}|-)+(.(\p{Ll}|\p{Lu}|\p{Nd}|-)+)*)?
+[0-9]+.[0-9]+.[0-9]+(-(\p{Ll}|\p{Lu}|\p{Nd}|-)+(.(\p{Ll}|\p{Lu}|\p{Nd}|-)+)*)?(\+(\p{Ll}|\p{Lu}|\p{Nd}|-)+(.(\p{Ll}|\p{Lu}|\p{Nd}|-)+)*)?
 
 You can also generate parsers and printers.
 
@@ -277,7 +280,7 @@ arithGrammar = ruleRec "arith" sumG
     factorG arith = rule "factor" $
       numberG >|< terminal "(" >* arith *< terminal ")"
     numberG = rule "number" $
-      _Num . iso show read >? someP (asIn @Char DecimalNumber)
+      _Num >? numeral 10
 instance CtxGrammar Char Arith
 instance Grammar Char Arith where grammar = arithGrammar
 :}
@@ -288,7 +291,7 @@ We can generate grammar strings, printers and parsers from @arithGrammar@.
 {start} = \q{arith}
 {arith} = \q{sum}
 {factor} = \q{number}|\(\q{arith}\)
-{number} = \p{Nd}+
+{number} = [0-9]+
 {product} = \q{factor}(\*\q{factor})*
 {sum} = \q{product}(\+\q{product})*
 >>> [x | (x,"") <- parseG @Arith "1+2*3+4"]
@@ -326,7 +329,7 @@ _Sub = prism' (uncurry Sub) (\case Sub x y -> Just (x,y); _ -> Nothing)
 exprGrammar :: Grammatical Char p => p Expr Expr
 exprGrammar = ruleRec "expr" $ \expr ->
   let atom = rule "atom" $ nat >|< terminal "(" >* expr *< terminal ")"
-      nat  = rule "nat"  $ _Nat . iso show read >? someP (asIn @Char DecimalNumber)
+      nat  = rule "nat"  $ _Nat >? numeral 10
   in withOperators
     [ [ Postfix _Fac (terminal "!") ]
     , [ Infix RightAssoc _Exp (terminal "^") ]
@@ -393,7 +396,7 @@ _LenVec = iso (\LenVec {..} -> (length, vector)) (\(length, vector) -> LenVec {.
 lenvecGrammar :: CtxGrammatical Char p => p LenVec LenVec
 lenvecGrammar = _LenVec >? P.do
   let
-    numberG = iso show read >~ someP (asIn @Char DecimalNumber)
+    numberG = numeral 10
     vectorG n = sepWith "," (exactly n) numberG
   len <- numberG             -- bonds to _LenVec
   terminal ";"               -- doesn't bond

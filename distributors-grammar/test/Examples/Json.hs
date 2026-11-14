@@ -97,7 +97,7 @@ jsonGrammar = rule "json" elementG
 
     -- number = decimal natural number
     numberG = rule "number" $
-      iso show read >~ someP (asIn @Char DecimalNumber)
+      numeral 10
 
     -- Simplified: zero or more whitespace characters
     ws = rule "ws" $

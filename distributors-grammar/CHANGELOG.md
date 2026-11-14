@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Regular expressions escape control characters by hexadecimal codes,
+  @\\x{e}@, rather than by names, which were ambiguous, @\\SO@ & @H@
+  reading as @\\SOH@; codes parse in either case.
+- `digit` & `numeral`, digits & natural numbers in a base, by their values,
+  rather than by `show` & `read`, which `Natural` & `Integer` grammars,
+  quantifiers' counts, & the examples use.
 - `regexGrammar` & `regbnfGrammar` are removed: they're the `Grammar Char`
   instances of `RegEx Char` & `Bnf (RegEx Char)`, by `grammar`. The classes
   `RegGrammar`, `Grammar` & `CtxGrammar`, & the base types' instances, are
