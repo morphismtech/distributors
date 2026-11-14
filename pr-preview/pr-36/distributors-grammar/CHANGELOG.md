@@ -26,15 +26,20 @@
   by `try`. `Tried` is part of `RegGrammatical`.
 - Character classes render runs of three or more plain characters as
   ranges, @[a-z]@, & parse ranges; a dash in a class is escaped, @\\-@.
-- Grammars of base types, each a rule named by its type by `ruleTyped`,
-  with parity with their `Read` & `Show` instances' lexemes, printing as
-  `show` does & parsing as `read` does, but for the whitespace &
-  parentheses which `read` accepts around any lexeme: `Char` literals, with
-  `showLitChar`'s escapes, & `read`'s named, numeric & control escapes;
-  `Natural`, `Integer`, & sized `Int`s & `Word`s, which wrap out of range
-  as `read` does, in decimal, & binary, octal & hexadecimal; & `Double`s
-  & `Float`s, by `floatToDigits` & `fromRational`. They're regular & LL(1).
-  `String`, a list of characters, has no instance.
+- `Control.Lens.Grammar.Prec`: Haskell types' grammars, by precedence,
+  equivalent to their stock `Read` & `Show` instances. `PrecGrammar` types,
+  run by `PrecGrammatical` interpreters, with `precP`, `stepP`, `resetP` &
+  `precedenceP`, as `ReadPrec`'s `prec`, `step` & `reset`, & `parensP`, as
+  `GHC.Read.parens` & `showParen`; `Precedence`, an interpreter over any
+  `Grammatical` one, run by `readsPrecG` & `showsPrecG`. Instances for
+  `Char`, with `showLitChar`'s escapes & `read`'s named, control & numeric
+  escapes, up to `maxBound`; `Natural`, `Integer`, & sized `Int`s & `Word`s,
+  which wrap out of range as `read` does, in decimal, & binary, octal &
+  hexadecimal; & `Double`s & `Float`s, by `floatToDigits` & `fromRational`;
+  negative numbers parenthesized above precedence 6, as `showsPrec` does, &
+  read bare at any, as `read` does. Property tested against `showsPrec` &
+  `readsPrec`, at each precedence. Haskell types have no `Grammar`
+  instances; `String`, a list of characters, has neither.
 - `Predicate`s are `Tokenized` & `TokenAlgebra`s, as predicates are; &
   `ReadPrec` runs grammars as `ReadP` does, `Tokenized`, a `TokenAlgebra`,
   `TerminalSymbol`, `Ruled`, `BackusNaurForm` & `Tried`.
