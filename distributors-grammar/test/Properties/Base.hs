@@ -3,42 +3,33 @@ module Properties.Base (baseProperties, readShowEquivalence) where
 import Control.Lens.Grammar
 import Data.Char (intToDigit, isAscii, isControl, isSpace, ord, toUpper)
 import Data.Int (Int8, Int16, Int32, Int64)
-import Data.Maybe (maybeToList)
+import Data.Foldable (for_)
+import Data.List (sort)
 import Data.Word (Word8, Word16, Word32, Word64)
-import Numeric (showIntAtBase)
+import Numeric (showHex, showIntAtBase, showOct)
 import Numeric.Natural (Natural)
 import Test.Hspec
 import Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
 import Test.QuickCheck
-import Text.Read (readMaybe)
 
-{- | Equivalence with a type's `Read` & `Show` instances' lexemes: printing
-is `show`, & parsing is `readMaybe`, for strings of its values, by its
-lexical variants, & mutated, so that strings which `read` rejects are
-tried too, but for those with whitespace or parentheses around them,
-which `read` accepts around any value, a matter of precedence. Each new
-instance runs it.
+{- | Equivalence with a type's stock `Read` & `Show` instances, at each
+precedence: showing is `showsPrec`, & reading is `readsPrec`, all of a
+string but whitespace, for strings of its values, by its lexical variants,
+decorated by whitespace & parentheses, & mutated, so that strings which
+`read` rejects are tried too. Each new instance runs it.
 -}
 readShowEquivalence
-  :: forall a. (CtxGrammar Char a, Read a, Show a)
+  :: forall a. (PrecGrammar a, Read a, Show a)
   => String -> Gen a -> (a -> Gen String) -> Spec
-readShowEquivalence name values variants = describe name $ do
-  prop "prints as show does" $ forAll values $ \a ->
-    printed a === Just (show a)
-  modifyMaxSuccess (const 1000) $ prop "parses as read does" $
-    forAll (values >>= variants >>= mutated) $ \str -> lexical str ==>
-      map show (parsed @a str) === map show (maybeToList (readMaybe @a str))
+readShowEquivalence name values variants = describe name $
+  for_ [0, 6, 7, 11] $ \d -> describe ("at precedence " <> show d) $ do
+    prop "shows as showsPrec does" $ forAll values $ \a ->
+      (($ "") <$> showsPrecG d a) === Just (showsPrec d a "")
+    modifyMaxSuccess (const 1000) $ prop "reads as readsPrec does" $
+      forAll (values >>= variants >>= decorated >>= mutated) $ \str ->
+        complete (readsPrecG @a d str) === complete (readsPrec @a d str)
   where
-    lexical str = not (any outer (take 1 str <> take 1 (reverse str)))
-    outer c = isSpace c || c `elem` "()"
-
--- | Parse all of a string, if it parses.
-parsed :: forall a. CtxGrammar Char a => String -> [a]
-parsed str = [a | (a, "") <- parseG @a str]
-
--- | Print a value, if it prints.
-printed :: CtxGrammar Char a => a -> Maybe String
-printed a = ($ "") <$> printG a
+    complete parses = sort [show a | (a, rest) <- parses, all isSpace rest]
 
 -- | Whitespace, `isSpace` & not, often none.
 spaces :: Gen String
@@ -46,6 +37,20 @@ spaces = frequency
   [ (3, pure "")
   , (1, listOf1 (elements " \t\n\v\f\r\xa0\x2003\x3000"))
   , (1, pure "\x2028") ]
+
+-- | Within any parentheses, amid whitespace.
+decorated :: String -> Gen String
+decorated str = do
+  depth <- frequency [(4, pure 0), (2, pure 1), (1, pure 2)]
+  go depth
+  where
+    spaced s = do
+      lead <- spaces
+      trail <- spaces
+      pure (lead <> s <> trail)
+    go :: Int -> Gen String
+    go 0 = spaced str
+    go n = go (n - 1) >>= \s -> spaced ("(" <> s <> ")")
 
 -- | Edited, once or twice, or not.
 mutated :: String -> Gen String
@@ -97,9 +102,9 @@ character c = do
     [ pure (drop 1 (init (show c))) ]
     <> [pure [c] | c `notElem` "\\'"]
     <> [ pure ("\\" <> show (ord c))
-       , pure ("\\o" <> showIntAtBase 8 intToDigit (ord c) "")
-       , pure ("\\x" <> showIntAtBase 16 intToDigit (ord c) "")
-       , pure ("\\X" <> map toUpper (showIntAtBase 16 intToDigit (ord c) "")) ]
+       , pure ("\\o" <> showOct (ord c) "")
+       , pure ("\\x" <> showHex (ord c) "")
+       , pure ("\\X" <> map toUpper (showHex (ord c) "")) ]
     <> [pure ['\\', '^', toEnum (ord c + 64)] | ord c < 32]
   pure ("'" <> escape <> "'")
 
@@ -134,8 +139,3 @@ baseProperties = describe "equivalent to Read & Show" $ do
   readShowEquivalence "Word64" (arbitrary :: Gen Word64) integral
   readShowEquivalence "Double" (floats :: Gen Double) floating
   readShowEquivalence "Float" (floats :: Gen Float) floating
-  describe "statically LL(1), by ll1Conflicts" $ do
-    it "Char" $ ll1Conflicts (regbnfG @Char Char) `shouldBe` []
-    it "Natural" $ ll1Conflicts (regbnfG @Char Natural) `shouldBe` []
-    it "Integer" $ ll1Conflicts (regbnfG @Char Integer) `shouldBe` []
-    it "Double" $ ll1Conflicts (regbnfG @Char Double) `shouldBe` []

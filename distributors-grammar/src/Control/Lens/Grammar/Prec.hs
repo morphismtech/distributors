@@ -1,0 +1,408 @@
+{- |
+Module      : Control.Lens.Grammar.Prec
+Description : grammars of Haskell types, as Read & Show
+Copyright   : (C) 2026 - Eitan Chatav
+License     : BSD-style (see the file LICENSE)
+Maintainer  : Eitan Chatav <eitan.chatav@gmail.com>
+Stability   : provisional
+Portability : non-portable
+
+Grammars of Haskell types, equivalent to their stock `Read` & `Show`
+instances, by precedence, as `Text.ParserCombinators.ReadPrec` reads, &
+`showsPrec` shows: `PrecGrammar`s, run by `PrecGrammatical`s, like
+t'Precedence', which `readsPrecG` & `showsPrecG` run.
+-}
+
+module Control.Lens.Grammar.Prec
+  ( -- * PrecGrammar
+    PrecGrammar (..)
+  , PrecGrammatical (..)
+  , parensP
+    -- * Precedence
+  , Precedence (..)
+  , readsPrecG
+  , showsPrecG
+  ) where
+
+import Control.Applicative
+import Control.Lens
+import Control.Lens.Diopter (skippedMany)
+import Control.Lens.Grammar.BackusNaur
+import Control.Lens.Grammar.Class
+import Control.Lens.Grammar.Symbol
+import Control.Lens.Grammar.Token
+import Control.Lens.PartialIso
+import Control.Lens.Prismoid ((>?*))
+import Data.Char (isLetter, toUpper)
+import Data.Int (Int8, Int16, Int32, Int64)
+import Data.List (nub)
+import Data.Maybe (isJust)
+import Data.Monoid.Disjunctive
+import Data.Profunctor.Distributor
+import Data.Profunctor.Grammar
+import Data.Profunctor.Monoidal
+import Data.Profunctor.Monoidal.Cocartesian
+import Data.Ratio ((%))
+import Data.String (IsString (..))
+import Data.Word (Word8, Word16, Word32, Word64)
+import Numeric (floatToDigits)
+import Numeric.Natural (Natural)
+
+{- | A Haskell type's grammar, by precedence, equivalent to its stock `Read`
+& `Show` instances, `readsPrec` & `showsPrec`. -}
+class PrecGrammar a where
+  precGrammar :: PrecGrammatical p => p a a
+
+{- | `Grammatical` interpreters of precedence, as
+`Text.ParserCombinators.ReadPrec` has, where a grammar runs in a
+precedence context, from 0 to 11, as `showsPrec`'s is. -}
+class (Grammatical Char p, forall x y. (x ~ (), y ~ ()) => IsString (p x y))
+  => PrecGrammatical p where
+    {- | At a precedence, failing in a context above it, as
+    `Text.ParserCombinators.ReadPrec.prec` does. -}
+    precP :: Int -> p a b -> p a b
+    {- | In a context one higher, for arguments, as
+    `Text.ParserCombinators.ReadPrec.step` does. -}
+    stepP :: p a b -> p a b
+    {- | In the context 0, within brackets, as
+    `Text.ParserCombinators.ReadPrec.reset` does. -}
+    resetP :: p a b -> p a b
+    {- | By the context's precedence. -}
+    precedenceP :: (Int -> p a b) -> p a b
+
+{- | Within any parentheses, after whitespace, as `GHC.Read.parens` reads,
+& within parentheses where it doesn't print bare, as `showParen` shows. -}
+parensP :: PrecGrammatical p => p a b -> p a b
+parensP p = optional'
+  where
+    optional' = spacesG >* (p >|< mandatory)
+    mandatory = terminal "(" >* resetP optional' *< spacesG *< terminal ")"
+
+{- | A grammar in a precedence context, a `PrecGrammatical` interpreter of
+any `Grammatical` one, each of whose structures it lifts pointwise. -}
+newtype Precedence p a b = Precedence {runPrecedence :: Int -> p a b}
+
+instance Profunctor p => Profunctor (Precedence p) where
+  dimap f g (Precedence h) = Precedence (dimap f g . h)
+instance Functor (p a) => Functor (Precedence p a) where
+  fmap f (Precedence h) = Precedence (fmap f . h)
+instance Applicative (p a) => Applicative (Precedence p a) where
+  pure x = Precedence (const (pure x))
+  Precedence f <*> Precedence x = Precedence (\d -> f d <*> x d)
+instance Alternative (p a) => Alternative (Precedence p a) where
+  empty = Precedence (const empty)
+  Precedence x <|> Precedence y = Precedence (\d -> x d <|> y d)
+  many (Precedence x) = Precedence (many . x)
+  some (Precedence x) = Precedence (some . x)
+instance Choice p => Choice (Precedence p) where
+  left' (Precedence h) = Precedence (left' . h)
+  right' (Precedence h) = Precedence (right' . h)
+instance DisjunctiveMonoid (p a b) => DisjunctiveMonoid (Precedence p a b) where
+  falseP = Precedence (const falseP)
+  Precedence x >|< Precedence y = Precedence (\d -> x d >|< y d)
+instance CocartesianMonoidal p => CocartesianMonoidal (Precedence p) where
+  zeroP = Precedence (const zeroP)
+  Precedence x >+< Precedence y = Precedence (\d -> x d >+< y d)
+instance CocartesianChoice p => CocartesianChoice (Precedence p) where
+  alternate = \case
+    Left (Precedence x) -> Precedence (alternate . Left . x)
+    Right (Precedence y) -> Precedence (alternate . Right . y)
+instance Distributor p => Distributor (Precedence p) where
+  optionalP (Precedence x) = Precedence (optionalP . x)
+  manyP (Precedence x) = Precedence (manyP . x)
+instance Alternator p => Alternator (Precedence p) where
+  someP (Precedence x) = Precedence (someP . x)
+  optionP def (Precedence x) = Precedence (optionP def . x)
+  manyTillP (Precedence x) (Precedence y) = Precedence (\d -> manyTillP (x d) (y d))
+  timesP lo hi (Precedence x) = Precedence (timesP lo hi . x)
+instance TerminalSymbol token (p a b) => TerminalSymbol token (Precedence p a b) where
+  terminal = Precedence . const . terminal
+instance Tokenized token (p a b) => Tokenized token (Precedence p a b) where
+  anyToken = Precedence (const anyToken)
+  token = Precedence . const . token
+  oneOf = Precedence . const . oneOf
+  notOneOf = Precedence . const . notOneOf
+  asIn = Precedence . const . asIn
+  notAsIn = Precedence . const . notAsIn
+instance TokenAlgebra token (p a b) => TokenAlgebra token (Precedence p a b) where
+  tokenClass = Precedence . const . tokenClass
+instance Tried (p a b) => Tried (Precedence p a b) where
+  try (Precedence x) = Precedence (try . x)
+instance Ruled (p a b) => Ruled (Precedence p a b) where
+  rule name (Precedence x) = Precedence (rule name . x)
+instance BackusNaurForm (p a b) => BackusNaurForm (Precedence p a b)
+instance IsString (p a b) => IsString (Precedence p a b) where
+  fromString = Precedence . const . fromString
+instance (Grammatical Char p, forall x y. (x ~ (), y ~ ()) => IsString (p x y))
+  => PrecGrammatical (Precedence p) where
+    precP n (Precedence x) = Precedence (\d -> if d <= n then x n else falseP)
+    stepP (Precedence x) = Precedence (x . (+ 1))
+    resetP (Precedence x) = Precedence (const (x 0))
+    precedenceP k = Precedence (\d -> runPrecedence (k d) d)
+
+{- | Read at a precedence, as `readsPrec` does. -}
+readsPrecG :: forall a. PrecGrammar a => Int -> ReadS a
+readsPrecG d = parseP (runPrecedence precGrammar d :: Parsor String [] a a)
+
+{- | Show at a precedence, as `showsPrec` does, if it shows. -}
+showsPrecG :: forall a. PrecGrammar a => Int -> a -> Maybe ShowS
+showsPrecG d = printP (runPrecedence precGrammar d :: Printor String Maybe a a)
+
+-- Base types --
+
+{- The base types' grammars, equivalent to their `Read` & `Show`
+instances: lexemes, within any parentheses, as `read` accepts them, &
+negative numbers, which `showsPrec` parenthesizes above 6, & `read`
+accepts bare at any precedence. -}
+
+instance PrecGrammar Char where precGrammar = parensP charG
+instance PrecGrammar Natural where precGrammar = parensP naturalG
+instance PrecGrammar Integer where
+  precGrammar = parensP (precedenceP (\d -> signed >~ negativeAt d >*< magnitudeG))
+instance PrecGrammar Double where precGrammar = parensP (precedenceP floatingAt)
+instance PrecGrammar Float where precGrammar = parensP (precedenceP floatingAt)
+instance PrecGrammar Int where precGrammar = integralG
+instance PrecGrammar Int8 where precGrammar = integralG
+instance PrecGrammar Int16 where precGrammar = integralG
+instance PrecGrammar Int32 where precGrammar = integralG
+instance PrecGrammar Int64 where precGrammar = integralG
+instance PrecGrammar Word where precGrammar = integralG
+instance PrecGrammar Word8 where precGrammar = integralG
+instance PrecGrammar Word16 where precGrammar = integralG
+instance PrecGrammar Word32 where precGrammar = integralG
+instance PrecGrammar Word64 where precGrammar = integralG
+
+-- Sized integers read as `Integer`s, wrapping out of range, as `read` does.
+integralG :: (Integral a, PrecGrammatical p) => p a a
+integralG = iso toInteger fromInteger >~ precGrammar @Integer
+
+-- A minus, printing bare up to precedence 6, & parsing bare at any.
+negativeAt :: RegGrammatical Char p => Int -> p Bool Bool
+negativeAt d
+  | d <= 6 = negativeG
+  | otherwise = orP
+      [ only False >? oneP
+      , only True . unprinted >? terminal "-" >* spacesG ]
+
+-- A prism which never matches, so that its alternative parses, but never prints.
+unprinted :: Prism' a a
+unprinted = prism' id (const Nothing)
+
+-- One of two terminals, printing the first, & parsing either.
+eitherOf :: RegGrammatical Char p => String -> String -> p () ()
+eitherOf printed parsed = terminal printed >|< (unprinted >? terminal parsed)
+
+-- A minus, a lexeme of its own, as whether a number is negative.
+negativeG :: RegGrammatical Char p => p Bool Bool
+negativeG = iso (\b -> if b then Just () else Nothing) isJust
+  >~ optionalP (terminal "-" >* spacesG)
+
+-- Whitespace, by `Data.Char.isSpace`, which `read` skips before each
+-- lexeme & after all, & which never prints.
+spacesG :: RegGrammatical Char p => p () ()
+spacesG = skippedMany >?* tokenClass (oneOf "\t\n\v\f\r" >|< asIn Space)
+
+-- Signed, by an improper iso, where @-0@ parses too.
+signed :: (Num a, Ord a) => Iso' a (Bool, a)
+signed = iso
+  (\n -> (n < 0, abs n))
+  (\(negative, n) -> if negative then negate n else n)
+
+-- A number's lexeme without a fraction or exponent: decimal, printed,
+-- or binary, octal or hexadecimal, after @0b@, @0o@ or @0x@, in either
+-- case, parsed & tried first, as `read`'s lexer does.
+magnitudeG :: RegGrammatical Char p => p Integer Integer
+magnitudeG = (unprinted >? try (terminal "0" >* basedG)) >|< numeral 10
+
+basedG :: RegGrammatical Char p => p Integer Integer
+basedG = orP
+  [ eitherOf "b" "B" >* numeral 2
+  , eitherOf "o" "O" >* numeral 8
+  , eitherOf "x" "X" >* numeral 16
+  ]
+
+-- Natural numbers, & negative zero, as `read` reads integers & keeps
+-- those which aren't negative.
+naturalG :: RegGrammatical Char p => p Natural Natural
+naturalG = (iso toInteger fromInteger >~ magnitudeG)
+  >|< (unprinted . only 0 >? terminal "-" >* spacesG >* zerosG)
+  where
+    zerosG = terminal "0" >* orP
+      [ skippedMany >?* terminal "0"
+      , orP (map terminal ["b", "B", "o", "O", "x", "X"])
+          >* terminal "0" >* (skippedMany >?* terminal "0")
+      ]
+
+-- A floating point number's lexeme, without its sign.
+data FloatLexeme
+  = NotANumber
+  | Infinite
+  -- | digits, a fraction's digits, & an exponent
+  | Decimal [Int] (Maybe [Int]) (Maybe Integer)
+  -- | binary, octal or hexadecimal, parsed only
+  | Based Integer
+  deriving stock Eq
+
+_Decimal :: Prism' FloatLexeme ([Int], (Maybe [Int], Maybe Integer))
+_Decimal = prism' (\(ds, (fraction, ex)) -> Decimal ds fraction ex) $ \case
+  Decimal ds fraction ex -> Just (ds, (fraction, ex))
+  _ -> Nothing
+
+_Based :: Prism' FloatLexeme Integer
+_Based = prism' Based $ \case
+  Based n -> Just n
+  _ -> Nothing
+
+{- Floating point numbers, printing as `show` does, by `floatToDigits`,
+in fixed notation, or in exponent notation outside @0.1 <= x < 10^7@, &
+parsing as `read` does, by `fromRational`, rounding correctly. -}
+floatingAt :: (RealFloat a, RegGrammatical Char p) => Int -> p a a
+floatingAt d = iso toLexeme fromLexeme >~ negativeAt d >*< orP
+  [ only NotANumber >? terminal "NaN"
+  , only Infinite >? terminal "Infinity"
+  , unprinted . _Based >? try (terminal "0" >* basedG)
+  , _Decimal >? someP (digit 10)
+      >*< optionalP (terminal "." >* someP (digit 10))
+      >*< optionalP (eitherOf "e" "E" >* (signed >~ exponentSignG >*< numeral 10))
+  ]
+  where
+    exponentSignG = orP
+      [ only True >? terminal "-"
+      , only False . unprinted >? terminal "+"
+      , only False >? oneP
+      ]
+
+toLexeme :: RealFloat a => a -> (Bool, FloatLexeme)
+toLexeme x
+  | isNaN x = (False, NotANumber)
+  | isInfinite x = (x < 0, Infinite)
+  | otherwise = (x < 0 || isNegativeZero x, generic (floatToDigits 10 (abs x)))
+  where
+    generic (ds, e)
+      | e < 0 || e > 7 = case ds of
+          d : ds'@(_ : _) -> Decimal [d] (Just ds') (Just (toInteger e - 1))
+          _ -> Decimal (take 1 ds <> [0 | null ds]) (Just [0]) (Just (toInteger e - 1))
+      | otherwise =
+          let (whole, fraction) = splitAt e (ds <> replicate (e - length ds) 0)
+          in Decimal (orZero whole) (Just (orZero fraction)) Nothing
+    orZero ds = if null ds then [0] else ds
+
+fromLexeme :: RealFloat a => (Bool, FloatLexeme) -> a
+fromLexeme (negative, lexeme) = (if negative then negate else id) value
+  where
+    value = case lexeme of
+      NotANumber -> 0 / 0
+      Infinite -> 1 / 0
+      Based n -> fromInteger n
+      Decimal whole fraction ex -> case ex of
+        Nothing -> fromRational (rational whole fraction 0)
+        -- `read` bounds exponents by the type's range, before computing
+        Just e -> case firstDigit whole fraction of
+          Nothing -> 0
+          Just first
+            | toInteger first + e > toInteger (snd range + 3) -> 1 / 0
+            | toInteger first + e < toInteger (fst range - 3) -> 0
+            | otherwise -> fromRational (rational whole fraction e)
+    range = floatRange value
+    rational whole fraction e =
+      let
+        ds = whole <> concat fraction
+        scale = e - toInteger (length (concat fraction))
+        n = foldl' (\acc d -> acc * 10 + toInteger d) 0 ds
+      in if scale >= 0 then fromInteger (n * 10 ^ scale) else n % (10 ^ negate scale)
+    firstDigit whole fraction = case dropWhile (== 0) whole of
+      significant@(_ : _) -> Just (length significant)
+      [] -> case span (== 0) (concat fraction) of
+        (_, []) -> Nothing
+        (zeros, _) -> Just (negate (length zeros))
+
+{- A character's literal, between single quotes, printing as `show` does,
+by `showLitChar`, & parsing as `read` does: unescaped, but for @\\@ & @'@;
+by a named escape; or by its decimal, octal or hexadecimal code, or as a
+control, @\\^@@ to @\\^_@. -}
+charG :: RegGrammatical Char p => p Char Char
+charG = terminal "'" >* orP
+  [ tokenClass (oneOf [' ' .. '~'] >&< notOneOf "\\'")
+  , unprinted >? tokenClass (notOneOf ("\\'" <> [' ' .. '~']))
+  , terminal "\\" >* orP
+    [ escapesG
+      ( [('\'', "'"), ('\a', "a"), ('\b', "b"), ('\f', "f"), ('\n', "n")]
+        <> [('\r', "r"), ('\t', "t"), ('\v', "v"), ('\\', "\\"), ('"', "\"")]
+        <> zip ['\NUL' ..] asciiNames <> [(' ', "SP"), ('\DEL', "DEL")] )
+    , prism' toEnum (\c -> if c > '\DEL' then Just (fromEnum c) else Nothing)
+        >? boundedNumeral 10 maxCode
+    , unprinted . codeOf >? eitherOf "o" "O" >* boundedNumeral 8 maxCode
+    , unprinted . codeOf >? eitherOf "x" "X" >* boundedNumeral 16 maxCode
+    , unprinted . iso (\c -> toEnum (fromEnum c + 64)) (\c -> toEnum (fromEnum c - 64))
+        >? terminal "^" >* tokenClass (oneOf ['@' .. '_'])
+    ]
+  ] *< terminal "'"
+  where
+    codeOf = prism' toEnum (Just . fromEnum)
+    -- codes up to `maxBound`, as `read` reads them
+    maxCode = fromEnum (maxBound :: Char)
+    asciiNames =
+      [ "NUL", "SOH", "STX", "ETX", "EOT", "ENQ", "ACK", "BEL"
+      , "BS", "HT", "LF", "VT", "FF", "CR", "SO", "SI"
+      , "DLE", "DC1", "DC2", "DC3", "DC4", "NAK", "SYN", "ETB"
+      , "CAN", "EM", "SUB", "ESC", "FS", "GS", "RS", "US" ]
+
+-- Escapes by fixed strings, as a trie, which is LL(1), maximally munched,
+-- like @\\SO@ & @\\SOH@, each character printing by its first string.
+escapesG :: RegGrammatical Char p => [(Char, String)] -> p Char Char
+escapesG escapes = orP $
+  [only c >? oneP | (c, "") <- take 1 [e | e@(_, "") <- escapes]]
+  <> [ terminal [first] >* escapesG [(c, rest) | (c, x : rest) <- escapes, x == first]
+     | first <- nub [x | (_, x : _) <- escapes] ]
+
+{- A natural number in a base, up to a bound, with leading zeros, which
+parse, as `read`'s lexer does, but don't print; a regular grammar, by the
+bound's digits, so that a number beyond it fails to parse. -}
+boundedNumeral :: forall n p. (Integral n, RegGrammatical Char p) => n -> n -> p n n
+boundedNumeral base bound
+  = (unprinted >? try (terminal "0" >* zerosG >* positiveG))
+  >|< (only 0 >? terminal "0" >* zerosG)
+  >|< positiveG
+  where
+    zerosG :: p () ()
+    zerosG = skippedMany >?* terminal "0"
+    width :: Int
+    width = length (takeWhile (<= bound) (iterate (* base) 1))
+    -- without leading zeros, by their number of digits, tried longest first
+    positiveG :: p n n
+    positiveG = orP $
+      try (ranged (base ^ (width - 1)) bound (upTo width bound True))
+      : [ try $ ranged (base ^ (j - 1)) (base ^ j - 1)
+            (headed [1 .. base - 1] (j - 1) (exactly' (j - 1)))
+        | j <- [width - 1, width - 2 .. 1] ]
+    ranged :: n -> n -> p n n -> p n n
+    ranged lo hi = (prism' id (\n -> if lo <= n && n <= hi then Just n else Nothing) >?)
+    -- a first digit, & the rest of so many digits
+    headed :: [n] -> Int -> p n n -> p n n
+    headed firsts rest restG = orP
+      [ prism' (\r -> d * base ^ rest + r)
+          (\n -> if n `div` base ^ rest == d then Just (n `mod` base ^ rest) else Nothing)
+          >? digitIs d >* restG
+      | d <- firsts ]
+    -- exactly so many digits, any
+    exactly' :: Int -> p n n
+    exactly' k = iso (\n -> [n `div` base ^ i `mod` base | i <- [k - 1, k - 2 .. 0]])
+      (foldl' (\acc d -> acc * base + d) 0) >~ replicateP k (digit base)
+    -- so many digits, up to a bound, the first nonzero when leading
+    upTo :: Int -> n -> Bool -> p n n
+    upTo 0 _ _ = only 0 >? oneP
+    upTo k hi leading =
+      let
+        w = base ^ (k - 1)
+        top = hi `div` w
+        lowers = [if leading then 1 else 0 .. top - 1]
+      in
+        headed lowers (k - 1) (exactly' (k - 1))
+        >|< (prism' (\r -> top * w + r)
+              (\n -> if n `div` w == top then Just (n `mod` w) else Nothing)
+              >? digitIs top >* upTo (k - 1) (hi `mod` w) False)
+    -- a digit, by its value, in either case
+    digitIs :: n -> p () ()
+    digitIs d =
+      let c = (['0' .. '9'] <> ['a' .. 'z']) !! fromIntegral d
+      in if isLetter c then eitherOf [c] [toUpper c] else terminal [c]

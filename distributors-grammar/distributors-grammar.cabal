@@ -33,6 +33,7 @@ library
       Control.Lens.Grammar.BackusNaur
       Control.Lens.Grammar.Class
       Control.Lens.Grammar.Machine
+      Control.Lens.Grammar.Prec
       Control.Lens.Grammar.RegEx
       Control.Lens.Grammar.Symbol
       Control.Lens.Grammar.Token
