@@ -171,7 +171,7 @@ data Guard token = Guard
 deriving stock instance Categorized token => Eq (Guard token)
 deriving stock instance Categorized token => Ord (Guard token)
 deriving stock instance
-  (Categorized token, Show token, Show (Categorize token))
+  (Categorized token, Show (TokenSet token), Show (Categorize token))
     => Show (Guard token)
 instance Categorized token => DisjunctiveMonoid (Guard token) where
   falseP = Guard False falseP
@@ -321,7 +321,7 @@ data LL1Conflict token = LL1Conflict
   }
 deriving stock instance Categorized token => Eq (LL1Conflict token)
 deriving stock instance
-  (Categorized token, Show token, Show (Categorize token))
+  (Categorized token, Show (TokenSet token), Show (Categorize token))
     => Show (LL1Conflict token)
 
 -- | Sorts of `LL1Conflict`s.

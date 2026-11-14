@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- `Categorized` has a `TokenSet` type of its tokens' sets, a `Set` by default,
+  with `tokenMember`, `tokenIntersection` & `tokenDifference`, empty by
+  `falseP`, unioned by `>|<` & listed by `IsList`; `Char`'s are `Ranges`,
+  sets of ranges, by
+  [range-set-list](https://hackage.haskell.org/package/range-set-list),
+  so huge classes, like `oneOf ['\x20' .. '\x10FFFF']`, intersect, compare &
+  render by their ranges, not their tokens. Their `Show` & `Read` are a
+  `Set`'s. Derived `Show` & `Read` instances require `Show (TokenSet token)`
+  or `Read (TokenSet token)` rather than `Show token` or `Read token`.
 - `RegEx` has counts, a `KleeneTimes` constructor, normalized by `timesK`,
   rendered @x{n}@, @x{n,}@ & @x{n,m}@, & parsed so, normalizing; `Grammor`s
   keep counts, so `exactly`, `atLeast`, `atMost` & `inRange` render by them.

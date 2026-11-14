@@ -40,6 +40,7 @@ import Data.MemoTrie
 import Data.Monoid.Disjunctive
 import Data.Profunctor
 import qualified Data.Set as Set
+import qualified Data.RangeSet.Map as RSet
 import Data.Set (Set)
 import Data.Maybe (fromMaybe, listToMaybe, mapMaybe)
 import Data.Profunctor.Distributor
@@ -85,10 +86,10 @@ deriving stock instance Generic (RegEx token)
 deriving stock instance Categorized token => Eq (RegEx token)
 deriving stock instance Categorized token => Ord (RegEx token)
 deriving stock instance
-  (Categorized token, Read token, Read (Categorize token))
+  (Categorized token, Read (TokenSet token), Read (Categorize token))
     => Read (RegEx token)
 deriving stock instance
-  (Categorized token, Show token, Show (Categorize token))
+  (Categorized token, Show (TokenSet token), Show (Categorize token))
     => Show (RegEx token)
 instance Categorized token => TerminalSymbol token (RegEx token) where
   terminal = foldl (\acc t -> acc <> token t) mempty
@@ -96,12 +97,11 @@ instance NonTerminalSymbol (RegEx token) where
   nonTerminal = NonTerminal
 instance Categorized token => Tokenized token (RegEx token) where
   anyToken = RegExam anyToken
-  token a = RegExam (OneOf (Set.singleton a))
-  oneOf as = RegExam (OneOf (Set.fromList (toList as)))
-  notOneOf as =
-    RegExam (NotOneOf (Set.fromList (toList as)) (AndNotAsIn Set.empty))
-  asIn cat = RegExam (NotOneOf Set.empty (AndAsIn cat))
-  notAsIn cat = RegExam (NotOneOf Set.empty (AndNotAsIn (Set.singleton cat)))
+  token = RegExam . token
+  oneOf = RegExam . oneOf
+  notOneOf = RegExam . notOneOf
+  asIn = RegExam . asIn
+  notAsIn = RegExam . notAsIn
 instance Categorized token => TokenAlgebra token (RegEx token) where
   tokenClass = foldTokenClass RegExam
 instance Categorized token => Monoid (RegEx token) where
@@ -111,7 +111,7 @@ instance Categorized token => Semigroup (RegEx token) where
   rex0 <> rex1 = sequenced (items rex0 <> items rex1)
 -- | Alternatives are associative, as normalized by `alternated`.
 instance Categorized token => DisjunctiveMonoid (RegEx token) where
-  falseP = RegExam (OneOf Set.empty)
+  falseP = RegExam (OneOf falseP)
   rex0 >|< rex1 = alternated (alternatives rex0 <> alternatives rex1)
 instance Categorized token => KleeneStarAlgebra (RegEx token) where
   optK (RegExam exam) | isFailExam exam = mempty
@@ -174,12 +174,12 @@ instance (Categorized token, HasTrie token)
       KleeneOpt x -> untrie (kleeneOptTrie rex) x
       KleeneTimes lo hi x -> untrie (kleeneTimesTrie rex) ((lo, hi), x)
       Backtracking x -> untrie (backtrackingTrie rex) x
-      RegExam (OneOf chars) -> untrie (oneOfTrie rex) (Set.toList chars)
+      RegExam (OneOf chars) -> untrie (oneOfTrie rex) (Exts.toList chars)
       RegExam (NotOneOf chars (AndAsIn cat)) ->
-        untrie (notOneOfTrie rex) (Set.toList chars, Left (fromEnum cat))
+        untrie (notOneOfTrie rex) (Exts.toList chars, Left (fromEnum cat))
       RegExam (NotOneOf chars (AndNotAsIn cats)) ->
         untrie (notOneOfTrie rex)
-          (Set.toList chars, Right (Set.toList (Set.map fromEnum cats)))
+          (Exts.toList chars, Right (Set.toList (Set.map fromEnum cats)))
       RegExam (Alternate x y zs) -> untrie (alternateTrie rex) (x : y : zs)
     enumerate rex = mconcat
       [ [(SeqEmpty, seqEmptyTrie rex)]
@@ -192,20 +192,20 @@ instance (Categorized token, HasTrie token)
       , first' (\((lo, hi), x) -> KleeneTimes lo hi x)
           <$> enumerate (kleeneTimesTrie rex)
       , first' Backtracking <$> enumerate (backtrackingTrie rex)
-      , first' (RegExam . OneOf . Set.fromList) <$> enumerate (oneOfTrie rex)
+      , first' (RegExam . OneOf . Exts.fromList) <$> enumerate (oneOfTrie rex)
       , first' testNotOneOf <$> enumerate (notOneOfTrie rex)
       ]
 testNotOneOf
   :: Categorized token
   => ([token], Either Int [Int]) -> RegEx token
 testNotOneOf (chars, catTest) = RegExam $ NotOneOf
-  (Set.fromList chars)
+  (Exts.fromList chars)
   (either (AndAsIn . toEnum) (AndNotAsIn . Set.map toEnum . Set.fromList) catTest)
 
 -- | Whether a token examination fails to match any token.
-isFailExam :: TokenExam token alg -> Bool
+isFailExam :: Categorized token => TokenExam token alg -> Bool
 isFailExam = \case
-  OneOf tokens' -> Set.null tokens'
+  OneOf tokens' -> tokens' == falseP
   _ -> False
 
 -- | The items of a sequence.
@@ -273,9 +273,9 @@ sequenced rexes
       [] -> Nothing
 
 -- | The alternatives of an alternation, with the empty word for an option.
-alternatives :: RegEx token -> [RegEx token]
+alternatives :: Categorized token => RegEx token -> [RegEx token]
 alternatives = \case
-  RegExam (OneOf tokens') | Set.null tokens' -> []
+  RegExam (OneOf tokens') | tokens' == falseP -> []
   RegExam (Alternate rex0 rex1 rexes) -> rex0 : rex1 : rexes
   KleeneOpt rex -> alternatives rex <> [SeqEmpty]
   KleeneStar rex -> [KleenePlus rex, SeqEmpty]
@@ -372,12 +372,12 @@ diffB prefix (Bnf start rules) =
       KleeneTimes lo hi y ->
         diff1B x y <> timesK (lo - 1) (subtract 1 <$> hi) y
       RegExam (OneOf chars) ->
-        if x `elem` chars then mempty else falseP
+        if tokenMember x chars then mempty else falseP
       RegExam (NotOneOf chars (AndAsIn cat)) ->
-        if elem x chars || categorize x /= cat
+        if tokenMember x chars || categorize x /= cat
           then falseP else mempty
       RegExam (NotOneOf chars (AndNotAsIn cats)) ->
-        if elem x chars || elem (categorize x) cats
+        if tokenMember x chars || elem (categorize x) cats
           then falseP else mempty
       RegExam (Alternate y1 y2 ys) -> anyP (diff1B x) (y1 : y2 : ys)
 
@@ -414,7 +414,7 @@ instance Tried rule => Tried (Bnf rule) where
   try (Bnf start rules) = Bnf (try start) rules
 -- | A `RegEx` records `try`, but for patterns of the empty word
 -- or none, which can't fail after reading a token.
-instance Tried (RegEx token) where
+instance Categorized token => Tried (RegEx token) where
   try rex = case rex of
     Backtracking _ -> rex
     SeqEmpty -> rex
@@ -688,14 +688,12 @@ regexGrammar = ruleRec "regex" altG
     -- a set of characters by runs, of three or more as ranges
     -- between characters which aren't escaped, an improper iso,
     -- parsing any runs, overlapping or empty
-    rangedG = iso runsOf (foldMap runOf) >~ manyP (rule "class-range" $
+    rangedG = iso runsOf (foldr ((>|<) . runOf) falseP) >~ manyP (rule "class-range" $
       classCharG >*< optionalP (terminal "-" >* classCharG))
-    runOf (lo, hi) = Set.fromList [lo .. fromMaybe lo hi]
-    runsOf = concatMap run . groupRuns . Set.toAscList
-    groupRuns = foldr consRun []
-    consRun c = \case
-      (lo, hi) : runs | succ c == lo -> (c, hi) : runs
-      runs -> (c, c) : runs
+    -- ranges, of the set's own form, are never enumerated
+    runOf (lo, hi0) = let hi = fromMaybe lo hi0 in
+      if lo > hi then falseP else Ranges (RSet.singletonRange (lo, hi))
+    runsOf (Ranges chars) = concatMap run (RSet.toRangeList chars)
     -- a run's escaped ends are listed, & the rest ranged
     run (lo, hi) = case (firstPlain lo, lastPlain hi) of
       (Just lo', Just hi') | lo' <= hi' ->

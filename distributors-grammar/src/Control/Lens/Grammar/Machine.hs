@@ -97,7 +97,7 @@ A transducer is a form of finite state machine
 that can be run in various ways like
 `=~`, `expectNext`, `languageSample`, `parseForest` & `unreachableRules`.
 -}
-transducer :: Bnf (RegEx token) -> Transducer token
+transducer :: Categorized token => Bnf (RegEx token) -> Transducer token
 transducer (Bnf start rules) = Transducer
   { transducerRelations = IntMap.fromList allStates
   , transducerRules = Map.fromList
@@ -214,7 +214,7 @@ transducer (Bnf start rules) = Transducer
         -- counts unroll, growing the machine by them
         KleeneTimes lo hi rex0 -> thompson (unrolled lo hi rex0) nextId dests
         RegExam (OneOf chars)
-          | Set.null chars -> (IntSet.empty, [], nextId, False)
+          | chars == falseP -> (IntSet.empty, [], nextId, False)
           | otherwise ->
               ( IntSet.singleton nextId
               , [(nextId, TransitionTokenClass (TokenClass (OneOf chars)) dests)]

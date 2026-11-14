@@ -135,11 +135,11 @@ data ParsecFailure s = ParsecFailure
 -- ParsecFailure instances
 deriving stock instance
   ( Categorized (Item s)
-  , Show (Item s), Show (Categorize (Item s))
+  , Show (Item s), Show (Categorize (Item s)), Show (TokenSet (Item s))
   ) => Show (ParsecFailure s)
 deriving stock instance
   ( Categorized (Item s)
-  , Read (Item s), Read (Categorize (Item s))
+  , Read (Item s), Read (Categorize (Item s)), Read (TokenSet (Item s))
   ) => Read (ParsecFailure s)
 deriving stock instance Categorized (Item s) => Eq (ParsecFailure s)
 deriving stock instance Categorized (Item s) => Ord (ParsecFailure s)
@@ -154,12 +154,12 @@ deriving stock instance Foldable (ParsecState s)
 deriving stock instance Traversable (ParsecState s)
 deriving stock instance
   ( Categorized (Item s)
-  , Show (Item s), Show (Categorize (Item s))
+  , Show (Item s), Show (Categorize (Item s)), Show (TokenSet (Item s))
   , Show a, Show s
   ) => Show (ParsecState s a)
 deriving stock instance
   ( Categorized (Item s)
-  , Read (Item s), Read (Categorize (Item s))
+  , Read (Item s), Read (Categorize (Item s)), Read (TokenSet (Item s))
   , Read a, Read s
   ) => Read (ParsecState s a)
 deriving stock instance
