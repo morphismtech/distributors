@@ -74,6 +74,7 @@ import Control.Lens.Grammar.RegEx as X
 import Control.Lens.Grammar.Symbol as X
 import Control.Lens.Grammar.Token as X
 import Control.Lens.PartialIso as X
+import Control.Lens.Bifocal as X
 import Control.Lens.Diopter as X
 import Control.Lens.Prismoid as X
 import Control.Lens.Varifocal as X

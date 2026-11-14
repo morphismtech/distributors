@@ -14,11 +14,12 @@ module Control.Lens.Bifocal
   , ABifocal
   , Spectacle (..), runSpectacle, spectacle, withSpectacle
   , Binocular (..), runBinocular
+    -- * Applicator
+  , (>?<*)
     -- * Combinators
   , bifocal
   , withBifocal
   , cloneBifocal
-  , mapBifocal
   , crossBifocal
   , altBifocal
   , orBifocal
@@ -42,7 +43,11 @@ import Witherable
 
 -- $setup
 -- >>> import Control.Lens (_Just, _Left, _Right)
--- >>> import Control.Lens.PartialIso (clonePartialIso)
+-- >>> import Control.Lens.PartialIso (clonePartialIso, satisfied)
+-- >>> import Control.Lens.Prismoid (atLeast)
+-- >>> import Data.Bifunctor.Joker (Joker (..))
+-- >>> import Data.Char (isDigit, digitToInt)
+-- >>> import Text.ParserCombinators.ReadP (readP_to_S, satisfy)
 
 {- | `Bifocal`s are bidirectional parser optics.
 `Control.Lens.Prismoid.Prismoid` ∪ `Control.Lens.PartialIso.PartialIso` ⊂ `Bifocal`,
@@ -70,17 +75,35 @@ type ABifocal s t a b =
 bifocal :: Binocular a b s t -> Bifocal s t a b
 bifocal bif = unwrapPafb . runBinocular bif . WrapPafb
 
-{- | Action of `ABifocal` on partial `Distributor`s. -}
-mapBifocal
+{- | Action of a `Bifocal` on partial `Alternator`s,
+applying it directly at the `Alternator`, without converting it
+to a concrete form, so the `Alternator`'s own methods,
+like `someP` & `optionP`, act as they are, failing to build by
+the `Alternator`'s `Filtrator`.
+Clone `ABifocal` to apply it, by @`cloneBifocal` bif >?<* p@.
+
+> prop> prsm >?<* p = prsm Control.Lens.Prismoid.>?* p
+> prop> pat >?<* p = pat Control.Lens.PartialIso.>?< p
+
+>>> let digits = runJoker (atLeast 1 >?<* Joker (satisfy isDigit))
+>>> [ds | (ds, "") <- readP_to_S digits "123"]
+["123"]
+>>> let evenDigit = runJoker (satisfied even >?<* Joker (digitToInt <$> satisfy isDigit))
+>>> [(d, rest) | (d, rest) <- readP_to_S evenDigit "41"]
+[(4,"1")]
+-}
+(>?<*)
   :: (Alternator p, Filtrator p)
-  => ABifocal s t a b -> p a b -> p s t
-mapBifocal bif = runSpectacle (catMaybes (bif (Just <$> Spectacle (Just . Par1) (Just . unPar1))))
+  => Bifocal s t a b -> p a b -> p s t
+bif >?<* p = catMaybes (bif (rmap Just p))
+infixl 4 >?<*
 
 {- | Clone `ABifocal` so that you can reuse the same
 monomorphically typed `Bifocal` for different purposes.
 -}
 cloneBifocal :: ABifocal s t a b -> Bifocal s t a b
-cloneBifocal bif = unwrapPafb . mapBifocal bif . WrapPafb
+cloneBifocal bif = withSpectacle bif $ \match build ->
+  spectacle (Spectacle match build)
 
 {- | Construct a `Bifocal` on pairs from components, with the same foci.
 
@@ -125,7 +148,7 @@ by partial probes. -}
 withBifocal
   :: (Alternative f, Filterable f)
   => ABifocal s t a b -> ((s -> Maybe a) -> f b) -> f t
-withBifocal bif = unBinocular (mapBifocal bif (Binocular ($ Just)))
+withBifocal bif = unBinocular (cloneBifocal bif >?<* Binocular ($ Just))
 
 {- | t'Binocular' is a secondary concrete representation of `Bifocal`s,
 by partial probes, each of which matches from the source anew. -}

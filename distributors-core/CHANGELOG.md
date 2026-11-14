@@ -117,6 +117,10 @@
 
 ### Breaking Changes
 
+- `mapBifocal` is replaced by `>?<*`, `Bifocal`'s applicator, which
+  applies a `Bifocal` directly at a partial `Alternator`, keeping its own
+  methods, like `optionP`, as `>?*` does a `Prismoid`'s, & ~25% faster
+  than through a `Spectacle`. Apply `ABifocal` by `cloneBifocal`.
 - `Control.Lens.Internal.Distributor.NestedPrismTH` is renamed
   `Control.Lens.Prism.Nested`.
 - `crossPartialIso` ~> `alongsidePartialIso` & `altPartialIso` ~>

@@ -168,6 +168,20 @@ varifocalProperties = do
       [pr "" | pr <- printG heredocG (Heredoc "EOF" ["EOF"])] `shouldBe` []
     it "backtracks by Parsector, closing at the first line equal to its tag" $
       parsecResult (parsecG heredocG "<<A\nb\nA\n") `shouldBe` Just (Heredoc "A" ["b"])
+  describe ">?<*, Bifocal's applicator" $ do
+    prop "applies a Prismoid as >?* does" $ \(s :: String) ->
+      parseP (atLeast 1 >?<* (anyToken :: Parsor String Maybe Char Char)) s
+        === parseP (atLeast 1 >?* (anyToken :: Parsor String Maybe Char Char)) s
+      .&&. (($ "") <$> printP (atLeast 1 >?<* (anyToken :: Printor String Maybe Char Char)) s)
+        === (($ "") <$> printP (atLeast 1 >?* (anyToken :: Printor String Maybe Char Char)) s)
+    prop "applies a PartialIso as >?< does" $ \(s :: String) (c :: Char) ->
+      parseP (satisfied isDigit >?<* (anyToken :: Parsor String Maybe Char Char)) s
+        === parseP (satisfied isDigit >?< (anyToken :: Parsor String Maybe Char Char)) s
+      .&&. (($ "") <$> printP (satisfied isDigit >?<* (anyToken :: Printor String Maybe Char Char)) c)
+        === (($ "") <$> printP (satisfied isDigit >?< (anyToken :: Printor String Maybe Char Char)) c)
+    it "keeps the target's own optionP, printing nothing for the default" $
+      (($ "") <$> printP (opted (only '0') >?<* (anyToken :: Printor String Maybe Char Char)) '0')
+        `shouldBe` Just ""
   describe "Bifocal ⊂ Varifocal" $
     prop "a Prismoid applies contextuallyT as by >?*" $ \(s :: String) ->
       parsed (atLeast 1) s
