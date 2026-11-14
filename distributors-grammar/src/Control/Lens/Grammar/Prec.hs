@@ -109,27 +109,25 @@ bracketsG x = terminal "[" >* orP
   , _Cons >? precReset x >*< manyP (spacesG >* terminal "," >* precReset x)
   ] *< spacesG *< terminal "]"
 
-{- | Negative lookahead, as `read`'s lexer munches lexemes maximally: what
-`notAhead` a grammar parses mustn't follow, which consumes nothing, &
-prints nothing. -}
+{- | Negative lookahead, as `read`'s lexer munches lexemes maximally. -}
 class Lookahead p where
-  notAhead :: p () () -> p () ()
-  {- | Not followed by a token of a class. -}
-  notFollowedByToken :: TokenClass Char -> p () ()
-instance (Foldable f, Alternative f, Cons s s Char Char)
+  {- | Not followed by a string of tokens, one of each class in turn,
+  consuming nothing, & printing nothing. -}
+  notFollowedBy :: [TokenClass Char] -> p () ()
+instance (Applicative f, Alternative f, Cons s s Char Char)
   => Lookahead (Parsor s f) where
-    notAhead (Parsor q) = Parsor $ \mode s -> case mode of
-      Nothing | not (null (q Nothing s)) -> empty
+    notFollowedBy classes = Parsor $ \mode s -> case mode of
+      Nothing | follows classes s -> empty
       _ -> pure ((), s)
-    notFollowedByToken cls = Parsor $ \mode s -> case (mode, uncons s) of
-      (Nothing, Just (c, _)) | tokenClass cls c -> empty
-      _ -> pure ((), s)
+      where
+        follows [] _ = True
+        follows (cls : rest) str = case uncons str of
+          Just (c, str') -> tokenClass cls c && follows rest str'
+          Nothing -> False
 instance Applicative f => Lookahead (Printor s f) where
-  notAhead _ = Printor (\_ -> pure ((), id))
-  notFollowedByToken _ = Printor (\_ -> pure ((), id))
+  notFollowedBy _ = Printor (\_ -> pure ((), id))
 instance Lookahead p => Lookahead (Precedence p) where
-  notAhead (Precedence q) = Precedence (notAhead . q)
-  notFollowedByToken cls = Precedence (const (notFollowedByToken cls))
+  notFollowedBy = Precedence . const . notFollowedBy
 
 {- | A grammar in a precedence context, a `PrecGrammatical` interpreter of
 any `Grammatical` one, each of whose structures it lifts pointwise. -}
@@ -377,7 +375,7 @@ negativeG = iso (\b -> if b then Just () else Nothing) isJust
 -- Whitespace, by `Data.Char.isSpace`, which `read` skips before each
 -- lexeme & after all, & which never prints.
 spacesG :: (RegGrammatical Char p, Lookahead p) => p () ()
-spacesG = (skippedMany >?* tokenClass spaceClass) *< notFollowedByToken spaceClass
+spacesG = (skippedMany >?* tokenClass spaceClass) *< notFollowedBy [spaceClass]
 
 -- Whitespace, by `Data.Char.isSpace`.
 spaceClass :: TokenClass Char
@@ -405,8 +403,8 @@ symbolClass = notOneOf ",;()[]{}`" >&< orP
 
 -- An identifier, & a symbol, munched maximally.
 identG, symbolG :: (RegGrammatical Char p, Lookahead p) => String -> p () ()
-identG name = terminal name *< notFollowedByToken idfClass
-symbolG name = terminal name *< notFollowedByToken symbolClass
+identG name = terminal name *< notFollowedBy [idfClass]
+symbolG name = terminal name *< notFollowedBy [symbolClass]
 
 -- A space, where `show` separates lexemes, printing one, & parsing one
 -- whitespace character, or none where none follows, the rest of it
@@ -415,7 +413,7 @@ spaceG :: (RegGrammatical Char p, Lookahead p) => p () ()
 spaceG = orP
   [ terminal " "
   , unprinted >? tokenG (spaceClass >&< notOneOf " ")
-  , unprinted >? notFollowedByToken spaceClass ]
+  , unprinted >? notFollowedBy [spaceClass] ]
 
 -- A space, printing one, & parsing any whitespace.
 spacedG :: (RegGrammatical Char p, Lookahead p) => p () ()
@@ -432,13 +430,20 @@ signed = iso
 -- case, parsed & tried first, as `read`'s lexer does.
 magnitudeG :: (RegGrammatical Char p, Lookahead p) => p Integer Integer
 magnitudeG = (unprinted >? try (terminal "0" >* basedG))
-  >|< numeral 10 *< notFollowedByToken (digitClass 10) *< decimalEndG
+  >|< numeral 10 *< decimalEndG
 
 -- Where a decimal integer ends: not before a fraction, nor an exponent.
 decimalEndG :: (RegGrammatical Char p, Lookahead p) => p () ()
-decimalEndG = notAhead (terminal "." >* tokenG (digitClass 10))
-  *< notAhead (orP (map terminal ["e", "E"])
-    >* orP [terminal "-", terminal "+", oneP] >* tokenG (digitClass 10))
+decimalEndG = notFollowedBy [digitClass 10] *< notFractionG *< notExponentG
+
+-- Not before a fraction.
+notFractionG :: Lookahead p => p () ()
+notFractionG = notFollowedBy [oneOf ".", digitClass 10]
+
+-- Not before an exponent.
+notExponentG :: (Monoidal p, Lookahead p) => p () ()
+notExponentG = notFollowedBy [oneOf "eE", digitClass 10]
+  *< notFollowedBy [oneOf "eE", oneOf "+-", digitClass 10]
 
 basedG :: forall p. (RegGrammatical Char p, Lookahead p) => p Integer Integer
 basedG = orP
@@ -448,7 +453,7 @@ basedG = orP
   ]
   where
     munched :: Int -> p Integer Integer
-    munched base = numeral (toInteger base) *< notFollowedByToken (digitClass base)
+    munched base = numeral (toInteger base) *< notFollowedBy [(digitClass base)]
 
 -- Natural numbers, & negative zero, as `read` reads integers & keeps
 -- those which aren't negative.
@@ -457,13 +462,13 @@ naturalG = (iso toInteger fromInteger >~ magnitudeG)
   >|< (unprinted . only 0 >? terminal "-" >* spacesG >* zerosG)
   where
     zerosG = terminal "0" >* orP
-      [ zeros *< notFollowedByToken (digitClass 10) *< decimalEndG
+      [ zeros *< decimalEndG
       , orP (map terminal ["b", "B"]) >* terminal "0" >* zeros
-          *< notFollowedByToken (digitClass 2)
+          *< notFollowedBy [(digitClass 2)]
       , orP (map terminal ["o", "O"]) >* terminal "0" >* zeros
-          *< notFollowedByToken (digitClass 8)
+          *< notFollowedBy [(digitClass 8)]
       , orP (map terminal ["x", "X"]) >* terminal "0" >* zeros
-          *< notFollowedByToken (digitClass 16)
+          *< notFollowedBy [(digitClass 16)]
       ]
     zeros = skippedMany >?* terminal "0"
 
@@ -498,15 +503,14 @@ floatingAt d = iso toLexeme fromLexeme >~ negativeAt d >*< orP
   , _Decimal >? digitsG
       >*< orP
         [ _Just >? terminal "." >* digitsG
-        , _Nothing >? notAhead (terminal "." >* tokenG (digitClass 10)) ]
+        , _Nothing >? notFractionG ]
       >*< orP
         [ _Just >? eitherOf "e" "E" >* (signed >~ exponentSignG >*< numeral 10
-            *< notFollowedByToken (digitClass 10))
-        , _Nothing >? notAhead (orP (map terminal ["e", "E"])
-            >* orP [terminal "-", terminal "+", oneP] >* tokenG (digitClass 10)) ]
+            *< notFollowedBy [(digitClass 10)])
+        , _Nothing >? notExponentG ]
   ]
   where
-    digitsG = someP (digit 10) *< notFollowedByToken (digitClass 10)
+    digitsG = someP (digit 10) *< notFollowedBy [(digitClass 10)]
     exponentSignG = orP
       [ only True >? terminal "-"
       , only False . unprinted >? terminal "+"
