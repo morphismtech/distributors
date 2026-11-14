@@ -175,6 +175,7 @@ test-suite test
       Examples.Lambda
       Examples.LenVec
       Examples.RegString
+      Examples.Rho
       Examples.SemVer
       Examples.SExpr
       Properties.Base

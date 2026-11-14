@@ -22,6 +22,7 @@ import Examples.Json
 import Examples.Lambda
 import Examples.LenVec
 import Examples.RegString
+import Examples.Rho
 import Examples.SemVer
 import Examples.SExpr
 import Properties.Base
@@ -42,6 +43,8 @@ main = hspec $ do
   describe "exprGrammar" $ testCfg True exprExamples exprGrammar
   describe "powGrammar" $ testCfg False powExamples powGrammar
   describe "leftGrammar" $ testCfg True leftExamples leftGrammar
+  describe "rhoGrammar" $ testCfg True rhoExamples rhoGrammar
+  describe "rholangGrammar" $ testCfg True rholangExamples rholangGrammar
   describe "parseForest" parseForestTests
   describe "Parsector try rollback" tryRollbackTests
   describe "Kleene" kleeneProperties
