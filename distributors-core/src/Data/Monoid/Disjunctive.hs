@@ -41,6 +41,8 @@ import Data.Profunctor.Cayley
 import Data.Profunctor.Monad
 import Data.Profunctor.Yoneda
 import Data.Proxy
+import Data.Set (Set)
+import qualified Data.Set as Set
 import GHC.Conc (STM)
 import GHC.Generics
 import Text.ParserCombinators.ReadP (ReadP)
@@ -235,6 +237,10 @@ deriving via Generically (Const a b)
 deriving via Generically (Proxy a) instance DisjunctiveMonoid (Proxy a)
 deriving via Generically (Proxy a) instance BooleanAlgebra (Proxy a)
 deriving via Generically (Proxy a) instance KleeneStarAlgebra (Proxy a)
+-- | Sets, by union, disjoin their members.
+instance Ord a => DisjunctiveMonoid (Set a) where
+  falseP = Set.empty
+  (>|<) = Set.union
 instance DisjunctiveMonoid (Maybe a)
 instance DisjunctiveMonoid (IO a)
 instance DisjunctiveMonoid (STM a)

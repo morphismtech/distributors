@@ -67,6 +67,7 @@ import Control.Lens.Cons as X
 import Control.Lens.Empty as X
 import Control.Lens.Grammar.BackusNaur as X hiding
   (Lexical, RegGrammatical, Grammatical, CtxGrammatical)
+import Control.Lens.Grammar.Analysis as X
 import Control.Lens.Grammar.Machine as X
 import Control.Lens.Grammar.RegEx as X
 import Control.Lens.Grammar.Symbol as X

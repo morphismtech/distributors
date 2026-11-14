@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- `Control.Lens.Grammar.Analysis`, static analyses of `RegEx`tended
+  t'Bnf's over any token: `foldRegEx`, the homomorphism out of `RegEx`, the
+  free `KleeneStarAlgebra` of token classes & nonterminals, & `fixRules`,
+  least fixpoints over a t'Bnf''s `bnfRules`; `Leading`, nullability &
+  leading atoms, by which `firsts` & `leftRecursive`; `Guard`, a
+  `BooleanAlgebra` of one-token lookahead, by which `follows`; &
+  `ll1Conflicts`, built of them, testing each example's @LL(1)@ flag.
+  The lambda example's abstraction rule is renamed, as it shared its name
+  with the grammar's, merging into a left-recursive rule.
 - `RegString` & `RegBnf` are removed: `RegEx Char` & `Bnf (RegEx Char)`
   are them, `IsString` & `IsList` by the string syntax of regular
   expressions, of `regexGrammar` & `regbnfGrammar`, & their `Grammar Char`

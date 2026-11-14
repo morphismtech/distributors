@@ -28,7 +28,7 @@ lambdaGrammar = ruleRec "lambda" termG
       ]
 
     -- Lambda abstraction: \x.body
-    lamG term = rule "lambda" $
+    lamG term = rule "abstraction" $
       _Lam >? terminal "\\" >* varNameG *< terminal "." >*< term
 
     -- Application: left-associative chain of atoms

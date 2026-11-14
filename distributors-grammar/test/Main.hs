@@ -100,6 +100,9 @@ testCfg isLL1 examples gram = do
     it ("should match " <> expectedString <> " correctly") $ do
       let actualMatch = expectedString =~ (runGrammor gram :: Bnf (RegEx Char))
       actualMatch `shouldBe` True
+  it ("should " <> (if isLL1 then "" else "not ") <> "be LL(1), statically") $
+    ll1Conflicts (runGrammor gram :: Bnf (RegEx Char))
+      `shouldSatisfy` (if isLL1 then null else not . null)
   describe "transducerG" $ do
     it "should generate the hundred shorted valid words in a language" $ do
       let machine = transducer (runGrammor gram) :: Transducer Char

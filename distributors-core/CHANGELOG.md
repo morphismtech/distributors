@@ -4,6 +4,7 @@
 
 ### New APIs
 
+- `Set`s are a `DisjunctiveMonoid` by union.
 - `stepping` & its combinators, `terminateBy`, `delimitBy`, `balanceBy`
   & `countWith`, step through any stream, @(Cons s s a a, AsEmpty s)@,
   like a `Data.Sequence.Seq` or `Data.Text.Text`, not only lists.
