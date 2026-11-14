@@ -104,6 +104,14 @@ regexQuantifierTests = do
     map (=~ rex) ["a", "aa", "aaa", "aaaa"] `shouldBe` [False, True, True, False]
     map (=~ (fromString "a{2,}" :: RegEx Char)) ["a", "aa", "aaaaa"]
       `shouldBe` [False, True, True]
+  it "agrees on counts, negative or out of order, as RegEx, Grammor & Parsor" $
+    for_ [(lo, hi) | lo <- [-3 .. 3], hi <- Nothing : map Just [-3 .. 3]] $ \(lo, hi) ->
+      for_ (map (`replicate` 'a') [0 .. 4]) $ \w -> do
+        let rex = timesK lo hi (token 'a') :: RegEx Char
+            parsed = not (null [() | (_, "") <- parseP (inRange lo hi >?* (token 'a' :: Parsor String [] Char Char)) w])
+            expected = length w >= lo && maybe True (length w <=) hi
+        (w =~ rex, parsed) `shouldBe` (expected, expected)
+        rendered (inRange lo hi) `shouldBe` toList rex
   prop "timesK n (Just n) x matches as n times x" $ \(x :: RegEx Char) ->
     forAll (choose (0, 3)) $ \n -> forAll (listOf (elements "ab")) $ \w ->
       (w =~ timesK n (Just n) x) === (w =~ mconcat (replicate n x))

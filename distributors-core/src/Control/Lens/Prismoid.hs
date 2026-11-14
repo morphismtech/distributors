@@ -204,7 +204,7 @@ withPrismoid pat k =
 {- | Exactly some number of times, or separated by `sepBy`.
 
 > prop> exactly n = inRange n (Just n)
-> prop> exactly n >?* p = replicateP n p
+> prop> exactly n >?* p = replicateP n p, for @n >= 0@
 -}
 exactly :: Int -> Prismoid [a] [b] a b
 exactly n = inRange n (Just n)
@@ -246,7 +246,7 @@ atMost n = inRange 0 (Just n)
 It takes the mandatory times first, then, unbounded,
 the `Alternator`'s own `someP` or `manyP`, or, bounded,
 the optional times, trying more first.
-It never matches where @lo > hi@.
+It never matches where @lo > hi@, nor where @hi@ is negative.
 
 >>> let digits lo hi = runJoker (inRange lo hi >?* Joker (satisfy isDigit)) :: ReadP String
 >>> [ds | (ds, "") <- readP_to_S (digits 2 (Just 3)) "123"]

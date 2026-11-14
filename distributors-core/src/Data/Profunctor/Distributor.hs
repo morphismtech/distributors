@@ -198,17 +198,20 @@ class (Distributor p, CocartesianChoice p, forall x. Alternative (p x))
     & at most an upper bound, if there's one, like a regular expression's
     @{lo,hi}@, or @{lo,}@. It takes the mandatory times first, then,
     unbounded, `someP` or `manyP`, or, bounded, the optional times,
-    trying more first. It never matches where @lo > hi@.
+    trying more first. It never matches where @lo > hi@,
+    nor where @hi@ is negative, its counts being those @n >= 0@ within
+    its bounds.
 
     It mirrors a `KleeneStarAlgebra`'s `timesK`, so that a static
     `Alternator` may keep its counts, rather than unfolding them.
 
     > prop> timesP 0 Nothing = manyP
     > prop> timesP 1 Nothing = someP
-    > prop> timesP n (Just n) = replicateP n
+    > prop> timesP n (Just n) = replicateP n, for @n >= 0@
     -}
     timesP :: Int -> Maybe Int -> p a b -> p [a] [b]
     timesP lo hi p
+      | lo < 0 = timesP 0 hi p
       | maybe False (lo >) hi = empty
       | lo > 1 || (lo == 1 && isJust hi) =
           p >:< timesP (lo - 1) (subtract 1 <$> hi) p

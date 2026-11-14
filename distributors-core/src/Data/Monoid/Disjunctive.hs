@@ -180,16 +180,21 @@ class (Monoid k, DisjunctiveMonoid k) => KleeneStarAlgebra k where
 
   {- | Between some numbers of times, inclusive, at least a lower bound,
   & at most an upper bound, if there's one, like a regular expression's
-  @x{lo,hi}@, or @x{lo,}@; never where @lo > hi@.
+  @x{lo,hi}@, or @x{lo,}@. Its counts are those @n >= 0@ within its
+  bounds, so it fails where they're out of order, or all negative,
+  as regular expression languages reject such quantifiers.
 
   > prop> timesK 0 Nothing = starK
   > prop> timesK 1 Nothing = plusK
   > prop> timesK 0 (Just 1) = optK
-  > prop> timesK n (Just n) x = mconcat (replicate n x)
-  > prop> timesK (n + 1) hi x = x <> timesK n (subtract 1 <$> hi) x
+  > prop> timesK n (Just n) x = mconcat (replicate n x), for @n >= 0@
+  > prop> timesK (n + 1) hi x = x <> timesK n (subtract 1 <$> hi) x, for @n >= 0@
+  > prop> timesK (-1) hi = timesK 0 hi
+  > prop> timesK 0 (Just (-1)) x = falseP
   -}
   timesK :: Int -> Maybe Int -> k -> k
   timesK lo hi x
+    | lo < 0 = timesK 0 hi x
     | maybe False (lo >) hi = falseP
     | lo > 1 || (lo == 1 && isJust hi) =
         x <> timesK (lo - 1) (subtract 1 <$> hi) x
