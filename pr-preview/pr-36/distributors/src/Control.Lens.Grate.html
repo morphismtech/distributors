@@ -1,0 +1,561 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="annot"><span class="hs-comment">{- |
+Module      : Control.Lens.Grate
+Description : grates
+Copyright   : (C) 2026 - Eitan Chatav
+License     : BSD-style (see the file LICENSE)
+Maintainer  : Eitan Chatav &lt;eitan.chatav@gmail.com&gt;
+Stability   : provisional
+Portability : non-portable
+
+See O'Connor, [Grate: A new kind of Optic]
+(https://r6research.livejournal.com/28050.html)
+-}</span></span><span>
+</span><span id="line-13"></span><span>
+</span><span id="line-14"></span><span class="hs-keyword">module</span><span> </span><span class="annot"><a href="Control.Lens.Grate.html"><span class="hs-identifier">Control.Lens.Grate</span></a></span><span>
+</span><span id="line-15"></span><span>  </span><span class="hs-special">(</span><span> </span><span class="annot"><span class="hs-comment">-- * Grate</span></span><span>
+</span><span id="line-16"></span><span>    </span><span class="annot"><a href="Control.Lens.Grate.html#Grate"><span class="hs-identifier">Grate</span></a></span><span>
+</span><span id="line-17"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Grate.html#AGrate"><span class="hs-identifier">AGrate</span></a></span><span>
+</span><span id="line-18"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Grate.html#Grating"><span class="hs-identifier">Grating</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><span id="line-19"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Grate.html#Diffraction"><span class="hs-identifier">Diffraction</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Grate.html#diffraction"><span class="hs-identifier">diffraction</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Grate.html#withDiffraction"><span class="hs-identifier">withDiffraction</span></a></span><span>
+</span><span id="line-20"></span><span>    </span><span class="annot"><span class="hs-comment">-- * Combinators</span></span><span>
+</span><span id="line-21"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Grate.html#grate"><span class="hs-identifier">grate</span></a></span><span>
+</span><span id="line-22"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Grate.html#withGrate"><span class="hs-identifier">withGrate</span></a></span><span>
+</span><span id="line-23"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Grate.html#cloneGrate"><span class="hs-identifier">cloneGrate</span></a></span><span>
+</span><span id="line-24"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Grate.html#crossGrate"><span class="hs-identifier">crossGrate</span></a></span><span>
+</span><span id="line-25"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Grate.html#mapGrate"><span class="hs-identifier">mapGrate</span></a></span><span>
+</span><span id="line-26"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Grate.html#cotraversed"><span class="hs-identifier">cotraversed</span></a></span><span>
+</span><span id="line-27"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Grate.html#represented"><span class="hs-identifier">represented</span></a></span><span>
+</span><span id="line-28"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Grate.html#cotraverseOf"><span class="hs-identifier">cotraverseOf</span></a></span><span>
+</span><span id="line-29"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Grate.html#distributeOf"><span class="hs-identifier">distributeOf</span></a></span><span>
+</span><span id="line-30"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Grate.html#collectOf"><span class="hs-identifier">collectOf</span></a></span><span>
+</span><span id="line-31"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Grate.html#distributing"><span class="hs-identifier">distributing</span></a></span><span>
+</span><span id="line-32"></span><span>  </span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-33"></span><span>
+</span><span id="line-34"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Distributive</span></span><span>
+</span><span id="line-35"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Function</span></span><span>
+</span><span id="line-36"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Functor.Identity</span></span><span>
+</span><span id="line-37"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Functor.Rep</span></span><span>
+</span><span id="line-38"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Profunctor</span></span><span>
+</span><span id="line-39"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Data.Profunctor.Monoidal.html"><span class="hs-identifier">Data.Profunctor.Monoidal</span></a></span><span>
+</span><span id="line-40"></span><span>
+</span><span id="line-41"></span><span class="hs-comment">-- $setup</span><span>
+</span><span id="line-42"></span><span class="hs-comment">-- &gt;&gt;&gt; import Control.Lens (over)</span><span>
+</span><span id="line-43"></span><span class="hs-comment">-- &gt;&gt;&gt; import Data.Complex</span><span>
+</span><span id="line-44"></span><span>
+</span><span id="line-45"></span><span class="annot"><span class="hs-comment">{- | `Grate`s are an optic that are dual to
+`Control.Lens.Traversal.Traversal`s, as `Distributive` is `Traversable`.
+
+`Control.Lens.Iso.Iso` &#8834; `Control.Lens.Monocle.Monocle` &#8834; `Grate`.
+
+`Grate`s are isomorphic to t'Grating's, &amp; to t'Diffraction's,
+whose shapes are `Distributive`.
+-}</span></span><span>
+</span><span id="line-53"></span><span class="hs-keyword">type</span><span> </span><span id="Grate"><span class="annot"><a href="Control.Lens.Grate.html#Grate"><span class="hs-identifier hs-var">Grate</span></a></span></span><span> </span><span id="local-6989586621679301179"><span class="annot"><a href="#local-6989586621679301179"><span class="hs-identifier hs-type">s</span></a></span></span><span> </span><span id="local-6989586621679301180"><span class="annot"><a href="#local-6989586621679301180"><span class="hs-identifier hs-type">t</span></a></span></span><span> </span><span id="local-6989586621679301181"><span class="annot"><a href="#local-6989586621679301181"><span class="hs-identifier hs-type">a</span></a></span></span><span> </span><span id="local-6989586621679301182"><span class="annot"><a href="#local-6989586621679301182"><span class="hs-identifier hs-type">b</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">forall</span><span> </span><span id="local-6989586621679301183"><span class="annot"><a href="#local-6989586621679301183"><span class="hs-identifier hs-type">p</span></a></span></span><span> </span><span id="local-6989586621679301184"><span class="annot"><a href="#local-6989586621679301184"><span class="hs-identifier hs-type">f</span></a></span></span><span class="hs-operator">.</span><span>
+</span><span id="line-54"></span><span>  </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Closed</span></span><span> </span><span class="annot"><a href="#local-6989586621679301183"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Data.Profunctor.Monoidal.html#Monoidal"><span class="hs-identifier hs-type">Monoidal</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679301183"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Distributive</span></span><span> </span><span class="annot"><a href="#local-6989586621679301184"><span class="hs-identifier hs-type">f</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Applicative</span></span><span> </span><span class="annot"><a href="#local-6989586621679301184"><span class="hs-identifier hs-type">f</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-55"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679301183"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679301181"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679301184"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679301182"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679301183"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679301179"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679301184"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679301180"><span class="hs-identifier hs-type">t</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-56"></span><span>
+</span><span id="line-57"></span><span class="annot"><span class="hs-comment">{- | `AGrate` is monomorphically a `Grate`.
+
+&gt; prop&gt; Grate s t a b &#8834; AGrate s t a b
+-}</span></span><span>
+</span><span id="line-61"></span><span class="hs-keyword">type</span><span> </span><span id="AGrate"><span class="annot"><a href="Control.Lens.Grate.html#AGrate"><span class="hs-identifier hs-var">AGrate</span></a></span></span><span> </span><span id="local-6989586621679301185"><span class="annot"><a href="#local-6989586621679301185"><span class="hs-identifier hs-type">s</span></a></span></span><span> </span><span id="local-6989586621679301186"><span class="annot"><a href="#local-6989586621679301186"><span class="hs-identifier hs-type">t</span></a></span></span><span> </span><span id="local-6989586621679301187"><span class="annot"><a href="#local-6989586621679301187"><span class="hs-identifier hs-type">a</span></a></span></span><span> </span><span id="local-6989586621679301188"><span class="annot"><a href="#local-6989586621679301188"><span class="hs-identifier hs-type">b</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-62"></span><span>  </span><span class="annot"><a href="Control.Lens.Grate.html#Grating"><span class="hs-identifier hs-type">Grating</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679301187"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679301188"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679301187"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Identity</span></span><span> </span><span class="annot"><a href="#local-6989586621679301188"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Control.Lens.Grate.html#Grating"><span class="hs-identifier hs-type">Grating</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679301187"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679301188"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679301185"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Identity</span></span><span> </span><span class="annot"><a href="#local-6989586621679301186"><span class="hs-identifier hs-type">t</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-63"></span><span>
+</span><span id="line-64"></span><span class="annot"><span class="hs-comment">{- | Build a `Grate`. -}</span></span><span>
+</span><span id="line-65"></span><span id="local-6989586621679300808"><span id="local-6989586621679300809"><span id="local-6989586621679300810"><span id="local-6989586621679300811"><span class="annot"><a href="Control.Lens.Grate.html#grate"><span class="hs-identifier hs-type">grate</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="hs-special">(</span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679300808"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679300809"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679300810"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679300811"><span class="hs-identifier hs-type">t</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Control.Lens.Grate.html#Grate"><span class="hs-identifier hs-type">Grate</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679300808"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679300811"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679300809"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679300810"><span class="hs-identifier hs-type">b</span></a></span></span></span></span></span><span>
+</span><span id="line-66"></span><span id="grate"><span class="annot"><span class="annottext">grate :: forall s a b t. (((s -&gt; a) -&gt; b) -&gt; t) -&gt; Grate s t a b
+</span><a href="Control.Lens.Grate.html#grate"><span class="hs-identifier hs-var hs-var">grate</span></a></span></span><span> </span><span id="local-6989586621679301199"><span class="annot"><span class="annottext">((s -&gt; a) -&gt; b) -&gt; t
+</span><a href="#local-6989586621679301199"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(s -&gt; (s -&gt; a) -&gt; a)
+-&gt; (((s -&gt; a) -&gt; f b) -&gt; f t)
+-&gt; p ((s -&gt; a) -&gt; a) ((s -&gt; a) -&gt; f b)
+-&gt; p s (f t)
+forall a b c d. (a -&gt; b) -&gt; (c -&gt; d) -&gt; p b c -&gt; p a d
+forall (p :: * -&gt; * -&gt; *) a b c d.
+Profunctor p =&gt;
+(a -&gt; b) -&gt; (c -&gt; d) -&gt; p b c -&gt; p a d
+</span><span class="hs-identifier hs-var">dimap</span></span><span> </span><span class="annot"><span class="annottext">s -&gt; (s -&gt; a) -&gt; a
+forall a b. a -&gt; (a -&gt; b) -&gt; b
+</span><span class="hs-operator hs-var">(&amp;)</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(((s -&gt; a) -&gt; b) -&gt; t) -&gt; ((s -&gt; a) -&gt; f b) -&gt; f t
+forall (g :: * -&gt; *) (f :: * -&gt; *) a b.
+(Distributive g, Functor f) =&gt;
+(f a -&gt; b) -&gt; f (g a) -&gt; g b
+</span><span class="hs-identifier hs-var">cotraverse</span></span><span> </span><span class="annot"><span class="annottext">((s -&gt; a) -&gt; b) -&gt; t
+</span><a href="#local-6989586621679301199"><span class="hs-identifier hs-var">f</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(p ((s -&gt; a) -&gt; a) ((s -&gt; a) -&gt; f b) -&gt; p s (f t))
+-&gt; (p a (f b) -&gt; p ((s -&gt; a) -&gt; a) ((s -&gt; a) -&gt; f b))
+-&gt; p a (f b)
+-&gt; p s (f t)
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">p a (f b) -&gt; p ((s -&gt; a) -&gt; a) ((s -&gt; a) -&gt; f b)
+forall a b x. p a b -&gt; p (x -&gt; a) (x -&gt; b)
+forall (p :: * -&gt; * -&gt; *) a b x.
+Closed p =&gt;
+p a b -&gt; p (x -&gt; a) (x -&gt; b)
+</span><span class="hs-identifier hs-var">closed</span></span><span>
+</span><span id="line-67"></span><span>
+</span><span id="line-68"></span><span class="annot"><span class="hs-comment">{- | Build a `Grate` from a `Distributive`. -}</span></span><span>
+</span><span id="line-69"></span><span id="local-6989586621679300845"><span id="local-6989586621679300846"><span id="local-6989586621679300847"><span class="annot"><a href="Control.Lens.Grate.html#cotraversed"><span class="hs-identifier hs-type">cotraversed</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Distributive</span></span><span> </span><span class="annot"><a href="#local-6989586621679300845"><span class="hs-identifier hs-type">g</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Control.Lens.Grate.html#Grate"><span class="hs-identifier hs-type">Grate</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679300845"><span class="hs-identifier hs-type">g</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679300846"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679300845"><span class="hs-identifier hs-type">g</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679300847"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621679300846"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679300847"><span class="hs-identifier hs-type">b</span></a></span></span></span></span><span>
+</span><span id="line-70"></span><span id="cotraversed"><span class="annot"><span class="annottext">cotraversed :: forall (g :: * -&gt; *) a b. Distributive g =&gt; Grate (g a) (g b) a b
+</span><a href="Control.Lens.Grate.html#cotraversed"><span class="hs-identifier hs-var hs-var">cotraversed</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(((g a -&gt; a) -&gt; b) -&gt; g b) -&gt; p a (f b) -&gt; p (g a) (f (g b))
+(((g a -&gt; a) -&gt; b) -&gt; g b) -&gt; Grate (g a) (g b) a b
+forall s a b t. (((s -&gt; a) -&gt; b) -&gt; t) -&gt; Grate s t a b
+</span><a href="Control.Lens.Grate.html#grate"><span class="hs-identifier hs-var">grate</span></a></span><span> </span><span class="annot"><span class="annottext">((((g a -&gt; a) -&gt; b) -&gt; g b) -&gt; Grate (g a) (g b) a b)
+-&gt; (((g a -&gt; a) -&gt; b) -&gt; g b) -&gt; Grate (g a) (g b) a b
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">(((g a -&gt; a) -&gt; b) -&gt; (g a -&gt; g a) -&gt; g b)
+-&gt; (g a -&gt; g a) -&gt; ((g a -&gt; a) -&gt; b) -&gt; g b
+forall a b c. (a -&gt; b -&gt; c) -&gt; b -&gt; a -&gt; c
+</span><span class="hs-identifier hs-var">flip</span></span><span> </span><span class="annot"><span class="annottext">((g a -&gt; a) -&gt; b) -&gt; (g a -&gt; g a) -&gt; g b
+forall (g :: * -&gt; *) (f :: * -&gt; *) a b.
+(Distributive g, Functor f) =&gt;
+(f a -&gt; b) -&gt; f (g a) -&gt; g b
+</span><span class="hs-identifier hs-var">cotraverse</span></span><span> </span><span class="annot"><span class="annottext">g a -&gt; g a
+forall a. a -&gt; a
+</span><span class="hs-identifier hs-var">id</span></span><span>
+</span><span id="line-71"></span><span>
+</span><span id="line-72"></span><span class="annot"><span class="hs-comment">{- | Build a `Grate` from a `Representable`. -}</span></span><span>
+</span><span id="line-73"></span><span id="local-6989586621679300864"><span id="local-6989586621679300866"><span id="local-6989586621679300867"><span class="annot"><a href="Control.Lens.Grate.html#represented"><span class="hs-identifier hs-type">represented</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Representable</span></span><span> </span><span class="annot"><a href="#local-6989586621679300864"><span class="hs-identifier hs-type">g</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Control.Lens.Grate.html#Grate"><span class="hs-identifier hs-type">Grate</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679300864"><span class="hs-identifier hs-type">g</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679300866"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679300864"><span class="hs-identifier hs-type">g</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679300867"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621679300866"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679300867"><span class="hs-identifier hs-type">b</span></a></span></span></span></span><span>
+</span><span id="line-74"></span><span id="represented"><span class="annot"><span class="annottext">represented :: forall (g :: * -&gt; *) a b. Representable g =&gt; Grate (g a) (g b) a b
+</span><a href="Control.Lens.Grate.html#represented"><span class="hs-identifier hs-var hs-var">represented</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(((g a -&gt; a) -&gt; b) -&gt; g b) -&gt; p a (f b) -&gt; p (g a) (f (g b))
+(((g a -&gt; a) -&gt; b) -&gt; g b) -&gt; Grate (g a) (g b) a b
+forall s a b t. (((s -&gt; a) -&gt; b) -&gt; t) -&gt; Grate s t a b
+</span><a href="Control.Lens.Grate.html#grate"><span class="hs-identifier hs-var">grate</span></a></span><span> </span><span class="annot"><span class="annottext">((((g a -&gt; a) -&gt; b) -&gt; g b) -&gt; Grate (g a) (g b) a b)
+-&gt; (((g a -&gt; a) -&gt; b) -&gt; g b) -&gt; Grate (g a) (g b) a b
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">(Rep g -&gt; b) -&gt; g b
+forall a. (Rep g -&gt; a) -&gt; g a
+forall (f :: * -&gt; *) a. Representable f =&gt; (Rep f -&gt; a) -&gt; f a
+</span><span class="hs-identifier hs-var">tabulate</span></span><span> </span><span class="annot"><span class="annottext">((Rep g -&gt; b) -&gt; g b)
+-&gt; (((g a -&gt; a) -&gt; b) -&gt; Rep g -&gt; b) -&gt; ((g a -&gt; a) -&gt; b) -&gt; g b
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">((g a -&gt; a) -&gt; b) -&gt; (Rep g -&gt; g a -&gt; a) -&gt; Rep g -&gt; b
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">(g a -&gt; Rep g -&gt; a) -&gt; Rep g -&gt; g a -&gt; a
+forall a b c. (a -&gt; b -&gt; c) -&gt; b -&gt; a -&gt; c
+</span><span class="hs-identifier hs-var">flip</span></span><span> </span><span class="annot"><span class="annottext">g a -&gt; Rep g -&gt; a
+forall a. g a -&gt; Rep g -&gt; a
+forall (f :: * -&gt; *) a. Representable f =&gt; f a -&gt; Rep f -&gt; a
+</span><span class="hs-identifier hs-var">index</span></span><span class="hs-special">)</span><span>
+</span><span id="line-75"></span><span>
+</span><span id="line-76"></span><span class="annot"><span class="hs-comment">{- | Action of `AGrate` on `Closed` `Profunctor`s. -}</span></span><span>
+</span><span id="line-77"></span><span id="local-6989586621679300879"><span id="local-6989586621679300880"><span id="local-6989586621679300881"><span id="local-6989586621679300882"><span id="local-6989586621679300883"><span class="annot"><a href="Control.Lens.Grate.html#mapGrate"><span class="hs-identifier hs-type">mapGrate</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Closed</span></span><span> </span><span class="annot"><a href="#local-6989586621679300879"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Control.Lens.Grate.html#AGrate"><span class="hs-identifier hs-type">AGrate</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679300880"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679300881"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679300882"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679300883"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679300879"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679300882"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679300883"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679300879"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679300880"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679300881"><span class="hs-identifier hs-type">t</span></a></span></span></span></span></span></span><span>
+</span><span id="line-78"></span><span id="mapGrate"><span class="annot"><span class="annottext">mapGrate :: forall (p :: * -&gt; * -&gt; *) s t a b.
+Closed p =&gt;
+AGrate s t a b -&gt; p a b -&gt; p s t
+</span><a href="Control.Lens.Grate.html#mapGrate"><span class="hs-identifier hs-var hs-var">mapGrate</span></a></span></span><span> </span><span id="local-6989586621679301252"><span class="annot"><span class="annottext">AGrate s t a b
+</span><a href="#local-6989586621679301252"><span class="hs-identifier hs-var">grt</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(s -&gt; (s -&gt; a) -&gt; a)
+-&gt; (((s -&gt; a) -&gt; b) -&gt; t)
+-&gt; p ((s -&gt; a) -&gt; a) ((s -&gt; a) -&gt; b)
+-&gt; p s t
+forall a b c d. (a -&gt; b) -&gt; (c -&gt; d) -&gt; p b c -&gt; p a d
+forall (p :: * -&gt; * -&gt; *) a b c d.
+Profunctor p =&gt;
+(a -&gt; b) -&gt; (c -&gt; d) -&gt; p b c -&gt; p a d
+</span><span class="hs-identifier hs-var">dimap</span></span><span> </span><span class="annot"><span class="annottext">s -&gt; (s -&gt; a) -&gt; a
+forall a b. a -&gt; (a -&gt; b) -&gt; b
+</span><span class="hs-operator hs-var">(&amp;)</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">AGrate s t a b -&gt; ((s -&gt; a) -&gt; b) -&gt; t
+forall s t a b. AGrate s t a b -&gt; ((s -&gt; a) -&gt; b) -&gt; t
+</span><a href="Control.Lens.Grate.html#withGrate"><span class="hs-identifier hs-var">withGrate</span></a></span><span> </span><span class="annot"><span class="annottext">AGrate s t a b
+</span><a href="#local-6989586621679301252"><span class="hs-identifier hs-var">grt</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(p ((s -&gt; a) -&gt; a) ((s -&gt; a) -&gt; b) -&gt; p s t)
+-&gt; (p a b -&gt; p ((s -&gt; a) -&gt; a) ((s -&gt; a) -&gt; b)) -&gt; p a b -&gt; p s t
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">p a b -&gt; p ((s -&gt; a) -&gt; a) ((s -&gt; a) -&gt; b)
+forall a b x. p a b -&gt; p (x -&gt; a) (x -&gt; b)
+forall (p :: * -&gt; * -&gt; *) a b x.
+Closed p =&gt;
+p a b -&gt; p (x -&gt; a) (x -&gt; b)
+</span><span class="hs-identifier hs-var">closed</span></span><span>
+</span><span id="line-79"></span><span>
+</span><span id="line-80"></span><span class="annot"><span class="hs-comment">{- | Clone `AGrate` so that you can reuse the same
+monomorphically typed `Grate` for different purposes.
+-}</span></span><span>
+</span><span id="line-83"></span><span id="local-6989586621679300894"><span id="local-6989586621679300895"><span id="local-6989586621679300896"><span id="local-6989586621679300897"><span class="annot"><a href="Control.Lens.Grate.html#cloneGrate"><span class="hs-identifier hs-type">cloneGrate</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Control.Lens.Grate.html#AGrate"><span class="hs-identifier hs-type">AGrate</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679300894"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679300895"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679300896"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679300897"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Control.Lens.Grate.html#Grate"><span class="hs-identifier hs-type">Grate</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679300894"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679300895"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679300896"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679300897"><span class="hs-identifier hs-type">b</span></a></span></span></span></span></span><span>
+</span><span id="line-84"></span><span id="cloneGrate"><span class="annot"><span class="annottext">cloneGrate :: forall s t a b. AGrate s t a b -&gt; Grate s t a b
+</span><a href="Control.Lens.Grate.html#cloneGrate"><span class="hs-identifier hs-var hs-var">cloneGrate</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(((s -&gt; a) -&gt; b) -&gt; t) -&gt; p a (f b) -&gt; p s (f t)
+(((s -&gt; a) -&gt; b) -&gt; t) -&gt; Grate s t a b
+forall s a b t. (((s -&gt; a) -&gt; b) -&gt; t) -&gt; Grate s t a b
+</span><a href="Control.Lens.Grate.html#grate"><span class="hs-identifier hs-var">grate</span></a></span><span> </span><span class="annot"><span class="annottext">((((s -&gt; a) -&gt; b) -&gt; t) -&gt; Grate s t a b)
+-&gt; (AGrate s t a b -&gt; ((s -&gt; a) -&gt; b) -&gt; t)
+-&gt; AGrate s t a b
+-&gt; Grate s t a b
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">AGrate s t a b -&gt; ((s -&gt; a) -&gt; b) -&gt; t
+forall s t a b. AGrate s t a b -&gt; ((s -&gt; a) -&gt; b) -&gt; t
+</span><a href="Control.Lens.Grate.html#withGrate"><span class="hs-identifier hs-var">withGrate</span></a></span><span>
+</span><span id="line-85"></span><span>
+</span><span id="line-86"></span><span class="annot"><span class="hs-comment">{- | Construct a `Grate` on pairs from components, with the same foci,
+as `Control.Lens.Monocle.crossMonocle` does `Control.Lens.Monocle.Monocle`s.
+
+&gt;&gt;&gt; over (crossGrate cotraversed cotraversed) negate (1 :+ 2, 3 :+ 4)
+((-1) :+ (-2),(-3) :+ (-4))
+-}</span></span><span>
+</span><span id="line-92"></span><span id="local-6989586621679300906"><span id="local-6989586621679300907"><span id="local-6989586621679300908"><span id="local-6989586621679300909"><span id="local-6989586621679300910"><span id="local-6989586621679300911"><span class="annot"><a href="Control.Lens.Grate.html#crossGrate"><span class="hs-identifier hs-type">crossGrate</span></a></span><span>
+</span><span id="line-93"></span><span>  </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Control.Lens.Grate.html#AGrate"><span class="hs-identifier hs-type">AGrate</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679300906"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679300907"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679300908"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679300909"><span class="hs-identifier hs-type">b</span></a></span><span>
+</span><span id="line-94"></span><span>  </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Control.Lens.Grate.html#AGrate"><span class="hs-identifier hs-type">AGrate</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679300910"><span class="hs-identifier hs-type">u</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679300911"><span class="hs-identifier hs-type">v</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679300908"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679300909"><span class="hs-identifier hs-type">b</span></a></span><span>
+</span><span id="line-95"></span><span>  </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Control.Lens.Grate.html#Grate"><span class="hs-identifier hs-type">Grate</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679300906"><span class="hs-identifier hs-type">s</span></a></span><span class="hs-special">,</span><span class="annot"><a href="#local-6989586621679300910"><span class="hs-identifier hs-type">u</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679300907"><span class="hs-identifier hs-type">t</span></a></span><span class="hs-special">,</span><span class="annot"><a href="#local-6989586621679300911"><span class="hs-identifier hs-type">v</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621679300908"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679300909"><span class="hs-identifier hs-type">b</span></a></span></span></span></span></span></span></span><span>
+</span><span id="line-96"></span><span id="crossGrate"><span class="annot"><span class="annottext">crossGrate :: forall s t a b u v.
+AGrate s t a b -&gt; AGrate u v a b -&gt; Grate (s, u) (t, v) a b
+</span><a href="Control.Lens.Grate.html#crossGrate"><span class="hs-identifier hs-var hs-var">crossGrate</span></a></span></span><span> </span><span id="local-6989586621679301285"><span class="annot"><span class="annottext">AGrate s t a b
+</span><a href="#local-6989586621679301285"><span class="hs-identifier hs-var">x</span></a></span></span><span> </span><span id="local-6989586621679301286"><span class="annot"><span class="annottext">AGrate u v a b
+</span><a href="#local-6989586621679301286"><span class="hs-identifier hs-var">y</span></a></span></span><span> </span><span id="local-6989586621679301287"><span class="annot"><span class="annottext">p a (f b)
+</span><a href="#local-6989586621679301287"><span class="hs-identifier hs-var">p</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-97"></span><span>  </span><span class="annot"><span class="annottext">((f t, f v) -&gt; f (t, v))
+-&gt; p (s, u) (f t, f v) -&gt; p (s, u) (f (t, v))
+forall b c a. (b -&gt; c) -&gt; p a b -&gt; p a c
+forall (p :: * -&gt; * -&gt; *) b c a.
+Profunctor p =&gt;
+(b -&gt; c) -&gt; p a b -&gt; p a c
+</span><span class="hs-identifier hs-var">rmap</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(f t -&gt; f v -&gt; f (t, v)) -&gt; (f t, f v) -&gt; f (t, v)
+forall a b c. (a -&gt; b -&gt; c) -&gt; (a, b) -&gt; c
+</span><span class="hs-identifier hs-var">uncurry</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(t -&gt; v -&gt; (t, v)) -&gt; f t -&gt; f v -&gt; f (t, v)
+forall a b c. (a -&gt; b -&gt; c) -&gt; f a -&gt; f b -&gt; f c
+forall (f :: * -&gt; *) a b c.
+Applicative f =&gt;
+(a -&gt; b -&gt; c) -&gt; f a -&gt; f b -&gt; f c
+</span><span class="hs-identifier hs-var">liftA2</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">,</span><span class="hs-special">)</span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">AGrate s t a b -&gt; Grate s t a b
+forall s t a b. AGrate s t a b -&gt; Grate s t a b
+</span><a href="Control.Lens.Grate.html#cloneGrate"><span class="hs-identifier hs-var">cloneGrate</span></a></span><span> </span><span class="annot"><span class="annottext">AGrate s t a b
+</span><a href="#local-6989586621679301285"><span class="hs-identifier hs-var">x</span></a></span><span> </span><span class="annot"><span class="annottext">p a (f b)
+</span><a href="#local-6989586621679301287"><span class="hs-identifier hs-var">p</span></a></span><span> </span><span class="annot"><span class="annottext">p s (f t) -&gt; p u (f v) -&gt; p (s, u) (f t, f v)
+forall (p :: * -&gt; * -&gt; *) a b c d.
+Monoidal p =&gt;
+p a b -&gt; p c d -&gt; p (a, c) (b, d)
+</span><a href="Data.Profunctor.Monoidal.html#%3E%2A%3C"><span class="hs-operator hs-var">&gt;*&lt;</span></a></span><span> </span><span class="annot"><span class="annottext">AGrate u v a b -&gt; Grate u v a b
+forall s t a b. AGrate s t a b -&gt; Grate s t a b
+</span><a href="Control.Lens.Grate.html#cloneGrate"><span class="hs-identifier hs-var">cloneGrate</span></a></span><span> </span><span class="annot"><span class="annottext">AGrate u v a b
+</span><a href="#local-6989586621679301286"><span class="hs-identifier hs-var">y</span></a></span><span> </span><span class="annot"><span class="annottext">p a (f b)
+</span><a href="#local-6989586621679301287"><span class="hs-identifier hs-var">p</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-98"></span><span>
+</span><span id="line-99"></span><span class="annot"><span class="hs-comment">{- | Run `AGrate`. -}</span></span><span>
+</span><span id="line-100"></span><span id="local-6989586621679300890"><span id="local-6989586621679300891"><span id="local-6989586621679300892"><span id="local-6989586621679300893"><span class="annot"><a href="Control.Lens.Grate.html#withGrate"><span class="hs-identifier hs-type">withGrate</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Control.Lens.Grate.html#AGrate"><span class="hs-identifier hs-type">AGrate</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679300890"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679300891"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679300892"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679300893"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679300890"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679300892"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679300893"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679300891"><span class="hs-identifier hs-type">t</span></a></span></span></span></span></span><span>
+</span><span id="line-101"></span><span id="withGrate"><span class="annot"><span class="annottext">withGrate :: forall s t a b. AGrate s t a b -&gt; ((s -&gt; a) -&gt; b) -&gt; t
+</span><a href="Control.Lens.Grate.html#withGrate"><span class="hs-identifier hs-var hs-var">withGrate</span></a></span></span><span> </span><span id="local-6989586621679301295"><span class="annot"><span class="annottext">AGrate s t a b
+</span><a href="#local-6989586621679301295"><span class="hs-identifier hs-var">grt</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Grating a b s t -&gt; ((s -&gt; a) -&gt; b) -&gt; t
+forall a b s t. Grating a b s t -&gt; ((s -&gt; a) -&gt; b) -&gt; t
+</span><a href="Control.Lens.Grate.html#runGrating"><span class="hs-identifier hs-var">runGrating</span></a></span><span> </span><span class="annot"><span class="annottext">(Grating a b s t -&gt; ((s -&gt; a) -&gt; b) -&gt; t)
+-&gt; Grating a b s t -&gt; ((s -&gt; a) -&gt; b) -&gt; t
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Identity t -&gt; t
+forall a. Identity a -&gt; a
+</span><span class="hs-identifier hs-var">runIdentity</span></span><span> </span><span class="annot"><span class="annottext">(Identity t -&gt; t) -&gt; Grating a b s (Identity t) -&gt; Grating a b s t
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">AGrate s t a b
+</span><a href="#local-6989586621679301295"><span class="hs-identifier hs-var">grt</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">b -&gt; Identity b
+forall a. a -&gt; Identity a
+</span><span class="hs-identifier hs-var">Identity</span></span><span> </span><span class="annot"><span class="annottext">(b -&gt; Identity b) -&gt; Grating a b a b -&gt; Grating a b a (Identity b)
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">(((a -&gt; a) -&gt; b) -&gt; b) -&gt; Grating a b a b
+forall a b s t. (((s -&gt; a) -&gt; b) -&gt; t) -&gt; Grating a b s t
+</span><a href="Control.Lens.Grate.html#Grating"><span class="hs-identifier hs-var">Grating</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">((a -&gt; a) -&gt; b) -&gt; (a -&gt; a) -&gt; b
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">a -&gt; a
+forall a. a -&gt; a
+</span><span class="hs-identifier hs-var">id</span></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-102"></span><span>
+</span><span id="line-103"></span><span class="annot"><span class="hs-comment">{- | Distribute over a `Closed` `Profunctor`. -}</span></span><span>
+</span><span id="line-104"></span><span id="local-6989586621679300953"><span id="local-6989586621679300955"><span id="local-6989586621679300956"><span id="local-6989586621679300957"><span id="local-6989586621679300958"><span id="local-6989586621679300959"><span class="annot"><a href="Control.Lens.Grate.html#distributing"><span class="hs-identifier hs-type">distributing</span></a></span><span>
+</span><span id="line-105"></span><span>  </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Closed</span></span><span> </span><span class="annot"><a href="#local-6989586621679300953"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">,</span><span> </span><span class="hs-keyword">forall</span><span> </span><span id="local-6989586621679300954"><span class="annot"><a href="#local-6989586621679300954"><span class="hs-identifier hs-type">x</span></a></span></span><span class="hs-operator">.</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Functor</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679300953"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679300954"><span class="hs-identifier hs-type">x</span></a></span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Distributive</span></span><span> </span><span class="annot"><a href="#local-6989586621679300955"><span class="hs-identifier hs-type">g</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-106"></span><span>  </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Control.Lens.Grate.html#AGrate"><span class="hs-identifier hs-type">AGrate</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679300956"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679300957"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679300958"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679300959"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679300953"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679300958"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679300955"><span class="hs-identifier hs-type">g</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679300959"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679300955"><span class="hs-identifier hs-type">g</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679300953"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679300956"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679300957"><span class="hs-identifier hs-type">t</span></a></span><span class="hs-special">)</span></span></span></span></span></span></span><span>
+</span><span id="line-107"></span><span id="distributing"><span class="annot"><span class="annottext">distributing :: forall (p :: * -&gt; * -&gt; *) (g :: * -&gt; *) s t a b.
+(Closed p, forall x. Functor (p x), Distributive g) =&gt;
+AGrate s t a b -&gt; p a (g b) -&gt; g (p s t)
+</span><a href="Control.Lens.Grate.html#distributing"><span class="hs-identifier hs-var hs-var">distributing</span></a></span></span><span> </span><span id="local-6989586621679301310"><span class="annot"><span class="annottext">AGrate s t a b
+</span><a href="#local-6989586621679301310"><span class="hs-identifier hs-var">grt</span></a></span></span><span>
+</span><span id="line-108"></span><span>  </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">p s (g t) -&gt; g (p s t)
+forall (g :: * -&gt; *) (f :: * -&gt; *) a.
+(Distributive g, Functor f) =&gt;
+f (g a) -&gt; g (f a)
+forall (f :: * -&gt; *) a. Functor f =&gt; f (g a) -&gt; g (f a)
+</span><span class="hs-identifier hs-var">distribute</span></span><span>
+</span><span id="line-109"></span><span>  </span><span class="annot"><span class="annottext">(p s (g t) -&gt; g (p s t))
+-&gt; (p a (g b) -&gt; p s (g t)) -&gt; p a (g b) -&gt; g (p s t)
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">(s -&gt; (s -&gt; a) -&gt; a)
+-&gt; (((s -&gt; a) -&gt; g b) -&gt; g t)
+-&gt; p ((s -&gt; a) -&gt; a) ((s -&gt; a) -&gt; g b)
+-&gt; p s (g t)
+forall a b c d. (a -&gt; b) -&gt; (c -&gt; d) -&gt; p b c -&gt; p a d
+forall (p :: * -&gt; * -&gt; *) a b c d.
+Profunctor p =&gt;
+(a -&gt; b) -&gt; (c -&gt; d) -&gt; p b c -&gt; p a d
+</span><span class="hs-identifier hs-var">dimap</span></span><span> </span><span class="annot"><span class="annottext">s -&gt; (s -&gt; a) -&gt; a
+forall a b. a -&gt; (a -&gt; b) -&gt; b
+</span><span class="hs-operator hs-var">(&amp;)</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(((s -&gt; a) -&gt; b) -&gt; t) -&gt; ((s -&gt; a) -&gt; g b) -&gt; g t
+forall (g :: * -&gt; *) (f :: * -&gt; *) a b.
+(Distributive g, Functor f) =&gt;
+(f a -&gt; b) -&gt; f (g a) -&gt; g b
+</span><span class="hs-identifier hs-var">cotraverse</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">AGrate s t a b -&gt; ((s -&gt; a) -&gt; b) -&gt; t
+forall s t a b. AGrate s t a b -&gt; ((s -&gt; a) -&gt; b) -&gt; t
+</span><a href="Control.Lens.Grate.html#withGrate"><span class="hs-identifier hs-var">withGrate</span></a></span><span> </span><span class="annot"><span class="annottext">AGrate s t a b
+</span><a href="#local-6989586621679301310"><span class="hs-identifier hs-var">grt</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-110"></span><span>  </span><span class="annot"><span class="annottext">(p ((s -&gt; a) -&gt; a) ((s -&gt; a) -&gt; g b) -&gt; p s (g t))
+-&gt; (p a (g b) -&gt; p ((s -&gt; a) -&gt; a) ((s -&gt; a) -&gt; g b))
+-&gt; p a (g b)
+-&gt; p s (g t)
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">p a (g b) -&gt; p ((s -&gt; a) -&gt; a) ((s -&gt; a) -&gt; g b)
+forall a b x. p a b -&gt; p (x -&gt; a) (x -&gt; b)
+forall (p :: * -&gt; * -&gt; *) a b x.
+Closed p =&gt;
+p a b -&gt; p (x -&gt; a) (x -&gt; b)
+</span><span class="hs-identifier hs-var">closed</span></span><span>
+</span><span id="line-111"></span><span>
+</span><span id="line-112"></span><span class="annot"><span class="hs-comment">{- | Dual to `Control.Lens.Combinators.traverseOf`. -}</span></span><span>
+</span><span id="line-113"></span><span id="local-6989586621679300969"><span id="local-6989586621679300970"><span id="local-6989586621679300971"><span id="local-6989586621679300972"><span id="local-6989586621679300973"><span class="annot"><a href="Control.Lens.Grate.html#cotraverseOf"><span class="hs-identifier hs-type">cotraverseOf</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Functor</span></span><span> </span><span class="annot"><a href="#local-6989586621679300969"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Control.Lens.Grate.html#AGrate"><span class="hs-identifier hs-type">AGrate</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679300970"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679300971"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679300972"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679300973"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679300969"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679300972"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679300973"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679300969"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679300970"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679300971"><span class="hs-identifier hs-type">t</span></a></span></span></span></span></span></span><span>
+</span><span id="line-114"></span><span id="cotraverseOf"><span class="annot"><span class="annottext">cotraverseOf :: forall (f :: * -&gt; *) s t a b.
+Functor f =&gt;
+AGrate s t a b -&gt; (f a -&gt; b) -&gt; f s -&gt; t
+</span><a href="Control.Lens.Grate.html#cotraverseOf"><span class="hs-identifier hs-var hs-var">cotraverseOf</span></a></span></span><span> </span><span id="local-6989586621679301315"><span class="annot"><span class="annottext">AGrate s t a b
+</span><a href="#local-6989586621679301315"><span class="hs-identifier hs-var">grt</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Costar f s t -&gt; f s -&gt; t
+forall {k} (f :: k -&gt; *) (d :: k) c. Costar f d c -&gt; f d -&gt; c
+</span><span class="hs-identifier hs-var">runCostar</span></span><span> </span><span class="annot"><span class="annottext">(Costar f s t -&gt; f s -&gt; t)
+-&gt; ((f a -&gt; b) -&gt; Costar f s t) -&gt; (f a -&gt; b) -&gt; f s -&gt; t
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">AGrate s t a b -&gt; Costar f a b -&gt; Costar f s t
+forall (p :: * -&gt; * -&gt; *) s t a b.
+Closed p =&gt;
+AGrate s t a b -&gt; p a b -&gt; p s t
+</span><a href="Control.Lens.Grate.html#mapGrate"><span class="hs-identifier hs-var">mapGrate</span></a></span><span> </span><span class="annot"><span class="annottext">AGrate s t a b
+</span><a href="#local-6989586621679301315"><span class="hs-identifier hs-var">grt</span></a></span><span> </span><span class="annot"><span class="annottext">(Costar f a b -&gt; Costar f s t)
+-&gt; ((f a -&gt; b) -&gt; Costar f a b) -&gt; (f a -&gt; b) -&gt; Costar f s t
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">(f a -&gt; b) -&gt; Costar f a b
+forall {k} (f :: k -&gt; *) (d :: k) c. (f d -&gt; c) -&gt; Costar f d c
+</span><span class="hs-identifier hs-var">Costar</span></span><span>
+</span><span id="line-115"></span><span>
+</span><span id="line-116"></span><span class="annot"><span class="hs-comment">{- | Dual to `Control.Lens.Combinators.sequenceAOf`. -}</span></span><span>
+</span><span id="line-117"></span><span id="local-6989586621679300989"><span id="local-6989586621679300990"><span id="local-6989586621679300991"><span id="local-6989586621679300992"><span class="annot"><a href="Control.Lens.Grate.html#distributeOf"><span class="hs-identifier hs-type">distributeOf</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Functor</span></span><span> </span><span class="annot"><a href="#local-6989586621679300989"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Control.Lens.Grate.html#AGrate"><span class="hs-identifier hs-type">AGrate</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679300990"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679300991"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679300992"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679300989"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679300992"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679300989"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679300990"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679300991"><span class="hs-identifier hs-type">t</span></a></span></span></span></span></span><span>
+</span><span id="line-118"></span><span id="distributeOf"><span class="annot"><span class="annottext">distributeOf :: forall (f :: * -&gt; *) s t b.
+Functor f =&gt;
+AGrate s t b (f b) -&gt; f s -&gt; t
+</span><a href="Control.Lens.Grate.html#distributeOf"><span class="hs-identifier hs-var hs-var">distributeOf</span></a></span></span><span> </span><span id="local-6989586621679301320"><span class="annot"><span class="annottext">AGrate s t b (f b)
+</span><a href="#local-6989586621679301320"><span class="hs-identifier hs-var">grt</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">AGrate s t b (f b) -&gt; (f b -&gt; f b) -&gt; f s -&gt; t
+forall (f :: * -&gt; *) s t a b.
+Functor f =&gt;
+AGrate s t a b -&gt; (f a -&gt; b) -&gt; f s -&gt; t
+</span><a href="Control.Lens.Grate.html#cotraverseOf"><span class="hs-identifier hs-var">cotraverseOf</span></a></span><span> </span><span class="annot"><span class="annottext">AGrate s t b (f b)
+</span><a href="#local-6989586621679301320"><span class="hs-identifier hs-var">grt</span></a></span><span> </span><span class="annot"><span class="annottext">f b -&gt; f b
+forall a. a -&gt; a
+</span><span class="hs-identifier hs-var">id</span></span><span>
+</span><span id="line-119"></span><span>
+</span><span id="line-120"></span><span class="annot"><span class="hs-comment">{- | `collect` with `AGrate`. -}</span></span><span>
+</span><span id="line-121"></span><span id="local-6989586621679300997"><span id="local-6989586621679300998"><span id="local-6989586621679300999"><span id="local-6989586621679301000"><span id="local-6989586621679301001"><span class="annot"><a href="Control.Lens.Grate.html#collectOf"><span class="hs-identifier hs-type">collectOf</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Functor</span></span><span> </span><span class="annot"><a href="#local-6989586621679300997"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Control.Lens.Grate.html#AGrate"><span class="hs-identifier hs-type">AGrate</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679300998"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679300999"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679301000"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679300997"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679301000"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679301001"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679300998"><span class="hs-identifier hs-type">s</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679300997"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679301001"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679300999"><span class="hs-identifier hs-type">t</span></a></span></span></span></span></span></span><span>
+</span><span id="line-122"></span><span id="collectOf"><span class="annot"><span class="annottext">collectOf :: forall (f :: * -&gt; *) s t b a.
+Functor f =&gt;
+AGrate s t b (f b) -&gt; (a -&gt; s) -&gt; f a -&gt; t
+</span><a href="Control.Lens.Grate.html#collectOf"><span class="hs-identifier hs-var hs-var">collectOf</span></a></span></span><span> </span><span id="local-6989586621679301325"><span class="annot"><span class="annottext">AGrate s t b (f b)
+</span><a href="#local-6989586621679301325"><span class="hs-identifier hs-var">grt</span></a></span></span><span> </span><span id="local-6989586621679301326"><span class="annot"><span class="annottext">a -&gt; s
+</span><a href="#local-6989586621679301326"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">AGrate s t b (f b) -&gt; f s -&gt; t
+forall (f :: * -&gt; *) s t b.
+Functor f =&gt;
+AGrate s t b (f b) -&gt; f s -&gt; t
+</span><a href="Control.Lens.Grate.html#distributeOf"><span class="hs-identifier hs-var">distributeOf</span></a></span><span> </span><span class="annot"><span class="annottext">AGrate s t b (f b)
+</span><a href="#local-6989586621679301325"><span class="hs-identifier hs-var">grt</span></a></span><span> </span><span class="annot"><span class="annottext">(f s -&gt; t) -&gt; (f a -&gt; f s) -&gt; f a -&gt; t
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">(a -&gt; s) -&gt; f a -&gt; f s
+forall a b. (a -&gt; b) -&gt; f a -&gt; f b
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">fmap</span></span><span> </span><span class="annot"><span class="annottext">a -&gt; s
+</span><a href="#local-6989586621679301326"><span class="hs-identifier hs-var">f</span></a></span><span>
+</span><span id="line-123"></span><span>
+</span><span id="line-124"></span><span class="annot"><span class="hs-comment">{- | t'Grating' provides an efficient
+concrete representation of `Grate`s. -}</span></span><span>
+</span><span id="line-126"></span><span class="hs-keyword">newtype</span><span> </span><span id="Grating"><span class="annot"><a href="Control.Lens.Grate.html#Grating"><span class="hs-identifier hs-var">Grating</span></a></span></span><span> </span><span id="local-6989586621679300943"><span class="annot"><a href="#local-6989586621679300943"><span class="hs-identifier hs-type">a</span></a></span></span><span> </span><span id="local-6989586621679300944"><span class="annot"><a href="#local-6989586621679300944"><span class="hs-identifier hs-type">b</span></a></span></span><span> </span><span id="local-6989586621679300945"><span class="annot"><a href="#local-6989586621679300945"><span class="hs-identifier hs-type">s</span></a></span></span><span> </span><span id="local-6989586621679300946"><span class="annot"><a href="#local-6989586621679300946"><span class="hs-identifier hs-type">t</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="Grating"><span class="annot"><a href="Control.Lens.Grate.html#Grating"><span class="hs-identifier hs-var">Grating</span></a></span></span><span>
+</span><span id="line-127"></span><span>  </span><span class="hs-special">{</span><span id="runGrating"><span class="annot"><span class="annottext">forall a b s t. Grating a b s t -&gt; ((s -&gt; a) -&gt; b) -&gt; t
+</span><a href="Control.Lens.Grate.html#runGrating"><span class="hs-identifier hs-var hs-var">runGrating</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679300945"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679300943"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679300944"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679300946"><span class="hs-identifier hs-type">t</span></a></span><span class="hs-special">}</span><span>
+</span><span id="line-128"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679301032"><span id="local-6989586621679301033"><span id="local-6989586621679301329"><span id="local-6989586621679301333"><span id="local-6989586621679301336"><span id="local-6989586621679301342"><span class="annot"><span class="hs-identifier hs-type">Profunctor</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Grate.html#Grating"><span class="hs-identifier hs-type">Grating</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679301032"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679301033"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span></span></span></span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-129"></span><span>  </span><span id="local-6989586621679301348"><span class="annot"><span class="annottext">dimap :: forall a b c d.
+(a -&gt; b) -&gt; (c -&gt; d) -&gt; Grating a b b c -&gt; Grating a b a d
+</span><span class="hs-identifier hs-var hs-var hs-var">dimap</span></span></span><span> </span><span id="local-6989586621679301349"><span class="annot"><span class="annottext">a -&gt; b
+</span><a href="#local-6989586621679301349"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span id="local-6989586621679301350"><span class="annot"><span class="annottext">c -&gt; d
+</span><a href="#local-6989586621679301350"><span class="hs-identifier hs-var">g</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Grate.html#Grating"><span class="hs-identifier hs-type">Grating</span></a></span><span> </span><span id="local-6989586621679301351"><span class="annot"><span class="annottext">((b -&gt; a) -&gt; b) -&gt; c
+</span><a href="#local-6989586621679301351"><span class="hs-identifier hs-var">k</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(((a -&gt; a) -&gt; b) -&gt; d) -&gt; Grating a b a d
+forall a b s t. (((s -&gt; a) -&gt; b) -&gt; t) -&gt; Grating a b s t
+</span><a href="Control.Lens.Grate.html#Grating"><span class="hs-identifier hs-var">Grating</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">c -&gt; d
+</span><a href="#local-6989586621679301350"><span class="hs-identifier hs-var">g</span></a></span><span> </span><span class="annot"><span class="annottext">(c -&gt; d) -&gt; (((a -&gt; a) -&gt; b) -&gt; c) -&gt; ((a -&gt; a) -&gt; b) -&gt; d
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">((b -&gt; a) -&gt; b) -&gt; c
+</span><a href="#local-6989586621679301351"><span class="hs-identifier hs-var">k</span></a></span><span> </span><span class="annot"><span class="annottext">(((b -&gt; a) -&gt; b) -&gt; c)
+-&gt; (((a -&gt; a) -&gt; b) -&gt; (b -&gt; a) -&gt; b) -&gt; ((a -&gt; a) -&gt; b) -&gt; c
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">((a -&gt; a) -&gt; b) -&gt; ((b -&gt; a) -&gt; a -&gt; a) -&gt; (b -&gt; a) -&gt; b
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(b -&gt; a) -&gt; (a -&gt; b) -&gt; a -&gt; a
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">a -&gt; b
+</span><a href="#local-6989586621679301349"><span class="hs-identifier hs-var">f</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-130"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679301040"><span id="local-6989586621679301041"><span class="annot"><span class="hs-identifier hs-type">Closed</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Grate.html#Grating"><span class="hs-identifier hs-type">Grating</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679301040"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679301041"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-131"></span><span>  </span><span id="local-6989586621679301357"><span class="annot"><span class="annottext">closed :: forall a b x. Grating a b a b -&gt; Grating a b (x -&gt; a) (x -&gt; b)
+</span><span class="hs-identifier hs-var hs-var hs-var">closed</span></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Grate.html#Grating"><span class="hs-identifier hs-type">Grating</span></a></span><span> </span><span id="local-6989586621679301358"><span class="annot"><span class="annottext">((a -&gt; a) -&gt; b) -&gt; b
+</span><a href="#local-6989586621679301358"><span class="hs-identifier hs-var">k</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">((((x -&gt; a) -&gt; a) -&gt; b) -&gt; x -&gt; b) -&gt; Grating a b (x -&gt; a) (x -&gt; b)
+forall a b s t. (((s -&gt; a) -&gt; b) -&gt; t) -&gt; Grating a b s t
+</span><a href="Control.Lens.Grate.html#Grating"><span class="hs-identifier hs-var">Grating</span></a></span><span> </span><span class="annot"><span class="annottext">(((((x -&gt; a) -&gt; a) -&gt; b) -&gt; x -&gt; b)
+ -&gt; Grating a b (x -&gt; a) (x -&gt; b))
+-&gt; ((((x -&gt; a) -&gt; a) -&gt; b) -&gt; x -&gt; b)
+-&gt; Grating a b (x -&gt; a) (x -&gt; b)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679301359"><span class="annot"><span class="annottext">((x -&gt; a) -&gt; a) -&gt; b
+</span><a href="#local-6989586621679301359"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span id="local-6989586621679301360"><span class="annot"><span class="annottext">x
+</span><a href="#local-6989586621679301360"><span class="hs-identifier hs-var">x</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">((a -&gt; a) -&gt; b) -&gt; b
+</span><a href="#local-6989586621679301358"><span class="hs-identifier hs-var">k</span></a></span><span> </span><span class="annot"><span class="annottext">(((a -&gt; a) -&gt; b) -&gt; b) -&gt; ((a -&gt; a) -&gt; b) -&gt; b
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679301361"><span class="annot"><span class="annottext">a -&gt; a
+</span><a href="#local-6989586621679301361"><span class="hs-identifier hs-var">g</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">((x -&gt; a) -&gt; a) -&gt; b
+</span><a href="#local-6989586621679301359"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">a -&gt; a
+</span><a href="#local-6989586621679301361"><span class="hs-identifier hs-var">g</span></a></span><span> </span><span class="annot"><span class="annottext">(a -&gt; a) -&gt; ((x -&gt; a) -&gt; a) -&gt; (x -&gt; a) -&gt; a
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(x -&gt; a) -&gt; x -&gt; a
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">x
+</span><a href="#local-6989586621679301360"><span class="hs-identifier hs-var">x</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-132"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679300939"><span id="local-6989586621679300940"><span id="local-6989586621679300941"><span id="local-6989586621679301364"><span class="annot"><span class="hs-identifier hs-type">Functor</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Grate.html#Grating"><span class="hs-identifier hs-type">Grating</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679300939"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679300940"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679300941"><span class="hs-identifier hs-type">s</span></a></span><span class="hs-special">)</span></span></span></span></span><span> </span><span class="hs-keyword">where</span><span> </span><span id="local-6989586621679301369"><span class="annot"><span class="annottext">fmap :: forall a b. (a -&gt; b) -&gt; Grating a b s a -&gt; Grating a b s b
+</span><span class="hs-identifier hs-var hs-var hs-var">fmap</span></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(a -&gt; b) -&gt; Grating a b s a -&gt; Grating a b s b
+forall (f :: * -&gt; *) a b. Representable f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">fmapRep</span></span><span>
+</span><span id="line-133"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679301068"><span id="local-6989586621679301069"><span id="local-6989586621679301070"><span id="local-6989586621679301376"><span id="local-6989586621679301380"><span id="local-6989586621679301383"><span class="annot"><span class="hs-identifier hs-type">Applicative</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Grate.html#Grating"><span class="hs-identifier hs-type">Grating</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679301068"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679301069"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679301070"><span class="hs-identifier hs-type">s</span></a></span><span class="hs-special">)</span></span></span></span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-134"></span><span>  </span><span id="local-6989586621679301387"><span class="annot"><span class="annottext">pure :: forall a. a -&gt; Grating a b s a
+</span><span class="hs-identifier hs-var hs-var hs-var">pure</span></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">a -&gt; Grating a b s a
+forall (f :: * -&gt; *) a. Representable f =&gt; a -&gt; f a
+</span><span class="hs-identifier hs-var">pureRep</span></span><span>
+</span><span id="line-135"></span><span>  </span><span id="local-6989586621679301390"><span class="annot"><span class="annottext">&lt;*&gt; :: forall a b.
+Grating a b s (a -&gt; b) -&gt; Grating a b s a -&gt; Grating a b s b
+</span><span class="hs-operator hs-var hs-var hs-var">(&lt;*&gt;)</span></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Grating a b s (a -&gt; b) -&gt; Grating a b s a -&gt; Grating a b s b
+forall (f :: * -&gt; *) a b.
+Representable f =&gt;
+f (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">apRep</span></span><span>
+</span><span id="line-136"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679301092"><span id="local-6989586621679301093"><span id="local-6989586621679301094"><span id="local-6989586621679301397"><span id="local-6989586621679301403"><span class="annot"><span class="hs-identifier hs-type">Distributive</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Grate.html#Grating"><span class="hs-identifier hs-type">Grating</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679301092"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679301093"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679301094"><span class="hs-identifier hs-type">s</span></a></span><span class="hs-special">)</span></span></span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-137"></span><span>  </span><span id="local-6989586621679301411"><span class="annot"><span class="annottext">distribute :: forall (f :: * -&gt; *) a.
+Functor f =&gt;
+f (Grating a b s a) -&gt; Grating a b s (f a)
+</span><span class="hs-identifier hs-var hs-var hs-var">distribute</span></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">f (Grating a b s a) -&gt; Grating a b s (f a)
+forall (f :: * -&gt; *) (w :: * -&gt; *) a.
+(Representable f, Functor w) =&gt;
+w (f a) -&gt; f (w a)
+</span><span class="hs-identifier hs-var">distributeRep</span></span><span>
+</span><span id="line-138"></span><span>  </span><span id="local-6989586621679301416"><span class="annot"><span class="annottext">collect :: forall (f :: * -&gt; *) a b.
+Functor f =&gt;
+(a -&gt; Grating a b s b) -&gt; f a -&gt; Grating a b s (f b)
+</span><span class="hs-identifier hs-var hs-var hs-var">collect</span></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(a -&gt; Grating a b s b) -&gt; f a -&gt; Grating a b s (f b)
+forall (f :: * -&gt; *) (w :: * -&gt; *) a b.
+(Representable f, Functor w) =&gt;
+(a -&gt; f b) -&gt; w a -&gt; f (w b)
+</span><span class="hs-identifier hs-var">collectRep</span></span><span>
+</span><span id="line-139"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679301050"><span id="local-6989586621679301051"><span id="local-6989586621679301052"><span class="annot"><span class="hs-identifier hs-type">Representable</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Grate.html#Grating"><span class="hs-identifier hs-type">Grating</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679301050"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679301051"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679301052"><span class="hs-identifier hs-type">s</span></a></span><span class="hs-special">)</span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-140"></span><span>  </span><span class="hs-keyword">type</span><span> </span><span id="Rep"><span class="annot"><span class="hs-identifier hs-var">Rep</span></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Grate.html#Grating"><span class="hs-identifier hs-type">Grating</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679301050"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679301051"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679301052"><span class="hs-identifier hs-type">s</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679301052"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679301050"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679301051"><span class="hs-identifier hs-type">b</span></a></span><span>
+</span><span id="line-141"></span><span>  </span><span id="local-6989586621679301423"><span class="annot"><span class="annottext">index :: forall a. Grating a b s a -&gt; Rep (Grating a b s) -&gt; a
+</span><span class="hs-identifier hs-var hs-var hs-var">index</span></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Grate.html#Grating"><span class="hs-identifier hs-type">Grating</span></a></span><span> </span><span id="local-6989586621679301424"><span class="annot"><span class="annottext">((s -&gt; a) -&gt; b) -&gt; a
+</span><a href="#local-6989586621679301424"><span class="hs-identifier hs-var">k</span></a></span></span><span class="hs-special">)</span><span> </span><span id="local-6989586621679301425"><span class="annot"><span class="annottext">Rep (Grating a b s)
+</span><a href="#local-6989586621679301425"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">((s -&gt; a) -&gt; b) -&gt; a
+</span><a href="#local-6989586621679301424"><span class="hs-identifier hs-var">k</span></a></span><span> </span><span class="annot"><span class="annottext">Rep (Grating a b s)
+(s -&gt; a) -&gt; b
+</span><a href="#local-6989586621679301425"><span class="hs-identifier hs-var">f</span></a></span><span>
+</span><span id="line-142"></span><span>  </span><span id="local-6989586621679301426"><span class="annot"><span class="annottext">tabulate :: forall a. (Rep (Grating a b s) -&gt; a) -&gt; Grating a b s a
+</span><span class="hs-identifier hs-var hs-var hs-var">tabulate</span></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(Rep (Grating a b s) -&gt; a) -&gt; Grating a b s a
+(((s -&gt; a) -&gt; b) -&gt; a) -&gt; Grating a b s a
+forall a b s t. (((s -&gt; a) -&gt; b) -&gt; t) -&gt; Grating a b s t
+</span><a href="Control.Lens.Grate.html#Grating"><span class="hs-identifier hs-var">Grating</span></a></span><span>
+</span><span id="line-143"></span><span>
+</span><span id="line-144"></span><span class="annot"><span class="hs-comment">{- | t'Diffraction' is a secondary concrete representation of `Grate`s,
+by `Distributive` shapes, into which a source splits its foci,
+&amp; from which a target merges them, as
+t'Control.Lens.Monocle.Ditraversal's are of
+`Control.Lens.Monocle.Monocle`s, by `Traversable` &amp; `Distributive` shapes.
+
+&gt;&gt;&gt; over (diffraction (Diffraction (uncurry (:+)) (\(x :+ y) -&gt; (x, y)))) negate (1, 2)
+(-1,-2)
+-}</span></span><span>
+</span><span id="line-153"></span><span class="hs-keyword">data</span><span> </span><span id="Diffraction"><span class="annot"><a href="Control.Lens.Grate.html#Diffraction"><span class="hs-identifier hs-var">Diffraction</span></a></span></span><span> </span><span id="local-6989586621679301427"><span class="annot"><a href="#local-6989586621679301427"><span class="hs-identifier hs-type">a</span></a></span></span><span> </span><span id="local-6989586621679301428"><span class="annot"><a href="#local-6989586621679301428"><span class="hs-identifier hs-type">b</span></a></span></span><span> </span><span id="local-6989586621679301429"><span class="annot"><a href="#local-6989586621679301429"><span class="hs-identifier hs-type">s</span></a></span></span><span> </span><span id="local-6989586621679301430"><span class="annot"><a href="#local-6989586621679301430"><span class="hs-identifier hs-type">t</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-154"></span><span>  </span><span id="local-6989586621679301127"><span id="local-6989586621679301128"><span id="local-6989586621679301129"><span id="local-6989586621679301130"><span id="local-6989586621679301431"><span id="Diffraction"><span class="annot"><a href="Control.Lens.Grate.html#Diffraction"><span class="hs-identifier hs-var">Diffraction</span></a></span></span><span>
+</span><span id="line-155"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Distributive</span></span><span> </span><span class="annot"><a href="#local-6989586621679301431"><span class="hs-identifier hs-type">f</span></a></span><span>
+</span><span id="line-156"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679301127"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679301431"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679301128"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679301431"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679301129"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679301130"><span class="hs-identifier hs-type">t</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Control.Lens.Grate.html#Diffraction"><span class="hs-identifier hs-type">Diffraction</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679301128"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679301129"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679301127"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679301130"><span class="hs-identifier hs-type">t</span></a></span></span></span></span></span></span><span>
+</span><span id="line-157"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679301119"><span id="local-6989586621679301120"><span id="local-6989586621679301434"><span id="local-6989586621679301438"><span id="local-6989586621679301441"><span id="local-6989586621679301447"><span class="annot"><span class="hs-identifier hs-type">Profunctor</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Grate.html#Diffraction"><span class="hs-identifier hs-type">Diffraction</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679301119"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679301120"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span></span></span></span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-158"></span><span>  </span><span id="local-6989586621679301452"><span class="annot"><span class="annottext">dimap :: forall a b c d.
+(a -&gt; b) -&gt; (c -&gt; d) -&gt; Diffraction a b b c -&gt; Diffraction a b a d
+</span><span class="hs-identifier hs-var hs-var hs-var">dimap</span></span></span><span> </span><span id="local-6989586621679301453"><span class="annot"><span class="annottext">a -&gt; b
+</span><a href="#local-6989586621679301453"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span id="local-6989586621679301454"><span class="annot"><span class="annottext">c -&gt; d
+</span><a href="#local-6989586621679301454"><span class="hs-identifier hs-var">g</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Grate.html#Diffraction"><span class="hs-identifier hs-type">Diffraction</span></a></span><span> </span><span id="local-6989586621679301457"><span class="annot"><span class="annottext">b -&gt; f a
+</span><a href="#local-6989586621679301457"><span class="hs-identifier hs-var">split</span></a></span></span><span> </span><span id="local-6989586621679301458"><span class="annot"><span class="annottext">f b -&gt; c
+</span><a href="#local-6989586621679301458"><span class="hs-identifier hs-var">merge</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(a -&gt; f a) -&gt; (f b -&gt; d) -&gt; Diffraction a b a d
+forall (f :: * -&gt; *) s a b t.
+Distributive f =&gt;
+(s -&gt; f a) -&gt; (f b -&gt; t) -&gt; Diffraction a b s t
+</span><a href="Control.Lens.Grate.html#Diffraction"><span class="hs-identifier hs-var">Diffraction</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">b -&gt; f a
+</span><a href="#local-6989586621679301457"><span class="hs-identifier hs-var">split</span></a></span><span> </span><span class="annot"><span class="annottext">(b -&gt; f a) -&gt; (a -&gt; b) -&gt; a -&gt; f a
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">a -&gt; b
+</span><a href="#local-6989586621679301453"><span class="hs-identifier hs-var">f</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">c -&gt; d
+</span><a href="#local-6989586621679301454"><span class="hs-identifier hs-var">g</span></a></span><span> </span><span class="annot"><span class="annottext">(c -&gt; d) -&gt; (f b -&gt; c) -&gt; f b -&gt; d
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">f b -&gt; c
+</span><a href="#local-6989586621679301458"><span class="hs-identifier hs-var">merge</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-159"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679301134"><span id="local-6989586621679301135"><span id="local-6989586621679301136"><span id="local-6989586621679301461"><span class="annot"><span class="hs-identifier hs-type">Functor</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Grate.html#Diffraction"><span class="hs-identifier hs-type">Diffraction</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679301134"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679301135"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679301136"><span class="hs-identifier hs-type">s</span></a></span><span class="hs-special">)</span></span></span></span></span><span> </span><span class="hs-keyword">where</span><span> </span><span id="local-6989586621679301465"><span class="annot"><span class="annottext">fmap :: forall a b. (a -&gt; b) -&gt; Diffraction a b s a -&gt; Diffraction a b s b
+</span><span class="hs-identifier hs-var hs-var hs-var">fmap</span></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(a -&gt; b) -&gt; Diffraction a b s a -&gt; Diffraction a b s b
+forall b c a.
+(b -&gt; c) -&gt; Diffraction a b a b -&gt; Diffraction a b a c
+forall (p :: * -&gt; * -&gt; *) b c a.
+Profunctor p =&gt;
+(b -&gt; c) -&gt; p a b -&gt; p a c
+</span><span class="hs-identifier hs-var">rmap</span></span><span>
+</span><span id="line-160"></span><span>
+</span><span id="line-161"></span><span class="annot"><span class="hs-comment">{- | Build a `Grate` from a t'Diffraction',
+getting each focus of its shape by `distribute`.
+-}</span></span><span>
+</span><span id="line-164"></span><span id="local-6989586621679301139"><span id="local-6989586621679301140"><span id="local-6989586621679301141"><span id="local-6989586621679301142"><span class="annot"><a href="Control.Lens.Grate.html#diffraction"><span class="hs-identifier hs-type">diffraction</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Control.Lens.Grate.html#Diffraction"><span class="hs-identifier hs-type">Diffraction</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679301139"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679301140"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679301141"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679301142"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Control.Lens.Grate.html#Grate"><span class="hs-identifier hs-type">Grate</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679301141"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679301142"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679301139"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679301140"><span class="hs-identifier hs-type">b</span></a></span></span></span></span></span><span>
+</span><span id="line-165"></span><span id="diffraction"><span class="annot"><span class="annottext">diffraction :: forall a b s t. Diffraction a b s t -&gt; Grate s t a b
+</span><a href="Control.Lens.Grate.html#diffraction"><span class="hs-identifier hs-var hs-var">diffraction</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Grate.html#Diffraction"><span class="hs-identifier hs-type">Diffraction</span></a></span><span> </span><span id="local-6989586621679301480"><span class="annot"><span class="annottext">s -&gt; f a
+</span><a href="#local-6989586621679301480"><span class="hs-identifier hs-var">split</span></a></span></span><span> </span><span id="local-6989586621679301481"><span class="annot"><span class="annottext">f b -&gt; t
+</span><a href="#local-6989586621679301481"><span class="hs-identifier hs-var">merge</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-166"></span><span>  </span><span class="annot"><span class="annottext">(((s -&gt; a) -&gt; b) -&gt; t) -&gt; p a (f b) -&gt; p s (f t)
+(((s -&gt; a) -&gt; b) -&gt; t) -&gt; Grate s t a b
+forall s a b t. (((s -&gt; a) -&gt; b) -&gt; t) -&gt; Grate s t a b
+</span><a href="Control.Lens.Grate.html#grate"><span class="hs-identifier hs-var">grate</span></a></span><span> </span><span class="annot"><span class="annottext">((((s -&gt; a) -&gt; b) -&gt; t) -&gt; Grate s t a b)
+-&gt; (((s -&gt; a) -&gt; b) -&gt; t) -&gt; Grate s t a b
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679301490"><span class="annot"><span class="annottext">(s -&gt; a) -&gt; b
+</span><a href="#local-6989586621679301490"><span class="hs-identifier hs-var">get</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">f b -&gt; t
+</span><a href="#local-6989586621679301481"><span class="hs-identifier hs-var">merge</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">((s -&gt; a) -&gt; b) -&gt; f (s -&gt; a) -&gt; f b
+forall a b. (a -&gt; b) -&gt; f a -&gt; f b
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">fmap</span></span><span> </span><span class="annot"><span class="annottext">(s -&gt; a) -&gt; b
+</span><a href="#local-6989586621679301490"><span class="hs-identifier hs-var">get</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(s -&gt; f a) -&gt; f (s -&gt; a)
+forall (g :: * -&gt; *) (f :: * -&gt; *) a.
+(Distributive g, Functor f) =&gt;
+f (g a) -&gt; g (f a)
+forall (f :: * -&gt; *) a. Functor f =&gt; f (f a) -&gt; f (f a)
+</span><span class="hs-identifier hs-var">distribute</span></span><span> </span><span class="annot"><span class="annottext">s -&gt; f a
+</span><a href="#local-6989586621679301480"><span class="hs-identifier hs-var">split</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-167"></span><span>
+</span><span id="line-168"></span><span class="annot"><span class="hs-comment">{- | Convert `AGrate` to the pair of functions that characterize it,
+splitting into &amp; merging from a `Distributive` shape,
+the functions of getters, as a t'Grating' is.
+
+&gt;&gt;&gt; withDiffraction cotraversed $ \split merge -&gt; merge (fmap (+ 1) (split (1 :+ 2))) :: Complex Int
+2 :+ 3
+-}</span></span><span>
+</span><span id="line-175"></span><span id="local-6989586621679301152"><span id="local-6989586621679301153"><span id="local-6989586621679301154"><span id="local-6989586621679301155"><span id="local-6989586621679301157"><span class="annot"><a href="Control.Lens.Grate.html#withDiffraction"><span class="hs-identifier hs-type">withDiffraction</span></a></span><span>
+</span><span id="line-176"></span><span>  </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Control.Lens.Grate.html#AGrate"><span class="hs-identifier hs-type">AGrate</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679301152"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679301153"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679301154"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679301155"><span class="hs-identifier hs-type">b</span></a></span><span>
+</span><span id="line-177"></span><span>  </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="hs-keyword">forall</span><span> </span><span id="local-6989586621679301156"><span class="annot"><a href="#local-6989586621679301156"><span class="hs-identifier hs-type">f</span></a></span></span><span class="hs-operator">.</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Distributive</span></span><span> </span><span class="annot"><a href="#local-6989586621679301156"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679301152"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679301156"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679301154"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679301156"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679301155"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679301153"><span class="hs-identifier hs-type">t</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679301157"><span class="hs-identifier hs-type">r</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-178"></span><span>  </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679301157"><span class="hs-identifier hs-type">r</span></a></span></span></span></span></span></span><span>
+</span><span id="line-179"></span><span id="withDiffraction"><span class="annot"><span class="annottext">withDiffraction :: forall s t a b r.
+AGrate s t a b
+-&gt; (forall (f :: * -&gt; *).
+    Distributive f =&gt;
+    (s -&gt; f a) -&gt; (f b -&gt; t) -&gt; r)
+-&gt; r
+</span><a href="Control.Lens.Grate.html#withDiffraction"><span class="hs-identifier hs-var hs-var">withDiffraction</span></a></span></span><span> </span><span id="local-6989586621679301493"><span class="annot"><span class="annottext">AGrate s t a b
+</span><a href="#local-6989586621679301493"><span class="hs-identifier hs-var">grt</span></a></span></span><span> </span><span id="local-6989586621679301494"><span class="annot"><span class="annottext">forall (f :: * -&gt; *).
+Distributive f =&gt;
+(s -&gt; f a) -&gt; (f b -&gt; t) -&gt; r
+</span><a href="#local-6989586621679301494"><span class="hs-identifier hs-var">k</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(s -&gt; (s -&gt; a) -&gt; a) -&gt; (((s -&gt; a) -&gt; b) -&gt; t) -&gt; r
+forall (f :: * -&gt; *).
+Distributive f =&gt;
+(s -&gt; f a) -&gt; (f b -&gt; t) -&gt; r
+</span><a href="#local-6989586621679301494"><span class="hs-identifier hs-var">k</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span id="local-6989586621679301495"><span class="annot"><span class="annottext">s
+</span><a href="#local-6989586621679301495"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span id="local-6989586621679301496"><span class="annot"><span class="annottext">s -&gt; a
+</span><a href="#local-6989586621679301496"><span class="hs-identifier hs-var">get</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">s -&gt; a
+</span><a href="#local-6989586621679301496"><span class="hs-identifier hs-var">get</span></a></span><span> </span><span class="annot"><span class="annottext">s
+</span><a href="#local-6989586621679301495"><span class="hs-identifier hs-var">s</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">AGrate s t a b -&gt; ((s -&gt; a) -&gt; b) -&gt; t
+forall s t a b. AGrate s t a b -&gt; ((s -&gt; a) -&gt; b) -&gt; t
+</span><a href="Control.Lens.Grate.html#withGrate"><span class="hs-identifier hs-var">withGrate</span></a></span><span> </span><span class="annot"><span class="annottext">AGrate s t a b
+</span><a href="#local-6989586621679301493"><span class="hs-identifier hs-var">grt</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-180"></span></pre></body></html>

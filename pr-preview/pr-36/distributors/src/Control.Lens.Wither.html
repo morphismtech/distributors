@@ -1,0 +1,351 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="annot"><span class="hs-comment">{- |
+Module      : Control.Lens.Wither
+Description : withers
+Copyright   : (C) 2026 - Eitan Chatav
+License     : BSD-style (see the file LICENSE)
+Maintainer  : Eitan Chatav &lt;eitan.chatav@gmail.com&gt;
+Stability   : provisional
+Portability : non-portable
+
+See Chris Penner,
+[Composable Filters Using Witherable Optics](https://chrispenner.ca/posts/witherable-optics)
+-}</span></span><span>
+</span><span id="line-13"></span><span>
+</span><span id="line-14"></span><span class="hs-keyword">module</span><span> </span><span class="annot"><a href="Control.Lens.Wither.html"><span class="hs-identifier">Control.Lens.Wither</span></a></span><span>
+</span><span id="line-15"></span><span>  </span><span class="hs-special">(</span><span> </span><span class="annot"><span class="hs-comment">-- * Wither</span></span><span>
+</span><span id="line-16"></span><span>    </span><span class="annot"><a href="Control.Lens.Wither.html#Wither"><span class="hs-identifier">Wither</span></a></span><span>
+</span><span id="line-17"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Wither.html#AWither"><span class="hs-identifier">AWither</span></a></span><span>
+</span><span id="line-18"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Wither.html#Altar"><span class="hs-identifier">Altar</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><span id="line-19"></span><span>    </span><span class="annot"><span class="hs-comment">-- * Combinators</span></span><span>
+</span><span id="line-20"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Wither.html#cloneWither"><span class="hs-identifier">cloneWither</span></a></span><span>
+</span><span id="line-21"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Wither.html#withered"><span class="hs-identifier">withered</span></a></span><span>
+</span><span id="line-22"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Wither.html#filtraversed"><span class="hs-identifier">filtraversed</span></a></span><span>
+</span><span id="line-23"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Wither.html#filterOf"><span class="hs-identifier">filterOf</span></a></span><span>
+</span><span id="line-24"></span><span>  </span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-25"></span><span>
+</span><span id="line-26"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Applicative</span></span><span>
+</span><span id="line-27"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Lens</span></span><span>
+</span><span id="line-28"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Lens.Internal.Context</span></span><span>
+</span><span id="line-29"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Profunctor.Rep</span></span><span>
+</span><span id="line-30"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Profunctor.Sieve</span></span><span>
+</span><span id="line-31"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Prelude</span></span><span> </span><span class="hs-keyword">hiding</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">filter</span></span><span class="hs-special">)</span><span>
+</span><span id="line-32"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Witherable</span></span><span>
+</span><span id="line-33"></span><span>
+</span><span id="line-34"></span><span class="hs-comment">-- $setup</span><span>
+</span><span id="line-35"></span><span class="hs-comment">-- &gt;&gt;&gt; import Control.Applicative (Alternative (..))</span><span>
+</span><span id="line-36"></span><span class="hs-comment">-- &gt;&gt;&gt; import Control.Lens</span><span>
+</span><span id="line-37"></span><span class="hs-comment">-- &gt;&gt;&gt; import Control.Lens.PartialIso (partialIso, withPartialIso)</span><span>
+</span><span id="line-38"></span><span>
+</span><span id="line-39"></span><span class="annot"><span class="hs-comment">{- | `Wither`s extend `Control.Lens.Traversal.Traversal`s by filtering.
+`Control.Lens.Traversal.Traversal` &#8834; `Wither`,
+
+so every `Control.Lens.Iso.Iso`, `Control.Lens.Lens.Lens`
+&amp; `Control.Lens.Prism.Prism` is a `Wither` too.
+-}</span></span><span>
+</span><span id="line-45"></span><span class="hs-keyword">type</span><span> </span><span id="Wither"><span class="annot"><a href="Control.Lens.Wither.html#Wither"><span class="hs-identifier hs-var">Wither</span></a></span></span><span> </span><span id="local-6989586621679291691"><span class="annot"><a href="#local-6989586621679291691"><span class="hs-identifier hs-type">s</span></a></span></span><span> </span><span id="local-6989586621679291692"><span class="annot"><a href="#local-6989586621679291692"><span class="hs-identifier hs-type">t</span></a></span></span><span> </span><span id="local-6989586621679291693"><span class="annot"><a href="#local-6989586621679291693"><span class="hs-identifier hs-type">a</span></a></span></span><span> </span><span id="local-6989586621679291694"><span class="annot"><a href="#local-6989586621679291694"><span class="hs-identifier hs-type">b</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">forall</span><span> </span><span id="local-6989586621679291695"><span class="annot"><a href="#local-6989586621679291695"><span class="hs-identifier hs-type">f</span></a></span></span><span class="hs-operator">.</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Alternative</span></span><span> </span><span class="annot"><a href="#local-6989586621679291695"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679291693"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679291695"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679291694"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679291691"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679291695"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679291692"><span class="hs-identifier hs-type">t</span></a></span><span>
+</span><span id="line-46"></span><span>
+</span><span id="line-47"></span><span class="annot"><span class="hs-comment">{- | `AWither` is monomorphically a `Wither`.
+
+&gt; prop&gt; Wither s t a b &#8834; AWither s t a b
+-}</span></span><span>
+</span><span id="line-51"></span><span class="hs-keyword">type</span><span> </span><span id="AWither"><span class="annot"><a href="Control.Lens.Wither.html#AWither"><span class="hs-identifier hs-var">AWither</span></a></span></span><span> </span><span id="local-6989586621679291696"><span class="annot"><a href="#local-6989586621679291696"><span class="hs-identifier hs-type">s</span></a></span></span><span> </span><span id="local-6989586621679291697"><span class="annot"><a href="#local-6989586621679291697"><span class="hs-identifier hs-type">t</span></a></span></span><span> </span><span id="local-6989586621679291698"><span class="annot"><a href="#local-6989586621679291698"><span class="hs-identifier hs-type">a</span></a></span></span><span> </span><span id="local-6989586621679291699"><span class="annot"><a href="#local-6989586621679291699"><span class="hs-identifier hs-type">b</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679291698"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Control.Lens.Wither.html#Altar"><span class="hs-identifier hs-type">Altar</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679291698"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679291699"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679291699"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679291696"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Control.Lens.Wither.html#Altar"><span class="hs-identifier hs-type">Altar</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679291698"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679291699"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679291697"><span class="hs-identifier hs-type">t</span></a></span><span>
+</span><span id="line-52"></span><span>
+</span><span id="line-53"></span><span class="annot"><span class="hs-comment">{- | Clone `AWither` so that you can reuse the same
+monomorphically typed `Wither` for different purposes.
+-}</span></span><span>
+</span><span id="line-56"></span><span id="local-6989586621679291547"><span id="local-6989586621679291548"><span id="local-6989586621679291549"><span id="local-6989586621679291550"><span class="annot"><a href="Control.Lens.Wither.html#cloneWither"><span class="hs-identifier hs-type">cloneWither</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Control.Lens.Wither.html#AWither"><span class="hs-identifier hs-type">AWither</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679291547"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679291548"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679291549"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679291550"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Control.Lens.Wither.html#Wither"><span class="hs-identifier hs-type">Wither</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679291547"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679291548"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679291549"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679291550"><span class="hs-identifier hs-type">b</span></a></span></span></span></span></span><span>
+</span><span id="line-57"></span><span id="cloneWither"><span class="annot"><span class="annottext">cloneWither :: forall s t a b. AWither s t a b -&gt; Wither s t a b
+</span><a href="Control.Lens.Wither.html#cloneWither"><span class="hs-identifier hs-var hs-var">cloneWither</span></a></span></span><span> </span><span id="local-6989586621679291704"><span class="annot"><span class="annottext">AWither s t a b
+</span><a href="#local-6989586621679291704"><span class="hs-identifier hs-var">w</span></a></span></span><span> </span><span id="local-6989586621679291705"><span class="annot"><span class="annottext">a -&gt; f b
+</span><a href="#local-6989586621679291705"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span id="local-6989586621679291706"><span class="annot"><span class="annottext">a -&gt; f b
+</span><a href="#local-6989586621679291706"><span class="hs-identifier hs-var">g</span></a></span></span><span> </span><span id="local-6989586621679291707"><span class="annot"><span class="annottext">Altar a b t
+</span><a href="#local-6989586621679291707"><span class="hs-identifier hs-var">z</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Altar a b t
+-&gt; forall (f :: * -&gt; *). Alternative f =&gt; (a -&gt; f b) -&gt; f t
+forall a b t.
+Altar a b t
+-&gt; forall (f :: * -&gt; *). Alternative f =&gt; (a -&gt; f b) -&gt; f t
+</span><a href="Control.Lens.Wither.html#runAltar"><span class="hs-identifier hs-var">runAltar</span></a></span><span> </span><span class="annot"><span class="annottext">Altar a b t
+</span><a href="#local-6989586621679291707"><span class="hs-identifier hs-var">z</span></a></span><span> </span><span class="annot"><span class="annottext">a -&gt; f b
+</span><a href="#local-6989586621679291706"><span class="hs-identifier hs-var">g</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">a -&gt; f b
+</span><a href="#local-6989586621679291705"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">(Altar a b t -&gt; f t) -&gt; (s -&gt; Altar a b t) -&gt; s -&gt; f t
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">AWither s t a b
+</span><a href="#local-6989586621679291704"><span class="hs-identifier hs-var">w</span></a></span><span> </span><span class="annot"><span class="annottext">a -&gt; Altar a b b
+forall a b. a -&gt; Altar a b b
+forall (p :: * -&gt; * -&gt; *) (w :: * -&gt; * -&gt; * -&gt; *) a b.
+Sellable p w =&gt;
+p a (w a b b)
+</span><span class="hs-identifier hs-var">sell</span></span><span>
+</span><span id="line-58"></span><span>
+</span><span id="line-59"></span><span class="annot"><span class="hs-comment">{- | Construct a `Wither` for a `Witherable`,
+dropping each element whose action fails, by `optional`.
+
+A `Control.Lens.Prism.Prism` passes a mismatch through,
+so it filters nothing in a `Wither`. Penner's @witherPrism@
+makes it fail instead, by `empty`, so that `withered` drops it.
+
+&gt;&gt;&gt; :{
+witherPrism
+  :: (Choice p, Alternative f)
+  =&gt; APrism s t a b -&gt; p a (f b) -&gt; p s (f t)
+witherPrism prsm = withPrism prsm $ \embed match -&gt;
+  dimap match (either (const empty) (fmap embed)) . right'
+:}
+
+&gt;&gt;&gt; (withered . witherPrism _Just) (\x -&gt; Just (x + 1)) [Just 1, Nothing, Just 2]
+Just [Just 2,Just 3]
+
+With @catMaybes (pure Nothing)@ in place of `empty`, for a `Filterable` @f@,
+@witherPrism@ is @withPartialIso prsm partialIso@,
+rebuilding a `Control.Lens.PartialIso.PartialIso`
+from the partial functions of a `Control.Lens.Prism.Prism`.
+
+&gt;&gt;&gt; (withered . withPartialIso _Just partialIso) (\x -&gt; Just (x + 1)) [Just 1, Nothing, Just 2]
+Just [Just 2,Just 3]
+-}</span></span><span>
+</span><span id="line-85"></span><span id="local-6989586621679291572"><span id="local-6989586621679291574"><span id="local-6989586621679291575"><span class="annot"><a href="Control.Lens.Wither.html#withered"><span class="hs-identifier hs-type">withered</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Witherable</span></span><span> </span><span class="annot"><a href="#local-6989586621679291572"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Control.Lens.Wither.html#Wither"><span class="hs-identifier hs-type">Wither</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679291572"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679291574"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679291572"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679291575"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621679291574"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679291575"><span class="hs-identifier hs-type">b</span></a></span></span></span></span><span>
+</span><span id="line-86"></span><span id="withered"><span class="annot"><span class="annottext">withered :: forall (t :: * -&gt; *) a b. Witherable t =&gt; Wither (t a) (t b) a b
+</span><a href="Control.Lens.Wither.html#withered"><span class="hs-identifier hs-var hs-var">withered</span></a></span></span><span> </span><span id="local-6989586621679291720"><span class="annot"><span class="annottext">a -&gt; f b
+</span><a href="#local-6989586621679291720"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(a -&gt; f (Maybe b)) -&gt; t a -&gt; f (t b)
+forall (t :: * -&gt; *) (f :: * -&gt; *) a b.
+(Witherable t, Applicative f) =&gt;
+(a -&gt; f (Maybe b)) -&gt; t a -&gt; f (t b)
+forall (f :: * -&gt; *) a b.
+Applicative f =&gt;
+(a -&gt; f (Maybe b)) -&gt; t a -&gt; f (t b)
+</span><span class="hs-identifier hs-var">wither</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">f b -&gt; f (Maybe b)
+forall (f :: * -&gt; *) a. Alternative f =&gt; f a -&gt; f (Maybe a)
+</span><span class="hs-identifier hs-var">optional</span></span><span> </span><span class="annot"><span class="annottext">(f b -&gt; f (Maybe b)) -&gt; (a -&gt; f b) -&gt; a -&gt; f (Maybe b)
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">a -&gt; f b
+</span><a href="#local-6989586621679291720"><span class="hs-identifier hs-var">f</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-87"></span><span>
+</span><span id="line-88"></span><span class="annot"><span class="hs-comment">{- |
+&gt; prop&gt; withered = filtraversed
+-}</span></span><span>
+</span><span id="line-91"></span><span id="local-6989586621679291587"><span id="local-6989586621679291589"><span id="local-6989586621679291590"><span class="annot"><a href="Control.Lens.Wither.html#filtraversed"><span class="hs-identifier hs-type">filtraversed</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Filterable</span></span><span> </span><span class="annot"><a href="#local-6989586621679291587"><span class="hs-identifier hs-type">t</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Traversable</span></span><span> </span><span class="annot"><a href="#local-6989586621679291587"><span class="hs-identifier hs-type">t</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Control.Lens.Wither.html#Wither"><span class="hs-identifier hs-type">Wither</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679291587"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679291589"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679291587"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679291590"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621679291589"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679291590"><span class="hs-identifier hs-type">b</span></a></span></span></span></span><span>
+</span><span id="line-92"></span><span id="filtraversed"><span class="annot"><span class="annottext">filtraversed :: forall (t :: * -&gt; *) a b.
+(Filterable t, Traversable t) =&gt;
+Wither (t a) (t b) a b
+</span><a href="Control.Lens.Wither.html#filtraversed"><span class="hs-identifier hs-var hs-var">filtraversed</span></a></span></span><span> </span><span id="local-6989586621679291733"><span class="annot"><span class="annottext">a -&gt; f b
+</span><a href="#local-6989586621679291733"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(t (Maybe b) -&gt; t b) -&gt; f (t (Maybe b)) -&gt; f (t b)
+forall a b. (a -&gt; b) -&gt; f a -&gt; f b
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">fmap</span></span><span> </span><span class="annot"><span class="annottext">t (Maybe b) -&gt; t b
+forall a. t (Maybe a) -&gt; t a
+forall (f :: * -&gt; *) a. Filterable f =&gt; f (Maybe a) -&gt; f a
+</span><span class="hs-identifier hs-var">catMaybes</span></span><span> </span><span class="annot"><span class="annottext">(f (t (Maybe b)) -&gt; f (t b))
+-&gt; (t a -&gt; f (t (Maybe b))) -&gt; t a -&gt; f (t b)
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">(a -&gt; f (Maybe b)) -&gt; t a -&gt; f (t (Maybe b))
+forall (t :: * -&gt; *) (f :: * -&gt; *) a b.
+(Traversable t, Applicative f) =&gt;
+(a -&gt; f b) -&gt; t a -&gt; f (t b)
+forall (f :: * -&gt; *) a b.
+Applicative f =&gt;
+(a -&gt; f b) -&gt; t a -&gt; f (t b)
+</span><span class="hs-identifier hs-var">traverse</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">f b -&gt; f (Maybe b)
+forall (f :: * -&gt; *) a. Alternative f =&gt; f a -&gt; f (Maybe a)
+</span><span class="hs-identifier hs-var">optional</span></span><span> </span><span class="annot"><span class="annottext">(f b -&gt; f (Maybe b)) -&gt; (a -&gt; f b) -&gt; a -&gt; f (Maybe b)
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">a -&gt; f b
+</span><a href="#local-6989586621679291733"><span class="hs-identifier hs-var">f</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-93"></span><span>
+</span><span id="line-94"></span><span class="annot"><span class="hs-comment">{- | Filter a traversed structure based on a predicate. -}</span></span><span>
+</span><span id="line-95"></span><span id="local-6989586621679291605"><span id="local-6989586621679291606"><span id="local-6989586621679291607"><span id="local-6989586621679291608"><span class="annot"><a href="Control.Lens.Wither.html#filterOf"><span class="hs-identifier hs-type">filterOf</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Alternative</span></span><span> </span><span class="annot"><a href="#local-6989586621679291605"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Control.Lens.Wither.html#Wither"><span class="hs-identifier hs-type">Wither</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679291606"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679291607"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679291608"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679291608"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679291608"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Bool</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679291606"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679291605"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679291607"><span class="hs-identifier hs-type">t</span></a></span></span></span></span></span><span>
+</span><span id="line-96"></span><span id="filterOf"><span class="annot"><span class="annottext">filterOf :: forall (m :: * -&gt; *) s t a.
+Alternative m =&gt;
+Wither s t a a -&gt; (a -&gt; Bool) -&gt; s -&gt; m t
+</span><a href="Control.Lens.Wither.html#filterOf"><span class="hs-identifier hs-var hs-var">filterOf</span></a></span></span><span> </span><span id="local-6989586621679291741"><span class="annot"><span class="annottext">Wither s t a a
+</span><a href="#local-6989586621679291741"><span class="hs-identifier hs-var">w</span></a></span></span><span> </span><span id="local-6989586621679291742"><span class="annot"><span class="annottext">a -&gt; Bool
+</span><a href="#local-6989586621679291742"><span class="hs-identifier hs-var">p</span></a></span></span><span> </span><span id="local-6989586621679291743"><span class="annot"><span class="annottext">s
+</span><a href="#local-6989586621679291743"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(a -&gt; m a) -&gt; s -&gt; m t
+Wither s t a a
+</span><a href="#local-6989586621679291741"><span class="hs-identifier hs-var">w</span></a></span><span> </span><span class="annot"><span class="annottext">a -&gt; m a
+</span><a href="#local-6989586621679291744"><span class="hs-identifier hs-var">guardingp</span></a></span><span> </span><span class="annot"><span class="annottext">s
+</span><a href="#local-6989586621679291743"><span class="hs-identifier hs-var">s</span></a></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-97"></span><span>  </span><span id="local-6989586621679291744"><span class="annot"><span class="annottext">guardingp :: a -&gt; m a
+</span><a href="#local-6989586621679291744"><span class="hs-identifier hs-var hs-var">guardingp</span></a></span></span><span> </span><span id="local-6989586621679291745"><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679291745"><span class="hs-identifier hs-var">a</span></a></span></span><span>
+</span><span id="line-98"></span><span>    </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">a -&gt; Bool
+</span><a href="#local-6989586621679291742"><span class="hs-identifier hs-var">p</span></a></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679291745"><span class="hs-identifier hs-var">a</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">a -&gt; m a
+forall a. a -&gt; m a
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><span class="hs-identifier hs-var">pure</span></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679291745"><span class="hs-identifier hs-var">a</span></a></span><span>
+</span><span id="line-99"></span><span>    </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><span class="hs-identifier hs-var">otherwise</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">m a
+forall a. m a
+forall (f :: * -&gt; *) a. Alternative f =&gt; f a
+</span><span class="hs-identifier hs-var">empty</span></span><span>
+</span><span id="line-100"></span><span>
+</span><span id="line-101"></span><span class="annot"><span class="hs-comment">{- | This is used to characterize `Wither`s. -}</span></span><span>
+</span><span id="line-102"></span><span class="hs-keyword">newtype</span><span> </span><span id="Altar"><span class="annot"><a href="Control.Lens.Wither.html#Altar"><span class="hs-identifier hs-var">Altar</span></a></span></span><span> </span><span id="local-6989586621679291562"><span class="annot"><a href="#local-6989586621679291562"><span class="hs-identifier hs-type">a</span></a></span></span><span> </span><span id="local-6989586621679291563"><span class="annot"><a href="#local-6989586621679291563"><span class="hs-identifier hs-type">b</span></a></span></span><span> </span><span id="local-6989586621679291564"><span class="annot"><a href="#local-6989586621679291564"><span class="hs-identifier hs-type">t</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="Altar"><span class="annot"><a href="Control.Lens.Wither.html#Altar"><span class="hs-identifier hs-var">Altar</span></a></span></span><span>
+</span><span id="line-103"></span><span>  </span><span class="hs-special">{</span><span> </span><span id="runAltar"><span class="annot"><span class="annottext">forall a b t.
+Altar a b t
+-&gt; forall (f :: * -&gt; *). Alternative f =&gt; (a -&gt; f b) -&gt; f t
+</span><a href="Control.Lens.Wither.html#runAltar"><span class="hs-identifier hs-var hs-var">runAltar</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-keyword">forall</span><span> </span><span id="local-6989586621679291561"><span class="annot"><a href="#local-6989586621679291561"><span class="hs-identifier hs-type">f</span></a></span></span><span class="hs-operator">.</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Alternative</span></span><span> </span><span class="annot"><a href="#local-6989586621679291561"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679291562"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679291561"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679291563"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679291561"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679291564"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="hs-special">}</span><span>
+</span><span id="line-104"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679291623"><span id="local-6989586621679291624"><span id="local-6989586621679291751"><span class="annot"><span class="hs-identifier hs-type">Functor</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Wither.html#Altar"><span class="hs-identifier hs-type">Altar</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679291623"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679291624"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-105"></span><span>  </span><span id="local-6989586621679291755"><span class="annot"><span class="annottext">fmap :: forall a b. (a -&gt; b) -&gt; Altar a b a -&gt; Altar a b b
+</span><span class="hs-identifier hs-var hs-var hs-var">fmap</span></span></span><span> </span><span id="local-6989586621679291756"><span class="annot"><span class="annottext">a -&gt; b
+</span><a href="#local-6989586621679291756"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Wither.html#Altar"><span class="hs-identifier hs-type">Altar</span></a></span><span> </span><span id="local-6989586621679291757"><span class="annot"><span class="annottext">forall (f :: * -&gt; *). Alternative f =&gt; (a -&gt; f b) -&gt; f a
+</span><a href="#local-6989586621679291757"><span class="hs-identifier hs-var">k</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(forall (f :: * -&gt; *). Alternative f =&gt; (a -&gt; f b) -&gt; f b)
+-&gt; Altar a b b
+forall a b t.
+(forall (f :: * -&gt; *). Alternative f =&gt; (a -&gt; f b) -&gt; f t)
+-&gt; Altar a b t
+</span><a href="Control.Lens.Wither.html#Altar"><span class="hs-identifier hs-var">Altar</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(a -&gt; b) -&gt; f a -&gt; f b
+forall a b. (a -&gt; b) -&gt; f a -&gt; f b
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">fmap</span></span><span> </span><span class="annot"><span class="annottext">a -&gt; b
+</span><a href="#local-6989586621679291756"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">(f a -&gt; f b) -&gt; ((a -&gt; f b) -&gt; f a) -&gt; (a -&gt; f b) -&gt; f b
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">(a -&gt; f b) -&gt; f a
+forall (f :: * -&gt; *). Alternative f =&gt; (a -&gt; f b) -&gt; f a
+</span><a href="#local-6989586621679291757"><span class="hs-identifier hs-var">k</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-106"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679291639"><span id="local-6989586621679291640"><span id="local-6989586621679291768"><span id="local-6989586621679291772"><span id="local-6989586621679291775"><span class="annot"><span class="hs-identifier hs-type">Applicative</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Wither.html#Altar"><span class="hs-identifier hs-type">Altar</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679291639"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679291640"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span></span></span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-107"></span><span>  </span><span id="local-6989586621679291778"><span class="annot"><span class="annottext">pure :: forall a. a -&gt; Altar a b a
+</span><span class="hs-identifier hs-var hs-var hs-var">pure</span></span></span><span> </span><span id="local-6989586621679291779"><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679291779"><span class="hs-identifier hs-var">a</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(forall (f :: * -&gt; *). Alternative f =&gt; (a -&gt; f b) -&gt; f a)
+-&gt; Altar a b a
+forall a b t.
+(forall (f :: * -&gt; *). Alternative f =&gt; (a -&gt; f b) -&gt; f t)
+-&gt; Altar a b t
+</span><a href="Control.Lens.Wither.html#Altar"><span class="hs-identifier hs-var">Altar</span></a></span><span> </span><span class="annot"><span class="annottext">((forall (f :: * -&gt; *). Alternative f =&gt; (a -&gt; f b) -&gt; f a)
+ -&gt; Altar a b a)
+-&gt; (forall (f :: * -&gt; *). Alternative f =&gt; (a -&gt; f b) -&gt; f a)
+-&gt; Altar a b a
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">f a -&gt; (a -&gt; f b) -&gt; f a
+forall a b. a -&gt; b -&gt; a
+</span><span class="hs-identifier hs-var">const</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">a -&gt; f a
+forall a. a -&gt; f a
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><span class="hs-identifier hs-var">pure</span></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679291779"><span class="hs-identifier hs-var">a</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-108"></span><span>  </span><span class="annot"><a href="Control.Lens.Wither.html#Altar"><span class="hs-identifier hs-type">Altar</span></a></span><span> </span><span id="local-6989586621679291786"><span class="annot"><span class="annottext">forall (f :: * -&gt; *). Alternative f =&gt; (a -&gt; f b) -&gt; f (a -&gt; b)
+</span><a href="#local-6989586621679291786"><span class="hs-identifier hs-var">mf</span></a></span></span><span> </span><span id="local-6989586621679291787"><span class="annot"><span class="annottext">&lt;*&gt; :: forall a b. Altar a b (a -&gt; b) -&gt; Altar a b a -&gt; Altar a b b
+</span><span class="hs-operator hs-var hs-var hs-var">&lt;*&gt;</span></span></span><span> </span><span class="annot"><a href="Control.Lens.Wither.html#Altar"><span class="hs-identifier hs-type">Altar</span></a></span><span> </span><span id="local-6989586621679291788"><span class="annot"><span class="annottext">forall (f :: * -&gt; *). Alternative f =&gt; (a -&gt; f b) -&gt; f a
+</span><a href="#local-6989586621679291788"><span class="hs-identifier hs-var">ma</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(forall (f :: * -&gt; *). Alternative f =&gt; (a -&gt; f b) -&gt; f b)
+-&gt; Altar a b b
+forall a b t.
+(forall (f :: * -&gt; *). Alternative f =&gt; (a -&gt; f b) -&gt; f t)
+-&gt; Altar a b t
+</span><a href="Control.Lens.Wither.html#Altar"><span class="hs-identifier hs-var">Altar</span></a></span><span> </span><span class="annot"><span class="annottext">((forall (f :: * -&gt; *). Alternative f =&gt; (a -&gt; f b) -&gt; f b)
+ -&gt; Altar a b b)
+-&gt; (forall (f :: * -&gt; *). Alternative f =&gt; (a -&gt; f b) -&gt; f b)
+-&gt; Altar a b b
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">(f (a -&gt; b) -&gt; f a -&gt; f b)
+-&gt; ((a -&gt; f b) -&gt; f (a -&gt; b))
+-&gt; ((a -&gt; f b) -&gt; f a)
+-&gt; (a -&gt; f b)
+-&gt; f b
+forall a b c.
+(a -&gt; b -&gt; c)
+-&gt; ((a -&gt; f b) -&gt; a) -&gt; ((a -&gt; f b) -&gt; b) -&gt; (a -&gt; f b) -&gt; c
+forall (f :: * -&gt; *) a b c.
+Applicative f =&gt;
+(a -&gt; b -&gt; c) -&gt; f a -&gt; f b -&gt; f c
+</span><span class="hs-identifier hs-var">liftA2</span></span><span> </span><span class="annot"><span class="annottext">f (a -&gt; b) -&gt; f a -&gt; f b
+forall a b. f (a -&gt; b) -&gt; f a -&gt; f b
+forall (f :: * -&gt; *) a b. Applicative f =&gt; f (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">(&lt;*&gt;)</span></span><span> </span><span class="annot"><span class="annottext">(a -&gt; f b) -&gt; f (a -&gt; b)
+forall (f :: * -&gt; *). Alternative f =&gt; (a -&gt; f b) -&gt; f (a -&gt; b)
+</span><a href="#local-6989586621679291786"><span class="hs-identifier hs-var">mf</span></a></span><span> </span><span class="annot"><span class="annottext">(a -&gt; f b) -&gt; f a
+forall (f :: * -&gt; *). Alternative f =&gt; (a -&gt; f b) -&gt; f a
+</span><a href="#local-6989586621679291788"><span class="hs-identifier hs-var">ma</span></a></span><span>
+</span><span id="line-109"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679291659"><span id="local-6989586621679291660"><span id="local-6989586621679291804"><span id="local-6989586621679291808"><span class="annot"><span class="hs-identifier hs-type">Alternative</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Wither.html#Altar"><span class="hs-identifier hs-type">Altar</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679291659"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679291660"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span></span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-110"></span><span>  </span><span id="local-6989586621679291811"><span class="annot"><span class="annottext">empty :: forall a. Altar a b a
+</span><span class="hs-identifier hs-var hs-var hs-var">empty</span></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(forall (f :: * -&gt; *). Alternative f =&gt; (a -&gt; f b) -&gt; f a)
+-&gt; Altar a b a
+forall a b t.
+(forall (f :: * -&gt; *). Alternative f =&gt; (a -&gt; f b) -&gt; f t)
+-&gt; Altar a b t
+</span><a href="Control.Lens.Wither.html#Altar"><span class="hs-identifier hs-var">Altar</span></a></span><span> </span><span class="annot"><span class="annottext">((forall (f :: * -&gt; *). Alternative f =&gt; (a -&gt; f b) -&gt; f a)
+ -&gt; Altar a b a)
+-&gt; (forall (f :: * -&gt; *). Alternative f =&gt; (a -&gt; f b) -&gt; f a)
+-&gt; Altar a b a
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">f a -&gt; (a -&gt; f b) -&gt; f a
+forall a b. a -&gt; b -&gt; a
+</span><span class="hs-identifier hs-var">const</span></span><span> </span><span class="annot"><span class="annottext">f a
+forall a. f a
+forall (f :: * -&gt; *) a. Alternative f =&gt; f a
+</span><span class="hs-identifier hs-var">empty</span></span><span>
+</span><span id="line-111"></span><span>  </span><span class="annot"><a href="Control.Lens.Wither.html#Altar"><span class="hs-identifier hs-type">Altar</span></a></span><span> </span><span id="local-6989586621679291816"><span class="annot"><span class="annottext">forall (f :: * -&gt; *). Alternative f =&gt; (a -&gt; f b) -&gt; f a
+</span><a href="#local-6989586621679291816"><span class="hs-identifier hs-var">mx</span></a></span></span><span> </span><span id="local-6989586621679291817"><span class="annot"><span class="annottext">&lt;|&gt; :: forall a. Altar a b a -&gt; Altar a b a -&gt; Altar a b a
+</span><a href="#local-6989586621679291817"><span class="hs-operator hs-var hs-var hs-var">&lt;|&gt;</span></a></span></span><span> </span><span class="annot"><a href="Control.Lens.Wither.html#Altar"><span class="hs-identifier hs-type">Altar</span></a></span><span> </span><span id="local-6989586621679291819"><span class="annot"><span class="annottext">forall (f :: * -&gt; *). Alternative f =&gt; (a -&gt; f b) -&gt; f a
+</span><a href="#local-6989586621679291819"><span class="hs-identifier hs-var">my</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(forall (f :: * -&gt; *). Alternative f =&gt; (a -&gt; f b) -&gt; f a)
+-&gt; Altar a b a
+forall a b t.
+(forall (f :: * -&gt; *). Alternative f =&gt; (a -&gt; f b) -&gt; f t)
+-&gt; Altar a b t
+</span><a href="Control.Lens.Wither.html#Altar"><span class="hs-identifier hs-var">Altar</span></a></span><span> </span><span class="annot"><span class="annottext">((forall (f :: * -&gt; *). Alternative f =&gt; (a -&gt; f b) -&gt; f a)
+ -&gt; Altar a b a)
+-&gt; (forall (f :: * -&gt; *). Alternative f =&gt; (a -&gt; f b) -&gt; f a)
+-&gt; Altar a b a
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">(f a -&gt; f a -&gt; f a)
+-&gt; ((a -&gt; f b) -&gt; f a) -&gt; ((a -&gt; f b) -&gt; f a) -&gt; (a -&gt; f b) -&gt; f a
+forall a b c.
+(a -&gt; b -&gt; c)
+-&gt; ((a -&gt; f b) -&gt; a) -&gt; ((a -&gt; f b) -&gt; b) -&gt; (a -&gt; f b) -&gt; c
+forall (f :: * -&gt; *) a b c.
+Applicative f =&gt;
+(a -&gt; b -&gt; c) -&gt; f a -&gt; f b -&gt; f c
+</span><span class="hs-identifier hs-var">liftA2</span></span><span> </span><span class="annot"><span class="annottext">f a -&gt; f a -&gt; f a
+forall a. f a -&gt; f a -&gt; f a
+forall (f :: * -&gt; *) a. Alternative f =&gt; f a -&gt; f a -&gt; f a
+</span><span class="hs-operator hs-var">(&lt;|&gt;)</span></span><span> </span><span class="annot"><span class="annottext">(a -&gt; f b) -&gt; f a
+forall (f :: * -&gt; *). Alternative f =&gt; (a -&gt; f b) -&gt; f a
+</span><a href="#local-6989586621679291816"><span class="hs-identifier hs-var">mx</span></a></span><span> </span><span class="annot"><span class="annottext">(a -&gt; f b) -&gt; f a
+forall (f :: * -&gt; *). Alternative f =&gt; (a -&gt; f b) -&gt; f a
+</span><a href="#local-6989586621679291819"><span class="hs-identifier hs-var">my</span></a></span><span>
+</span><span id="line-112"></span><span class="hs-keyword">instance</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Sellable</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">-&gt;</span><span class="hs-special">)</span><span> </span><span class="annot"><a href="Control.Lens.Wither.html#Altar"><span class="hs-identifier hs-type">Altar</span></a></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-113"></span><span>  </span><span id="local-6989586621679291833"><span class="annot"><span class="annottext">sell :: forall a b. a -&gt; Altar a b b
+</span><span class="hs-identifier hs-var hs-var hs-var">sell</span></span></span><span>
+</span><span id="line-114"></span><span>    </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(Corep (-&gt;) a -&gt; Altar a b b) -&gt; a -&gt; Altar a b b
+forall d c. (Corep (-&gt;) d -&gt; c) -&gt; d -&gt; c
+forall (p :: * -&gt; * -&gt; *) d c.
+Corepresentable p =&gt;
+(Corep p d -&gt; c) -&gt; p d c
+</span><span class="hs-identifier hs-var">cotabulate</span></span><span>
+</span><span id="line-115"></span><span>    </span><span class="annot"><span class="annottext">((Corep (-&gt;) a -&gt; Altar a b b) -&gt; a -&gt; Altar a b b)
+-&gt; (Corep (-&gt;) a -&gt; Altar a b b) -&gt; a -&gt; Altar a b b
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679291835"><span class="annot"><span class="annottext">Corep (-&gt;) a
+</span><a href="#local-6989586621679291835"><span class="hs-identifier hs-var">w</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">(forall (f :: * -&gt; *). Alternative f =&gt; (a -&gt; f b) -&gt; f b)
+-&gt; Altar a b b
+forall a b t.
+(forall (f :: * -&gt; *). Alternative f =&gt; (a -&gt; f b) -&gt; f t)
+-&gt; Altar a b t
+</span><a href="Control.Lens.Wither.html#Altar"><span class="hs-identifier hs-var">Altar</span></a></span><span>
+</span><span id="line-116"></span><span>    </span><span class="annot"><span class="annottext">((forall (f :: * -&gt; *). Alternative f =&gt; (a -&gt; f b) -&gt; f b)
+ -&gt; Altar a b b)
+-&gt; (forall (f :: * -&gt; *). Alternative f =&gt; (a -&gt; f b) -&gt; f b)
+-&gt; Altar a b b
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">((a -&gt; f b) -&gt; Rep (-&gt;) (f b)) -&gt; (a -&gt; f b) -&gt; f b
+forall d c. (d -&gt; Rep (-&gt;) c) -&gt; d -&gt; c
+forall (p :: * -&gt; * -&gt; *) d c.
+Representable p =&gt;
+(d -&gt; Rep p c) -&gt; p d c
+</span><span class="hs-identifier hs-var">tabulate</span></span><span>
+</span><span id="line-117"></span><span>    </span><span class="annot"><span class="annottext">(((a -&gt; f b) -&gt; Rep (-&gt;) (f b)) -&gt; (a -&gt; f b) -&gt; f b)
+-&gt; ((a -&gt; f b) -&gt; Rep (-&gt;) (f b)) -&gt; (a -&gt; f b) -&gt; f b
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679291848"><span class="annot"><span class="annottext">a -&gt; f b
+</span><a href="#local-6989586621679291848"><span class="hs-identifier hs-var">k</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">f b -&gt; Rep (-&gt;) (f b)
+forall a. a -&gt; Rep (-&gt;) a
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><span class="hs-identifier hs-var">pure</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(a -&gt; f b) -&gt; Corep (-&gt;) a -&gt; f b
+forall a b. (a -&gt; b) -&gt; Corep (-&gt;) a -&gt; b
+forall (p :: * -&gt; * -&gt; *) (f :: * -&gt; *) a b.
+Cosieve p f =&gt;
+p a b -&gt; f a -&gt; b
+</span><span class="hs-identifier hs-var">cosieve</span></span><span> </span><span class="annot"><span class="annottext">a -&gt; f b
+</span><a href="#local-6989586621679291848"><span class="hs-identifier hs-var">k</span></a></span><span> </span><span class="annot"><span class="annottext">Corep (-&gt;) a
+</span><a href="#local-6989586621679291835"><span class="hs-identifier hs-var">w</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-118"></span></pre></body></html>
