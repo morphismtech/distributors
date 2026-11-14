@@ -459,7 +459,7 @@ True
 >>> "xyz" =~ rex
 False
 
-Like @Control.Lens.Grammar.RegGrammar@s, they can use all the `Lexical` combinators.
+Like @Control.Lens.Grammar.RegGrammar@s, they can use all the `terminal` & `Tokenized` combinators.
 Unlike @Control.Lens.Grammar.RegGrammar@s, instead of using `Monoidal` and `Alternator` combinators,
 they use `Monoid` and `KleeneStarAlgebra` combinators.
 
@@ -740,7 +740,7 @@ They can be generated from context-free @Control.Lens.Grammar.Grammar@s
 with @Control.Lens.Grammar.regbnfG@.
 
 Like `RegEx`pressions, they can be constructed using
-`Lexical`, `Monoid` and `KleeneStarAlgebra` combinators.
+`terminal`, `Tokenized`, `Monoid` and `KleeneStarAlgebra` combinators.
 But they also support `BackusNaurForm` `rule`s and `ruleRec`s.
 
 >>> putStringLn (rule "baz" (bnf >|< terminal "baz"))

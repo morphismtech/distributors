@@ -18,7 +18,6 @@ module Control.Lens.Grammar.BackusNaur
   , Ruled (..), failP
   , Tried (..)
     -- * Grammatical
-  , Lexical
   , RegGrammatical
   , Grammatical
   , CtxGrammatical
@@ -105,18 +104,11 @@ class Tried p where
   try :: p -> p
   try = id
 
-{- |
-`Lexical` combinators include `terminal` symbols,
-`Tokenized` combinators and `tokenClass`es.
--}
-type Lexical token p =
+{- | The `Alternator`s of `terminal` symbols, `Tokenized` combinators
+& `tokenClass`es, which run @Control.Lens.Grammar.RegGrammar@s. -}
+type RegGrammatical token p =
   ( forall x y. (x ~ (), y ~ ()) => TerminalSymbol token (p x y)
   , forall x y. (x ~ token, y ~ token) => TokenAlgebra token (p x y)
-  ) :: Constraint
-
-{- | The `Lexical` `Alternator`s, which run `RegGrammar`s. -}
-type RegGrammatical token p =
-  ( Lexical token p
   , Alternator p
   ) :: Constraint
 

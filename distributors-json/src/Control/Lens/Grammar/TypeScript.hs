@@ -1436,31 +1436,31 @@ _Conditional = iso
 -- Trivia --
 
 -- | Trivia, of whitespace & newlines, printed as some trivia.
-trivia :: (Lexical TsToken p, Alternator p) => [TsToken] -> p () ()
+trivia :: RegGrammatical TsToken p => [TsToken] -> p () ()
 trivia shown = dimap (const shown) (const ())
   (manyP (asIn @TsToken WhitespaceTrivia >|< asIn @TsToken NewLineTrivia))
 
-space :: (Lexical TsToken p, Alternator p) => p () ()
+space :: RegGrammatical TsToken p => p () ()
 space = trivia [TsToken WhitespaceTrivia " "]
 
-newline :: (Lexical TsToken p, Alternator p) => p () ()
+newline :: RegGrammatical TsToken p => p () ()
 newline = trivia [TsToken NewLineTrivia "\n"]
 
 -- | A newline, indented four spaces for each depth.
-indented :: (Lexical TsToken p, Alternator p) => Int -> p () ()
+indented :: RegGrammatical TsToken p => Int -> p () ()
 indented depth = trivia $ TsToken NewLineTrivia "\n"
   : [TsToken WhitespaceTrivia (Text.replicate (4 * depth) " ") | depth > 0]
 
 -- | A punctuation or keyword token, between trivia, or `oneP`.
 tokenOf
-  :: (Lexical TsToken p, Alternator p)
+  :: RegGrammatical TsToken p
   => p () () -> TsTokenCategory -> p () () -> p () ()
 tokenOf before category after =
   before >* terminal [symbol category] *< after
 
 -- | The text of a token of a category.
 textOf
-  :: (Lexical TsToken p, Alternator p) => TsTokenCategory -> p Text Text
+  :: RegGrammatical TsToken p => TsTokenCategory -> p Text Text
 textOf category = iso (TsToken category) tokenText >~ asIn @TsToken category
 
 instance CtxGrammar Char TsToken

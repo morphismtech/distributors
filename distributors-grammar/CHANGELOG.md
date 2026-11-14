@@ -18,8 +18,9 @@
   `toList` or `putStringLn`. `regstringG` is renamed `regexG`, & `regexG`
   & `regbnfG` generate over any token, `RegEx token` & `Bnf (RegEx token)`.
 - Modules, without orphans: `Control.Lens.Grammar.BackusNaur` has `Ruled`,
-  `BackusNaurForm` & `Tried`, & the `Lexical`, `RegGrammatical`,
-  `Grammatical` & `CtxGrammatical` constraints; `Control.Lens.Grammar.RegEx`
+  `BackusNaurForm` & `Tried`, & the `RegGrammatical`, `Grammatical` &
+  `CtxGrammatical` constraints, `Lexical` being folded into
+  `RegGrammatical`, of which it was always a part; `Control.Lens.Grammar.RegEx`
   has `RegEx` & `Bnf`, with `liftBnf0`, `liftBnf1`, `liftBnf2` & `diffB`,
   & `regexGrammar` & `regbnfGrammar`; & `Printor` has its own module,
   `Data.Profunctor.Grammar.Printor`, re-exported by

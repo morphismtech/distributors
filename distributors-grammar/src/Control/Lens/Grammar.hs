@@ -16,7 +16,6 @@ module Control.Lens.Grammar
   ( -- * Regular grammar
     RegGrammar (..)
   , RegGrammatical
-  , Lexical
   , regexG
     -- * Context-free grammar
   , Grammar (..)
@@ -66,7 +65,7 @@ import Witherable
 import Control.Lens.Cons as X
 import Control.Lens.Empty as X
 import Control.Lens.Grammar.BackusNaur as X hiding
-  (Lexical, RegGrammatical, Grammatical, CtxGrammatical)
+  (RegGrammatical, Grammatical, CtxGrammatical)
 import Control.Lens.Grammar.Analysis as X
 import Control.Lens.Grammar.Machine as X
 import Control.Lens.Grammar.RegEx as X
@@ -97,7 +96,8 @@ import Data.Traversable.Homogeneous.Enumerable as X
 
 {- |
 A regular grammar may be constructed using
-`Lexical` and `Alternator` combinators.
+`terminal` symbols, `Tokenized` combinators, `tokenClass`es
+and `Alternator` combinators.
 Let's see an example using
 [semantic versioning](https://semver.org/) syntax.
 
@@ -220,7 +220,7 @@ Printing, on the gripping hand, `cons`es tokens right-to-left, to the beginning 
 Just "1.2.3 is the SemVer."
 
 `Profunctor`ial combinators give us correct-by-construction invertible parsers.
-New `RegGrammar` generators can be defined with new instances of `Lexical` `Alternator`s.
+New `RegGrammar` generators can be defined with new `RegGrammatical` instances.
 -}
 class Grammar token a => RegGrammar token a where
   regGrammar :: RegGrammatical token p => p a a
