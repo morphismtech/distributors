@@ -22,14 +22,13 @@ module Control.Lens.Grammar.RegEx
   , liftBnf2
   , diffB
     -- * Regular expression strings
-  , regexGrammar
-  , regbnfGrammar
   ) where
 
 import Control.Lens hiding (Empty, rewrite)
 import Control.Lens.PartialIso
 import Control.Lens.Prismoid (atLeast)
 import Control.Lens.Grammar.BackusNaur
+import Control.Lens.Grammar.Class
 import Control.Lens.Grammar.Symbol
 import Control.Lens.Grammar.Token
 import Data.Coerce
@@ -458,8 +457,8 @@ makeNestedPrisms ''TokenExam
 makeNestedPrisms ''CategoryTest
 makeNestedPrisms ''GeneralCategory
 
-{- | `regexGrammar` is a context-free @Control.Lens.Grammar.Grammar@
-for `RegEx`pressions of characters, in the syntax of regular
+{- | The context-free `Grammar`
+of `RegEx`pressions of characters, in the syntax of regular
 expression strings, by which they're `IsString` & `IsList`.
 It can't be a @Control.Lens.Grammar.RegGrammar@,
 since regular expression strings include parenthesization.
@@ -586,6 +585,10 @@ Ill-formed regular expression strings normalize to failure.
 {regex} = \q{alternate}
 {sequence} = \q{expression}*
 -}
+instance Grammar Char (RegEx Char) where grammar = regexGrammar
+instance CtxGrammar Char (RegEx Char)
+
+-- | The `Grammar` of `RegEx`pressions of characters.
 regexGrammar :: Grammatical Char p => p (RegEx Char) (RegEx Char)
 regexGrammar = ruleRec "regex" altG
   where
@@ -813,8 +816,8 @@ charControlG = rule "char-control" $ orP
       ]
 
 {- |
-`regbnfGrammar` is a context-free @Control.Lens.Grammar.Grammar@
-for t'Bnf's of `RegEx`pressions of characters,
+The context-free `Grammar`
+of t'Bnf's of `RegEx`pressions of characters,
 by which they're `IsString` & `IsList`.
 That means that it can generate a self-hosted definition.
 
@@ -875,12 +878,16 @@ But they also support `BackusNaurForm` `rule`s and `ruleRec`s.
 {regex} = \q{alternate}
 {sequence} = \q{expression}*
 -}
+instance Grammar Char (Bnf (RegEx Char)) where grammar = regbnfGrammar
+instance CtxGrammar Char (Bnf (RegEx Char))
+
+-- | The `Grammar` of t'Bnf's of `RegEx`pressions of characters.
 regbnfGrammar :: Grammatical Char p => p (Bnf (RegEx Char)) (Bnf (RegEx Char))
 regbnfGrammar = rule "regbnf" $ _Bnf >~
   terminal "{start} = " >* regexGrammar >*< (listed ~< manyP
     (terminal "\n" >* nonterminalG *< terminal " = " >*< regexGrammar))
 
--- | A regular expression string, by `regexGrammar`.
+-- | A regular expression string, by its `Grammar`.
 instance token ~ Char => Exts.IsList (RegEx token) where
   type Item (RegEx token) = token
   fromList
@@ -895,7 +902,7 @@ instance token ~ Char => Exts.IsList (RegEx token) where
     (regexGrammar :: Printor String Maybe (RegEx Char) (RegEx Char))
 instance token ~ Char => IsString (RegEx token) where
   fromString = Exts.fromList
--- | A t'Bnf' of regular expression strings, by `regbnfGrammar`.
+-- | A t'Bnf' of regular expression strings, by its `Grammar`.
 instance rule ~ RegEx Char => Exts.IsList (Bnf rule) where
   type Item (Bnf rule) = Char
   fromList

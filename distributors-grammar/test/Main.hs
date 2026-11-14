@@ -32,7 +32,7 @@ import Properties.Varifocal
 
 main :: IO ()
 main = hspec $ do
-  describe "regexGrammar" $ testCfg False regexExamples regexGrammar
+  describe "regexGrammar" $ testCfg False regexExamples (grammar @Char)
   describe "semverGrammar" $ testCfg True semverExamples semverGrammar
   describe "semverCtxGrammar" $ testCsg True semverExamples semverCtxGrammar
   describe "arithGrammar" $ testCfg True arithExamples arithGrammar

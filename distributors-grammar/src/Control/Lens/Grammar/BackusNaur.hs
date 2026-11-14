@@ -130,6 +130,7 @@ type CtxGrammatical token p =
   , forall x. MonadFail (p x)
   ) :: Constraint
 
+
 -- instances
 instance (forall x. Ruled (f x)) => Ruled (Joker f a b) where
   rule name = Joker . rule name . runJoker

@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- `regexGrammar` & `regbnfGrammar` are removed: they're the `Grammar Char`
+  instances of `RegEx Char` & `Bnf (RegEx Char)`, by `grammar`. The classes
+  `RegGrammar`, `Grammar` & `CtxGrammar`, & the base types' instances, are
+  in `Control.Lens.Grammar.Class`, which `Control.Lens.Grammar` re-exports,
+  so that `Control.Lens.Grammar.RegEx` defines its own instances; their
+  tutorials are `Control.Lens.Grammar`'s module documentation.
 - `Tokenized` has `tokenRange lo hi`, a single token between two, inclusive,
   for `Enum`erable tokens, as `oneOf [lo .. hi]` but taking only its ends:
   predicates & parsers compare, generators choose, & token classes & regular

@@ -48,7 +48,7 @@ import Data.Bool (bool)
 import Data.Foldable (toList)
 import Data.Functor (void)
 import Data.Traversable (mapAccumL)
-import Data.Monoid.Disjunctive (DisjunctiveMonoid (..))
+import Data.Monoid.Disjunctive (DisjunctiveMonoid (..), anyP)
 import Data.Profunctor (Cochoice (..))
 import Data.Profunctor.Distributor
 import Data.Profunctor.Filtrator (Filtrator (..), mfiltrate)
@@ -195,14 +195,10 @@ runVarifocus v p = go v
     go :: Varifocus a b [] s' t' -> p s' t'
     go = \case
       FocusP -> p
-      LiftP xs -> case map pure xs of
-        [] -> empty
-        ys -> foldr1 (<|>) ys
+      LiftP xs -> anyP pure xs
       BindP x k -> go x >>= go . k
       LmapP f x -> lmap f (go x)
-      AltsP xs -> case map go xs of
-        [] -> empty
-        ys -> foldr1 (<|>) ys
+      AltsP xs -> anyP go xs
       AlternateP e -> alternate (either (Left . go) (Right . go) e)
       ManyP x -> manyP (go x)
       OptionalP x -> optionalP (go x)
@@ -224,9 +220,7 @@ runVarifocusT v p = go v
       LiftP mt -> liftP mt
       BindP x k -> go x >>= go . k
       LmapP f x -> lmap f (go x)
-      AltsP xs -> case map go xs of
-        [] -> empty
-        ys -> foldr1 (<|>) ys
+      AltsP xs -> anyP go xs
       AlternateP e -> alternate (either (Left . go) (Right . go) e)
       ManyP x -> manyP (go x)
       OptionalP x -> optionalP (go x)

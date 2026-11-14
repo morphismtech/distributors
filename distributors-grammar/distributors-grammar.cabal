@@ -31,6 +31,7 @@ library
       Control.Lens.Grammar
       Control.Lens.Grammar.Analysis
       Control.Lens.Grammar.BackusNaur
+      Control.Lens.Grammar.Class
       Control.Lens.Grammar.Machine
       Control.Lens.Grammar.RegEx
       Control.Lens.Grammar.Symbol
