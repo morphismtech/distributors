@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- `ruleTyped`, in `Control.Lens.Grammar.BackusNaur`, a `rule` named by its
+  `Typeable` type, module-qualified, which was `distributors-json`'s
+  `jsonTyped`. Base types' grammars name their rules by it.
 - Regular expressions escape control characters by hexadecimal codes,
   @\\x{e}@, rather than by names, which were ambiguous, @\\SO@ & @H@
   reading as @\\SOH@; codes parse in either case.
