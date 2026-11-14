@@ -22,6 +22,7 @@ import Examples.LenVec
 import Examples.RegString
 import Examples.SemVer
 import Examples.SExpr
+import Properties.Base
 import Properties.Kleene
 import Properties.Varifocal
 
@@ -45,6 +46,7 @@ main = hspec $ do
   describe "Varifocal" varifocalProperties
   describe "class runners, at Arith's Grammar" classRunnerTests
   describe "ReadPrec & Predicate" readPrecTests
+  describe "base types" baseProperties
 
 readPrecTests :: Spec
 readPrecTests = do

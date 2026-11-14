@@ -177,6 +177,7 @@ test-suite test
       Examples.RegString
       Examples.SemVer
       Examples.SExpr
+      Properties.Base
       Properties.Kleene
       Properties.Varifocal
       Paths_distributors_grammar

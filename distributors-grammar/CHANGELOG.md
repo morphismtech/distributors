@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- Grammars of base types, each a rule named by its type: `Char`, any
+  token; `String`, any tokens; `Natural`, ASCII digits; `Integer`, an
+  optional minus & digits; `Double` & `Float`, @NaN@, or signed @Infinity@
+  or decimals with an optional fraction & exponent; printing canonically,
+  as `show` does, & parsing more, as `read` does, by improper isos. Sized
+  integers, `Int`s & `Word`s, are `CtxGrammar`s, failing out of range by
+  their `Filtrator`, so they have no regular expressions or Backus-Naur
+  forms.
 - `Predicate`s are `Tokenized` & `TokenAlgebra`s, as predicates are; &
   `ReadPrec` runs grammars as `ReadP` does, `Tokenized`, a `TokenAlgebra`,
   `TerminalSymbol`, `Ruled`, `BackusNaurForm` & `Tried`.
