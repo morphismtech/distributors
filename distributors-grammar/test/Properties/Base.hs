@@ -1,7 +1,7 @@
 module Properties.Base (baseProperties, readShowEquivalence) where
 
 import Control.Lens.Grammar
-import Data.Char (intToDigit, isAscii, isControl, ord, toUpper)
+import Data.Char (intToDigit, isAscii, isControl, isSpace, ord, toUpper)
 import Data.Int (Int8, Int16, Int32, Int64)
 import Data.Maybe (maybeToList)
 import Data.Word (Word8, Word16, Word32, Word64)
@@ -12,10 +12,12 @@ import Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
 import Test.QuickCheck
 import Text.Read (readMaybe)
 
-{- | Equivalence with a type's `Read` & `Show` instances: printing is `show`,
-& parsing is `readMaybe`, for strings of its values, by its lexical
-variants, decorated by whitespace & parentheses, & mutated, so that
-strings which `read` rejects are tried too. Each new instance runs it.
+{- | Equivalence with a type's `Read` & `Show` instances' lexemes: printing
+is `show`, & parsing is `readMaybe`, for strings of its values, by its
+lexical variants, & mutated, so that strings which `read` rejects are
+tried too, but for those with whitespace or parentheses around them,
+which `read` accepts around any value, a matter of precedence. Each new
+instance runs it.
 -}
 readShowEquivalence
   :: forall a. (CtxGrammar Char a, Read a, Show a)
@@ -24,8 +26,11 @@ readShowEquivalence name values variants = describe name $ do
   prop "prints as show does" $ forAll values $ \a ->
     printed a === Just (show a)
   modifyMaxSuccess (const 1000) $ prop "parses as read does" $
-    forAll (values >>= variants >>= decorated >>= mutated) $ \str ->
+    forAll (values >>= variants >>= mutated) $ \str -> lexical str ==>
       map show (parsed @a str) === map show (maybeToList (readMaybe @a str))
+  where
+    lexical str = not (any outer (take 1 str <> take 1 (reverse str)))
+    outer c = isSpace c || c `elem` "()"
 
 -- | Parse all of a string, if it parses.
 parsed :: forall a. CtxGrammar Char a => String -> [a]
@@ -41,20 +46,6 @@ spaces = frequency
   [ (3, pure "")
   , (1, listOf1 (elements " \t\n\v\f\r\xa0\x2003\x3000"))
   , (1, pure "\x2028") ]
-
--- | Within any parentheses, amid whitespace.
-decorated :: String -> Gen String
-decorated str = do
-  depth <- frequency [(4, pure 0), (2, pure 1), (1, pure 2)]
-  go depth
-  where
-    spaced s = do
-      lead <- spaces
-      trail <- spaces
-      pure (lead <> s <> trail)
-    go :: Int -> Gen String
-    go 0 = spaced str
-    go n = go (n - 1) >>= \s -> spaced ("(" <> s <> ")")
 
 -- | Edited, once or twice, or not.
 mutated :: String -> Gen String

@@ -15,7 +15,7 @@ See Naur & Backus, et al.
 module Control.Lens.Grammar.BackusNaur
   ( -- * BackusNaurForm
     BackusNaurForm (..)
-  , Ruled (..), failP, ruleTyped, ruleRecTyped
+  , Ruled (..), failP, ruleTyped
   , Tried (..)
     -- * Grammatical
   , RegGrammatical
@@ -106,12 +106,6 @@ displayed as @Map Text Int@.
 ruleTyped :: forall a p. (Typeable a, Ruled (p a a)) => p a a -> p a a
 ruleTyped = rule (qualifiedName (SomeTypeRep (typeRep @a)))
 {-# INLINE ruleTyped #-}
-
--- | A `ruleRec` for a Haskell type, named by its `Typeable` type, as `ruleTyped`.
-ruleRecTyped
-  :: forall a p. (Typeable a, BackusNaurForm (p a a)) => (p a a -> p a a) -> p a a
-ruleRecTyped = ruleRec (qualifiedName (SomeTypeRep (typeRep @a)))
-{-# INLINE ruleRecTyped #-}
 
 -- | A type, `show`n with its type constructors qualified by their modules.
 qualifiedName :: SomeTypeRep -> String

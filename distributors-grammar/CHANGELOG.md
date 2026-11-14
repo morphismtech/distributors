@@ -26,17 +26,17 @@
   by `try`. `Tried` is part of `RegGrammatical`.
 - Character classes render runs of three or more plain characters as
   ranges, @[a-z]@, & parse ranges; a dash in a class is escaped, @\\-@.
-- Grammars of base types, equivalent to their `Read` & `Show` instances,
-  printing as `show` does & parsing as `read` does, property tested against
-  `show` & `readMaybe`: their lexemes, amid whitespace & within any
-  parentheses, context-free, each a rule named by its type by
-  `ruleRecTyped`. `Char` literals, with `showLitChar`'s escapes, & `read`'s
-  named, control, & numeric escapes, up to `maxBound`; `Natural`, `Integer`,
-  & sized `Int`s & `Word`s, which wrap out of range as `read` does, in
-  decimal, & binary, octal & hexadecimal; & `Double`s & `Float`s, by
-  `floatToDigits` & `fromRational`. They're LL(1), by `try`, as `read`'s
-  lexer is left-biased. `String`, a list of characters, has no instance.
-- `ruleRecTyped`, a `ruleRec` named by its `Typeable` type, as `ruleTyped`.
+- Grammars of base types, equivalent to their `Read` & `Show` instances'
+  lexemes, printing as `show` does & parsing as `read` does, property tested
+  against `show` & `readMaybe`, but for whitespace around them &
+  parentheses, which `read` accepts around any value, a matter of
+  precedence; each a rule named by its type by `ruleTyped`. `Char` literals,
+  with `showLitChar`'s escapes, & `read`'s named, control, & numeric escapes,
+  up to `maxBound`; `Natural`, `Integer`, & sized `Int`s & `Word`s, which
+  wrap out of range as `read` does, in decimal, & binary, octal &
+  hexadecimal; & `Double`s & `Float`s, by `floatToDigits` & `fromRational`.
+  They're regular & LL(1), by `try`, as `read`'s lexer is left-biased.
+  `String`, a list of characters, has no instance.
 - `Predicate`s are `Tokenized` & `TokenAlgebra`s, as predicates are; &
   `ReadPrec` runs grammars as `ReadP` does, `Tokenized`, a `TokenAlgebra`,
   `TerminalSymbol`, `Ruled`, `BackusNaurForm` & `Tried`.

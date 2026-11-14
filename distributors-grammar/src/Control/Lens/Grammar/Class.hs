@@ -37,7 +37,6 @@ import Data.Monoid.Disjunctive (orP, (>|<), (>&<))
 import Data.Profunctor.Distributor
 import Data.Profunctor.Monoidal
 import Data.Word (Word8, Word16, Word32, Word64)
-import Data.Typeable (Typeable)
 import Numeric.Natural (Natural)
 
 -- $setup
@@ -64,46 +63,62 @@ class CtxGrammar token a where
 
 -- Base types --
 
-{- The base types' grammars are equivalent to their `Read` & `Show`
-instances, printing as `show` does, & parsing as `read` does, their
-lexemes amid whitespace & within parentheses, context-free. -}
+{- The base types' grammars are their `Read` & `Show` instances' lexemes,
+printing as `show` does, & parsing as `read` does, but for whitespace
+around them & parentheses, which `read` accepts around any value, of
+any type, a matter of precedence. -}
 
 instance CtxGrammar Char Char
-instance Grammar Char Char where grammar = readable charG
+instance Grammar Char Char where grammar = ruleTyped (regGrammar @Char)
+instance RegGrammar Char Char where regGrammar = charG
 
 instance CtxGrammar Char Natural
-instance Grammar Char Natural where grammar = readable naturalG
+instance Grammar Char Natural where grammar = ruleTyped (regGrammar @Char)
+instance RegGrammar Char Natural where regGrammar = naturalG
 
 instance CtxGrammar Char Integer
-instance Grammar Char Integer where grammar = readable integerG
+instance Grammar Char Integer where grammar = ruleTyped (regGrammar @Char)
+instance RegGrammar Char Integer where regGrammar = integerG
 
 instance CtxGrammar Char Double
-instance Grammar Char Double where grammar = readable floatingG
+instance Grammar Char Double where grammar = ruleTyped (regGrammar @Char)
+instance RegGrammar Char Double where regGrammar = floatingG
 
 instance CtxGrammar Char Float
-instance Grammar Char Float where grammar = readable floatingG
+instance Grammar Char Float where grammar = ruleTyped (regGrammar @Char)
+instance RegGrammar Char Float where regGrammar = floatingG
 
 -- Sized integers read as `Integer`s, wrapping out of range, as `read` does.
 instance CtxGrammar Char Int
-instance Grammar Char Int where grammar = readable integralG
+instance Grammar Char Int where grammar = ruleTyped (regGrammar @Char)
+instance RegGrammar Char Int where regGrammar = integralG
 instance CtxGrammar Char Int8
-instance Grammar Char Int8 where grammar = readable integralG
+instance Grammar Char Int8 where grammar = ruleTyped (regGrammar @Char)
+instance RegGrammar Char Int8 where regGrammar = integralG
 instance CtxGrammar Char Int16
-instance Grammar Char Int16 where grammar = readable integralG
+instance Grammar Char Int16 where grammar = ruleTyped (regGrammar @Char)
+instance RegGrammar Char Int16 where regGrammar = integralG
 instance CtxGrammar Char Int32
-instance Grammar Char Int32 where grammar = readable integralG
+instance Grammar Char Int32 where grammar = ruleTyped (regGrammar @Char)
+instance RegGrammar Char Int32 where regGrammar = integralG
 instance CtxGrammar Char Int64
-instance Grammar Char Int64 where grammar = readable integralG
+instance Grammar Char Int64 where grammar = ruleTyped (regGrammar @Char)
+instance RegGrammar Char Int64 where regGrammar = integralG
 instance CtxGrammar Char Word
-instance Grammar Char Word where grammar = readable integralG
+instance Grammar Char Word where grammar = ruleTyped (regGrammar @Char)
+instance RegGrammar Char Word where regGrammar = integralG
 instance CtxGrammar Char Word8
-instance Grammar Char Word8 where grammar = readable integralG
+instance Grammar Char Word8 where grammar = ruleTyped (regGrammar @Char)
+instance RegGrammar Char Word8 where regGrammar = integralG
 instance CtxGrammar Char Word16
-instance Grammar Char Word16 where grammar = readable integralG
+instance Grammar Char Word16 where grammar = ruleTyped (regGrammar @Char)
+instance RegGrammar Char Word16 where regGrammar = integralG
 instance CtxGrammar Char Word32
-instance Grammar Char Word32 where grammar = readable integralG
+instance Grammar Char Word32 where grammar = ruleTyped (regGrammar @Char)
+instance RegGrammar Char Word32 where regGrammar = integralG
 instance CtxGrammar Char Word64
-instance Grammar Char Word64 where grammar = readable integralG
+instance Grammar Char Word64 where grammar = ruleTyped (regGrammar @Char)
+instance RegGrammar Char Word64 where regGrammar = integralG
 
 -- A prism which never matches, so that its alternative parses, but never prints.
 unprinted :: Prism' a a
@@ -122,13 +137,6 @@ negativeG = iso (\b -> if b then Just () else Nothing) isJust
 -- lexeme & after all, & which never prints.
 spacesG :: RegGrammatical Char p => p () ()
 spacesG = skippedMany >?* tokenClass (oneOf "\t\n\v\f\r" >|< asIn Space)
-
--- A lexeme's grammar, as `read` reads it, by `parens`: after whitespace, &
--- within any parentheses, each after whitespace, & before whitespace once,
--- at the end; printing as `show` does, bare.
-readable :: forall a p. (Typeable a, Grammatical Char p) => p a a -> p a a
-readable lexeme = ruleRecTyped (\self -> spacesG >*
-  (lexeme >|< terminal "(" >* self *< spacesG *< terminal ")")) *< spacesG
 
 -- Signed, by an improper iso, where @-0@ parses too.
 signed :: (Num a, Ord a) => Iso' a (Bool, a)
