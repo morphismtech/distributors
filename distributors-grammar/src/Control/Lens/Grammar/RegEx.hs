@@ -34,7 +34,6 @@ import Control.Lens.Grammar.Symbol
 import Control.Lens.Grammar.Token
 import Data.Coerce
 import Data.Bifunctor.Joker
-import Data.Foldable
 import Data.List (nub)
 import Data.MemoTrie
 import Data.Monoid.Disjunctive
@@ -102,6 +101,7 @@ instance Categorized token => Tokenized token (RegEx token) where
   notOneOf = RegExam . notOneOf
   asIn = RegExam . asIn
   notAsIn = RegExam . notAsIn
+  tokenRange lo = RegExam . tokenRange lo
 instance Categorized token => TokenAlgebra token (RegEx token) where
   tokenClass = foldTokenClass RegExam
 instance Categorized token => Monoid (RegEx token) where
@@ -434,6 +434,7 @@ instance (Ord rule, Tokenized token rule)
   notOneOf = liftBnf0 . notOneOf
   asIn = liftBnf0 . asIn
   notAsIn = liftBnf0 . notAsIn
+  tokenRange lo = liftBnf0 . tokenRange lo
 instance (Ord rule, TokenAlgebra token rule)
   => TokenAlgebra token (Bnf rule) where
   tokenClass = liftBnf0 . tokenClass

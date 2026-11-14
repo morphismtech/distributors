@@ -244,6 +244,7 @@ instance Tokenized token k => Tokenized token (Grammor k a b) where
   notOneOf = Grammor . notOneOf
   asIn = Grammor . asIn
   notAsIn = Grammor . notAsIn
+  tokenRange lo = Grammor . tokenRange lo
 instance TokenAlgebra a k => TokenAlgebra a (Grammor k a b) where
   tokenClass = Grammor . tokenClass
 instance TerminalSymbol token k

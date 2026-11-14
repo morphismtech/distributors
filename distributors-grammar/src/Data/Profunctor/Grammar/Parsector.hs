@@ -182,6 +182,7 @@ instance
   notOneOf ts = tokenClass (notOneOf ts)
   asIn cat = tokenClass (asIn cat)
   notAsIn cat = tokenClass (notAsIn cat)
+  tokenRange lo hi = tokenClass (tokenRange lo hi)
 instance
   ( Categorized token, Item s ~ token
   , Cons s s token token, Snoc s s token token

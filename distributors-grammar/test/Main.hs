@@ -13,7 +13,7 @@ import Text.ParserCombinators.ReadPrec (ReadPrec, readPrec_to_S)
 import Data.Functor.Contravariant (Predicate (..))
 import Test.Hspec
 import Test.Hspec.QuickCheck (modifyMaxSize, prop)
-import Test.QuickCheck (choose, elements, forAll, generate, listOf, oneof, (===))
+import Test.QuickCheck (Gen, choose, elements, forAll, generate, listOf, oneof, (===))
 import qualified Text.Megaparsec as M
 
 import Examples.Arithmetic
@@ -55,6 +55,7 @@ main = hspec $ do
   describe "base types" baseProperties
   describe "RegEx ranges & try" regexRangeTryTests
   describe "RegEx quantifiers" regexQuantifierTests
+  describe "tokenRange" tokenRangeTests
 
 regexRangeTryTests :: Spec
 regexRangeTryTests = do
@@ -77,6 +78,23 @@ regexRangeTryTests = do
     map conflictSort (ll1Conflicts (fromString "{start} = ab|ac" :: Bnf (RegEx Char)))
       `shouldBe` [LL1FirstFirst]
     ll1Conflicts (fromString "{start} = \\t{ab}|ac" :: Bnf (RegEx Char)) `shouldBe` []
+
+tokenRangeTests :: Spec
+tokenRangeTests = do
+  prop "tokenRange lo hi = oneOf [lo .. hi], as TokenClass" $ \(lo :: Char) hi ->
+    (tokenRange lo hi :: TokenClass Char) === oneOf [lo .. hi]
+  prop "tokenRange lo hi = oneOf [lo .. hi], as a predicate" $ \(lo :: Char) hi x ->
+    tokenRange lo hi x === (oneOf [lo .. hi] :: Char -> Bool) x
+  it "renders as a range, & parses so" $ do
+    toList (tokenRange 'a' 'z' :: RegEx Char) `shouldBe` "[a-z]"
+    (fromString "[a-z]" :: RegEx Char) `shouldBe` tokenRange 'a' 'z'
+    toList (tokenRange 'z' 'a' :: RegEx Char) `shouldBe` "[]"
+  it "takes all of Unicode by its ends" $ do
+    let rex = tokenClass (tokenRange '\x20' '\x10FFFF' >&< notOneOf "\"\\") :: RegEx Char
+    toList rex `shouldBe` "[ !#-Z\\[\\]\\^_-\1114111]"
+    map (=~ rex) ["a", "\"", "\x10FFFF", "\x1F"] `shouldBe` [True, False, True, False]
+  prop "generates tokens in range" $ forAll (choose ('a', 'm')) $ \lo ->
+    forAll (tokenRange lo 'z' :: Gen Char) $ \x -> lo <= x && x <= 'z'
 
 regexQuantifierTests :: Spec
 regexQuantifierTests = do
@@ -256,6 +274,7 @@ instance Tokenized Char (WrapMega Char) where
     (M.satisfy (tokenClass (asIn cat)))
   notAsIn cat = WrapMega $ M.label ("not in category " ++ show cat)
     (M.satisfy (tokenClass (notAsIn cat)))
+  tokenRange lo hi = WrapMega $ M.label ("in range " ++ show (lo, hi)) (M.satisfy (tokenRange lo hi))
 instance Ruled (WrapMega a) where
   rule lbl (WrapMega p) = WrapMega (M.label lbl p)
 instance BackusNaurForm (WrapMega a)

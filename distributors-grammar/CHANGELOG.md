@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- `Tokenized` has `tokenRange lo hi`, a single token between two, inclusive,
+  for `Enum`erable tokens, as `oneOf [lo .. hi]` but taking only its ends:
+  predicates & parsers compare, generators choose, & token classes & regular
+  expressions keep one range, by `Categorized`'s `tokenRangeSet`. The Json
+  example's character is its spec's, by `tokenRange`.
 - `Categorized` has a `TokenSet` type of its tokens' sets, a `Set` by default,
   with `tokenMember`, `tokenIntersection` & `tokenDifference`, empty by
   `falseP`, unioned by `>|<` & listed by `IsList`; `Char`'s are `Ranges`,

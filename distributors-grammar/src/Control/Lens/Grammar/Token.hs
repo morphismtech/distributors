@@ -100,6 +100,13 @@ class
     :: TokenSet token ~ Set token
     => TokenSet token -> TokenSet token -> TokenSet token
   tokenDifference = Set.difference
+  {- | The tokens between two, inclusive, by their enumeration, none where
+  they're out of order. -}
+  tokenRangeSet :: Enum token => token -> token -> TokenSet token
+  default tokenRangeSet
+    :: (Enum token, TokenSet token ~ Set token)
+    => token -> token -> TokenSet token
+  tokenRangeSet lo hi = Set.fromList [lo .. hi]
 instance Categorized Char where
   type Categorize Char = GeneralCategory
   categorize = generalCategory
@@ -107,6 +114,9 @@ instance Categorized Char where
   tokenMember x (Ranges xs) = RSet.member x xs
   tokenIntersection (Ranges xs) (Ranges ys) = Ranges (RSet.intersection xs ys)
   tokenDifference (Ranges xs) (Ranges ys) = Ranges (RSet.difference xs ys)
+  tokenRangeSet lo hi
+    | lo > hi = falseP
+    | otherwise = Ranges (RSet.singletonRange (lo, hi))
 instance Categorized Word8
 instance Categorized ()
 
@@ -188,6 +198,18 @@ class Categorized token => Tokenized token p | p -> token where
     => Categorize token -> p
   notAsIn = satisfy . notAsIn
 
+  {- | A single token between two, inclusive, by their enumeration,
+  for tokens whose `Enum` & `Ord` agree, taking no more than its ends,
+  where `oneOf` takes every token of a range.
+
+  > prop> tokenRange lo hi = oneOf [lo .. hi]
+  -}
+  tokenRange :: Enum token => token -> token -> p
+  default tokenRange
+    :: (Enum token, p ~ q token token, Choice q, Cochoice q)
+    => token -> token -> p
+  tokenRange lo hi = satisfy (tokenRange lo hi)
+
 {- | A single token that satisfies a predicate. -}
 satisfy
   :: (Tokenized a (p a a), Choice p, Cochoice p)
@@ -213,6 +235,7 @@ instance Categorized token => Tokenized token (token -> Bool) where
     where members = Set.fromList (toList xs)
   asIn = lmap categorize . (==)
   notAsIn = lmap categorize . (/=)
+  tokenRange lo hi x = lo <= x && x <= hi
 instance Tokenized token (f token)
   => Tokenized token (Joker f token token) where
     anyToken = Joker (anyToken @token)
@@ -221,6 +244,7 @@ instance Tokenized token (f token)
     notOneOf = Joker . notOneOf @token
     asIn = Joker . asIn @token
     notAsIn = Joker . notAsIn @token
+    tokenRange lo hi = Joker (tokenRange @token lo hi)
 instance Tokenized Char (ReadP Char) where
   anyToken = ReadP.get
   token = ReadP.char
@@ -228,6 +252,7 @@ instance Tokenized Char (ReadP Char) where
   notOneOf = ReadP.satisfy . notOneOf
   asIn = ReadP.satisfy . asIn
   notAsIn = ReadP.satisfy . notAsIn
+  tokenRange lo hi = ReadP.satisfy (tokenRange lo hi)
 instance Tokenized Char (ReadPrec Char) where
   anyToken = ReadPrec.lift anyToken
   token = ReadPrec.lift . token
@@ -235,6 +260,7 @@ instance Tokenized Char (ReadPrec Char) where
   notOneOf = ReadPrec.lift . notOneOf
   asIn = ReadPrec.lift . asIn
   notAsIn = ReadPrec.lift . notAsIn
+  tokenRange lo hi = ReadPrec.lift (tokenRange lo hi)
 deriving via (token -> Bool) instance Categorized token
   => Tokenized token (Predicate token)
 instance (Categorized token, Arbitrary token) => Tokenized token (Gen token) where
@@ -244,6 +270,7 @@ instance (Categorized token, Arbitrary token) => Tokenized token (Gen token) whe
   notOneOf xs = arbitrary `Gen.suchThat` (`notElem` xs)
   asIn cat = arbitrary `Gen.suchThat` ((==) cat . categorize)
   notAsIn cat = arbitrary `Gen.suchThat` ((/=) cat . categorize)
+  tokenRange lo hi = toEnum <$> Gen.chooseInt (fromEnum lo, fromEnum hi)
 instance (RandomGen g, Monad m, Categorized token, Random token)
   => Tokenized token (StateT g m token) where
   anyToken = state random
@@ -255,6 +282,7 @@ instance (RandomGen g, Monad m, Categorized token, Random token)
   notOneOf xs = iterateUntil (`notElem` xs) anyToken
   asIn cat = iterateUntil ((== cat) . categorize) anyToken
   notAsIn cat = iterateUntil ((/= cat) . categorize) anyToken
+  tokenRange lo hi = toEnum <$> state (randomR (fromEnum lo, fromEnum hi))
 
 {- | A token examination, by the tokens it accepts, & the alternatives
 of an algebra, whose fixed point is t'TokenClass'. Both t'TokenClass'es &
@@ -442,6 +470,7 @@ instance Categorized token => Tokenized token (TokenExam token alg) where
     NotOneOf (Exts.fromList (toList as)) (AndNotAsIn Set.empty)
   asIn cat = NotOneOf falseP (AndAsIn cat)
   notAsIn cat = NotOneOf falseP (AndNotAsIn (Set.singleton cat))
+  tokenRange lo hi = OneOf (tokenRangeSet lo hi)
 instance Categorized token
   => DisjunctiveMonoid (TokenExam token (TokenClass token)) where
   falseP = failExam

@@ -750,6 +750,7 @@ instance Tokenized Char (WrapMega Char) where
   notOneOf = WrapMega . M.noneOf
   asIn cat = WrapMega $ M.label ("in category " ++ show cat) (M.satisfy (asIn cat))
   notAsIn cat = WrapMega $ M.label ("not in category " ++ show cat) (M.satisfy (notAsIn cat))
+  tokenRange lo hi = WrapMega $ M.label ("in range " ++ show (lo, hi)) (M.satisfy (tokenRange lo hi))
 instance Ruled (WrapMega a) where
   rule lbl (WrapMega p) = WrapMega (M.label lbl p)
 instance BackusNaurForm (WrapMega a)

@@ -146,6 +146,7 @@ instance
   notOneOf ts = tokenClass (notOneOf ts)
   asIn cat = tokenClass (asIn cat)
   notAsIn cat = tokenClass (notAsIn cat)
+  tokenRange lo hi = tokenClass (tokenRange lo hi)
 instance
   ( Categorized a, a ~ Item s, IsList s, Cons s s a a
   , Filterable m, Alternative m, Monad m
