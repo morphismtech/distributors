@@ -66,9 +66,7 @@ module Control.Lens.Grammar.TypeScript
 import Control.Lens
 import Control.Lens.Grammar
 import Data.Char (chr, ord)
-import Data.Map.Strict qualified as Map
 import Data.Maybe (fromMaybe, listToMaybe)
-import Data.Set qualified as Set
 import Data.Profunctor.Monadic.Do qualified as P
 import Data.Text (Text)
 import Data.Text qualified as Text
@@ -287,19 +285,15 @@ instance Lexical TsToken where
   tokenKind = tokenCategory
   -- tested by their kinds' tests of their texts
   type TokenTest TsToken = ByKind TsTokenCategory (Cofinite Text)
-  tokenTest test (TsToken kind text) = testByKind (flip cofiniteMember) test kind text
-  testOneOf tokens' = ByKind $ Map.fromListWith (>|<)
-    [(kind, Finite (Set.singleton text)) | TsToken kind text <- tokens']
-  testKinds (TokenKinds kinds) = ByKind (Map.fromSet (const trueP) kinds)
+  tokenTest = taggedTest tagged
+  testOneOf = taggedOneOf tagged
+  testKinds = taggedKinds
   testRange lo hi = testOneOf [lo .. hi]
-  testFinite (ByKind tests) = case traverse finite (Map.toList tests) of
-    Just kinds ->
-      let tokens' = [TsToken kind text | (kind, texts) <- kinds, text <- texts]
-      in Just (length tokens', (tokens' !!))
-    Nothing -> Nothing
-    where
-      finite (kind, Finite texts) = Just (kind, Set.toList texts)
-      finite _ = Nothing
+  testFinite = taggedFinite tagged
+
+-- | A token, as its category & its text.
+tagged :: Iso' TsToken (TsTokenCategory, Text)
+tagged = iso (\(TsToken category text) -> (category, text)) (uncurry TsToken)
 
 -- | The categories of t'TsToken's, by the TypeScript compiler's names.
 data TsTokenCategory

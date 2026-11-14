@@ -23,7 +23,12 @@ module Control.Lens.Grammar.Token
   , Cofinite (..)
   , cofiniteMember
   , ByKind (..)
-  , testByKind
+    -- * Tagged tokens
+    -- $tagged
+  , taggedTest
+  , taggedOneOf
+  , taggedKinds
+  , taggedFinite
   ) where
 
 import Control.Lens
@@ -400,9 +405,54 @@ instance (Ord kind, Enum kind, Bounded kind, BooleanAlgebra test, Eq test)
     ByKind xs >&< ByKind ys =
       ByKind (Map.filter (/= falseP) (Map.intersectionWith (>&<) xs ys))
 
--- | Test a token, tagged by its kind, by its kind's test of its tag.
-testByKind :: Ord kind => (test -> tag -> Bool) -> ByKind kind test -> kind -> tag -> Bool
-testByKind tested (ByKind xs) kind tag = maybe False (`tested` tag) (Map.lookup kind xs)
+{- $tagged
+Tokens tagged by their kinds, isomorphic to pairs of a kind & a tag,
+are tested by `ByKind` tests, of their kinds' `Cofinite` tests of their
+tags, which these define a `Lexical` instance's methods by.
+
+> instance Lexical TsToken where
+>   type TokenKind TsToken = TsTokenCategory
+>   tokenKind = tokenCategory
+>   type TokenTest TsToken = ByKind TsTokenCategory (Cofinite Text)
+>   tokenTest = taggedTest tagged
+>   testOneOf = taggedOneOf tagged
+>   testKinds = taggedKinds
+>   testRange lo hi = testOneOf [lo .. hi]
+>   testFinite = taggedFinite tagged
+>
+> tagged :: Iso' TsToken (TsTokenCategory, Text)
+> tagged = iso (\(TsToken category text) -> (category, text)) (uncurry TsToken)
+-}
+
+-- | Does a tagged token pass its kind's test of its tag?
+taggedTest
+  :: (Ord kind, Ord tag)
+  => Iso' token (kind, tag) -> ByKind kind (Cofinite tag) -> token -> Bool
+taggedTest tagged (ByKind tests) token' =
+  let (kind, tag) = view tagged token'
+  in maybe False (cofiniteMember tag) (Map.lookup kind tests)
+
+-- | The test of being one of some tagged tokens.
+taggedOneOf
+  :: (Ord kind, Ord tag)
+  => Iso' token (kind, tag) -> [token] -> ByKind kind (Cofinite tag)
+taggedOneOf tagged tokens' = ByKind $ Map.fromListWith (>|<)
+  [(kind, Finite (Set.singleton tag)) | (kind, tag) <- map (view tagged) tokens']
+
+-- | The test of being of one of some kinds, by any tag.
+taggedKinds :: BooleanAlgebra test => TokenKinds kind -> ByKind kind test
+taggedKinds (TokenKinds kinds) = ByKind (Map.fromSet (const trueP) kinds)
+
+-- | The tagged tokens which pass a test, where each kind's are finitely many.
+taggedFinite
+  :: Iso' token (kind, tag) -> ByKind kind (Cofinite tag) -> Maybe (Int, Int -> token)
+taggedFinite tagged (ByKind tests) = do
+  tokens' <- concat <$> traverse finite (Map.toList tests)
+  Just (length tokens', (tokens' !!))
+  where
+    finite = \case
+      (kind, Finite tags) -> Just [review tagged (kind, tag) | tag <- Set.toList tags]
+      _ -> Nothing
 
 -- memo tries of tests, by their forms
 instance HasTrie (TokenTest token) => HasTrie (TokenClass token) where
