@@ -139,13 +139,13 @@ varifocals =
 -- | The test examples, scaled up.
 examples :: [Workload]
 examples =
-  [ Workload "arith" arithGrammar arithStr (parsed arithGrammar arithStr)
-  , Workload "expr" exprGrammar exprStr (parsed exprGrammar exprStr)
-  , Workload "expr left-assoc" leftGrammar leftStr (parsed leftGrammar leftStr)
-  , Workload "json" jsonGrammar jsonStr (parsed jsonGrammar jsonStr)
-  , Workload "sexpr" sexprGrammar sexprStr (parsed sexprGrammar sexprStr)
-  , Workload "lambda" lambdaGrammar lambdaStr (parsed lambdaGrammar lambdaStr)
-  , Workload "semver" semverCtxGrammar semverStr (parsed semverCtxGrammar semverStr)
+  [ Workload @Arith "arith" arithGrammar arithStr (parsed arithGrammar arithStr)
+  , Workload @Expr "expr" exprGrammar exprStr (parsed exprGrammar exprStr)
+  , Workload @Expr "expr left-assoc" leftGrammar leftStr (parsed leftGrammar leftStr)
+  , Workload @Json "json" jsonGrammar jsonStr (parsed jsonGrammar jsonStr)
+  , Workload @SExpr "sexpr" sexprGrammar sexprStr (parsed sexprGrammar sexprStr)
+  , Workload @Lambda "lambda" lambdaGrammar lambdaStr (parsed lambdaGrammar lambdaStr)
+  , Workload @SemVer "semver" semverCtxGrammar semverStr (parsed semverCtxGrammar semverStr)
   ]
   where
     parsed :: forall a. (forall p. CtxGrammatical Char p => p a a) -> String -> a
