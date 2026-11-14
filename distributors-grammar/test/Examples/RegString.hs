@@ -14,7 +14,7 @@ regexExamples =
   , (optK (terminal "x"), "x?")
   , (starK (terminal "x"), "x*")
   , (plusK (terminal "x"), "x+")
-  , (tokenAny, "[^]")
+  , (anyToken, "[^]")
   , (oneOf "abc", "[a-c]")
   , (notOneOf "abc", "[^a-c]")
   , (asIn UppercaseLetter, "\\p{Lu}")
@@ -26,8 +26,8 @@ regexExamples =
 
   -- Boolean OR (>|<) operations
   , (tokenClass (oneOf "abc" >|< oneOf "xyz"), "[a-cx-z]")
-  , (tokenClass (oneOf "abc" >|< notOneOf "xyz"), "[^x-z]")
-  , (tokenClass (notOneOf "abc" >|< oneOf "xyz"), "[^a-c]")
+  , (tokenClass (oneOf "abc" >|< notOneOf "xyz"), "[a-c]|[^x-z]")
+  , (tokenClass (notOneOf "abc" >|< oneOf "xyz"), "[^a-c]|[x-z]")
   , (tokenClass (asIn UppercaseLetter >|< asIn LowercaseLetter), "\\p{Lu}|\\p{Ll}")
   , (tokenClass (oneOf "abc" >|< asIn DecimalNumber), "[a-c]|\\p{Nd}")
 
@@ -55,6 +55,6 @@ regexExamples =
 
   -- Complex combinations
   , (tokenClass (notOneOf "abc" >&< (asIn LowercaseLetter >|< asIn UppercaseLetter)), "[^a-c\\p{Ll}]|\\p{Lu}")
-  , (tokenClass ((oneOf "123" >|< asIn DecimalNumber) >&< notOneOf "789"), "[^7-9\\p{Nd}]")
+  , (tokenClass ((oneOf "123" >|< asIn DecimalNumber) >&< notOneOf "789"), "[1-3]|[^7-9\\p{Nd}]")
   , (tokenClass (notP (oneOf "abc" >|< asIn MathSymbol)), "[^a-c\\P{Sm}]")
   ]

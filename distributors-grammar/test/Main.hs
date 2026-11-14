@@ -13,7 +13,7 @@ import Text.ParserCombinators.ReadPrec (ReadPrec, readPrec_to_S)
 import Data.Functor.Contravariant (Predicate (..))
 import Test.Hspec
 import Test.Hspec.QuickCheck (modifyMaxSize, prop)
-import Test.QuickCheck (Gen, (.&&.), choose, elements, forAll, generate, listOf, oneof, (===))
+import Test.QuickCheck (choose, elements, forAll, generate, listOf, oneof, (===))
 import qualified Text.Megaparsec as M
 
 import Examples.Arithmetic
@@ -55,8 +55,6 @@ main = hspec $ do
   describe "base types" baseProperties
   describe "RegEx ranges & try" regexRangeTryTests
   describe "RegEx quantifiers" regexQuantifierTests
-  describe "tokenRange" tokenRangeTests
-  describe "Lexical laws" lexicalLaws
 
 regexRangeTryTests :: Spec
 regexRangeTryTests = do
@@ -79,42 +77,6 @@ regexRangeTryTests = do
     map conflictSort (ll1Conflicts (fromString "{start} = ab|ac" :: Bnf (RegEx Char)))
       `shouldBe` [LL1FirstFirst]
     ll1Conflicts (fromString "{start} = \\t{ab}|ac" :: Bnf (RegEx Char)) `shouldBe` []
-
-lexicalLaws :: Spec
-lexicalLaws = do
-  let near = choose ('\0', '\x3FF')
-      tested :: TokenClass Char -> Char -> Bool
-      tested = tokenClass
-  prop "a class tests homomorphically" $ \(x :: TokenClass Char) y -> forAll near $ \c ->
-    tested (x >|< y) c === (tested x c || tested y c)
-      .&&. tested (x >&< y) c === (tested x c && tested y c)
-      .&&. tested (notP x) c === not (tested x c)
-      .&&. tested trueP c .&&. not (tested falseP c)
-  prop "its generators test as they say" $ forAll (listOf near) $ \cs ->
-    forAll near $ \lo -> forAll near $ \hi -> forAll near $ \c ->
-      tested (oneOf cs) c === (c `elem` cs)
-        .&&. tested (tokenRange lo hi) c === (lo <= c && c <= hi)
-        .&&. tested (asIn (tokenKind lo)) c === (tokenKind c == tokenKind lo)
-  prop "equal classes test alike, by their one form" $ \(x :: TokenClass Char) y ->
-    (x >|< y) >&< notP y === x >&< notP y
-
-tokenRangeTests :: Spec
-tokenRangeTests = do
-  let near = choose ('\0', '\x3FF')
-  prop "tokenRange lo hi = oneOf [lo .. hi], as TokenClass" $ forAll near $ \lo -> forAll near $ \hi ->
-    (tokenRange lo hi :: TokenClass Char) === oneOf [lo .. hi]
-  prop "tokenRange lo hi = oneOf [lo .. hi], as a predicate" $ forAll near $ \lo -> forAll near $ \hi -> forAll near $ \x ->
-    tokenRange lo hi x === (oneOf [lo .. hi] :: Char -> Bool) x
-  it "renders as a range, & parses so" $ do
-    toList (tokenRange 'a' 'z' :: RegEx Char) `shouldBe` "[a-z]"
-    (fromString "[a-z]" :: RegEx Char) `shouldBe` tokenRange 'a' 'z'
-    toList (tokenRange 'z' 'a' :: RegEx Char) `shouldBe` "[]"
-  it "takes all of Unicode by its ends" $ do
-    let rex = tokenClass (tokenRange '\x20' '\x10FFFF' >&< notOneOf "\"\\") :: RegEx Char
-    toList rex `shouldBe` "[ !#-Z\\[\\]\\^_-\1114111]"
-    map (=~ rex) ["a", "\"", "\x10FFFF", "\x1F"] `shouldBe` [True, False, True, False]
-  prop "generates tokens in range" $ forAll (choose ('a', 'm')) $ \lo ->
-    forAll (tokenRange lo 'z' :: Gen Char) $ \x -> lo <= x && x <= 'z'
 
 regexQuantifierTests :: Spec
 regexQuantifierTests = do
@@ -283,9 +245,10 @@ newtype WrapMega a = WrapMega {unwrapMega :: M.Parsec String String a}
     )
 instance TerminalSymbol Char (WrapMega ()) where
   terminal str = WrapMega (M.chunk str *> pure ())
-instance Tokenized Char (WrapMega Char) where
+instance TokenAlgebra Char (WrapMega Char) where
   tokenClass exam = WrapMega $ M.label (show exam) (M.satisfy (tokenClass exam))
-  tokenAny = WrapMega M.anySingle
+instance Tokenized Char (WrapMega Char) where
+  anyToken = WrapMega M.anySingle
   token = WrapMega . M.single
   oneOf = WrapMega . M.oneOf
   notOneOf = WrapMega . M.noneOf
@@ -293,7 +256,6 @@ instance Tokenized Char (WrapMega Char) where
     (M.satisfy (tokenClass (asIn cat)))
   notAsIn cat = WrapMega $ M.label ("not in category " ++ show cat)
     (M.satisfy (tokenClass (notAsIn cat)))
-  tokenRange lo hi = WrapMega $ M.label ("in range " ++ show (lo, hi)) (M.satisfy (tokenRange lo hi))
 instance Ruled (WrapMega a) where
   rule lbl (WrapMega p) = WrapMega (M.label lbl p)
 instance BackusNaurForm (WrapMega a)

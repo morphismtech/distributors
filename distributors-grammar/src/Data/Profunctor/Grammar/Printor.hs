@@ -136,17 +136,28 @@ instance (Alternative f, Monad f) => ArrowChoice (Printor s f) where
   left = left'
   right = right'
 instance
-  ( Lexical a, a ~ Item s, IsList s, Cons s s a a
+  ( Categorized a, a ~ Item s, IsList s, Cons s s a a
   , Filterable m, Alternative m, Monad m
   ) => Tokenized a (Printor s m a a) where
   {-# SPECIALISE instance Tokenized Char (Printor String Maybe Char Char) #-}
-  tokenAny = Printor (\b -> pure (b, cons b))
-  -- | The test is made once, rather than for each token.
-  tokenClass test = matches `seq` Printor (\b ->
-    if matches b then pure (b, cons b) else empty)
-    where
-      matches :: a -> Bool
-      matches = tokenClass test
+  anyToken = Printor (\b -> pure (b, cons b))
+  token t = tokenClass (token t)
+  oneOf ts = tokenClass (oneOf ts)
+  notOneOf ts = tokenClass (notOneOf ts)
+  asIn cat = tokenClass (asIn cat)
+  notAsIn cat = tokenClass (notAsIn cat)
+instance
+  ( Categorized a, a ~ Item s, IsList s, Cons s s a a
+  , Filterable m, Alternative m, Monad m
+  ) => TokenAlgebra a (Printor s m a a) where
+    {-# SPECIALISE instance
+      TokenAlgebra Char (Printor String Maybe Char Char) #-}
+    -- | The test is made once, rather than for each token.
+    tokenClass test = matches `seq` Printor (\b ->
+      if matches b then pure (b, cons b) else empty)
+      where
+        matches :: a -> Bool
+        matches = tokenClass test
 instance (a ~ Item s, Cons s s a a, Applicative m)
   => TerminalSymbol a (Printor s m () ()) where
     {-# SPECIALISE instance TerminalSymbol Char (Printor String Maybe () ()) #-}

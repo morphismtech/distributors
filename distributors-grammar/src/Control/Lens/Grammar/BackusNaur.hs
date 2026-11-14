@@ -110,7 +110,7 @@ class Tried p where
 @Control.Lens.Grammar.RegGrammar@s. -}
 type RegGrammatical token p =
   ( forall x y. (x ~ (), y ~ ()) => TerminalSymbol token (p x y)
-  , forall x y. (x ~ token, y ~ token) => Tokenized token (p x y)
+  , forall x y. (x ~ token, y ~ token) => TokenAlgebra token (p x y)
   , Alternator p
   , forall x y. Tried (p x y)
   ) :: Constraint

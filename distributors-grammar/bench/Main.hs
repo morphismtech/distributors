@@ -125,9 +125,9 @@ separates =
 -- | Varifocals, applied by contextually.
 varifocals :: [Workload]
 varifocals =
-  [ Workload "terminateBy" (contextually (terminateBy (== '.')) (tokenAny @Char))
+  [ Workload "terminateBy" (contextually (terminateBy (== '.')) (anyToken @Char))
       (digits <> ".") (digits <> ".")
-  , Workload "balanceBy" (contextually (balanceBy (== '(') (== ')')) (tokenAny @Char))
+  , Workload "balanceBy" (contextually (balanceBy (== '(') (== ')')) (anyToken @Char))
       nested nested
   , Workload "heredoc" heredocG heredocStr heredoc
   ]

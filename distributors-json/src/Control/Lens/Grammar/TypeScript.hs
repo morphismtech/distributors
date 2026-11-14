@@ -280,20 +280,9 @@ data TsToken = TsToken
   , tokenText :: Text
   } deriving stock (Eq, Ord, Show, Read)
 
-instance Lexical TsToken where
-  type TokenKind TsToken = TsTokenCategory
-  tokenKind = tokenCategory
-  -- tested by their kinds' tests of their texts
-  type TokenTest TsToken = ByKind TsTokenCategory (Cofinite Text)
-  tokenTest = taggedTest tagged
-  testOneOf = taggedOneOf tagged
-  testKinds = taggedKinds
-  testRange lo hi = testOneOf [lo .. hi]
-  testFinite = taggedFinite tagged
-
--- | A token, as its category & its text.
-tagged :: Iso' TsToken (TsTokenCategory, Text)
-tagged = iso (\(TsToken category text) -> (category, text)) (uncurry TsToken)
+instance Categorized TsToken where
+  type Categorize TsToken = TsTokenCategory
+  categorize = tokenCategory
 
 -- | The categories of t'TsToken's, by the TypeScript compiler's names.
 data TsTokenCategory
@@ -485,18 +474,18 @@ It's a `RegGrammar`, since each token's spelling is a regular language.
 -}
 tsTokenGrammar :: RegGrammatical Char p => p TsToken TsToken
 tsTokenGrammar = orP
-  [ ofKind WhitespaceTrivia >? someP (oneOf @Char (" \t\f\v" :: String))
-  , ofKind NewLineTrivia >? orP
+  [ kindOf WhitespaceTrivia >? someP (oneOf @Char (" \t\f\v" :: String))
+  , kindOf NewLineTrivia >? orP
       [only "\n" >? terminal "\n", only "\r\n" >? terminal "\r\n"]
   , _Comment >? terminal "/" >* orP
       [ _Left >? terminal "/" >* manyP (notOneOf @Char ("\r\n" :: String))
       , _Right >? blockComment
       ]
   , _Word >? identifierStart >:< manyP identifierPart
-  , ofKind PrivateIdentifier >? terminal "#"
+  , kindOf PrivateIdentifier >? terminal "#"
       >* (identifierStart >:< manyP identifierPart)
   , _Number >? asIn @Char DecimalNumber >:< manyP numberPart
-  , ofKind StringLiteral >? orP
+  , kindOf StringLiteral >? orP
       [ terminal "\"" >* manyP (stringChar '"') *< terminal "\""
       , terminal "'" >* manyP (stringChar '\'') *< terminal "'"
       ]
@@ -611,8 +600,8 @@ tokensWithin depths = orP
       _ -> ds
 
 -- | A token of a category, by its text.
-ofKind :: TsTokenCategory -> Prism' TsToken String
-ofKind category = prism'
+kindOf :: TsTokenCategory -> Prism' TsToken String
+kindOf category = prism'
   (TsToken category . Text.pack)
   (\(TsToken category' text) ->
     if category == category' then Just (Text.unpack text) else Nothing)

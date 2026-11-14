@@ -123,9 +123,9 @@ kleeneProperties = do
     modifyMaxSize (const 8) $ do
       let
         printed :: Prismoid String String Char Char -> String -> Maybe String
-        printed pat s = ($ "") <$> printP (pat >?* (tokenAny :: Printor String Maybe Char Char)) s
+        printed pat s = ($ "") <$> printP (pat >?* (anyToken :: Printor String Maybe Char Char)) s
         parsed :: Prismoid String String Char Char -> String -> Maybe (String, String)
-        parsed pat s = parseP (pat >?* (tokenAny :: Parsor String Maybe Char Char)) s
+        parsed pat s = parseP (pat >?* (anyToken :: Parsor String Maybe Char Char)) s
         bounded lo hi s = lo <= length s && length s <= hi
       prop "inRange lo hi prints & parses exactly lo to hi tokens" $
         \(s :: String) -> forAll (choose (0, 4)) $ \lo -> forAll (choose (0, 4)) $ \hi ->
@@ -154,8 +154,8 @@ kleeneProperties = do
         ((tokenClass x :: RegEx Char) >|< tokenClass y)
           == tokenClass (x >|< y)
   describe "TokenAlgebra RegEx" $ do
-    it "tokenAny = tokenClass tokenAny" $
-      (tokenAny :: RegEx Char) `shouldBe` tokenClass tokenAny
+    it "anyToken = tokenClass anyToken" $
+      (anyToken :: RegEx Char) `shouldBe` tokenClass anyToken
     prop "token c = tokenClass (token c)" $
       \(c :: Char) ->
         (token c :: RegEx Char) == tokenClass (token c)
@@ -192,8 +192,8 @@ kleeneProperties = do
       for_ cases $ \(word, rex) ->
         (word =~ rex) `shouldBe` (word =~ liftBnf0 rex)
   describe "BooleanAlgebra TokenClass" $ do
-    it "trueP = tokenAny" $
-      (trueP :: TokenClass Char) `shouldBe` tokenAny
+    it "trueP = anyToken" $
+      (trueP :: TokenClass Char) `shouldBe` anyToken
     it "trueP = notOneOf []" $
       (trueP :: TokenClass Char) `shouldBe` notOneOf []
     it "falseP = oneOf []" $

@@ -167,15 +167,20 @@ instance (Alternative m, Monad m) => ArrowChoice (Parsor s m) where
   left = left'
   right = right'
 instance
-  ( Lexical a, a ~ Item s, IsList s
+  ( Categorized a, a ~ Item s, IsList s
   , Cons s s a a, Snoc s s a a
   , Filterable m, Alternative m, Monad m
   ) => Tokenized a (Parsor s m a a) where
-    tokenAny = Parsor $ maybe
+    anyToken = Parsor $ maybe
       (maybe empty pure . uncons)
       (\a -> pure . (a,) . flip snoc a)
 instance
-  ( Lexical a, a ~ Item s, IsList s
+  ( Categorized a, a ~ Item s, IsList s
+  , Cons s s a a, Snoc s s a a
+  , Filterable m, Alternative m, Monad m
+  ) => TokenAlgebra a (Parsor s m a a)
+instance
+  ( Categorized a, a ~ Item s, IsList s
   , Cons s s a a, Snoc s s a a
   , Filterable m, Alternative m, Monad m
   ) => TerminalSymbol a (Parsor s m () ()) where
@@ -233,13 +238,13 @@ instance KleeneStarAlgebra k => Alternator (Grammor k) where
   manyTillP (Grammor rex) (Grammor rest) = Grammor (starK rex <> rest)
   timesP lo hi (Grammor rex) = Grammor (timesK lo hi rex)
 instance Tokenized token k => Tokenized token (Grammor k a b) where
-  tokenAny = Grammor tokenAny
+  anyToken = Grammor anyToken
   token = Grammor . token
   oneOf = Grammor . oneOf
   notOneOf = Grammor . notOneOf
   asIn = Grammor . asIn
   notAsIn = Grammor . notAsIn
-  tokenRange lo = Grammor . tokenRange lo
+instance TokenAlgebra a k => TokenAlgebra a (Grammor k a b) where
   tokenClass = Grammor . tokenClass
 instance TerminalSymbol token k
   => TerminalSymbol token (Grammor k a b) where

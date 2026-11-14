@@ -90,7 +90,6 @@ library
     , base >=4.20 && <5
     , bifunctors >=5.5 && <6
     , containers >=0.6 && <1
-    , range-set-list >=0.1.4 && <0.2
     , distributors ==0.7.*
     , lens >=5.0 && <6
     , monad-loops >=0.4.3 && <1
@@ -154,7 +153,6 @@ test-suite doctests
     , base >=4.20 && <5
     , bifunctors >=5.5 && <6
     , containers >=0.6 && <1
-    , range-set-list >=0.1.4 && <0.2
     , distributors ==0.7.*
     , distributors-grammar
     , doctest-parallel >=0.3 && <1
@@ -234,7 +232,6 @@ test-suite test
     , base >=4.20 && <5
     , bifunctors >=5.5 && <6
     , containers >=0.6 && <1
-    , range-set-list >=0.1.4 && <0.2
     , distributors
     , distributors-grammar
     , free >=5.1 && <6
@@ -307,7 +304,6 @@ benchmark core
     , base >=4.20 && <5
     , bifunctors >=5.5 && <6
     , containers >=0.6 && <1
-    , range-set-list >=0.1.4 && <0.2
     , distributors
     , distributors-grammar
     , lens >=5.0 && <6
