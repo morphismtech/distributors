@@ -69,6 +69,12 @@ data RegEx token
   | KleeneStar (RegEx token)
   | KleeneOpt (RegEx token)
   | KleenePlus (RegEx token)
+  {- | Between some numbers of times, inclusive, @x{lo,hi}@ or @x{lo,}@,
+  normalized by `timesK`: either unbounded, at least twice, or bounded,
+  at most twice or more, never below its lower bound, at least none;
+  other counts being `KleeneStar`, `KleenePlus`, `KleeneOpt`, the item
+  itself, or empty; of an item neither empty nor failing. -}
+  | KleeneTimes Int (Maybe Int) (RegEx token)
   -- | A pattern to backtrack from, by `try`, whose language is its own.
   | Backtracking (RegEx token)
   | RegExam (TokenExam token (RegEx token))
@@ -120,6 +126,17 @@ instance Categorized token => KleeneStarAlgebra (RegEx token) where
   plusK (RegExam exam) | isFailExam exam = falseP
   plusK SeqEmpty = mempty
   plusK rex = KleenePlus rex
+  timesK lo0 hi rex = case (max 0 lo0, hi) of
+    (lo, Just m) | lo > m -> falseP
+    _ | SeqEmpty <- rex -> mempty
+    (lo, _) | RegExam exam <- rex, isFailExam exam ->
+      if lo == 0 then mempty else falseP
+    (0, Nothing) -> starK rex
+    (1, Nothing) -> plusK rex
+    (_, Just 0) -> mempty
+    (0, Just 1) -> optK rex
+    (1, Just 1) -> rex
+    (lo, _) -> KleeneTimes lo hi rex
 instance (Categorized token, HasTrie token)
   => HasTrie (RegEx token) where
     data (RegEx token :->: b) = RegExTrie
@@ -130,6 +147,7 @@ instance (Categorized token, HasTrie token)
       , kleeneStarTrie :: RegEx token :->: b
       , kleeneOptTrie :: RegEx token :->: b
       , kleenePlusTrie :: RegEx token :->: b
+      , kleeneTimesTrie :: ((Int, Maybe Int), RegEx token) :->: b
       , backtrackingTrie :: RegEx token :->: b
       , oneOfTrie :: [token] :->: b
       , notOneOfTrie :: ([token], Either Int [Int]) :->: b
@@ -142,6 +160,7 @@ instance (Categorized token, HasTrie token)
       , kleeneStarTrie = trie (f . starK)
       , kleeneOptTrie = trie (f . optK)
       , kleenePlusTrie = trie (f . plusK)
+      , kleeneTimesTrie = trie (f . \((lo, hi), x) -> timesK lo hi x)
       , backtrackingTrie = trie (f . try)
       , oneOfTrie = trie (f . oneOf)
       , notOneOfTrie = trie (f . testNotOneOf)
@@ -153,6 +172,7 @@ instance (Categorized token, HasTrie token)
       KleeneStar x -> untrie (kleeneStarTrie rex) x
       KleenePlus x -> untrie (kleenePlusTrie rex) x
       KleeneOpt x -> untrie (kleeneOptTrie rex) x
+      KleeneTimes lo hi x -> untrie (kleeneTimesTrie rex) ((lo, hi), x)
       Backtracking x -> untrie (backtrackingTrie rex) x
       RegExam (OneOf chars) -> untrie (oneOfTrie rex) (Set.toList chars)
       RegExam (NotOneOf chars (AndAsIn cat)) ->
@@ -169,6 +189,8 @@ instance (Categorized token, HasTrie token)
       , first' KleeneStar <$> enumerate (kleeneStarTrie rex)
       , first' KleeneOpt <$> enumerate (kleeneOptTrie rex)
       , first' KleenePlus <$> enumerate (kleenePlusTrie rex)
+      , first' (\((lo, hi), x) -> KleeneTimes lo hi x)
+          <$> enumerate (kleeneTimesTrie rex)
       , first' Backtracking <$> enumerate (backtrackingTrie rex)
       , first' (RegExam . OneOf . Set.fromList) <$> enumerate (oneOfTrie rex)
       , first' testNotOneOf <$> enumerate (notOneOfTrie rex)
@@ -347,6 +369,8 @@ diffB prefix (Bnf start rules) =
       KleeneOpt y -> diff1B x y
       Backtracking y -> diff1B x y
       KleenePlus y -> diff1B x y <> starK y
+      KleeneTimes lo hi y ->
+        diff1B x y <> timesK (lo - 1) (subtract 1 <$> hi) y
       RegExam (OneOf chars) ->
         if x `elem` chars then mempty else falseP
       RegExam (NotOneOf chars (AndAsIn cat)) ->
@@ -367,6 +391,7 @@ diffB prefix (Bnf start rules) =
     KleeneOpt _ -> True
     Backtracking y -> ν y
     KleenePlus y -> ν y
+    KleeneTimes lo _ y -> lo == 0 || ν y
     Sequence y1 y2 ys -> all ν (y1 : y2 : ys)
     RegExam (Alternate y1 y2 ys) -> any ν (y1 : y2 : ys)
     NonTerminal nameY -> any ν (rulesNamed nameY rules)
@@ -542,6 +567,7 @@ Ill-formed regular expression strings normalize to failure.
 {start} = \q{regex}
 {alternate} = \q{sequence}(\|\q{sequence})*
 {atom} = \\q\q{nonterminal}|\\t\{\q{regex}\}|\q{class}|\(\q{regex}\)
+{bounds} = \q{count}(,\q{count}?)?
 {category} = Ll|Lu|Lt|Lm|Lo|Mn|Mc|Me|Nd|Nl|No|Pc|Pd|Ps|Pe|Pi|Pf|Po|Sm|Sc|Sk|So|Zs|Zl|Zp|Cc|Cf|Cs|Co|Cn
 {char} = [^\(\)\*\+\?\[\\\]\^\{\|\}\P{Cc}]|\\\q{char-escaped}
 {char-control} = NUL|SOH|STX|ETX|EOT|ENQ|ACK|BEL|BS|HT|LF|VT|FF|CR|SO|SI|DLE|DC1|DC2|DC3|DC4|NAK|SYN|ETB|CAN|EM|SUB|ESC|FS|GS|RS|US|DEL|PAD|HOP|BPH|NBH|IND|NEL|SSA|ESA|HTS|HTJ|VTS|PLD|PLU|RI|SS2|SS3|DCS|PU1|PU2|STS|CCH|MW|SPA|EPA|SOS|SGCI|SCI|CSI|ST|OSC|PM|APC
@@ -553,7 +579,8 @@ Ill-formed regular expression strings normalize to failure.
 {class-not-one-of} = \q{class-category}|\[\^\q{class-range}*\q{class-category}?\]
 {class-one-of} = \q{char}|\[\q{class-range}*\]
 {class-range} = \q{class-char}(-\q{class-char})?
-{expression} = \q{atom}\?|\q{atom}\*|\q{atom}\+|\q{atom}
+{count} = [0-9]+
+{expression} = \q{atom}\?|\q{atom}\*|\q{atom}\+|\q{atom}\{\q{bounds}\}|\q{atom}
 {nonterminal} = \{\q{char}*\}
 {regex} = \q{alternate}
 {sequence} = \q{expression}*
@@ -581,8 +608,21 @@ regexGrammar = ruleRec "regex" altG
       [ _KleeneOpt >? atomG rex *< terminal "?"
       , _KleeneStar >? atomG rex *< terminal "*"
       , _KleenePlus >? atomG rex *< terminal "+"
+      , _Times >? atomG rex >*< terminal "{" >* boundsG *< terminal "}"
       , atomG rex
       ]
+
+    -- improper, normalizing counts by `timesK`
+    _Times = prism' (\(x, (lo, hi)) -> timesK lo hi x) $ \case
+      KleeneTimes lo hi x -> Just (x, (lo, hi))
+      _ -> Nothing
+
+    -- @{n}@ for exactly @n@ times, @{n,}@ or @{n,m}@
+    boundsG = rule "bounds" $ iso bounded unbounded
+      >~ countG >*< optionalP (terminal "," >* optionalP countG)
+    bounded (lo, hi) = if hi == Just lo then (lo, Nothing) else (lo, Just hi)
+    unbounded (lo, hi) = (lo, fromMaybe (Just lo) hi)
+    countG = rule "count" $ iso show read >~ someP (oneOf ['0' .. '9'])
 
     atomG rex = rule "atom" $ orP
       [ _NonTerminal >? terminal "\\q" >* nonterminalG
@@ -817,6 +857,7 @@ But they also support `BackusNaurForm` `rule`s and `ruleRec`s.
 {start} = \q{regbnf}
 {alternate} = \q{sequence}(\|\q{sequence})*
 {atom} = \\q\q{nonterminal}|\\t\{\q{regex}\}|\q{class}|\(\q{regex}\)
+{bounds} = \q{count}(,\q{count}?)?
 {category} = Ll|Lu|Lt|Lm|Lo|Mn|Mc|Me|Nd|Nl|No|Pc|Pd|Ps|Pe|Pi|Pf|Po|Sm|Sc|Sk|So|Zs|Zl|Zp|Cc|Cf|Cs|Co|Cn
 {char} = [^\(\)\*\+\?\[\\\]\^\{\|\}\P{Cc}]|\\\q{char-escaped}
 {char-control} = NUL|SOH|STX|ETX|EOT|ENQ|ACK|BEL|BS|HT|LF|VT|FF|CR|SO|SI|DLE|DC1|DC2|DC3|DC4|NAK|SYN|ETB|CAN|EM|SUB|ESC|FS|GS|RS|US|DEL|PAD|HOP|BPH|NBH|IND|NEL|SSA|ESA|HTS|HTJ|VTS|PLD|PLU|RI|SS2|SS3|DCS|PU1|PU2|STS|CCH|MW|SPA|EPA|SOS|SGCI|SCI|CSI|ST|OSC|PM|APC
@@ -828,7 +869,8 @@ But they also support `BackusNaurForm` `rule`s and `ruleRec`s.
 {class-not-one-of} = \q{class-category}|\[\^\q{class-range}*\q{class-category}?\]
 {class-one-of} = \q{char}|\[\q{class-range}*\]
 {class-range} = \q{class-char}(-\q{class-char})?
-{expression} = \q{atom}\?|\q{atom}\*|\q{atom}\+|\q{atom}
+{count} = [0-9]+
+{expression} = \q{atom}\?|\q{atom}\*|\q{atom}\+|\q{atom}\{\q{bounds}\}|\q{atom}
 {nonterminal} = \{\q{char}*\}
 {regbnf} = \{start\} = \q{regex}(\LF\q{nonterminal} = \q{regex})*
 {regex} = \q{alternate}

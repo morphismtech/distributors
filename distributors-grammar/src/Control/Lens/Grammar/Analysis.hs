@@ -70,6 +70,7 @@ foldRegEx tok nonterm = go
       KleeneStar x -> starK (go x)
       KleeneOpt x -> optK (go x)
       KleenePlus x -> plusK (go x)
+      KleeneTimes lo hi x -> timesK lo hi (go x)
       Backtracking x -> go x
       RegExam (OneOf toks) -> tok (TokenClass (OneOf toks))
       RegExam (NotOneOf toks test) -> tok (TokenClass (NotOneOf toks test))
@@ -221,6 +222,7 @@ follows bnf = go (falseP <$ rules)
       KleeneStar x -> followed (again x) x
       KleenePlus x -> followed (again x) x
       Backtracking x -> followed after x
+      KleeneTimes lo hi x -> followed after (unrolled lo hi x)
       KleeneOpt x -> followed after x
       RegExam (Alternate x y zs) -> Map.unionsWith (>|<) (map (followed after) (x : y : zs))
       _ -> Map.empty
@@ -271,6 +273,7 @@ ll1Conflicts bnf =
       KleenePlus x -> repetition x <> check name x (again x)
       KleeneOpt x -> repetition x <> check name x after
       Backtracking x -> check name x after
+      KleeneTimes lo hi x -> check name (unrolled lo hi x) after
       RegExam (Alternate x y zs) ->
         concat [alternation a b | (a, bs) <- pairs (x : y : zs), b <- bs]
         <> concatMap (\a -> check name a after) (x : y : zs)
@@ -337,3 +340,10 @@ data LL1ConflictSort
   | LL1LeftRecursion
   -- ^ a rule which names itself before reading a token
   deriving stock (Eq, Ord, Show, Read, Enum, Bounded)
+
+-- | Counts, unrolled, @x{lo,hi}@ as @lo@ times @x@ & then
+-- @x*@, or @hi - lo@ nested options.
+unrolled :: Categorized token => Int -> Maybe Int -> RegEx token -> RegEx token
+unrolled lo hi x = mconcat (replicate lo x) <> case hi of
+  Nothing -> starK x
+  Just m -> foldr (\_ rest -> optK (x <> rest)) mempty [lo + 1 .. m]

@@ -12,7 +12,8 @@ import Text.ParserCombinators.ReadP (readP_to_S)
 import Text.ParserCombinators.ReadPrec (ReadPrec, readPrec_to_S)
 import Data.Functor.Contravariant (Predicate (..))
 import Test.Hspec
-import Test.QuickCheck (generate)
+import Test.Hspec.QuickCheck (modifyMaxSize, prop)
+import Test.QuickCheck (choose, elements, forAll, generate, listOf, oneof, (===))
 import qualified Text.Megaparsec as M
 
 import Examples.Arithmetic
@@ -53,6 +54,7 @@ main = hspec $ do
   describe "ReadPrec & Predicate" readPrecTests
   describe "base types" baseProperties
   describe "RegEx ranges & try" regexRangeTryTests
+  describe "RegEx quantifiers" regexQuantifierTests
 
 regexRangeTryTests :: Spec
 regexRangeTryTests = do
@@ -75,6 +77,39 @@ regexRangeTryTests = do
     map conflictSort (ll1Conflicts (fromString "{start} = ab|ac" :: Bnf (RegEx Char)))
       `shouldBe` [LL1FirstFirst]
     ll1Conflicts (fromString "{start} = \\t{ab}|ac" :: Bnf (RegEx Char)) `shouldBe` []
+
+regexQuantifierTests :: Spec
+regexQuantifierTests = do
+  let rendered :: Prismoid String String Char Char -> String
+      rendered pat = toList (runGrammor (pat >?* Grammor (token 'a')) :: RegEx Char)
+  it "renders counted Prismoids by their counts" $ do
+    rendered (exactly 4) `shouldBe` "a{4}"
+    rendered (atLeast 2) `shouldBe` "a{2,}"
+    rendered (inRange 2 (Just 5)) `shouldBe` "a{2,5}"
+    rendered (atMost 3) `shouldBe` "a{0,3}"
+  it "renders the counts Kleene operators have by them" $ do
+    rendered (atLeast 0) `shouldBe` "a*"
+    rendered (atLeast 1) `shouldBe` "a+"
+    rendered (atMost 1) `shouldBe` "a?"
+    rendered (exactly 1) `shouldBe` "a"
+    rendered (exactly 0) `shouldBe` ""
+    rendered (inRange 3 (Just 2)) `shouldBe` "[]"
+  it "parses counts, normalizing them" $ do
+    (fromString "a{2,3}" :: RegEx Char) `shouldBe` timesK 2 (Just 3) (token 'a')
+    toList (fromString "a{0,}" :: RegEx Char) `shouldBe` "a*"
+    toList (fromString "a{1}" :: RegEx Char) `shouldBe` "a"
+    toList (fromString "(ab){3}" :: RegEx Char) `shouldBe` "(ab){3}"
+  it "matches counts" $ do
+    let rex = fromString "a{2,3}" :: RegEx Char
+    map (=~ rex) ["a", "aa", "aaa", "aaaa"] `shouldBe` [False, True, True, False]
+    map (=~ (fromString "a{2,}" :: RegEx Char)) ["a", "aa", "aaaaa"]
+      `shouldBe` [False, True, True]
+  prop "timesK n (Just n) x matches as n times x" $ \(x :: RegEx Char) ->
+    forAll (choose (0, 3)) $ \n -> forAll (listOf (elements "ab")) $ \w ->
+      (w =~ timesK n (Just n) x) === (w =~ mconcat (replicate n x))
+  modifyMaxSize (const 8) $ prop "x{lo,hi} round trips through its string" $ \(x :: RegEx Char) ->
+    forAll (choose (0, 3)) $ \lo -> forAll (oneof [pure Nothing, Just <$> choose (lo, 4)]) $ \hi ->
+      let rex = timesK lo hi x in fromString (toList rex) === rex
 
 readPrecTests :: Spec
 readPrecTests = do

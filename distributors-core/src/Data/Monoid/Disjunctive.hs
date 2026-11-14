@@ -66,6 +66,7 @@ import Control.Monad.Trans.Writer.Lazy qualified as LazyW
 import Control.Monad.Trans.Writer.Strict qualified as StrictW
 import Data.Functor.Reverse (Reverse)
 import Data.Bits (Bits (..))
+import Data.Maybe (isJust)
 import Data.Int (Int8, Int16, Int32, Int64)
 import Data.IntMap (IntMap)
 import Data.IntSet (IntSet)
@@ -176,6 +177,28 @@ class (Monoid k, DisjunctiveMonoid k) => KleeneStarAlgebra k where
   starK x = optK (plusK x)
   plusK x = x <> starK x
   optK x = mempty >|< x
+
+  {- | Between some numbers of times, inclusive, at least a lower bound,
+  & at most an upper bound, if there's one, like a regular expression's
+  @x{lo,hi}@, or @x{lo,}@; never where @lo > hi@.
+
+  > prop> timesK 0 Nothing = starK
+  > prop> timesK 1 Nothing = plusK
+  > prop> timesK 0 (Just 1) = optK
+  > prop> timesK n (Just n) x = mconcat (replicate n x)
+  > prop> timesK (n + 1) hi x = x <> timesK n (subtract 1 <$> hi) x
+  -}
+  timesK :: Int -> Maybe Int -> k -> k
+  timesK lo hi x
+    | maybe False (lo >) hi = falseP
+    | lo > 1 || (lo == 1 && isJust hi) =
+        x <> timesK (lo - 1) (subtract 1 <$> hi) x
+    | lo == 1 = plusK x
+    | otherwise = case hi of
+        Nothing -> starK x
+        Just m
+          | m <= 0 -> mempty
+          | otherwise -> optK (x <> timesK 0 (Just (m - 1)) x)
 
 --instances
 instance DisjunctiveMonoid Bool where

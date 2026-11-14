@@ -123,6 +123,7 @@ transducer (Bnf start rules) = Transducer
       KleeneStar _ -> True
       KleeneOpt _ -> True
       KleenePlus x -> rexNullable nm x
+      KleeneTimes lo _ x -> lo == 0 || rexNullable nm x
       Backtracking x -> rexNullable nm x
       RegExam (Alternate x y zs) -> any (rexNullable nm) (x : y : zs)
       RegExam (OneOf _) -> False
@@ -210,6 +211,8 @@ transducer (Bnf start rules) = Transducer
           in
             (firsts, states, nextId', bypass)
         Backtracking rex0 -> thompson rex0 nextId dests
+        -- counts unroll, growing the machine by them
+        KleeneTimes lo hi rex0 -> thompson (unrolled lo hi rex0) nextId dests
         RegExam (OneOf chars)
           | Set.null chars -> (IntSet.empty, [], nextId, False)
           | otherwise ->
@@ -563,3 +566,16 @@ closeChartAt et j initialChart0 = loop initialWork initialChart0 IntMap.empty
                 eJ' = IntMap.insert state (IntSet.insert origin os) eJ
                 acc' = IntMap.insert j eJ' acc
               in (acc', (state, origin) : new)
+
+-- | Counts, unrolled, @x{lo,hi}@ as @lo@ times @x@ & then
+-- @x*@, or @hi - lo@ nested options.
+unrolled :: Int -> Maybe Int -> RegEx token -> RegEx token
+unrolled lo hi x = joined (replicate lo x <> [rest])
+  where
+    rest = case hi of
+      Nothing -> KleeneStar x
+      Just m -> foldr (\_ r -> KleeneOpt (joined [x, r])) SeqEmpty [lo + 1 .. m]
+    joined items = case filter (\case SeqEmpty -> False; _ -> True) items of
+      [] -> SeqEmpty
+      [item] -> item
+      item0 : item1 : items' -> Sequence item0 item1 items'

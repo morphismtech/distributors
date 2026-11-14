@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- `RegEx` has counts, a `KleeneTimes` constructor, normalized by `timesK`,
+  rendered @x{n}@, @x{n,}@ & @x{n,m}@, & parsed so, normalizing; `Grammor`s
+  keep counts, so `exactly`, `atLeast`, `atMost` & `inRange` render by them.
+  Machines & analyses unroll them.
 - `RegEx` records `try`, by a `Backtracking` constructor, whose language
   is its own, rendered @\\t{…}@; `ll1Conflicts` skips conflicts resolved
   by `try`. `Tried` is part of `RegGrammatical`.

@@ -236,6 +236,7 @@ instance KleeneStarAlgebra k => Alternator (Grammor k) where
   someP (Grammor rex) = Grammor (plusK rex)
   optionP _ (Grammor rex) = Grammor (optK rex)
   manyTillP (Grammor rex) (Grammor rest) = Grammor (starK rex <> rest)
+  timesP lo hi (Grammor rex) = Grammor (timesK lo hi rex)
 instance Tokenized token k => Tokenized token (Grammor k a b) where
   anyToken = Grammor anyToken
   token = Grammor . token

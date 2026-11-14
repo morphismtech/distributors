@@ -42,7 +42,7 @@ module Control.Lens.Prismoid
 
 import Control.Applicative
 import Control.Monad (void)
-import Data.Maybe (fromMaybe, isJust)
+import Data.Maybe (fromMaybe)
 import Control.Lens
 import Control.Lens.Internal.Profunctor
 import Control.Lens.PartialIso
@@ -255,18 +255,7 @@ It never matches where @lo > hi@.
 ["12","123"]
 -}
 inRange :: Int -> Maybe Int -> Prismoid [a] [b] a b
-inRange lo hi = rmap sequenceA . go lo hi
-  where
-    go :: Alternator p => Int -> Maybe Int -> p a b -> p [a] [b]
-    go l h p
-      | maybe False (l >) h = empty
-      | l > 1 || (l == 1 && isJust h) = p >:< go (l - 1) (subtract 1 <$> h) p
-      | l == 1 = someP p
-      | otherwise = case h of
-          Nothing -> manyP p
-          Just m
-            | m <= 0 -> eotList . swapped >~ empty >+< oneP
-            | otherwise -> eotList . swapped >~ p >*< go 0 (Just (m - 1)) p >+< oneP
+inRange lo hi = rmap sequenceA . timesP lo hi
 
 {- | One or zero with default. -}
 opted :: APrism a b () () -> Prismoid a b a b

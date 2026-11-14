@@ -4,6 +4,11 @@
 
 ### New APIs
 
+- `timesK`, a `KleeneStarAlgebra` method, & `timesP`, an `Alternator`
+  method, repeat between some numbers of times, @x{lo,hi}@ or @x{lo,}@,
+  defaulting to their unfoldings, so static `Alternator`s & Kleene algebras
+  may keep counts. `inRange`, & so `exactly`, `atLeast` & `atMost`, are
+  `timesP`.
 - More `DisjunctiveMonoid` instances: every `Alternative` of the
   dependencies, `base`, `containers`, `vector`, `transformers`, `free`,
   `lens` & `witherable`, by `empty` & `<|>`, now with lists, `Seq`s,
