@@ -1,3 +1,4 @@
+{-# LANGUAGE DeriveAnyClass #-}
 {- |
 Module      : Data.Monoid.Disjunctive
 Description : disjunctive monoids, Boolean & Kleene star algebras
@@ -41,8 +42,12 @@ import Data.Profunctor.Cayley
 import Data.Profunctor.Monad
 import Data.Profunctor.Yoneda
 import Data.Proxy
+import Data.IntMap (IntMap)
+import Data.IntSet (IntSet)
+import Data.Map (Map)
+import Data.Sequence (Seq)
 import Data.Set (Set)
-import qualified Data.Set as Set
+import Data.Vector (Vector)
 import GHC.Conc (STM)
 import GHC.Generics
 import Text.ParserCombinators.ReadP (ReadP)
@@ -237,20 +242,33 @@ deriving via Generically (Const a b)
 deriving via Generically (Proxy a) instance DisjunctiveMonoid (Proxy a)
 deriving via Generically (Proxy a) instance BooleanAlgebra (Proxy a)
 deriving via Generically (Proxy a) instance KleeneStarAlgebra (Proxy a)
--- | Sets, by union, disjoin their members.
+-- | Sets & maps disjoin by their monoids, of union.
 instance Ord a => DisjunctiveMonoid (Set a) where
-  falseP = Set.empty
-  (>|<) = Set.union
-instance DisjunctiveMonoid (Maybe a)
-instance DisjunctiveMonoid (IO a)
-instance DisjunctiveMonoid (STM a)
-instance DisjunctiveMonoid (ZipList a)
-instance DisjunctiveMonoid (ReadP a)
-instance DisjunctiveMonoid (ReadPrec a)
-instance DisjunctiveMonoid (U1 p)
-instance MonadPlus m => DisjunctiveMonoid (WrappedMonad m a)
-instance ArrowPlus a => DisjunctiveMonoid (WrappedArrow a b c)
-instance ArrowPlus a => DisjunctiveMonoid (ArrowMonad a b)
+  falseP = mempty
+  (>|<) = (<>)
+instance DisjunctiveMonoid IntSet where
+  falseP = mempty
+  (>|<) = (<>)
+instance Ord k => DisjunctiveMonoid (Map k v) where
+  falseP = mempty
+  (>|<) = (<>)
+instance DisjunctiveMonoid (IntMap v) where
+  falseP = mempty
+  (>|<) = (<>)
+-- `Alternative`s disjoin by `empty` & `<|>`.
+deriving anyclass instance DisjunctiveMonoid [a]
+deriving anyclass instance DisjunctiveMonoid (Maybe a)
+deriving anyclass instance DisjunctiveMonoid (IO a)
+deriving anyclass instance DisjunctiveMonoid (STM a)
+deriving anyclass instance DisjunctiveMonoid (ZipList a)
+deriving anyclass instance DisjunctiveMonoid (ReadP a)
+deriving anyclass instance DisjunctiveMonoid (ReadPrec a)
+deriving anyclass instance DisjunctiveMonoid (U1 p)
+deriving anyclass instance DisjunctiveMonoid (Seq a)
+deriving anyclass instance DisjunctiveMonoid (Vector a)
+deriving anyclass instance MonadPlus m => DisjunctiveMonoid (WrappedMonad m a)
+deriving anyclass instance ArrowPlus a => DisjunctiveMonoid (WrappedArrow a b c)
+deriving anyclass instance ArrowPlus a => DisjunctiveMonoid (ArrowMonad a b)
 instance DisjunctiveMonoid (f a) => DisjunctiveMonoid (Alt f a) where
   falseP = Alt falseP
   Alt x >|< Alt y = Alt (x >|< y)

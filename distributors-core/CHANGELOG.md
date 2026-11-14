@@ -4,7 +4,10 @@
 
 ### New APIs
 
-- `Set`s are a `DisjunctiveMonoid` by union.
+- More `DisjunctiveMonoid` instances: every `Alternative` of `base`,
+  `containers` & `vector`, by `empty` & `<|>`, now with lists, `Seq`s &
+  `Vector`s; & `Set`s, `IntSet`s, `Map`s & `IntMap`s, by their monoids,
+  of union.
 - `stepping` & its combinators, `terminateBy`, `delimitBy`, `balanceBy`
   & `countWith`, step through any stream, @(Cons s s a a, AsEmpty s)@,
   like a `Data.Sequence.Seq` or `Data.Text.Text`, not only lists.
