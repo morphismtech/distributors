@@ -32,13 +32,13 @@ makePrisms ''Expr
 -- exactly once regardless of associativity, so this is LL1 and is tested
 -- against the predictive @parsecG@ / megaparsec backends too
 -- (@testCfg True@).
-exprGrammar :: Grammar Char Expr
+exprGrammar :: Grammatical Char p => p Expr Expr
 exprGrammar = ruleRec "expr" $ \expr ->
   let
     atom = rule "atom" $
       nat >|< terminal "(" >* expr *< terminal ")"
     nat = rule "nat" $
-      _Nat . iso show read >? someP (asIn @Char DecimalNumber)
+      _Nat >? numeral 10
   in withOperators
     [ [ Postfix _Fac (terminal "!") ]
     , [ Infix RightAssoc _Exp (terminal "^") ]
@@ -68,13 +68,13 @@ exprExamples =
 -- so it exercises `chainr1` / `difoldr` independently of `withOperators`.
 -- This is a regression test for the right-fold: @2^3^2@ must associate as
 -- @Exp 2 (Exp 3 2)@, not @Exp 3 (Exp 2 2)@.
-powGrammar :: Grammar Char Expr
+powGrammar :: Grammatical Char p => p Expr Expr
 powGrammar = ruleRec "pow" $ \e ->
   let
     atom = rule "atom" $
       nat >|< terminal "(" >* e *< terminal ")"
     nat = rule "nat" $
-      _Nat . iso show read >? someP (asIn @Char DecimalNumber)
+      _Nat >? numeral 10
   in sepWith "^" (chain1 Right _Exp) atom
 
 powExamples :: [(Expr, String)]
@@ -88,13 +88,13 @@ powExamples =
 -- | A purely left-associative expression grammar (no right-associative
 -- exponent) built with `withOperators`, tested against the predictive
 -- @parsecG@ / megaparsec backends (@testCfg True@) as a minimal case.
-leftGrammar :: Grammar Char Expr
+leftGrammar :: Grammatical Char p => p Expr Expr
 leftGrammar = ruleRec "expr" $ \expr ->
   let
     atom = rule "atom" $
       nat >|< terminal "(" >* expr *< terminal ")"
     nat = rule "nat" $
-      _Nat . iso show read >? someP (asIn @Char DecimalNumber)
+      _Nat >? numeral 10
   in withOperators
     [ [ Infix LeftAssoc _Mul (terminal "*"), Infix LeftAssoc _Div (terminal "/") ]
     , [ Infix LeftAssoc _Add (terminal "+"), Infix LeftAssoc _Sub (terminal "-") ]
@@ -108,3 +108,6 @@ leftExamples =
   , (Sub (Add (Nat 1) (Mul (Nat 2) (Nat 3))) (Nat 4), "1+2*3-4")
   , (Mul (Add (Nat 1) (Nat 2)) (Nat 3), "(1+2)*3")
   ]
+
+instance CtxGrammar Char Expr
+instance Grammar Char Expr where grammar = exprGrammar

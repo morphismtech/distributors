@@ -14,26 +14,30 @@ See Naur & Backus, et al.
 
 module Control.Lens.Grammar.BackusNaur
   ( -- * BackusNaurForm
-    BackusNaurForm (..), failBnf
-  , Bnf (..)
-  , liftBnf0
-  , liftBnf1
-  , liftBnf2
-  , diffB
+    BackusNaurForm (..)
+  , Ruled (..), failP, ruleTyped
+  , Tried (..)
+    -- * Grammatical
+  , RegGrammatical
+  , Grammatical
+  , CtxGrammatical
   ) where
 
 import Control.Lens
-import Control.Lens.Grammar.RegEx
 import Control.Lens.Grammar.Token
 import Control.Lens.Grammar.Symbol
+import Control.Monad (MonadPlus)
 import Data.Bifunctor.Joker
-import Data.Coerce
+import Data.Kind (Constraint)
+import Data.Profunctor.Distributor (Alternator)
+import Data.Profunctor.Filtrator (Filtrator)
 import Data.Function
-import Data.MemoTrie
+import Data.List (intercalate, isPrefixOf)
+import Data.Maybe (isNothing)
+import Type.Reflection (SomeTypeRep (..), Typeable, splitApps, tyConModule, tyConName, typeRep)
 import Data.Monoid.Disjunctive
-import qualified Data.Set as Set
-import Data.Set (Set)
 import Text.ParserCombinators.ReadP (ReadP)
+import Text.ParserCombinators.ReadPrec (ReadPrec)
 
 {- | `BackusNaurForm` grammar combinators formalize traced
 `rule` abstraction and general recursion with `ruleRec`,
@@ -50,10 +54,10 @@ and second as a `Debug.Trace.trace`-like label for `rule` abstraction.
 The category @(->)@ already has a traced @(,)@-monoidal structure
 in the form of `Data.Profunctor.unfirst` @=@ `Control.Arrow.loop`
 or equivalently the fixpoint function `fix`,
-determining default methods for a `BackusNaurForm`.
+determining the default method for a `BackusNaurForm`,
+by which the invariant holds for any `Ruled` `rule`.
 
-> prop> rule _ = id
-> prop> ruleRec _ = fix
+> prop> ruleRec label = rule label . fix
 
 The `BackusNaurForm` interface permits overloading these methods,
 and tracing them with a label.
@@ -66,146 +70,117 @@ See Breitner, [Showcasing Applicative]
 for the original interface.
 
 -}
-class BackusNaurForm bnf where
-
-  {- | Rule abstraction. -}
-  rule :: String -> bnf -> bnf
-  rule _ = id
+class Ruled bnf => BackusNaurForm bnf where
 
   {- | General recursion. -}
   ruleRec :: String -> (bnf -> bnf) -> bnf
-  ruleRec _ = fix
+  ruleRec label = rule label . fix
+
+{- | `Ruled` grammar combinators formalize
+`rule` abstraction, labeling a subgrammar,
+which a `BackusNaurForm` names as a nonterminal,
+& a parser may report on failure.
+
+> prop> rule _ = id
+-}
+class Ruled p where
+
+  {- | Subgrammar abstraction. -}
+  rule :: String -> p -> p
+  rule _ = id
 
 -- | A nonterminal symbol to indicate a failure.
-failBnf :: (BackusNaurForm bnf, DisjunctiveMonoid bnf) => String -> bnf
-failBnf msg = rule msg falseP
+failP :: (Ruled p, DisjunctiveMonoid p) => String -> p
+failP msg = rule msg falseP
 
-{- | A t'Bnf' consists of a distinguished starting rule
-and a set of named rules. When a t'Bnf' supports `NonTerminalSymbol`s,
-then it supports the `BackusNaurForm` interface
-by replacing recursive calls with `nonTerminal`s.
+{- | A `rule` for a Haskell type, like a type definition,
+named by its `Typeable` type, so that each type's rule is its own.
 
-> prop> ruleRec label f = rule label (f (nonTerminal label))
-
+Rule names follow a convention: a module-qualified word, like @M.N.x@,
+names a definition by its qualified name, & may be displayed unqualified,
+as @x@, whenever that's unambiguous. So a type's rule is named by its
+fully qualified type, such as
+@Data.Map.Internal.Map Data.Text.Internal.Text GHC.Types.Int@,
+displayed as @Map Text Int@.
 -}
-data Bnf rule = Bnf
-  { startBnf :: rule
-  , rulesBnf :: Set (String, rule)
-  } deriving stock (Eq, Ord, Show, Read)
+ruleTyped :: forall a p. (Typeable a, Ruled (p a a)) => p a a -> p a a
+ruleTyped = rule (qualifiedName (SomeTypeRep (typeRep @a)))
+{-# INLINE ruleTyped #-}
 
-{- | Lift a rule to a t'Bnf'. -}
-liftBnf0 :: Ord a => a -> Bnf a
-liftBnf0 a = Bnf a mempty
-
-{- | Lift a function of rules to t'Bnf's. -}
-liftBnf1 :: (Coercible a b, Ord b) => (a -> b) -> Bnf a -> Bnf b
-liftBnf1 f (Bnf start rules) = Bnf (f start) (Set.map coerce rules)
-
-{- | Lift a binary function of rules to t'Bnf's. -}
-liftBnf2
-  :: (Coercible a c, Coercible b c, Ord c)
-  => (a -> b -> c) -> Bnf a -> Bnf b -> Bnf c
-liftBnf2 f (Bnf start0 rules0) (Bnf start1 rules1) =
-  Bnf (f start0 start1) (Set.map coerce rules0 <> Set.map coerce rules1)
-
-{- |
-The [Brzozowski derivative]
-(https://dl.acm.org/doi/pdf/10.1145/321239.321249) of a
-`RegEx`tended t'Bnf', with memoization.
-
-> prop> word =~ diffB prefix pattern = prefix <> word =~ pattern
-
-Unfortunately, despite elegance & optimization, Brzozowski's
-pattern matching algorithm is worst case exponential in grammar size.
-See Might, Darais & Spiewak, [Parsing With Derivatives]
-(https://matt.might.net/papers/might2011derivatives.pdf).
--}
-diffB
-  :: (Categorized token, HasTrie token)
-  => [token] -> Bnf (RegEx token) -> Bnf (RegEx token)
-diffB prefix (Bnf start rules) =
-  Bnf (foldl' (flip diff1B) start prefix) rules
+-- | A type, `show`n with its type constructors qualified by their modules.
+qualifiedName :: SomeTypeRep -> String
+qualifiedName (SomeTypeRep rep) = case (bracketed tyCon, args) of
+  (Just "List", [arg]) -> "[" <> qualifiedName arg <> "]"
+  (Just "Unit", []) -> "()"
+  (Just _, _ : _ : _) ->
+    "(" <> intercalate "," (map qualifiedName args) <> ")"
+  _ -> unwords (qualified : map typeArgument args)
   where
-    -- derivative wrt 1 token, memoized
-    diff1B = memo2 $ \x -> \case
-      SeqEmpty -> falseP
-      NonTerminal nameY -> anyP (diff1B x) (rulesNamed nameY rules)
-      Sequence y1 y ys ->
-        if δ (Bnf y1 rules) then y1'y2 >|< y1y2' else y1'y2
-        where
-          y2 = mconcat (y : ys)
-          y1'y2 = diff1B x y1 <> y2
-          y1y2' = y1 <> diff1B x y2
-      KleeneStar y -> diff1B x y <> starK y
-      KleeneOpt y -> diff1B x y
-      KleenePlus y -> diff1B x y <> starK y
-      RegExam (OneOf chars) ->
-        if x `elem` chars then mempty else falseP
-      RegExam (NotOneOf chars (AndAsIn cat)) ->
-        if elem x chars || categorize x /= cat
-          then falseP else mempty
-      RegExam (NotOneOf chars (AndNotAsIn cats)) ->
-        if elem x chars || elem (categorize x) cats
-          then falseP else mempty
-      RegExam (Alternate y1 y2 ys) -> anyP (diff1B x) (y1 : y2 : ys)
+    (tyCon, args) = splitApps rep
+    qualified = tyConModule tyCon <> "." <> tyConName tyCon
+    typeArgument arg@(SomeTypeRep argRep) = case splitApps argRep of
+      (argCon, _ : _) | isNothing (bracketed argCon) ->
+        "(" <> qualifiedName arg <> ")"
+      _ -> qualifiedName arg
+    -- The constructors of lists & tuples, which bracket their arguments.
+    bracketed con = case (tyConModule con, tyConName con) of
+      ("GHC.Types", "List") -> Just "List"
+      ("GHC.Tuple", name) | name == "Unit" || "Tuple" `isPrefixOf` name ->
+        Just name
+      _ -> Nothing
 
--- | Does a pattern match the empty word?
-δ :: (Categorized token, HasTrie token)
-  => Bnf (RegEx token) -> Bool
-δ (Bnf start rules) = ν start where
-  ν = memo $ \case
-    SeqEmpty -> True
-    KleeneStar _ -> True
-    KleeneOpt _ -> True
-    KleenePlus y -> ν y
-    Sequence y1 y2 ys -> all ν (y1 : y2 : ys)
-    RegExam (Alternate y1 y2 ys) -> any ν (y1 : y2 : ys)
-    NonTerminal nameY -> any ν (rulesNamed nameY rules)
-    _ -> False
+{- | `Tried` grammar combinators mark subgrammars to backtrack
+upon failure, by `try`, in a predictive parser,
+like t'Data.Profunctor.Grammar.Parsector.Parsector'.
+Use `try` on a subgrammar which isn't @LL(1)@ but still is @LL(∞)@.
+`try` doesn't change the language of a grammar,
+so the default, for grammars which can't record it, is
 
-rulesNamed :: Ord rule => String -> Set (String, rule) -> Set rule
-rulesNamed nameX = foldl' (flip inserter) Set.empty where
-  inserter (nameY,y) =
-    if nameX == nameY then Set.insert y else id
+> prop> try = id
+-}
+class Tried p where
+
+  {- | Backtracking upon failure. -}
+  try :: p -> p
+  try = id
+
+{- | The `Alternator`s of `terminal` symbols, `Tokenized` combinators
+& `tokenClass`es, which are `Tried`, & run
+@Control.Lens.Grammar.RegGrammar@s. -}
+type RegGrammatical token p =
+  ( forall x y. (x ~ (), y ~ ()) => TerminalSymbol token (p x y)
+  , forall x y. (x ~ token, y ~ token) => TokenAlgebra token (p x y)
+  , Alternator p
+  , forall x y. Tried (p x y)
+  ) :: Constraint
+
+{- | The `RegGrammatical` `BackusNaurForm`s, which run `Grammar`s. -}
+type Grammatical token p =
+  ( RegGrammatical token p
+  , forall x y. BackusNaurForm (p x y)
+  ) :: Constraint
+
+{- | The `Grammatical` `Filtrator`s, `MonadPlus`es & `MonadFail`s,
+which run `CtxGrammar`s. -}
+type CtxGrammatical token p =
+  ( Grammatical token p
+  , Filtrator p
+  , forall x. MonadPlus (p x)
+  , forall x. MonadFail (p x)
+  ) :: Constraint
+
 
 -- instances
-instance (Ord rule, NonTerminalSymbol rule)
-  => BackusNaurForm (Bnf rule) where
-    rule label (Bnf newRule oldRules) = (nonTerminal label)
-      {rulesBnf = Set.insert (label, newRule) oldRules}
-    ruleRec label f = rule label (f (nonTerminal label))
+instance (forall x. Ruled (f x)) => Ruled (Joker f a b) where
+  rule name = Joker . rule name . runJoker
 instance (forall x. BackusNaurForm (f x))
   => BackusNaurForm (Joker f a b) where
-    rule name = Joker . rule name . runJoker
     ruleRec name = Joker . ruleRec name . dimap Joker runJoker
+instance (forall x. Tried (f x)) => Tried (Joker f a b) where
+  try = Joker . try . runJoker
+instance Ruled (ReadP a)
 instance BackusNaurForm (ReadP a)
-instance (Ord rule, TerminalSymbol token rule)
-  => TerminalSymbol token (Bnf rule) where
-  terminal = liftBnf0 . terminal
-instance (Ord rule, NonTerminalSymbol rule)
-  => NonTerminalSymbol (Bnf rule) where
-  nonTerminal = liftBnf0 . nonTerminal
-instance (Ord rule, Tokenized token rule)
-  => Tokenized token (Bnf rule) where
-  anyToken = liftBnf0 anyToken
-  token = liftBnf0 . token
-  oneOf = liftBnf0 . oneOf
-  notOneOf = liftBnf0 . notOneOf
-  asIn = liftBnf0 . asIn
-  notAsIn = liftBnf0 . notAsIn
-instance (Ord rule, TokenAlgebra token rule)
-  => TokenAlgebra token (Bnf rule) where
-  tokenClass = liftBnf0 . tokenClass
-instance (Ord rule, KleeneStarAlgebra rule)
-  => KleeneStarAlgebra (Bnf rule) where
-  starK = liftBnf1 starK
-  plusK = liftBnf1 plusK
-  optK = liftBnf1 optK
-instance (Ord rule, DisjunctiveMonoid rule)
-  => DisjunctiveMonoid (Bnf rule) where
-  falseP = liftBnf0 falseP
-  (>|<) = liftBnf2 (>|<)
-instance (Ord rule, Monoid rule) => Monoid (Bnf rule) where
-  mempty = liftBnf0 mempty
-instance (Ord rule, Semigroup rule) => Semigroup (Bnf rule) where
-  (<>) = liftBnf2 (<>)
+instance Tried (ReadP a)
+instance Ruled (ReadPrec a)
+instance BackusNaurForm (ReadPrec a)
+instance Tried (ReadPrec a)

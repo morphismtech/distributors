@@ -15,7 +15,7 @@ data Chain
 
 makePrisms ''Chain
 
-chainGrammar :: Grammar Char Chain
+chainGrammar :: Grammatical Char p => p Chain Chain
 chainGrammar = ruleRec "chain" seqG
   where
     seqG chn = rule "seq" $
@@ -33,3 +33,6 @@ chainExamples =
   , (Seq (Char 'x') (Seq (Char 'y') (Char 'z')), "x(yz)")
   , (Emp, "")
   ]
+
+instance CtxGrammar Char Chain
+instance Grammar Char Chain where grammar = chainGrammar

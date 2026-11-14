@@ -46,6 +46,9 @@ import Test.QuickCheck.Gen (Gen)
 import qualified Test.QuickCheck.Gen as Gen
 import Text.ParserCombinators.ReadP (ReadP)
 import qualified Text.ParserCombinators.ReadP as ReadP
+import Text.ParserCombinators.ReadPrec (ReadPrec)
+import qualified Text.ParserCombinators.ReadPrec as ReadPrec
+import Data.Functor.Contravariant (Predicate (..))
 
 {- | `Categorized` provides a type family `Categorize`
 and a function to `categorize` tokens into disjoint categories.
@@ -158,6 +161,15 @@ instance Tokenized Char (ReadP Char) where
   notOneOf = ReadP.satisfy . notOneOf
   asIn = ReadP.satisfy . asIn
   notAsIn = ReadP.satisfy . notAsIn
+instance Tokenized Char (ReadPrec Char) where
+  anyToken = ReadPrec.lift anyToken
+  token = ReadPrec.lift . token
+  oneOf = ReadPrec.lift . oneOf
+  notOneOf = ReadPrec.lift . notOneOf
+  asIn = ReadPrec.lift . asIn
+  notAsIn = ReadPrec.lift . notAsIn
+deriving via (token -> Bool) instance Categorized token
+  => Tokenized token (Predicate token)
 instance (Categorized token, Arbitrary token) => Tokenized token (Gen token) where
   anyToken = arbitrary @token
   token = pure
@@ -330,6 +342,10 @@ instance TokenAlgebra token (f token)
     tokenClass = Joker . tokenClass
 instance TokenAlgebra Char (ReadP Char) where
   tokenClass = ReadP.satisfy . tokenClass
+instance TokenAlgebra Char (ReadPrec Char) where
+  tokenClass = ReadPrec.lift . tokenClass
+deriving via (token -> Bool) instance Categorized token
+  => TokenAlgebra token (Predicate token)
 instance (Categorized token, Arbitrary token) => TokenAlgebra token (Gen token) where
   tokenClass = foldTokenClass $ \case
     OneOf xs -> oneOf xs

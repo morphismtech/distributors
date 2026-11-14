@@ -1,9 +1,12 @@
 module Properties.Varifocal (varifocalProperties) where
 
-import Control.Lens.Grammar
+import Control.Comonad.Cofree (Cofree (..))
+import Control.Lens.Grammar hiding ((:<))
 import Data.Char (digitToInt, isDigit)
 import Data.Foldable (for_)
 import Data.Maybe (fromMaybe)
+import Data.Sequence (Seq)
+import qualified Data.Sequence as Seq
 import Text.Read (readMaybe)
 import Examples.Heredoc
 import Test.Hspec
@@ -49,6 +52,27 @@ varifocalProperties = do
     prop "doesn't print an early end" $
       forAll plain $ \s -> forAll plain $ \t ->
         printed ended (s ++ "." ++ t ++ ".") === Nothing
+  describe "stepping, over any Cons stream" $
+    it "terminates a Seq as it does a list" $ do
+      let seqTerminated :: Varifocal' (Seq Char) Char
+          seqTerminated = terminateBy (== '.')
+      parseP (contextuallyT seqTerminated (anyToken :: Parsor String Maybe Char Char)) "ab.c"
+        `shouldBe` Just (Seq.fromList "ab.", "c")
+      (($ "") <$> printP (contextuallyT seqTerminated (anyToken :: Printor String Maybe Char Char)) (Seq.fromList "ab."))
+        `shouldBe` Just "ab."
+  describe "steppingTree, by arityWith" $ do
+    let
+      counted :: Varifocal' (Cofree [] Char) Char
+      counted = arityWith digitToInt
+      tree = '2' :< ['1' :< ['0' :< []], '0' :< []]
+      parsedT = parseP (contextuallyT counted (anyToken :: Parsor String Maybe Char Char))
+      printedT = fmap ($ "") . printP (contextuallyT counted (anyToken :: Printor String Maybe Char Char))
+    it "parses a count-prefixed tree, in preorder" $
+      parsedT "2100rest" `shouldBe` Just (tree, "rest")
+    it "prints it, in preorder" $
+      printedT tree `shouldBe` Just "2100"
+    it "won't print a node with other than its count of children" $
+      map printedT ['1' :< [], '0' :< ['0' :< []]] `shouldBe` [Nothing, Nothing]
   describe "balanceBy & countWith, by stepping" $ do
     let
       nested :: Varifocal' String Char
@@ -160,14 +184,14 @@ varifocalProperties = do
   describe "contextually, in a CtxGrammar" $ do
     for_ heredocExamples $ \(h, str) ->
       it ("parses, prints & parsecs " <> show str <> " as heredocP does") $ do
-        [x | (x, "") <- parseG heredocG str] `shouldBe` [h]
-        [pr "" | pr <- printG heredocG h] `shouldBe` [str]
-        parsecResult (parsecG heredocG str) `shouldBe` Just h
-        parsecResult (unparsecG heredocG h "") `shouldBe` Just h
+        [x | (x, "") <- parseG str] `shouldBe` [h]
+        [pr "" | pr <- printG h] `shouldBe` [str]
+        parsecResult (parsecG str) `shouldBe` Just h
+        parsecResult (unparsecG h "") `shouldBe` Just h
     it "doesn't print a body line equal to its tag" $
-      [pr "" | pr <- printG heredocG (Heredoc "EOF" ["EOF"])] `shouldBe` []
+      [pr "" | pr <- printG (Heredoc "EOF" ["EOF"])] `shouldBe` []
     it "backtracks by Parsector, closing at the first line equal to its tag" $
-      parsecResult (parsecG heredocG "<<A\nb\nA\n") `shouldBe` Just (Heredoc "A" ["b"])
+      parsecResult (parsecG "<<A\nb\nA\n") `shouldBe` Just (Heredoc "A" ["b"])
   describe ">?<*, Bifocal's applicator" $ do
     prop "applies a Prismoid as >?* does" $ \(s :: String) ->
       parseP (atLeast 1 >?<* (anyToken :: Parsor String Maybe Char Char)) s

@@ -16,7 +16,7 @@ data Arith
 
 makePrisms ''Arith
 
-arithGrammar :: Grammar Char Arith
+arithGrammar :: Grammatical Char p => p Arith Arith
 arithGrammar = ruleRec "arith" sumG
   where
     sumG arith = rule "sum" $
@@ -26,7 +26,7 @@ arithGrammar = ruleRec "arith" sumG
     factorG arith = rule "factor" $
       number >|< terminal "(" >* arith *< terminal ")"
     number = rule "number" $
-      _Num . iso show read >? someP (asIn @Char DecimalNumber)
+      _Num >? numeral 10
 
 arithExamples :: [(Arith, String)]
 arithExamples =
@@ -36,3 +36,6 @@ arithExamples =
   , (Mul (Num 2) (Add (Num 3) (Num 4)), "2*(3+4)")
   , (Add (Add (Num 1) (Mul (Num 2) (Num 3))) (Num 4), "1+2*3+4")
   ]
+
+instance CtxGrammar Char Arith
+instance Grammar Char Arith where grammar = arithGrammar

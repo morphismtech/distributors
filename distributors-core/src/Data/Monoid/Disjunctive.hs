@@ -1,3 +1,4 @@
+{-# LANGUAGE DeriveAnyClass #-}
 {- |
 Module      : Data.Monoid.Disjunctive
 Description : disjunctive monoids, Boolean & Kleene star algebras
@@ -41,10 +42,47 @@ import Data.Profunctor.Cayley
 import Data.Profunctor.Monad
 import Data.Profunctor.Yoneda
 import Data.Proxy
+import Control.Alternative.Free qualified as FreeAlt
+import Control.Applicative.Backwards (Backwards)
+import Control.Applicative.Lift (Lift)
+import Control.Lens (ReifiedFold)
+import Control.Monad.Free (Free)
+import Control.Monad.Free.Church qualified as Church
+import Control.Monad.Trans.Accum (AccumT)
+import Control.Monad.Trans.Except (ExceptT)
+import Control.Monad.Trans.Free (FreeT)
+import Control.Monad.Trans.Free.Church (FT)
+import Control.Monad.Trans.Identity (IdentityT)
+import Control.Monad.Trans.Maybe (MaybeT)
+import Control.Monad.Trans.Reader (ReaderT)
+import Control.Monad.Trans.RWS.CPS qualified as CPSRWS
+import Control.Monad.Trans.RWS.Lazy qualified as LazyRWS
+import Control.Monad.Trans.RWS.Strict qualified as StrictRWS
+import Control.Monad.Trans.Select (SelectT)
+import Control.Monad.Trans.State.Lazy qualified as Lazy
+import Control.Monad.Trans.State.Strict qualified as Strict
+import Control.Monad.Trans.Writer.CPS qualified as CPSW
+import Control.Monad.Trans.Writer.Lazy qualified as LazyW
+import Control.Monad.Trans.Writer.Strict qualified as StrictW
+import Data.Functor.Reverse (Reverse)
+import Data.Bits (Bits (..))
+import Data.Maybe (isJust)
+import Data.Int (Int8, Int16, Int32, Int64)
+import Data.IntMap (IntMap)
+import Data.IntSet (IntSet)
+import Data.Map (Map)
+import Data.Sequence (Seq)
+import Data.Set (Set)
+import Data.Vector (Vector)
+import Data.Word (Word8, Word16, Word32, Word64)
+import Foreign.C.Types
+import Foreign.Ptr (IntPtr, WordPtr)
 import GHC.Conc (STM)
+import Numeric.Natural (Natural)
 import GHC.Generics
 import Text.ParserCombinators.ReadP (ReadP)
 import Text.ParserCombinators.ReadPrec (ReadPrec)
+import Witherable (WrappedFoldable)
 
 {- | A `DisjunctiveMonoid` is simply a monoid,
 the only difference from `Monoid` being its semantics
@@ -139,6 +177,33 @@ class (Monoid k, DisjunctiveMonoid k) => KleeneStarAlgebra k where
   starK x = optK (plusK x)
   plusK x = x <> starK x
   optK x = mempty >|< x
+
+  {- | Between some numbers of times, inclusive, at least a lower bound,
+  & at most an upper bound, if there's one, like a regular expression's
+  @x{lo,hi}@, or @x{lo,}@. Its counts are those @n >= 0@ within its
+  bounds, so it fails where they're out of order, or all negative,
+  as regular expression languages reject such quantifiers.
+
+  > prop> timesK 0 Nothing = starK
+  > prop> timesK 1 Nothing = plusK
+  > prop> timesK 0 (Just 1) = optK
+  > prop> timesK n (Just n) x = mconcat (replicate n x), for @n >= 0@
+  > prop> timesK (n + 1) hi x = x <> timesK n (subtract 1 <$> hi) x, for @n >= 0@
+  > prop> timesK (-1) hi = timesK 0 hi
+  > prop> timesK 0 (Just (-1)) x = falseP
+  -}
+  timesK :: Int -> Maybe Int -> k -> k
+  timesK lo hi x
+    | lo < 0 = timesK 0 hi x
+    | maybe False (lo >) hi = falseP
+    | lo > 1 || (lo == 1 && isJust hi) =
+        x <> timesK (lo - 1) (subtract 1 <$> hi) x
+    | lo == 1 = plusK x
+    | otherwise = case hi of
+        Nothing -> starK x
+        Just m
+          | m <= 0 -> mempty
+          | otherwise -> optK (x <> timesK 0 (Just (m - 1)) x)
 
 --instances
 instance DisjunctiveMonoid Bool where
@@ -235,16 +300,176 @@ deriving via Generically (Const a b)
 deriving via Generically (Proxy a) instance DisjunctiveMonoid (Proxy a)
 deriving via Generically (Proxy a) instance BooleanAlgebra (Proxy a)
 deriving via Generically (Proxy a) instance KleeneStarAlgebra (Proxy a)
-instance DisjunctiveMonoid (Maybe a)
-instance DisjunctiveMonoid (IO a)
-instance DisjunctiveMonoid (STM a)
-instance DisjunctiveMonoid (ZipList a)
-instance DisjunctiveMonoid (ReadP a)
-instance DisjunctiveMonoid (ReadPrec a)
-instance DisjunctiveMonoid (U1 p)
-instance MonadPlus m => DisjunctiveMonoid (WrappedMonad m a)
-instance ArrowPlus a => DisjunctiveMonoid (WrappedArrow a b c)
-instance ArrowPlus a => DisjunctiveMonoid (ArrowMonad a b)
+{- | Bits disjoin by `.|.`, & conjoin by `.&.`, of a Boolean algebra
+of bit vectors, `Integer`'s of infinitely many bits, two's complement.
+`Natural` has no `complement`, so it only disjoins.
+-}
+newtype Bitwise a = Bitwise a
+instance Bits a => DisjunctiveMonoid (Bitwise a) where
+  falseP = Bitwise zeroBits
+  Bitwise x >|< Bitwise y = Bitwise (x .|. y)
+instance Bits a => BooleanAlgebra (Bitwise a) where
+  trueP = Bitwise (complement zeroBits)
+  notP (Bitwise x) = Bitwise (complement x)
+  Bitwise x >&< Bitwise y = Bitwise (x .&. y)
+deriving via Bitwise Int instance DisjunctiveMonoid Int
+deriving via Bitwise Int instance BooleanAlgebra Int
+deriving via Bitwise Int8 instance DisjunctiveMonoid Int8
+deriving via Bitwise Int8 instance BooleanAlgebra Int8
+deriving via Bitwise Int16 instance DisjunctiveMonoid Int16
+deriving via Bitwise Int16 instance BooleanAlgebra Int16
+deriving via Bitwise Int32 instance DisjunctiveMonoid Int32
+deriving via Bitwise Int32 instance BooleanAlgebra Int32
+deriving via Bitwise Int64 instance DisjunctiveMonoid Int64
+deriving via Bitwise Int64 instance BooleanAlgebra Int64
+deriving via Bitwise Word instance DisjunctiveMonoid Word
+deriving via Bitwise Word instance BooleanAlgebra Word
+deriving via Bitwise Word8 instance DisjunctiveMonoid Word8
+deriving via Bitwise Word8 instance BooleanAlgebra Word8
+deriving via Bitwise Word16 instance DisjunctiveMonoid Word16
+deriving via Bitwise Word16 instance BooleanAlgebra Word16
+deriving via Bitwise Word32 instance DisjunctiveMonoid Word32
+deriving via Bitwise Word32 instance BooleanAlgebra Word32
+deriving via Bitwise Word64 instance DisjunctiveMonoid Word64
+deriving via Bitwise Word64 instance BooleanAlgebra Word64
+deriving via Bitwise Integer instance DisjunctiveMonoid Integer
+deriving via Bitwise Integer instance BooleanAlgebra Integer
+deriving via Bitwise IntPtr instance DisjunctiveMonoid IntPtr
+deriving via Bitwise IntPtr instance BooleanAlgebra IntPtr
+deriving via Bitwise WordPtr instance DisjunctiveMonoid WordPtr
+deriving via Bitwise WordPtr instance BooleanAlgebra WordPtr
+deriving via Bitwise CChar instance DisjunctiveMonoid CChar
+deriving via Bitwise CChar instance BooleanAlgebra CChar
+deriving via Bitwise CSChar instance DisjunctiveMonoid CSChar
+deriving via Bitwise CSChar instance BooleanAlgebra CSChar
+deriving via Bitwise CUChar instance DisjunctiveMonoid CUChar
+deriving via Bitwise CUChar instance BooleanAlgebra CUChar
+deriving via Bitwise CShort instance DisjunctiveMonoid CShort
+deriving via Bitwise CShort instance BooleanAlgebra CShort
+deriving via Bitwise CUShort instance DisjunctiveMonoid CUShort
+deriving via Bitwise CUShort instance BooleanAlgebra CUShort
+deriving via Bitwise CInt instance DisjunctiveMonoid CInt
+deriving via Bitwise CInt instance BooleanAlgebra CInt
+deriving via Bitwise CUInt instance DisjunctiveMonoid CUInt
+deriving via Bitwise CUInt instance BooleanAlgebra CUInt
+deriving via Bitwise CLong instance DisjunctiveMonoid CLong
+deriving via Bitwise CLong instance BooleanAlgebra CLong
+deriving via Bitwise CULong instance DisjunctiveMonoid CULong
+deriving via Bitwise CULong instance BooleanAlgebra CULong
+deriving via Bitwise CLLong instance DisjunctiveMonoid CLLong
+deriving via Bitwise CLLong instance BooleanAlgebra CLLong
+deriving via Bitwise CULLong instance DisjunctiveMonoid CULLong
+deriving via Bitwise CULLong instance BooleanAlgebra CULLong
+deriving via Bitwise CPtrdiff instance DisjunctiveMonoid CPtrdiff
+deriving via Bitwise CPtrdiff instance BooleanAlgebra CPtrdiff
+deriving via Bitwise CSize instance DisjunctiveMonoid CSize
+deriving via Bitwise CSize instance BooleanAlgebra CSize
+deriving via Bitwise CWchar instance DisjunctiveMonoid CWchar
+deriving via Bitwise CWchar instance BooleanAlgebra CWchar
+deriving via Bitwise CSigAtomic instance DisjunctiveMonoid CSigAtomic
+deriving via Bitwise CSigAtomic instance BooleanAlgebra CSigAtomic
+deriving via Bitwise CIntPtr instance DisjunctiveMonoid CIntPtr
+deriving via Bitwise CIntPtr instance BooleanAlgebra CIntPtr
+deriving via Bitwise CUIntPtr instance DisjunctiveMonoid CUIntPtr
+deriving via Bitwise CUIntPtr instance BooleanAlgebra CUIntPtr
+deriving via Bitwise CIntMax instance DisjunctiveMonoid CIntMax
+deriving via Bitwise CIntMax instance BooleanAlgebra CIntMax
+deriving via Bitwise CUIntMax instance DisjunctiveMonoid CUIntMax
+deriving via Bitwise CUIntMax instance BooleanAlgebra CUIntMax
+deriving via Bitwise CBool instance DisjunctiveMonoid CBool
+deriving via Bitwise CBool instance BooleanAlgebra CBool
+deriving via Bitwise Natural instance DisjunctiveMonoid Natural
+
+{- | A `Predicate` is a Kleene algebra, as a Boolean algebra is,
+of conjunction, `Predicate`'s `Monoid`, & disjunction,
+whose star is true.
+
+> prop> starK p = trueP
+-}
+instance KleeneStarAlgebra (Predicate a) where
+  starK _ = trueP
+  plusK = id
+  optK _ = trueP
+
+{- | An `Alternative` of `Monoid`s is a Kleene algebra of languages,
+like a parser of words: its sequence is `Ap`'s `Monoid`, its
+alternation `<|>`, & its star `many` concatenated. It's a near-semiring,
+whose left distribution, @(x >|< y) <> z = (x <> z) >|< (y <> z)@,
+a left-biased `Alternative` may not keep, & its star diverges where
+`many` does, as of a non-empty list's.
+
+> prop> starK (Ap x) = Ap (mconcat <$> many x)
+> prop> plusK (Ap x) = Ap (mconcat <$> some x)
+-}
+instance (Alternative f, Monoid a, DisjunctiveMonoid (f a))
+  => KleeneStarAlgebra (Ap f a) where
+    starK (Ap x) = Ap (mconcat <$> many x)
+    plusK (Ap x) = Ap (mconcat <$> some x)
+
+-- | Sets & maps disjoin by their monoids, of union.
+instance Ord a => DisjunctiveMonoid (Set a) where
+  falseP = mempty
+  (>|<) = (<>)
+instance DisjunctiveMonoid IntSet where
+  falseP = mempty
+  (>|<) = (<>)
+instance Ord k => DisjunctiveMonoid (Map k v) where
+  falseP = mempty
+  (>|<) = (<>)
+instance DisjunctiveMonoid (IntMap v) where
+  falseP = mempty
+  (>|<) = (<>)
+-- `Alternative`s disjoin by `empty` & `<|>`.
+deriving anyclass instance DisjunctiveMonoid [a]
+deriving anyclass instance DisjunctiveMonoid (Maybe a)
+deriving anyclass instance DisjunctiveMonoid (IO a)
+deriving anyclass instance DisjunctiveMonoid (STM a)
+deriving anyclass instance DisjunctiveMonoid (ZipList a)
+deriving anyclass instance DisjunctiveMonoid (ReadP a)
+deriving anyclass instance DisjunctiveMonoid (ReadPrec a)
+deriving anyclass instance DisjunctiveMonoid (U1 p)
+deriving anyclass instance DisjunctiveMonoid (Seq a)
+deriving anyclass instance DisjunctiveMonoid (Vector a)
+deriving anyclass instance MonadPlus m => DisjunctiveMonoid (WrappedMonad m a)
+deriving anyclass instance ArrowPlus a => DisjunctiveMonoid (WrappedArrow a b c)
+deriving anyclass instance ArrowPlus a => DisjunctiveMonoid (ArrowMonad a b)
+deriving anyclass instance Alternative f => DisjunctiveMonoid (Backwards f a)
+deriving anyclass instance Alternative f => DisjunctiveMonoid (Lift f a)
+deriving anyclass instance Alternative f => DisjunctiveMonoid (Reverse f a)
+deriving anyclass instance Alternative m => DisjunctiveMonoid (IdentityT m a)
+deriving anyclass instance Alternative m => DisjunctiveMonoid (ReaderT r m a)
+deriving anyclass instance (Functor m, Monad m)
+  => DisjunctiveMonoid (MaybeT m a)
+deriving anyclass instance (Functor m, Monad m, Monoid e)
+  => DisjunctiveMonoid (ExceptT e m a)
+deriving anyclass instance (Functor m, MonadPlus m)
+  => DisjunctiveMonoid (Lazy.StateT s m a)
+deriving anyclass instance (Functor m, MonadPlus m)
+  => DisjunctiveMonoid (Strict.StateT s m a)
+deriving anyclass instance (Monoid w, Alternative m)
+  => DisjunctiveMonoid (LazyW.WriterT w m a)
+deriving anyclass instance (Monoid w, Alternative m)
+  => DisjunctiveMonoid (StrictW.WriterT w m a)
+deriving anyclass instance (Functor m, MonadPlus m)
+  => DisjunctiveMonoid (CPSW.WriterT w m a)
+deriving anyclass instance (Monoid w, Functor m, MonadPlus m)
+  => DisjunctiveMonoid (LazyRWS.RWST r w s m a)
+deriving anyclass instance (Monoid w, Functor m, MonadPlus m)
+  => DisjunctiveMonoid (StrictRWS.RWST r w s m a)
+deriving anyclass instance (Functor m, MonadPlus m)
+  => DisjunctiveMonoid (CPSRWS.RWST r w s m a)
+deriving anyclass instance (Monoid w, Functor m, MonadPlus m)
+  => DisjunctiveMonoid (AccumT w m a)
+deriving anyclass instance (Functor m, MonadPlus m)
+  => DisjunctiveMonoid (SelectT r m a)
+deriving anyclass instance Alternative v => DisjunctiveMonoid (Free v a)
+deriving anyclass instance Alternative f => DisjunctiveMonoid (Church.F f a)
+deriving anyclass instance (Functor f, MonadPlus m)
+  => DisjunctiveMonoid (FreeT f m a)
+deriving anyclass instance Alternative m => DisjunctiveMonoid (FT f m a)
+deriving anyclass instance DisjunctiveMonoid (FreeAlt.Alt f a)
+deriving anyclass instance DisjunctiveMonoid (ReifiedFold s a)
+deriving anyclass instance Alternative f => DisjunctiveMonoid (WrappedFoldable f a)
 instance DisjunctiveMonoid (f a) => DisjunctiveMonoid (Alt f a) where
   falseP = Alt falseP
   Alt x >|< Alt y = Alt (x >|< y)

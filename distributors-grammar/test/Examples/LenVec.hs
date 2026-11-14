@@ -13,10 +13,10 @@ data LenVec = LenVec {length :: Natural, vector :: [Natural]}
 
 makeNestedPrisms ''LenVec
 
-lenvecGrammar :: CtxGrammar Char LenVec
+lenvecGrammar :: CtxGrammatical Char p => p LenVec LenVec
 lenvecGrammar = _LenVec >? P.do
   let
-    numberG = iso show read >~ someP (asIn @Char DecimalNumber)
+    numberG = numeral 10
     vectorG n = sepWith "," (exactly n) numberG
   len <- numberG             -- bonds to _LenVec
   terminal ";"               -- doesn't bond
@@ -27,3 +27,5 @@ lenvecExamples =
   [ (LenVec 3 [1,2,3], "3;1,2,3")
   , (LenVec 0 [], "0;")
   ]
+
+instance CtxGrammar Char LenVec where ctxGrammar = lenvecGrammar

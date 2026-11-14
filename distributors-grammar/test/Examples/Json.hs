@@ -30,7 +30,7 @@ makePrisms ''Json
 -- breaks the cycle; a plain `rule` invocation forces its body, so
 -- every cyclic back-edge must instead use the `element` stub produced
 -- by the inner `ruleRec "element"` below.
-jsonGrammar :: Grammar Char Json
+jsonGrammar :: Grammatical Char p => p Json Json
 jsonGrammar = rule "json" elementG
   where
     elementG = ruleRec "element" $ \json ->
@@ -79,7 +79,8 @@ jsonGrammar = rule "json" elementG
 
     -- character = '0020' . '10FFFF' - '"' - '\' | '\' escape
     characterG = rule "character" $
-      tokenClass (oneOf ['\x0020' .. '\x10FFFF'] >&< notOneOf ['\"','\\'])
+      -- by complement, 34 tokens rather than a million
+      tokenClass (notOneOf ('\"' : '\\' : ['\x0000' .. '\x001F']))
       >|< terminal "\\" >* escapeG
 
     -- escape = '"' | '\' | '/' | 'b' | 'f' | 'n' | 'r' | 't'
@@ -96,7 +97,7 @@ jsonGrammar = rule "json" elementG
 
     -- number = decimal natural number
     numberG = rule "number" $
-      iso show read >~ someP (asIn @Char DecimalNumber)
+      numeral 10
 
     -- Simplified: zero or more whitespace characters
     ws = rule "ws" $
@@ -131,3 +132,6 @@ jsonExamples =
              JObject (Map.fromList [("x", JNumber 2)])],
      "[{\"x\":1},{\"x\":2}]")
   ]
+
+instance CtxGrammar Char Json
+instance Grammar Char Json where grammar = jsonGrammar

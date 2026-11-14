@@ -4,6 +4,31 @@
 
 ### New APIs
 
+- `timesK`, a `KleeneStarAlgebra` method, & `timesP`, an `Alternator`
+  method, repeat between some numbers of times, @x{lo,hi}@ or @x{lo,}@,
+  defaulting to their unfoldings, so static `Alternator`s & Kleene algebras
+  may keep counts. `inRange`, & so `exactly`, `atLeast` & `atMost`, are
+  `timesP`.
+- More `DisjunctiveMonoid` instances: every `Alternative` of the
+  dependencies, `base`, `containers`, `vector`, `transformers`, `free`,
+  `lens` & `witherable`, by `empty` & `<|>`, now with lists, `Seq`s,
+  `Vector`s, monad transformers, free monads & `ReifiedFold`s; & `Set`s,
+  `IntSet`s, `Map`s & `IntMap`s, by their monoids, of union.
+- `Bits` types are `BooleanAlgebra`s of bit vectors, by `.|.`, `.&.` &
+  `complement`: every `Int` & `Word`, `Integer`, `IntPtr`, `WordPtr` & the
+  integers of `Foreign.C.Types`; & `Natural`, without `complement`, only a
+  `DisjunctiveMonoid`.
+- `KleeneStarAlgebra`s: `Predicate`s, whose star is true, & `Ap`s of
+  `Alternative`s of `Monoid`s, languages, starred by `many`, a
+  near-semiring. `ReadPrec` is `Filterable`.
+- `stepping` & its combinators, `terminateBy`, `delimitBy`, `balanceBy`
+  & `countWith`, step through any stream, @(Cons s s a a, AsEmpty s)@,
+  like a `Data.Sequence.Seq` or `Data.Text.Text`, not only lists.
+- `steppingTree`, a deterministic top-down tree machine over the cofree
+  comonad of a `Traversable`, deciding by each node's focus its children's
+  states, of which `stepping` is the case of `Maybe`, of non-empty streams;
+  & `arityWith`, count-prefixed trees, each node's focus counting its
+  children, as `countWith` counts a stream's.
 - `Enumerable`, in `Data.Traversable.Homogeneous`, of `Homogeneous`
   countable sums of single copies, sequenced `enumerably` by
   `CocartesianMonoidal`s, with generic defaults by `Generic1`.

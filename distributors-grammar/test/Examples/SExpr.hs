@@ -17,7 +17,7 @@ data SExpr
 makePrisms ''SExpr
 
 -- | Grammar for S-expressions
-sexprGrammar :: Grammar Char SExpr
+sexprGrammar :: Grammatical Char p => p SExpr SExpr
 sexprGrammar = ruleRec "sexpr" $ \sexpr -> orP
   [ _Atom >? atomG
   , _List >? listG sexpr
@@ -56,3 +56,6 @@ sexprExamples =
            List [Atom "else-branch"]],
      "(if test (then-branch) (else-branch))")
   ]
+
+instance CtxGrammar Char SExpr
+instance Grammar Char SExpr where grammar = sexprGrammar
