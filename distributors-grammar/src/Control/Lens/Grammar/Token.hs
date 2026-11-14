@@ -96,67 +96,48 @@ class
   default tokenKind :: TokenKind token ~ () => token -> TokenKind token
   tokenKind _ = ()
 
-  {- | The tests of tokens, `Cofinite` sets of them by default. -}
+  {- | The tests of tokens, by default `TokenRanges` of bounded, enumerable
+  tokens; `Cofinite` sets of others, or `ByKind` tests of tagged ones. -}
   type TokenTest token
-  type TokenTest token = Cofinite token
+  type TokenTest token = TokenRanges token
   {- | Does a token pass a test? -}
   tokenTest :: TokenTest token -> token -> Bool
   default tokenTest
-    :: TokenTest token ~ Cofinite token => TokenTest token -> token -> Bool
-  tokenTest = flip cofiniteMember
+    :: TokenTest token ~ TokenRanges token => TokenTest token -> token -> Bool
+  tokenTest = flip rangesMember
   {- | The test of being one of some tokens. -}
   testOneOf :: [token] -> TokenTest token
   default testOneOf
-    :: TokenTest token ~ Cofinite token => [token] -> TokenTest token
-  testOneOf = Finite . Set.fromList
+    :: (TokenTest token ~ TokenRanges token, Enum token)
+    => [token] -> TokenTest token
+  testOneOf = Exts.fromList
   {- | The test of being of one of some kinds. -}
   testKinds :: TokenKinds (TokenKind token) -> TokenTest token
   default testKinds
-    :: (TokenTest token ~ Cofinite token, TokenKind token ~ ())
-    => TokenKinds (TokenKind token) -> TokenTest token
-  testKinds = kindless
+    :: TokenKind token ~ () => TokenKinds (TokenKind token) -> TokenTest token
+  testKinds (TokenKinds ks) = if Set.member () ks then trueP else falseP
   {- | The test of being between two tokens, inclusive, by their
   enumeration, for tokens whose `Enum` & `Ord` agree. -}
   testRange :: Enum token => token -> token -> TokenTest token
-  testRange lo hi = testOneOf [lo .. hi]
+  default testRange
+    :: TokenTest token ~ TokenRanges token
+    => token -> token -> TokenTest token
+  testRange = rangesBetween
   {- | The tokens which pass a test, by their number & their index,
   where they're finitely many & listable, so that generators sample them
   uniformly, rather than by rejection. -}
   testFinite :: TokenTest token -> Maybe (Int, Int -> token)
   default testFinite
-    :: TokenTest token ~ Cofinite token
+    :: (TokenTest token ~ TokenRanges token, Enum token)
     => TokenTest token -> Maybe (Int, Int -> token)
-  testFinite = \case
-    Finite ts -> Just (Set.size ts, (`Set.elemAt` ts))
-    Cofinite _ -> Nothing
+  testFinite = rangesFinite
 
 instance Lexical Char where
   type TokenKind Char = GeneralCategory
   tokenKind = generalCategory
-  type TokenTest Char = TokenRanges Char
-  tokenTest = flip rangesMember
-  testOneOf = Exts.fromList
   testKinds (TokenKinds cats) = foldr ((>|<) . categoryRanges) falseP cats
-  testRange = rangesBetween
-  testFinite = rangesFinite
-instance Lexical Word8 where
-  type TokenTest Word8 = TokenRanges Word8
-  tokenTest = flip rangesMember
-  testOneOf = Exts.fromList
-  testKinds = kindless
-  testRange = rangesBetween
-  testFinite = rangesFinite
-instance Lexical () where
-  type TokenTest () = TokenRanges ()
-  tokenTest = flip rangesMember
-  testOneOf = Exts.fromList
-  testKinds = kindless
-  testRange = rangesBetween
-  testFinite = rangesFinite
-
--- | Tests of kinds, where there are none but @()@.
-kindless :: BooleanAlgebra test => TokenKinds () -> test
-kindless (TokenKinds ks) = if Set.null ks then falseP else trueP
+instance Lexical Word8
+instance Lexical ()
 
 {- | A class of tokens, by their `TokenTest`, a `Tokenized`
 `BooleanAlgebra`, such that the following hold.

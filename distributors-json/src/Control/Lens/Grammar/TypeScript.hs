@@ -291,6 +291,7 @@ instance Lexical TsToken where
   testOneOf tokens' = ByKind $ Map.fromListWith (>|<)
     [(kind, Finite (Set.singleton text)) | TsToken kind text <- tokens']
   testKinds (TokenKinds kinds) = ByKind (Map.fromSet (const trueP) kinds)
+  testRange lo hi = testOneOf [lo .. hi]
   testFinite (ByKind tests) = case traverse finite (Map.toList tests) of
     Just kinds ->
       let tokens' = [TsToken kind text | (kind, texts) <- kinds, text <- texts]
