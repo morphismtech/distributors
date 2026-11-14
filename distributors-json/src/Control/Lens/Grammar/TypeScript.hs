@@ -66,7 +66,9 @@ module Control.Lens.Grammar.TypeScript
 import Control.Lens
 import Control.Lens.Grammar
 import Data.Char (chr, ord)
+import Data.Map.Strict qualified as Map
 import Data.Maybe (fromMaybe, listToMaybe)
+import Data.Set qualified as Set
 import Data.Profunctor.Monadic.Do qualified as P
 import Data.Text (Text)
 import Data.Text qualified as Text
@@ -280,9 +282,23 @@ data TsToken = TsToken
   , tokenText :: Text
   } deriving stock (Eq, Ord, Show, Read)
 
-instance Categorized TsToken where
-  type Categorize TsToken = TsTokenCategory
-  categorize = tokenCategory
+instance Lexical TsToken where
+  type TokenKind TsToken = TsTokenCategory
+  tokenKind = tokenCategory
+  -- tested by their kinds' tests of their texts
+  type TokenTest TsToken = ByKind TsTokenCategory (Cofinite Text)
+  tokenTest test (TsToken kind text) = testByKind (flip cofiniteMember) test kind text
+  testOneOf tokens' = ByKind $ Map.fromListWith (>|<)
+    [(kind, Finite (Set.singleton text)) | TsToken kind text <- tokens']
+  testKinds (TokenKinds kinds) = ByKind (Map.fromSet (const trueP) kinds)
+  testFinite (ByKind tests) = case traverse finite (Map.toList tests) of
+    Just kinds ->
+      let tokens' = [TsToken kind text | (kind, texts) <- kinds, text <- texts]
+      in Just (length tokens', (tokens' !!))
+    Nothing -> Nothing
+    where
+      finite (kind, Finite texts) = Just (kind, Set.toList texts)
+      finite _ = Nothing
 
 -- | The categories of t'TsToken's, by the TypeScript compiler's names.
 data TsTokenCategory
@@ -474,18 +490,18 @@ It's a `RegGrammar`, since each token's spelling is a regular language.
 -}
 tsTokenGrammar :: RegGrammatical Char p => p TsToken TsToken
 tsTokenGrammar = orP
-  [ kindOf WhitespaceTrivia >? someP (oneOf @Char (" \t\f\v" :: String))
-  , kindOf NewLineTrivia >? orP
+  [ ofKind WhitespaceTrivia >? someP (oneOf @Char (" \t\f\v" :: String))
+  , ofKind NewLineTrivia >? orP
       [only "\n" >? terminal "\n", only "\r\n" >? terminal "\r\n"]
   , _Comment >? terminal "/" >* orP
       [ _Left >? terminal "/" >* manyP (notOneOf @Char ("\r\n" :: String))
       , _Right >? blockComment
       ]
   , _Word >? identifierStart >:< manyP identifierPart
-  , kindOf PrivateIdentifier >? terminal "#"
+  , ofKind PrivateIdentifier >? terminal "#"
       >* (identifierStart >:< manyP identifierPart)
   , _Number >? asIn @Char DecimalNumber >:< manyP numberPart
-  , kindOf StringLiteral >? orP
+  , ofKind StringLiteral >? orP
       [ terminal "\"" >* manyP (stringChar '"') *< terminal "\""
       , terminal "'" >* manyP (stringChar '\'') *< terminal "'"
       ]
@@ -600,8 +616,8 @@ tokensWithin depths = orP
       _ -> ds
 
 -- | A token of a category, by its text.
-kindOf :: TsTokenCategory -> Prism' TsToken String
-kindOf category = prism'
+ofKind :: TsTokenCategory -> Prism' TsToken String
+ofKind category = prism'
   (TsToken category . Text.pack)
   (\(TsToken category' text) ->
     if category == category' then Just (Text.unpack text) else Nothing)

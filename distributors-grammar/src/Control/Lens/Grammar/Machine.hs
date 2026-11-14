@@ -42,15 +42,15 @@ class Matching word pattern | pattern -> word where
   (=~) :: word -> pattern -> Bool
   infix 2 =~
 -- instances
-instance Categorized token
+instance Lexical token
   => Matching [token] (Transducer token) where
     word =~ et = acceptsChart n chart
       where
         (n, chart) = prefixGen et word
-instance Categorized token
+instance Lexical token
   => Matching [token] (Bnf (RegEx token)) where
     word =~ bnf = word =~ transducer bnf
-instance Categorized token
+instance Lexical token
   => Matching [token] (RegEx token) where
     word =~ pattern = word =~ liftBnf0 pattern
 instance Matching s (APrism s t a b) where
@@ -97,7 +97,7 @@ A transducer is a form of finite state machine
 that can be run in various ways like
 `=~`, `expectNext`, `languageSample`, `parseForest` & `unreachableRules`.
 -}
-transducer :: Categorized token => Bnf (RegEx token) -> Transducer token
+transducer :: Lexical token => Bnf (RegEx token) -> Transducer token
 transducer (Bnf start rules) = Transducer
   { transducerRelations = IntMap.fromList allStates
   , transducerRules = Map.fromList
@@ -125,9 +125,8 @@ transducer (Bnf start rules) = Transducer
       KleenePlus x -> rexNullable nm x
       KleeneTimes lo _ x -> lo == 0 || rexNullable nm x
       Backtracking x -> rexNullable nm x
-      RegExam (Alternate x y zs) -> any (rexNullable nm) (x : y : zs)
-      RegExam (OneOf _) -> False
-      RegExam (NotOneOf _ _) -> False
+      Alternate x y zs -> any (rexNullable nm) (x : y : zs)
+      RegExam _ -> False
 
     ruleNames = Map.keys ruleMap
 
@@ -213,25 +212,19 @@ transducer (Bnf start rules) = Transducer
         Backtracking rex0 -> thompson rex0 nextId dests
         -- counts unroll, growing the machine by them
         KleeneTimes lo hi rex0 -> thompson (unrolled lo hi rex0) nextId dests
-        RegExam (OneOf chars)
-          | chars == falseP -> (IntSet.empty, [], nextId, False)
+        RegExam cls
+          | cls == falseP -> (IntSet.empty, [], nextId, False)
           | otherwise ->
               ( IntSet.singleton nextId
-              , [(nextId, TransitionTokenClass (TokenClass (OneOf chars)) dests)]
+              , [(nextId, TransitionTokenClass cls dests)]
               , nextId + 1
               , False
               )
-        RegExam (NotOneOf chars catTest) ->
-          ( IntSet.singleton nextId
-          , [(nextId, TransitionTokenClass (TokenClass (NotOneOf chars catTest)) dests)]
-          , nextId + 1
-          , False
-          )
-        RegExam (Alternate rex0 rex1 rexes) ->
+        Alternate rex0 rex1 rexes ->
           let
             rest = case rexes of
               [] -> rex1
-              rex2 : rexes' -> RegExam (Alternate rex1 rex2 rexes')
+              rex2 : rexes' -> Alternate rex1 rex2 rexes'
             (firsts1, states1, nextId1, bypass1) = thompson rest nextId dests
             (firsts0, states0, nextId0, bypass0) = thompson rex0 nextId1 dests
           in
@@ -243,7 +236,7 @@ transducer (Bnf start rules) = Transducer
 
 {- | The parse forest of a string of tokens. -}
 parseForest
-  :: Categorized token
+  :: Lexical token
   => Transducer token
   -> [token] -- ^ string
   -> ([Tree (String, Int, Int, [token])], [token])
@@ -350,7 +343,7 @@ parseForest et word = (concat (itemForests Set.empty Nothing 0 acceptedLen 0), d
             ]
 
 prefixGen
-  :: Categorized token
+  :: Lexical token
   => Transducer token
   -> [token]
   -> (Int, IntMap (IntMap IntSet))
@@ -380,7 +373,7 @@ A `falseP` result means the current chart has no scanner transitions,
 i.e. the prefix is a dead end for recognition.
 -}
 expectNext
-  :: Categorized token
+  :: Lexical token
   => Transducer token -> [token] {- ^ prefix -} -> TokenClass token
 expectNext et word = anyP fst (scanClassOptions et n chart)
   where
@@ -416,10 +409,10 @@ unreachableRules et =
 `languageSample` lazily produces all words in a language from shortest to longest.
 However since t'TokenClass'es can resolve to infinite sets of tokens,
 and the relevant case of `Char` tokens while not infinite is huge,
-it samples tokens in an `Applicative` `TokenAlgebra`.
+it samples tokens in an `Applicative` `Tokenized`.
 -}
 languageSample
-  :: (TokenAlgebra token (f token), Applicative f)
+  :: (Tokenized token (f token), Applicative f)
   => Transducer token -- ^ transducer
   -> f [[token]]
 languageSample et = sequenceA (fmap sampleWord classWords)
@@ -473,7 +466,7 @@ acceptsChart j chart = IntSet.member 0 acceptOrigins
 -- Group all scanner moves from E_j by token class; each result also carries the
 -- closed successor chart at j+1.
 scanClassOptions
-  :: Categorized token
+  :: Lexical token
   => Transducer token
   -> Int
   -> IntMap (IntMap IntSet)

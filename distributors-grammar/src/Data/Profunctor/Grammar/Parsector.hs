@@ -53,7 +53,7 @@ newtype Parsector s a b = Parsector
 left to right, returning a t'ParsecState' whose `parsecResult`
 is `Nothing` on failure and `Just` the output syntax value on success. -}
 parsecP
-  :: Categorized (Item s)
+  :: Lexical (Item s)
   => Parsector s a b
   -> s -- ^ input stream
   -> ParsecState s b
@@ -65,7 +65,7 @@ returning a t'ParsecState' whose `parsecResult` is
 `Nothing` on failure or `Just` a successful output syntax value,
 in which case, `parsecStream` is the output stream. -}
 unparsecP
-  :: Categorized (Item s)
+  :: Lexical (Item s)
   => Parsector s a b
   -> a -- ^ input syntax
   -> s -- ^ input stream
@@ -134,18 +134,18 @@ data ParsecFailure s = ParsecFailure
 
 -- ParsecFailure instances
 deriving stock instance
-  ( Categorized (Item s)
-  , Show (Item s), Show (Categorize (Item s)), Show (TokenSet (Item s))
+  ( Lexical (Item s)
+  , Show (Item s), Show (TokenTest (Item s))
   ) => Show (ParsecFailure s)
 deriving stock instance
-  ( Categorized (Item s)
-  , Read (Item s), Read (Categorize (Item s)), Read (TokenSet (Item s))
+  ( Lexical (Item s)
+  , Read (Item s), Read (TokenTest (Item s))
   ) => Read (ParsecFailure s)
-deriving stock instance Categorized (Item s) => Eq (ParsecFailure s)
-deriving stock instance Categorized (Item s) => Ord (ParsecFailure s)
-instance Categorized (Item s) => Semigroup (ParsecFailure s) where
+deriving stock instance Lexical (Item s) => Eq (ParsecFailure s)
+deriving stock instance Lexical (Item s) => Ord (ParsecFailure s)
+instance Lexical (Item s) => Semigroup (ParsecFailure s) where
   ParsecFailure e1 l1 <> ParsecFailure e2 l2 = ParsecFailure (e1 >|< e2) (l1 ++ l2)
-instance Categorized (Item s) => Monoid (ParsecFailure s) where
+instance Lexical (Item s) => Monoid (ParsecFailure s) where
   mempty = ParsecFailure falseP []
 
 -- ParsecState instances
@@ -153,41 +153,30 @@ deriving stock instance Functor (ParsecState s)
 deriving stock instance Foldable (ParsecState s)
 deriving stock instance Traversable (ParsecState s)
 deriving stock instance
-  ( Categorized (Item s)
-  , Show (Item s), Show (Categorize (Item s)), Show (TokenSet (Item s))
+  ( Lexical (Item s)
+  , Show (Item s), Show (TokenTest (Item s))
   , Show a, Show s
   ) => Show (ParsecState s a)
 deriving stock instance
-  ( Categorized (Item s)
-  , Read (Item s), Read (Categorize (Item s)), Read (TokenSet (Item s))
+  ( Lexical (Item s)
+  , Read (Item s), Read (TokenTest (Item s))
   , Read a, Read s
   ) => Read (ParsecState s a)
 deriving stock instance
-  ( Categorized (Item s)
+  ( Lexical (Item s)
   , Eq a, Eq s
   ) => Eq (ParsecState s a)
 deriving stock instance
-  ( Categorized (Item s)
+  ( Lexical (Item s)
   , Ord a, Ord s
   ) => Ord (ParsecState s a)
 
 -- Parsector instances
 instance
-  ( Categorized token, Item s ~ token
+  ( Lexical token, Item s ~ token
   , Cons s s token token, Snoc s s token token
   ) => Tokenized token (Parsector s token token) where
-  anyToken = tokenClass anyToken
-  token t = tokenClass (token t)
-  oneOf ts = tokenClass (oneOf ts)
-  notOneOf ts = tokenClass (notOneOf ts)
-  asIn cat = tokenClass (asIn cat)
-  notAsIn cat = tokenClass (notAsIn cat)
-  tokenRange lo hi = tokenClass (tokenRange lo hi)
-instance
-  ( Categorized token, Item s ~ token
-  , Cons s s token token, Snoc s s token token
-  ) => TokenAlgebra token (Parsector s token token) where
-    {-# SPECIALISE instance TokenAlgebra Char (Parsector String Char Char) #-}
+    {-# SPECIALISE instance Tokenized Char (Parsector String Char Char) #-}
     -- The test & failures are made once, rather than for each token.
     tokenClass test = matches `seq` Parsector (\callback query ->
       let
@@ -235,7 +224,7 @@ instance Ruled (Parsector s a b) where
           }
         Just _ -> reply
 instance
-  ( Categorized token, Item s ~ token
+  ( Lexical token, Item s ~ token
   , Cons s s token token, Snoc s s token token
   ) => TerminalSymbol token (Parsector s () ()) where
     {-# SPECIALISE instance TerminalSymbol Char (Parsector String () ()) #-}
@@ -274,7 +263,7 @@ instance
   fromString = terminal
 instance Functor (Parsector s a) where
   fmap = rmap
-instance Categorized (Item s) => Applicative (Parsector s a) where
+instance Lexical (Item s) => Applicative (Parsector s a) where
   pure b = Parsector $ \callback query ->
     callback query { parsecResult = Just b }
   (<*>) = liftA2 id
@@ -287,7 +276,7 @@ instance Categorized (Item s) => Applicative (Parsector s a) where
           flip (runParsector q) (bound query reply) $ \qReply ->
             callback (rebound reply (f b <$> qReply))
 
-instance Categorized (Item s) => Monad (Parsector s a) where
+instance Lexical (Item s) => Monad (Parsector s a) where
   return = pure
   p >>= f = Parsector $ \callback query ->
     flip (runParsector p) query $ \reply ->
@@ -299,7 +288,7 @@ instance Categorized (Item s) => Monad (Parsector s a) where
 
 -- | The query of the second of a sequence, after the first's reply.
 bound
-  :: Categorized (Item s)
+  :: Lexical (Item s)
   => ParsecState s a -> ParsecState s b -> ParsecState s a
 bound query reply = reply
   { parsecLooked = False
@@ -311,7 +300,7 @@ bound query reply = reply
 which keeps the first's hints when the second hasn't consumed.
 -}
 rebound
-  :: Categorized (Item s)
+  :: Lexical (Item s)
   => ParsecState s b -> ParsecState s c -> ParsecState s c
 rebound reply next
   | parsecLooked next = next
@@ -320,7 +309,7 @@ rebound reply next
       , parsecFailure = parsecFailure reply <> parsecFailure next
       }
 
-instance Categorized (Item s) => Alternative (Parsector s a) where
+instance Lexical (Item s) => Alternative (Parsector s a) where
   -- | Always fails without consuming input; expects nothing.
   empty = Parsector $ \callback query ->
     callback query { parsecFailure = mempty, parsecResult = Nothing }
@@ -342,8 +331,8 @@ instance Categorized (Item s) => Alternative (Parsector s a) where
             (False, Just _)   -> replyQ { parsecFailure = errP <> parsecFailure replyQ }
             -- both empty fail: merge failures
             (False, Nothing)  -> replyP { parsecFailure = errP <> parsecFailure replyQ }
-instance Categorized (Item s) => MonadPlus (Parsector s a)
-instance Categorized (Item s) => MonadFail (Parsector s a) where
+instance Lexical (Item s) => MonadPlus (Parsector s a)
+instance Lexical (Item s) => MonadFail (Parsector s a) where
   fail msg = rule msg empty
 instance Tried (Parsector s a b) where
   -- | On failure, resets `parsecLooked` to @False@, allowing
@@ -359,21 +348,21 @@ instance Tried (Parsector s a b) where
           , parsecResult = Nothing
           }
         Just _ -> reply
-instance Categorized (Item s) => Filterable (Parsector s a) where
+instance Lexical (Item s) => Filterable (Parsector s a) where
   mapMaybe = dimapMaybe Just
 instance Category (Parsector s) where
   id = Parsector id
   Parsector q . Parsector p = Parsector (p . q)
-instance Categorized (Item s) => Arrow (Parsector s) where
+instance Lexical (Item s) => Arrow (Parsector s) where
   arr f = Parsector $ \callback reply -> callback (f <$> reply)
   (***) = (>*<)
   first = first'
   second = second'
-instance Categorized (Item s) => ArrowZero (Parsector s) where
+instance Lexical (Item s) => ArrowZero (Parsector s) where
   zeroArrow = empty
-instance Categorized (Item s) => ArrowPlus (Parsector s) where
+instance Lexical (Item s) => ArrowPlus (Parsector s) where
   (<+>) = (<|>)
-instance Categorized (Item s) => ArrowChoice (Parsector s) where
+instance Lexical (Item s) => ArrowChoice (Parsector s) where
   (+++) = (>+<)
   left = left'
   right = right'
@@ -401,7 +390,7 @@ instance Strong (Parsector s) where
             <*> parsecResult reply1
         }
 -- | Like `alternate`, without a sum of branches.
-instance Categorized (Item s) => Choice (Parsector s) where
+instance Lexical (Item s) => Choice (Parsector s) where
   left' (Parsector p) = Parsector $ \callback query ->
     case parsecResult query of
       Just (Right _) ->
@@ -414,8 +403,8 @@ instance Categorized (Item s) => Choice (Parsector s) where
         callback query { parsecFailure = mempty, parsecResult = Nothing }
       result -> p (callback . fmap Right)
         query { parsecResult = either (const Nothing) Just =<< result }
-instance Categorized (Item s) => CocartesianMonoidal (Parsector s)
-instance Categorized (Item s) => Distributor (Parsector s) where
+instance Lexical (Item s) => CocartesianMonoidal (Parsector s)
+instance Lexical (Item s) => Distributor (Parsector s) where
   {- | Like @eotList . swapped >~ p >*< manyP p >+< oneP@, in one loop,
   with its hints: a failure of @p@ without consuming ends the list,
   merging its expectations with those of the last element.
@@ -466,8 +455,8 @@ instance Categorized (Item s) => Distributor (Parsector s) where
         Nothing -> p parsedFirst query {parsecResult = Nothing}
         Just [] -> callback query {parsecResult = Just []}
         Just (a : as) -> p (printedFirst as) query {parsecResult = Just a}
-instance Categorized (Item s) => DisjunctiveMonoid (Parsector s a b)
-instance Categorized (Item s) => CocartesianChoice (Parsector s) where
+instance Lexical (Item s) => DisjunctiveMonoid (Parsector s a b)
+instance Lexical (Item s) => CocartesianChoice (Parsector s) where
   alternate (Left p) = Parsector $ \callback query -> callback $
     let
       replyOk = query
@@ -498,15 +487,15 @@ instance Categorized (Item s) => CocartesianChoice (Parsector s) where
         _________________ ->
           flip (runParsector p) replyOk $ \reply -> reply
             { parsecResult = fmap Right (parsecResult reply) }
-instance Categorized (Item s) => Alternator (Parsector s) where
+instance Lexical (Item s) => Alternator (Parsector s) where
   optionP def p = Parsector $ \callback query ->
     case parsecResult query of
       Nothing -> runParsector (p <|> pureP def) callback query
       Just _ -> runParsector (pureP def <|> p) callback query
-instance Categorized (Item s) => Cochoice (Parsector s) where
+instance Lexical (Item s) => Cochoice (Parsector s) where
   unleft = fst . filtrate
   unright = snd . filtrate
-instance Categorized (Item s) => Filtrator (Parsector s) where
+instance Lexical (Item s) => Filtrator (Parsector s) where
   filtrate p =
     ( Parsector $ \callback query ->
         flip (runParsector p) (Left <$> query) $ \reply ->

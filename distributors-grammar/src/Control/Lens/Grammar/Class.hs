@@ -55,11 +55,11 @@ class CtxGrammar token a where
 
 instance CtxGrammar Char Char
 instance Grammar Char Char where grammar = rule "Char" (regGrammar @Char)
-instance RegGrammar Char Char where regGrammar = anyToken @Char
+instance RegGrammar Char Char where regGrammar = tokenAny @Char
 
 instance CtxGrammar Char String
 instance Grammar Char String where grammar = rule "String" (regGrammar @Char)
-instance RegGrammar Char String where regGrammar = manyP (anyToken @Char)
+instance RegGrammar Char String where regGrammar = manyP (tokenAny @Char)
 
 instance CtxGrammar Char Natural
 instance Grammar Char Natural where grammar = rule "Natural" (regGrammar @Char)

@@ -72,14 +72,13 @@ foldRegEx tok nonterm = go
       KleenePlus x -> plusK (go x)
       KleeneTimes lo hi x -> timesK lo hi (go x)
       Backtracking x -> go x
-      RegExam (OneOf toks) -> tok (TokenClass (OneOf toks))
-      RegExam (NotOneOf toks test) -> tok (TokenClass (NotOneOf toks test))
-      RegExam (Alternate x y zs) -> foldr1 (>|<) (map go (x : y : zs))
+      RegExam cls -> tok cls
+      Alternate x y zs -> foldr1 (>|<) (map go (x : y : zs))
 
 {- | The rules of a t'Bnf', by name,
 a name's rules joined as alternatives.
 -}
-bnfRules :: Categorized token => Bnf (RegEx token) -> Map String (RegEx token)
+bnfRules :: Lexical token => Bnf (RegEx token) -> Map String (RegEx token)
 bnfRules = Map.fromListWith (flip (>|<)) . Set.toList . rulesBnf
 
 {- | The least fixpoint of an analysis of the rules of a t'Bnf',
@@ -88,7 +87,7 @@ rules it names, until they stabilize, as they do for a monotone analysis
 into a lattice of finite height.
 -}
 fixRules
-  :: (Categorized token, Eq k)
+  :: (Lexical token, Eq k)
   => k -- ^ bottom
   -> (Map String k -> RegEx token -> k) -- ^ a body, given the rules
   -> Bnf (RegEx token) -> Map String k
@@ -103,7 +102,7 @@ a `KleeneStarAlgebra` which, at token classes, is the first tokens of
 words, & at sets of rule names, their left corners.
 
 >>> foldRegEx (Leading False) (const falseP) ("a*b|c?" :: RegEx Char)
-Leading {leadingNullable = True, leadingAtoms = TokenClass (OneOf (fromList "abc"))}
+Leading {leadingNullable = True, leadingAtoms = fromRangeList [('a','c')]}
 -}
 data Leading a = Leading
   { leadingNullable :: Bool -- ^ whether a word can be empty
@@ -125,7 +124,7 @@ instance DisjunctiveMonoid a => KleeneStarAlgebra (Leading a) where
 
 {- | The nullability & first tokens of each rule of a t'Bnf'. -}
 firsts
-  :: Categorized token
+  :: Lexical token
   => Bnf (RegEx token) -> Map String (Leading (TokenClass token))
 firsts = fixRules falseP firstOf
 
@@ -133,7 +132,7 @@ firsts = fixRules falseP firstOf
 given those of the rules it names.
 -}
 firstOf
-  :: Categorized token
+  :: Lexical token
   => Map String (Leading (TokenClass token))
   -> RegEx token -> Leading (TokenClass token)
 firstOf rules =
@@ -142,7 +141,7 @@ firstOf rules =
 {- | The rules of a t'Bnf' which can name themselves
 before reading a token, on which a predictive parser diverges.
 -}
-leftRecursive :: Categorized token => Bnf (RegEx token) -> Set String
+leftRecursive :: Lexical token => Bnf (RegEx token) -> Set String
 leftRecursive bnf = Set.filter (\name -> name `Set.member` reach name) names
   where
     rules = bnfRules bnf
@@ -168,22 +167,22 @@ data Guard token = Guard
   { guardEnd :: Bool -- ^ whether the input may end
   , guardNext :: TokenClass token -- ^ which tokens may be next
   }
-deriving stock instance Categorized token => Eq (Guard token)
-deriving stock instance Categorized token => Ord (Guard token)
+deriving stock instance Lexical token => Eq (Guard token)
+deriving stock instance Lexical token => Ord (Guard token)
 deriving stock instance
-  (Categorized token, Show (TokenSet token), Show (Categorize token))
+  (Lexical token, Show (TokenTest token))
     => Show (Guard token)
-instance Categorized token => DisjunctiveMonoid (Guard token) where
+instance Lexical token => DisjunctiveMonoid (Guard token) where
   falseP = Guard False falseP
   Guard end0 next0 >|< Guard end1 next1 = Guard (end0 || end1) (next0 >|< next1)
-instance Categorized token => BooleanAlgebra (Guard token) where
+instance Lexical token => BooleanAlgebra (Guard token) where
   trueP = Guard True trueP
   notP (Guard end next) = Guard (not end) (notP next)
   Guard end0 next0 >&< Guard end1 next1 = Guard (end0 && end1) (next0 >&< next1)
 
 -- the guard of a word, then of what follows it
 guardOf
-  :: Categorized token
+  :: Lexical token
   => Leading (TokenClass token) -> Guard token -> Guard token
 guardOf (Leading nullable atoms) after
   | nullable = Guard False atoms >|< after
@@ -191,7 +190,7 @@ guardOf (Leading nullable atoms) after
 
 -- each of a sequence's items, with the guard of what follows it
 sequenced
-  :: Categorized token
+  :: Lexical token
   => (RegEx token -> Leading (TokenClass token))
   -> Guard token -> [RegEx token] -> [(RegEx token, Guard token)]
 sequenced first after = snd . foldr step (after, [])
@@ -202,9 +201,9 @@ sequenced first after = snd . foldr step (after, [])
 & whether its input may end, the least fixpoint of their callers'.
 
 >>> follows ("{start} = \\q{a}b|\\q{a}\n{a} = c" :: Bnf (RegEx Char))
-fromList [("a",Guard {guardEnd = True, guardNext = TokenClass (OneOf (fromList "b"))})]
+fromList [("a",Guard {guardEnd = True, guardNext = fromRangeList [('b','b')]})]
 -}
-follows :: Categorized token => Bnf (RegEx token) -> Map String (Guard token)
+follows :: Lexical token => Bnf (RegEx token) -> Map String (Guard token)
 follows bnf = go (falseP <$ rules)
   where
     rules = bnfRules bnf
@@ -224,7 +223,7 @@ follows bnf = go (falseP <$ rules)
       Backtracking x -> followed after x
       KleeneTimes lo hi x -> followed after (unrolled lo hi x)
       KleeneOpt x -> followed after x
-      RegExam (Alternate x y zs) -> Map.unionsWith (>|<) (map (followed after) (x : y : zs))
+      Alternate x y zs -> Map.unionsWith (>|<) (map (followed after) (x : y : zs))
       _ -> Map.empty
       where
         again x = Guard False (leadingAtoms (first x)) >|< after
@@ -251,7 +250,7 @@ since a predictive parser then tries what follows anew.
 []
 -}
 ll1Conflicts
-  :: Categorized token => Bnf (RegEx token) -> [LL1Conflict token]
+  :: Lexical token => Bnf (RegEx token) -> [LL1Conflict token]
 ll1Conflicts bnf =
   [ LL1Conflict (Just name) LL1LeftRecursion falseP (NonTerminal name)
   | name <- Set.toList (leftRecursive bnf)
@@ -274,7 +273,7 @@ ll1Conflicts bnf =
       KleeneOpt x -> repetition x <> check name x after
       Backtracking x -> check name x after
       KleeneTimes lo hi x -> check name (unrolled lo hi x) after
-      RegExam (Alternate x y zs) ->
+      Alternate x y zs ->
         concat [alternation a b | (a, bs) <- pairs (x : y : zs), b <- bs]
         <> concatMap (\a -> check name a after) (x : y : zs)
       _ -> []
@@ -319,9 +318,9 @@ data LL1Conflict token = LL1Conflict
   , conflictTokens :: TokenClass token
   , conflictAt :: RegEx token
   }
-deriving stock instance Categorized token => Eq (LL1Conflict token)
+deriving stock instance Lexical token => Eq (LL1Conflict token)
 deriving stock instance
-  (Categorized token, Show (TokenSet token), Show (Categorize token))
+  (Lexical token, Show (TokenTest token))
     => Show (LL1Conflict token)
 
 -- | Sorts of `LL1Conflict`s.
@@ -343,7 +342,7 @@ data LL1ConflictSort
 
 -- | Counts, unrolled, @x{lo,hi}@ as @lo@ times @x@ & then
 -- @x*@, or @hi - lo@ nested options.
-unrolled :: Categorized token => Int -> Maybe Int -> RegEx token -> RegEx token
+unrolled :: Lexical token => Int -> Maybe Int -> RegEx token -> RegEx token
 unrolled lo hi x = mconcat (replicate lo x) <> case hi of
   Nothing -> starK x
   Just m -> foldr (\_ rest -> optK (x <> rest)) mempty [lo + 1 .. m]

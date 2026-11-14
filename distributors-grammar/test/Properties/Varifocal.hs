@@ -18,9 +18,9 @@ varifocalProperties = do
   let
     printed :: Varifocal' String Char -> String -> Maybe String
     printed v s =
-      ($ "") <$> printP (contextuallyT v (anyToken :: Printor String Maybe Char Char)) s
+      ($ "") <$> printP (contextuallyT v (tokenAny :: Printor String Maybe Char Char)) s
     parsed :: Varifocal' String Char -> String -> Maybe (String, String)
-    parsed v = parseP (contextuallyT v (anyToken :: Parsor String Maybe Char Char))
+    parsed v = parseP (contextuallyT v (tokenAny :: Parsor String Maybe Char Char))
     ended :: Varifocal' String Char
     ended = terminateBy (== '.')
     plain = Prelude.filter (/= '.') <$> arbitrary
@@ -30,8 +30,8 @@ varifocalProperties = do
       printing q c = fmap ($ "") <$> runPrintor q c
       parsing :: Parsor String Maybe Char b -> String -> Maybe (b, String)
       parsing = parseP
-      prToken = anyToken :: Printor String Maybe Char Char
-      paToken = anyToken :: Parsor String Maybe Char Char
+      prToken = tokenAny :: Printor String Maybe Char Char
+      paToken = tokenAny :: Parsor String Maybe Char Char
     prop "liftP . pure = pure" $ \(n :: Int) (c :: Char) (str :: String) ->
       printing (liftP (pure n)) c === printing (pure n) c
         .&&. parsing (liftP (pure n)) str === parsing (pure n) str
@@ -56,17 +56,17 @@ varifocalProperties = do
     it "terminates a Seq as it does a list" $ do
       let seqTerminated :: Varifocal' (Seq Char) Char
           seqTerminated = terminateBy (== '.')
-      parseP (contextuallyT seqTerminated (anyToken :: Parsor String Maybe Char Char)) "ab.c"
+      parseP (contextuallyT seqTerminated (tokenAny :: Parsor String Maybe Char Char)) "ab.c"
         `shouldBe` Just (Seq.fromList "ab.", "c")
-      (($ "") <$> printP (contextuallyT seqTerminated (anyToken :: Printor String Maybe Char Char)) (Seq.fromList "ab."))
+      (($ "") <$> printP (contextuallyT seqTerminated (tokenAny :: Printor String Maybe Char Char)) (Seq.fromList "ab."))
         `shouldBe` Just "ab."
   describe "steppingTree, by arityWith" $ do
     let
       counted :: Varifocal' (Cofree [] Char) Char
       counted = arityWith digitToInt
       tree = '2' :< ['1' :< ['0' :< []], '0' :< []]
-      parsedT = parseP (contextuallyT counted (anyToken :: Parsor String Maybe Char Char))
-      printedT = fmap ($ "") . printP (contextuallyT counted (anyToken :: Printor String Maybe Char Char))
+      parsedT = parseP (contextuallyT counted (tokenAny :: Parsor String Maybe Char Char))
+      printedT = fmap ($ "") . printP (contextuallyT counted (tokenAny :: Printor String Maybe Char Char))
     it "parses a count-prefixed tree, in preorder" $
       parsedT "2100rest" `shouldBe` Just (tree, "rest")
     it "prints it, in preorder" $
@@ -102,9 +102,9 @@ varifocalProperties = do
     let
       printedG :: Varifocal' s Char -> s -> Maybe String
       printedG v x =
-        ($ "") <$> printP (contextuallyT v (anyToken :: Printor String Maybe Char Char)) x
+        ($ "") <$> printP (contextuallyT v (tokenAny :: Printor String Maybe Char Char)) x
       parsedG :: Varifocal' s Char -> String -> Maybe (s, String)
-      parsedG v = parseP (contextuallyT v (anyToken :: Parsor String Maybe Char Char))
+      parsedG v = parseP (contextuallyT v (tokenAny :: Parsor String Maybe Char Char))
       crossed :: Varifocal' (String, String) Char
       crossed = crossVarifocal (terminateBy (== '.')) (delimitBy (==))
       alted :: Varifocal' (Either String String) Char
@@ -173,9 +173,9 @@ varifocalProperties = do
       composite = _Right . ended
       printedE :: Varifocal' (Either Int String) Char -> Either Int String -> Maybe String
       printedE v e =
-        ($ "") <$> printP (contextuallyT v (anyToken :: Printor String Maybe Char Char)) e
+        ($ "") <$> printP (contextuallyT v (tokenAny :: Printor String Maybe Char Char)) e
       parsedE :: Varifocal' (Either Int String) Char -> String -> Maybe (Either Int String, String)
-      parsedE v = parseP (contextuallyT v (anyToken :: Parsor String Maybe Char Char))
+      parsedE v = parseP (contextuallyT v (tokenAny :: Parsor String Maybe Char Char))
     prop "prints & parses as the composite does" $
       forAll plain $ \s (n :: Int) ->
         let es = [Left n, Right s, Right (s ++ ".")]
@@ -194,21 +194,21 @@ varifocalProperties = do
       parsecResult (parsecG "<<A\nb\nA\n") `shouldBe` Just (Heredoc "A" ["b"])
   describe ">?<*, Bifocal's applicator" $ do
     prop "applies a Prismoid as >?* does" $ \(s :: String) ->
-      parseP (atLeast 1 >?<* (anyToken :: Parsor String Maybe Char Char)) s
-        === parseP (atLeast 1 >?* (anyToken :: Parsor String Maybe Char Char)) s
-      .&&. (($ "") <$> printP (atLeast 1 >?<* (anyToken :: Printor String Maybe Char Char)) s)
-        === (($ "") <$> printP (atLeast 1 >?* (anyToken :: Printor String Maybe Char Char)) s)
+      parseP (atLeast 1 >?<* (tokenAny :: Parsor String Maybe Char Char)) s
+        === parseP (atLeast 1 >?* (tokenAny :: Parsor String Maybe Char Char)) s
+      .&&. (($ "") <$> printP (atLeast 1 >?<* (tokenAny :: Printor String Maybe Char Char)) s)
+        === (($ "") <$> printP (atLeast 1 >?* (tokenAny :: Printor String Maybe Char Char)) s)
     prop "applies a PartialIso as >?< does" $ \(s :: String) (c :: Char) ->
-      parseP (satisfied isDigit >?<* (anyToken :: Parsor String Maybe Char Char)) s
-        === parseP (satisfied isDigit >?< (anyToken :: Parsor String Maybe Char Char)) s
-      .&&. (($ "") <$> printP (satisfied isDigit >?<* (anyToken :: Printor String Maybe Char Char)) c)
-        === (($ "") <$> printP (satisfied isDigit >?< (anyToken :: Printor String Maybe Char Char)) c)
+      parseP (satisfied isDigit >?<* (tokenAny :: Parsor String Maybe Char Char)) s
+        === parseP (satisfied isDigit >?< (tokenAny :: Parsor String Maybe Char Char)) s
+      .&&. (($ "") <$> printP (satisfied isDigit >?<* (tokenAny :: Printor String Maybe Char Char)) c)
+        === (($ "") <$> printP (satisfied isDigit >?< (tokenAny :: Printor String Maybe Char Char)) c)
     it "keeps the target's own optionP, printing nothing for the default" $
-      (($ "") <$> printP (opted (only '0') >?<* (anyToken :: Printor String Maybe Char Char)) '0')
+      (($ "") <$> printP (opted (only '0') >?<* (tokenAny :: Printor String Maybe Char Char)) '0')
         `shouldBe` Just ""
   describe "Bifocal ⊂ Varifocal" $
     prop "a Prismoid applies contextuallyT as by >?*" $ \(s :: String) ->
       parsed (atLeast 1) s
-        === parseP (atLeast 1 >?* (anyToken :: Parsor String Maybe Char Char)) s
+        === parseP (atLeast 1 >?* (tokenAny :: Parsor String Maybe Char Char)) s
       .&&. printed (atLeast 1) s
-        === (($ "") <$> printP (atLeast 1 >?* (anyToken :: Printor String Maybe Char Char)) s)
+        === (($ "") <$> printP (atLeast 1 >?* (tokenAny :: Printor String Maybe Char Char)) s)

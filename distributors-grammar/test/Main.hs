@@ -13,7 +13,7 @@ import Text.ParserCombinators.ReadPrec (ReadPrec, readPrec_to_S)
 import Data.Functor.Contravariant (Predicate (..))
 import Test.Hspec
 import Test.Hspec.QuickCheck (modifyMaxSize, prop)
-import Test.QuickCheck (Gen, choose, elements, forAll, generate, listOf, oneof, (===))
+import Test.QuickCheck (Gen, (.&&.), choose, elements, forAll, generate, listOf, oneof, (===))
 import qualified Text.Megaparsec as M
 
 import Examples.Arithmetic
@@ -56,6 +56,7 @@ main = hspec $ do
   describe "RegEx ranges & try" regexRangeTryTests
   describe "RegEx quantifiers" regexQuantifierTests
   describe "tokenRange" tokenRangeTests
+  describe "Lexical laws" lexicalLaws
 
 regexRangeTryTests :: Spec
 regexRangeTryTests = do
@@ -78,6 +79,24 @@ regexRangeTryTests = do
     map conflictSort (ll1Conflicts (fromString "{start} = ab|ac" :: Bnf (RegEx Char)))
       `shouldBe` [LL1FirstFirst]
     ll1Conflicts (fromString "{start} = \\t{ab}|ac" :: Bnf (RegEx Char)) `shouldBe` []
+
+lexicalLaws :: Spec
+lexicalLaws = do
+  let near = choose ('\0', '\x3FF')
+      tested :: TokenClass Char -> Char -> Bool
+      tested = tokenClass
+  prop "a class tests homomorphically" $ \(x :: TokenClass Char) y -> forAll near $ \c ->
+    tested (x >|< y) c === (tested x c || tested y c)
+      .&&. tested (x >&< y) c === (tested x c && tested y c)
+      .&&. tested (notP x) c === not (tested x c)
+      .&&. tested trueP c .&&. not (tested falseP c)
+  prop "its generators test as they say" $ forAll (listOf near) $ \cs ->
+    forAll near $ \lo -> forAll near $ \hi -> forAll near $ \c ->
+      tested (oneOf cs) c === (c `elem` cs)
+        .&&. tested (tokenRange lo hi) c === (lo <= c && c <= hi)
+        .&&. tested (asIn (tokenKind lo)) c === (tokenKind c == tokenKind lo)
+  prop "equal classes test alike, by their one form" $ \(x :: TokenClass Char) y ->
+    (x >|< y) >&< notP y === x >&< notP y
 
 tokenRangeTests :: Spec
 tokenRangeTests = do
@@ -264,10 +283,9 @@ newtype WrapMega a = WrapMega {unwrapMega :: M.Parsec String String a}
     )
 instance TerminalSymbol Char (WrapMega ()) where
   terminal str = WrapMega (M.chunk str *> pure ())
-instance TokenAlgebra Char (WrapMega Char) where
-  tokenClass exam = WrapMega $ M.label (show exam) (M.satisfy (tokenClass exam))
 instance Tokenized Char (WrapMega Char) where
-  anyToken = WrapMega M.anySingle
+  tokenClass exam = WrapMega $ M.label (show exam) (M.satisfy (tokenClass exam))
+  tokenAny = WrapMega M.anySingle
   token = WrapMega . M.single
   oneOf = WrapMega . M.oneOf
   notOneOf = WrapMega . M.noneOf

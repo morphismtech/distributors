@@ -205,7 +205,7 @@ You can generate a regular expression string, a `RegEx`, from a `RegGrammar`
 with `Control.Lens.Grammar.regexG`.
 
 >>> putStringLn (regexG (type SemVer))
-\p{Nd}+.\p{Nd}+.\p{Nd}+(-(\p{Ll}|\p{Lu}|\p{Nd}|-)+(.(\p{Ll}|\p{Lu}|\p{Nd}|-)+)*)?(\+(\p{Ll}|\p{Lu}|\p{Nd}|-)+(.(\p{Ll}|\p{Lu}|\p{Nd}|-)+)*)?
+\p{Nd}+.\p{Nd}+.\p{Nd}+(-(-|\p{Lu}|\p{Ll}|\p{Nd})+(.(-|\p{Lu}|\p{Ll}|\p{Nd})+)*)?(\+(-|\p{Lu}|\p{Ll}|\p{Nd})+(.(-|\p{Lu}|\p{Ll}|\p{Nd})+)*)?
 
 You can also generate parsers and printers.
 
@@ -438,7 +438,7 @@ And the `satisfied` pattern is used together with the `Choice` &
 >>> :{
 palindromeG :: CtxGrammatical Char p => p String String
 palindromeG = rule "palindrome" $
-  satisfied (\wrd -> reverse wrd == wrd) >?< manyP (anyToken @Char)
+  satisfied (\wrd -> reverse wrd == wrd) >?< manyP (tokenAny @Char)
 :}
 
 >>> [pal | word <- ["racecar", "word"], (pal, "") <- parseP (palindromeG :: Parsor String [] String String) word]
@@ -499,13 +499,14 @@ Since both t'Parsor' & t'Parsector' are @LL@ parsers they
 diverge if the `CtxGrammar` they're run on is left-recursive.
 
 >>> parsecP (rule "foo" (fail "bar") >|< fail "baz") "abc"
-ParsecState {parsecLooked = False, parsecOffset = 0, parsecStream = "abc", parsecFailure = ParsecFailure {parsecExpect = TokenClass (OneOf (fromList "")), parsecLabels = [Node {rootLabel = "foo", subForest = [Node {rootLabel = "bar", subForest = []}]},Node {rootLabel = "baz", subForest = []}]}, parsecResult = Nothing}
+ParsecState {parsecLooked = False, parsecOffset = 0, parsecStream = "abc", parsecFailure = ParsecFailure {parsecExpect = fromRangeList [], parsecLabels = [Node {rootLabel = "foo", subForest = [Node {rootLabel = "bar", subForest = []}]},Node {rootLabel = "baz", subForest = []}]}, parsecResult = Nothing}
 
->>> parsecP (manyP (token 'a') >*< asIn @Char DecimalNumber :: Parsector String (String, Char) (String, Char)) "aaab"
-ParsecState {parsecLooked = True, parsecOffset = 3, parsecStream = "b", parsecFailure = ParsecFailure {parsecExpect = TokenClass (Alternate (TokenClass (OneOf (fromList "a"))) (TokenClass (NotOneOf (fromList "") (AndAsIn DecimalNumber))) []), parsecLabels = []}, parsecResult = Nothing}
+>>> let failed = parsecP (manyP (token 'a') >*< asIn @Char DecimalNumber :: Parsector String (String, Char) (String, Char)) "aaab"
+>>> (parsecOffset failed, parsecStream failed, toList (tokenClass (parsecExpect (parsecFailure failed)) :: RegEx Char))
+(3,"b","a|\\p{Nd}")
 
 >>> unparsecP (tokens "abc") "abx" ""
-ParsecState {parsecLooked = True, parsecOffset = 2, parsecStream = "ab", parsecFailure = ParsecFailure {parsecExpect = TokenClass (OneOf (fromList "c")), parsecLabels = []}, parsecResult = Nothing}
+ParsecState {parsecLooked = True, parsecOffset = 2, parsecStream = "ab", parsecFailure = ParsecFailure {parsecExpect = fromRangeList [('c','c')], parsecLabels = []}, parsecResult = Nothing}
 
 -}
 
@@ -517,7 +518,7 @@ Since context-free `Grammar`s and `CtxGrammar`s aren't necessarily regular,
 the type system will prevent `regexG` from being applied to them.
 -}
 regexG
-  :: forall token. forall a -> (Categorized token, RegGrammar token a)
+  :: forall token. forall a -> (Lexical token, RegGrammar token a)
   => RegEx token
 regexG a = runGrammor (regGrammar @token @a)
 
@@ -528,7 +529,7 @@ the type system will prevent `regbnfG` from being applied to a `CtxGrammar`.
 It can apply to a `RegGrammar`.
 -}
 regbnfG
-  :: forall token. forall a -> (Categorized token, Grammar token a)
+  :: forall token. forall a -> (Lexical token, Grammar token a)
   => Bnf (RegEx token)
 regbnfG a = runGrammor (grammar @token @a)
 
@@ -549,7 +550,7 @@ usable as an intermediary for further generators like
 >>> import System.Random
 >>> let gen = mkStdGen 69
 >>> evalState (take 15 <$> regexLang) gen
-["","|","\776269","()","[]","\\[","||","|\249908","\770923*","\1008821+","\318904?","\845807|","\477898\1026934","()*","()+"]
+["","\818925","|","\291433\946528","\464496*","\1028123+","\912199?","\314471|","()","[]","\\(","|\464083","||","\32659\96026\1004166","\793549\38404*"]
 
 >>> import Data.Tree (drawForest)
 
@@ -595,7 +596,7 @@ usable as an intermediary for further generators like
 
 -}
 transducerG
-  :: forall token. forall a -> (Categorized token, Grammar token a)
+  :: forall token. forall a -> (Lexical token, Grammar token a)
   => Transducer token
 transducerG a = transducer (runGrammor (grammar @token @a))
 
@@ -609,7 +610,7 @@ from right to left.
 printG
   :: forall a string token m. CtxGrammar token a
   => Cons string string token token
-  => (IsList string, Item string ~ token, Categorized token)
+  => (IsList string, Item string ~ token, Lexical token)
   => (Alternative m, Monad m, Filterable m)
   => a {- ^ syntax -}
   -> m (string -> string)
@@ -625,7 +626,7 @@ returning a syntax value and the remaining output string.
 parseG
   :: forall a string token m. CtxGrammar token a
   => (Cons string string token token, Snoc string string token token)
-  => (IsList string, Item string ~ token, Categorized token)
+  => (IsList string, Item string ~ token, Lexical token)
   => (Alternative m, Monad m, Filterable m)
   => string {- ^ input -}
   -> m (a, string)
@@ -644,7 +645,7 @@ making printing to a `String` quadratic.
 unparseG
   :: forall a string token m. CtxGrammar token a
   => (Cons string string token token, Snoc string string token token)
-  => (IsList string, Item string ~ token, Categorized token)
+  => (IsList string, Item string ~ token, Lexical token)
   => (Alternative m, Monad m, Filterable m)
   => a {- ^ syntax -}
   -> string {- ^ input -}
@@ -664,7 +665,7 @@ and a remaining output `parsecStream`.
 parsecG
   :: forall a string token. CtxGrammar token a
   => (Cons string string token token, Snoc string string token token)
-  => (Item string ~ token, Categorized token)
+  => (Item string ~ token, Lexical token)
   => string {- ^ input -}
   -> ParsecState string a
 parsecG = parsecP (ctxGrammar @token @a)
@@ -684,7 +685,7 @@ making printing to a `String` quadratic.
 unparsecG
   :: forall a string token. CtxGrammar token a
   => (Cons string string token token, Snoc string string token token)
-  => (Item string ~ token, Categorized token)
+  => (Item string ~ token, Lexical token)
   => a {- ^ syntax -}
   -> string {- ^ input -}
   -> ParsecState string a
@@ -701,7 +702,7 @@ applicativeG
   :: forall token a f.
      ( Grammar token a
      , Alternative f
-     , TokenAlgebra token (f token)
+     , Tokenized token (f token)
      , TerminalSymbol token (f ())
      , forall x. BackusNaurForm (f x)
      , forall x. Tried (f x)
@@ -730,10 +731,9 @@ newtype WrapMega a = WrapMega {unwrapMega :: M.Parsec String String a}
     )
 instance TerminalSymbol Char (WrapMega ()) where
   terminal str = WrapMega (M.chunk str *> pure ())
-instance TokenAlgebra Char (WrapMega Char) where
-  tokenClass exam = WrapMega $ M.label (show exam) (M.satisfy (tokenClass exam))
 instance Tokenized Char (WrapMega Char) where
-  anyToken = WrapMega M.anySingle
+  tokenClass exam = WrapMega $ M.label (show exam) (M.satisfy (tokenClass exam))
+  tokenAny = WrapMega M.anySingle
   token = WrapMega . M.single
   oneOf = WrapMega . M.oneOf
   notOneOf = WrapMega . M.noneOf
@@ -759,7 +759,7 @@ monadG
      , MonadPlus m, MonadFail m, Filterable m
      , forall x. BackusNaurForm (m x)
      , forall x. Tried (m x)
-     , TokenAlgebra token (m token)
+     , Tokenized token (m token)
      , TerminalSymbol token (m ())
      )
   => m a
