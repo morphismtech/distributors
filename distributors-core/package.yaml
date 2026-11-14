@@ -1,0 +1,104 @@
+name: distributors
+version: 0.7.0.0
+github: "morphismtech/distributors"
+license: BSD-3-Clause
+author: "Eitan Chatav"
+maintainer: "eitan.chatav@gmail.com"
+copyright: "2026 Eitan Chatav"
+
+extra-source-files:
+- README.md
+extra-doc-files:
+- CHANGELOG.md
+
+category: Profunctors, Optics, Parsing
+synopsis: Profunctor algebra & optics for invertible syntax
+description:
+  Distributors provides mathematically inspired abstractions
+  for coders to write parsers that can also be inverted to printers.
+  Its grammars are in @distributors-grammar@.
+
+dependencies:
+- base >= 4.20 && < 5
+- adjunctions >= 4.4 && < 5
+- bifunctors >= 5.5 && < 6
+- containers >= 0.6 && < 1
+- contravariant >= 1.5 && < 2
+- distributive >= 0.6 && < 1
+- lens >= 5.0 && < 6
+- transformers >= 0.5 && < 1
+- profunctors >= 5.6 && < 6
+- tagged >= 0.8 && < 1
+- template-haskell >= 2.17 && < 3
+- th-abstraction >= 0.4 && < 1
+- vector >= 0.12 && < 1
+- witherable >= 0.4 && < 1
+
+ghc-options:
+- -Wall
+- -Wcompat
+- -Widentities
+- -Wincomplete-record-updates
+- -Wincomplete-uni-patterns
+- -Wmissing-export-lists
+- -Wmissing-home-modules
+- -Wpartial-fields
+- -Wredundant-constraints
+
+library:
+  source-dirs: src
+
+default-extensions:
+- AllowAmbiguousTypes
+- Arrows
+- ConstraintKinds
+- DataKinds
+- DefaultSignatures
+- DeriveFoldable
+- DeriveFunctor
+- DeriveTraversable
+- DeriveGeneric
+- DerivingStrategies
+- DerivingVia
+- EmptyCase
+- FlexibleContexts
+- FlexibleInstances
+- FunctionalDependencies
+- GADTs
+- GeneralizedNewtypeDeriving
+- ImportQualifiedPost
+- ImpredicativeTypes
+- InstanceSigs
+- LambdaCase
+- MagicHash
+- MonoLocalBinds
+- QualifiedDo
+- QuantifiedConstraints
+- RankNTypes
+- RecursiveDo
+- ScopedTypeVariables
+- StandaloneDeriving
+- StandaloneKindSignatures
+- TemplateHaskell
+- TupleSections
+- TypeApplications
+- TypeFamilies
+- TypeOperators
+- UndecidableInstances
+- UndecidableSuperClasses
+
+tests:
+  doctests:
+    main: Doctests.hs
+    source-dirs: doctest
+    ghc-options: -threaded
+    dependencies:
+      - distributors
+      - doctest-parallel >= 0.3 && < 1
+  test:
+    main: Main.hs
+    source-dirs: test
+    dependencies:
+      - distributors
+      - hspec >= 2.7 && < 3
+      - QuickCheck >= 2.14 && < 3

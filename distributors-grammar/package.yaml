@@ -1,0 +1,126 @@
+name: distributors-grammar
+version: 0.1.0.0
+github: "morphismtech/distributors"
+license: BSD-3-Clause
+author: "Eitan Chatav"
+maintainer: "eitan.chatav@gmail.com"
+copyright: "2026 Eitan Chatav"
+
+extra-source-files:
+- README.md
+extra-doc-files:
+- CHANGELOG.md
+
+category: Parsing, Profunctors, Optics
+synopsis: Unifying Parsers, Printers & Grammars
+description:
+  Grammars, by the profunctor algebra of @distributors@,
+  which parse, print, generate & describe their languages,
+  as regular expressions & Backus-Naur forms.
+
+dependencies:
+- base >= 4.20 && < 5
+- bifunctors >= 5.5 && < 6
+- containers >= 0.6 && < 1
+- distributors >= 0.7 && < 0.8
+- lens >= 5.0 && < 6
+- MemoTrie >= 0.6 && < 1
+- monad-loops >= 0.4.3 && < 1
+- mtl >= 2.2 && < 3
+- profunctors >= 5.6 && < 6
+- QuickCheck >= 2.14 && < 3
+- random >= 1.2 && < 2
+- witherable >= 0.4 && < 1
+
+ghc-options:
+- -Wall
+- -Wcompat
+- -Widentities
+- -Wincomplete-record-updates
+- -Wincomplete-uni-patterns
+- -Wmissing-export-lists
+- -Wmissing-home-modules
+- -Wpartial-fields
+- -Wredundant-constraints
+
+library:
+  source-dirs: src
+
+default-extensions:
+- AllowAmbiguousTypes
+- Arrows
+- ConstraintKinds
+- DataKinds
+- DefaultSignatures
+- DeriveFoldable
+- DeriveFunctor
+- DeriveTraversable
+- DeriveGeneric
+- DerivingStrategies
+- DerivingVia
+- EmptyCase
+- FlexibleContexts
+- FlexibleInstances
+- FunctionalDependencies
+- GADTs
+- GeneralizedNewtypeDeriving
+- ImportQualifiedPost
+- ImpredicativeTypes
+- InstanceSigs
+- LambdaCase
+- MagicHash
+- MonoLocalBinds
+- QualifiedDo
+- QuantifiedConstraints
+- RankNTypes
+- RecursiveDo
+- ScopedTypeVariables
+- StandaloneDeriving
+- StandaloneKindSignatures
+- TemplateHaskell
+- TupleSections
+- TypeApplications
+- TypeFamilies
+- TypeOperators
+- UndecidableInstances
+- UndecidableSuperClasses
+
+tests:
+  doctests:
+    main: Doctests.hs
+    source-dirs: doctest
+    ghc-options: -threaded
+    dependencies:
+      - distributors-grammar
+      - doctest-parallel >= 0.3 && < 1
+  test:
+    main: Main.hs
+    source-dirs: test
+    dependencies:
+      - distributors
+      - distributors-grammar
+      - hspec >= 2.7 && < 3
+      - megaparsec >= 9.0 && < 10
+      - QuickCheck >= 2.14 && < 3
+
+benchmarks:
+  core:
+    main: Main.hs
+    source-dirs:
+      - bench
+      - test
+    other-modules:
+      - Examples.Arithmetic
+      - Examples.Expression
+      - Examples.Heredoc
+      - Examples.Json
+      - Examples.Lambda
+      - Examples.SemVer
+      - Examples.SExpr
+    ghc-options:
+      - -O2
+      - -rtsopts
+    dependencies:
+      - distributors
+      - distributors-grammar
+      - tasty-bench >= 0.3 && < 1

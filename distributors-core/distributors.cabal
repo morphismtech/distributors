@@ -1,0 +1,250 @@
+cabal-version: 2.2
+
+-- This file has been generated from package.yaml by hpack version 0.39.6.
+--
+-- see: https://github.com/sol/hpack
+
+name:           distributors
+version:        0.7.0.0
+synopsis:       Profunctor algebra & optics for invertible syntax
+description:    Distributors provides mathematically inspired abstractions for coders to write parsers that can also be inverted to printers. Its grammars are in @distributors-grammar@.
+category:       Profunctors, Optics, Parsing
+homepage:       https://github.com/morphismtech/distributors#readme
+bug-reports:    https://github.com/morphismtech/distributors/issues
+author:         Eitan Chatav
+maintainer:     eitan.chatav@gmail.com
+copyright:      2026 Eitan Chatav
+license:        BSD-3-Clause
+license-file:   LICENSE
+build-type:     Simple
+extra-source-files:
+    README.md
+extra-doc-files:
+    CHANGELOG.md
+
+source-repository head
+  type: git
+  location: https://github.com/morphismtech/distributors
+
+library
+  exposed-modules:
+      Control.Lens.Bifocal
+      Control.Lens.Comonocle
+      Control.Lens.Diopter
+      Control.Lens.Grate
+      Control.Lens.Internal.Distributor.Orphanage
+      Control.Lens.Monocle
+      Control.Lens.PartialIso
+      Control.Lens.Prism.Nested
+      Control.Lens.Prismoid
+      Control.Lens.Varifocal
+      Control.Lens.Wither
+      Data.Monoid.Disjunctive
+      Data.Profunctor.Distributor
+      Data.Profunctor.Filtrator
+      Data.Profunctor.Monadic
+      Data.Profunctor.Monadic.Do
+      Data.Profunctor.Monoidal
+      Data.Profunctor.Monoidal.Cocartesian
+      Data.Traversable.Homogeneous
+      Data.Traversable.Homogeneous.Enumerable
+  other-modules:
+      Paths_distributors
+  autogen-modules:
+      Paths_distributors
+  hs-source-dirs:
+      src
+  default-extensions:
+      AllowAmbiguousTypes
+      Arrows
+      ConstraintKinds
+      DataKinds
+      DefaultSignatures
+      DeriveFoldable
+      DeriveFunctor
+      DeriveTraversable
+      DeriveGeneric
+      DerivingStrategies
+      DerivingVia
+      EmptyCase
+      FlexibleContexts
+      FlexibleInstances
+      FunctionalDependencies
+      GADTs
+      GeneralizedNewtypeDeriving
+      ImportQualifiedPost
+      ImpredicativeTypes
+      InstanceSigs
+      LambdaCase
+      MagicHash
+      MonoLocalBinds
+      QualifiedDo
+      QuantifiedConstraints
+      RankNTypes
+      RecursiveDo
+      ScopedTypeVariables
+      StandaloneDeriving
+      StandaloneKindSignatures
+      TemplateHaskell
+      TupleSections
+      TypeApplications
+      TypeFamilies
+      TypeOperators
+      UndecidableInstances
+      UndecidableSuperClasses
+  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints
+  build-depends:
+      adjunctions >=4.4 && <5
+    , base >=4.20 && <5
+    , bifunctors >=5.5 && <6
+    , containers >=0.6 && <1
+    , contravariant >=1.5 && <2
+    , distributive >=0.6 && <1
+    , lens >=5.0 && <6
+    , profunctors >=5.6 && <6
+    , tagged >=0.8 && <1
+    , template-haskell >=2.17 && <3
+    , th-abstraction >=0.4 && <1
+    , transformers >=0.5 && <1
+    , vector >=0.12 && <1
+    , witherable >=0.4 && <1
+  default-language: Haskell2010
+
+test-suite doctests
+  type: exitcode-stdio-1.0
+  main-is: Doctests.hs
+  other-modules:
+      Paths_distributors
+  autogen-modules:
+      Paths_distributors
+  hs-source-dirs:
+      doctest
+  default-extensions:
+      AllowAmbiguousTypes
+      Arrows
+      ConstraintKinds
+      DataKinds
+      DefaultSignatures
+      DeriveFoldable
+      DeriveFunctor
+      DeriveTraversable
+      DeriveGeneric
+      DerivingStrategies
+      DerivingVia
+      EmptyCase
+      FlexibleContexts
+      FlexibleInstances
+      FunctionalDependencies
+      GADTs
+      GeneralizedNewtypeDeriving
+      ImportQualifiedPost
+      ImpredicativeTypes
+      InstanceSigs
+      LambdaCase
+      MagicHash
+      MonoLocalBinds
+      QualifiedDo
+      QuantifiedConstraints
+      RankNTypes
+      RecursiveDo
+      ScopedTypeVariables
+      StandaloneDeriving
+      StandaloneKindSignatures
+      TemplateHaskell
+      TupleSections
+      TypeApplications
+      TypeFamilies
+      TypeOperators
+      UndecidableInstances
+      UndecidableSuperClasses
+  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded
+  build-depends:
+      adjunctions >=4.4 && <5
+    , base >=4.20 && <5
+    , bifunctors >=5.5 && <6
+    , containers >=0.6 && <1
+    , contravariant >=1.5 && <2
+    , distributive >=0.6 && <1
+    , distributors
+    , doctest-parallel >=0.3 && <1
+    , lens >=5.0 && <6
+    , profunctors >=5.6 && <6
+    , tagged >=0.8 && <1
+    , template-haskell >=2.17 && <3
+    , th-abstraction >=0.4 && <1
+    , transformers >=0.5 && <1
+    , vector >=0.12 && <1
+    , witherable >=0.4 && <1
+  default-language: Haskell2010
+
+test-suite test
+  type: exitcode-stdio-1.0
+  main-is: Main.hs
+  other-modules:
+      Properties.Homogeneous
+      Properties.Nested
+      Properties.Parsing
+      Properties.PartialIso
+      Paths_distributors
+  autogen-modules:
+      Paths_distributors
+  hs-source-dirs:
+      test
+  default-extensions:
+      AllowAmbiguousTypes
+      Arrows
+      ConstraintKinds
+      DataKinds
+      DefaultSignatures
+      DeriveFoldable
+      DeriveFunctor
+      DeriveTraversable
+      DeriveGeneric
+      DerivingStrategies
+      DerivingVia
+      EmptyCase
+      FlexibleContexts
+      FlexibleInstances
+      FunctionalDependencies
+      GADTs
+      GeneralizedNewtypeDeriving
+      ImportQualifiedPost
+      ImpredicativeTypes
+      InstanceSigs
+      LambdaCase
+      MagicHash
+      MonoLocalBinds
+      QualifiedDo
+      QuantifiedConstraints
+      RankNTypes
+      RecursiveDo
+      ScopedTypeVariables
+      StandaloneDeriving
+      StandaloneKindSignatures
+      TemplateHaskell
+      TupleSections
+      TypeApplications
+      TypeFamilies
+      TypeOperators
+      UndecidableInstances
+      UndecidableSuperClasses
+  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints
+  build-depends:
+      QuickCheck >=2.14 && <3
+    , adjunctions >=4.4 && <5
+    , base >=4.20 && <5
+    , bifunctors >=5.5 && <6
+    , containers >=0.6 && <1
+    , contravariant >=1.5 && <2
+    , distributive >=0.6 && <1
+    , distributors
+    , hspec >=2.7 && <3
+    , lens >=5.0 && <6
+    , profunctors >=5.6 && <6
+    , tagged >=0.8 && <1
+    , template-haskell >=2.17 && <3
+    , th-abstraction >=0.4 && <1
+    , transformers >=0.5 && <1
+    , vector >=0.12 && <1
+    , witherable >=0.4 && <1
+  default-language: Haskell2010

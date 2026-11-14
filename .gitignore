@@ -16,6 +16,7 @@ cabal.sandbox.config
 *.hp
 *.eventlog
 .stack-work/
+.stack-*/
 cabal.project.local
 .DS_Store
 stack.yaml.lock
@@ -24,3 +25,4 @@ tags
 .*.swp
 .qodo
 SCRATCH*
+.ghc.environment.*
