@@ -19,6 +19,8 @@ module Control.Lens.Grammar.Prec
   , PrecGrammatical (..)
   , precParens
   , precList
+    -- * Lookahead
+  , Lookahead (..)
     -- * Precedence
   , Precedence (..)
   , precG
@@ -47,6 +49,9 @@ import Data.Profunctor.Monoidal.Cocartesian
 import Data.Ratio ((%))
 import Data.String (IsString (..))
 import Data.Word (Word8, Word16, Word32, Word64)
+import Data.Proxy (Proxy (..))
+import GHC.Generics hiding (from, to)
+import qualified GHC.Generics as Generic
 import Numeric (floatToDigits)
 import Numeric.Natural (Natural)
 
@@ -54,6 +59,9 @@ import Numeric.Natural (Natural)
 & `Show` instances, `readsPrec` & `showsPrec`. -}
 class PrecGrammar a where
   precGrammar :: PrecGrammatical p => p a a
+  default precGrammar
+    :: (Generic a, GPrecSum (Rep a), PrecGrammatical p) => p a a
+  precGrammar = iso Generic.from Generic.to >~ precParens gPrecSum
   {- | Lists of the type, as `readListPrec` & `showList`, in brackets, by
   `precList`, by default, & strings, for `Char`. -}
   precListGrammar :: PrecGrammatical p => p [a] [a]
@@ -62,7 +70,9 @@ class PrecGrammar a where
 {- | `Grammatical` interpreters of precedence, as
 `Text.ParserCombinators.ReadPrec` has, where a grammar runs in a
 precedence context, from 0 to 11, as `showsPrec`'s is. -}
-class (Grammatical Char p, forall x y. (x ~ (), y ~ ()) => IsString (p x y))
+class
+  ( Grammatical Char p, Lookahead p
+  , forall x y. (x ~ (), y ~ ()) => IsString (p x y) )
   => PrecGrammatical p where
     {- | At a precedence, failing in a context above it, as
     `Text.ParserCombinators.ReadPrec.prec` does. -}
@@ -98,6 +108,20 @@ bracketsG x = terminal "[" >* orP
   [ _Empty >? oneP
   , _Cons >? precReset x >*< manyP (spacesG >* terminal "," >* precReset x)
   ] *< spacesG *< terminal "]"
+
+{- | Negative lookahead, as `read`'s lexer munches lexemes maximally: what
+`notAhead` a grammar parses mustn't follow, which consumes nothing, &
+prints nothing. -}
+class Lookahead p where
+  notAhead :: p () () -> p () ()
+instance (Foldable f, Alternative f) => Lookahead (Parsor s f) where
+  notAhead (Parsor q) = Parsor $ \mode s -> case mode of
+    Nothing | not (null (q Nothing s)) -> empty
+    _ -> pure ((), s)
+instance Applicative f => Lookahead (Printor s f) where
+  notAhead _ = Printor (\_ -> pure ((), id))
+instance Lookahead p => Lookahead (Precedence p) where
+  notAhead (Precedence q) = Precedence (notAhead . q)
 
 {- | A grammar in a precedence context, a `PrecGrammatical` interpreter of
 any `Grammatical` one, each of whose structures it lifts pointwise. -}
@@ -155,7 +179,7 @@ instance BackusNaurForm (p a b) => BackusNaurForm (Precedence p a b)
 instance (a ~ (), b ~ (), TerminalSymbol Char (p () ()))
   => IsString (Precedence p a b) where
     fromString = Precedence . const . terminal
-instance Grammatical Char p => PrecGrammatical (Precedence p) where
+instance (Grammatical Char p, Lookahead p) => PrecGrammatical (Precedence p) where
     precP n (Precedence x) = Precedence (\d -> if d <= n then x n else falseP)
     precStep (Precedence x) = Precedence (x . (+ 1))
     precReset (Precedence x) = Precedence (const (x 0))
@@ -163,7 +187,7 @@ instance Grammatical Char p => PrecGrammatical (Precedence p) where
 
 {- | A type's `PrecGrammar` at a precedence, at any `Grammatical`
 interpreter which parses or prints. -}
-precG :: forall a p. (PrecGrammar a, Grammatical Char p) => Int -> p a a
+precG :: forall a p. (PrecGrammar a, Grammatical Char p, Lookahead p) => Int -> p a a
 precG = runPrecedence precGrammar
 
 {- | Read at a precedence, as `readsPrec` does. -}
@@ -187,6 +211,120 @@ instance PrecGrammar Char where
   precListGrammar = precParens (stringG >|< parenthesized (bracketsG precGrammar))
 instance PrecGrammar a => PrecGrammar [a] where
   precGrammar = precListGrammar
+instance PrecGrammar Bool
+instance PrecGrammar Ordering
+instance PrecGrammar a => PrecGrammar (Maybe a)
+instance (PrecGrammar a, PrecGrammar b) => PrecGrammar (Either a b)
+instance PrecGrammar () where
+  precGrammar = precParens (terminal "(" >* spacesG *< terminal ")")
+instance (PrecGrammar a, PrecGrammar b) => PrecGrammar (a, b) where
+  precGrammar = tupled (itemG >*< commaG >* itemG)
+instance (PrecGrammar a, PrecGrammar b, PrecGrammar c) => PrecGrammar (a, b, c) where
+  precGrammar = tupled $ iso (\(a, b, c) -> (a, (b, c))) (\(a, (b, c)) -> (a, b, c))
+    >~ itemG >*< commaG >* itemG >*< commaG >* itemG
+instance (PrecGrammar a, PrecGrammar b, PrecGrammar c, PrecGrammar d)
+  => PrecGrammar (a, b, c, d) where
+    precGrammar = tupled $ iso
+      (\(a, b, c, d) -> (a, (b, (c, d)))) (\(a, (b, (c, d))) -> (a, b, c, d))
+      >~ itemG >*< commaG >* itemG >*< commaG >* itemG >*< commaG >* itemG
+instance (PrecGrammar a, PrecGrammar b, PrecGrammar c, PrecGrammar d, PrecGrammar e)
+  => PrecGrammar (a, b, c, d, e) where
+    precGrammar = tupled $ iso
+      (\(a, b, c, d, e) -> (a, (b, (c, (d, e)))))
+      (\(a, (b, (c, (d, e)))) -> (a, b, c, d, e))
+      >~ itemG >*< commaG >* itemG >*< commaG >* itemG >*< commaG >* itemG
+        >*< commaG >* itemG
+
+-- A tuple, within parentheses, its items at precedence 0, as `read`'s
+-- @wrap_tup@ reads & `show` shows.
+tupled :: PrecGrammatical p => p a a -> p a a
+tupled items' = precParens (terminal "(" >* items' *< spacesG *< terminal ")")
+
+itemG :: (PrecGrammar a, PrecGrammatical p) => p a a
+itemG = precReset precGrammar
+
+commaG :: PrecGrammatical p => p () ()
+commaG = spacesG >* terminal ","
+
+-- Generics --
+
+{- A sum of constructors, as derived `Read` & `Show` instances read & show
+them, by `GHC.Generics`. -}
+class GPrecSum f where
+  gPrecSum :: PrecGrammatical p => p (f x) (f x)
+instance GPrecSum f => GPrecSum (M1 D c f) where
+  gPrecSum = iso unM1 M1 >~ gPrecSum
+instance (GPrecSum f, GPrecSum g) => GPrecSum (f :+: g) where
+  gPrecSum = iso
+    (\case L1 x -> Left x; R1 y -> Right y)
+    (either L1 R1)
+    >~ gPrecSum >+< gPrecSum
+instance GPrecSum V1 where
+  gPrecSum = falseP
+instance (Constructor c, GPrecFields f) => GPrecSum (M1 C c f) where
+  gPrecSum = iso unM1 M1 >~ case conFixity con of
+    Infix _ n -> precP n (gPrecFields (InfixFields (operatorG name)))
+    Prefix
+      | conIsRecord con -> precWith $ \d ->
+          let body = nameG name >* spacedG >* terminal "{" >* spacesG
+                >* gPrecFields RecordFields *< spacesG *< terminal "}"
+          in if d <= 10 then body else if d == 11 then unprinted >? body else falseP
+      | gArity (Proxy @f) == 0 -> nameG name >* gPrecFields PrefixFields
+      | otherwise -> precP 10 (nameG name >* gPrecFields PrefixFields)
+    where
+      con = undefined :: M1 C c f ()
+      name = conName con
+
+-- How a constructor's fields are written.
+data FieldsStyle p
+  = PrefixFields
+  | BareField
+  | RecordFields
+  | InfixFields (p () ())
+
+{- The fields of a constructor: prefix, after spaces, at the next precedence;
+in records, named, at precedence 0, separated by commas; or infix, about an
+operator, at the next precedence. -}
+class GPrecFields f where
+  gPrecFields :: PrecGrammatical p => FieldsStyle p -> p (f x) (f x)
+  gArity :: Proxy f -> Int
+instance GPrecFields U1 where
+  gPrecFields _ = iso (const ()) (const U1) >~ oneP
+  gArity _ = 0
+instance (GPrecFields f, GPrecFields g) => GPrecFields (f :*: g) where
+  gPrecFields style = iso (\(x :*: y) -> (x, y)) (uncurry (:*:)) >~ case style of
+    RecordFields ->
+      gPrecFields RecordFields >*< spacesG >* terminal "," >* spacedG >* gPrecFields RecordFields
+    InfixFields operator -> gPrecFields BareField >*< operator >* gPrecFields BareField
+    _ -> gPrecFields style >*< gPrecFields style
+  gArity _ = gArity (Proxy @f) + gArity (Proxy @g)
+instance (Selector s, PrecGrammar a) => GPrecFields (M1 S s (K1 R a)) where
+  gPrecFields style = iso (unK1 . unM1) (M1 . K1) >~ case style of
+    RecordFields -> nameG field >* spacedG >* symbolG "=" >* spaceG >* precReset precGrammar
+    BareField -> precStep precGrammar
+    _ -> spaceG >* precStep precGrammar
+    where
+      field = selName (undefined :: M1 S s (K1 R a) ())
+  gArity _ = 1
+
+-- A name, an identifier, or a symbol within parentheses.
+nameG :: PrecGrammatical p => String -> p () ()
+nameG name
+  | symbolic name =
+      terminal "(" >* spacesG >* symbolG name *< spacesG *< terminal ")"
+  | otherwise = identG name
+
+-- An infix operator, a symbol, or an identifier within backquotes.
+operatorG :: PrecGrammatical p => String -> p () ()
+operatorG name
+  | symbolic name = spacedG >* symbolG name >* spaceG
+  | otherwise = spacedG >* terminal "`" >* spacesG >* identG name
+      *< spacesG *< terminal "`" >* spaceG
+
+symbolic :: String -> Bool
+symbolic = \case
+  c : _ -> c == ':' || tokenClass symbolClass c
+  [] -> False
 instance PrecGrammar Natural where precGrammar = precParens naturalG
 instance PrecGrammar Integer where
   precGrammar = precParens (precWith (\d -> signed >~ negativeAt d >*< magnitudeG))
@@ -208,7 +346,7 @@ integralG :: (Integral a, PrecGrammatical p) => p a a
 integralG = iso toInteger fromInteger >~ precGrammar @Integer
 
 -- A minus, printing bare up to precedence 6, & parsing bare at any.
-negativeAt :: RegGrammatical Char p => Int -> p Bool Bool
+negativeAt :: (RegGrammatical Char p, Lookahead p) => Int -> p Bool Bool
 negativeAt d
   | d <= 6 = negativeG
   | otherwise = orP
@@ -220,18 +358,60 @@ unprinted :: Prism' a a
 unprinted = prism' id (const Nothing)
 
 -- One of two terminals, printing the first, & parsing either.
-eitherOf :: RegGrammatical Char p => String -> String -> p () ()
+eitherOf :: (RegGrammatical Char p, Lookahead p) => String -> String -> p () ()
 eitherOf printed parsed = terminal printed >|< (unprinted >? terminal parsed)
 
 -- A minus, a lexeme of its own, as whether a number is negative.
-negativeG :: RegGrammatical Char p => p Bool Bool
+negativeG :: (RegGrammatical Char p, Lookahead p) => p Bool Bool
 negativeG = iso (\b -> if b then Just () else Nothing) isJust
   >~ optionalP (terminal "-" >* spacesG)
 
 -- Whitespace, by `Data.Char.isSpace`, which `read` skips before each
 -- lexeme & after all, & which never prints.
-spacesG :: RegGrammatical Char p => p () ()
-spacesG = skippedMany >?* tokenClass (oneOf "\t\n\v\f\r" >|< asIn Space)
+spacesG :: (RegGrammatical Char p, Lookahead p) => p () ()
+spacesG = (skippedMany >?* tokenClass spaceClass) *< notAhead (tokenG spaceClass)
+
+-- Whitespace, by `Data.Char.isSpace`.
+spaceClass :: TokenClass Char
+spaceClass = oneOf "\t\n\v\f\r" >|< asIn Space
+
+-- A token of a class, as unit, for lookahead.
+tokenG :: (RegGrammatical Char p, Lookahead p) => TokenClass Char -> p () ()
+tokenG cls = dimap (const ' ') (const ()) (tokenClass cls)
+
+-- The digits of a base, in either case.
+digitClass :: Int -> TokenClass Char
+digitClass base = oneOf (concat
+  [ [c, toUpper c] | c <- take base (['0' .. '9'] <> ['a' .. 'z']) ])
+
+-- Identifiers' & symbols' characters, which `read`'s lexer munches.
+idfClass, symbolClass :: TokenClass Char
+idfClass = anyP asIn
+  [ UppercaseLetter, LowercaseLetter, TitlecaseLetter, ModifierLetter
+  , OtherLetter, DecimalNumber, LetterNumber, OtherNumber ]
+  >|< oneOf "_'"
+symbolClass = notOneOf ",;()[]{}`" >&< orP
+  [ anyP asIn [MathSymbol, CurrencySymbol, ModifierSymbol, OtherSymbol, DashPunctuation]
+  , asIn OtherPunctuation >&< notOneOf "'\""
+  , asIn ConnectorPunctuation >&< notOneOf "_" ]
+
+-- An identifier, & a symbol, munched maximally.
+identG, symbolG :: (RegGrammatical Char p, Lookahead p) => String -> p () ()
+identG name = terminal name *< notAhead (tokenG idfClass)
+symbolG name = terminal name *< notAhead (tokenG symbolClass)
+
+-- A space, where `show` separates lexemes, printing one, & parsing one
+-- whitespace character, or none where none follows, the rest of it
+-- skipped before the next lexeme.
+spaceG :: (RegGrammatical Char p, Lookahead p) => p () ()
+spaceG = orP
+  [ terminal " "
+  , unprinted >? tokenG (spaceClass >&< notOneOf " ")
+  , unprinted >? notAhead (tokenG spaceClass) ]
+
+-- A space, printing one, & parsing any whitespace.
+spacedG :: (RegGrammatical Char p, Lookahead p) => p () ()
+spacedG = spaceG >* spacesG
 
 -- Signed, by an improper iso, where @-0@ parses too.
 signed :: (Num a, Ord a) => Iso' a (Bool, a)
@@ -242,27 +422,42 @@ signed = iso
 -- A number's lexeme without a fraction or exponent: decimal, printed,
 -- or binary, octal or hexadecimal, after @0b@, @0o@ or @0x@, in either
 -- case, parsed & tried first, as `read`'s lexer does.
-magnitudeG :: RegGrammatical Char p => p Integer Integer
-magnitudeG = (unprinted >? try (terminal "0" >* basedG)) >|< numeral 10
+magnitudeG :: (RegGrammatical Char p, Lookahead p) => p Integer Integer
+magnitudeG = (unprinted >? try (terminal "0" >* basedG))
+  >|< numeral 10 *< notAhead (tokenG (digitClass 10)) *< decimalEndG
 
-basedG :: RegGrammatical Char p => p Integer Integer
+-- Where a decimal integer ends: not before a fraction, nor an exponent.
+decimalEndG :: (RegGrammatical Char p, Lookahead p) => p () ()
+decimalEndG = notAhead (terminal "." >* tokenG (digitClass 10))
+  *< notAhead (orP (map terminal ["e", "E"])
+    >* orP [terminal "-", terminal "+", oneP] >* tokenG (digitClass 10))
+
+basedG :: forall p. (RegGrammatical Char p, Lookahead p) => p Integer Integer
 basedG = orP
-  [ eitherOf "b" "B" >* numeral 2
-  , eitherOf "o" "O" >* numeral 8
-  , eitherOf "x" "X" >* numeral 16
+  [ eitherOf "b" "B" >* munched 2
+  , eitherOf "o" "O" >* munched 8
+  , eitherOf "x" "X" >* munched 16
   ]
+  where
+    munched :: Int -> p Integer Integer
+    munched base = numeral (toInteger base) *< notAhead (tokenG (digitClass base))
 
 -- Natural numbers, & negative zero, as `read` reads integers & keeps
 -- those which aren't negative.
-naturalG :: RegGrammatical Char p => p Natural Natural
+naturalG :: (RegGrammatical Char p, Lookahead p) => p Natural Natural
 naturalG = (iso toInteger fromInteger >~ magnitudeG)
   >|< (unprinted . only 0 >? terminal "-" >* spacesG >* zerosG)
   where
     zerosG = terminal "0" >* orP
-      [ skippedMany >?* terminal "0"
-      , orP (map terminal ["b", "B", "o", "O", "x", "X"])
-          >* terminal "0" >* (skippedMany >?* terminal "0")
+      [ zeros *< notAhead (tokenG (digitClass 10)) *< decimalEndG
+      , orP (map terminal ["b", "B"]) >* terminal "0" >* zeros
+          *< notAhead (tokenG (digitClass 2))
+      , orP (map terminal ["o", "O"]) >* terminal "0" >* zeros
+          *< notAhead (tokenG (digitClass 8))
+      , orP (map terminal ["x", "X"]) >* terminal "0" >* zeros
+          *< notAhead (tokenG (digitClass 16))
       ]
+    zeros = skippedMany >?* terminal "0"
 
 -- A floating point number's lexeme, without its sign.
 data FloatLexeme
@@ -287,16 +482,23 @@ _Based = prism' Based $ \case
 {- Floating point numbers, printing as `show` does, by `floatToDigits`,
 in fixed notation, or in exponent notation outside @0.1 <= x < 10^7@, &
 parsing as `read` does, by `fromRational`, rounding correctly. -}
-floatingAt :: (RealFloat a, RegGrammatical Char p) => Int -> p a a
+floatingAt :: (RealFloat a, RegGrammatical Char p, Lookahead p) => Int -> p a a
 floatingAt d = iso toLexeme fromLexeme >~ negativeAt d >*< orP
-  [ only NotANumber >? terminal "NaN"
-  , only Infinite >? terminal "Infinity"
+  [ only NotANumber >? identG "NaN"
+  , only Infinite >? identG "Infinity"
   , unprinted . _Based >? try (terminal "0" >* basedG)
-  , _Decimal >? someP (digit 10)
-      >*< optionalP (terminal "." >* someP (digit 10))
-      >*< optionalP (eitherOf "e" "E" >* (signed >~ exponentSignG >*< numeral 10))
+  , _Decimal >? digitsG
+      >*< orP
+        [ _Just >? terminal "." >* digitsG
+        , _Nothing >? notAhead (terminal "." >* tokenG (digitClass 10)) ]
+      >*< orP
+        [ _Just >? eitherOf "e" "E" >* (signed >~ exponentSignG >*< numeral 10
+            *< notAhead (tokenG (digitClass 10)))
+        , _Nothing >? notAhead (orP (map terminal ["e", "E"])
+            >* orP [terminal "-", terminal "+", oneP] >* tokenG (digitClass 10)) ]
   ]
   where
+    digitsG = someP (digit 10) *< notAhead (tokenG (digitClass 10))
     exponentSignG = orP
       [ only True >? terminal "-"
       , only False . unprinted >? terminal "+"
@@ -348,24 +550,24 @@ fromLexeme (negative, lexeme) = (if negative then negate else id) value
         (zeros, _) -> Just (negate (length zeros))
 
 -- A character's literal, between single quotes.
-charG :: RegGrammatical Char p => p Char Char
+charG :: (RegGrammatical Char p, Lookahead p) => p Char Char
 charG = terminal "'" >* litCharG '\'' *< terminal "'"
 
 {- A character within a literal, printing as `show` does, by `showLitChar`,
 & parsing as `read` does: unescaped, but for @\\@ & the literal's quote;
 by a named escape; or by its decimal, octal or hexadecimal code, up to
 `maxBound`, or as a control, @\\^@@ to @\\^_@. -}
-litCharG :: RegGrammatical Char p => Char -> p Char Char
+litCharG :: (RegGrammatical Char p, Lookahead p) => Char -> p Char Char
 litCharG quote = rawG [quote] >|< terminal "\\" >* orP
   [fixedEscG True, decimalEscG, octalEscG, hexEscG, controlEscG]
 
 -- Unescaped, but for @\\@ & some others, printing only printable ASCII.
-rawG :: RegGrammatical Char p => String -> p Char Char
+rawG :: (RegGrammatical Char p, Lookahead p) => String -> p Char Char
 rawG excluded = tokenClass (oneOf [' ' .. '~'] >&< notOneOf ('\\' : excluded))
   >|< unprinted >? tokenClass (notOneOf ('\\' : excluded <> [' ' .. '~']))
 
 -- Named escapes, with @SO@ or not.
-fixedEscG :: RegGrammatical Char p => Bool -> p Char Char
+fixedEscG :: (RegGrammatical Char p, Lookahead p) => Bool -> p Char Char
 fixedEscG withSO = escapesG $
   [('\'', "'"), ('\a', "a"), ('\b', "b"), ('\f', "f"), ('\n', "n")]
   <> [('\r', "r"), ('\t', "t"), ('\v', "v"), ('\\', "\\"), ('"', "\"")]
@@ -379,7 +581,7 @@ fixedEscG withSO = escapesG $
       , "CAN", "EM", "SUB", "ESC", "FS", "GS", "RS", "US" ]
 
 -- Codes up to `maxBound`, decimal, printing above @\\DEL@, octal & hexadecimal.
-decimalEscG, octalEscG, hexEscG, controlEscG :: RegGrammatical Char p => p Char Char
+decimalEscG, octalEscG, hexEscG, controlEscG :: (RegGrammatical Char p, Lookahead p) => p Char Char
 decimalEscG = prism' toEnum (\c -> if c > '\DEL' then Just (fromEnum c) else Nothing)
   >? boundedNumeral 10 (fromEnum (maxBound :: Char))
 octalEscG = unprinted . prism' toEnum (Just . fromEnum)
@@ -404,7 +606,7 @@ before a digit, or after @\\SO@ before @H@, & parsing as `read` does, with
 empty escapes, & gaps, @\\@, whitespace & @\\@, anywhere, an improper iso,
 & with numeric escapes' digits & @\\SOH@ maximally munched, as `read`'s
 lexer does, so that an escape is never followed by what would continue it. -}
-stringG :: forall p. RegGrammatical Char p => p String String
+stringG :: forall p. (RegGrammatical Char p, Lookahead p) => p String String
 stringG = iso items (\xs -> [c | StrChar c <- xs])
   >~ terminal "\"" >* free *< terminal "\""
   where
@@ -441,7 +643,7 @@ stringG = iso items (\xs -> [c | StrChar c <- xs])
 
 -- Escapes by fixed strings, as a trie, which is LL(1), maximally munched,
 -- like @\\SO@ & @\\SOH@, each character printing by its first string.
-escapesG :: RegGrammatical Char p => [(Char, String)] -> p Char Char
+escapesG :: (RegGrammatical Char p, Lookahead p) => [(Char, String)] -> p Char Char
 escapesG escapes = orP $
   [only c >? oneP | (c, "") <- take 1 [e | e@(_, "") <- escapes]]
   <> [ terminal [first] >* escapesG [(c, rest) | (c, x : rest) <- escapes, x == first]
@@ -450,7 +652,7 @@ escapesG escapes = orP $
 {- A natural number in a base, up to a bound, with leading zeros, which
 parse, as `read`'s lexer does, but don't print; a regular grammar, by the
 bound's digits, so that a number beyond it fails to parse. -}
-boundedNumeral :: forall n p. (Integral n, RegGrammatical Char p) => n -> n -> p n n
+boundedNumeral :: forall n p. (Integral n, RegGrammatical Char p, Lookahead p) => n -> n -> p n n
 boundedNumeral base bound
   = (unprinted >? try (terminal "0" >* zerosG >* positiveG))
   >|< (only 0 >? terminal "0" >* zerosG)

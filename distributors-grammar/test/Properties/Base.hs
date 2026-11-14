@@ -7,6 +7,7 @@ import Data.Foldable (for_)
 import Control.Monad ((>=>))
 import Data.List (intercalate, sort)
 import Data.Word (Word8, Word16, Word32, Word64)
+import GHC.Generics (Generic)
 import Numeric (showHex, showIntAtBase, showOct)
 import Numeric.Natural (Natural)
 import Test.Hspec
@@ -133,6 +134,42 @@ string s = oneof [pure (show s), literal, listing character s]
            , pure ("\\x" <> showHex (ord c) "") ]
       pure (lead <> escape)
 
+-- | A value's strings, shown, at precedence 0 or 11, its lexemes rejoined
+-- by whitespace, or none, by `lex`.
+relexed :: Show a => a -> Gen String
+relexed x = do
+  shown <- elements [show x, showsPrec 11 x ""]
+  oneof [pure shown, rejoin (lexemes shown)]
+  where
+    lexemes str = case lex str of
+      [(lexeme, rest)] | not (null lexeme) -> lexeme : lexemes rest
+      _ -> []
+    rejoin = fmap concat . traverse (\lexeme -> (lexeme <>) <$> gap)
+    gap = frequency [(2, pure ""), (2, pure " "), (1, spaces)]
+
+-- | A type of each shape of constructor, deriving `Read` & `Show`.
+data Shapes
+  = Nullary
+  | Prefixed Int Bool
+  | Record {field :: Int, other :: Maybe Char}
+  | Operators {(+++) :: Integer}
+  | Int :+: Integer
+  | Int `Named` Bool
+  | (:%) Int Int
+  deriving stock (Eq, Show, Read, Generic)
+infixl 6 :+:
+infix 4 `Named`
+instance PrecGrammar Shapes
+instance Arbitrary Shapes where
+  arbitrary = oneof
+    [ pure Nullary
+    , Prefixed <$> arbitrary <*> arbitrary
+    , Record <$> arbitrary <*> arbitrary
+    , Operators <$> arbitrary
+    , (:+:) <$> arbitrary <*> arbitrary
+    , Named <$> arbitrary <*> arbitrary
+    , (:%) <$> arbitrary <*> arbitrary ]
+
 characters :: Gen Char
 characters = frequency
   [ (3, arbitraryASCIIChar)
@@ -167,3 +204,15 @@ baseProperties = describe "equivalent to Read & Show" $ do
   readShowEquivalence "String" (listOf characters) string
   readShowEquivalence "[Int]" (arbitrary :: Gen [Int]) (listing integral)
   readShowEquivalence "[[Integer]]" (arbitrary :: Gen [[Integer]]) (listing (listing integral))
+  readShowEquivalence "Bool" (arbitrary :: Gen Bool) relexed
+  readShowEquivalence "Ordering" (arbitrary :: Gen Ordering) relexed
+  readShowEquivalence "()" (arbitrary :: Gen ()) relexed
+  readShowEquivalence "Maybe Int" (arbitrary :: Gen (Maybe Int)) relexed
+  readShowEquivalence "Either Int Bool" (arbitrary :: Gen (Either Int Bool)) relexed
+  readShowEquivalence "(Int, Bool)" (arbitrary :: Gen (Int, Bool)) relexed
+  readShowEquivalence "(Char, String, Integer)" (arbitrary :: Gen (Char, String, Integer)) relexed
+  readShowEquivalence "[Maybe (Either Bool Integer)]"
+    (arbitrary :: Gen [Maybe (Either Bool Integer)]) relexed
+  readShowEquivalence "Maybe (Maybe Double)" (arbitrary :: Gen (Maybe (Maybe Double))) relexed
+  readShowEquivalence "Shapes" (arbitrary :: Gen Shapes) relexed
+  readShowEquivalence "Maybe Shapes" (arbitrary :: Gen (Maybe Shapes)) relexed
