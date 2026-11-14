@@ -6,6 +6,7 @@ import Data.Profunctor.Types (Star (..))
 import Test.Hspec
 
 import Properties.Homogeneous
+import Properties.Nested
 import Properties.PartialIso
 import Properties.Parsing
 
@@ -13,6 +14,7 @@ main :: IO ()
 main = hspec $ do
   describe "Homogeneous" homogeneousProperties
   describe "PartialIso" partialIsoProperties
+  describe "Nested" nestedProperties
   describe "Parsing" parsingProperties
   describe "meander" meanderProperties
 

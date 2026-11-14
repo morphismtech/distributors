@@ -32,10 +32,10 @@ library
       Control.Lens.Comonocle
       Control.Lens.Diopter
       Control.Lens.Grate
-      Control.Lens.Internal.Distributor.NestedPrismTH
       Control.Lens.Internal.Distributor.Orphanage
       Control.Lens.Monocle
       Control.Lens.PartialIso
+      Control.Lens.Prism.Nested
       Control.Lens.Prismoid
       Control.Lens.Varifocal
       Control.Lens.Wither
@@ -182,6 +182,7 @@ test-suite test
   main-is: Main.hs
   other-modules:
       Properties.Homogeneous
+      Properties.Nested
       Properties.Parsing
       Properties.PartialIso
       Paths_distributors

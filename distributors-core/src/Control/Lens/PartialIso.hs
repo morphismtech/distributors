@@ -49,8 +49,10 @@ module Control.Lens.PartialIso
   , difoldr1
   , difoldl
   , difoldr
-    -- * Template Haskell
+    -- * Nested prisms
   , makeNestedPrisms
+  , genericNestedPrism
+  , genericNestedIso
     -- * Re-exports
   , module Control.Lens.Iso
   , module Control.Lens.Prism
@@ -58,7 +60,7 @@ module Control.Lens.PartialIso
 
 import Control.Lens
 import Control.Lens.Internal.Distributor.Orphanage ()
-import Control.Lens.Internal.Distributor.NestedPrismTH
+import Control.Lens.Prism.Nested
 import Control.Lens.Internal.Profunctor
 import Control.Lens.Iso
 import Control.Lens.Prism
