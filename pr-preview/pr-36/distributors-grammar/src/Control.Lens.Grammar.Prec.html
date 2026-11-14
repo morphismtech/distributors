@@ -19,8 +19,8 @@ t'Precedence', which `readsPrecG` &amp; `showsPrecG` run.
 </span><span id="line-19"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Prec.html#PrecGrammatical"><span class="hs-identifier">PrecGrammatical</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
 </span><span id="line-20"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Prec.html#precParens"><span class="hs-identifier">precParens</span></a></span><span>
 </span><span id="line-21"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Prec.html#precList"><span class="hs-identifier">precList</span></a></span><span>
-</span><span id="line-22"></span><span>    </span><span class="annot"><span class="hs-comment">-- * Lookahead</span></span><span>
-</span><span id="line-23"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Prec.html#Lookahead"><span class="hs-identifier">Lookahead</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><span id="line-22"></span><span>    </span><span class="annot"><span class="hs-comment">-- * NotFollowedBy</span></span><span>
+</span><span id="line-23"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Prec.html#NotFollowedBy"><span class="hs-identifier">NotFollowedBy</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
 </span><span id="line-24"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Prec.html#eof"><span class="hs-identifier">eof</span></a></span><span>
 </span><span id="line-25"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Prec.html#munch"><span class="hs-identifier">munch</span></a></span><span>
 </span><span id="line-26"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Prec.html#munch1"><span class="hs-identifier">munch1</span></a></span><span>
@@ -116,7 +116,7 @@ forall (p :: * -&gt; * -&gt; *). PrecGrammatical p =&gt; p a a
 `Text.ParserCombinators.ReadPrec` has, where a grammar runs in a
 precedence context, from 0 to 11, as `showsPrec`'s is. -}</span></span><span>
 </span><span id="line-79"></span><span class="hs-keyword">class</span><span>
-</span><span id="line-80"></span><span>  </span><span class="hs-special">(</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.BackusNaur.html#Grammatical"><span class="hs-identifier hs-type">Grammatical</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Char</span></span><span> </span><span class="annot"><a href="#local-6989586621679394169"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Prec.html#Lookahead"><span class="hs-identifier hs-type">Lookahead</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679394169"><span class="hs-identifier hs-type">p</span></a></span><span>
+</span><span id="line-80"></span><span>  </span><span class="hs-special">(</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.BackusNaur.html#Grammatical"><span class="hs-identifier hs-type">Grammatical</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Char</span></span><span> </span><span class="annot"><a href="#local-6989586621679394169"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Prec.html#NotFollowedBy"><span class="hs-identifier hs-type">NotFollowedBy</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679394169"><span class="hs-identifier hs-type">p</span></a></span><span>
 </span><span id="line-81"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="hs-keyword">forall</span><span> </span><span id="local-6989586621679394196"><span class="annot"><a href="#local-6989586621679394196"><span class="hs-identifier hs-type">x</span></a></span></span><span> </span><span id="local-6989586621679394197"><span class="annot"><a href="#local-6989586621679394197"><span class="hs-identifier hs-type">y</span></a></span></span><span class="hs-operator">.</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679394196"><span class="hs-identifier hs-type">x</span></a></span><span> </span><span class="annot"><span class="hs-operator hs-type">~</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><a href="#local-6989586621679394197"><span class="hs-identifier hs-type">y</span></a></span><span> </span><span class="annot"><span class="hs-operator hs-type">~</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IsString</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679394169"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679394196"><span class="hs-identifier hs-type">x</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679394197"><span class="hs-identifier hs-type">y</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">)</span><span>
 </span><span id="line-82"></span><span>  </span><span class="hs-glyph">=&gt;</span><span> </span><span id="PrecGrammatical"><span class="annot"><a href="Control.Lens.Grammar.Prec.html#PrecGrammatical"><span class="hs-identifier hs-var">PrecGrammatical</span></a></span></span><span> </span><span id="local-6989586621679394169"><span class="annot"><a href="#local-6989586621679394169"><span class="hs-identifier hs-type">p</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
 </span><span id="line-83"></span><span>    </span><span class="hs-comment">{- | At a precedence, failing in a context above it, as
@@ -138,7 +138,7 @@ precedence context, from 0 to 11, as `showsPrec`'s is. -}</span></span><span>
 </span><a href="Control.Lens.Grammar.Prec.html#precParens"><span class="hs-identifier hs-var hs-var">precParens</span></a></span></span><span> </span><span id="local-6989586621679395102"><span class="annot"><span class="annottext">p a b
 </span><a href="#local-6989586621679395102"><span class="hs-identifier hs-var">p</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">p () ()
 forall (p :: * -&gt; * -&gt; *).
-(RegGrammatical Char p, Lookahead p) =&gt;
+(RegGrammatical Char p, NotFollowedBy p) =&gt;
 p () ()
 </span><a href="Control.Lens.Grammar.Prec.html#skipSpaces"><span class="hs-identifier hs-var">skipSpaces</span></a></span><span> </span><span class="annot"><span class="annottext">p () () -&gt; p a b -&gt; p a b
 forall (p :: * -&gt; * -&gt; *) c a b.
@@ -176,7 +176,7 @@ Monoidal p =&gt;
 p a b -&gt; p () c -&gt; p a b
 </span><span class="hs-operator hs-var">*&lt;</span></span><span> </span><span class="annot"><span class="annottext">p () ()
 forall (p :: * -&gt; * -&gt; *).
-(RegGrammatical Char p, Lookahead p) =&gt;
+(RegGrammatical Char p, NotFollowedBy p) =&gt;
 p () ()
 </span><a href="Control.Lens.Grammar.Prec.html#skipSpaces"><span class="hs-identifier hs-var">skipSpaces</span></a></span><span> </span><span class="annot"><span class="annottext">p a b -&gt; p () () -&gt; p a b
 forall (p :: * -&gt; * -&gt; *) a b c.
@@ -257,7 +257,7 @@ forall a b. p a b -&gt; p [a] [b]
 forall (p :: * -&gt; * -&gt; *) a b. Distributor p =&gt; p a b -&gt; p [a] [b]
 </span><span class="hs-identifier hs-var">manyP</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">p () ()
 forall (p :: * -&gt; * -&gt; *).
-(RegGrammatical Char p, Lookahead p) =&gt;
+(RegGrammatical Char p, NotFollowedBy p) =&gt;
 p () ()
 </span><a href="Control.Lens.Grammar.Prec.html#skipSpaces"><span class="hs-identifier hs-var">skipSpaces</span></a></span><span> </span><span class="annot"><span class="annottext">p () () -&gt; p () () -&gt; p () ()
 forall (p :: * -&gt; * -&gt; *) c a b.
@@ -281,7 +281,7 @@ Monoidal p =&gt;
 p a b -&gt; p () c -&gt; p a b
 </span><span class="hs-operator hs-var">*&lt;</span></span><span> </span><span class="annot"><span class="annottext">p () ()
 forall (p :: * -&gt; * -&gt; *).
-(RegGrammatical Char p, Lookahead p) =&gt;
+(RegGrammatical Char p, NotFollowedBy p) =&gt;
 p () ()
 </span><a href="Control.Lens.Grammar.Prec.html#skipSpaces"><span class="hs-identifier hs-var">skipSpaces</span></a></span><span> </span><span class="annot"><span class="annottext">p [a] [a] -&gt; p () () -&gt; p [a] [a]
 forall (p :: * -&gt; * -&gt; *) a b c.
@@ -293,11 +293,11 @@ forall token s. TerminalSymbol token s =&gt; [token] -&gt; s
 </span><span class="hs-string">&quot;]&quot;</span></span><span>
 </span><span id="line-117"></span><span>
 </span><span id="line-118"></span><span class="annot"><span class="hs-comment">{- | Negative lookahead, as `read`'s lexer munches lexemes maximally. -}</span></span><span>
-</span><span id="line-119"></span><span class="hs-keyword">class</span><span> </span><span id="Lookahead"><span class="annot"><a href="Control.Lens.Grammar.Prec.html#Lookahead"><span class="hs-identifier hs-var">Lookahead</span></a></span></span><span> </span><span id="local-6989586621679394270"><span class="annot"><a href="#local-6989586621679394270"><span class="hs-identifier hs-type">p</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-119"></span><span class="hs-keyword">class</span><span> </span><span id="NotFollowedBy"><span class="annot"><a href="Control.Lens.Grammar.Prec.html#NotFollowedBy"><span class="hs-identifier hs-var">NotFollowedBy</span></a></span></span><span> </span><span id="local-6989586621679394270"><span class="annot"><a href="#local-6989586621679394270"><span class="hs-identifier hs-type">p</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
 </span><span id="line-120"></span><span>  </span><span class="hs-comment">{- | Not followed by a string a pattern matches, consuming nothing, &amp;
   printing nothing; nonterminals match nothing. -}</span><span>
 </span><span id="line-122"></span><span>  </span><span id="notFollowedBy"><span class="annot"><a href="Control.Lens.Grammar.Prec.html#notFollowedBy"><span class="hs-identifier hs-type">notFollowedBy</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.RegEx.html#RegEx"><span class="hs-identifier hs-type">RegEx</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Char</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679394270"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
-</span><span id="line-123"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679394271"><span id="local-6989586621679394272"><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Alternative</span></span><span> </span><span class="annot"><a href="#local-6989586621679394271"><span class="hs-identifier hs-type">f</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Cons</span></span><span> </span><span class="annot"><a href="#local-6989586621679394272"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679394272"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Char</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Char</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Prec.html#Lookahead"><span class="hs-identifier hs-type">Lookahead</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.Profunctor.Grammar.html#Parsor"><span class="hs-identifier hs-type">Parsor</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679394272"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679394271"><span class="hs-identifier hs-type">f</span></a></span><span class="hs-special">)</span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-123"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679394271"><span id="local-6989586621679394272"><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Alternative</span></span><span> </span><span class="annot"><a href="#local-6989586621679394271"><span class="hs-identifier hs-type">f</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Cons</span></span><span> </span><span class="annot"><a href="#local-6989586621679394272"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679394272"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Char</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Char</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Prec.html#NotFollowedBy"><span class="hs-identifier hs-type">NotFollowedBy</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.Profunctor.Grammar.html#Parsor"><span class="hs-identifier hs-type">Parsor</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679394272"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679394271"><span class="hs-identifier hs-type">f</span></a></span><span class="hs-special">)</span></span></span><span> </span><span class="hs-keyword">where</span><span>
 </span><span id="line-124"></span><span>  </span><span id="local-6989586621679395215"><span class="annot"><span class="annottext">notFollowedBy :: RegEx Char -&gt; Parsor s f () ()
 </span><a href="Control.Lens.Grammar.Prec.html#notFollowedBy"><span class="hs-identifier hs-var hs-var hs-var">notFollowedBy</span></a></span></span><span> </span><span id="local-6989586621679395216"><span class="annot"><span class="annottext">RegEx Char
 </span><a href="#local-6989586621679395216"><span class="hs-identifier hs-var">rex</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(Maybe () -&gt; s -&gt; f ((), s)) -&gt; Parsor s f () ()
@@ -572,7 +572,7 @@ forall a. Num a =&gt; a -&gt; a -&gt; a
 </span><span class="hs-glyph hs-var">-</span></span><span> </span><span class="annot"><span class="annottext">Int
 </span><span class="hs-number">1</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">RegEx Char
 </span><a href="#local-6989586621679395343"><span class="hs-identifier hs-var">x</span></a></span><span class="hs-special">)</span><span>
-</span><span id="line-152"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679394327"><span id="local-6989586621679394328"><span class="annot"><span class="hs-identifier hs-type">Applicative</span></span><span> </span><span class="annot"><a href="#local-6989586621679394327"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Prec.html#Lookahead"><span class="hs-identifier hs-type">Lookahead</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.Profunctor.Grammar.Printor.html#Printor"><span class="hs-identifier hs-type">Printor</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679394328"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679394327"><span class="hs-identifier hs-type">f</span></a></span><span class="hs-special">)</span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-152"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679394327"><span id="local-6989586621679394328"><span class="annot"><span class="hs-identifier hs-type">Applicative</span></span><span> </span><span class="annot"><a href="#local-6989586621679394327"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Prec.html#NotFollowedBy"><span class="hs-identifier hs-type">NotFollowedBy</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.Profunctor.Grammar.Printor.html#Printor"><span class="hs-identifier hs-type">Printor</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679394328"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679394327"><span class="hs-identifier hs-type">f</span></a></span><span class="hs-special">)</span></span></span><span> </span><span class="hs-keyword">where</span><span>
 </span><span id="line-153"></span><span>  </span><span id="local-6989586621679395350"><span class="annot"><span class="annottext">notFollowedBy :: RegEx Char -&gt; Printor s f () ()
 </span><a href="Control.Lens.Grammar.Prec.html#notFollowedBy"><span class="hs-identifier hs-var hs-var hs-var">notFollowedBy</span></a></span></span><span> </span><span class="annot"><span class="annottext">RegEx Char
 </span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(() -&gt; f ((), s -&gt; s)) -&gt; Printor s f () ()
@@ -584,7 +584,7 @@ forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
 </span><span class="hs-identifier hs-var">pure</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">(</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">s -&gt; s
 forall a. a -&gt; a
 </span><span class="hs-identifier hs-var">id</span></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
-</span><span id="line-154"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679394336"><span class="annot"><a href="Control.Lens.Grammar.Prec.html#Lookahead"><span class="hs-identifier hs-type">Lookahead</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679394336"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Prec.html#Lookahead"><span class="hs-identifier hs-type">Lookahead</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Grammar.Prec.html#Precedence"><span class="hs-identifier hs-type">Precedence</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679394336"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">)</span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-154"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679394336"><span class="annot"><a href="Control.Lens.Grammar.Prec.html#NotFollowedBy"><span class="hs-identifier hs-type">NotFollowedBy</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679394336"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Prec.html#NotFollowedBy"><span class="hs-identifier hs-type">NotFollowedBy</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Grammar.Prec.html#Precedence"><span class="hs-identifier hs-type">Precedence</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679394336"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">)</span></span><span> </span><span class="hs-keyword">where</span><span>
 </span><span id="line-155"></span><span>  </span><span id="local-6989586621679395357"><span class="annot"><span class="annottext">notFollowedBy :: RegEx Char -&gt; Precedence p () ()
 </span><a href="Control.Lens.Grammar.Prec.html#notFollowedBy"><span class="hs-identifier hs-var hs-var hs-var">notFollowedBy</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(Int -&gt; p () ()) -&gt; Precedence p () ()
 forall (p :: * -&gt; * -&gt; *) a b. (Int -&gt; p a b) -&gt; Precedence p a b
@@ -599,14 +599,14 @@ forall a b. a -&gt; b -&gt; a
 -&gt; (RegEx Char -&gt; p () ()) -&gt; RegEx Char -&gt; Int -&gt; p () ()
 forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
 </span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">RegEx Char -&gt; p () ()
-forall (p :: * -&gt; * -&gt; *). Lookahead p =&gt; RegEx Char -&gt; p () ()
+forall (p :: * -&gt; * -&gt; *). NotFollowedBy p =&gt; RegEx Char -&gt; p () ()
 </span><a href="Control.Lens.Grammar.Prec.html#notFollowedBy"><span class="hs-identifier hs-var">notFollowedBy</span></a></span><span>
 </span><span id="line-156"></span><span>
 </span><span id="line-157"></span><span class="annot"><span class="hs-comment">{- | At the end of input, not followed by any token. -}</span></span><span>
-</span><span id="line-158"></span><span id="local-6989586621679394340"><span class="annot"><a href="Control.Lens.Grammar.Prec.html#eof"><span class="hs-identifier hs-type">eof</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Prec.html#Lookahead"><span class="hs-identifier hs-type">Lookahead</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679394340"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679394340"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span><span>
-</span><span id="line-159"></span><span id="eof"><span class="annot"><span class="annottext">eof :: forall (p :: * -&gt; * -&gt; *). Lookahead p =&gt; p () ()
+</span><span id="line-158"></span><span id="local-6989586621679394340"><span class="annot"><a href="Control.Lens.Grammar.Prec.html#eof"><span class="hs-identifier hs-type">eof</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Prec.html#NotFollowedBy"><span class="hs-identifier hs-type">NotFollowedBy</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679394340"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679394340"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span><span>
+</span><span id="line-159"></span><span id="eof"><span class="annot"><span class="annottext">eof :: forall (p :: * -&gt; * -&gt; *). NotFollowedBy p =&gt; p () ()
 </span><a href="Control.Lens.Grammar.Prec.html#eof"><span class="hs-identifier hs-var hs-var">eof</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">RegEx Char -&gt; p () ()
-forall (p :: * -&gt; * -&gt; *). Lookahead p =&gt; RegEx Char -&gt; p () ()
+forall (p :: * -&gt; * -&gt; *). NotFollowedBy p =&gt; RegEx Char -&gt; p () ()
 </span><a href="Control.Lens.Grammar.Prec.html#notFollowedBy"><span class="hs-identifier hs-var">notFollowedBy</span></a></span><span> </span><span class="annot"><span class="annottext">RegEx Char
 forall token p. Tokenized token p =&gt; p
 </span><a href="Control.Lens.Grammar.Token.html#anyToken"><span class="hs-identifier hs-var">anyToken</span></a></span><span>
@@ -614,10 +614,10 @@ forall token p. Tokenized token p =&gt; p
 </span><span id="line-161"></span><span class="annot"><span class="hs-comment">{- | Tokens of a class, as many as follow, as
 `Text.ParserCombinators.ReadP.munch` parses, &amp; printing them. -}</span></span><span>
 </span><span id="line-163"></span><span id="local-6989586621679394345"><span class="annot"><a href="Control.Lens.Grammar.Prec.html#munch"><span class="hs-identifier hs-type">munch</span></a></span><span>
-</span><span id="line-164"></span><span>  </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Grammar.BackusNaur.html#RegGrammatical"><span class="hs-identifier hs-type">RegGrammatical</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Char</span></span><span> </span><span class="annot"><a href="#local-6989586621679394345"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Prec.html#Lookahead"><span class="hs-identifier hs-type">Lookahead</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679394345"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-164"></span><span>  </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Grammar.BackusNaur.html#RegGrammatical"><span class="hs-identifier hs-type">RegGrammatical</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Char</span></span><span> </span><span class="annot"><a href="#local-6989586621679394345"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Prec.html#NotFollowedBy"><span class="hs-identifier hs-type">NotFollowedBy</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679394345"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-165"></span><span>  </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Token.html#TokenClass"><span class="hs-identifier hs-type">TokenClass</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Char</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679394345"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">String</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">String</span></span></span><span>
 </span><span id="line-166"></span><span id="munch"><span class="annot"><span class="annottext">munch :: forall (p :: * -&gt; * -&gt; *).
-(RegGrammatical Char p, Lookahead p) =&gt;
+(RegGrammatical Char p, NotFollowedBy p) =&gt;
 TokenClass Char -&gt; p [Char] [Char]
 </span><a href="Control.Lens.Grammar.Prec.html#munch"><span class="hs-identifier hs-var hs-var">munch</span></a></span></span><span> </span><span id="local-6989586621679395377"><span class="annot"><span class="annottext">TokenClass Char
 </span><a href="#local-6989586621679395377"><span class="hs-identifier hs-var">cls</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">p Char Char -&gt; p [Char] [Char]
@@ -631,7 +631,7 @@ forall (p :: * -&gt; * -&gt; *) a b c.
 Monoidal p =&gt;
 p a b -&gt; p () c -&gt; p a b
 </span><span class="hs-operator hs-var">*&lt;</span></span><span> </span><span class="annot"><span class="annottext">RegEx Char -&gt; p () ()
-forall (p :: * -&gt; * -&gt; *). Lookahead p =&gt; RegEx Char -&gt; p () ()
+forall (p :: * -&gt; * -&gt; *). NotFollowedBy p =&gt; RegEx Char -&gt; p () ()
 </span><a href="Control.Lens.Grammar.Prec.html#notFollowedBy"><span class="hs-identifier hs-var">notFollowedBy</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">TokenClass Char -&gt; RegEx Char
 forall token p. TokenAlgebra token p =&gt; TokenClass token -&gt; p
 </span><a href="Control.Lens.Grammar.Token.html#tokenClass"><span class="hs-identifier hs-var">tokenClass</span></a></span><span> </span><span class="annot"><span class="annottext">TokenClass Char
@@ -640,10 +640,10 @@ forall token p. TokenAlgebra token p =&gt; TokenClass token -&gt; p
 </span><span id="line-168"></span><span class="annot"><span class="hs-comment">{- | Tokens of a class, one or more, as many as follow, as
 `Text.ParserCombinators.ReadP.munch1` parses, &amp; printing them. -}</span></span><span>
 </span><span id="line-170"></span><span id="local-6989586621679395378"><span class="annot"><a href="Control.Lens.Grammar.Prec.html#munch1"><span class="hs-identifier hs-type">munch1</span></a></span><span>
-</span><span id="line-171"></span><span>  </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Grammar.BackusNaur.html#RegGrammatical"><span class="hs-identifier hs-type">RegGrammatical</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Char</span></span><span> </span><span class="annot"><a href="#local-6989586621679395378"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Prec.html#Lookahead"><span class="hs-identifier hs-type">Lookahead</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679395378"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-171"></span><span>  </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Grammar.BackusNaur.html#RegGrammatical"><span class="hs-identifier hs-type">RegGrammatical</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Char</span></span><span> </span><span class="annot"><a href="#local-6989586621679395378"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Prec.html#NotFollowedBy"><span class="hs-identifier hs-type">NotFollowedBy</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679395378"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-172"></span><span>  </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Token.html#TokenClass"><span class="hs-identifier hs-type">TokenClass</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Char</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679395378"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">String</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">String</span></span></span><span>
 </span><span id="line-173"></span><span id="munch1"><span class="annot"><span class="annottext">munch1 :: forall (p :: * -&gt; * -&gt; *).
-(RegGrammatical Char p, Lookahead p) =&gt;
+(RegGrammatical Char p, NotFollowedBy p) =&gt;
 TokenClass Char -&gt; p [Char] [Char]
 </span><a href="Control.Lens.Grammar.Prec.html#munch1"><span class="hs-identifier hs-var hs-var">munch1</span></a></span></span><span> </span><span id="local-6989586621679395392"><span class="annot"><span class="annottext">TokenClass Char
 </span><a href="#local-6989586621679395392"><span class="hs-identifier hs-var">cls</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">p Char Char -&gt; p [Char] [Char]
@@ -657,7 +657,7 @@ forall (p :: * -&gt; * -&gt; *) a b c.
 Monoidal p =&gt;
 p a b -&gt; p () c -&gt; p a b
 </span><span class="hs-operator hs-var">*&lt;</span></span><span> </span><span class="annot"><span class="annottext">RegEx Char -&gt; p () ()
-forall (p :: * -&gt; * -&gt; *). Lookahead p =&gt; RegEx Char -&gt; p () ()
+forall (p :: * -&gt; * -&gt; *). NotFollowedBy p =&gt; RegEx Char -&gt; p () ()
 </span><a href="Control.Lens.Grammar.Prec.html#notFollowedBy"><span class="hs-identifier hs-var">notFollowedBy</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">TokenClass Char -&gt; RegEx Char
 forall token p. TokenAlgebra token p =&gt; TokenClass token -&gt; p
 </span><a href="Control.Lens.Grammar.Token.html#tokenClass"><span class="hs-identifier hs-var">tokenClass</span></a></span><span> </span><span class="annot"><span class="annottext">TokenClass Char
@@ -665,9 +665,9 @@ forall token p. TokenAlgebra token p =&gt; TokenClass token -&gt; p
 </span><span id="line-174"></span><span>
 </span><span id="line-175"></span><span class="annot"><span class="hs-comment">{- | Whitespace, by `Data.Char.isSpace`, as many as follow, as
 `Text.ParserCombinators.ReadP.skipSpaces` parses, &amp; printing none. -}</span></span><span>
-</span><span id="line-177"></span><span id="local-6989586621679394201"><span class="annot"><a href="Control.Lens.Grammar.Prec.html#skipSpaces"><span class="hs-identifier hs-type">skipSpaces</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Grammar.BackusNaur.html#RegGrammatical"><span class="hs-identifier hs-type">RegGrammatical</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Char</span></span><span> </span><span class="annot"><a href="#local-6989586621679394201"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Prec.html#Lookahead"><span class="hs-identifier hs-type">Lookahead</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679394201"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679394201"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span><span>
+</span><span id="line-177"></span><span id="local-6989586621679394201"><span class="annot"><a href="Control.Lens.Grammar.Prec.html#skipSpaces"><span class="hs-identifier hs-type">skipSpaces</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Grammar.BackusNaur.html#RegGrammatical"><span class="hs-identifier hs-type">RegGrammatical</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Char</span></span><span> </span><span class="annot"><a href="#local-6989586621679394201"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Prec.html#NotFollowedBy"><span class="hs-identifier hs-type">NotFollowedBy</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679394201"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679394201"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span><span>
 </span><span id="line-178"></span><span id="skipSpaces"><span class="annot"><span class="annottext">skipSpaces :: forall (p :: * -&gt; * -&gt; *).
-(RegGrammatical Char p, Lookahead p) =&gt;
+(RegGrammatical Char p, NotFollowedBy p) =&gt;
 p () ()
 </span><a href="Control.Lens.Grammar.Prec.html#skipSpaces"><span class="hs-identifier hs-var hs-var">skipSpaces</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(() -&gt; [Char]) -&gt; ([Char] -&gt; ()) -&gt; p [Char] [Char] -&gt; p () ()
 forall a b c d. (a -&gt; b) -&gt; (c -&gt; d) -&gt; p b c -&gt; p a d
@@ -681,7 +681,7 @@ forall a b. a -&gt; b -&gt; a
 forall a b. a -&gt; b -&gt; a
 </span><span class="hs-identifier hs-var">const</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">TokenClass Char -&gt; p [Char] [Char]
 forall (p :: * -&gt; * -&gt; *).
-(RegGrammatical Char p, Lookahead p) =&gt;
+(RegGrammatical Char p, NotFollowedBy p) =&gt;
 TokenClass Char -&gt; p [Char] [Char]
 </span><a href="Control.Lens.Grammar.Prec.html#munch"><span class="hs-identifier hs-var">munch</span></a></span><span> </span><span class="annot"><span class="annottext">TokenClass Char
 </span><a href="Control.Lens.Grammar.Prec.html#precSpaceClass"><span class="hs-identifier hs-var">precSpaceClass</span></a></span><span class="hs-special">)</span><span>
@@ -1180,7 +1180,7 @@ forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
 </span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">[Char] -&gt; p a b
 forall token s. TerminalSymbol token s =&gt; [token] -&gt; s
 </span><a href="Control.Lens.Grammar.Symbol.html#terminal"><span class="hs-identifier hs-var">terminal</span></a></span><span>
-</span><span id="line-236"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679394564"><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Grammar.BackusNaur.html#Grammatical"><span class="hs-identifier hs-type">Grammatical</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Char</span></span><span> </span><span class="annot"><a href="#local-6989586621679394564"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Prec.html#Lookahead"><span class="hs-identifier hs-type">Lookahead</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679394564"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Prec.html#PrecGrammatical"><span class="hs-identifier hs-type">PrecGrammatical</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Grammar.Prec.html#Precedence"><span class="hs-identifier hs-type">Precedence</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679394564"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">)</span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-236"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679394564"><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Grammar.BackusNaur.html#Grammatical"><span class="hs-identifier hs-type">Grammatical</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Char</span></span><span> </span><span class="annot"><a href="#local-6989586621679394564"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Prec.html#NotFollowedBy"><span class="hs-identifier hs-type">NotFollowedBy</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679394564"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Prec.html#PrecGrammatical"><span class="hs-identifier hs-type">PrecGrammatical</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Grammar.Prec.html#Precedence"><span class="hs-identifier hs-type">Precedence</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679394564"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">)</span></span><span> </span><span class="hs-keyword">where</span><span>
 </span><span id="line-237"></span><span>    </span><span id="local-6989586621679395741"><span class="annot"><span class="annottext">precP :: forall a b. Int -&gt; Precedence p a b -&gt; Precedence p a b
 </span><a href="Control.Lens.Grammar.Prec.html#precP"><span class="hs-identifier hs-var hs-var hs-var">precP</span></a></span></span><span> </span><span id="local-6989586621679395742"><span class="annot"><span class="annottext">Int
 </span><a href="#local-6989586621679395742"><span class="hs-identifier hs-var">n</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Grammar.Prec.html#Precedence"><span class="hs-identifier hs-type">Precedence</span></a></span><span> </span><span id="local-6989586621679395743"><span class="annot"><span class="annottext">Int -&gt; p a b
@@ -1230,9 +1230,9 @@ forall (p :: * -&gt; * -&gt; *) a b. Precedence p a b -&gt; Int -&gt; p a b
 </span><span id="line-241"></span><span>
 </span><span id="line-242"></span><span class="annot"><span class="hs-comment">{- | A type's `PrecGrammar` at a precedence, at any `Grammatical`
 interpreter which parses or prints. -}</span></span><span>
-</span><span id="line-244"></span><span class="annot"><a href="Control.Lens.Grammar.Prec.html#precG"><span class="hs-identifier hs-type">precG</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-keyword">forall</span><span> </span><span id="local-6989586621679394573"><span class="annot"><a href="#local-6989586621679394573"><span class="hs-identifier hs-type">a</span></a></span></span><span> </span><span id="local-6989586621679394574"><span class="annot"><a href="#local-6989586621679394574"><span class="hs-identifier hs-type">p</span></a></span></span><span class="hs-operator">.</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Grammar.Prec.html#PrecGrammar"><span class="hs-identifier hs-type">PrecGrammar</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679394573"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.BackusNaur.html#Grammatical"><span class="hs-identifier hs-type">Grammatical</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Char</span></span><span> </span><span class="annot"><a href="#local-6989586621679394574"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Prec.html#Lookahead"><span class="hs-identifier hs-type">Lookahead</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679394574"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679394574"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679394573"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679394573"><span class="hs-identifier hs-type">a</span></a></span><span>
+</span><span id="line-244"></span><span class="annot"><a href="Control.Lens.Grammar.Prec.html#precG"><span class="hs-identifier hs-type">precG</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-keyword">forall</span><span> </span><span id="local-6989586621679394573"><span class="annot"><a href="#local-6989586621679394573"><span class="hs-identifier hs-type">a</span></a></span></span><span> </span><span id="local-6989586621679394574"><span class="annot"><a href="#local-6989586621679394574"><span class="hs-identifier hs-type">p</span></a></span></span><span class="hs-operator">.</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Grammar.Prec.html#PrecGrammar"><span class="hs-identifier hs-type">PrecGrammar</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679394573"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.BackusNaur.html#Grammatical"><span class="hs-identifier hs-type">Grammatical</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Char</span></span><span> </span><span class="annot"><a href="#local-6989586621679394574"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Prec.html#NotFollowedBy"><span class="hs-identifier hs-type">NotFollowedBy</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679394574"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679394574"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679394573"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679394573"><span class="hs-identifier hs-type">a</span></a></span><span>
 </span><span id="line-245"></span><span id="precG"><span class="annot"><span class="annottext">precG :: forall a (p :: * -&gt; * -&gt; *).
-(PrecGrammar a, Grammatical Char p, Lookahead p) =&gt;
+(PrecGrammar a, Grammatical Char p, NotFollowedBy p) =&gt;
 Int -&gt; p a a
 </span><a href="Control.Lens.Grammar.Prec.html#precG"><span class="hs-identifier hs-var hs-var">precG</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Precedence p a a -&gt; Int -&gt; p a a
 forall (p :: * -&gt; * -&gt; *) a b. Precedence p a b -&gt; Int -&gt; p a b
@@ -1251,7 +1251,7 @@ forall (p :: * -&gt; * -&gt; *). PrecGrammatical p =&gt; p a a
 forall s (f :: * -&gt; *) a b. Parsor s f a b -&gt; s -&gt; f (b, s)
 </span><a href="Data.Profunctor.Grammar.html#parseP"><span class="hs-identifier hs-var">parseP</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int -&gt; Parsor [Char] [] a a
 forall a (p :: * -&gt; * -&gt; *).
-(PrecGrammar a, Grammatical Char p, Lookahead p) =&gt;
+(PrecGrammar a, Grammatical Char p, NotFollowedBy p) =&gt;
 Int -&gt; p a a
 </span><a href="Control.Lens.Grammar.Prec.html#precG"><span class="hs-identifier hs-var">precG</span></a></span><span> </span><span class="annot"><span class="annottext">Int
 </span><a href="#local-6989586621679395775"><span class="hs-identifier hs-var">d</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Data.Profunctor.Grammar.html#Parsor"><span class="hs-identifier hs-type">Parsor</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">String</span></span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span> </span><span class="annot"><a href="#local-6989586621679394577"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679394577"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span>
@@ -1266,7 +1266,7 @@ Functor f =&gt;
 Printor s f a b -&gt; a -&gt; f (s -&gt; s)
 </span><a href="Data.Profunctor.Grammar.Printor.html#printP"><span class="hs-identifier hs-var">printP</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int -&gt; Printor [Char] Maybe a a
 forall a (p :: * -&gt; * -&gt; *).
-(PrecGrammar a, Grammatical Char p, Lookahead p) =&gt;
+(PrecGrammar a, Grammatical Char p, NotFollowedBy p) =&gt;
 Int -&gt; p a a
 </span><a href="Control.Lens.Grammar.Prec.html#precG"><span class="hs-identifier hs-var">precG</span></a></span><span> </span><span class="annot"><span class="annottext">Int
 </span><a href="#local-6989586621679395794"><span class="hs-identifier hs-var">d</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Data.Profunctor.Grammar.Printor.html#Printor"><span class="hs-identifier hs-type">Printor</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">String</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="annot"><a href="#local-6989586621679394586"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679394586"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span>
@@ -1284,7 +1284,7 @@ accepts bare at any precedence. -}</span><span>
 forall (p :: * -&gt; * -&gt; *) a b. PrecGrammatical p =&gt; p a b -&gt; p a b
 </span><a href="Control.Lens.Grammar.Prec.html#precParens"><span class="hs-identifier hs-var">precParens</span></a></span><span> </span><span class="annot"><span class="annottext">p Char Char
 forall (p :: * -&gt; * -&gt; *).
-(RegGrammatical Char p, Lookahead p) =&gt;
+(RegGrammatical Char p, NotFollowedBy p) =&gt;
 p Char Char
 </span><a href="Control.Lens.Grammar.Prec.html#precChar"><span class="hs-identifier hs-var">precChar</span></a></span><span>
 </span><span id="line-264"></span><span>  </span><span class="hs-comment">-- strings, or brackets, as `read` reads, &amp; strings, as `show` shows</span><span>
@@ -1293,7 +1293,7 @@ p Char Char
 forall (p :: * -&gt; * -&gt; *) a b. PrecGrammatical p =&gt; p a b -&gt; p a b
 </span><a href="Control.Lens.Grammar.Prec.html#precParens"><span class="hs-identifier hs-var">precParens</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">p [Char] [Char]
 forall (p :: * -&gt; * -&gt; *).
-(RegGrammatical Char p, Lookahead p) =&gt;
+(RegGrammatical Char p, NotFollowedBy p) =&gt;
 p [Char] [Char]
 </span><a href="Control.Lens.Grammar.Prec.html#precString"><span class="hs-identifier hs-var">precString</span></a></span><span> </span><span class="annot"><span class="annottext">p [Char] [Char] -&gt; p [Char] [Char] -&gt; p [Char] [Char]
 forall a. DisjunctiveMonoid a =&gt; a -&gt; a -&gt; a
@@ -1334,7 +1334,7 @@ Monoidal p =&gt;
 p () c -&gt; p a b -&gt; p a b
 </span><span class="hs-operator hs-var">&gt;*</span></span><span> </span><span class="annot"><span class="annottext">p () ()
 forall (p :: * -&gt; * -&gt; *).
-(RegGrammatical Char p, Lookahead p) =&gt;
+(RegGrammatical Char p, NotFollowedBy p) =&gt;
 p () ()
 </span><a href="Control.Lens.Grammar.Prec.html#skipSpaces"><span class="hs-identifier hs-var">skipSpaces</span></a></span><span> </span><span class="annot"><span class="annottext">p () () -&gt; p () () -&gt; p () ()
 forall (p :: * -&gt; * -&gt; *) a b c.
@@ -1674,7 +1674,7 @@ Monoidal p =&gt;
 p a b -&gt; p () c -&gt; p a b
 </span><span class="hs-operator hs-var">*&lt;</span></span><span> </span><span class="annot"><span class="annottext">p () ()
 forall (p :: * -&gt; * -&gt; *).
-(RegGrammatical Char p, Lookahead p) =&gt;
+(RegGrammatical Char p, NotFollowedBy p) =&gt;
 p () ()
 </span><a href="Control.Lens.Grammar.Prec.html#skipSpaces"><span class="hs-identifier hs-var">skipSpaces</span></a></span><span> </span><span class="annot"><span class="annottext">p a a -&gt; p () () -&gt; p a a
 forall (p :: * -&gt; * -&gt; *) a b c.
@@ -1703,7 +1703,7 @@ forall (p :: * -&gt; * -&gt; *). PrecGrammatical p =&gt; p a a
 </span><span id="line-301"></span><span id="precComma"><span class="annot"><span class="annottext">precComma :: forall (p :: * -&gt; * -&gt; *). PrecGrammatical p =&gt; p () ()
 </span><a href="Control.Lens.Grammar.Prec.html#precComma"><span class="hs-identifier hs-var hs-var">precComma</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">p () ()
 forall (p :: * -&gt; * -&gt; *).
-(RegGrammatical Char p, Lookahead p) =&gt;
+(RegGrammatical Char p, NotFollowedBy p) =&gt;
 p () ()
 </span><a href="Control.Lens.Grammar.Prec.html#skipSpaces"><span class="hs-identifier hs-var">skipSpaces</span></a></span><span> </span><span class="annot"><span class="annottext">p () () -&gt; p () () -&gt; p () ()
 forall (p :: * -&gt; * -&gt; *) c a b.
@@ -1889,7 +1889,7 @@ Monoidal p =&gt;
 p () c -&gt; p a b -&gt; p a b
 </span><span class="hs-operator hs-var">&gt;*</span></span><span> </span><span class="annot"><span class="annottext">p () ()
 forall (p :: * -&gt; * -&gt; *).
-(RegGrammatical Char p, Lookahead p) =&gt;
+(RegGrammatical Char p, NotFollowedBy p) =&gt;
 p () ()
 </span><a href="Control.Lens.Grammar.Prec.html#precSpaced"><span class="hs-identifier hs-var">precSpaced</span></a></span><span> </span><span class="annot"><span class="annottext">p () () -&gt; p () () -&gt; p () ()
 forall (p :: * -&gt; * -&gt; *) c a b.
@@ -1904,7 +1904,7 @@ Monoidal p =&gt;
 p () c -&gt; p a b -&gt; p a b
 </span><span class="hs-operator hs-var">&gt;*</span></span><span> </span><span class="annot"><span class="annottext">p () ()
 forall (p :: * -&gt; * -&gt; *).
-(RegGrammatical Char p, Lookahead p) =&gt;
+(RegGrammatical Char p, NotFollowedBy p) =&gt;
 p () ()
 </span><a href="Control.Lens.Grammar.Prec.html#skipSpaces"><span class="hs-identifier hs-var">skipSpaces</span></a></span><span>
 </span><span id="line-324"></span><span>                </span><span class="annot"><span class="annottext">p () () -&gt; p (f x) (f x) -&gt; p (f x) (f x)
@@ -1926,7 +1926,7 @@ Monoidal p =&gt;
 p a b -&gt; p () c -&gt; p a b
 </span><span class="hs-operator hs-var">*&lt;</span></span><span> </span><span class="annot"><span class="annottext">p () ()
 forall (p :: * -&gt; * -&gt; *).
-(RegGrammatical Char p, Lookahead p) =&gt;
+(RegGrammatical Char p, NotFollowedBy p) =&gt;
 p () ()
 </span><a href="Control.Lens.Grammar.Prec.html#skipSpaces"><span class="hs-identifier hs-var">skipSpaces</span></a></span><span> </span><span class="annot"><span class="annottext">p (f x) (f x) -&gt; p () () -&gt; p (f x) (f x)
 forall (p :: * -&gt; * -&gt; *) a b c.
@@ -2108,7 +2108,7 @@ Monoidal p =&gt;
 p a b -&gt; p c d -&gt; p (a, c) (b, d)
 </span><span class="hs-operator hs-var">&gt;*&lt;</span></span><span> </span><span class="annot"><span class="annottext">p () ()
 forall (p :: * -&gt; * -&gt; *).
-(RegGrammatical Char p, Lookahead p) =&gt;
+(RegGrammatical Char p, NotFollowedBy p) =&gt;
 p () ()
 </span><a href="Control.Lens.Grammar.Prec.html#skipSpaces"><span class="hs-identifier hs-var">skipSpaces</span></a></span><span> </span><span class="annot"><span class="annottext">p () () -&gt; p () () -&gt; p () ()
 forall (p :: * -&gt; * -&gt; *) c a b.
@@ -2123,7 +2123,7 @@ Monoidal p =&gt;
 p () c -&gt; p a b -&gt; p a b
 </span><span class="hs-operator hs-var">&gt;*</span></span><span> </span><span class="annot"><span class="annottext">p () ()
 forall (p :: * -&gt; * -&gt; *).
-(RegGrammatical Char p, Lookahead p) =&gt;
+(RegGrammatical Char p, NotFollowedBy p) =&gt;
 p () ()
 </span><a href="Control.Lens.Grammar.Prec.html#precSpaced"><span class="hs-identifier hs-var">precSpaced</span></a></span><span> </span><span class="annot"><span class="annottext">p () () -&gt; p (g x) (g x) -&gt; p (g x) (g x)
 forall (p :: * -&gt; * -&gt; *) c a b.
@@ -2244,7 +2244,7 @@ Monoidal p =&gt;
 p () c -&gt; p a b -&gt; p a b
 </span><span class="hs-operator hs-var">&gt;*</span></span><span> </span><span class="annot"><span class="annottext">p () ()
 forall (p :: * -&gt; * -&gt; *).
-(RegGrammatical Char p, Lookahead p) =&gt;
+(RegGrammatical Char p, NotFollowedBy p) =&gt;
 p () ()
 </span><a href="Control.Lens.Grammar.Prec.html#precSpaced"><span class="hs-identifier hs-var">precSpaced</span></a></span><span> </span><span class="annot"><span class="annottext">p () () -&gt; p () () -&gt; p () ()
 forall (p :: * -&gt; * -&gt; *) c a b.
@@ -2252,7 +2252,7 @@ Monoidal p =&gt;
 p () c -&gt; p a b -&gt; p a b
 </span><span class="hs-operator hs-var">&gt;*</span></span><span> </span><span class="annot"><span class="annottext">[Char] -&gt; p () ()
 forall (p :: * -&gt; * -&gt; *).
-(RegGrammatical Char p, Lookahead p) =&gt;
+(RegGrammatical Char p, NotFollowedBy p) =&gt;
 [Char] -&gt; p () ()
 </span><a href="Control.Lens.Grammar.Prec.html#precSymbol"><span class="hs-identifier hs-var">precSymbol</span></a></span><span> </span><span class="annot"><span class="annottext">[Char]
 </span><span class="hs-string">&quot;=&quot;</span></span><span> </span><span class="annot"><span class="annottext">p () () -&gt; p () () -&gt; p () ()
@@ -2261,7 +2261,7 @@ Monoidal p =&gt;
 p () c -&gt; p a b -&gt; p a b
 </span><span class="hs-operator hs-var">&gt;*</span></span><span> </span><span class="annot"><span class="annottext">p () ()
 forall (p :: * -&gt; * -&gt; *).
-(RegGrammatical Char p, Lookahead p) =&gt;
+(RegGrammatical Char p, NotFollowedBy p) =&gt;
 p () ()
 </span><a href="Control.Lens.Grammar.Prec.html#precSpace"><span class="hs-identifier hs-var">precSpace</span></a></span><span> </span><span class="annot"><span class="annottext">p () () -&gt; p a a -&gt; p a a
 forall (p :: * -&gt; * -&gt; *) c a b.
@@ -2289,7 +2289,7 @@ forall (p :: * -&gt; * -&gt; *). PrecGrammatical p =&gt; p a a
 </span><span id="line-359"></span><span>    </span><span class="annot"><span class="annottext">FieldsStyle p
 </span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">p () ()
 forall (p :: * -&gt; * -&gt; *).
-(RegGrammatical Char p, Lookahead p) =&gt;
+(RegGrammatical Char p, NotFollowedBy p) =&gt;
 p () ()
 </span><a href="Control.Lens.Grammar.Prec.html#precSpace"><span class="hs-identifier hs-var">precSpace</span></a></span><span> </span><span class="annot"><span class="annottext">p () () -&gt; p a a -&gt; p a a
 forall (p :: * -&gt; * -&gt; *) c a b.
@@ -2339,7 +2339,7 @@ Monoidal p =&gt;
 p () c -&gt; p a b -&gt; p a b
 </span><span class="hs-operator hs-var">&gt;*</span></span><span> </span><span class="annot"><span class="annottext">p () ()
 forall (p :: * -&gt; * -&gt; *).
-(RegGrammatical Char p, Lookahead p) =&gt;
+(RegGrammatical Char p, NotFollowedBy p) =&gt;
 p () ()
 </span><a href="Control.Lens.Grammar.Prec.html#skipSpaces"><span class="hs-identifier hs-var">skipSpaces</span></a></span><span> </span><span class="annot"><span class="annottext">p () () -&gt; p () () -&gt; p () ()
 forall (p :: * -&gt; * -&gt; *) c a b.
@@ -2347,7 +2347,7 @@ Monoidal p =&gt;
 p () c -&gt; p a b -&gt; p a b
 </span><span class="hs-operator hs-var">&gt;*</span></span><span> </span><span class="annot"><span class="annottext">[Char] -&gt; p () ()
 forall (p :: * -&gt; * -&gt; *).
-(RegGrammatical Char p, Lookahead p) =&gt;
+(RegGrammatical Char p, NotFollowedBy p) =&gt;
 [Char] -&gt; p () ()
 </span><a href="Control.Lens.Grammar.Prec.html#precSymbol"><span class="hs-identifier hs-var">precSymbol</span></a></span><span> </span><span class="annot"><span class="annottext">[Char]
 </span><a href="#local-6989586621679396503"><span class="hs-identifier hs-var">name</span></a></span><span> </span><span class="annot"><span class="annottext">p () () -&gt; p () () -&gt; p () ()
@@ -2356,7 +2356,7 @@ Monoidal p =&gt;
 p a b -&gt; p () c -&gt; p a b
 </span><span class="hs-operator hs-var">*&lt;</span></span><span> </span><span class="annot"><span class="annottext">p () ()
 forall (p :: * -&gt; * -&gt; *).
-(RegGrammatical Char p, Lookahead p) =&gt;
+(RegGrammatical Char p, NotFollowedBy p) =&gt;
 p () ()
 </span><a href="Control.Lens.Grammar.Prec.html#skipSpaces"><span class="hs-identifier hs-var">skipSpaces</span></a></span><span> </span><span class="annot"><span class="annottext">p () () -&gt; p () () -&gt; p () ()
 forall (p :: * -&gt; * -&gt; *) a b c.
@@ -2369,7 +2369,7 @@ forall token s. TerminalSymbol token s =&gt; [token] -&gt; s
 </span><span id="line-369"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">Bool
 </span><span class="hs-identifier hs-var">otherwise</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[Char] -&gt; p () ()
 forall (p :: * -&gt; * -&gt; *).
-(RegGrammatical Char p, Lookahead p) =&gt;
+(RegGrammatical Char p, NotFollowedBy p) =&gt;
 [Char] -&gt; p () ()
 </span><a href="Control.Lens.Grammar.Prec.html#precIdent"><span class="hs-identifier hs-var">precIdent</span></a></span><span> </span><span class="annot"><span class="annottext">[Char]
 </span><a href="#local-6989586621679396503"><span class="hs-identifier hs-var">name</span></a></span><span>
@@ -2383,7 +2383,7 @@ forall (p :: * -&gt; * -&gt; *).
 </span><a href="Control.Lens.Grammar.Prec.html#precSymbolic"><span class="hs-identifier hs-var">precSymbolic</span></a></span><span> </span><span class="annot"><span class="annottext">[Char]
 </span><a href="#local-6989586621679396544"><span class="hs-identifier hs-var">name</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">p () ()
 forall (p :: * -&gt; * -&gt; *).
-(RegGrammatical Char p, Lookahead p) =&gt;
+(RegGrammatical Char p, NotFollowedBy p) =&gt;
 p () ()
 </span><a href="Control.Lens.Grammar.Prec.html#precSpaced"><span class="hs-identifier hs-var">precSpaced</span></a></span><span> </span><span class="annot"><span class="annottext">p () () -&gt; p () () -&gt; p () ()
 forall (p :: * -&gt; * -&gt; *) c a b.
@@ -2391,7 +2391,7 @@ Monoidal p =&gt;
 p () c -&gt; p a b -&gt; p a b
 </span><span class="hs-operator hs-var">&gt;*</span></span><span> </span><span class="annot"><span class="annottext">[Char] -&gt; p () ()
 forall (p :: * -&gt; * -&gt; *).
-(RegGrammatical Char p, Lookahead p) =&gt;
+(RegGrammatical Char p, NotFollowedBy p) =&gt;
 [Char] -&gt; p () ()
 </span><a href="Control.Lens.Grammar.Prec.html#precSymbol"><span class="hs-identifier hs-var">precSymbol</span></a></span><span> </span><span class="annot"><span class="annottext">[Char]
 </span><a href="#local-6989586621679396544"><span class="hs-identifier hs-var">name</span></a></span><span> </span><span class="annot"><span class="annottext">p () () -&gt; p () () -&gt; p () ()
@@ -2400,13 +2400,13 @@ Monoidal p =&gt;
 p () c -&gt; p a b -&gt; p a b
 </span><span class="hs-operator hs-var">&gt;*</span></span><span> </span><span class="annot"><span class="annottext">p () ()
 forall (p :: * -&gt; * -&gt; *).
-(RegGrammatical Char p, Lookahead p) =&gt;
+(RegGrammatical Char p, NotFollowedBy p) =&gt;
 p () ()
 </span><a href="Control.Lens.Grammar.Prec.html#precSpace"><span class="hs-identifier hs-var">precSpace</span></a></span><span>
 </span><span id="line-375"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">Bool
 </span><span class="hs-identifier hs-var">otherwise</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">p () ()
 forall (p :: * -&gt; * -&gt; *).
-(RegGrammatical Char p, Lookahead p) =&gt;
+(RegGrammatical Char p, NotFollowedBy p) =&gt;
 p () ()
 </span><a href="Control.Lens.Grammar.Prec.html#precSpaced"><span class="hs-identifier hs-var">precSpaced</span></a></span><span> </span><span class="annot"><span class="annottext">p () () -&gt; p () () -&gt; p () ()
 forall (p :: * -&gt; * -&gt; *) c a b.
@@ -2421,7 +2421,7 @@ Monoidal p =&gt;
 p () c -&gt; p a b -&gt; p a b
 </span><span class="hs-operator hs-var">&gt;*</span></span><span> </span><span class="annot"><span class="annottext">p () ()
 forall (p :: * -&gt; * -&gt; *).
-(RegGrammatical Char p, Lookahead p) =&gt;
+(RegGrammatical Char p, NotFollowedBy p) =&gt;
 p () ()
 </span><a href="Control.Lens.Grammar.Prec.html#skipSpaces"><span class="hs-identifier hs-var">skipSpaces</span></a></span><span> </span><span class="annot"><span class="annottext">p () () -&gt; p () () -&gt; p () ()
 forall (p :: * -&gt; * -&gt; *) c a b.
@@ -2429,7 +2429,7 @@ Monoidal p =&gt;
 p () c -&gt; p a b -&gt; p a b
 </span><span class="hs-operator hs-var">&gt;*</span></span><span> </span><span class="annot"><span class="annottext">[Char] -&gt; p () ()
 forall (p :: * -&gt; * -&gt; *).
-(RegGrammatical Char p, Lookahead p) =&gt;
+(RegGrammatical Char p, NotFollowedBy p) =&gt;
 [Char] -&gt; p () ()
 </span><a href="Control.Lens.Grammar.Prec.html#precIdent"><span class="hs-identifier hs-var">precIdent</span></a></span><span> </span><span class="annot"><span class="annottext">[Char]
 </span><a href="#local-6989586621679396544"><span class="hs-identifier hs-var">name</span></a></span><span>
@@ -2439,7 +2439,7 @@ Monoidal p =&gt;
 p a b -&gt; p () c -&gt; p a b
 </span><span class="hs-operator hs-var">*&lt;</span></span><span> </span><span class="annot"><span class="annottext">p () ()
 forall (p :: * -&gt; * -&gt; *).
-(RegGrammatical Char p, Lookahead p) =&gt;
+(RegGrammatical Char p, NotFollowedBy p) =&gt;
 p () ()
 </span><a href="Control.Lens.Grammar.Prec.html#skipSpaces"><span class="hs-identifier hs-var">skipSpaces</span></a></span><span> </span><span class="annot"><span class="annottext">p () () -&gt; p () () -&gt; p () ()
 forall (p :: * -&gt; * -&gt; *) a b c.
@@ -2454,7 +2454,7 @@ Monoidal p =&gt;
 p () c -&gt; p a b -&gt; p a b
 </span><span class="hs-operator hs-var">&gt;*</span></span><span> </span><span class="annot"><span class="annottext">p () ()
 forall (p :: * -&gt; * -&gt; *).
-(RegGrammatical Char p, Lookahead p) =&gt;
+(RegGrammatical Char p, NotFollowedBy p) =&gt;
 p () ()
 </span><a href="Control.Lens.Grammar.Prec.html#precSpace"><span class="hs-identifier hs-var">precSpace</span></a></span><span>
 </span><span id="line-377"></span><span>
@@ -2480,7 +2480,7 @@ forall token p. TokenAlgebra token p =&gt; TokenClass token -&gt; p
 forall (p :: * -&gt; * -&gt; *) a b. PrecGrammatical p =&gt; p a b -&gt; p a b
 </span><a href="Control.Lens.Grammar.Prec.html#precParens"><span class="hs-identifier hs-var">precParens</span></a></span><span> </span><span class="annot"><span class="annottext">p Natural Natural
 forall (p :: * -&gt; * -&gt; *).
-(RegGrammatical Char p, Lookahead p) =&gt;
+(RegGrammatical Char p, NotFollowedBy p) =&gt;
 p Natural Natural
 </span><a href="Control.Lens.Grammar.Prec.html#precNatural"><span class="hs-identifier hs-var">precNatural</span></a></span><span>
 </span><span id="line-383"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679396566"><span class="annot"><a href="Control.Lens.Grammar.Prec.html#PrecGrammar"><span class="hs-identifier hs-type">PrecGrammar</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Integer</span></span></span><span> </span><span class="hs-keyword">where</span><span>
@@ -2515,7 +2515,7 @@ Profunctor p =&gt;
 AnIso s t a b -&gt; p a b -&gt; p s t
 </span><span class="hs-operator hs-var">&gt;~</span></span><span> </span><span class="annot"><span class="annottext">Int -&gt; p Bool Bool
 forall (p :: * -&gt; * -&gt; *).
-(RegGrammatical Char p, Lookahead p) =&gt;
+(RegGrammatical Char p, NotFollowedBy p) =&gt;
 Int -&gt; p Bool Bool
 </span><a href="Control.Lens.Grammar.Prec.html#precNegativeAt"><span class="hs-identifier hs-var">precNegativeAt</span></a></span><span> </span><span class="annot"><span class="annottext">Int
 </span><a href="#local-6989586621679396594"><span class="hs-identifier hs-var">d</span></a></span><span> </span><span class="annot"><span class="annottext">p Bool Bool
@@ -2525,7 +2525,7 @@ Monoidal p =&gt;
 p a b -&gt; p c d -&gt; p (a, c) (b, d)
 </span><span class="hs-operator hs-var">&gt;*&lt;</span></span><span> </span><span class="annot"><span class="annottext">p Integer Integer
 forall (p :: * -&gt; * -&gt; *).
-(RegGrammatical Char p, Lookahead p) =&gt;
+(RegGrammatical Char p, NotFollowedBy p) =&gt;
 p Integer Integer
 </span><a href="Control.Lens.Grammar.Prec.html#precMagnitude"><span class="hs-identifier hs-var">precMagnitude</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
 </span><span id="line-385"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679396600"><span class="annot"><a href="Control.Lens.Grammar.Prec.html#PrecGrammar"><span class="hs-identifier hs-type">PrecGrammar</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Double</span></span></span><span> </span><span class="hs-keyword">where</span><span> </span><span id="local-6989586621679396615"><span class="annot"><span class="annottext">precGrammar :: forall (p :: * -&gt; * -&gt; *). PrecGrammatical p =&gt; p Double Double
@@ -2538,7 +2538,7 @@ PrecGrammatical p =&gt;
 (Int -&gt; p a b) -&gt; p a b
 </span><a href="Control.Lens.Grammar.Prec.html#precWith"><span class="hs-identifier hs-var">precWith</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; p Double Double
 forall a (p :: * -&gt; * -&gt; *).
-(RealFloat a, RegGrammatical Char p, Lookahead p) =&gt;
+(RealFloat a, RegGrammatical Char p, NotFollowedBy p) =&gt;
 Int -&gt; p a a
 </span><a href="Control.Lens.Grammar.Prec.html#precFloating"><span class="hs-identifier hs-var">precFloating</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-386"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679396619"><span class="annot"><a href="Control.Lens.Grammar.Prec.html#PrecGrammar"><span class="hs-identifier hs-type">PrecGrammar</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Float</span></span></span><span> </span><span class="hs-keyword">where</span><span> </span><span id="local-6989586621679396634"><span class="annot"><span class="annottext">precGrammar :: forall (p :: * -&gt; * -&gt; *). PrecGrammatical p =&gt; p Float Float
@@ -2551,7 +2551,7 @@ PrecGrammatical p =&gt;
 (Int -&gt; p a b) -&gt; p a b
 </span><a href="Control.Lens.Grammar.Prec.html#precWith"><span class="hs-identifier hs-var">precWith</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; p Float Float
 forall a (p :: * -&gt; * -&gt; *).
-(RealFloat a, RegGrammatical Char p, Lookahead p) =&gt;
+(RealFloat a, RegGrammatical Char p, NotFollowedBy p) =&gt;
 Int -&gt; p a a
 </span><a href="Control.Lens.Grammar.Prec.html#precFloating"><span class="hs-identifier hs-var">precFloating</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-387"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679396637"><span class="annot"><a href="Control.Lens.Grammar.Prec.html#PrecGrammar"><span class="hs-identifier hs-type">PrecGrammar</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span></span><span> </span><span class="hs-keyword">where</span><span> </span><span id="local-6989586621679396646"><span class="annot"><span class="annottext">precGrammar :: forall (p :: * -&gt; * -&gt; *). PrecGrammatical p =&gt; p Int Int
@@ -2638,9 +2638,9 @@ p a a
 </span><a href="Control.Lens.Grammar.Prec.html#precGrammar"><span class="hs-identifier hs-var">precGrammar</span></a></span><span> </span><span class="hs-glyph">@</span><span class="annot"><span class="hs-identifier hs-type">Integer</span></span><span>
 </span><span id="line-401"></span><span>
 </span><span id="line-402"></span><span class="hs-comment">-- A minus, printing bare up to precedence 6, &amp; parsing bare at any.</span><span>
-</span><span id="line-403"></span><span id="local-6989586621679394798"><span class="annot"><a href="Control.Lens.Grammar.Prec.html#precNegativeAt"><span class="hs-identifier hs-type">precNegativeAt</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Grammar.BackusNaur.html#RegGrammatical"><span class="hs-identifier hs-type">RegGrammatical</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Char</span></span><span> </span><span class="annot"><a href="#local-6989586621679394798"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Prec.html#Lookahead"><span class="hs-identifier hs-type">Lookahead</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679394798"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679394798"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Bool</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Bool</span></span></span><span>
+</span><span id="line-403"></span><span id="local-6989586621679394798"><span class="annot"><a href="Control.Lens.Grammar.Prec.html#precNegativeAt"><span class="hs-identifier hs-type">precNegativeAt</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Grammar.BackusNaur.html#RegGrammatical"><span class="hs-identifier hs-type">RegGrammatical</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Char</span></span><span> </span><span class="annot"><a href="#local-6989586621679394798"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Prec.html#NotFollowedBy"><span class="hs-identifier hs-type">NotFollowedBy</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679394798"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679394798"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Bool</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Bool</span></span></span><span>
 </span><span id="line-404"></span><span id="precNegativeAt"><span class="annot"><span class="annottext">precNegativeAt :: forall (p :: * -&gt; * -&gt; *).
-(RegGrammatical Char p, Lookahead p) =&gt;
+(RegGrammatical Char p, NotFollowedBy p) =&gt;
 Int -&gt; p Bool Bool
 </span><a href="Control.Lens.Grammar.Prec.html#precNegativeAt"><span class="hs-identifier hs-var hs-var">precNegativeAt</span></a></span></span><span> </span><span id="local-6989586621679396808"><span class="annot"><span class="annottext">Int
 </span><a href="#local-6989586621679396808"><span class="hs-identifier hs-var">d</span></a></span></span><span>
@@ -2650,7 +2650,7 @@ forall a. Ord a =&gt; a -&gt; a -&gt; Bool
 </span><span class="hs-operator hs-var">&lt;=</span></span><span> </span><span class="annot"><span class="annottext">Int
 </span><span class="hs-number">6</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">p Bool Bool
 forall (p :: * -&gt; * -&gt; *).
-(RegGrammatical Char p, Lookahead p) =&gt;
+(RegGrammatical Char p, NotFollowedBy p) =&gt;
 p Bool Bool
 </span><a href="Control.Lens.Grammar.Prec.html#precNegative"><span class="hs-identifier hs-var">precNegative</span></a></span><span>
 </span><span id="line-406"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">Bool
@@ -2699,7 +2699,7 @@ Monoidal p =&gt;
 p () c -&gt; p a b -&gt; p a b
 </span><span class="hs-operator hs-var">&gt;*</span></span><span> </span><span class="annot"><span class="annottext">p () ()
 forall (p :: * -&gt; * -&gt; *).
-(RegGrammatical Char p, Lookahead p) =&gt;
+(RegGrammatical Char p, NotFollowedBy p) =&gt;
 p () ()
 </span><a href="Control.Lens.Grammar.Prec.html#skipSpaces"><span class="hs-identifier hs-var">skipSpaces</span></a></span><span> </span><span class="hs-special">]</span><span>
 </span><span id="line-409"></span><span>
@@ -2745,9 +2745,9 @@ forall token s. TerminalSymbol token s =&gt; [token] -&gt; s
 </span><a href="#local-6989586621679396834"><span class="hs-identifier hs-var">parsed</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-417"></span><span>
 </span><span id="line-418"></span><span class="hs-comment">-- A minus, a lexeme of its own, as whether a number is negative.</span><span>
-</span><span id="line-419"></span><span id="local-6989586621679394833"><span class="annot"><a href="Control.Lens.Grammar.Prec.html#precNegative"><span class="hs-identifier hs-type">precNegative</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Grammar.BackusNaur.html#RegGrammatical"><span class="hs-identifier hs-type">RegGrammatical</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Char</span></span><span> </span><span class="annot"><a href="#local-6989586621679394833"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Prec.html#Lookahead"><span class="hs-identifier hs-type">Lookahead</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679394833"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679394833"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Bool</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Bool</span></span></span><span>
+</span><span id="line-419"></span><span id="local-6989586621679394833"><span class="annot"><a href="Control.Lens.Grammar.Prec.html#precNegative"><span class="hs-identifier hs-type">precNegative</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Grammar.BackusNaur.html#RegGrammatical"><span class="hs-identifier hs-type">RegGrammatical</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Char</span></span><span> </span><span class="annot"><a href="#local-6989586621679394833"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Prec.html#NotFollowedBy"><span class="hs-identifier hs-type">NotFollowedBy</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679394833"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679394833"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Bool</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Bool</span></span></span><span>
 </span><span id="line-420"></span><span id="precNegative"><span class="annot"><span class="annottext">precNegative :: forall (p :: * -&gt; * -&gt; *).
-(RegGrammatical Char p, Lookahead p) =&gt;
+(RegGrammatical Char p, NotFollowedBy p) =&gt;
 p Bool Bool
 </span><a href="Control.Lens.Grammar.Prec.html#precNegative"><span class="hs-identifier hs-var hs-var">precNegative</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(Bool -&gt; Maybe ())
 -&gt; (Maybe () -&gt; Bool) -&gt; Iso Bool Bool (Maybe ()) (Maybe ())
@@ -2781,7 +2781,7 @@ Monoidal p =&gt;
 p () c -&gt; p a b -&gt; p a b
 </span><span class="hs-operator hs-var">&gt;*</span></span><span> </span><span class="annot"><span class="annottext">p () ()
 forall (p :: * -&gt; * -&gt; *).
-(RegGrammatical Char p, Lookahead p) =&gt;
+(RegGrammatical Char p, NotFollowedBy p) =&gt;
 p () ()
 </span><a href="Control.Lens.Grammar.Prec.html#skipSpaces"><span class="hs-identifier hs-var">skipSpaces</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-422"></span><span>
@@ -2935,9 +2935,9 @@ forall (f :: * -&gt; *). Foldable f =&gt; f Char -&gt; TokenClass Char
 </span><span class="hs-string">&quot;_&quot;</span></span><span> </span><span class="hs-special">]</span><span>
 </span><span id="line-446"></span><span>
 </span><span id="line-447"></span><span class="hs-comment">-- An identifier, &amp; a symbol, munched maximally.</span><span>
-</span><span id="line-448"></span><span id="local-6989586621679394782"><span class="annot"><a href="Control.Lens.Grammar.Prec.html#precIdent"><span class="hs-identifier hs-type">precIdent</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Prec.html#precSymbol"><span class="hs-identifier hs-type">precSymbol</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Grammar.BackusNaur.html#RegGrammatical"><span class="hs-identifier hs-type">RegGrammatical</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Char</span></span><span> </span><span class="annot"><a href="#local-6989586621679394782"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Prec.html#Lookahead"><span class="hs-identifier hs-type">Lookahead</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679394782"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">String</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679394782"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span><span>
+</span><span id="line-448"></span><span id="local-6989586621679394782"><span class="annot"><a href="Control.Lens.Grammar.Prec.html#precIdent"><span class="hs-identifier hs-type">precIdent</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Prec.html#precSymbol"><span class="hs-identifier hs-type">precSymbol</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Grammar.BackusNaur.html#RegGrammatical"><span class="hs-identifier hs-type">RegGrammatical</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Char</span></span><span> </span><span class="annot"><a href="#local-6989586621679394782"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Prec.html#NotFollowedBy"><span class="hs-identifier hs-type">NotFollowedBy</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679394782"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">String</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679394782"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span><span>
 </span><span id="line-449"></span><span id="precIdent"><span class="annot"><span class="annottext">precIdent :: forall (p :: * -&gt; * -&gt; *).
-(RegGrammatical Char p, Lookahead p) =&gt;
+(RegGrammatical Char p, NotFollowedBy p) =&gt;
 [Char] -&gt; p () ()
 </span><a href="Control.Lens.Grammar.Prec.html#precIdent"><span class="hs-identifier hs-var hs-var">precIdent</span></a></span></span><span> </span><span id="local-6989586621679396901"><span class="annot"><span class="annottext">[Char]
 </span><a href="#local-6989586621679396901"><span class="hs-identifier hs-var">name</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[Char] -&gt; p () ()
@@ -2948,13 +2948,13 @@ forall (p :: * -&gt; * -&gt; *) a b c.
 Monoidal p =&gt;
 p a b -&gt; p () c -&gt; p a b
 </span><span class="hs-operator hs-var">*&lt;</span></span><span> </span><span class="annot"><span class="annottext">RegEx Char -&gt; p () ()
-forall (p :: * -&gt; * -&gt; *). Lookahead p =&gt; RegEx Char -&gt; p () ()
+forall (p :: * -&gt; * -&gt; *). NotFollowedBy p =&gt; RegEx Char -&gt; p () ()
 </span><a href="Control.Lens.Grammar.Prec.html#notFollowedBy"><span class="hs-identifier hs-var">notFollowedBy</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">TokenClass Char -&gt; RegEx Char
 forall token p. TokenAlgebra token p =&gt; TokenClass token -&gt; p
 </span><a href="Control.Lens.Grammar.Token.html#tokenClass"><span class="hs-identifier hs-var">tokenClass</span></a></span><span> </span><span class="annot"><span class="annottext">TokenClass Char
 </span><a href="Control.Lens.Grammar.Prec.html#precIdfClass"><span class="hs-identifier hs-var">precIdfClass</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-450"></span><span id="precSymbol"><span class="annot"><span class="annottext">precSymbol :: forall (p :: * -&gt; * -&gt; *).
-(RegGrammatical Char p, Lookahead p) =&gt;
+(RegGrammatical Char p, NotFollowedBy p) =&gt;
 [Char] -&gt; p () ()
 </span><a href="Control.Lens.Grammar.Prec.html#precSymbol"><span class="hs-identifier hs-var hs-var">precSymbol</span></a></span></span><span> </span><span id="local-6989586621679396914"><span class="annot"><span class="annottext">[Char]
 </span><a href="#local-6989586621679396914"><span class="hs-identifier hs-var">name</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[Char] -&gt; p () ()
@@ -2965,7 +2965,7 @@ forall (p :: * -&gt; * -&gt; *) a b c.
 Monoidal p =&gt;
 p a b -&gt; p () c -&gt; p a b
 </span><span class="hs-operator hs-var">*&lt;</span></span><span> </span><span class="annot"><span class="annottext">RegEx Char -&gt; p () ()
-forall (p :: * -&gt; * -&gt; *). Lookahead p =&gt; RegEx Char -&gt; p () ()
+forall (p :: * -&gt; * -&gt; *). NotFollowedBy p =&gt; RegEx Char -&gt; p () ()
 </span><a href="Control.Lens.Grammar.Prec.html#notFollowedBy"><span class="hs-identifier hs-var">notFollowedBy</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">TokenClass Char -&gt; RegEx Char
 forall token p. TokenAlgebra token p =&gt; TokenClass token -&gt; p
 </span><a href="Control.Lens.Grammar.Token.html#tokenClass"><span class="hs-identifier hs-var">tokenClass</span></a></span><span> </span><span class="annot"><span class="annottext">TokenClass Char
@@ -2974,9 +2974,9 @@ forall token p. TokenAlgebra token p =&gt; TokenClass token -&gt; p
 </span><span id="line-452"></span><span class="hs-comment">-- A space, where `show` separates lexemes, printing one, &amp; parsing one</span><span>
 </span><span id="line-453"></span><span class="hs-comment">-- whitespace character, or none where none follows, the rest of it</span><span>
 </span><span id="line-454"></span><span class="hs-comment">-- skipped before the next lexeme.</span><span>
-</span><span id="line-455"></span><span id="local-6989586621679396915"><span class="annot"><a href="Control.Lens.Grammar.Prec.html#precSpace"><span class="hs-identifier hs-type">precSpace</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Grammar.BackusNaur.html#RegGrammatical"><span class="hs-identifier hs-type">RegGrammatical</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Char</span></span><span> </span><span class="annot"><a href="#local-6989586621679396915"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Prec.html#Lookahead"><span class="hs-identifier hs-type">Lookahead</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679396915"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679396915"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span><span>
+</span><span id="line-455"></span><span id="local-6989586621679396915"><span class="annot"><a href="Control.Lens.Grammar.Prec.html#precSpace"><span class="hs-identifier hs-type">precSpace</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Grammar.BackusNaur.html#RegGrammatical"><span class="hs-identifier hs-type">RegGrammatical</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Char</span></span><span> </span><span class="annot"><a href="#local-6989586621679396915"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Prec.html#NotFollowedBy"><span class="hs-identifier hs-type">NotFollowedBy</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679396915"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679396915"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span><span>
 </span><span id="line-456"></span><span id="precSpace"><span class="annot"><span class="annottext">precSpace :: forall (p :: * -&gt; * -&gt; *).
-(RegGrammatical Char p, Lookahead p) =&gt;
+(RegGrammatical Char p, NotFollowedBy p) =&gt;
 p () ()
 </span><a href="Control.Lens.Grammar.Prec.html#precSpace"><span class="hs-identifier hs-var hs-var">precSpace</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[p () ()] -&gt; p () ()
 forall (f :: * -&gt; *) a.
@@ -3020,20 +3020,20 @@ forall (p :: * -&gt; * -&gt; *) s t a b.
 Choice p =&gt;
 APrism s t a b -&gt; p a b -&gt; p s t
 </span><span class="hs-operator hs-var">&gt;?</span></span><span> </span><span class="annot"><span class="annottext">RegEx Char -&gt; p () ()
-forall (p :: * -&gt; * -&gt; *). Lookahead p =&gt; RegEx Char -&gt; p () ()
+forall (p :: * -&gt; * -&gt; *). NotFollowedBy p =&gt; RegEx Char -&gt; p () ()
 </span><a href="Control.Lens.Grammar.Prec.html#notFollowedBy"><span class="hs-identifier hs-var">notFollowedBy</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">TokenClass Char -&gt; RegEx Char
 forall token p. TokenAlgebra token p =&gt; TokenClass token -&gt; p
 </span><a href="Control.Lens.Grammar.Token.html#tokenClass"><span class="hs-identifier hs-var">tokenClass</span></a></span><span> </span><span class="annot"><span class="annottext">TokenClass Char
 </span><a href="Control.Lens.Grammar.Prec.html#precSpaceClass"><span class="hs-identifier hs-var">precSpaceClass</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">]</span><span>
 </span><span id="line-460"></span><span>
 </span><span id="line-461"></span><span class="hs-comment">-- A space, printing one, &amp; parsing any whitespace.</span><span>
-</span><span id="line-462"></span><span id="local-6989586621679396940"><span class="annot"><a href="Control.Lens.Grammar.Prec.html#precSpaced"><span class="hs-identifier hs-type">precSpaced</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Grammar.BackusNaur.html#RegGrammatical"><span class="hs-identifier hs-type">RegGrammatical</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Char</span></span><span> </span><span class="annot"><a href="#local-6989586621679396940"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Prec.html#Lookahead"><span class="hs-identifier hs-type">Lookahead</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679396940"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679396940"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span><span>
+</span><span id="line-462"></span><span id="local-6989586621679396940"><span class="annot"><a href="Control.Lens.Grammar.Prec.html#precSpaced"><span class="hs-identifier hs-type">precSpaced</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Grammar.BackusNaur.html#RegGrammatical"><span class="hs-identifier hs-type">RegGrammatical</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Char</span></span><span> </span><span class="annot"><a href="#local-6989586621679396940"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Prec.html#NotFollowedBy"><span class="hs-identifier hs-type">NotFollowedBy</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679396940"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679396940"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span><span>
 </span><span id="line-463"></span><span id="precSpaced"><span class="annot"><span class="annottext">precSpaced :: forall (p :: * -&gt; * -&gt; *).
-(RegGrammatical Char p, Lookahead p) =&gt;
+(RegGrammatical Char p, NotFollowedBy p) =&gt;
 p () ()
 </span><a href="Control.Lens.Grammar.Prec.html#precSpaced"><span class="hs-identifier hs-var hs-var">precSpaced</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">p () ()
 forall (p :: * -&gt; * -&gt; *).
-(RegGrammatical Char p, Lookahead p) =&gt;
+(RegGrammatical Char p, NotFollowedBy p) =&gt;
 p () ()
 </span><a href="Control.Lens.Grammar.Prec.html#precSpace"><span class="hs-identifier hs-var">precSpace</span></a></span><span> </span><span class="annot"><span class="annottext">p () () -&gt; p () () -&gt; p () ()
 forall (p :: * -&gt; * -&gt; *) c a b.
@@ -3041,7 +3041,7 @@ Monoidal p =&gt;
 p () c -&gt; p a b -&gt; p a b
 </span><span class="hs-operator hs-var">&gt;*</span></span><span> </span><span class="annot"><span class="annottext">p () ()
 forall (p :: * -&gt; * -&gt; *).
-(RegGrammatical Char p, Lookahead p) =&gt;
+(RegGrammatical Char p, NotFollowedBy p) =&gt;
 p () ()
 </span><a href="Control.Lens.Grammar.Prec.html#skipSpaces"><span class="hs-identifier hs-var">skipSpaces</span></a></span><span>
 </span><span id="line-464"></span><span>
@@ -3072,9 +3072,9 @@ forall a. Num a =&gt; a -&gt; a
 </span><span id="line-471"></span><span class="hs-comment">-- A number's lexeme without a fraction or exponent: decimal, printed,</span><span>
 </span><span id="line-472"></span><span class="hs-comment">-- or binary, octal or hexadecimal, after @0b@, @0o@ or @0x@, in either</span><span>
 </span><span id="line-473"></span><span class="hs-comment">-- case, parsed &amp; tried first, as `read`'s lexer does.</span><span>
-</span><span id="line-474"></span><span id="local-6989586621679394799"><span class="annot"><a href="Control.Lens.Grammar.Prec.html#precMagnitude"><span class="hs-identifier hs-type">precMagnitude</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Grammar.BackusNaur.html#RegGrammatical"><span class="hs-identifier hs-type">RegGrammatical</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Char</span></span><span> </span><span class="annot"><a href="#local-6989586621679394799"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Prec.html#Lookahead"><span class="hs-identifier hs-type">Lookahead</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679394799"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679394799"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Integer</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Integer</span></span></span><span>
+</span><span id="line-474"></span><span id="local-6989586621679394799"><span class="annot"><a href="Control.Lens.Grammar.Prec.html#precMagnitude"><span class="hs-identifier hs-type">precMagnitude</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Grammar.BackusNaur.html#RegGrammatical"><span class="hs-identifier hs-type">RegGrammatical</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Char</span></span><span> </span><span class="annot"><a href="#local-6989586621679394799"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Prec.html#NotFollowedBy"><span class="hs-identifier hs-type">NotFollowedBy</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679394799"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679394799"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Integer</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Integer</span></span></span><span>
 </span><span id="line-475"></span><span id="precMagnitude"><span class="annot"><span class="annottext">precMagnitude :: forall (p :: * -&gt; * -&gt; *).
-(RegGrammatical Char p, Lookahead p) =&gt;
+(RegGrammatical Char p, NotFollowedBy p) =&gt;
 p Integer Integer
 </span><a href="Control.Lens.Grammar.Prec.html#precMagnitude"><span class="hs-identifier hs-var hs-var">precMagnitude</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Market Integer Integer Integer (Identity Integer)
 -&gt; Market Integer Integer Integer (Identity Integer)
@@ -3098,7 +3098,7 @@ Monoidal p =&gt;
 p () c -&gt; p a b -&gt; p a b
 </span><span class="hs-operator hs-var">&gt;*</span></span><span> </span><span class="annot"><span class="annottext">p Integer Integer
 forall (p :: * -&gt; * -&gt; *).
-(RegGrammatical Char p, Lookahead p) =&gt;
+(RegGrammatical Char p, NotFollowedBy p) =&gt;
 p Integer Integer
 </span><a href="Control.Lens.Grammar.Prec.html#precBased"><span class="hs-identifier hs-var">precBased</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
 </span><span id="line-476"></span><span>  </span><span class="annot"><span class="annottext">p Integer Integer -&gt; p Integer Integer -&gt; p Integer Integer
@@ -3114,17 +3114,17 @@ Monoidal p =&gt;
 p a b -&gt; p () c -&gt; p a b
 </span><span class="hs-operator hs-var">*&lt;</span></span><span> </span><span class="annot"><span class="annottext">p () ()
 forall (p :: * -&gt; * -&gt; *).
-(RegGrammatical Char p, Lookahead p) =&gt;
+(RegGrammatical Char p, NotFollowedBy p) =&gt;
 p () ()
 </span><a href="Control.Lens.Grammar.Prec.html#precDecimalEnd"><span class="hs-identifier hs-var">precDecimalEnd</span></a></span><span>
 </span><span id="line-477"></span><span>
 </span><span id="line-478"></span><span class="hs-comment">-- Where a decimal integer ends: not before a fraction, nor an exponent.</span><span>
-</span><span id="line-479"></span><span id="local-6989586621679397002"><span class="annot"><a href="Control.Lens.Grammar.Prec.html#precDecimalEnd"><span class="hs-identifier hs-type">precDecimalEnd</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Grammar.BackusNaur.html#RegGrammatical"><span class="hs-identifier hs-type">RegGrammatical</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Char</span></span><span> </span><span class="annot"><a href="#local-6989586621679397002"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Prec.html#Lookahead"><span class="hs-identifier hs-type">Lookahead</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679397002"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679397002"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span><span>
+</span><span id="line-479"></span><span id="local-6989586621679397002"><span class="annot"><a href="Control.Lens.Grammar.Prec.html#precDecimalEnd"><span class="hs-identifier hs-type">precDecimalEnd</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Grammar.BackusNaur.html#RegGrammatical"><span class="hs-identifier hs-type">RegGrammatical</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Char</span></span><span> </span><span class="annot"><a href="#local-6989586621679397002"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Prec.html#NotFollowedBy"><span class="hs-identifier hs-type">NotFollowedBy</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679397002"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679397002"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span><span>
 </span><span id="line-480"></span><span id="precDecimalEnd"><span class="annot"><span class="annottext">precDecimalEnd :: forall (p :: * -&gt; * -&gt; *).
-(RegGrammatical Char p, Lookahead p) =&gt;
+(RegGrammatical Char p, NotFollowedBy p) =&gt;
 p () ()
 </span><a href="Control.Lens.Grammar.Prec.html#precDecimalEnd"><span class="hs-identifier hs-var hs-var">precDecimalEnd</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">RegEx Char -&gt; p () ()
-forall (p :: * -&gt; * -&gt; *). Lookahead p =&gt; RegEx Char -&gt; p () ()
+forall (p :: * -&gt; * -&gt; *). NotFollowedBy p =&gt; RegEx Char -&gt; p () ()
 </span><a href="Control.Lens.Grammar.Prec.html#notFollowedBy"><span class="hs-identifier hs-var">notFollowedBy</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">TokenClass Char -&gt; RegEx Char
 forall token p. TokenAlgebra token p =&gt; TokenClass token -&gt; p
 </span><a href="Control.Lens.Grammar.Token.html#tokenClass"><span class="hs-identifier hs-var">tokenClass</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int -&gt; TokenClass Char
@@ -3135,20 +3135,20 @@ forall (p :: * -&gt; * -&gt; *) a b c.
 Monoidal p =&gt;
 p a b -&gt; p () c -&gt; p a b
 </span><span class="hs-operator hs-var">*&lt;</span></span><span> </span><span class="annot"><span class="annottext">p () ()
-forall (p :: * -&gt; * -&gt; *). Lookahead p =&gt; p () ()
+forall (p :: * -&gt; * -&gt; *). NotFollowedBy p =&gt; p () ()
 </span><a href="Control.Lens.Grammar.Prec.html#precNotFraction"><span class="hs-identifier hs-var">precNotFraction</span></a></span><span> </span><span class="annot"><span class="annottext">p () () -&gt; p () () -&gt; p () ()
 forall (p :: * -&gt; * -&gt; *) a b c.
 Monoidal p =&gt;
 p a b -&gt; p () c -&gt; p a b
 </span><span class="hs-operator hs-var">*&lt;</span></span><span> </span><span class="annot"><span class="annottext">p () ()
-forall (p :: * -&gt; * -&gt; *). Lookahead p =&gt; p () ()
+forall (p :: * -&gt; * -&gt; *). NotFollowedBy p =&gt; p () ()
 </span><a href="Control.Lens.Grammar.Prec.html#precNotExponent"><span class="hs-identifier hs-var">precNotExponent</span></a></span><span>
 </span><span id="line-482"></span><span>
 </span><span id="line-483"></span><span class="hs-comment">-- Not before a fraction.</span><span>
-</span><span id="line-484"></span><span id="local-6989586621679397017"><span class="annot"><a href="Control.Lens.Grammar.Prec.html#precNotFraction"><span class="hs-identifier hs-type">precNotFraction</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Prec.html#Lookahead"><span class="hs-identifier hs-type">Lookahead</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679397017"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679397017"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span><span>
-</span><span id="line-485"></span><span id="precNotFraction"><span class="annot"><span class="annottext">precNotFraction :: forall (p :: * -&gt; * -&gt; *). Lookahead p =&gt; p () ()
+</span><span id="line-484"></span><span id="local-6989586621679397017"><span class="annot"><a href="Control.Lens.Grammar.Prec.html#precNotFraction"><span class="hs-identifier hs-type">precNotFraction</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Prec.html#NotFollowedBy"><span class="hs-identifier hs-type">NotFollowedBy</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679397017"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679397017"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span><span>
+</span><span id="line-485"></span><span id="precNotFraction"><span class="annot"><span class="annottext">precNotFraction :: forall (p :: * -&gt; * -&gt; *). NotFollowedBy p =&gt; p () ()
 </span><a href="Control.Lens.Grammar.Prec.html#precNotFraction"><span class="hs-identifier hs-var hs-var">precNotFraction</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">RegEx Char -&gt; p () ()
-forall (p :: * -&gt; * -&gt; *). Lookahead p =&gt; RegEx Char -&gt; p () ()
+forall (p :: * -&gt; * -&gt; *). NotFollowedBy p =&gt; RegEx Char -&gt; p () ()
 </span><a href="Control.Lens.Grammar.Prec.html#notFollowedBy"><span class="hs-identifier hs-var">notFollowedBy</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">[Char] -&gt; RegEx Char
 forall token s. TerminalSymbol token s =&gt; [token] -&gt; s
 </span><a href="Control.Lens.Grammar.Symbol.html#terminal"><span class="hs-identifier hs-var">terminal</span></a></span><span> </span><span class="annot"><span class="annottext">[Char]
@@ -3161,10 +3161,10 @@ forall token p. TokenAlgebra token p =&gt; TokenClass token -&gt; p
 </span><span class="hs-number">10</span></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
 </span><span id="line-486"></span><span>
 </span><span id="line-487"></span><span class="hs-comment">-- Not before an exponent.</span><span>
-</span><span id="line-488"></span><span id="local-6989586621679397026"><span class="annot"><a href="Control.Lens.Grammar.Prec.html#precNotExponent"><span class="hs-identifier hs-type">precNotExponent</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Prec.html#Lookahead"><span class="hs-identifier hs-type">Lookahead</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679397026"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679397026"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span><span>
-</span><span id="line-489"></span><span id="precNotExponent"><span class="annot"><span class="annottext">precNotExponent :: forall (p :: * -&gt; * -&gt; *). Lookahead p =&gt; p () ()
+</span><span id="line-488"></span><span id="local-6989586621679397026"><span class="annot"><a href="Control.Lens.Grammar.Prec.html#precNotExponent"><span class="hs-identifier hs-type">precNotExponent</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Prec.html#NotFollowedBy"><span class="hs-identifier hs-type">NotFollowedBy</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679397026"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679397026"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span><span>
+</span><span id="line-489"></span><span id="precNotExponent"><span class="annot"><span class="annottext">precNotExponent :: forall (p :: * -&gt; * -&gt; *). NotFollowedBy p =&gt; p () ()
 </span><a href="Control.Lens.Grammar.Prec.html#precNotExponent"><span class="hs-identifier hs-var hs-var">precNotExponent</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">RegEx Char -&gt; p () ()
-forall (p :: * -&gt; * -&gt; *). Lookahead p =&gt; RegEx Char -&gt; p () ()
+forall (p :: * -&gt; * -&gt; *). NotFollowedBy p =&gt; RegEx Char -&gt; p () ()
 </span><a href="Control.Lens.Grammar.Prec.html#notFollowedBy"><span class="hs-identifier hs-var">notFollowedBy</span></a></span><span>
 </span><span id="line-490"></span><span>  </span><span class="hs-special">(</span><span class="annot"><span class="annottext">[Char] -&gt; RegEx Char
 forall token p (f :: * -&gt; *).
@@ -3190,9 +3190,9 @@ forall token p. TokenAlgebra token p =&gt; TokenClass token -&gt; p
 </span><a href="Control.Lens.Grammar.Prec.html#precDigitClass"><span class="hs-identifier hs-var">precDigitClass</span></a></span><span> </span><span class="annot"><span class="annottext">Int
 </span><span class="hs-number">10</span></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
 </span><span id="line-491"></span><span>
-</span><span id="line-492"></span><span class="annot"><a href="Control.Lens.Grammar.Prec.html#precBased"><span class="hs-identifier hs-type">precBased</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-keyword">forall</span><span> </span><span id="local-6989586621679397040"><span class="annot"><a href="#local-6989586621679397040"><span class="hs-identifier hs-type">p</span></a></span></span><span class="hs-operator">.</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Grammar.BackusNaur.html#RegGrammatical"><span class="hs-identifier hs-type">RegGrammatical</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Char</span></span><span> </span><span class="annot"><a href="#local-6989586621679397040"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Prec.html#Lookahead"><span class="hs-identifier hs-type">Lookahead</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679397040"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679397040"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Integer</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Integer</span></span><span>
+</span><span id="line-492"></span><span class="annot"><a href="Control.Lens.Grammar.Prec.html#precBased"><span class="hs-identifier hs-type">precBased</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-keyword">forall</span><span> </span><span id="local-6989586621679397040"><span class="annot"><a href="#local-6989586621679397040"><span class="hs-identifier hs-type">p</span></a></span></span><span class="hs-operator">.</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Grammar.BackusNaur.html#RegGrammatical"><span class="hs-identifier hs-type">RegGrammatical</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Char</span></span><span> </span><span class="annot"><a href="#local-6989586621679397040"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Prec.html#NotFollowedBy"><span class="hs-identifier hs-type">NotFollowedBy</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679397040"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679397040"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Integer</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Integer</span></span><span>
 </span><span id="line-493"></span><span id="precBased"><span class="annot"><span class="annottext">precBased :: forall (p :: * -&gt; * -&gt; *).
-(RegGrammatical Char p, Lookahead p) =&gt;
+(RegGrammatical Char p, NotFollowedBy p) =&gt;
 p Integer Integer
 </span><a href="Control.Lens.Grammar.Prec.html#precBased"><span class="hs-identifier hs-var hs-var">precBased</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[p Integer Integer] -&gt; p Integer Integer
 forall (f :: * -&gt; *) a.
@@ -3256,7 +3256,7 @@ forall (p :: * -&gt; * -&gt; *) a b c.
 Monoidal p =&gt;
 p a b -&gt; p () c -&gt; p a b
 </span><span class="hs-operator hs-var">*&lt;</span></span><span> </span><span class="annot"><span class="annottext">RegEx Char -&gt; p () ()
-forall (p :: * -&gt; * -&gt; *). Lookahead p =&gt; RegEx Char -&gt; p () ()
+forall (p :: * -&gt; * -&gt; *). NotFollowedBy p =&gt; RegEx Char -&gt; p () ()
 </span><a href="Control.Lens.Grammar.Prec.html#notFollowedBy"><span class="hs-identifier hs-var">notFollowedBy</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">TokenClass Char -&gt; RegEx Char
 forall token p. TokenAlgebra token p =&gt; TokenClass token -&gt; p
 </span><a href="Control.Lens.Grammar.Token.html#tokenClass"><span class="hs-identifier hs-var">tokenClass</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int -&gt; TokenClass Char
@@ -3265,9 +3265,9 @@ forall token p. TokenAlgebra token p =&gt; TokenClass token -&gt; p
 </span><span id="line-502"></span><span>
 </span><span id="line-503"></span><span class="hs-comment">-- Natural numbers, &amp; negative zero, as `read` reads integers &amp; keeps</span><span>
 </span><span id="line-504"></span><span class="hs-comment">-- those which aren't negative.</span><span>
-</span><span id="line-505"></span><span id="local-6989586621679394793"><span class="annot"><a href="Control.Lens.Grammar.Prec.html#precNatural"><span class="hs-identifier hs-type">precNatural</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Grammar.BackusNaur.html#RegGrammatical"><span class="hs-identifier hs-type">RegGrammatical</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Char</span></span><span> </span><span class="annot"><a href="#local-6989586621679394793"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Prec.html#Lookahead"><span class="hs-identifier hs-type">Lookahead</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679394793"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679394793"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Natural</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Natural</span></span></span><span>
+</span><span id="line-505"></span><span id="local-6989586621679394793"><span class="annot"><a href="Control.Lens.Grammar.Prec.html#precNatural"><span class="hs-identifier hs-type">precNatural</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Grammar.BackusNaur.html#RegGrammatical"><span class="hs-identifier hs-type">RegGrammatical</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Char</span></span><span> </span><span class="annot"><a href="#local-6989586621679394793"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Prec.html#NotFollowedBy"><span class="hs-identifier hs-type">NotFollowedBy</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679394793"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679394793"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Natural</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Natural</span></span></span><span>
 </span><span id="line-506"></span><span id="precNatural"><span class="annot"><span class="annottext">precNatural :: forall (p :: * -&gt; * -&gt; *).
-(RegGrammatical Char p, Lookahead p) =&gt;
+(RegGrammatical Char p, NotFollowedBy p) =&gt;
 p Natural Natural
 </span><a href="Control.Lens.Grammar.Prec.html#precNatural"><span class="hs-identifier hs-var hs-var">precNatural</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(Natural -&gt; Integer)
 -&gt; (Integer -&gt; Natural) -&gt; Iso Natural Natural Integer Integer
@@ -3284,7 +3284,7 @@ Profunctor p =&gt;
 AnIso s t a b -&gt; p a b -&gt; p s t
 </span><span class="hs-operator hs-var">&gt;~</span></span><span> </span><span class="annot"><span class="annottext">p Integer Integer
 forall (p :: * -&gt; * -&gt; *).
-(RegGrammatical Char p, Lookahead p) =&gt;
+(RegGrammatical Char p, NotFollowedBy p) =&gt;
 p Integer Integer
 </span><a href="Control.Lens.Grammar.Prec.html#precMagnitude"><span class="hs-identifier hs-var">precMagnitude</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-507"></span><span>  </span><span class="annot"><span class="annottext">p Natural Natural -&gt; p Natural Natural -&gt; p Natural Natural
@@ -3319,7 +3319,7 @@ Monoidal p =&gt;
 p () c -&gt; p a b -&gt; p a b
 </span><span class="hs-operator hs-var">&gt;*</span></span><span> </span><span class="annot"><span class="annottext">p () ()
 forall (p :: * -&gt; * -&gt; *).
-(RegGrammatical Char p, Lookahead p) =&gt;
+(RegGrammatical Char p, NotFollowedBy p) =&gt;
 p () ()
 </span><a href="Control.Lens.Grammar.Prec.html#skipSpaces"><span class="hs-identifier hs-var">skipSpaces</span></a></span><span> </span><span class="annot"><span class="annottext">p () () -&gt; p () () -&gt; p () ()
 forall (p :: * -&gt; * -&gt; *) c a b.
@@ -3348,7 +3348,7 @@ Monoidal p =&gt;
 p a b -&gt; p () c -&gt; p a b
 </span><span class="hs-operator hs-var">*&lt;</span></span><span> </span><span class="annot"><span class="annottext">p () ()
 forall (p :: * -&gt; * -&gt; *).
-(RegGrammatical Char p, Lookahead p) =&gt;
+(RegGrammatical Char p, NotFollowedBy p) =&gt;
 p () ()
 </span><a href="Control.Lens.Grammar.Prec.html#precDecimalEnd"><span class="hs-identifier hs-var">precDecimalEnd</span></a></span><span>
 </span><span id="line-511"></span><span>      </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">[p () ()] -&gt; p () ()
@@ -3379,7 +3379,7 @@ forall (p :: * -&gt; * -&gt; *) a b c.
 Monoidal p =&gt;
 p a b -&gt; p () c -&gt; p a b
 </span><span class="hs-operator hs-var">*&lt;</span></span><span> </span><span class="annot"><span class="annottext">RegEx Char -&gt; p () ()
-forall (p :: * -&gt; * -&gt; *). Lookahead p =&gt; RegEx Char -&gt; p () ()
+forall (p :: * -&gt; * -&gt; *). NotFollowedBy p =&gt; RegEx Char -&gt; p () ()
 </span><a href="Control.Lens.Grammar.Prec.html#notFollowedBy"><span class="hs-identifier hs-var">notFollowedBy</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">TokenClass Char -&gt; RegEx Char
 forall token p. TokenAlgebra token p =&gt; TokenClass token -&gt; p
 </span><a href="Control.Lens.Grammar.Token.html#tokenClass"><span class="hs-identifier hs-var">tokenClass</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int -&gt; TokenClass Char
@@ -3413,7 +3413,7 @@ forall (p :: * -&gt; * -&gt; *) a b c.
 Monoidal p =&gt;
 p a b -&gt; p () c -&gt; p a b
 </span><span class="hs-operator hs-var">*&lt;</span></span><span> </span><span class="annot"><span class="annottext">RegEx Char -&gt; p () ()
-forall (p :: * -&gt; * -&gt; *). Lookahead p =&gt; RegEx Char -&gt; p () ()
+forall (p :: * -&gt; * -&gt; *). NotFollowedBy p =&gt; RegEx Char -&gt; p () ()
 </span><a href="Control.Lens.Grammar.Prec.html#notFollowedBy"><span class="hs-identifier hs-var">notFollowedBy</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">TokenClass Char -&gt; RegEx Char
 forall token p. TokenAlgebra token p =&gt; TokenClass token -&gt; p
 </span><a href="Control.Lens.Grammar.Token.html#tokenClass"><span class="hs-identifier hs-var">tokenClass</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int -&gt; TokenClass Char
@@ -3447,7 +3447,7 @@ forall (p :: * -&gt; * -&gt; *) a b c.
 Monoidal p =&gt;
 p a b -&gt; p () c -&gt; p a b
 </span><span class="hs-operator hs-var">*&lt;</span></span><span> </span><span class="annot"><span class="annottext">RegEx Char -&gt; p () ()
-forall (p :: * -&gt; * -&gt; *). Lookahead p =&gt; RegEx Char -&gt; p () ()
+forall (p :: * -&gt; * -&gt; *). NotFollowedBy p =&gt; RegEx Char -&gt; p () ()
 </span><a href="Control.Lens.Grammar.Prec.html#notFollowedBy"><span class="hs-identifier hs-var">notFollowedBy</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">TokenClass Char -&gt; RegEx Char
 forall token p. TokenAlgebra token p =&gt; TokenClass token -&gt; p
 </span><a href="Control.Lens.Grammar.Token.html#tokenClass"><span class="hs-identifier hs-var">tokenClass</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int -&gt; TokenClass Char
@@ -3549,9 +3549,9 @@ forall a. Maybe a
 </span><span id="line-540"></span><span class="hs-comment">{- Floating point numbers, printing as `show` does, by `floatToDigits`,
 in fixed notation, or in exponent notation outside @0.1 &lt;= x &lt; 10^7@, &amp;
 parsing as `read` does, by `fromRational`, rounding correctly. -}</span><span>
-</span><span id="line-543"></span><span id="local-6989586621679394802"><span id="local-6989586621679394803"><span class="annot"><a href="Control.Lens.Grammar.Prec.html#precFloating"><span class="hs-identifier hs-type">precFloating</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">RealFloat</span></span><span> </span><span class="annot"><a href="#local-6989586621679394802"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.BackusNaur.html#RegGrammatical"><span class="hs-identifier hs-type">RegGrammatical</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Char</span></span><span> </span><span class="annot"><a href="#local-6989586621679394803"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Prec.html#Lookahead"><span class="hs-identifier hs-type">Lookahead</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679394803"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679394803"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679394802"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679394802"><span class="hs-identifier hs-type">a</span></a></span></span></span><span>
+</span><span id="line-543"></span><span id="local-6989586621679394802"><span id="local-6989586621679394803"><span class="annot"><a href="Control.Lens.Grammar.Prec.html#precFloating"><span class="hs-identifier hs-type">precFloating</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">RealFloat</span></span><span> </span><span class="annot"><a href="#local-6989586621679394802"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.BackusNaur.html#RegGrammatical"><span class="hs-identifier hs-type">RegGrammatical</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Char</span></span><span> </span><span class="annot"><a href="#local-6989586621679394803"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Prec.html#NotFollowedBy"><span class="hs-identifier hs-type">NotFollowedBy</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679394803"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679394803"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679394802"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679394802"><span class="hs-identifier hs-type">a</span></a></span></span></span><span>
 </span><span id="line-544"></span><span id="precFloating"><span class="annot"><span class="annottext">precFloating :: forall a (p :: * -&gt; * -&gt; *).
-(RealFloat a, RegGrammatical Char p, Lookahead p) =&gt;
+(RealFloat a, RegGrammatical Char p, NotFollowedBy p) =&gt;
 Int -&gt; p a a
 </span><a href="Control.Lens.Grammar.Prec.html#precFloating"><span class="hs-identifier hs-var hs-var">precFloating</span></a></span></span><span> </span><span id="local-6989586621679397333"><span class="annot"><span class="annottext">Int
 </span><a href="#local-6989586621679397333"><span class="hs-identifier hs-var">d</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(a -&gt; (Bool, FloatLexeme))
@@ -3574,7 +3574,7 @@ Profunctor p =&gt;
 AnIso s t a b -&gt; p a b -&gt; p s t
 </span><span class="hs-operator hs-var">&gt;~</span></span><span> </span><span class="annot"><span class="annottext">Int -&gt; p Bool Bool
 forall (p :: * -&gt; * -&gt; *).
-(RegGrammatical Char p, Lookahead p) =&gt;
+(RegGrammatical Char p, NotFollowedBy p) =&gt;
 Int -&gt; p Bool Bool
 </span><a href="Control.Lens.Grammar.Prec.html#precNegativeAt"><span class="hs-identifier hs-var">precNegativeAt</span></a></span><span> </span><span class="annot"><span class="annottext">Int
 </span><a href="#local-6989586621679397333"><span class="hs-identifier hs-var">d</span></a></span><span> </span><span class="annot"><span class="annottext">p Bool Bool
@@ -3599,7 +3599,7 @@ Choice p =&gt;
 APrism s t a b -&gt; p a b -&gt; p s t
 </span><span class="hs-operator hs-var">&gt;?</span></span><span> </span><span class="annot"><span class="annottext">[Char] -&gt; p () ()
 forall (p :: * -&gt; * -&gt; *).
-(RegGrammatical Char p, Lookahead p) =&gt;
+(RegGrammatical Char p, NotFollowedBy p) =&gt;
 [Char] -&gt; p () ()
 </span><a href="Control.Lens.Grammar.Prec.html#precIdent"><span class="hs-identifier hs-var">precIdent</span></a></span><span> </span><span class="annot"><span class="annottext">[Char]
 </span><span class="hs-string">&quot;NaN&quot;</span></span><span>
@@ -3614,7 +3614,7 @@ Choice p =&gt;
 APrism s t a b -&gt; p a b -&gt; p s t
 </span><span class="hs-operator hs-var">&gt;?</span></span><span> </span><span class="annot"><span class="annottext">[Char] -&gt; p () ()
 forall (p :: * -&gt; * -&gt; *).
-(RegGrammatical Char p, Lookahead p) =&gt;
+(RegGrammatical Char p, NotFollowedBy p) =&gt;
 [Char] -&gt; p () ()
 </span><a href="Control.Lens.Grammar.Prec.html#precIdent"><span class="hs-identifier hs-var">precIdent</span></a></span><span> </span><span class="annot"><span class="annottext">[Char]
 </span><span class="hs-string">&quot;Infinity&quot;</span></span><span>
@@ -3650,7 +3650,7 @@ Monoidal p =&gt;
 p () c -&gt; p a b -&gt; p a b
 </span><span class="hs-operator hs-var">&gt;*</span></span><span> </span><span class="annot"><span class="annottext">p Integer Integer
 forall (p :: * -&gt; * -&gt; *).
-(RegGrammatical Char p, Lookahead p) =&gt;
+(RegGrammatical Char p, NotFollowedBy p) =&gt;
 p Integer Integer
 </span><a href="Control.Lens.Grammar.Prec.html#precBased"><span class="hs-identifier hs-var">precBased</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-548"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Market
@@ -3726,7 +3726,7 @@ forall (p :: * -&gt; * -&gt; *) s t a b.
 Choice p =&gt;
 APrism s t a b -&gt; p a b -&gt; p s t
 </span><span class="hs-operator hs-var">&gt;?</span></span><span> </span><span class="annot"><span class="annottext">p () ()
-forall (p :: * -&gt; * -&gt; *). Lookahead p =&gt; p () ()
+forall (p :: * -&gt; * -&gt; *). NotFollowedBy p =&gt; p () ()
 </span><a href="Control.Lens.Grammar.Prec.html#precNotFraction"><span class="hs-identifier hs-var">precNotFraction</span></a></span><span> </span><span class="hs-special">]</span><span>
 </span><span id="line-552"></span><span>      </span><span class="annot"><span class="annottext">p (Maybe [Int]) (Maybe [Int])
 -&gt; p (Maybe Integer) (Maybe Integer)
@@ -3800,7 +3800,7 @@ forall (p :: * -&gt; * -&gt; *) a b c.
 Monoidal p =&gt;
 p a b -&gt; p () c -&gt; p a b
 </span><span class="hs-operator hs-var">*&lt;</span></span><span> </span><span class="annot"><span class="annottext">RegEx Char -&gt; p () ()
-forall (p :: * -&gt; * -&gt; *). Lookahead p =&gt; RegEx Char -&gt; p () ()
+forall (p :: * -&gt; * -&gt; *). NotFollowedBy p =&gt; RegEx Char -&gt; p () ()
 </span><a href="Control.Lens.Grammar.Prec.html#notFollowedBy"><span class="hs-identifier hs-var">notFollowedBy</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">TokenClass Char -&gt; RegEx Char
 forall token p. TokenAlgebra token p =&gt; TokenClass token -&gt; p
 </span><a href="Control.Lens.Grammar.Token.html#tokenClass"><span class="hs-identifier hs-var">tokenClass</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int -&gt; TokenClass Char
@@ -3818,7 +3818,7 @@ forall (p :: * -&gt; * -&gt; *) s t a b.
 Choice p =&gt;
 APrism s t a b -&gt; p a b -&gt; p s t
 </span><span class="hs-operator hs-var">&gt;?</span></span><span> </span><span class="annot"><span class="annottext">p () ()
-forall (p :: * -&gt; * -&gt; *). Lookahead p =&gt; p () ()
+forall (p :: * -&gt; * -&gt; *). NotFollowedBy p =&gt; p () ()
 </span><a href="Control.Lens.Grammar.Prec.html#precNotExponent"><span class="hs-identifier hs-var">precNotExponent</span></a></span><span> </span><span class="hs-special">]</span><span>
 </span><span id="line-556"></span><span>  </span><span class="hs-special">]</span><span>
 </span><span id="line-557"></span><span>  </span><span class="hs-keyword">where</span><span>
@@ -3836,7 +3836,7 @@ forall (p :: * -&gt; * -&gt; *) a b c.
 Monoidal p =&gt;
 p a b -&gt; p () c -&gt; p a b
 </span><span class="hs-operator hs-var">*&lt;</span></span><span> </span><span class="annot"><span class="annottext">RegEx Char -&gt; p () ()
-forall (p :: * -&gt; * -&gt; *). Lookahead p =&gt; RegEx Char -&gt; p () ()
+forall (p :: * -&gt; * -&gt; *). NotFollowedBy p =&gt; RegEx Char -&gt; p () ()
 </span><a href="Control.Lens.Grammar.Prec.html#notFollowedBy"><span class="hs-identifier hs-var">notFollowedBy</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">TokenClass Char -&gt; RegEx Char
 forall token p. TokenAlgebra token p =&gt; TokenClass token -&gt; p
 </span><a href="Control.Lens.Grammar.Token.html#tokenClass"><span class="hs-identifier hs-var">tokenClass</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int -&gt; TokenClass Char
@@ -4269,9 +4269,9 @@ forall (t :: * -&gt; *) a. Foldable t =&gt; t a -&gt; Int
 </span><a href="#local-6989586621679397584"><span class="hs-identifier hs-var">zeros</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
 </span><span id="line-608"></span><span>
 </span><span id="line-609"></span><span class="hs-comment">-- A character's literal, between single quotes.</span><span>
-</span><span id="line-610"></span><span id="local-6989586621679394596"><span class="annot"><a href="Control.Lens.Grammar.Prec.html#precChar"><span class="hs-identifier hs-type">precChar</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Grammar.BackusNaur.html#RegGrammatical"><span class="hs-identifier hs-type">RegGrammatical</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Char</span></span><span> </span><span class="annot"><a href="#local-6989586621679394596"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Prec.html#Lookahead"><span class="hs-identifier hs-type">Lookahead</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679394596"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679394596"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Char</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Char</span></span></span><span>
+</span><span id="line-610"></span><span id="local-6989586621679394596"><span class="annot"><a href="Control.Lens.Grammar.Prec.html#precChar"><span class="hs-identifier hs-type">precChar</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Grammar.BackusNaur.html#RegGrammatical"><span class="hs-identifier hs-type">RegGrammatical</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Char</span></span><span> </span><span class="annot"><a href="#local-6989586621679394596"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Prec.html#NotFollowedBy"><span class="hs-identifier hs-type">NotFollowedBy</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679394596"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679394596"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Char</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Char</span></span></span><span>
 </span><span id="line-611"></span><span id="precChar"><span class="annot"><span class="annottext">precChar :: forall (p :: * -&gt; * -&gt; *).
-(RegGrammatical Char p, Lookahead p) =&gt;
+(RegGrammatical Char p, NotFollowedBy p) =&gt;
 p Char Char
 </span><a href="Control.Lens.Grammar.Prec.html#precChar"><span class="hs-identifier hs-var hs-var">precChar</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[Char] -&gt; p () ()
 forall token s. TerminalSymbol token s =&gt; [token] -&gt; s
@@ -4282,7 +4282,7 @@ Monoidal p =&gt;
 p () c -&gt; p a b -&gt; p a b
 </span><span class="hs-operator hs-var">&gt;*</span></span><span> </span><span class="annot"><span class="annottext">Char -&gt; p Char Char
 forall (p :: * -&gt; * -&gt; *).
-(RegGrammatical Char p, Lookahead p) =&gt;
+(RegGrammatical Char p, NotFollowedBy p) =&gt;
 Char -&gt; p Char Char
 </span><a href="Control.Lens.Grammar.Prec.html#precLitChar"><span class="hs-identifier hs-var">precLitChar</span></a></span><span> </span><span class="annot"><span class="annottext">Char
 </span><span class="hs-char">'\''</span></span><span> </span><span class="annot"><span class="annottext">p Char Char -&gt; p () () -&gt; p Char Char
@@ -4298,9 +4298,9 @@ forall token s. TerminalSymbol token s =&gt; [token] -&gt; s
 &amp; parsing as `read` does: unescaped, but for @\\@ &amp; the literal's quote;
 by a named escape; or by its decimal, octal or hexadecimal code, up to
 `maxBound`, or as a control, @\\^@@ to @\\^_@. -}</span><span>
-</span><span id="line-617"></span><span id="local-6989586621679394941"><span class="annot"><a href="Control.Lens.Grammar.Prec.html#precLitChar"><span class="hs-identifier hs-type">precLitChar</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Grammar.BackusNaur.html#RegGrammatical"><span class="hs-identifier hs-type">RegGrammatical</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Char</span></span><span> </span><span class="annot"><a href="#local-6989586621679394941"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Prec.html#Lookahead"><span class="hs-identifier hs-type">Lookahead</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679394941"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Char</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679394941"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Char</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Char</span></span></span><span>
+</span><span id="line-617"></span><span id="local-6989586621679394941"><span class="annot"><a href="Control.Lens.Grammar.Prec.html#precLitChar"><span class="hs-identifier hs-type">precLitChar</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Grammar.BackusNaur.html#RegGrammatical"><span class="hs-identifier hs-type">RegGrammatical</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Char</span></span><span> </span><span class="annot"><a href="#local-6989586621679394941"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Prec.html#NotFollowedBy"><span class="hs-identifier hs-type">NotFollowedBy</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679394941"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Char</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679394941"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Char</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Char</span></span></span><span>
 </span><span id="line-618"></span><span id="precLitChar"><span class="annot"><span class="annottext">precLitChar :: forall (p :: * -&gt; * -&gt; *).
-(RegGrammatical Char p, Lookahead p) =&gt;
+(RegGrammatical Char p, NotFollowedBy p) =&gt;
 Char -&gt; p Char Char
 </span><a href="Control.Lens.Grammar.Prec.html#precLitChar"><span class="hs-identifier hs-var hs-var">precLitChar</span></a></span></span><span> </span><span id="local-6989586621679397624"><span class="annot"><span class="annottext">Char
 </span><a href="#local-6989586621679397624"><span class="hs-identifier hs-var">quote</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[Char] -&gt; p Char Char
@@ -4324,7 +4324,7 @@ f a -&gt; a
 </span><span class="hs-identifier hs-var">orP</span></span><span>
 </span><span id="line-619"></span><span>  </span><span class="hs-special">[</span><span class="annot"><span class="annottext">Bool -&gt; p Char Char
 forall (p :: * -&gt; * -&gt; *).
-(RegGrammatical Char p, Lookahead p) =&gt;
+(RegGrammatical Char p, NotFollowedBy p) =&gt;
 Bool -&gt; p Char Char
 </span><a href="Control.Lens.Grammar.Prec.html#precFixedEsc"><span class="hs-identifier hs-var">precFixedEsc</span></a></span><span> </span><span class="annot"><span class="annottext">Bool
 </span><span class="hs-identifier hs-var">True</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">p Char Char
@@ -4395,14 +4395,14 @@ forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><span class="hs-char">'~'</span></span><span class="hs-special">]</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
 </span><span id="line-625"></span><span>
 </span><span id="line-626"></span><span class="hs-comment">-- Named escapes, with @SO@ or not.</span><span>
-</span><span id="line-627"></span><span id="local-6989586621679394944"><span class="annot"><a href="Control.Lens.Grammar.Prec.html#precFixedEsc"><span class="hs-identifier hs-type">precFixedEsc</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Grammar.BackusNaur.html#RegGrammatical"><span class="hs-identifier hs-type">RegGrammatical</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Char</span></span><span> </span><span class="annot"><a href="#local-6989586621679394944"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Prec.html#Lookahead"><span class="hs-identifier hs-type">Lookahead</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679394944"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Bool</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679394944"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Char</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Char</span></span></span><span>
+</span><span id="line-627"></span><span id="local-6989586621679394944"><span class="annot"><a href="Control.Lens.Grammar.Prec.html#precFixedEsc"><span class="hs-identifier hs-type">precFixedEsc</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Grammar.BackusNaur.html#RegGrammatical"><span class="hs-identifier hs-type">RegGrammatical</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Char</span></span><span> </span><span class="annot"><a href="#local-6989586621679394944"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Prec.html#NotFollowedBy"><span class="hs-identifier hs-type">NotFollowedBy</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679394944"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Bool</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679394944"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Char</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Char</span></span></span><span>
 </span><span id="line-628"></span><span id="precFixedEsc"><span class="annot"><span class="annottext">precFixedEsc :: forall (p :: * -&gt; * -&gt; *).
-(RegGrammatical Char p, Lookahead p) =&gt;
+(RegGrammatical Char p, NotFollowedBy p) =&gt;
 Bool -&gt; p Char Char
 </span><a href="Control.Lens.Grammar.Prec.html#precFixedEsc"><span class="hs-identifier hs-var hs-var">precFixedEsc</span></a></span></span><span> </span><span id="local-6989586621679397668"><span class="annot"><span class="annottext">Bool
 </span><a href="#local-6989586621679397668"><span class="hs-identifier hs-var">withSO</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[(Char, [Char])] -&gt; p Char Char
 forall (p :: * -&gt; * -&gt; *).
-(RegGrammatical Char p, Lookahead p) =&gt;
+(RegGrammatical Char p, NotFollowedBy p) =&gt;
 [(Char, [Char])] -&gt; p Char Char
 </span><a href="Control.Lens.Grammar.Prec.html#precEscapes"><span class="hs-identifier hs-var">precEscapes</span></a></span><span> </span><span class="annot"><span class="annottext">([(Char, [Char])] -&gt; p Char Char)
 -&gt; [(Char, [Char])] -&gt; p Char Char
@@ -4728,9 +4728,9 @@ before a digit, or after @\\SO@ before @H@, &amp; parsing as `read` does, with
 empty escapes, &amp; gaps, @\\@, whitespace &amp; @\\@, anywhere, an improper iso,
 &amp; with numeric escapes' digits &amp; @\\SOH@ maximally munched, as `read`'s
 lexer does, so that an escape is never followed by what would continue it. -}</span><span>
-</span><span id="line-667"></span><span class="annot"><a href="Control.Lens.Grammar.Prec.html#precString"><span class="hs-identifier hs-type">precString</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-keyword">forall</span><span> </span><span id="local-6989586621679394598"><span class="annot"><a href="#local-6989586621679394598"><span class="hs-identifier hs-type">p</span></a></span></span><span class="hs-operator">.</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Grammar.BackusNaur.html#RegGrammatical"><span class="hs-identifier hs-type">RegGrammatical</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Char</span></span><span> </span><span class="annot"><a href="#local-6989586621679394598"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Prec.html#Lookahead"><span class="hs-identifier hs-type">Lookahead</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679394598"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679394598"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">String</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">String</span></span><span>
+</span><span id="line-667"></span><span class="annot"><a href="Control.Lens.Grammar.Prec.html#precString"><span class="hs-identifier hs-type">precString</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-keyword">forall</span><span> </span><span id="local-6989586621679394598"><span class="annot"><a href="#local-6989586621679394598"><span class="hs-identifier hs-type">p</span></a></span></span><span class="hs-operator">.</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Grammar.BackusNaur.html#RegGrammatical"><span class="hs-identifier hs-type">RegGrammatical</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Char</span></span><span> </span><span class="annot"><a href="#local-6989586621679394598"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Prec.html#NotFollowedBy"><span class="hs-identifier hs-type">NotFollowedBy</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679394598"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679394598"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">String</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">String</span></span><span>
 </span><span id="line-668"></span><span id="precString"><span class="annot"><span class="annottext">precString :: forall (p :: * -&gt; * -&gt; *).
-(RegGrammatical Char p, Lookahead p) =&gt;
+(RegGrammatical Char p, NotFollowedBy p) =&gt;
 p [Char] [Char]
 </span><a href="Control.Lens.Grammar.Prec.html#precString"><span class="hs-identifier hs-var hs-var">precString</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">([Char] -&gt; [StrItem])
 -&gt; ([StrItem] -&gt; [Char]) -&gt; Iso [Char] [Char] [StrItem] [StrItem]
@@ -4865,7 +4865,7 @@ forall (f :: * -&gt; *) a.
 f a -&gt; a
 </span><span class="hs-identifier hs-var">orP</span></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">Bool -&gt; p Char Char
 forall (p :: * -&gt; * -&gt; *).
-(RegGrammatical Char p, Lookahead p) =&gt;
+(RegGrammatical Char p, NotFollowedBy p) =&gt;
 Bool -&gt; p Char Char
 </span><a href="Control.Lens.Grammar.Prec.html#precFixedEsc"><span class="hs-identifier hs-var">precFixedEsc</span></a></span><span> </span><span class="annot"><span class="annottext">Bool
 </span><span class="hs-identifier hs-var">False</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">p Char Char
@@ -5065,7 +5065,7 @@ Monoidal p =&gt;
 p () c -&gt; p a b -&gt; p a b
 </span><span class="hs-operator hs-var">&gt;*</span></span><span> </span><span class="annot"><span class="annottext">p () ()
 forall (p :: * -&gt; * -&gt; *).
-(RegGrammatical Char p, Lookahead p) =&gt;
+(RegGrammatical Char p, NotFollowedBy p) =&gt;
 p () ()
 </span><a href="Control.Lens.Grammar.Prec.html#skipSpaces"><span class="hs-identifier hs-var">skipSpaces</span></a></span><span> </span><span class="annot"><span class="annottext">p () () -&gt; p () () -&gt; p () ()
 forall (p :: * -&gt; * -&gt; *) a b c.
@@ -5128,9 +5128,9 @@ forall a. Eq a =&gt; a -&gt; a -&gt; Bool
 </span><span id="line-700"></span><span>
 </span><span id="line-701"></span><span class="hs-comment">-- Escapes by fixed strings, as a trie, which is LL(1), maximally munched,</span><span>
 </span><span id="line-702"></span><span class="hs-comment">-- like @\\SO@ &amp; @\\SOH@, each character printing by its first string.</span><span>
-</span><span id="line-703"></span><span id="local-6989586621679394948"><span class="annot"><a href="Control.Lens.Grammar.Prec.html#precEscapes"><span class="hs-identifier hs-type">precEscapes</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Grammar.BackusNaur.html#RegGrammatical"><span class="hs-identifier hs-type">RegGrammatical</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Char</span></span><span> </span><span class="annot"><a href="#local-6989586621679394948"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Prec.html#Lookahead"><span class="hs-identifier hs-type">Lookahead</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679394948"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="hs-special">[</span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Char</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">String</span></span><span class="hs-special">)</span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679394948"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Char</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Char</span></span></span><span>
+</span><span id="line-703"></span><span id="local-6989586621679394948"><span class="annot"><a href="Control.Lens.Grammar.Prec.html#precEscapes"><span class="hs-identifier hs-type">precEscapes</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Grammar.BackusNaur.html#RegGrammatical"><span class="hs-identifier hs-type">RegGrammatical</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Char</span></span><span> </span><span class="annot"><a href="#local-6989586621679394948"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Prec.html#NotFollowedBy"><span class="hs-identifier hs-type">NotFollowedBy</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679394948"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="hs-special">[</span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Char</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">String</span></span><span class="hs-special">)</span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679394948"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Char</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Char</span></span></span><span>
 </span><span id="line-704"></span><span id="precEscapes"><span class="annot"><span class="annottext">precEscapes :: forall (p :: * -&gt; * -&gt; *).
-(RegGrammatical Char p, Lookahead p) =&gt;
+(RegGrammatical Char p, NotFollowedBy p) =&gt;
 [(Char, [Char])] -&gt; p Char Char
 </span><a href="Control.Lens.Grammar.Prec.html#precEscapes"><span class="hs-identifier hs-var hs-var">precEscapes</span></a></span></span><span> </span><span id="local-6989586621679397970"><span class="annot"><span class="annottext">[(Char, [Char])]
 </span><a href="#local-6989586621679397970"><span class="hs-identifier hs-var">escapes</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[p Char Char] -&gt; p Char Char
@@ -5173,7 +5173,7 @@ Monoidal p =&gt;
 p () c -&gt; p a b -&gt; p a b
 </span><span class="hs-operator hs-var">&gt;*</span></span><span> </span><span class="annot"><span class="annottext">[(Char, [Char])] -&gt; p Char Char
 forall (p :: * -&gt; * -&gt; *).
-(RegGrammatical Char p, Lookahead p) =&gt;
+(RegGrammatical Char p, NotFollowedBy p) =&gt;
 [(Char, [Char])] -&gt; p Char Char
 </span><a href="Control.Lens.Grammar.Prec.html#precEscapes"><span class="hs-identifier hs-var">precEscapes</span></a></span><span> </span><span class="hs-special">[</span><span class="hs-special">(</span><span class="annot"><span class="annottext">Char
 </span><a href="#local-6989586621679397974"><span class="hs-identifier hs-var">c</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">[Char]
