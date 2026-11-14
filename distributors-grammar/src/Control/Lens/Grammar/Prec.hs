@@ -43,7 +43,7 @@ import Control.Lens.Grammar.Symbol
 import Control.Lens.Grammar.Token
 import Control.Lens.PartialIso
 import Control.Lens.Prismoid ((>?*))
-import Data.Char (isLetter, toUpper)
+import Data.Char (isDigit, isLetter, toUpper)
 import Data.Int (Int8, Int16, Int32, Int64)
 import Data.List (nub)
 import Data.Maybe (isJust)
@@ -696,8 +696,7 @@ precString = iso items (\xs -> [c | StrChar c <- xs])
       c : cs@(c' : _) | protected c c' -> StrChar c : StrEmpty : items cs
       c : cs -> StrChar c : items cs
       [] -> []
-    protected c c' = (c > '\DEL' && isDec c') || (c == '\SO' && c' == 'H')
-    isDec c' = '0' <= c' && c' <= '9'
+    protected c c' = (c > '\DEL' && isDigit c') || (c == '\SO' && c' == 'H')
 
 -- Escapes by fixed strings, as a trie, which is LL(1), maximally munched,
 -- like @\\SO@ & @\\SOH@, each character printing by its first string.
