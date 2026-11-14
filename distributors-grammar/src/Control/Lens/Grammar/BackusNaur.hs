@@ -15,7 +15,7 @@ See Naur & Backus, et al.
 module Control.Lens.Grammar.BackusNaur
   ( -- * BackusNaurForm
     BackusNaurForm (..)
-  , Ruled (..), failP
+  , Ruled (..), failP, ruleTyped
   , Tried (..)
     -- * Grammatical
   , RegGrammatical
@@ -32,6 +32,9 @@ import Data.Kind (Constraint)
 import Data.Profunctor.Distributor (Alternator)
 import Data.Profunctor.Filtrator (Filtrator)
 import Data.Function
+import Data.List (intercalate, isPrefixOf)
+import Data.Maybe (isNothing)
+import Type.Reflection (SomeTypeRep (..), Typeable, splitApps, tyConModule, tyConName, typeRep)
 import Data.Monoid.Disjunctive
 import Text.ParserCombinators.ReadP (ReadP)
 import Text.ParserCombinators.ReadPrec (ReadPrec)
@@ -89,6 +92,42 @@ class Ruled p where
 -- | A nonterminal symbol to indicate a failure.
 failP :: (Ruled p, DisjunctiveMonoid p) => String -> p
 failP msg = rule msg falseP
+
+{- | A `rule` for a Haskell type, like a type definition,
+named by its `Typeable` type, so that each type's rule is its own.
+
+Rule names follow a convention: a module-qualified word, like @M.N.x@,
+names a definition by its qualified name, & may be displayed unqualified,
+as @x@, whenever that's unambiguous. So a type's rule is named by its
+fully qualified type, such as
+@Data.Map.Internal.Map Data.Text.Internal.Text GHC.Types.Int@,
+displayed as @Map Text Int@.
+-}
+ruleTyped :: forall a p. (Typeable a, Ruled (p a a)) => p a a -> p a a
+ruleTyped = rule (qualifiedName (SomeTypeRep (typeRep @a)))
+{-# INLINE ruleTyped #-}
+
+-- | A type, `show`n with its type constructors qualified by their modules.
+qualifiedName :: SomeTypeRep -> String
+qualifiedName (SomeTypeRep rep) = case (bracketed tyCon, args) of
+  (Just "List", [arg]) -> "[" <> qualifiedName arg <> "]"
+  (Just "Unit", []) -> "()"
+  (Just _, _ : _ : _) ->
+    "(" <> intercalate "," (map qualifiedName args) <> ")"
+  _ -> unwords (qualified : map typeArgument args)
+  where
+    (tyCon, args) = splitApps rep
+    qualified = tyConModule tyCon <> "." <> tyConName tyCon
+    typeArgument arg@(SomeTypeRep argRep) = case splitApps argRep of
+      (argCon, _ : _) | isNothing (bracketed argCon) ->
+        "(" <> qualifiedName arg <> ")"
+      _ -> qualifiedName arg
+    -- The constructors of lists & tuples, which bracket their arguments.
+    bracketed con = case (tyConModule con, tyConName con) of
+      ("GHC.Types", "List") -> Just "List"
+      ("GHC.Tuple", name) | name == "Unit" || "Tuple" `isPrefixOf` name ->
+        Just name
+      _ -> Nothing
 
 {- | `Tried` grammar combinators mark subgrammars to backtrack
 upon failure, by `try`, in a predictive parser,
