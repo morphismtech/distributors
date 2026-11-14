@@ -51,7 +51,7 @@ classRunnerTests = for_ arithExamples $ \(syntax, string) ->
     unparseG syntax "" `shouldBe` Just string
     parsecResult (parsecG string) `shouldBe` Just syntax
     parsecStream (unparsecG syntax "") `shouldBe` string
-    regbnfG Arith `shouldBe` (runGrammor arithGrammar :: RegBnf)
+    regbnfG Arith `shouldBe` (runGrammor arithGrammar :: Bnf (RegEx Char))
     [x | (x, "") <- readP_to_S (readG @Arith) string] `shouldBe` [syntax]
 
 parseForestTests :: Spec
@@ -98,7 +98,7 @@ testCfg isLL1 examples gram = do
   describe "examples" $ for_ examples $ \(expectedSyntax, expectedString) -> do
     testCtxGrammar isLL1 gram (expectedSyntax, expectedString)
     it ("should match " <> expectedString <> " correctly") $ do
-      let actualMatch = expectedString =~ (runGrammor gram :: RegBnf)
+      let actualMatch = expectedString =~ (runGrammor gram :: Bnf (RegEx Char))
       actualMatch `shouldBe` True
   describe "transducerG" $ do
     it "should generate the hundred shorted valid words in a language" $ do

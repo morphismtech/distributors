@@ -14,6 +14,7 @@ import Control.Lens.Comonocle (_BoundedEnum, indexComonocle)
 import Control.Monad (unless)
 import Data.List (intercalate)
 import Test.Tasty.Bench
+import qualified GHC.Exts as Exts
 
 import Examples.Arithmetic
 import Examples.Expression
@@ -166,10 +167,10 @@ examples =
 -- | Building static grammars, as regular expressions & Backus-Naur forms.
 statics :: Benchmark
 statics = bgroup "static"
-  [ bench "regstring sepBy" $ whnf (\g -> length (show (runGrammor g :: RegString)))
+  [ bench "regstring sepBy" $ whnf (\g -> length (Exts.toList (runGrammor g :: RegEx Char)))
       (sepBy commaG several digitG)
-  , bench "regbnf json" $ whnf (\() -> length (show (regbnfG Json))) ()
-  , bench "regbnf expr" $ whnf (\() -> length (show (regbnfG Expr))) ()
+  , bench "regbnf json" $ whnf (\() -> length (Exts.toList (regbnfG @Char Json))) ()
+  , bench "regbnf expr" $ whnf (\() -> length (Exts.toList (regbnfG @Char Expr))) ()
   ]
 
 -- | Optics as lenses, at functions.

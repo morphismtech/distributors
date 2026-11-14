@@ -58,16 +58,16 @@ kleeneProperties :: Spec
 kleeneProperties = do
   -- Small regular expressions, since `readG` backtracks exponentially.
   describe "Read & Show, as of strings" $ modifyMaxSize (const 8) $ do
-    prop "read . show = id for RegString" $ \(x :: RegEx Char) ->
-      let r = reparsed (RegString x) in read (show r) === r
-    prop "reads a RegString within a list & a Maybe" $ \(x :: RegEx Char) ->
-      let r = reparsed (RegString x)
+    prop "read . show = id for RegEx Char" $ \(x :: RegEx Char) ->
+      let r = reparsed x in read (show r) === r
+    prop "reads a RegEx Char within a list & a Maybe" $ \(x :: RegEx Char) ->
+      let r = reparsed x
       in read (show [r, r]) === [r, r] .&&. read (show (Just r)) === Just r
-    prop "reads a RegString, leaving the rest" $ \(x :: RegEx Char) ->
-      let r = reparsed (RegString x)
+    prop "reads a RegEx Char, leaving the rest" $ \(x :: RegEx Char) ->
+      let r = reparsed x
       in reads (show r <> " rest") === [(r, " rest")]
-    it "read . show = id for RegBnf" $ do
-      let bnf = fromString "{start} = \\q{a}|b*\n{a} = a" :: RegBnf
+    it "read . show = id for Bnf (RegEx Char)" $ do
+      let bnf = fromString "{start} = \\q{a}|b*\n{a} = a" :: Bnf (RegEx Char)
       read (show bnf) `shouldBe` bnf
       read (show [bnf]) `shouldBe` [bnf]
   describe "KleeneStarAlgebra" $ do
@@ -215,8 +215,8 @@ kleeneProperties = do
     prop "x >&< x = x" $ \(x :: TokenClass Char) ->
       (x >&< x) == x
 
--- | A `RegString` as its printed text parses, which `read` reads.
-reparsed :: RegString -> RegString
+-- | A `RegEx Char` as its printed text parses, which `read` reads.
+reparsed :: RegEx Char -> RegEx Char
 reparsed = fromList . toList
 
 

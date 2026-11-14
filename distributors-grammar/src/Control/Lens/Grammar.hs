@@ -17,15 +17,11 @@ module Control.Lens.Grammar
     RegGrammar (..)
   , RegGrammatical
   , Lexical
-  , RegString (..)
-  , regstringG
-  , regexGrammar
+  , regexG
     -- * Context-free grammar
   , Grammar (..)
   , Grammatical
-  , RegBnf (..)
   , regbnfG
-  , regbnfGrammar
   , applicativeG
   , transducerG
     -- * Context-sensitive grammar
@@ -53,8 +49,6 @@ import Control.Lens.Grammar.RegEx
 import Control.Lens.Grammar.Token
 import Control.Lens.Grammar.Symbol
 import Data.Bifunctor.Joker
-import Data.Maybe hiding (mapMaybe)
-import Data.Monoid
 import Data.Monoid.Disjunctive
 import Data.Profunctor.Distributor
 import Data.Profunctor.Monoidal.Cocartesian
@@ -63,16 +57,16 @@ import Data.Profunctor.Monadic as X
 import Data.Profunctor.Monoidal
 import Data.Profunctor.Grammar
 import Data.Profunctor.Grammar.Parsector
-import Data.String
 import GHC.Exts
 import Prelude hiding (filter)
-import Text.ParserCombinators.ReadP (ReadP, readP_to_S)
+import Text.ParserCombinators.ReadP (ReadP)
 import Witherable
 
 -- Re-exports
 import Control.Lens.Cons as X
 import Control.Lens.Empty as X
-import Control.Lens.Grammar.BackusNaur as X
+import Control.Lens.Grammar.BackusNaur as X hiding
+  (Lexical, RegGrammatical, Grammatical, CtxGrammatical)
 import Control.Lens.Grammar.Machine as X
 import Control.Lens.Grammar.RegEx as X
 import Control.Lens.Grammar.Symbol as X
@@ -202,10 +196,10 @@ because @_SemVer@ is an `Control.Lens.Iso.Iso`.
 | `optional` | `optionalP`   |
 +------------+---------------+
 
-You can generate a t'RegString' from a `RegGrammar`
-with `Control.Lens.Grammar.regstringG`.
+You can generate a regular expression string, a `RegEx`, from a `RegGrammar`
+with `Control.Lens.Grammar.regexG`.
 
->>> putStringLn (regstringG (type SemVer))
+>>> putStringLn (regexG (type SemVer))
 \p{Nd}+.\p{Nd}+.\p{Nd}+(-(\p{Ll}|\p{Lu}|\p{Nd}|-)+(.(\p{Ll}|\p{Lu}|\p{Nd}|-)+)*)?(\+(\p{Ll}|\p{Lu}|\p{Nd}|-)+(.(\p{Ll}|\p{Lu}|\p{Nd}|-)+)*)?
 
 You can also generate parsers and printers.
@@ -230,11 +224,6 @@ New `RegGrammar` generators can be defined with new instances of `Lexical` `Alte
 class Grammar token a => RegGrammar token a where
   regGrammar :: RegGrammatical token p => p a a
 
-{- | The `Lexical` `Alternator`s, which run `RegGrammar`s. -}
-type RegGrammatical token p =
-  ( Lexical token p
-  , Alternator p
-  ) :: Constraint
 
 {- | Context-free `Grammar`s add two capabilities to `RegGrammar`s,
 coming from the `BackusNaurForm` interface
@@ -242,8 +231,8 @@ coming from the `BackusNaurForm` interface
 * `rule` abstraction,
 * and general recursion.
 
-`Control.Lens.Grammar.regexGrammar` and
-`Control.Lens.Grammar.regbnfGrammar` are examples of context-free
+`Control.Lens.Grammar.RegEx.regexGrammar` and
+`Control.Lens.Grammar.RegEx.regbnfGrammar` are examples of context-free
 `Grammar`s. Regular expressions are a form of expression algebra.
 Let's see a similar but simpler example,
 the algebra of arithmetic expressions of natural numbers.
@@ -381,13 +370,6 @@ class CtxGrammar token a => Grammar token a where
   default grammar :: (RegGrammar token a, Grammatical token p) => p a a
   grammar = regGrammar @token
 
-{- | The `RegGrammatical` `BackusNaurForm`s, which are `Tried`,
-& run `Grammar`s. -}
-type Grammatical token p =
-  ( RegGrammatical token p
-  , forall x y. BackusNaurForm (p x y)
-  , forall x y. Tried (p x y)
-  ) :: Constraint
 
 {- | For context-sensitivity,
 the `Monadic` interface is used by importing "Data.Profunctor.Monadic.Do"
@@ -434,7 +416,7 @@ but being unscoped means it isn't added to the context.
 If all bound actions are unscoped,
 and filtration & failure handling aren't used,
 then a `CtxGrammar` can be rewritten as a `Grammar` since it is context-free.
-We can't generate a t'RegBnf' from a `CtxGrammar` since the `rule`s
+We can't generate a t'Bnf' from a `CtxGrammar` since the `rule`s
 aren't static, but dynamic and contextual.
 We can generate parsers and printers as expected.
 
@@ -531,424 +513,32 @@ class CtxGrammar token a where
   default ctxGrammar :: (Grammar token a, CtxGrammatical token p) => p a a
   ctxGrammar = grammar @token
 
-{- | The `Grammatical` `Filtrator`s, `MonadPlus`es & `MonadFail`s,
-which run `CtxGrammar`s. -}
-type CtxGrammatical token p =
-  ( Grammatical token p
-  , Filtrator p
-  , forall x. MonadPlus (p x)
-  , forall x. MonadFail (p x)
-  ) :: Constraint
-
-{- |
-`Lexical` combinators include `terminal` symbols,
-`Tokenized` combinators and `tokenClass`es.
--}
-type Lexical token p =
-  ( forall x y. (x ~ (), y ~ ()) => TerminalSymbol token (p x y)
-  , forall x y. (x ~ token, y ~ token) => TokenAlgebra token (p x y)
-  ) :: Constraint
-
-{- | t'RegString's are an embedded domain specific language
-of regular expression strings.
-
-Since they are strings, they have a string-like interface.
-
->>> let rex = fromString "ab|c" :: RegString
->>> putStringLn rex
-ab|c
->>> rex
-"ab|c"
-
-t'RegString's can be generated from `RegGrammar`s
-with `Control.Lens.Grammar.regstringG`.
-
->>> runGrammor (terminal "a" >* terminal "b" >|< terminal "c") :: RegString
-"ab|c"
-
-t'RegString's are actually stored as an algebraic datatype, `RegEx`.
-
->>> runRegString rex
-RegExam (Alternate (Sequence (RegExam (OneOf (fromList "a"))) (RegExam (OneOf (fromList "b"))) []) (RegExam (OneOf (fromList "c"))) [])
-
-t'RegString's are similar to regular expression strings in many other
-programming languages. We can use them to see if a word and pattern
-are `Matching`.
-
->>> "ab" =~ rex
-True
->>> "c" =~ rex
-True
->>> "xyz" =~ rex
-False
-
-Like `RegGrammar`s, t'RegString's can use all the `Lexical` combinators.
-Unlike `RegGrammar`s, instead of using `Monoidal` and `Alternator` combinators,
-t'RegString's use `Monoid` and `KleeneStarAlgebra` combinators.
-
->>> terminal "a" <> terminal "b" >|< terminal "c" :: RegString
-"ab|c"
->>> mempty :: RegString
-""
-
-Since t'RegString's are a `KleeneStarAlgebra`,
-they support Kleene quantifiers.
-
->>> starK rex
-"(ab|c)*"
->>> plusK rex
-"(ab|c)+"
->>> optK rex
-"(ab|c)?"
-
-Like other regular expression languages, t'RegString's support
-character classes.
-
->>> oneOf "abc" :: RegString
-"[abc]"
->>> notOneOf "abc" :: RegString
-"[^abc]"
-
-The character classes are used for failure, matching no character or string,
-as well as the wildcard, matching any single character.
-
->>> falseP :: RegString
-"[]"
->>> anyToken :: RegString
-"[^]"
-
-Additional forms of character classes test for a character's `GeneralCategory`.
-
->>> asIn LowercaseLetter :: RegString
-"\\p{Ll}"
->>> notAsIn Control :: RegString
-"\\P{Cc}"
-
-`KleeneStarAlgebra`s support alternation `>|<`,
-and the `Tokenized` combinators are all negatable.
-However, we'd like to be able to take the
-intersection of character classes as well.
-t'RegString's can combine characters' `tokenClass`es
-using `BooleanAlgebra` combinators.
-
->>> tokenClass (notOneOf "abc" >&< notOneOf "xyz") :: RegString
-"[^abcxyz]"
->>> tokenClass (oneOf "abcxyz" >&< notOneOf "xyz") :: RegString
-"[abc]"
->>> tokenClass (notOneOf "#$%" >&< notAsIn Control) :: RegString
-"[^#$%\\P{Cc}]"
->>> tokenClass (allP notAsIn [MathSymbol, Control]) :: RegString
-"\\P{Sm|Cc}"
->>> tokenClass (notP (oneOf "xyz")) :: RegString
-"[^xyz]"
-
-Ill-formed t'RegString's normalize to failure.
-
->>> fromString ")(" :: RegString
-"[]"
--}
-newtype RegString = RegString {runRegString :: RegEx Char}
-  deriving newtype
-    ( Eq, Ord
-    , Semigroup, Monoid, DisjunctiveMonoid, KleeneStarAlgebra
-    , Tokenized Char, TokenAlgebra Char
-    , TerminalSymbol Char, NonTerminalSymbol
-    , Matching String, Tried
-    )
-
-{- | t'RegBnf's are an embedded domain specific language
-of Backus-Naur forms extended by regular expression strings.
-
-A t'RegBnf' consists of a distinguished t'RegString' "start" rule,
-and a set of named t'RegString' `rule`s.
-
->>> putStringLn (rule "baz" (terminal "foo" >|< terminal "bar") :: RegBnf)
-{start} = \q{baz}
-{baz} = foo|bar
-
-Like t'RegString's they have a string-like interface.
-
->>> let bnf = fromString "{start} = foo|bar" :: RegBnf
->>> putStringLn bnf
-{start} = foo|bar
->>> bnf
-"{start} = foo|bar"
->>> :type toList bnf
-toList bnf :: [Char]
-
-t'RegBnf's can be generated from context-free `Grammar`s
-with `Control.Lens.Grammar.regbnfG`.
-
->>> :type regbnfG
-regbnfG :: forall a -> Grammar Char a => RegBnf
-
-Like t'RegString's, t'RegBnf's can be constructed using
-`Lexical`, `Monoid` and `KleeneStarAlgebra` combinators.
-But they also support `BackusNaurForm` `rule`s and `ruleRec`s.
-
->>> putStringLn (rule "baz" (bnf >|< terminal "baz"))
-{start} = \q{baz}
-{baz} = foo|bar|baz
->>> putStringLn (ruleRec "∞-loop" (\x -> x) :: RegBnf)
-{start} = \q{∞-loop}
-{∞-loop} = \q{∞-loop}
--}
-newtype RegBnf = RegBnf {runRegBnf :: Bnf RegString}
-  deriving newtype
-    ( Eq, Ord
-    , Semigroup, Monoid, DisjunctiveMonoid, KleeneStarAlgebra
-    , Tokenized Char, TokenAlgebra Char
-    , TerminalSymbol Char, NonTerminalSymbol
-    , Ruled, BackusNaurForm, Tried
-    )
-instance Matching String RegBnf where
-  word =~ pattern = word =~ liftBnf1 runRegString (runRegBnf pattern)
-
-makeNestedPrisms ''Bnf
-makeNestedPrisms ''RegEx
-makeNestedPrisms ''TokenExam
-makeNestedPrisms ''CategoryTest
-makeNestedPrisms ''GeneralCategory
-makeNestedPrisms ''RegString
-makeNestedPrisms ''RegBnf
-
-{- | `regexGrammar` is a context-free `Grammar` for t'RegString's.
-It can't be a `RegGrammar`, since t'RegString's include parenthesization.
-But [balanceBy parentheses](https://en.wikipedia.org/wiki/Dyck_language)
-are a context-free language.
-
->>> putStringLn (regbnfG (type RegString))
-{start} = \q{regex}
-{alternate} = \q{sequence}(\|\q{sequence})*
-{atom} = \\q\q{nonterminal}|\q{class}|\(\q{regex}\)
-{category} = Ll|Lu|Lt|Lm|Lo|Mn|Mc|Me|Nd|Nl|No|Pc|Pd|Ps|Pe|Pi|Pf|Po|Sm|Sc|Sk|So|Zs|Zl|Zp|Cc|Cf|Cs|Co|Cn
-{char} = [^\(\)\*\+\?\[\\\]\^\{\|\}\P{Cc}]|\\\q{char-escaped}
-{char-control} = NUL|SOH|STX|ETX|EOT|ENQ|ACK|BEL|BS|HT|LF|VT|FF|CR|SO|SI|DLE|DC1|DC2|DC3|DC4|NAK|SYN|ETB|CAN|EM|SUB|ESC|FS|GS|RS|US|DEL|PAD|HOP|BPH|NBH|IND|NEL|SSA|ESA|HTS|HTJ|VTS|PLD|PLU|RI|SS2|SS3|DCS|PU1|PU2|STS|CCH|MW|SPA|EPA|SOS|SGCI|SCI|CSI|ST|OSC|PM|APC
-{char-escaped} = [\(\)\*\+\?\[\\\]\^\{\|\}]|\q{char-control}
-{class} = \q{class-one-of}|\q{class-not-one-of}
-{class-category} = \\p\{\q{category}\}|\\P\{\q{category}(\|\q{category})*\}
-{class-not-one-of} = \q{class-category}|\[\^\q{char}*\q{class-category}?\]
-{class-one-of} = \q{char}|\[\q{char}*\]
-{expression} = \q{atom}\?|\q{atom}\*|\q{atom}\+|\q{atom}
-{nonterminal} = \{\q{char}*\}
-{regex} = \q{alternate}
-{sequence} = \q{expression}*
--}
-regexGrammar :: Grammatical Char p => p RegString RegString
-regexGrammar = _RegString >~ ruleRec "regex" altG
-  where
-    altG rex = rule "alternate" $
-      iso alternativesOf (foldr1 (>|<) :: [RegEx Char] -> RegEx Char)
-        >~ sepWith "|" (atLeast 1) (seqG rex)
-
-    seqG rex = rule "sequence" $
-      iso itemsOf mconcat >~ manyP (exprG rex)
-
-    alternativesOf = \case
-      RegExam (Alternate rex0 rex1 rexes) -> rex0 : rex1 : rexes
-      rex -> [rex]
-
-    itemsOf = \case
-      SeqEmpty -> []
-      Sequence rex0 rex1 rexes -> rex0 : rex1 : rexes
-      rex -> [rex]
-
-    exprG rex = rule "expression" $ orP
-      [ _KleeneOpt >? atomG rex *< terminal "?"
-      , _KleeneStar >? atomG rex *< terminal "*"
-      , _KleenePlus >? atomG rex *< terminal "+"
-      , atomG rex
-      ]
-
-    atomG rex = rule "atom" $ orP
-      [ _NonTerminal >? terminal "\\q" >* nonterminalG
-      , _RegExam >? classG
-      , terminal "(" >* rex *< terminal ")"
-      ]
-
-    categoryG = rule "category" $ orP
-      [ _LowercaseLetter >? terminal "Ll"
-      , _UppercaseLetter >? terminal "Lu"
-      , _TitlecaseLetter >? terminal "Lt"
-      , _ModifierLetter >? terminal "Lm"
-      , _OtherLetter >? terminal "Lo"
-      , _NonSpacingMark >? terminal "Mn"
-      , _SpacingCombiningMark >? terminal "Mc"
-      , _EnclosingMark >? terminal "Me"
-      , _DecimalNumber >? terminal "Nd"
-      , _LetterNumber >? terminal "Nl"
-      , _OtherNumber >? terminal "No"
-      , _ConnectorPunctuation >? terminal "Pc"
-      , _DashPunctuation >? terminal "Pd"
-      , _OpenPunctuation >? terminal "Ps"
-      , _ClosePunctuation >? terminal "Pe"
-      , _InitialQuote >? terminal "Pi"
-      , _FinalQuote >? terminal "Pf"
-      , _OtherPunctuation >? terminal "Po"
-      , _MathSymbol >? terminal "Sm"
-      , _CurrencySymbol >? terminal "Sc"
-      , _ModifierSymbol >? terminal "Sk"
-      , _OtherSymbol >? terminal "So"
-      , _Space >? terminal "Zs"
-      , _LineSeparator >? terminal "Zl"
-      , _ParagraphSeparator >? terminal "Zp"
-      , _Control >? terminal "Cc"
-      , _Format >? terminal "Cf"
-      , _Surrogate >? terminal "Cs"
-      , _PrivateUse >? terminal "Co"
-      , _NotAssigned >? terminal "Cn"
-      ]
-
-    classG = rule "class" $ orP
-      [ _OneOf >? classOneOfG
-      , _NotOneOf >? classNotOneOfG
-      ]
-
-    classCatG = rule "class-category" $ orP
-      [ _AndAsIn >? terminal "\\p{" >* categoryG *< terminal "}"
-      , _AndNotAsIn . from listed >?
-          terminal "\\P{" >* sepWith "|" (atLeast 1) categoryG *< terminal "}"
-      ]
-
-    classOneOfG = rule "class-one-of" $ orP
-      [ onlyOne charG
-      , terminal "[" >* (listed ~< manyP charG) *< terminal "]"
-      ]
-
-    classNotOneOfG = rule "class-not-one-of" $ orP
-      [ asEmpty >*< classCatG
-      , terminal "[^" >* (listed ~< manyP charG) >*<
-          optionP (_AndNotAsIn . _Empty) classCatG *< terminal "]"
-      ]
-
-nonterminalG :: Grammatical Char p => p String String
-nonterminalG = rule "nonterminal" $
-  terminal "{" >* manyP charG *< terminal "}"
-
-charG :: Grammatical Char p => p Char Char
-charG = rule "char" $
-  tokenClass (notOneOf charsReserved >&< notAsIn Control)
-  >|< terminal "\\" >* charEscapedG
-  where
-    charEscapedG = rule "char-escaped" $
-      oneOf charsReserved >|< charControlG
-
-    charsReserved = "()*+?[\\]^{|}"
-
-    charControlG = rule "char-control" $ orP
-      [ only '\NUL' >? terminal "NUL"
-      , only '\SOH' >? terminal "SOH"
-      , only '\STX' >? terminal "STX"
-      , only '\ETX' >? terminal "ETX"
-      , only '\EOT' >? terminal "EOT"
-      , only '\ENQ' >? terminal "ENQ"
-      , only '\ACK' >? terminal "ACK"
-      , only '\BEL' >? terminal "BEL"
-      , only '\BS' >? terminal "BS"
-      , only '\HT' >? terminal "HT"
-      , only '\LF' >? terminal "LF"
-      , only '\VT' >? terminal "VT"
-      , only '\FF' >? terminal "FF"
-      , only '\CR' >? terminal "CR"
-      , only '\SO' >? terminal "SO"
-      , only '\SI' >? terminal "SI"
-      , only '\DLE' >? terminal "DLE"
-      , only '\DC1' >? terminal "DC1"
-      , only '\DC2' >? terminal "DC2"
-      , only '\DC3' >? terminal "DC3"
-      , only '\DC4' >? terminal "DC4"
-      , only '\NAK' >? terminal "NAK"
-      , only '\SYN' >? terminal "SYN"
-      , only '\ETB' >? terminal "ETB"
-      , only '\CAN' >? terminal "CAN"
-      , only '\EM' >? terminal "EM"
-      , only '\SUB' >? terminal "SUB"
-      , only '\ESC' >? terminal "ESC"
-      , only '\FS' >? terminal "FS"
-      , only '\GS' >? terminal "GS"
-      , only '\RS' >? terminal "RS"
-      , only '\US' >? terminal "US"
-      , only '\DEL' >? terminal "DEL"
-      , only '\x80' >? terminal "PAD"
-      , only '\x81' >? terminal "HOP"
-      , only '\x82' >? terminal "BPH"
-      , only '\x83' >? terminal "NBH"
-      , only '\x84' >? terminal "IND"
-      , only '\x85' >? terminal "NEL"
-      , only '\x86' >? terminal "SSA"
-      , only '\x87' >? terminal "ESA"
-      , only '\x88' >? terminal "HTS"
-      , only '\x89' >? terminal "HTJ"
-      , only '\x8A' >? terminal "VTS"
-      , only '\x8B' >? terminal "PLD"
-      , only '\x8C' >? terminal "PLU"
-      , only '\x8D' >? terminal "RI"
-      , only '\x8E' >? terminal "SS2"
-      , only '\x8F' >? terminal "SS3"
-      , only '\x90' >? terminal "DCS"
-      , only '\x91' >? terminal "PU1"
-      , only '\x92' >? terminal "PU2"
-      , only '\x93' >? terminal "STS"
-      , only '\x94' >? terminal "CCH"
-      , only '\x95' >? terminal "MW"
-      , only '\x96' >? terminal "SPA"
-      , only '\x97' >? terminal "EPA"
-      , only '\x98' >? terminal "SOS"
-      , only '\x99' >? terminal "SGCI"
-      , only '\x9A' >? terminal "SCI"
-      , only '\x9B' >? terminal "CSI"
-      , only '\x9C' >? terminal "ST"
-      , only '\x9D' >? terminal "OSC"
-      , only '\x9E' >? terminal "PM"
-      , only '\x9F' >? terminal "APC"
-      ]
-
-{- |
-`regbnfGrammar` is a context-free `Grammar` for t'RegBnf's.
-That means that it can generate a self-hosted definition.
-
->>> putStringLn (regbnfG (type RegBnf))
-{start} = \q{regbnf}
-{alternate} = \q{sequence}(\|\q{sequence})*
-{atom} = \\q\q{nonterminal}|\q{class}|\(\q{regex}\)
-{category} = Ll|Lu|Lt|Lm|Lo|Mn|Mc|Me|Nd|Nl|No|Pc|Pd|Ps|Pe|Pi|Pf|Po|Sm|Sc|Sk|So|Zs|Zl|Zp|Cc|Cf|Cs|Co|Cn
-{char} = [^\(\)\*\+\?\[\\\]\^\{\|\}\P{Cc}]|\\\q{char-escaped}
-{char-control} = NUL|SOH|STX|ETX|EOT|ENQ|ACK|BEL|BS|HT|LF|VT|FF|CR|SO|SI|DLE|DC1|DC2|DC3|DC4|NAK|SYN|ETB|CAN|EM|SUB|ESC|FS|GS|RS|US|DEL|PAD|HOP|BPH|NBH|IND|NEL|SSA|ESA|HTS|HTJ|VTS|PLD|PLU|RI|SS2|SS3|DCS|PU1|PU2|STS|CCH|MW|SPA|EPA|SOS|SGCI|SCI|CSI|ST|OSC|PM|APC
-{char-escaped} = [\(\)\*\+\?\[\\\]\^\{\|\}]|\q{char-control}
-{class} = \q{class-one-of}|\q{class-not-one-of}
-{class-category} = \\p\{\q{category}\}|\\P\{\q{category}(\|\q{category})*\}
-{class-not-one-of} = \q{class-category}|\[\^\q{char}*\q{class-category}?\]
-{class-one-of} = \q{char}|\[\q{char}*\]
-{expression} = \q{atom}\?|\q{atom}\*|\q{atom}\+|\q{atom}
-{nonterminal} = \{\q{char}*\}
-{regbnf} = \{start\} = \q{regex}(\LF\q{nonterminal} = \q{regex})*
-{regex} = \q{alternate}
-{sequence} = \q{expression}*
--}
-regbnfGrammar :: Grammatical Char p => p RegBnf RegBnf
-regbnfGrammar = rule "regbnf" $ _RegBnf . _Bnf >~
-  terminal "{start} = " >* regexGrammar >*< (listed ~< manyP
-    (terminal "\n" >* nonterminalG *< terminal " = " >*< regexGrammar))
 
 
-{- | `regstringG` generates a t'RegString' from a regular grammar.
+{- | `regexG` generates a `RegEx`pression from a regular grammar,
+over any token, a regular expression string over characters.
 Since context-free `Grammar`s and `CtxGrammar`s aren't necessarily regular,
-the type system will prevent `regstringG` from being applied to them.
+the type system will prevent `regexG` from being applied to them.
 -}
-regstringG :: forall a -> RegGrammar Char a => RegString
-regstringG a = runGrammor (regGrammar @Char @a)
+regexG
+  :: forall token. forall a -> (Categorized token, RegGrammar token a)
+  => RegEx token
+regexG a = runGrammor (regGrammar @token @a)
 
-{- | `regbnfG` generates a t'RegBnf' from a context-free `Grammar`.
+{- | `regbnfG` generates a t'Bnf' of `RegEx`pressions from a context-free
+`Grammar`, over any token, of regular expression strings over characters.
 Since `CtxGrammar`s aren't context-free,
 the type system will prevent `regbnfG` from being applied to a `CtxGrammar`.
 It can apply to a `RegGrammar`.
 -}
-regbnfG :: forall a -> Grammar Char a => RegBnf
-regbnfG a = runGrammor (grammar @Char @a)
+regbnfG
+  :: forall token. forall a -> (Categorized token, Grammar token a)
+  => Bnf (RegEx token)
+regbnfG a = runGrammor (grammar @token @a)
 
 {- | Compile a `Grammar` into a t'Transducer'.
 
->>> let regexMachine = transducerG @Char (type RegString)
+>>> let regexMachine = transducerG @Char (RegEx Char)
 
 A transducer is a form of finite state machine,
 usable as an intermediary for further generators like
@@ -1179,61 +769,12 @@ monadG
 monadG = runJoker (ctxGrammar @token @a)
 
 {- | `putStringLn` is a utility that generalizes `putStrLn`
-to string-like interfaces such as t'RegString' and t'RegBnf'.
+to string-like interfaces such as `RegEx` and t'Bnf' of `Char`s.
 -}
 putStringLn :: (IsList string, Item string ~ Char) => string -> IO ()
 putStringLn = putStrLn . toList
 
-instance IsList RegString where
-  type Item RegString = Char
-  fromList
-    = fromMaybe falseP
-    . listToMaybe
-    . mapMaybe prsF
-    . readP_to_S (readG @RegString)
-    where
-      prsF (rex,"") = Just rex
-      prsF _ = Nothing
-  toList
-    = maybe "[]" ($ "")
-    . printP (grammar @Char @RegString)
-instance IsString RegString where
-  fromString = fromList
-instance Show RegString where
-  showsPrec precision = showsPrec precision . toList
-instance Read RegString where
-  readsPrec = readsGrammar @RegString
-instance IsList RegBnf where
-  type Item RegBnf = Char
-  fromList
-    = fromMaybe falseP
-    . listToMaybe
-    . mapMaybe prsF
-    . readP_to_S (readG @RegBnf)
-    where
-      prsF (regbnf,"") = Just regbnf
-      prsF _ = Nothing
-  toList
-    = maybe "{start} = []" ($ "")
-    . printP (grammar @Char @RegBnf)
-instance IsString RegBnf where
-  fromString = fromList
-instance Show RegBnf where
-  showsPrec precision = showsPrec precision . toList
-instance Read RegBnf where
-  readsPrec = readsGrammar @RegBnf
-
-{- | Read a string literal, as `String`'s `readsPrec` does,
-& its text by a `Grammar`, so that @read . show = id@.
--}
-readsGrammar :: forall a. Grammar Char a => Int -> ReadS a
-readsGrammar precision str =
-  [ (a, rest)
-  | (text, rest) <- readsPrec @String precision str
-  , a <- take 1 [a | (a, "") <- readP_to_S (readG @a) text]
-  ]
-
-instance CtxGrammar Char RegString
-instance Grammar Char RegString where grammar = regexGrammar
-instance CtxGrammar Char RegBnf
-instance Grammar Char RegBnf where grammar = regbnfGrammar
+instance CtxGrammar Char (RegEx Char)
+instance Grammar Char (RegEx Char) where grammar = regexGrammar
+instance CtxGrammar Char (Bnf (RegEx Char))
+instance Grammar Char (Bnf (RegEx Char)) where grammar = regbnfGrammar

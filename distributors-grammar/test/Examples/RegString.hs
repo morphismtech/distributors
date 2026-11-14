@@ -4,7 +4,7 @@ module Examples.RegString
 
 import Control.Lens.Grammar
 
-regexExamples :: [(RegString, String)]
+regexExamples :: [(RegEx Char, String)]
 regexExamples =
   [ (terminal "abc123etc.", "abc123etc.")
   , (terminal "x" <> terminal "y", "xy")

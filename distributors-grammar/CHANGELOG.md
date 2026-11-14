@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+- `RegString` & `RegBnf` are removed: `RegEx Char` & `Bnf (RegEx Char)`
+  are them, `IsString` & `IsList` by the string syntax of regular
+  expressions, of `regexGrammar` & `regbnfGrammar`, & their `Grammar Char`
+  instances, while their `Show` & `Read` are stock; render them by
+  `toList` or `putStringLn`. `regstringG` is renamed `regexG`, & `regexG`
+  & `regbnfG` generate over any token, `RegEx token` & `Bnf (RegEx token)`.
+- Modules, without orphans: `Control.Lens.Grammar.BackusNaur` has `Ruled`,
+  `BackusNaurForm` & `Tried`, & the `Lexical`, `RegGrammatical`,
+  `Grammatical` & `CtxGrammatical` constraints; `Control.Lens.Grammar.RegEx`
+  has `RegEx` & `Bnf`, with `liftBnf0`, `liftBnf1`, `liftBnf2` & `diffB`,
+  & `regexGrammar` & `regbnfGrammar`; & `Printor` has its own module,
+  `Data.Profunctor.Grammar.Printor`, re-exported by
+  `Data.Profunctor.Grammar`. `Control.Lens.Grammar` re-exports them all.
 - `Control.Monad.Fail.Try`, with `MonadTry` & `MonadicTry`, is removed.
   `Control.Lens.Grammar.BackusNaur` has, instead:
   - `Ruled`, with `rule`, split from `BackusNaurForm`, now its subclass,

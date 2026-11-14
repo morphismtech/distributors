@@ -17,24 +17,23 @@ module Control.Lens.Grammar.BackusNaur
     BackusNaurForm (..)
   , Ruled (..), failP
   , Tried (..)
-  , Bnf (..)
-  , liftBnf0
-  , liftBnf1
-  , liftBnf2
-  , diffB
+    -- * Grammatical
+  , Lexical
+  , RegGrammatical
+  , Grammatical
+  , CtxGrammatical
   ) where
 
 import Control.Lens
-import Control.Lens.Grammar.RegEx
 import Control.Lens.Grammar.Token
 import Control.Lens.Grammar.Symbol
+import Control.Monad (MonadPlus)
 import Data.Bifunctor.Joker
-import Data.Coerce
+import Data.Kind (Constraint)
+import Data.Profunctor.Distributor (Alternator)
+import Data.Profunctor.Filtrator (Filtrator)
 import Data.Function
-import Data.MemoTrie
 import Data.Monoid.Disjunctive
-import qualified Data.Set as Set
-import Data.Set (Set)
 import Text.ParserCombinators.ReadP (ReadP)
 
 {- | `BackusNaurForm` grammar combinators formalize traced
@@ -106,106 +105,39 @@ class Tried p where
   try :: p -> p
   try = id
 
-{- | A t'Bnf' consists of a distinguished starting rule
-and a set of named rules. When a t'Bnf' supports `NonTerminalSymbol`s,
-then it supports the `BackusNaurForm` interface
-by replacing recursive calls with `nonTerminal`s.
-
-> prop> ruleRec label f = rule label (f (nonTerminal label))
-
--}
-data Bnf rule = Bnf
-  { startBnf :: rule
-  , rulesBnf :: Set (String, rule)
-  } deriving stock (Eq, Ord, Show, Read)
-
-{- | Lift a rule to a t'Bnf'. -}
-liftBnf0 :: Ord a => a -> Bnf a
-liftBnf0 a = Bnf a mempty
-
-{- | Lift a function of rules to t'Bnf's. -}
-liftBnf1 :: (Coercible a b, Ord b) => (a -> b) -> Bnf a -> Bnf b
-liftBnf1 f (Bnf start rules) = Bnf (f start) (Set.map coerce rules)
-
-{- | Lift a binary function of rules to t'Bnf's. -}
-liftBnf2
-  :: (Coercible a c, Coercible b c, Ord c)
-  => (a -> b -> c) -> Bnf a -> Bnf b -> Bnf c
-liftBnf2 f (Bnf start0 rules0) (Bnf start1 rules1) =
-  Bnf (f start0 start1) (Set.map coerce rules0 <> Set.map coerce rules1)
-
 {- |
-The [Brzozowski derivative]
-(https://dl.acm.org/doi/pdf/10.1145/321239.321249) of a
-`RegEx`tended t'Bnf', with memoization.
-
-> prop> word =~ diffB prefix pattern = prefix <> word =~ pattern
-
-Unfortunately, despite elegance & optimization, Brzozowski's
-pattern matching algorithm is worst case exponential in grammar size.
-See Might, Darais & Spiewak, [Parsing With Derivatives]
-(https://matt.might.net/papers/might2011derivatives.pdf).
+`Lexical` combinators include `terminal` symbols,
+`Tokenized` combinators and `tokenClass`es.
 -}
-diffB
-  :: (Categorized token, HasTrie token)
-  => [token] -> Bnf (RegEx token) -> Bnf (RegEx token)
-diffB prefix (Bnf start rules) =
-  Bnf (foldl' (flip diff1B) start prefix) rules
-  where
-    -- derivative wrt 1 token, memoized
-    diff1B = memo2 $ \x -> \case
-      SeqEmpty -> falseP
-      NonTerminal nameY -> anyP (diff1B x) (rulesNamed nameY rules)
-      Sequence y1 y ys ->
-        if δ (Bnf y1 rules) then y1'y2 >|< y1y2' else y1'y2
-        where
-          y2 = mconcat (y : ys)
-          y1'y2 = diff1B x y1 <> y2
-          y1y2' = y1 <> diff1B x y2
-      KleeneStar y -> diff1B x y <> starK y
-      KleeneOpt y -> diff1B x y
-      KleenePlus y -> diff1B x y <> starK y
-      RegExam (OneOf chars) ->
-        if x `elem` chars then mempty else falseP
-      RegExam (NotOneOf chars (AndAsIn cat)) ->
-        if elem x chars || categorize x /= cat
-          then falseP else mempty
-      RegExam (NotOneOf chars (AndNotAsIn cats)) ->
-        if elem x chars || elem (categorize x) cats
-          then falseP else mempty
-      RegExam (Alternate y1 y2 ys) -> anyP (diff1B x) (y1 : y2 : ys)
+type Lexical token p =
+  ( forall x y. (x ~ (), y ~ ()) => TerminalSymbol token (p x y)
+  , forall x y. (x ~ token, y ~ token) => TokenAlgebra token (p x y)
+  ) :: Constraint
 
--- | Does a pattern match the empty word?
-δ :: (Categorized token, HasTrie token)
-  => Bnf (RegEx token) -> Bool
-δ (Bnf start rules) = ν start where
-  ν = memo $ \case
-    SeqEmpty -> True
-    KleeneStar _ -> True
-    KleeneOpt _ -> True
-    KleenePlus y -> ν y
-    Sequence y1 y2 ys -> all ν (y1 : y2 : ys)
-    RegExam (Alternate y1 y2 ys) -> any ν (y1 : y2 : ys)
-    NonTerminal nameY -> any ν (rulesNamed nameY rules)
-    _ -> False
+{- | The `Lexical` `Alternator`s, which run `RegGrammar`s. -}
+type RegGrammatical token p =
+  ( Lexical token p
+  , Alternator p
+  ) :: Constraint
 
-rulesNamed :: Ord rule => String -> Set (String, rule) -> Set rule
-rulesNamed nameX = foldl' (flip inserter) Set.empty where
-  inserter (nameY,y) =
-    if nameX == nameY then Set.insert y else id
+{- | The `RegGrammatical` `BackusNaurForm`s, which are `Tried`,
+& run `Grammar`s. -}
+type Grammatical token p =
+  ( RegGrammatical token p
+  , forall x y. BackusNaurForm (p x y)
+  , forall x y. Tried (p x y)
+  ) :: Constraint
+
+{- | The `Grammatical` `Filtrator`s, `MonadPlus`es & `MonadFail`s,
+which run `CtxGrammar`s. -}
+type CtxGrammatical token p =
+  ( Grammatical token p
+  , Filtrator p
+  , forall x. MonadPlus (p x)
+  , forall x. MonadFail (p x)
+  ) :: Constraint
 
 -- instances
-instance (Ord rule, NonTerminalSymbol rule) => Ruled (Bnf rule) where
-  rule label (Bnf newRule oldRules) = (nonTerminal label)
-    {rulesBnf = Set.insert (label, newRule) oldRules}
-instance (Ord rule, NonTerminalSymbol rule)
-  => BackusNaurForm (Bnf rule) where
-    ruleRec label f = rule label (f (nonTerminal label))
--- | `try` the start of a t'Bnf', recording it as its rules do.
-instance Tried rule => Tried (Bnf rule) where
-  try (Bnf start rules) = Bnf (try start) rules
--- | A `RegEx` doesn't record `try`, for now.
-instance Tried (RegEx token)
 instance (forall x. Ruled (f x)) => Ruled (Joker f a b) where
   rule name = Joker . rule name . runJoker
 instance (forall x. BackusNaurForm (f x))
@@ -216,33 +148,3 @@ instance (forall x. Tried (f x)) => Tried (Joker f a b) where
 instance Ruled (ReadP a)
 instance BackusNaurForm (ReadP a)
 instance Tried (ReadP a)
-instance (Ord rule, TerminalSymbol token rule)
-  => TerminalSymbol token (Bnf rule) where
-  terminal = liftBnf0 . terminal
-instance (Ord rule, NonTerminalSymbol rule)
-  => NonTerminalSymbol (Bnf rule) where
-  nonTerminal = liftBnf0 . nonTerminal
-instance (Ord rule, Tokenized token rule)
-  => Tokenized token (Bnf rule) where
-  anyToken = liftBnf0 anyToken
-  token = liftBnf0 . token
-  oneOf = liftBnf0 . oneOf
-  notOneOf = liftBnf0 . notOneOf
-  asIn = liftBnf0 . asIn
-  notAsIn = liftBnf0 . notAsIn
-instance (Ord rule, TokenAlgebra token rule)
-  => TokenAlgebra token (Bnf rule) where
-  tokenClass = liftBnf0 . tokenClass
-instance (Ord rule, KleeneStarAlgebra rule)
-  => KleeneStarAlgebra (Bnf rule) where
-  starK = liftBnf1 starK
-  plusK = liftBnf1 plusK
-  optK = liftBnf1 optK
-instance (Ord rule, DisjunctiveMonoid rule)
-  => DisjunctiveMonoid (Bnf rule) where
-  falseP = liftBnf0 falseP
-  (>|<) = liftBnf2 (>|<)
-instance (Ord rule, Monoid rule) => Monoid (Bnf rule) where
-  mempty = liftBnf0 mempty
-instance (Ord rule, Semigroup rule) => Semigroup (Bnf rule) where
-  (<>) = liftBnf2 (<>)

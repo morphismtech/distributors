@@ -15,17 +15,46 @@ Regular expressions form a Kleene star algebra. See Kleene,
 module Control.Lens.Grammar.RegEx
   ( -- * RegEx
     RegEx (..)
+    -- * Bnf
+  , Bnf (..)
+  , liftBnf0
+  , liftBnf1
+  , liftBnf2
+  , diffB
+    -- * Regular expression strings
+  , regexGrammar
+  , regbnfGrammar
   ) where
 
+import Control.Lens hiding (Empty, rewrite)
+import Control.Lens.PartialIso
+import Control.Lens.Prismoid (atLeast)
+import Control.Lens.Grammar.BackusNaur
 import Control.Lens.Grammar.Symbol
 import Control.Lens.Grammar.Token
+import Data.Coerce
+import Data.Bifunctor.Joker
 import Data.Foldable
 import Data.List (nub)
 import Data.MemoTrie
 import Data.Monoid.Disjunctive
 import Data.Profunctor
 import qualified Data.Set as Set
-import GHC.Generics
+import Data.Set (Set)
+import Data.Maybe (fromMaybe, listToMaybe, mapMaybe)
+import Data.Profunctor.Distributor
+import Data.Profunctor.Grammar.Printor
+import Data.Profunctor.Monoidal
+import Data.String (IsString (..))
+import qualified GHC.Exts as Exts
+import GHC.Generics (Generic)
+import Text.ParserCombinators.ReadP (readP_to_S)
+
+-- $setup
+-- >>> :set -XOverloadedStrings -XRequiredTypeArguments -XTypeApplications -XExplicitNamespaces
+-- >>> import Control.Lens.Grammar
+-- >>> import Data.String (fromString)
+-- >>> import GHC.Exts (toList)
 
 {- | The `RegEx`pression type forms the prototypical `KleeneStarAlgebra`.
 It is also a `TokenAlgebra` and `tokenClass` acts homomorphically on disjunction.
@@ -252,3 +281,525 @@ alternated rexes =
         Just (TokenClass (NotOneOf tokens' test))
       _ -> Nothing
 
+{- | A t'Bnf' consists of a distinguished starting rule
+and a set of named rules. When a t'Bnf' supports `NonTerminalSymbol`s,
+then it supports the `BackusNaurForm` interface
+by replacing recursive calls with `nonTerminal`s.
+
+> prop> ruleRec label f = rule label (f (nonTerminal label))
+
+-}
+data Bnf rule = Bnf
+  { startBnf :: rule
+  , rulesBnf :: Set (String, rule)
+  } deriving stock (Eq, Ord, Show, Read)
+
+{- | Lift a rule to a t'Bnf'. -}
+liftBnf0 :: Ord a => a -> Bnf a
+liftBnf0 a = Bnf a mempty
+
+{- | Lift a function of rules to t'Bnf's. -}
+liftBnf1 :: (Coercible a b, Ord b) => (a -> b) -> Bnf a -> Bnf b
+liftBnf1 f (Bnf start rules) = Bnf (f start) (Set.map coerce rules)
+
+{- | Lift a binary function of rules to t'Bnf's. -}
+liftBnf2
+  :: (Coercible a c, Coercible b c, Ord c)
+  => (a -> b -> c) -> Bnf a -> Bnf b -> Bnf c
+liftBnf2 f (Bnf start0 rules0) (Bnf start1 rules1) =
+  Bnf (f start0 start1) (Set.map coerce rules0 <> Set.map coerce rules1)
+
+{- |
+The [Brzozowski derivative]
+(https://dl.acm.org/doi/pdf/10.1145/321239.321249) of a
+`RegEx`tended t'Bnf', with memoization.
+
+> prop> word =~ diffB prefix pattern = prefix <> word =~ pattern
+
+Unfortunately, despite elegance & optimization, Brzozowski's
+pattern matching algorithm is worst case exponential in grammar size.
+See Might, Darais & Spiewak, [Parsing With Derivatives]
+(https://matt.might.net/papers/might2011derivatives.pdf).
+-}
+diffB
+  :: (Categorized token, HasTrie token)
+  => [token] -> Bnf (RegEx token) -> Bnf (RegEx token)
+diffB prefix (Bnf start rules) =
+  Bnf (foldl' (flip diff1B) start prefix) rules
+  where
+    -- derivative wrt 1 token, memoized
+    diff1B = memo2 $ \x -> \case
+      SeqEmpty -> falseP
+      NonTerminal nameY -> anyP (diff1B x) (rulesNamed nameY rules)
+      Sequence y1 y ys ->
+        if δ (Bnf y1 rules) then y1'y2 >|< y1y2' else y1'y2
+        where
+          y2 = mconcat (y : ys)
+          y1'y2 = diff1B x y1 <> y2
+          y1y2' = y1 <> diff1B x y2
+      KleeneStar y -> diff1B x y <> starK y
+      KleeneOpt y -> diff1B x y
+      KleenePlus y -> diff1B x y <> starK y
+      RegExam (OneOf chars) ->
+        if x `elem` chars then mempty else falseP
+      RegExam (NotOneOf chars (AndAsIn cat)) ->
+        if elem x chars || categorize x /= cat
+          then falseP else mempty
+      RegExam (NotOneOf chars (AndNotAsIn cats)) ->
+        if elem x chars || elem (categorize x) cats
+          then falseP else mempty
+      RegExam (Alternate y1 y2 ys) -> anyP (diff1B x) (y1 : y2 : ys)
+
+-- | Does a pattern match the empty word?
+δ :: (Categorized token, HasTrie token)
+  => Bnf (RegEx token) -> Bool
+δ (Bnf start rules) = ν start where
+  ν = memo $ \case
+    SeqEmpty -> True
+    KleeneStar _ -> True
+    KleeneOpt _ -> True
+    KleenePlus y -> ν y
+    Sequence y1 y2 ys -> all ν (y1 : y2 : ys)
+    RegExam (Alternate y1 y2 ys) -> any ν (y1 : y2 : ys)
+    NonTerminal nameY -> any ν (rulesNamed nameY rules)
+    _ -> False
+
+rulesNamed :: Ord rule => String -> Set (String, rule) -> Set rule
+rulesNamed nameX = foldl' (flip inserter) Set.empty where
+  inserter (nameY,y) =
+    if nameX == nameY then Set.insert y else id
+
+-- Bnf instances
+instance (Ord rule, NonTerminalSymbol rule) => Ruled (Bnf rule) where
+  rule label (Bnf newRule oldRules) = (nonTerminal label)
+    {rulesBnf = Set.insert (label, newRule) oldRules}
+instance (Ord rule, NonTerminalSymbol rule)
+  => BackusNaurForm (Bnf rule) where
+    ruleRec label f = rule label (f (nonTerminal label))
+-- | `try` the start of a t'Bnf', recording it as its rules do.
+instance Tried rule => Tried (Bnf rule) where
+  try (Bnf start rules) = Bnf (try start) rules
+-- | A `RegEx` doesn't record `try`, for now.
+instance Tried (RegEx token)
+instance (Ord rule, TerminalSymbol token rule)
+  => TerminalSymbol token (Bnf rule) where
+  terminal = liftBnf0 . terminal
+instance (Ord rule, NonTerminalSymbol rule)
+  => NonTerminalSymbol (Bnf rule) where
+  nonTerminal = liftBnf0 . nonTerminal
+instance (Ord rule, Tokenized token rule)
+  => Tokenized token (Bnf rule) where
+  anyToken = liftBnf0 anyToken
+  token = liftBnf0 . token
+  oneOf = liftBnf0 . oneOf
+  notOneOf = liftBnf0 . notOneOf
+  asIn = liftBnf0 . asIn
+  notAsIn = liftBnf0 . notAsIn
+instance (Ord rule, TokenAlgebra token rule)
+  => TokenAlgebra token (Bnf rule) where
+  tokenClass = liftBnf0 . tokenClass
+instance (Ord rule, KleeneStarAlgebra rule)
+  => KleeneStarAlgebra (Bnf rule) where
+  starK = liftBnf1 starK
+  plusK = liftBnf1 plusK
+  optK = liftBnf1 optK
+instance (Ord rule, DisjunctiveMonoid rule)
+  => DisjunctiveMonoid (Bnf rule) where
+  falseP = liftBnf0 falseP
+  (>|<) = liftBnf2 (>|<)
+instance (Ord rule, Monoid rule) => Monoid (Bnf rule) where
+  mempty = liftBnf0 mempty
+instance (Ord rule, Semigroup rule) => Semigroup (Bnf rule) where
+  (<>) = liftBnf2 (<>)
+
+makeNestedPrisms ''Bnf
+makeNestedPrisms ''RegEx
+makeNestedPrisms ''TokenExam
+makeNestedPrisms ''CategoryTest
+makeNestedPrisms ''GeneralCategory
+
+{- | `regexGrammar` is a context-free @Control.Lens.Grammar.Grammar@
+for `RegEx`pressions of characters, in the syntax of regular
+expression strings, by which they're `IsString` & `IsList`.
+It can't be a @Control.Lens.Grammar.RegGrammar@,
+since regular expression strings include parenthesization.
+But [balanceBy parentheses](https://en.wikipedia.org/wiki/Dyck_language)
+are a context-free language.
+
+`RegEx`pressions of characters are an embedded domain specific
+language of regular expression strings.
+
+Since they are strings, they have a string-like interface.
+
+>>> let rex = fromString "ab|c" :: RegEx Char
+>>> putStringLn rex
+ab|c
+>>> toList rex
+"ab|c"
+
+They can be generated from @Control.Lens.Grammar.RegGrammar@s
+with @Control.Lens.Grammar.regexG@.
+
+>>> toList (runGrammor (terminal "a" >* terminal "b" >|< terminal "c") :: RegEx Char)
+"ab|c"
+
+A regular expression string is stored as an algebraic datatype, a `RegEx`.
+
+>>> rex
+RegExam (Alternate (Sequence (RegExam (OneOf (fromList "a"))) (RegExam (OneOf (fromList "b"))) []) (RegExam (OneOf (fromList "c"))) [])
+
+They're similar to regular expression strings in many other
+programming languages. We can use them to see if a word and pattern
+are `Matching`.
+
+>>> "ab" =~ rex
+True
+>>> "c" =~ rex
+True
+>>> "xyz" =~ rex
+False
+
+Like @Control.Lens.Grammar.RegGrammar@s, they can use all the `Lexical` combinators.
+Unlike @Control.Lens.Grammar.RegGrammar@s, instead of using `Monoidal` and `Alternator` combinators,
+they use `Monoid` and `KleeneStarAlgebra` combinators.
+
+>>> toList (terminal "a" <> terminal "b" >|< terminal "c" :: RegEx Char)
+"ab|c"
+>>> toList (mempty :: RegEx Char)
+""
+
+Since they're a `KleeneStarAlgebra`,
+they support Kleene quantifiers.
+
+>>> toList (starK rex)
+"(ab|c)*"
+>>> toList (plusK rex)
+"(ab|c)+"
+>>> toList (optK rex)
+"(ab|c)?"
+
+Like other regular expression languages, they support
+character classes.
+
+>>> toList (oneOf "abc" :: RegEx Char)
+"[abc]"
+>>> toList (notOneOf "abc" :: RegEx Char)
+"[^abc]"
+
+The character classes are used for failure, matching no character or string,
+as well as the wildcard, matching any single character.
+
+>>> toList (falseP :: RegEx Char)
+"[]"
+>>> toList (anyToken :: RegEx Char)
+"[^]"
+
+Additional forms of character classes test for a character's `GeneralCategory`.
+
+>>> toList (asIn LowercaseLetter :: RegEx Char)
+"\\p{Ll}"
+>>> toList (notAsIn Control :: RegEx Char)
+"\\P{Cc}"
+
+`KleeneStarAlgebra`s support alternation `>|<`,
+and the `Tokenized` combinators are all negatable.
+However, we'd like to be able to take the
+intersection of character classes as well.
+they can combine characters' `tokenClass`es
+using `BooleanAlgebra` combinators.
+
+>>> toList (tokenClass (notOneOf "abc" >&< notOneOf "xyz") :: RegEx Char)
+"[^abcxyz]"
+>>> toList (tokenClass (oneOf "abcxyz" >&< notOneOf "xyz") :: RegEx Char)
+"[abc]"
+>>> toList (tokenClass (notOneOf "#$%" >&< notAsIn Control) :: RegEx Char)
+"[^#$%\\P{Cc}]"
+>>> toList (tokenClass (allP notAsIn [MathSymbol, Control]) :: RegEx Char)
+"\\P{Sm|Cc}"
+>>> toList (tokenClass (notP (oneOf "xyz")) :: RegEx Char)
+"[^xyz]"
+
+Ill-formed regular expression strings normalize to failure.
+
+>>> toList (fromString ")(" :: RegEx Char)
+"[]"
+
+>>> putStringLn (regbnfG (RegEx Char))
+{start} = \q{regex}
+{alternate} = \q{sequence}(\|\q{sequence})*
+{atom} = \\q\q{nonterminal}|\q{class}|\(\q{regex}\)
+{category} = Ll|Lu|Lt|Lm|Lo|Mn|Mc|Me|Nd|Nl|No|Pc|Pd|Ps|Pe|Pi|Pf|Po|Sm|Sc|Sk|So|Zs|Zl|Zp|Cc|Cf|Cs|Co|Cn
+{char} = [^\(\)\*\+\?\[\\\]\^\{\|\}\P{Cc}]|\\\q{char-escaped}
+{char-control} = NUL|SOH|STX|ETX|EOT|ENQ|ACK|BEL|BS|HT|LF|VT|FF|CR|SO|SI|DLE|DC1|DC2|DC3|DC4|NAK|SYN|ETB|CAN|EM|SUB|ESC|FS|GS|RS|US|DEL|PAD|HOP|BPH|NBH|IND|NEL|SSA|ESA|HTS|HTJ|VTS|PLD|PLU|RI|SS2|SS3|DCS|PU1|PU2|STS|CCH|MW|SPA|EPA|SOS|SGCI|SCI|CSI|ST|OSC|PM|APC
+{char-escaped} = [\(\)\*\+\?\[\\\]\^\{\|\}]|\q{char-control}
+{class} = \q{class-one-of}|\q{class-not-one-of}
+{class-category} = \\p\{\q{category}\}|\\P\{\q{category}(\|\q{category})*\}
+{class-not-one-of} = \q{class-category}|\[\^\q{char}*\q{class-category}?\]
+{class-one-of} = \q{char}|\[\q{char}*\]
+{expression} = \q{atom}\?|\q{atom}\*|\q{atom}\+|\q{atom}
+{nonterminal} = \{\q{char}*\}
+{regex} = \q{alternate}
+{sequence} = \q{expression}*
+-}
+regexGrammar :: Grammatical Char p => p (RegEx Char) (RegEx Char)
+regexGrammar = ruleRec "regex" altG
+  where
+    altG rex = rule "alternate" $
+      iso alternativesOf (foldr1 (>|<) :: [RegEx Char] -> RegEx Char)
+        >~ sepWith "|" (atLeast 1) (seqG rex)
+
+    seqG rex = rule "sequence" $
+      iso itemsOf mconcat >~ manyP (exprG rex)
+
+    alternativesOf = \case
+      RegExam (Alternate rex0 rex1 rexes) -> rex0 : rex1 : rexes
+      rex -> [rex]
+
+    itemsOf = \case
+      SeqEmpty -> []
+      Sequence rex0 rex1 rexes -> rex0 : rex1 : rexes
+      rex -> [rex]
+
+    exprG rex = rule "expression" $ orP
+      [ _KleeneOpt >? atomG rex *< terminal "?"
+      , _KleeneStar >? atomG rex *< terminal "*"
+      , _KleenePlus >? atomG rex *< terminal "+"
+      , atomG rex
+      ]
+
+    atomG rex = rule "atom" $ orP
+      [ _NonTerminal >? terminal "\\q" >* nonterminalG
+      , _RegExam >? classG
+      , terminal "(" >* rex *< terminal ")"
+      ]
+
+    categoryG = rule "category" $ orP
+      [ _LowercaseLetter >? terminal "Ll"
+      , _UppercaseLetter >? terminal "Lu"
+      , _TitlecaseLetter >? terminal "Lt"
+      , _ModifierLetter >? terminal "Lm"
+      , _OtherLetter >? terminal "Lo"
+      , _NonSpacingMark >? terminal "Mn"
+      , _SpacingCombiningMark >? terminal "Mc"
+      , _EnclosingMark >? terminal "Me"
+      , _DecimalNumber >? terminal "Nd"
+      , _LetterNumber >? terminal "Nl"
+      , _OtherNumber >? terminal "No"
+      , _ConnectorPunctuation >? terminal "Pc"
+      , _DashPunctuation >? terminal "Pd"
+      , _OpenPunctuation >? terminal "Ps"
+      , _ClosePunctuation >? terminal "Pe"
+      , _InitialQuote >? terminal "Pi"
+      , _FinalQuote >? terminal "Pf"
+      , _OtherPunctuation >? terminal "Po"
+      , _MathSymbol >? terminal "Sm"
+      , _CurrencySymbol >? terminal "Sc"
+      , _ModifierSymbol >? terminal "Sk"
+      , _OtherSymbol >? terminal "So"
+      , _Space >? terminal "Zs"
+      , _LineSeparator >? terminal "Zl"
+      , _ParagraphSeparator >? terminal "Zp"
+      , _Control >? terminal "Cc"
+      , _Format >? terminal "Cf"
+      , _Surrogate >? terminal "Cs"
+      , _PrivateUse >? terminal "Co"
+      , _NotAssigned >? terminal "Cn"
+      ]
+
+    classG = rule "class" $ orP
+      [ _OneOf >? classOneOfG
+      , _NotOneOf >? classNotOneOfG
+      ]
+
+    classCatG = rule "class-category" $ orP
+      [ _AndAsIn >? terminal "\\p{" >* categoryG *< terminal "}"
+      , _AndNotAsIn . from listed >?
+          terminal "\\P{" >* sepWith "|" (atLeast 1) categoryG *< terminal "}"
+      ]
+
+    classOneOfG = rule "class-one-of" $ orP
+      [ onlyOne charG
+      , terminal "[" >* (listed ~< manyP charG) *< terminal "]"
+      ]
+
+    classNotOneOfG = rule "class-not-one-of" $ orP
+      [ asEmpty >*< classCatG
+      , terminal "[^" >* (listed ~< manyP charG) >*<
+          optionP (_AndNotAsIn . _Empty) classCatG *< terminal "]"
+      ]
+
+nonterminalG :: Grammatical Char p => p String String
+nonterminalG = rule "nonterminal" $
+  terminal "{" >* manyP charG *< terminal "}"
+
+charG :: Grammatical Char p => p Char Char
+charG = rule "char" $
+  tokenClass (notOneOf charsReserved >&< notAsIn Control)
+  >|< terminal "\\" >* charEscapedG
+  where
+    charEscapedG = rule "char-escaped" $
+      oneOf charsReserved >|< charControlG
+
+    charsReserved = "()*+?[\\]^{|}"
+
+    charControlG = rule "char-control" $ orP
+      [ only '\NUL' >? terminal "NUL"
+      , only '\SOH' >? terminal "SOH"
+      , only '\STX' >? terminal "STX"
+      , only '\ETX' >? terminal "ETX"
+      , only '\EOT' >? terminal "EOT"
+      , only '\ENQ' >? terminal "ENQ"
+      , only '\ACK' >? terminal "ACK"
+      , only '\BEL' >? terminal "BEL"
+      , only '\BS' >? terminal "BS"
+      , only '\HT' >? terminal "HT"
+      , only '\LF' >? terminal "LF"
+      , only '\VT' >? terminal "VT"
+      , only '\FF' >? terminal "FF"
+      , only '\CR' >? terminal "CR"
+      , only '\SO' >? terminal "SO"
+      , only '\SI' >? terminal "SI"
+      , only '\DLE' >? terminal "DLE"
+      , only '\DC1' >? terminal "DC1"
+      , only '\DC2' >? terminal "DC2"
+      , only '\DC3' >? terminal "DC3"
+      , only '\DC4' >? terminal "DC4"
+      , only '\NAK' >? terminal "NAK"
+      , only '\SYN' >? terminal "SYN"
+      , only '\ETB' >? terminal "ETB"
+      , only '\CAN' >? terminal "CAN"
+      , only '\EM' >? terminal "EM"
+      , only '\SUB' >? terminal "SUB"
+      , only '\ESC' >? terminal "ESC"
+      , only '\FS' >? terminal "FS"
+      , only '\GS' >? terminal "GS"
+      , only '\RS' >? terminal "RS"
+      , only '\US' >? terminal "US"
+      , only '\DEL' >? terminal "DEL"
+      , only '\x80' >? terminal "PAD"
+      , only '\x81' >? terminal "HOP"
+      , only '\x82' >? terminal "BPH"
+      , only '\x83' >? terminal "NBH"
+      , only '\x84' >? terminal "IND"
+      , only '\x85' >? terminal "NEL"
+      , only '\x86' >? terminal "SSA"
+      , only '\x87' >? terminal "ESA"
+      , only '\x88' >? terminal "HTS"
+      , only '\x89' >? terminal "HTJ"
+      , only '\x8A' >? terminal "VTS"
+      , only '\x8B' >? terminal "PLD"
+      , only '\x8C' >? terminal "PLU"
+      , only '\x8D' >? terminal "RI"
+      , only '\x8E' >? terminal "SS2"
+      , only '\x8F' >? terminal "SS3"
+      , only '\x90' >? terminal "DCS"
+      , only '\x91' >? terminal "PU1"
+      , only '\x92' >? terminal "PU2"
+      , only '\x93' >? terminal "STS"
+      , only '\x94' >? terminal "CCH"
+      , only '\x95' >? terminal "MW"
+      , only '\x96' >? terminal "SPA"
+      , only '\x97' >? terminal "EPA"
+      , only '\x98' >? terminal "SOS"
+      , only '\x99' >? terminal "SGCI"
+      , only '\x9A' >? terminal "SCI"
+      , only '\x9B' >? terminal "CSI"
+      , only '\x9C' >? terminal "ST"
+      , only '\x9D' >? terminal "OSC"
+      , only '\x9E' >? terminal "PM"
+      , only '\x9F' >? terminal "APC"
+      ]
+
+{- |
+`regbnfGrammar` is a context-free @Control.Lens.Grammar.Grammar@
+for t'Bnf's of `RegEx`pressions of characters,
+by which they're `IsString` & `IsList`.
+That means that it can generate a self-hosted definition.
+
+t'Bnf's of `RegEx`pressions of characters are an embedded domain specific
+language of Backus-Naur forms extended by regular expression strings.
+
+Such a t'Bnf' consists of a distinguished "start" `RegEx`,
+and a set of named `RegEx` `rule`s.
+
+>>> putStringLn (rule "baz" (terminal "foo" >|< terminal "bar") :: Bnf (RegEx Char))
+{start} = \q{baz}
+{baz} = foo|bar
+
+Like `RegEx`pressions, they have a string-like interface.
+
+>>> let bnf = fromString "{start} = foo|bar" :: Bnf (RegEx Char)
+>>> putStringLn bnf
+{start} = foo|bar
+>>> toList bnf
+"{start} = foo|bar"
+>>> :type toList bnf
+toList bnf :: [Char]
+
+They can be generated from context-free @Control.Lens.Grammar.Grammar@s
+with @Control.Lens.Grammar.regbnfG@.
+
+Like `RegEx`pressions, they can be constructed using
+`Lexical`, `Monoid` and `KleeneStarAlgebra` combinators.
+But they also support `BackusNaurForm` `rule`s and `ruleRec`s.
+
+>>> putStringLn (rule "baz" (bnf >|< terminal "baz"))
+{start} = \q{baz}
+{baz} = foo|bar|baz
+>>> putStringLn (ruleRec "∞-loop" (\x -> x) :: Bnf (RegEx Char))
+{start} = \q{∞-loop}
+{∞-loop} = \q{∞-loop}
+
+>>> putStringLn (regbnfG (type (Bnf (RegEx Char))))
+{start} = \q{regbnf}
+{alternate} = \q{sequence}(\|\q{sequence})*
+{atom} = \\q\q{nonterminal}|\q{class}|\(\q{regex}\)
+{category} = Ll|Lu|Lt|Lm|Lo|Mn|Mc|Me|Nd|Nl|No|Pc|Pd|Ps|Pe|Pi|Pf|Po|Sm|Sc|Sk|So|Zs|Zl|Zp|Cc|Cf|Cs|Co|Cn
+{char} = [^\(\)\*\+\?\[\\\]\^\{\|\}\P{Cc}]|\\\q{char-escaped}
+{char-control} = NUL|SOH|STX|ETX|EOT|ENQ|ACK|BEL|BS|HT|LF|VT|FF|CR|SO|SI|DLE|DC1|DC2|DC3|DC4|NAK|SYN|ETB|CAN|EM|SUB|ESC|FS|GS|RS|US|DEL|PAD|HOP|BPH|NBH|IND|NEL|SSA|ESA|HTS|HTJ|VTS|PLD|PLU|RI|SS2|SS3|DCS|PU1|PU2|STS|CCH|MW|SPA|EPA|SOS|SGCI|SCI|CSI|ST|OSC|PM|APC
+{char-escaped} = [\(\)\*\+\?\[\\\]\^\{\|\}]|\q{char-control}
+{class} = \q{class-one-of}|\q{class-not-one-of}
+{class-category} = \\p\{\q{category}\}|\\P\{\q{category}(\|\q{category})*\}
+{class-not-one-of} = \q{class-category}|\[\^\q{char}*\q{class-category}?\]
+{class-one-of} = \q{char}|\[\q{char}*\]
+{expression} = \q{atom}\?|\q{atom}\*|\q{atom}\+|\q{atom}
+{nonterminal} = \{\q{char}*\}
+{regbnf} = \{start\} = \q{regex}(\LF\q{nonterminal} = \q{regex})*
+{regex} = \q{alternate}
+{sequence} = \q{expression}*
+-}
+regbnfGrammar :: Grammatical Char p => p (Bnf (RegEx Char)) (Bnf (RegEx Char))
+regbnfGrammar = rule "regbnf" $ _Bnf >~
+  terminal "{start} = " >* regexGrammar >*< (listed ~< manyP
+    (terminal "\n" >* nonterminalG *< terminal " = " >*< regexGrammar))
+
+-- | A regular expression string, by `regexGrammar`.
+instance token ~ Char => Exts.IsList (RegEx token) where
+  type Item (RegEx token) = token
+  fromList
+    = fromMaybe falseP
+    . listToMaybe
+    . mapMaybe parsed
+    . readP_to_S (runJoker regexGrammar)
+    where
+      parsed (rex, "") = Just rex
+      parsed _ = Nothing
+  toList = maybe "[]" ($ "") . printP
+    (regexGrammar :: Printor String Maybe (RegEx Char) (RegEx Char))
+instance token ~ Char => IsString (RegEx token) where
+  fromString = Exts.fromList
+-- | A t'Bnf' of regular expression strings, by `regbnfGrammar`.
+instance rule ~ RegEx Char => Exts.IsList (Bnf rule) where
+  type Item (Bnf rule) = Char
+  fromList
+    = fromMaybe falseP
+    . listToMaybe
+    . mapMaybe parsed
+    . readP_to_S (runJoker regbnfGrammar)
+    where
+      parsed (bnf, "") = Just bnf
+      parsed _ = Nothing
+  toList = maybe "{start} = []" ($ "") . printP
+    (regbnfGrammar :: Printor String Maybe (Bnf (RegEx Char)) (Bnf (RegEx Char)))
+instance rule ~ RegEx Char => IsString (Bnf rule) where
+  fromString = Exts.fromList

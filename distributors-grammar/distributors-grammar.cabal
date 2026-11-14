@@ -36,6 +36,7 @@ library
       Control.Lens.Grammar.Token
       Data.Profunctor.Grammar
       Data.Profunctor.Grammar.Parsector
+      Data.Profunctor.Grammar.Printor
   other-modules:
       Paths_distributors_grammar
   autogen-modules:
