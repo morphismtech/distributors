@@ -4,10 +4,11 @@
 
 ### New APIs
 
-- More `DisjunctiveMonoid` instances: every `Alternative` of `base`,
-  `containers` & `vector`, by `empty` & `<|>`, now with lists, `Seq`s &
-  `Vector`s; & `Set`s, `IntSet`s, `Map`s & `IntMap`s, by their monoids,
-  of union.
+- More `DisjunctiveMonoid` instances: every `Alternative` of the
+  dependencies, `base`, `containers`, `vector`, `transformers`, `free`,
+  `lens` & `witherable`, by `empty` & `<|>`, now with lists, `Seq`s,
+  `Vector`s, monad transformers, free monads & `ReifiedFold`s; & `Set`s,
+  `IntSet`s, `Map`s & `IntMap`s, by their monoids, of union.
 - `stepping` & its combinators, `terminateBy`, `delimitBy`, `balanceBy`
   & `countWith`, step through any stream, @(Cons s s a a, AsEmpty s)@,
   like a `Data.Sequence.Seq` or `Data.Text.Text`, not only lists.

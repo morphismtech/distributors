@@ -42,6 +42,29 @@ import Data.Profunctor.Cayley
 import Data.Profunctor.Monad
 import Data.Profunctor.Yoneda
 import Data.Proxy
+import Control.Alternative.Free qualified as FreeAlt
+import Control.Applicative.Backwards (Backwards)
+import Control.Applicative.Lift (Lift)
+import Control.Lens (ReifiedFold)
+import Control.Monad.Free (Free)
+import Control.Monad.Free.Church qualified as Church
+import Control.Monad.Trans.Accum (AccumT)
+import Control.Monad.Trans.Except (ExceptT)
+import Control.Monad.Trans.Free (FreeT)
+import Control.Monad.Trans.Free.Church (FT)
+import Control.Monad.Trans.Identity (IdentityT)
+import Control.Monad.Trans.Maybe (MaybeT)
+import Control.Monad.Trans.Reader (ReaderT)
+import Control.Monad.Trans.RWS.CPS qualified as CPSRWS
+import Control.Monad.Trans.RWS.Lazy qualified as LazyRWS
+import Control.Monad.Trans.RWS.Strict qualified as StrictRWS
+import Control.Monad.Trans.Select (SelectT)
+import Control.Monad.Trans.State.Lazy qualified as Lazy
+import Control.Monad.Trans.State.Strict qualified as Strict
+import Control.Monad.Trans.Writer.CPS qualified as CPSW
+import Control.Monad.Trans.Writer.Lazy qualified as LazyW
+import Control.Monad.Trans.Writer.Strict qualified as StrictW
+import Data.Functor.Reverse (Reverse)
 import Data.IntMap (IntMap)
 import Data.IntSet (IntSet)
 import Data.Map (Map)
@@ -52,6 +75,7 @@ import GHC.Conc (STM)
 import GHC.Generics
 import Text.ParserCombinators.ReadP (ReadP)
 import Text.ParserCombinators.ReadPrec (ReadPrec)
+import Witherable (WrappedFoldable)
 
 {- | A `DisjunctiveMonoid` is simply a monoid,
 the only difference from `Monoid` being its semantics
@@ -269,6 +293,43 @@ deriving anyclass instance DisjunctiveMonoid (Vector a)
 deriving anyclass instance MonadPlus m => DisjunctiveMonoid (WrappedMonad m a)
 deriving anyclass instance ArrowPlus a => DisjunctiveMonoid (WrappedArrow a b c)
 deriving anyclass instance ArrowPlus a => DisjunctiveMonoid (ArrowMonad a b)
+deriving anyclass instance Alternative f => DisjunctiveMonoid (Backwards f a)
+deriving anyclass instance Alternative f => DisjunctiveMonoid (Lift f a)
+deriving anyclass instance Alternative f => DisjunctiveMonoid (Reverse f a)
+deriving anyclass instance Alternative m => DisjunctiveMonoid (IdentityT m a)
+deriving anyclass instance Alternative m => DisjunctiveMonoid (ReaderT r m a)
+deriving anyclass instance (Functor m, Monad m)
+  => DisjunctiveMonoid (MaybeT m a)
+deriving anyclass instance (Functor m, Monad m, Monoid e)
+  => DisjunctiveMonoid (ExceptT e m a)
+deriving anyclass instance (Functor m, MonadPlus m)
+  => DisjunctiveMonoid (Lazy.StateT s m a)
+deriving anyclass instance (Functor m, MonadPlus m)
+  => DisjunctiveMonoid (Strict.StateT s m a)
+deriving anyclass instance (Monoid w, Alternative m)
+  => DisjunctiveMonoid (LazyW.WriterT w m a)
+deriving anyclass instance (Monoid w, Alternative m)
+  => DisjunctiveMonoid (StrictW.WriterT w m a)
+deriving anyclass instance (Functor m, MonadPlus m)
+  => DisjunctiveMonoid (CPSW.WriterT w m a)
+deriving anyclass instance (Monoid w, Functor m, MonadPlus m)
+  => DisjunctiveMonoid (LazyRWS.RWST r w s m a)
+deriving anyclass instance (Monoid w, Functor m, MonadPlus m)
+  => DisjunctiveMonoid (StrictRWS.RWST r w s m a)
+deriving anyclass instance (Functor m, MonadPlus m)
+  => DisjunctiveMonoid (CPSRWS.RWST r w s m a)
+deriving anyclass instance (Monoid w, Functor m, MonadPlus m)
+  => DisjunctiveMonoid (AccumT w m a)
+deriving anyclass instance (Functor m, MonadPlus m)
+  => DisjunctiveMonoid (SelectT r m a)
+deriving anyclass instance Alternative v => DisjunctiveMonoid (Free v a)
+deriving anyclass instance Alternative f => DisjunctiveMonoid (Church.F f a)
+deriving anyclass instance (Functor f, MonadPlus m)
+  => DisjunctiveMonoid (FreeT f m a)
+deriving anyclass instance Alternative m => DisjunctiveMonoid (FT f m a)
+deriving anyclass instance DisjunctiveMonoid (FreeAlt.Alt f a)
+deriving anyclass instance DisjunctiveMonoid (ReifiedFold s a)
+deriving anyclass instance Alternative f => DisjunctiveMonoid (WrappedFoldable f a)
 instance DisjunctiveMonoid (f a) => DisjunctiveMonoid (Alt f a) where
   falseP = Alt falseP
   Alt x >|< Alt y = Alt (x >|< y)
