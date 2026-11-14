@@ -1,3 +1,4 @@
+{-# LANGUAGE ExplicitNamespaces, RequiredTypeArguments #-}
 {- |
 Module      : Control.Lens.Grammar
 Description : grammar hierarchy
@@ -13,20 +14,23 @@ See Chomsky, [On Certain Formal Properties of Grammars]
 
 module Control.Lens.Grammar
   ( -- * Regular grammar
-    RegGrammar
+    RegGrammar (..)
+  , RegGrammatical
   , Lexical
   , RegString (..)
   , regstringG
   , regexGrammar
     -- * Context-free grammar
-  , Grammar
+  , Grammar (..)
+  , Grammatical
   , RegBnf (..)
   , regbnfG
   , regbnfGrammar
   , applicativeG
   , transducerG
     -- * Context-sensitive grammar
-  , CtxGrammar
+  , CtxGrammar (..)
+  , CtxGrammatical
   , printG
   , parseG
   , unparseG
@@ -90,6 +94,7 @@ import Data.Traversable.Homogeneous as X
 import Data.Traversable.Homogeneous.Enumerable as X
 
 -- $setup
+-- >>> :set -XRequiredTypeArguments -XExplicitNamespaces -XTypeApplications
 -- >>> import Data.String (fromString)
 -- >>> import GHC.Exts (toList)
 
@@ -138,7 +143,7 @@ Now we can build a `RegGrammar` for @SemVer@ using the "idiom" style of
 `Applicative` parsing with a couple modifications.
 
 >>> :{
-semverGrammar :: RegGrammar Char SemVer
+semverGrammar :: RegGrammatical Char p => p SemVer SemVer
 semverGrammar = _SemVer
   >?  numberG
   >*< terminal "." >* numberG
@@ -152,7 +157,15 @@ semverGrammar = _SemVer
       >|< asIn UppercaseLetter
       >|< asIn DecimalNumber
       >|< token '-'
+instance CtxGrammar Char SemVer
+instance Grammar Char SemVer
+instance RegGrammar Char SemVer where regGrammar = semverGrammar
 :}
+
+A type's `RegGrammar` instance, here @semverGrammar@, & its `Grammar`
+& `CtxGrammar` instances, by default, let generators run it by its type,
+a required type argument, @(type SemVer)@ where a constructor shares
+its name, & parsers & printers by inference.
 
 Instead of using the constructor @SemVer@ with the `Functor` applicator `<$>`,
 we use the optic @_SemVer@ we defined and the `Choice` applicator `>?`;
@@ -190,32 +203,36 @@ because @_SemVer@ is an `Control.Lens.Iso.Iso`.
 You can generate a t'RegString' from a `RegGrammar`
 with `Control.Lens.Grammar.regstringG`.
 
->>> putStringLn (regstringG semverGrammar)
+>>> putStringLn (regstringG (type SemVer))
 \p{Nd}+.\p{Nd}+.\p{Nd}+(-(\p{Ll}|\p{Lu}|\p{Nd}|-)+(.(\p{Ll}|\p{Lu}|\p{Nd}|-)+)*)?(\+(\p{Ll}|\p{Lu}|\p{Nd}|-)+(.(\p{Ll}|\p{Lu}|\p{Nd}|-)+)*)?
 
 You can also generate parsers and printers.
 
->>> [parsed | (parsed, "") <- parseG semverGrammar "2.1.5-rc.1+build.123"]
+>>> [parsed | (parsed, "") <- parseG @SemVer "2.1.5-rc.1+build.123"]
 [SemVer {major = 2, minor = 1, patch = 5, preRelease = ["rc","1"], buildMetadata = ["build","123"]}]
 
 Parsing `uncons`es tokens left-to-right, from the beginning of a string.
 Unparsing, on the other hand, `snoc`s tokens left-to-right, to the end of a string.
 
->>> unparseG semverGrammar (SemVer 1 0 0 ["alpha"] []) "SemVer: " :: Maybe String
+>>> unparseG (SemVer 1 0 0 ["alpha"] []) "SemVer: " :: Maybe String
 Just "SemVer: 1.0.0-alpha"
 
 Printing, on the gripping hand, `cons`es tokens right-to-left, to the beginning of a string.
 
->>> ($ " is the SemVer.") <$> printG semverGrammar (SemVer 1 2 3 [] []) :: Maybe String
+>>> ($ " is the SemVer.") <$> printG (SemVer 1 2 3 [] []) :: Maybe String
 Just "1.2.3 is the SemVer."
 
 `Profunctor`ial combinators give us correct-by-construction invertible parsers.
 New `RegGrammar` generators can be defined with new instances of `Lexical` `Alternator`s.
 -}
-type RegGrammar token a = forall p.
+class Grammar token a => RegGrammar token a where
+  regGrammar :: RegGrammatical token p => p a a
+
+{- | The `Lexical` `Alternator`s, which run `RegGrammar`s. -}
+type RegGrammatical token p =
   ( Lexical token p
   , Alternator p
-  ) => p a a
+  ) :: Constraint
 
 {- | Context-free `Grammar`s add two capabilities to `RegGrammar`s,
 coming from the `BackusNaurForm` interface
@@ -256,7 +273,7 @@ and tying the recursive loop
 with `ruleRec`.
 
 >>> :{
-arithGrammar :: Grammar Char Arith
+arithGrammar :: Grammatical Char p => p Arith Arith
 arithGrammar = ruleRec "arith" sumG
   where
     sumG arith = rule "sum" $
@@ -267,22 +284,24 @@ arithGrammar = ruleRec "arith" sumG
       numberG >|< terminal "(" >* arith *< terminal ")"
     numberG = rule "number" $
       _Num . iso show read >? someP (asIn @Char DecimalNumber)
+instance CtxGrammar Char Arith
+instance Grammar Char Arith where grammar = arithGrammar
 :}
 
 We can generate grammar strings, printers and parsers from @arithGrammar@.
 
->>> putStringLn (regbnfG arithGrammar)
+>>> putStringLn (regbnfG Arith)
 {start} = \q{arith}
 {arith} = \q{sum}
 {factor} = \q{number}|\(\q{arith}\)
 {number} = \p{Nd}+
 {product} = \q{factor}(\*\q{factor})*
 {sum} = \q{product}(\+\q{product})*
->>> [x | (x,"") <- parseG arithGrammar "1+2*3+4"]
+>>> [x | (x,"") <- parseG @Arith "1+2*3+4"]
 [Add (Add (Num 1) (Mul (Num 2) (Num 3))) (Num 4)]
->>> unparseG arithGrammar (Add (Num 1) (Mul (Num 2) (Num 3))) "" :: Maybe String
+>>> unparseG (Add (Num 1) (Mul (Num 2) (Num 3))) "" :: Maybe String
 Just "1+2*3"
->>> do pr <- printG arithGrammar (Num 69); pure (pr "") :: Maybe String
+>>> do pr <- printG (Num 69); pure (pr "") :: Maybe String
 Just "69"
 
 Operator tables with precedence, like @buildExpressionParser@'s,
@@ -310,7 +329,7 @@ _Exp = prism' (uncurry Exp) (\case Exp x y -> Just (x,y); _ -> Nothing)
 _Mul = prism' (uncurry Mul) (\case Mul x y -> Just (x,y); _ -> Nothing)
 _Add = prism' (uncurry Add) (\case Add x y -> Just (x,y); _ -> Nothing)
 _Sub = prism' (uncurry Sub) (\case Sub x y -> Just (x,y); _ -> Nothing)
-exprGrammar :: Grammar Char Expr
+exprGrammar :: Grammatical Char p => p Expr Expr
 exprGrammar = ruleRec "expr" $ \expr ->
   let atom = rule "atom" $ nat >|< terminal "(" >* expr *< terminal ")"
       nat  = rule "nat"  $ _Nat . iso show read >? someP (asIn @Char DecimalNumber)
@@ -320,29 +339,31 @@ exprGrammar = ruleRec "expr" $ \expr ->
     , [ Infix LeftAssoc _Mul (terminal "*") ]
     , [ Infix LeftAssoc _Add (terminal "+"), Infix LeftAssoc _Sub (terminal "-") ]
     ] atom
+instance CtxGrammar Char Expr
+instance Grammar Char Expr where grammar = exprGrammar
 :}
 
 The right-associative @^@ groups to the right, @-@ to the left, @*@
 binds tighter than @+@, and postfix @!@ binds tighter than @^@:
 
->>> [e | (e,"") <- parseG exprGrammar "2^3^2"]
+>>> [e | (e,"") <- parseG @Expr "2^3^2"]
 [Exp (Nat 2) (Exp (Nat 3) (Nat 2))]
->>> [e | (e,"") <- parseG exprGrammar "3-2-1"]
+>>> [e | (e,"") <- parseG @Expr "3-2-1"]
 [Sub (Sub (Nat 3) (Nat 2)) (Nat 1)]
->>> [e | (e,"") <- parseG exprGrammar "2*3+4"]
+>>> [e | (e,"") <- parseG @Expr "2*3+4"]
 [Add (Mul (Nat 2) (Nat 3)) (Nat 4)]
->>> [e | (e,"") <- parseG exprGrammar "2*(3+4)"]
+>>> [e | (e,"") <- parseG @Expr "2*(3+4)"]
 [Mul (Nat 2) (Add (Nat 3) (Nat 4))]
->>> [e | (e,"") <- parseG exprGrammar "3!"]
+>>> [e | (e,"") <- parseG @Expr "3!"]
 [Fac (Nat 3)]
->>> [e | (e,"") <- parseG exprGrammar "2^3!"]
+>>> [e | (e,"") <- parseG @Expr "2^3!"]
 [Exp (Nat 2) (Fac (Nat 3))]
 
 Being bidirectional, the same grammar prints:
 
->>> unparseG exprGrammar (Exp (Nat 2) (Exp (Nat 3) (Nat 2))) "" :: Maybe String
+>>> unparseG (Exp (Nat 2) (Exp (Nat 3) (Nat 2))) "" :: Maybe String
 Just "2^3^2"
->>> unparseG exprGrammar (Exp (Nat 2) (Fac (Nat 3))) "" :: Maybe String
+>>> unparseG (Exp (Nat 2) (Fac (Nat 3))) "" :: Maybe String
 Just "2^3!"
 
 If all `rule`s are non-recursive, then a `Grammar`
@@ -353,11 +374,16 @@ But it's recommended to use `Grammar`s for `rule` abstraction
 and generator support for `ruleRec`.
 
 -}
-type Grammar token a = forall p.
-  ( Lexical token p
-  , Alternator p
+class CtxGrammar token a => Grammar token a where
+  grammar :: Grammatical token p => p a a
+  default grammar :: (RegGrammar token a, Grammatical token p) => p a a
+  grammar = regGrammar @token
+
+{- | The `RegGrammatical` `BackusNaurForm`s, which run `Grammar`s. -}
+type Grammatical token p =
+  ( RegGrammatical token p
   , forall x y. BackusNaurForm (p x y)
-  ) => p a a
+  ) :: Constraint
 
 {- | For context-sensitivity,
 the `Monadic` interface is used by importing "Data.Profunctor.Monadic.Do"
@@ -378,7 +404,7 @@ _LenVec = iso (\LenVec {..} -> (length, vector)) (\(length, vector) -> LenVec {.
 >>> :set -XQualifiedDo
 >>> import qualified Data.Profunctor.Monadic.Do as P
 >>> :{
-lenvecGrammar :: CtxGrammar Char LenVec
+lenvecGrammar :: CtxGrammatical Char p => p LenVec LenVec
 lenvecGrammar = _LenVec >? P.do
   let
     numberG = iso show read >~ someP (asIn @Char DecimalNumber)
@@ -386,6 +412,7 @@ lenvecGrammar = _LenVec >? P.do
   len <- numberG             -- bonds to _LenVec
   terminal ";"               -- doesn't bond
   vectorG (fromIntegral len) -- bonds to _LenVec
+instance CtxGrammar Char LenVec where ctxGrammar = lenvecGrammar
 :}
 
 The qualified do-notation changes the signature of
@@ -407,13 +434,13 @@ We can't generate a t'RegBnf' from a `CtxGrammar` since the `rule`s
 aren't static, but dynamic and contextual.
 We can generate parsers and printers as expected.
 
->>> [vec | (vec, "") <- parseG lenvecGrammar "3;1,2,3"] :: [LenVec]
+>>> [vec | (vec, "") <- parseG "3;1,2,3"] :: [LenVec]
 [LenVec {length = 3, vector = [1,2,3]}]
->>> [vec | (vec, "") <- parseG lenvecGrammar "0;1,2,3"] :: [LenVec]
+>>> [vec | (vec, "") <- parseG "0;1,2,3"] :: [LenVec]
 []
->>> [pr "" | pr <- printG lenvecGrammar (LenVec 2 [6,7])] :: [String]
+>>> [pr "" | pr <- printG (LenVec 2 [6,7])] :: [String]
 ["2;6,7"]
->>> [pr "" | pr <- printG lenvecGrammar (LenVec 200 [100])] :: [String]
+>>> [pr "" | pr <- printG (LenVec 200 [100])] :: [String]
 []
 
 In addition to context-sensitivity via `Monadic` combinators,
@@ -423,12 +450,12 @@ And the `satisfied` pattern is used together with the `Choice` &
 `Data.Profunctor.Cochoice` applicator `>?<` for unrestricted filtration.
 
 >>> :{
-palindromeG :: CtxGrammar Char String
+palindromeG :: CtxGrammatical Char p => p String String
 palindromeG = rule "palindrome" $
   satisfied (\wrd -> reverse wrd == wrd) >?< manyP (anyToken @Char)
 :}
 
->>> [pal | word <- ["racecar", "word"], (pal, "") <- parseG palindromeG word]
+>>> [pal | word <- ["racecar", "word"], (pal, "") <- parseP (palindromeG :: Parsor String [] String String) word]
 ["racecar"]
 
 Since `CtxGrammar`s are embedded in Haskell,
@@ -448,7 +475,7 @@ equal to the opening tag, a language which isn't context-free.
 
 >>> :{
 data Heredoc = Heredoc String [String] deriving (Eq, Show)
-heredocG :: CtxGrammar Char Heredoc
+heredocG :: CtxGrammatical Char p => p Heredoc Heredoc
 heredocG = lined >~ terminal "<<" >* contextually (delimitBy (==)) lineG
   where
     lineG = manyP (notOneOf "\n") *< terminal "\n"
@@ -457,15 +484,16 @@ heredocG = lined >~ terminal "<<" >* contextually (delimitBy (==)) lineG
       (\case
         tag : rest -> Heredoc tag (if null rest then [] else init rest)
         [] -> Heredoc "" [])
+instance CtxGrammar Char Heredoc where ctxGrammar = heredocG
 :}
 
->>> [pr "" | pr <- printG heredocG (Heredoc "EOF" ["hi"])] :: [String]
+>>> [pr "" | pr <- printG (Heredoc "EOF" ["hi"])] :: [String]
 ["<<EOF\nhi\nEOF\n"]
->>> [h | (h, "") <- parseG heredocG "<<EOF\nhi\nEOF\n"]
+>>> [h | (h, "") <- parseG @Heredoc "<<EOF\nhi\nEOF\n"]
 [Heredoc "EOF" ["hi"]]
->>> parsecResult (parsecG heredocG "<<EOF\nhi\nEOF\n")
+>>> parsecResult (parsecG @Heredoc "<<EOF\nhi\nEOF\n")
 Just (Heredoc "EOF" ["hi"])
->>> [pr "" | pr <- printG heredocG (Heredoc "EOF" ["EOF"])] :: [String]
+>>> [pr "" | pr <- printG (Heredoc "EOF" ["EOF"])] :: [String]
 []
 
 Finally, `CtxGrammar`s support failure reporting and backtracking.
@@ -484,22 +512,28 @@ restores full lookahead to t'Parsector'.
 Since both t'Parsor' & t'Parsector' are @LL@ parsers they
 diverge if the `CtxGrammar` they're run on is left-recursive.
 
->>> parsecG (rule "foo" (fail "bar") >|< fail "baz") "abc"
+>>> parsecP (rule "foo" (fail "bar") >|< fail "baz") "abc"
 ParsecState {parsecLooked = False, parsecOffset = 0, parsecStream = "abc", parsecFailure = ParsecFailure {parsecExpect = TokenClass (OneOf (fromList "")), parsecLabels = [Node {rootLabel = "foo", subForest = [Node {rootLabel = "bar", subForest = []}]},Node {rootLabel = "baz", subForest = []}]}, parsecResult = Nothing}
 
->>> parsecG (manyP (token 'a') >*< asIn @Char DecimalNumber) "aaab"
+>>> parsecP (manyP (token 'a') >*< asIn @Char DecimalNumber :: Parsector String (String, Char) (String, Char)) "aaab"
 ParsecState {parsecLooked = True, parsecOffset = 3, parsecStream = "b", parsecFailure = ParsecFailure {parsecExpect = TokenClass (Alternate (TokenClass (OneOf (fromList "a"))) (TokenClass (NotOneOf (fromList "") (AndAsIn DecimalNumber))) []), parsecLabels = []}, parsecResult = Nothing}
 
->>> unparsecG (tokens "abc") "abx" ""
+>>> unparsecP (tokens "abc") "abx" ""
 ParsecState {parsecLooked = True, parsecOffset = 2, parsecStream = "ab", parsecFailure = ParsecFailure {parsecExpect = TokenClass (OneOf (fromList "c")), parsecLabels = []}, parsecResult = Nothing}
 
 -}
-type CtxGrammar token a = forall p.
-  ( Lexical token p
-  , Alternator p
+class CtxGrammar token a where
+  ctxGrammar :: CtxGrammatical token p => p a a
+  default ctxGrammar :: (Grammar token a, CtxGrammatical token p) => p a a
+  ctxGrammar = grammar @token
+
+{- | The `Grammatical` `Filtrator`s & `MonadicTry`s,
+which run `CtxGrammar`s. -}
+type CtxGrammatical token p =
+  ( Grammatical token p
   , Filtrator p
   , MonadicTry p
-  ) => p a a
+  ) :: Constraint
 
 {- |
 `Lexical` combinators include `terminal` symbols,
@@ -524,7 +558,7 @@ ab|c
 t'RegString's can be generated from `RegGrammar`s
 with `Control.Lens.Grammar.regstringG`.
 
->>> regstringG (terminal "a" >* terminal "b" >|< terminal "c")
+>>> runGrammor (terminal "a" >* terminal "b" >|< terminal "c") :: RegString
 "ab|c"
 
 t'RegString's are actually stored as an algebraic datatype, `RegEx`.
@@ -640,8 +674,8 @@ toList bnf :: [Char]
 t'RegBnf's can be generated from context-free `Grammar`s
 with `Control.Lens.Grammar.regbnfG`.
 
->>> :type regbnfG regbnfGrammar
-regbnfG regbnfGrammar :: RegBnf
+>>> :type regbnfG
+regbnfG :: forall a -> Grammar Char a => RegBnf
 
 Like t'RegString's, t'RegBnf's can be constructed using
 `Lexical`, `Monoid` and `KleeneStarAlgebra` combinators.
@@ -678,7 +712,7 @@ It can't be a `RegGrammar`, since t'RegString's include parenthesization.
 But [balanceBy parentheses](https://en.wikipedia.org/wiki/Dyck_language)
 are a context-free language.
 
->>> putStringLn (regbnfG regexGrammar)
+>>> putStringLn (regbnfG (type RegString))
 {start} = \q{regex}
 {alternate} = \q{sequence}(\|\q{sequence})*
 {atom} = \\q\q{nonterminal}|\q{class}|\(\q{regex}\)
@@ -695,7 +729,7 @@ are a context-free language.
 {regex} = \q{alternate}
 {sequence} = \q{expression}*
 -}
-regexGrammar :: Grammar Char RegString
+regexGrammar :: Grammatical Char p => p RegString RegString
 regexGrammar = _RegString >~ ruleRec "regex" altG
   where
     altG rex = rule "alternate" $
@@ -782,11 +816,11 @@ regexGrammar = _RegString >~ ruleRec "regex" altG
           optionP (_AndNotAsIn . _Empty) classCatG *< terminal "]"
       ]
 
-nonterminalG :: Grammar Char String
+nonterminalG :: Grammatical Char p => p String String
 nonterminalG = rule "nonterminal" $
   terminal "{" >* manyP charG *< terminal "}"
 
-charG :: Grammar Char Char
+charG :: Grammatical Char p => p Char Char
 charG = rule "char" $
   tokenClass (notOneOf charsReserved >&< notAsIn Control)
   >|< terminal "\\" >* charEscapedG
@@ -868,7 +902,7 @@ charG = rule "char" $
 `regbnfGrammar` is a context-free `Grammar` for t'RegBnf's.
 That means that it can generate a self-hosted definition.
 
->>> putStringLn (regbnfG regbnfGrammar)
+>>> putStringLn (regbnfG (type RegBnf))
 {start} = \q{regbnf}
 {alternate} = \q{sequence}(\|\q{sequence})*
 {atom} = \\q\q{nonterminal}|\q{class}|\(\q{regex}\)
@@ -886,7 +920,7 @@ That means that it can generate a self-hosted definition.
 {regex} = \q{alternate}
 {sequence} = \q{expression}*
 -}
-regbnfGrammar :: Grammar Char RegBnf
+regbnfGrammar :: Grammatical Char p => p RegBnf RegBnf
 regbnfGrammar = rule "regbnf" $ _RegBnf . _Bnf >~
   terminal "{start} = " >* regexGrammar >*< (listed ~< manyP
     (terminal "\n" >* nonterminalG *< terminal " = " >*< regexGrammar))
@@ -896,20 +930,20 @@ regbnfGrammar = rule "regbnf" $ _RegBnf . _Bnf >~
 Since context-free `Grammar`s and `CtxGrammar`s aren't necessarily regular,
 the type system will prevent `regstringG` from being applied to them.
 -}
-regstringG :: RegGrammar Char a -> RegString
-regstringG rex = runGrammor rex
+regstringG :: forall a -> RegGrammar Char a => RegString
+regstringG a = runGrammor (regGrammar @Char @a)
 
 {- | `regbnfG` generates a t'RegBnf' from a context-free `Grammar`.
 Since `CtxGrammar`s aren't context-free,
 the type system will prevent `regbnfG` from being applied to a `CtxGrammar`.
 It can apply to a `RegGrammar`.
 -}
-regbnfG :: Grammar Char a -> RegBnf
-regbnfG bnf = runGrammor bnf
+regbnfG :: forall a -> Grammar Char a => RegBnf
+regbnfG a = runGrammor (grammar @Char @a)
 
 {- | Compile a `Grammar` into a t'Transducer'.
 
->>> let regexMachine = transducerG @Char regexGrammar
+>>> let regexMachine = transducerG @Char (type RegString)
 
 A transducer is a form of finite state machine,
 usable as an intermediary for further generators like
@@ -969,8 +1003,10 @@ usable as an intermediary for further generators like
 @
 
 -}
-transducerG :: Categorized token => Grammar token a -> Transducer token
-transducerG bnf = transducer (runGrammor bnf)
+transducerG
+  :: forall token. forall a -> (Categorized token, Grammar token a)
+  => Transducer token
+transducerG a = transducer (runGrammor (grammar @token @a))
 
 {- | `printG` generates a printer from a `CtxGrammar`.
 Since both `RegGrammar`s and context-free `Grammar`s are `CtxGrammar`s,
@@ -980,13 +1016,13 @@ that `cons`es tokens at the beginning of an input string,
 from right to left.
 -}
 printG
-  :: Cons string string token token
+  :: forall a string token m. CtxGrammar token a
+  => Cons string string token token
   => (IsList string, Item string ~ token, Categorized token)
   => (Alternative m, Monad m, Filterable m)
-  => CtxGrammar token a
-  -> a {- ^ syntax -}
+  => a {- ^ syntax -}
   -> m (string -> string)
-printG printor = printP printor
+printG = printP (ctxGrammar @token @a)
 
 {- | `parseG` generates a parser from a @LL(∞)@ `CtxGrammar`.
 Since both `RegGrammar`s and context-free `Grammar`s are `CtxGrammar`s,
@@ -996,13 +1032,13 @@ tokens from the beginning of an input string from left to right,
 returning a syntax value and the remaining output string.
 -}
 parseG
-  :: (Cons string string token token, Snoc string string token token)
+  :: forall a string token m. CtxGrammar token a
+  => (Cons string string token token, Snoc string string token token)
   => (IsList string, Item string ~ token, Categorized token)
   => (Alternative m, Monad m, Filterable m)
-  => CtxGrammar token a
-  -> string {- ^ input -}
+  => string {- ^ input -}
   -> m (a, string)
-parseG parsor = parseP parsor
+parseG = parseP (ctxGrammar @token @a)
 
 {- | `unparseG` generates a printer from a @LL(∞)@ `CtxGrammar`.
 Since both `RegGrammar`s and context-free `Grammar`s are `CtxGrammar`s,
@@ -1015,14 +1051,14 @@ Print to a string with a constant time `snoc`, like a
 making printing to a `String` quadratic.
 -}
 unparseG
-  :: (Cons string string token token, Snoc string string token token)
+  :: forall a string token m. CtxGrammar token a
+  => (Cons string string token token, Snoc string string token token)
   => (IsList string, Item string ~ token, Categorized token)
   => (Alternative m, Monad m, Filterable m)
-  => CtxGrammar token a
-  -> a {- ^ syntax -}
+  => a {- ^ syntax -}
   -> string {- ^ input -}
   -> m string
-unparseG parsor = unparseP parsor
+unparseG = unparseP (ctxGrammar @token @a)
 
 {- | `parsecG` generates a parser from a @LL(1)@ `CtxGrammar`,
 with `try` for restoring full @LL(∞)@ lookahead.
@@ -1035,12 +1071,12 @@ an output syntax value, with parse failure stored in `parsecFailure`,
 and a remaining output `parsecStream`.
 -}
 parsecG
-  :: (Cons string string token token, Snoc string string token token)
+  :: forall a string token. CtxGrammar token a
+  => (Cons string string token token, Snoc string string token token)
   => (Item string ~ token, Categorized token)
-  => CtxGrammar token a
-  -> string {- ^ input -}
+  => string {- ^ input -}
   -> ParsecState string a
-parsecG parsector = parsecP parsector
+parsecG = parsecP (ctxGrammar @token @a)
 
 {- | `unparsecG` generates a printer from a @LL(1)@ `CtxGrammar`,
 with `try` for restoring full @LL(∞)@ lookahead.
@@ -1055,13 +1091,13 @@ Print to a string with a constant time `snoc`, like a
 making printing to a `String` quadratic.
 -}
 unparsecG
-  :: (Cons string string token token, Snoc string string token token)
+  :: forall a string token. CtxGrammar token a
+  => (Cons string string token token, Snoc string string token token)
   => (Item string ~ token, Categorized token)
-  => CtxGrammar token a
-  -> a {- ^ syntax -}
+  => a {- ^ syntax -}
   -> string {- ^ input -}
   -> ParsecState string a
-unparsecG parsector = unparsecP parsector
+unparsecG = unparsecP (ctxGrammar @token @a)
 
 {- | Generate any `Applicative` parser backend
 from a `Grammar` with `applicativeG`.
@@ -1071,18 +1107,19 @@ That permits backends to use algorithms
 that can only parse context-free `Grammar`s.
 -}
 applicativeG
-  :: ( Alternative f
+  :: forall token a f.
+     ( Grammar token a
+     , Alternative f
      , TokenAlgebra token (f token)
      , TerminalSymbol token (f ())
      , forall x. BackusNaurForm (f x)
      )
-  => Grammar token a -- ^ context-free grammar
-  -> f a
-applicativeG joker = runJoker joker
+  => f a
+applicativeG = runJoker (grammar @token @a)
 
 {- | Generate a `ReadP` backend from a `CtxGrammar` `Char`. -}
-readG :: CtxGrammar Char a -> ReadP a
-readG joker = monadG joker
+readG :: CtxGrammar Char a => ReadP a
+readG = monadG @Char
 
 {- | Generate any parser `Monad` backend
 from a `CtxGrammar` with `monadG`.
@@ -1118,21 +1155,20 @@ instance Filterable WrapMega where
 instance MonadTry WrapMega where
   try (WrapMega p) = WrapMega (M.try p)
 
-megaparsecG
-  :: CtxGrammar Char a
-  -> M.Parsec String String a
-megaparsecG gram = unwrapMega (monadG gram)
+megaparsecG :: CtxGrammar Char a => M.Parsec String String a
+megaparsecG = unwrapMega (monadG @Char)
 @
 
 -}
 monadG
-  :: ( MonadTry m
+  :: forall token a m.
+     ( CtxGrammar token a
+     , MonadTry m
      , TokenAlgebra token (m token)
      , TerminalSymbol token (m ())
      )
-  => CtxGrammar token a -- ^ context-sensitive grammar
-  -> m a
-monadG joker = runJoker joker
+  => m a
+monadG = runJoker (ctxGrammar @token @a)
 
 {- | `putStringLn` is a utility that generalizes `putStrLn`
 to string-like interfaces such as t'RegString' and t'RegBnf'.
@@ -1146,45 +1182,50 @@ instance IsList RegString where
     = fromMaybe falseP
     . listToMaybe
     . mapMaybe prsF
-    . readP_to_S (readG regexGrammar)
+    . readP_to_S (readG @RegString)
     where
       prsF (rex,"") = Just rex
       prsF _ = Nothing
   toList
     = maybe "[]" ($ "")
-    . printP regexGrammar
+    . printP (grammar @Char @RegString)
 instance IsString RegString where
   fromString = fromList
 instance Show RegString where
   showsPrec precision = showsPrec precision . toList
 instance Read RegString where
-  readsPrec = readsGrammar regexGrammar
+  readsPrec = readsGrammar @RegString
 instance IsList RegBnf where
   type Item RegBnf = Char
   fromList
     = fromMaybe falseP
     . listToMaybe
     . mapMaybe prsF
-    . readP_to_S (readG regbnfGrammar)
+    . readP_to_S (readG @RegBnf)
     where
       prsF (regbnf,"") = Just regbnf
       prsF _ = Nothing
   toList
     = maybe "{start} = []" ($ "")
-    . printP regbnfGrammar
+    . printP (grammar @Char @RegBnf)
 instance IsString RegBnf where
   fromString = fromList
 instance Show RegBnf where
   showsPrec precision = showsPrec precision . toList
 instance Read RegBnf where
-  readsPrec = readsGrammar regbnfGrammar
+  readsPrec = readsGrammar @RegBnf
 
 {- | Read a string literal, as `String`'s `readsPrec` does,
 & its text by a `Grammar`, so that @read . show = id@.
 -}
-readsGrammar :: Grammar Char a -> Int -> ReadS a
-readsGrammar grammar precision str =
+readsGrammar :: forall a. Grammar Char a => Int -> ReadS a
+readsGrammar precision str =
   [ (a, rest)
   | (text, rest) <- readsPrec @String precision str
-  , a <- take 1 [a | (a, "") <- readP_to_S (readG grammar) text]
+  , a <- take 1 [a | (a, "") <- readP_to_S (readG @a) text]
   ]
+
+instance CtxGrammar Char RegString
+instance Grammar Char RegString where grammar = regexGrammar
+instance CtxGrammar Char RegBnf
+instance Grammar Char RegBnf where grammar = regbnfGrammar

@@ -2,10 +2,12 @@ module Main (main) where
 
 import Data.Foldable hiding (toList)
 import Control.Lens.Grammar
+import Data.Bifunctor.Joker (Joker (..))
 import Control.Monad (when)
 import Data.Function (fix)
 import Data.List (genericLength)
 import Data.Tree (Tree (..))
+import Text.ParserCombinators.ReadP (readP_to_S)
 import Test.Hspec
 import Test.QuickCheck (generate)
 import qualified Text.Megaparsec as M
@@ -40,11 +42,23 @@ main = hspec $ do
   describe "Parsector try rollback" tryRollbackTests
   describe "Kleene" kleeneProperties
   describe "Varifocal" varifocalProperties
+  describe "class runners, at Arith's Grammar" classRunnerTests
+
+classRunnerTests :: Spec
+classRunnerTests = for_ arithExamples $ \(syntax, string) ->
+  it ("run as arithGrammar does, on " <> string) $ do
+    [x | (x, "") <- parseG string] `shouldBe` [syntax]
+    (($ "") <$> printG syntax) `shouldBe` Just string
+    unparseG syntax "" `shouldBe` Just string
+    parsecResult (parsecG string) `shouldBe` Just syntax
+    parsecStream (unparsecG syntax "") `shouldBe` string
+    regbnfG Arith `shouldBe` (runGrammor arithGrammar :: RegBnf)
+    [x | (x, "") <- readP_to_S (readG @Arith) string] `shouldBe` [syntax]
 
 parseForestTests :: Spec
 parseForestTests = do
   it "returns the nested rule forest for a full parse" $ do
-    let (actualForest, actualRest) = parseForest (transducerG arithGrammar) "2*3+4;;;"
+    let (actualForest, actualRest) = parseForest (transducerG Arith) "2*3+4;;;"
     actualForest `shouldBe`
       [ Node ("arith", 0, 5, "2*3+4")
           [ Node ("sum", 0, 5, "2*3+4")
@@ -66,64 +80,74 @@ parseForestTests = do
 tryRollbackTests :: Spec
 tryRollbackTests = do
   it "rolls back parse stream/offset on failed try" $ do
-    let actual = parsecG (try (tokens "ab")) "ax"
+    let actual = parsecP (try (tokens "ab")) "ax"
     parsecLooked actual `shouldBe` False
     parsecOffset actual `shouldBe` 0
     parsecStream actual `shouldBe` "ax"
     parsecResult actual `shouldBe` (Nothing :: Maybe String)
   it "rolls back unparse stream/offset on failed try" $ do
-    let actual = unparsecG (try (tokens "ab")) "ax" ""
+    let actual = unparsecP (try (tokens "ab")) "ax" ""
     parsecLooked actual `shouldBe` False
     parsecOffset actual `shouldBe` 0
     parsecStream actual `shouldBe` ""
     parsecResult actual `shouldBe` (Nothing :: Maybe String)
 
-testCfg :: (Show a, Eq a) => Bool -> [(a, String)] -> Grammar Char a -> Spec
+testCfg
+  :: forall a. (Show a, Eq a)
+  => Bool -> [(a, String)] -> (forall p. Grammatical Char p => p a a) -> Spec
 testCfg isLL1 examples grammar = do
   describe "examples" $ for_ examples $ \(expectedSyntax, expectedString) -> do
     testCtxGrammar isLL1 grammar (expectedSyntax, expectedString)
     it ("should match " <> expectedString <> " correctly") $ do
-      let actualMatch = expectedString =~ regbnfG grammar
+      let actualMatch = expectedString =~ (runGrammor grammar :: RegBnf)
       actualMatch `shouldBe` True
   describe "transducerG" $ do
     it "should generate the hundred shorted valid words in a language" $ do
-      generated <- generate (take 100 <$> languageSample (transducerG grammar))
+      let machine = transducer (runGrammor grammar) :: Transducer Char
+      generated <- generate (take 100 <$> languageSample machine)
       for_ generated $ \word -> do
-        let fullParses = [() | (_, "") <- parseG grammar word]
+        let fullParses = [() | (_, "") <- parseP (grammar :: Parsor String [] a a) word]
         fullParses `shouldBe` [()]
 
-testCsg :: (Show a, Eq a) => Bool -> [(a, String)] -> CtxGrammar Char a -> Spec
+testCsg
+  :: (Show a, Eq a)
+  => Bool -> [(a, String)] -> (forall p. CtxGrammatical Char p => p a a) -> Spec
 testCsg isLL1 examples grammar =
   describe "examples" $ for_ examples $ testCtxGrammar isLL1 grammar
 
-testCtxGrammar :: (Show a, Eq a) => Bool -> CtxGrammar Char a -> (a, String) -> Spec
+testCtxGrammar
+  :: forall a. (Show a, Eq a)
+  => Bool -> (forall p. CtxGrammatical Char p => p a a) -> (a, String) -> Spec
 testCtxGrammar isLL1 grammar (expectedSyntax, expectedString) = do
   it ("should parseG from " <> expectedString <> " correctly") $ do
-    let actualSyntax = [parsed | (parsed, "") <- parseG grammar expectedString]
+    let actualSyntax =
+          [parsed | (parsed, "") <- parseP (grammar :: Parsor String [] a a) expectedString]
     actualSyntax `shouldBe` [expectedSyntax]
   it ("should unparseG to " <> expectedString <> " correctly") $ do
-    let actualString = unparseG grammar expectedSyntax ""
+    let actualString =
+          unparseP (grammar :: Parsor String Maybe a a) expectedSyntax ""
     actualString `shouldBe` Just expectedString
   it ("should printG to " <> expectedString <> " correctly") $ do
-    let actualString = ($ "") <$> printG grammar expectedSyntax
+    let actualString =
+          ($ "") <$> printP (grammar :: Printor String Maybe a a) expectedSyntax
     actualString `shouldBe` Just expectedString
   when isLL1 $ do
     it ("should parsecG from " <> expectedString <> " correctly") $ do
-      let actualSyntax = parsecG grammar expectedString
+      let actualSyntax = parsecP (grammar :: Parsector String a a) expectedString
       let expectedLength = genericLength expectedString
       let actualLooked = parsecLooked actualSyntax
       let actualFailure  = parsecFailure  actualSyntax
       actualSyntax `shouldBe`
         (ParsecState actualLooked expectedLength "" actualFailure (Just expectedSyntax))
     it ("should unparsecG to " <> expectedString <> " correctly") $ do
-      let actualString = unparsecG grammar expectedSyntax ""
+      let actualString = unparsecP (grammar :: Parsector String a a) expectedSyntax ""
       let expectedLength = genericLength expectedString
       let actualLooked = parsecLooked actualString
       let actualFailure  = parsecFailure  actualString
       actualString `shouldBe`
         (ParsecState actualLooked expectedLength expectedString actualFailure (Just expectedSyntax))
     it ("should parse with megaparsec to " <> expectedString <> " correctly") $ do
-      let megaparsec = unwrapMega (monadG grammar)
+      let megaparsec = unwrapMega (runJoker (grammar :: Joker WrapMega a a))
       let actualSyntax = M.parse megaparsec "<megaparsec>" expectedString
       actualSyntax `shouldBe` Right expectedSyntax
 

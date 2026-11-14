@@ -23,11 +23,11 @@ syntax needs more lookahead. Here, a declaration prints as tokens,
 
 >>> :set -XOverloadedStrings
 >>> let point = ObjectType [PropertySignature [] (PropertyIdentifier "x") False (Just (KeywordType NumberKeyword))]
->>> let printed = unparsecG tsGrammar [TypeAliasDeclaration [ExportKeyword] "Point" [] point] ([] :: [TsToken])
->>> let source = parsecStream (unparsecG tsTokensGrammar (parsecStream printed) ("" :: String))
+>>> let printed = unparsecG [TypeAliasDeclaration [ExportKeyword] "Point" [] point] ([] :: [TsToken])
+>>> let source = parsecStream (unparsecG (parsecStream printed) ("" :: String))
 >>> putStr source
 export type Point = { x: number };
->>> parsecResult (parsecG tsGrammar (concat (parsecResult (parsecG tsTokensGrammar source)))) == Just [TypeAliasDeclaration [ExportKeyword] "Point" [] point]
+>>> parsecResult (parsecG @[TsDeclaration] (concat (parsecResult (parsecG @[TsToken] source)))) == Just [TypeAliasDeclaration [ExportKeyword] "Point" [] point]
 True
 -}
 
@@ -472,7 +472,7 @@ as in @0xFF@, @1_000.5@ or @1n@, but not by a signed exponent.
 
 It's a `RegGrammar`, since each token's spelling is a regular language.
 -}
-tsTokenGrammar :: RegGrammar Char TsToken
+tsTokenGrammar :: RegGrammatical Char p => p TsToken TsToken
 tsTokenGrammar = orP
   [ kindOf WhitespaceTrivia >? someP (oneOf @Char (" \t\f\v" :: String))
   , kindOf NewLineTrivia >? orP
@@ -524,7 +524,7 @@ tsTokenGrammar = orP
         )
       *< terminal "/"
 
-identifierStart :: RegGrammar Char Char
+identifierStart :: RegGrammatical Char p => p Char Char
 identifierStart = orP
   [ asIn @Char UppercaseLetter, asIn @Char LowercaseLetter
   , asIn @Char TitlecaseLetter, asIn @Char ModifierLetter
@@ -532,7 +532,7 @@ identifierStart = orP
   , oneOf @Char ("_$" :: String)
   ]
 
-stringChar :: Char -> RegGrammar Char Char
+stringChar :: RegGrammatical Char p => Char -> p Char Char
 stringChar quote = orP
   [ notOneOf @Char (quote : '\\' : ['\0' .. '\31'])
   , terminal "\\" >* orP
@@ -546,7 +546,7 @@ stringChar quote = orP
   where
     hexDigits = "0123456789abcdefABCDEF" :: String
 
-templateChar :: RegGrammar Char Char
+templateChar :: RegGrammatical Char p => p Char Char
 templateChar = orP
   [ notOneOf @Char ("`$\\" :: String)
   , terminal "\\" >* oneOf @Char ("`$\\" :: String)
@@ -563,7 +563,7 @@ It's a `CtxGrammar` by monadic bonding: each token is scanned in the
 context of the tokens before it, whose braces & templates bond, by
 @P.@`Data.Profunctor.Monadic.Do.>>=`, the depths that a @}@ is scanned by.
 -}
-tsTokensGrammar :: CtxGrammar Char [TsToken]
+tsTokensGrammar :: CtxGrammatical Char p => p [TsToken] [TsToken]
 tsTokensGrammar = rmap
   (\scanned -> [t | t <- scanned, tokenCategory t `notElem` trivial])
   (tokensWithin [])
@@ -718,7 +718,7 @@ Printing a file, of many tokens, is linear into a stream which grows
 at its end in constant time, like a `Data.Sequence.Seq`, rather than
 a list.
 -}
-tsGrammar :: CtxGrammar TsToken [TsDeclaration]
+tsGrammar :: CtxGrammatical TsToken p => p [TsDeclaration] [TsDeclaration]
 tsGrammar = manyP (declaration 0 *< newline)
 
 -- | A declaration, at a depth of indentation.
@@ -1463,3 +1463,9 @@ tokenOf before category after =
 textOf
   :: (Lexical TsToken p, Alternator p) => TsTokenCategory -> p Text Text
 textOf category = iso (TsToken category) tokenText >~ asIn @TsToken category
+
+instance CtxGrammar Char TsToken
+instance Grammar Char TsToken
+instance RegGrammar Char TsToken where regGrammar = tsTokenGrammar
+instance CtxGrammar Char [TsToken] where ctxGrammar = tsTokensGrammar
+instance CtxGrammar TsToken [TsDeclaration] where ctxGrammar = tsGrammar

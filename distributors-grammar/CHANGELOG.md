@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+- `RegGrammar`, `Grammar` & `CtxGrammar` are classes, of a type's
+  grammar over a token, by `regGrammar`, `grammar` & `ctxGrammar`, each
+  defaulting to the more restrictive, & `RegGrammatical`, `Grammatical`
+  & `CtxGrammatical` are the constraints on profunctors which run them,
+  typing grammar values, as @Grammatical Char p => p a a@. Runners take
+  the grammar from the class: parsers & printers by inference, as
+  @parseG \@Arith@, & generators by a required type argument, as
+  @regbnfG Arith@, or @regbnfG (type SemVer)@ where a constructor shares
+  the type's name. Run a grammar value by the backends' own runners,
+  `parseP`, `printP`, `parsecP` & co.
 - Token classes test their sets of tokens logarithmically, by `Set`, in
   `tokenClass`'s default & in `oneOf` & `notOneOf` of predicates, rather
   than linearly by `Foldable`: parsing the JSON example, whose characters

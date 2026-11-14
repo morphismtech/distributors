@@ -523,10 +523,10 @@ which parse as the declarations which print them.
 declares :: forall a -> Json a => [Text] -> Expectation
 declares a declarations = do
   tsTypes [a] `shouldBe` Text.unlines declarations
-  parsecResult (parsecG tsGrammar scanned) `shouldBe` Just declared
+  parsecResult (parsecG @[TsDeclaration] scanned) `shouldBe` Just declared
   where
     declared = jsonTsDeclarations [a]
-    scanned = concat (parsecResult (parsecG tsTokensGrammar (tsSource declared)))
+    scanned = concat (parsecResult (parsecG @[TsToken] (tsSource declared)))
 
 jsonTypeSpec :: Spec
 jsonTypeSpec = describe "jsonTsDeclarations" $ do
@@ -1207,8 +1207,8 @@ tsTypes as = Text.pack (tsSource (jsonTsDeclarations as))
 
 -- | Print declarations as tokens, & tokens as characters, by Parsector.
 tsSource :: [TsDeclaration] -> String
-tsSource declarations = toList $ parsecStream $ unparsecG tsTokensGrammar
-  (toList (parsecStream (unparsecG tsGrammar declarations (Seq.empty @TsToken))))
+tsSource declarations = toList $ parsecStream $ unparsecG
+  (toList (parsecStream (unparsecG declarations (Seq.empty @TsToken))))
   (Seq.empty @Char)
 
 -- | The `KleeneStarAlgebra` laws of `JsonElements`.

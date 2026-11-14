@@ -32,7 +32,7 @@ makePrisms ''Expr
 -- exactly once regardless of associativity, so this is LL1 and is tested
 -- against the predictive @parsecG@ / megaparsec backends too
 -- (@testCfg True@).
-exprGrammar :: Grammar Char Expr
+exprGrammar :: Grammatical Char p => p Expr Expr
 exprGrammar = ruleRec "expr" $ \expr ->
   let
     atom = rule "atom" $
@@ -68,7 +68,7 @@ exprExamples =
 -- so it exercises `chainr1` / `difoldr` independently of `withOperators`.
 -- This is a regression test for the right-fold: @2^3^2@ must associate as
 -- @Exp 2 (Exp 3 2)@, not @Exp 3 (Exp 2 2)@.
-powGrammar :: Grammar Char Expr
+powGrammar :: Grammatical Char p => p Expr Expr
 powGrammar = ruleRec "pow" $ \e ->
   let
     atom = rule "atom" $
@@ -88,7 +88,7 @@ powExamples =
 -- | A purely left-associative expression grammar (no right-associative
 -- exponent) built with `withOperators`, tested against the predictive
 -- @parsecG@ / megaparsec backends (@testCfg True@) as a minimal case.
-leftGrammar :: Grammar Char Expr
+leftGrammar :: Grammatical Char p => p Expr Expr
 leftGrammar = ruleRec "expr" $ \expr ->
   let
     atom = rule "atom" $
@@ -108,3 +108,6 @@ leftExamples =
   , (Sub (Add (Nat 1) (Mul (Nat 2) (Nat 3))) (Nat 4), "1+2*3-4")
   , (Mul (Add (Nat 1) (Nat 2)) (Nat 3), "(1+2)*3")
   ]
+
+instance CtxGrammar Char Expr
+instance Grammar Char Expr where grammar = exprGrammar

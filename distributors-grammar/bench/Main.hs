@@ -36,7 +36,8 @@ main = do
   defaultMain groups
 
 -- | A named workload: a grammar, an input string & its syntax value.
-data Workload = forall a. Eq a => Workload String (CtxGrammar Char a) String a
+data Workload = forall a. Eq a =>
+  Workload String (forall p. CtxGrammatical Char p => p a a) String a
 
 -- | Benchmark each workload at each backend which round-trips it.
 backends :: String -> [Workload] -> IO Benchmark
@@ -50,7 +51,7 @@ backends name workloads = bgroup name . concat <$> traverse workload workloads
 
 cases
   :: forall a. Eq a
-  => String -> CtxGrammar Char a -> String -> a
+  => String -> (forall p. CtxGrammatical Char p => p a a) -> String -> a
   -> [(String, Bool, Benchmark)]
 cases wname g str a =
   [ ( wname <> "/parse"
@@ -72,18 +73,18 @@ cases wname g str a =
   ]
   where
     parser :: String -> Maybe (a, String)
-    parser = parseG g
+    parser = parseP (g :: Parsor String Maybe a a)
     printer :: a -> Maybe (String -> String)
-    printer = printG g
+    printer = printP (g :: Printor String Maybe a a)
     parsector :: String -> ParsecState String a
-    parsector = parsecG g
+    parsector = parsecP (g :: Parsector String a a)
     unparsector :: a -> String -> ParsecState String a
-    unparsector = unparsecG g
+    unparsector = unparsecP (g :: Parsector String a a)
 
-digitG :: RegGrammar Char Char
+digitG :: RegGrammatical Char p => p Char Char
 digitG = asIn @Char DecimalNumber
 
-commaG :: RegGrammar Char ()
+commaG :: RegGrammatical Char p => p () ()
 commaG = terminal ","
 
 size :: Int
@@ -146,8 +147,8 @@ examples =
   , Workload "semver" semverCtxGrammar semverStr (parsed semverCtxGrammar semverStr)
   ]
   where
-    parsed :: CtxGrammar Char a -> String -> a
-    parsed g s = case parseG g s of
+    parsed :: forall a. (forall p. CtxGrammatical Char p => p a a) -> String -> a
+    parsed g s = case parseP (g :: Parsor String Maybe a a) s of
       Just (a, "") -> a
       _ -> error ("bench input doesn't parse: " <> take 40 s)
     terms n ops = concat
@@ -165,9 +166,10 @@ examples =
 -- | Building static grammars, as regular expressions & Backus-Naur forms.
 statics :: Benchmark
 statics = bgroup "static"
-  [ bench "regstring sepBy" $ whnf (length . show . regstringG) (sepBy commaG several digitG)
-  , bench "regbnf json" $ whnf (length . show . regbnfG) jsonGrammar
-  , bench "regbnf expr" $ whnf (length . show . regbnfG) exprGrammar
+  [ bench "regstring sepBy" $ whnf (\g -> length (show (runGrammor g :: RegString)))
+      (sepBy commaG several digitG)
+  , bench "regbnf json" $ whnf (\() -> length (show (regbnfG Json))) ()
+  , bench "regbnf expr" $ whnf (\() -> length (show (regbnfG Expr))) ()
   ]
 
 -- | Optics as lenses, at functions.

@@ -18,7 +18,7 @@ data Lambda
 makePrisms ''Lambda
 
 -- | Grammar for untyped lambda calculus
-lambdaGrammar :: Grammar Char Lambda
+lambdaGrammar :: Grammatical Char p => p Lambda Lambda
 lambdaGrammar = ruleRec "lambda" termG
   where
     -- Top level term: lambda abstraction or application
@@ -99,3 +99,6 @@ lambdaExamples =
            (Lam "x" (App (Var "f") (App (Var "x") (Var "x"))))),
      "\\f.(\\x.f (x x)) (\\x.f (x x))")
   ]
+
+instance CtxGrammar Char Lambda
+instance Grammar Char Lambda where grammar = lambdaGrammar

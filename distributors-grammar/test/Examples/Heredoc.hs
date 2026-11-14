@@ -37,7 +37,7 @@ heredocP = heredocLines >~ symbol "<<" >* contextuallyT (delimitBy (==)) lineP
 
 -- | Heredocs as a `CtxGrammar`, applying `delimitBy` `contextually`,
 -- so it runs as any `CtxGrammar` does, by `Parsector` too.
-heredocG :: CtxGrammar Char Heredoc
+heredocG :: CtxGrammatical Char p => p Heredoc Heredoc
 heredocG = heredocLines >~ terminal "<<" >* contextually (delimitBy (==)) lineG
   where
     lineG = manyP (notOneOf "\n") *< terminal "\n"
@@ -48,3 +48,5 @@ heredocExamples =
   , (Heredoc "X" [], "<<X\nX\n")
   , (Heredoc "END" ["", "not END", "ENDING"], "<<END\n\nnot END\nENDING\nEND\n")
   ]
+
+instance CtxGrammar Char Heredoc where ctxGrammar = heredocG

@@ -160,14 +160,14 @@ varifocalProperties = do
   describe "contextually, in a CtxGrammar" $ do
     for_ heredocExamples $ \(h, str) ->
       it ("parses, prints & parsecs " <> show str <> " as heredocP does") $ do
-        [x | (x, "") <- parseG heredocG str] `shouldBe` [h]
-        [pr "" | pr <- printG heredocG h] `shouldBe` [str]
-        parsecResult (parsecG heredocG str) `shouldBe` Just h
-        parsecResult (unparsecG heredocG h "") `shouldBe` Just h
+        [x | (x, "") <- parseG str] `shouldBe` [h]
+        [pr "" | pr <- printG h] `shouldBe` [str]
+        parsecResult (parsecG str) `shouldBe` Just h
+        parsecResult (unparsecG h "") `shouldBe` Just h
     it "doesn't print a body line equal to its tag" $
-      [pr "" | pr <- printG heredocG (Heredoc "EOF" ["EOF"])] `shouldBe` []
+      [pr "" | pr <- printG (Heredoc "EOF" ["EOF"])] `shouldBe` []
     it "backtracks by Parsector, closing at the first line equal to its tag" $
-      parsecResult (parsecG heredocG "<<A\nb\nA\n") `shouldBe` Just (Heredoc "A" ["b"])
+      parsecResult (parsecG "<<A\nb\nA\n") `shouldBe` Just (Heredoc "A" ["b"])
   describe ">?<*, Bifocal's applicator" $ do
     prop "applies a Prismoid as >?* does" $ \(s :: String) ->
       parseP (atLeast 1 >?<* (anyToken :: Parsor String Maybe Char Char)) s

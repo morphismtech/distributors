@@ -30,7 +30,7 @@ makePrisms ''Json
 -- breaks the cycle; a plain `rule` invocation forces its body, so
 -- every cyclic back-edge must instead use the `element` stub produced
 -- by the inner `ruleRec "element"` below.
-jsonGrammar :: Grammar Char Json
+jsonGrammar :: Grammatical Char p => p Json Json
 jsonGrammar = rule "json" elementG
   where
     elementG = ruleRec "element" $ \json ->
@@ -131,3 +131,6 @@ jsonExamples =
              JObject (Map.fromList [("x", JNumber 2)])],
      "[{\"x\":1},{\"x\":2}]")
   ]
+
+instance CtxGrammar Char Json
+instance Grammar Char Json where grammar = jsonGrammar

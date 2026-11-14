@@ -32,7 +32,7 @@ makeNestedPrisms ''SemVer
 --   prerelease = identifier ("." identifier)*
 --   buildmetadata = identifier ("." identifier)*
 --   identifier = [0-9A-Za-z-]+
-semverGrammar :: RegGrammar Char SemVer
+semverGrammar :: RegGrammatical Char p => p SemVer SemVer
 semverGrammar = _SemVer
   >?  numberG
   >*< terminal "." >* numberG
@@ -48,7 +48,7 @@ semverGrammar = _SemVer
       >|< token '-'
 
 -- Context-sensitive SemVer to test qualified-do
-semverCtxGrammar :: CtxGrammar Char SemVer
+semverCtxGrammar :: CtxGrammatical Char p => p SemVer SemVer
 semverCtxGrammar = _SemVer >? P.do
   let
     numberG = iso show read >~ someP (asIn @Char DecimalNumber)
@@ -90,3 +90,7 @@ semverExamples =
   , (SemVer 2 1 5 ["rc", "1"] ["build", "123"],
      "2.1.5-rc.1+build.123")
   ]
+
+instance CtxGrammar Char SemVer
+instance Grammar Char SemVer
+instance RegGrammar Char SemVer where regGrammar = semverGrammar
