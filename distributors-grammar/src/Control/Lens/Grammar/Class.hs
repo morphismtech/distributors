@@ -37,6 +37,7 @@ import Data.Monoid.Disjunctive (orP, (>|<), (>&<))
 import Data.Profunctor.Distributor
 import Data.Profunctor.Monoidal
 import Data.Word (Word8, Word16, Word32, Word64)
+import Data.Typeable (Typeable)
 import Numeric.Natural (Natural)
 
 -- $setup
@@ -63,61 +64,46 @@ class CtxGrammar token a where
 
 -- Base types --
 
-{- The base types' grammars are their `Read` & `Show` instances' lexemes,
-printing as `show` does, & parsing as `read` does, but for whitespace &
-parentheses, which `read` accepts around any lexeme of any type. -}
+{- The base types' grammars are equivalent to their `Read` & `Show`
+instances, printing as `show` does, & parsing as `read` does, their
+lexemes amid whitespace & within parentheses, context-free. -}
 
 instance CtxGrammar Char Char
-instance Grammar Char Char where grammar = ruleTyped (regGrammar @Char)
-instance RegGrammar Char Char where regGrammar = charG
+instance Grammar Char Char where grammar = readable charG
 
 instance CtxGrammar Char Natural
-instance Grammar Char Natural where grammar = ruleTyped (regGrammar @Char)
-instance RegGrammar Char Natural where regGrammar = naturalG
+instance Grammar Char Natural where grammar = readable naturalG
 
 instance CtxGrammar Char Integer
-instance Grammar Char Integer where grammar = ruleTyped (regGrammar @Char)
-instance RegGrammar Char Integer where regGrammar = integerG
+instance Grammar Char Integer where grammar = readable integerG
 
 instance CtxGrammar Char Double
-instance Grammar Char Double where grammar = ruleTyped (regGrammar @Char)
-instance RegGrammar Char Double where regGrammar = floatingG
+instance Grammar Char Double where grammar = readable floatingG
 
 instance CtxGrammar Char Float
-instance Grammar Char Float where grammar = ruleTyped (regGrammar @Char)
-instance RegGrammar Char Float where regGrammar = floatingG
+instance Grammar Char Float where grammar = readable floatingG
 
 -- Sized integers read as `Integer`s, wrapping out of range, as `read` does.
 instance CtxGrammar Char Int
-instance Grammar Char Int where grammar = ruleTyped (regGrammar @Char)
-instance RegGrammar Char Int where regGrammar = integralG
+instance Grammar Char Int where grammar = readable integralG
 instance CtxGrammar Char Int8
-instance Grammar Char Int8 where grammar = ruleTyped (regGrammar @Char)
-instance RegGrammar Char Int8 where regGrammar = integralG
+instance Grammar Char Int8 where grammar = readable integralG
 instance CtxGrammar Char Int16
-instance Grammar Char Int16 where grammar = ruleTyped (regGrammar @Char)
-instance RegGrammar Char Int16 where regGrammar = integralG
+instance Grammar Char Int16 where grammar = readable integralG
 instance CtxGrammar Char Int32
-instance Grammar Char Int32 where grammar = ruleTyped (regGrammar @Char)
-instance RegGrammar Char Int32 where regGrammar = integralG
+instance Grammar Char Int32 where grammar = readable integralG
 instance CtxGrammar Char Int64
-instance Grammar Char Int64 where grammar = ruleTyped (regGrammar @Char)
-instance RegGrammar Char Int64 where regGrammar = integralG
+instance Grammar Char Int64 where grammar = readable integralG
 instance CtxGrammar Char Word
-instance Grammar Char Word where grammar = ruleTyped (regGrammar @Char)
-instance RegGrammar Char Word where regGrammar = integralG
+instance Grammar Char Word where grammar = readable integralG
 instance CtxGrammar Char Word8
-instance Grammar Char Word8 where grammar = ruleTyped (regGrammar @Char)
-instance RegGrammar Char Word8 where regGrammar = integralG
+instance Grammar Char Word8 where grammar = readable integralG
 instance CtxGrammar Char Word16
-instance Grammar Char Word16 where grammar = ruleTyped (regGrammar @Char)
-instance RegGrammar Char Word16 where regGrammar = integralG
+instance Grammar Char Word16 where grammar = readable integralG
 instance CtxGrammar Char Word32
-instance Grammar Char Word32 where grammar = ruleTyped (regGrammar @Char)
-instance RegGrammar Char Word32 where regGrammar = integralG
+instance Grammar Char Word32 where grammar = readable integralG
 instance CtxGrammar Char Word64
-instance Grammar Char Word64 where grammar = ruleTyped (regGrammar @Char)
-instance RegGrammar Char Word64 where regGrammar = integralG
+instance Grammar Char Word64 where grammar = readable integralG
 
 -- A prism which never matches, so that its alternative parses, but never prints.
 unprinted :: Prism' a a
@@ -130,7 +116,19 @@ eitherOf printed parsed = terminal printed >|< (unprinted >? terminal parsed)
 -- A minus, a lexeme of its own, as whether a number is negative.
 negativeG :: RegGrammatical Char p => p Bool Bool
 negativeG = iso (\b -> if b then Just () else Nothing) isJust
-  >~ optionalP (terminal "-")
+  >~ optionalP (terminal "-" >* spacesG)
+
+-- Whitespace, by `Data.Char.isSpace`, which `read` skips before each
+-- lexeme & after all, & which never prints.
+spacesG :: RegGrammatical Char p => p () ()
+spacesG = skippedMany >?* tokenClass (oneOf "\t\n\v\f\r" >|< asIn Space)
+
+-- A lexeme's grammar, as `read` reads it, by `parens`: after whitespace, &
+-- within any parentheses, each after whitespace, & before whitespace once,
+-- at the end; printing as `show` does, bare.
+readable :: forall a p. (Typeable a, Grammatical Char p) => p a a -> p a a
+readable lexeme = ruleRecTyped (\self -> spacesG >*
+  (lexeme >|< terminal "(" >* self *< spacesG *< terminal ")")) *< spacesG
 
 -- Signed, by an improper iso, where @-0@ parses too.
 signed :: (Num a, Ord a) => Iso' a (Bool, a)
@@ -155,7 +153,7 @@ basedG = orP
 -- those which aren't negative.
 naturalG :: RegGrammatical Char p => p Natural Natural
 naturalG = (iso toInteger fromInteger >~ magnitudeG)
-  >|< (unprinted . only 0 >? terminal "-" >* zerosG)
+  >|< (unprinted . only 0 >? terminal "-" >* spacesG >* zerosG)
   where
     zerosG = terminal "0" >* orP
       [ skippedMany >?* terminal "0"
@@ -265,18 +263,18 @@ charG = terminal "'" >* orP
       ( [('\'', "'"), ('\a', "a"), ('\b', "b"), ('\f', "f"), ('\n', "n")]
         <> [('\r', "r"), ('\t', "t"), ('\v', "v"), ('\\', "\\"), ('"', "\"")]
         <> zip ['\NUL' ..] asciiNames <> [(' ', "SP"), ('\DEL', "DEL")] )
-    , prism' fromCode (\c -> if c > '\DEL' then Just (fromEnum c) else Nothing)
-        >? numeral 10
-    , unprinted . codeOf >? eitherOf "o" "O" >* numeral 8
-    , unprinted . codeOf >? eitherOf "x" "X" >* numeral 16
+    , prism' toEnum (\c -> if c > '\DEL' then Just (fromEnum c) else Nothing)
+        >? boundedNumeral 10 maxCode
+    , unprinted . codeOf >? eitherOf "o" "O" >* boundedNumeral 8 maxCode
+    , unprinted . codeOf >? eitherOf "x" "X" >* boundedNumeral 16 maxCode
     , unprinted . iso (\c -> toEnum (fromEnum c + 64)) (\c -> toEnum (fromEnum c - 64))
         >? terminal "^" >* tokenClass (oneOf ['@' .. '_'])
     ]
   ] *< terminal "'"
   where
-    codeOf = prism' fromCode (Just . fromEnum)
-    -- codes beyond `maxBound`, which `read` fails, are its, an improper prism
-    fromCode code = toEnum (min (fromEnum (maxBound :: Char)) code)
+    codeOf = prism' toEnum (Just . fromEnum)
+    -- codes up to `maxBound`, as `read` reads them
+    maxCode = fromEnum (maxBound :: Char)
     asciiNames =
       [ "NUL", "SOH", "STX", "ETX", "EOT", "ENQ", "ACK", "BEL"
       , "BS", "HT", "LF", "VT", "FF", "CR", "SO", "SI"
@@ -322,3 +320,55 @@ numeral base = iso digitsOf (foldl' (\n d -> n * base + d) 0) >~ someP (digit ba
     digitsOf n
       | n < base = [n]
       | otherwise = let (q, r) = n `quotRem` base in digitsOf q <> [r]
+
+{- A natural number in a base, up to a bound, with leading zeros, which
+parse, as `read`'s lexer does, but don't print; a regular grammar, by the
+bound's digits, so that a number beyond it fails to parse. -}
+boundedNumeral :: forall n p. (Integral n, RegGrammatical Char p) => n -> n -> p n n
+boundedNumeral base bound
+  = (unprinted >? try (terminal "0" >* zerosG >* positiveG))
+  >|< (only 0 >? terminal "0" >* zerosG)
+  >|< positiveG
+  where
+    zerosG :: p () ()
+    zerosG = skippedMany >?* terminal "0"
+    width :: Int
+    width = length (takeWhile (<= bound) (iterate (* base) 1))
+    -- without leading zeros, by their number of digits, tried longest first
+    positiveG :: p n n
+    positiveG = orP $
+      try (ranged (base ^ (width - 1)) bound (upTo width bound True))
+      : [ try $ ranged (base ^ (j - 1)) (base ^ j - 1)
+            (headed [1 .. base - 1] (j - 1) (exactly' (j - 1)))
+        | j <- [width - 1, width - 2 .. 1] ]
+    ranged :: n -> n -> p n n -> p n n
+    ranged lo hi = (prism' id (\n -> if lo <= n && n <= hi then Just n else Nothing) >?)
+    -- a first digit, & the rest of so many digits
+    headed :: [n] -> Int -> p n n -> p n n
+    headed firsts rest restG = orP
+      [ prism' (\r -> d * base ^ rest + r)
+          (\n -> if n `div` base ^ rest == d then Just (n `mod` base ^ rest) else Nothing)
+          >? digitIs d >* restG
+      | d <- firsts ]
+    -- exactly so many digits, any
+    exactly' :: Int -> p n n
+    exactly' k = iso (\n -> [n `div` base ^ i `mod` base | i <- [k - 1, k - 2 .. 0]])
+      (foldl' (\acc d -> acc * base + d) 0) >~ replicateP k (digit base)
+    -- so many digits, up to a bound, the first nonzero when leading
+    upTo :: Int -> n -> Bool -> p n n
+    upTo 0 _ _ = only 0 >? oneP
+    upTo k hi leading =
+      let
+        w = base ^ (k - 1)
+        top = hi `div` w
+        lowers = [if leading then 1 else 0 .. top - 1]
+      in
+        headed lowers (k - 1) (exactly' (k - 1))
+        >|< (prism' (\r -> top * w + r)
+              (\n -> if n `div` w == top then Just (n `mod` w) else Nothing)
+              >? digitIs top >* upTo (k - 1) (hi `mod` w) False)
+    -- a digit, by its value, in either case
+    digitIs :: n -> p () ()
+    digitIs d =
+      let c = (['0' .. '9'] <> ['a' .. 'z']) !! fromIntegral d
+      in if isLetter c then eitherOf [c] [toUpper c] else terminal [c]
