@@ -4,6 +4,8 @@ import Control.Lens.Grammar
 import Data.Char (digitToInt, isDigit)
 import Data.Foldable (for_)
 import Data.Maybe (fromMaybe)
+import Data.Sequence (Seq)
+import qualified Data.Sequence as Seq
 import Text.Read (readMaybe)
 import Examples.Heredoc
 import Test.Hspec
@@ -49,6 +51,14 @@ varifocalProperties = do
     prop "doesn't print an early end" $
       forAll plain $ \s -> forAll plain $ \t ->
         printed ended (s ++ "." ++ t ++ ".") === Nothing
+  describe "stepping, over any Cons stream" $
+    it "terminates a Seq as it does a list" $ do
+      let seqTerminated :: Varifocal' (Seq Char) Char
+          seqTerminated = terminateBy (== '.')
+      parseP (contextuallyT seqTerminated (anyToken :: Parsor String Maybe Char Char)) "ab.c"
+        `shouldBe` Just (Seq.fromList "ab.", "c")
+      (($ "") <$> printP (contextuallyT seqTerminated (anyToken :: Printor String Maybe Char Char)) (Seq.fromList "ab."))
+        `shouldBe` Just "ab."
   describe "balanceBy & countWith, by stepping" $ do
     let
       nested :: Varifocal' String Char

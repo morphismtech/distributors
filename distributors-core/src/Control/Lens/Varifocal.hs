@@ -1,3 +1,7 @@
+-- `Varifocal` requires a `Filterable` monad, so that every
+-- `Control.Lens.Bifocal.Bifocal` is a `Varifocal`, which the stepping
+-- combinators, generic in their streams, needn't use.
+{-# OPTIONS_GHC -Wno-redundant-constraints #-}
 {- |
 Module      : Control.Lens.Varifocal
 Description : varifocals
@@ -294,9 +298,12 @@ contextuallyT vari p = joinP (vari (rmap pure p))
 deciding by each focus built whether to continue, @`Right` state@,
 to stop there, @`Left` `True`@, or to reject, @`Left` `False`@,
 as no `Control.Lens.Bifocal.Bifocal` can.
-A list matches when its last focus, & no earlier one, stops it.
+A stream, like a list, matches when its last focus,
+& no earlier one, stops it.
 -}
-stepping :: st -> (st -> a -> Either Bool st) -> Varifocal' [a] a
+stepping
+  :: (Cons s s a a, AsEmpty s)
+  => st -> (st -> a -> Either Bool st) -> Varifocal' s a
 stepping st0 step q = rmap pure (go st0)
   where
     go st = _Cons >? P.do
@@ -308,11 +315,11 @@ stepping st0 step q = rmap pure (go st0)
 
 {- | Zero or more foci, then one which @end@s them, deciding by
 each focus built, like a sentinel-terminated sequence, a C string's.
-A list which doesn't end by its first ending focus doesn't match.
+A stream which doesn't end by its first ending focus doesn't match.
 
 > prop> terminateBy end = stepping () (\() -> bool (Right ()) (Left True) . end)
 -}
-terminateBy :: (a -> Bool) -> Varifocal' [a] a
+terminateBy :: (Cons s s a a, AsEmpty s) => (a -> Bool) -> Varifocal' s a
 terminateBy end = stepping () (\() -> bool (Right ()) (Left True) . end)
 
 {- | Foci opened by the first, & closed by the first after it
@@ -320,9 +327,9 @@ which matches it, deciding by the opening focus built,
 like a [heredoc](https://en.wikipedia.org/wiki/Here_document)'s tag,
 or a fenced code block's fence, whose language,
 of matching delimiters, isn't context-free.
-A list which doesn't close by its first match doesn't match.
+A stream which doesn't close by its first match doesn't match.
 -}
-delimitBy :: (a -> a -> Bool) -> Varifocal' [a] a
+delimitBy :: (Cons s s a a, AsEmpty s) => (a -> a -> Bool) -> Varifocal' s a
 delimitBy same = stepping Nothing $ \st b -> case st of
   Nothing -> Right (Just b)
   Just open -> bool (Right st) (Left True) (same open b)
@@ -331,9 +338,11 @@ delimitBy same = stepping Nothing $ \st b -> case st of
 at the same nesting depth, like nested comments, @/* /* */ */@,
 or a balanceBy block, whose language, of nested pairs, isn't regular.
 A focus may not both @open@ & @close@.
-A list which doesn't open first, or close only last, doesn't match.
+A stream which doesn't open first, or close only last, doesn't match.
 -}
-balanceBy :: (a -> Bool) -> (a -> Bool) -> Varifocal' [a] a
+balanceBy
+  :: (Cons s s a a, AsEmpty s)
+  => (a -> Bool) -> (a -> Bool) -> Varifocal' s a
 balanceBy open close = stepping (0 :: Int) step
   where
     step depth b
@@ -345,9 +354,10 @@ balanceBy open close = stepping (0 :: Int) step
 
 {- | A focus counting how many foci follow it, then those,
 like a length-prefixed record of bytes in a binary format.
-A list which doesn't have as many as its first focus counts doesn't match.
+A stream which doesn't have as many as its first focus counts
+doesn't match.
 -}
-countWith :: (a -> Int) -> Varifocal' [a] a
+countWith :: (Cons s s a a, AsEmpty s) => (a -> Int) -> Varifocal' s a
 countWith count = stepping Nothing $ \st b -> case st of
   Nothing -> if count b <= 0 then Left True else Right (Just (count b))
   Just n -> if n <= 1 then Left True else Right (Just (n - 1))

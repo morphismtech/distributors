@@ -4,6 +4,9 @@
 
 ### New APIs
 
+- `stepping` & its combinators, `terminateBy`, `delimitBy`, `balanceBy`
+  & `countWith`, step through any stream, @(Cons s s a a, AsEmpty s)@,
+  like a `Data.Sequence.Seq` or `Data.Text.Text`, not only lists.
 - `Enumerable`, in `Data.Traversable.Homogeneous`, of `Homogeneous`
   countable sums of single copies, sequenced `enumerably` by
   `CocartesianMonoidal`s, with generic defaults by `Generic1`.
