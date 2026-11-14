@@ -15,7 +15,7 @@ Let's see an example using
 </pre><p>We'd like to define an optic <code class="inline-code">_SemVer</code>,
 corresponding to the constructor pattern <code class="inline-code">SemVer</code>.
 You could generate it with the TemplateHaskell combinator,
-<code><a href="https://hackage.haskell.org/package/distributors-0.7.0.0/docs/Control-Lens-Internal-Distributor-NestedPrismTH.html#v:makeNestedPrisms" title="Control.Lens.Internal.Distributor.NestedPrismTH">makeNestedPrisms</a></code>.</p><pre>makeNestedPrisms ''SemVer</pre><p>Unfortunately, we can't use TemplateHaskell to generate it in <a href="https://wiki.haskell.org/GHC/GHCi">GHCi</a>,
+<code><a href="https://hackage.haskell.org/package/distributors-0.7.0.0/docs/Control-Lens-Prism-Nested.html#v:makeNestedPrisms" title="Control.Lens.Prism.Nested">makeNestedPrisms</a></code>.</p><pre>makeNestedPrisms ''SemVer</pre><p>Unfortunately, we can't use TemplateHaskell to generate it in <a href="https://wiki.haskell.org/GHC/GHCi">GHCi</a>,
 which is used to test this documentation.
 Here is equivalent Haskell code instead.
 Since <code class="inline-code">SemVer</code> has only one constructor,

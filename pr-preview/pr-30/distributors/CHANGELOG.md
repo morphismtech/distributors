@@ -91,6 +91,13 @@
 - `satisfied` is a homomorphism of predicates' `BooleanAlgebra`s, to the
   `DisjunctiveMonoid` of partial functions, choosing by first success in
   either direction, by which `withOperators` tries its unary operators.
+- `genericNestedPrism` & `genericNestedIso`, in `Control.Lens.Prism.Nested`
+  & re-exported by `Control.Lens.PartialIso`, the `Prism`s & `Iso`s that
+  `makeNestedPrisms` generates, focusing fields as right-nested pairs,
+  by `GHC.Generics` rather than Template Haskell, taking the type, &
+  for a `Prism` the constructor's name as a `Symbol`, as required type
+  arguments, like @genericNestedPrism Shape "Rect"@; a type sharing its
+  constructor's name is @(type Point)@, by @ExplicitNamespaces@.
 - `orPartialIso`, the union of two patterns, trying the first, then the
   second, in either direction, with its unit `falsePartialIso`.
 
@@ -110,6 +117,8 @@
 
 ### Breaking Changes
 
+- `Control.Lens.Internal.Distributor.NestedPrismTH` is renamed
+  `Control.Lens.Prism.Nested`.
 - `crossPartialIso` ~> `alongsidePartialIso` & `altPartialIso` ~>
   `withoutPartialIso`, after lens's `alongside` & `without`, since they
   pair & sum differing foci, unlike the crosses & alts of the same foci.
