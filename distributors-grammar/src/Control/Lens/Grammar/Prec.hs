@@ -19,8 +19,8 @@ module Control.Lens.Grammar.Prec
   , PrecGrammatical (..)
   , precParens
   , precList
-    -- * Lookahead
-  , Lookahead (..)
+    -- * NotFollowedBy
+  , NotFollowedBy (..)
   , eof
   , munch
   , munch1
@@ -77,7 +77,7 @@ class PrecGrammar a where
 `Text.ParserCombinators.ReadPrec` has, where a grammar runs in a
 precedence context, from 0 to 11, as `showsPrec`'s is. -}
 class
-  ( Grammatical Char p, Lookahead p
+  ( Grammatical Char p, NotFollowedBy p
   , forall x y. (x ~ (), y ~ ()) => IsString (p x y) )
   => PrecGrammatical p where
     {- | At a precedence, failing in a context above it, as
@@ -116,11 +116,11 @@ precBrackets x = terminal "[" >* orP
   ] *< skipSpaces *< terminal "]"
 
 {- | Negative lookahead, as `read`'s lexer munches lexemes maximally. -}
-class Lookahead p where
+class NotFollowedBy p where
   {- | Not followed by a string a pattern matches, consuming nothing, &
   printing nothing; nonterminals match nothing. -}
   notFollowedBy :: RegEx Char -> p () ()
-instance (Alternative f, Cons s s Char Char) => Lookahead (Parsor s f) where
+instance (Alternative f, Cons s s Char Char) => NotFollowedBy (Parsor s f) where
   notFollowedBy rex = Parsor $ \mode s -> case mode of
     Nothing | not (null (prefixes rex (0 :: Int, s))) -> empty
     _ -> pure ((), s)
@@ -149,32 +149,32 @@ instance (Alternative f, Cons s s Char Char) => Lookahead (Parsor s f) where
       upTo m x pos
         | m <= 0 = [pos]
         | otherwise = pos : (prefixes x pos >>= upTo (m - 1) x)
-instance Applicative f => Lookahead (Printor s f) where
+instance Applicative f => NotFollowedBy (Printor s f) where
   notFollowedBy _ = Printor (\_ -> pure ((), id))
-instance Lookahead p => Lookahead (Precedence p) where
+instance NotFollowedBy p => NotFollowedBy (Precedence p) where
   notFollowedBy = Precedence . const . notFollowedBy
 
 {- | At the end of input, not followed by any token. -}
-eof :: Lookahead p => p () ()
+eof :: NotFollowedBy p => p () ()
 eof = notFollowedBy anyToken
 
 {- | Tokens of a class, as many as follow, as
 `Text.ParserCombinators.ReadP.munch` parses, & printing them. -}
 munch
-  :: (RegGrammatical Char p, Lookahead p)
+  :: (RegGrammatical Char p, NotFollowedBy p)
   => TokenClass Char -> p String String
 munch cls = manyP (tokenClass cls) *< notFollowedBy (tokenClass cls)
 
 {- | Tokens of a class, one or more, as many as follow, as
 `Text.ParserCombinators.ReadP.munch1` parses, & printing them. -}
 munch1
-  :: (RegGrammatical Char p, Lookahead p)
+  :: (RegGrammatical Char p, NotFollowedBy p)
   => TokenClass Char -> p String String
 munch1 cls = someP (tokenClass cls) *< notFollowedBy (tokenClass cls)
 
 {- | Whitespace, by `Data.Char.isSpace`, as many as follow, as
 `Text.ParserCombinators.ReadP.skipSpaces` parses, & printing none. -}
-skipSpaces :: (RegGrammatical Char p, Lookahead p) => p () ()
+skipSpaces :: (RegGrammatical Char p, NotFollowedBy p) => p () ()
 skipSpaces = dimap (const "") (const ()) (munch precSpaceClass)
 
 {- | A grammar in a precedence context, a `PrecGrammatical` interpreter of
@@ -233,7 +233,7 @@ instance BackusNaurForm (p a b) => BackusNaurForm (Precedence p a b)
 instance (a ~ (), b ~ (), TerminalSymbol Char (p () ()))
   => IsString (Precedence p a b) where
     fromString = Precedence . const . terminal
-instance (Grammatical Char p, Lookahead p) => PrecGrammatical (Precedence p) where
+instance (Grammatical Char p, NotFollowedBy p) => PrecGrammatical (Precedence p) where
     precP n (Precedence x) = Precedence (\d -> if d <= n then x n else falseP)
     precStep (Precedence x) = Precedence (x . (+ 1))
     precReset (Precedence x) = Precedence (const (x 0))
@@ -241,7 +241,7 @@ instance (Grammatical Char p, Lookahead p) => PrecGrammatical (Precedence p) whe
 
 {- | A type's `PrecGrammar` at a precedence, at any `Grammatical`
 interpreter which parses or prints. -}
-precG :: forall a p. (PrecGrammar a, Grammatical Char p, Lookahead p) => Int -> p a a
+precG :: forall a p. (PrecGrammar a, Grammatical Char p, NotFollowedBy p) => Int -> p a a
 precG = runPrecedence precGrammar
 
 {- | Read at a precedence, as `readsPrec` does. -}
@@ -400,7 +400,7 @@ precIntegral :: (Integral a, PrecGrammatical p) => p a a
 precIntegral = iso toInteger fromInteger >~ precGrammar @Integer
 
 -- A minus, printing bare up to precedence 6, & parsing bare at any.
-precNegativeAt :: (RegGrammatical Char p, Lookahead p) => Int -> p Bool Bool
+precNegativeAt :: (RegGrammatical Char p, NotFollowedBy p) => Int -> p Bool Bool
 precNegativeAt d
   | d <= 6 = precNegative
   | otherwise = orP
@@ -416,7 +416,7 @@ precEitherOf :: RegGrammatical Char p => String -> String -> p () ()
 precEitherOf printed parsed = terminal printed >|< (precUnprinted >? terminal parsed)
 
 -- A minus, a lexeme of its own, as whether a number is negative.
-precNegative :: (RegGrammatical Char p, Lookahead p) => p Bool Bool
+precNegative :: (RegGrammatical Char p, NotFollowedBy p) => p Bool Bool
 precNegative = iso (\b -> if b then Just () else Nothing) isJust
   >~ optionalP (terminal "-" >* skipSpaces)
 
@@ -445,21 +445,21 @@ precSymbolClass = notOneOf ",;()[]{}`" >&< orP
   , asIn ConnectorPunctuation >&< notOneOf "_" ]
 
 -- An identifier, & a symbol, munched maximally.
-precIdent, precSymbol :: (RegGrammatical Char p, Lookahead p) => String -> p () ()
+precIdent, precSymbol :: (RegGrammatical Char p, NotFollowedBy p) => String -> p () ()
 precIdent name = terminal name *< notFollowedBy (tokenClass precIdfClass)
 precSymbol name = terminal name *< notFollowedBy (tokenClass precSymbolClass)
 
 -- A space, where `show` separates lexemes, printing one, & parsing one
 -- whitespace character, or none where none follows, the rest of it
 -- skipped before the next lexeme.
-precSpace :: (RegGrammatical Char p, Lookahead p) => p () ()
+precSpace :: (RegGrammatical Char p, NotFollowedBy p) => p () ()
 precSpace = orP
   [ terminal " "
   , precUnprinted >? precToken (precSpaceClass >&< notOneOf " ")
   , precUnprinted >? notFollowedBy (tokenClass precSpaceClass) ]
 
 -- A space, printing one, & parsing any whitespace.
-precSpaced :: (RegGrammatical Char p, Lookahead p) => p () ()
+precSpaced :: (RegGrammatical Char p, NotFollowedBy p) => p () ()
 precSpaced = precSpace >* skipSpaces
 
 -- Signed, by an improper iso, where @-0@ parses too.
@@ -471,25 +471,25 @@ precSigned = iso
 -- A number's lexeme without a fraction or exponent: decimal, printed,
 -- or binary, octal or hexadecimal, after @0b@, @0o@ or @0x@, in either
 -- case, parsed & tried first, as `read`'s lexer does.
-precMagnitude :: (RegGrammatical Char p, Lookahead p) => p Integer Integer
+precMagnitude :: (RegGrammatical Char p, NotFollowedBy p) => p Integer Integer
 precMagnitude = (precUnprinted >? try (terminal "0" >* precBased))
   >|< numeral 10 *< precDecimalEnd
 
 -- Where a decimal integer ends: not before a fraction, nor an exponent.
-precDecimalEnd :: (RegGrammatical Char p, Lookahead p) => p () ()
+precDecimalEnd :: (RegGrammatical Char p, NotFollowedBy p) => p () ()
 precDecimalEnd = notFollowedBy (tokenClass (precDigitClass 10))
   *< precNotFraction *< precNotExponent
 
 -- Not before a fraction.
-precNotFraction :: Lookahead p => p () ()
+precNotFraction :: NotFollowedBy p => p () ()
 precNotFraction = notFollowedBy (terminal "." <> tokenClass (precDigitClass 10))
 
 -- Not before an exponent.
-precNotExponent :: Lookahead p => p () ()
+precNotExponent :: NotFollowedBy p => p () ()
 precNotExponent = notFollowedBy
   (oneOf "eE" <> optK (oneOf "+-") <> tokenClass (precDigitClass 10))
 
-precBased :: forall p. (RegGrammatical Char p, Lookahead p) => p Integer Integer
+precBased :: forall p. (RegGrammatical Char p, NotFollowedBy p) => p Integer Integer
 precBased = orP
   [ precEitherOf "b" "B" >* munched 2
   , precEitherOf "o" "O" >* munched 8
@@ -502,7 +502,7 @@ precBased = orP
 
 -- Natural numbers, & negative zero, as `read` reads integers & keeps
 -- those which aren't negative.
-precNatural :: (RegGrammatical Char p, Lookahead p) => p Natural Natural
+precNatural :: (RegGrammatical Char p, NotFollowedBy p) => p Natural Natural
 precNatural = (iso toInteger fromInteger >~ precMagnitude)
   >|< (precUnprinted . only 0 >? terminal "-" >* skipSpaces >* zerosG)
   where
@@ -540,7 +540,7 @@ _Based = prism' Based $ \case
 {- Floating point numbers, printing as `show` does, by `floatToDigits`,
 in fixed notation, or in exponent notation outside @0.1 <= x < 10^7@, &
 parsing as `read` does, by `fromRational`, rounding correctly. -}
-precFloating :: (RealFloat a, RegGrammatical Char p, Lookahead p) => Int -> p a a
+precFloating :: (RealFloat a, RegGrammatical Char p, NotFollowedBy p) => Int -> p a a
 precFloating d = iso precToLexeme precFromLexeme >~ precNegativeAt d >*< orP
   [ only NotANumber >? precIdent "NaN"
   , only Infinite >? precIdent "Infinity"
@@ -607,14 +607,14 @@ precFromLexeme (negative, lexeme) = (if negative then negate else id) value
         (zeros, _) -> Just (negate (length zeros))
 
 -- A character's literal, between single quotes.
-precChar :: (RegGrammatical Char p, Lookahead p) => p Char Char
+precChar :: (RegGrammatical Char p, NotFollowedBy p) => p Char Char
 precChar = terminal "'" >* precLitChar '\'' *< terminal "'"
 
 {- A character within a literal, printing as `show` does, by `showLitChar`,
 & parsing as `read` does: unescaped, but for @\\@ & the literal's quote;
 by a named escape; or by its decimal, octal or hexadecimal code, up to
 `maxBound`, or as a control, @\\^@@ to @\\^_@. -}
-precLitChar :: (RegGrammatical Char p, Lookahead p) => Char -> p Char Char
+precLitChar :: (RegGrammatical Char p, NotFollowedBy p) => Char -> p Char Char
 precLitChar quote = precRaw [quote] >|< terminal "\\" >* orP
   [precFixedEsc True, precDecimalEsc, precOctalEsc, precHexEsc, precControlEsc]
 
@@ -624,7 +624,7 @@ precRaw excluded = tokenClass (oneOf [' ' .. '~'] >&< notOneOf ('\\' : excluded)
   >|< precUnprinted >? tokenClass (notOneOf ('\\' : excluded <> [' ' .. '~']))
 
 -- Named escapes, with @SO@ or not.
-precFixedEsc :: (RegGrammatical Char p, Lookahead p) => Bool -> p Char Char
+precFixedEsc :: (RegGrammatical Char p, NotFollowedBy p) => Bool -> p Char Char
 precFixedEsc withSO = precEscapes $
   [('\'', "'"), ('\a', "a"), ('\b', "b"), ('\f', "f"), ('\n', "n")]
   <> [('\r', "r"), ('\t', "t"), ('\v', "v"), ('\\', "\\"), ('"', "\"")]
@@ -664,7 +664,7 @@ before a digit, or after @\\SO@ before @H@, & parsing as `read` does, with
 empty escapes, & gaps, @\\@, whitespace & @\\@, anywhere, an improper iso,
 & with numeric escapes' digits & @\\SOH@ maximally munched, as `read`'s
 lexer does, so that an escape is never followed by what would continue it. -}
-precString :: forall p. (RegGrammatical Char p, Lookahead p) => p String String
+precString :: forall p. (RegGrammatical Char p, NotFollowedBy p) => p String String
 precString = iso items (\xs -> [c | StrChar c <- xs])
   >~ terminal "\"" >* free *< terminal "\""
   where
@@ -700,7 +700,7 @@ precString = iso items (\xs -> [c | StrChar c <- xs])
 
 -- Escapes by fixed strings, as a trie, which is LL(1), maximally munched,
 -- like @\\SO@ & @\\SOH@, each character printing by its first string.
-precEscapes :: (RegGrammatical Char p, Lookahead p) => [(Char, String)] -> p Char Char
+precEscapes :: (RegGrammatical Char p, NotFollowedBy p) => [(Char, String)] -> p Char Char
 precEscapes escapes = orP $
   [only c >? oneP | (c, "") <- take 1 [e | e@(_, "") <- escapes]]
   <> [ terminal [first] >* precEscapes [(c, rest) | (c, x : rest) <- escapes, x == first]

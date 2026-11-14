@@ -47,7 +47,7 @@
   records, read bare at 11 & shown within parentheses there, with operator
   fields, infix constructors, symbolic & backquoted, at their fixities, &
   symbolic constructors in prefix. Instances for `Bool`, `Ordering`, `Maybe`
-  & `Either`, by it, & for `()` & tuples. `Lookahead`, negative lookahead
+  & `Either`, by it, & for `()` & tuples. `NotFollowedBy`, negative lookahead
   by `notFollowedBy` a `RegEx`, which `PrecGrammatical` requires, &
   `eof`, `munch`, `munch1` & `skipSpaces`, as `ReadP`'s,
   so that identifiers, symbols & numbers are munched maximally, &
