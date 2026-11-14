@@ -21,10 +21,10 @@ module Control.Lens.Grammar.Prec
   , precList
     -- * Lookahead
   , Lookahead (..)
-  , precEof
-  , precMunch
-  , precMunch1
-  , precSkipSpaces
+  , eof
+  , munch
+  , munch1
+  , skipSpaces
     -- * Precedence
   , Precedence (..)
   , precG
@@ -95,12 +95,12 @@ class
 {- | Within any parentheses, after whitespace, as `GHC.Read.parens` reads,
 & within parentheses where it doesn't print bare, as `showParen` shows. -}
 precParens :: PrecGrammatical p => p a b -> p a b
-precParens p = precSkipSpaces >* precParenthesized p
+precParens p = skipSpaces >* precParenthesized p
 
 {- Bare, or within parentheses, without leading whitespace, so that no two
 places skip the same whitespace, which `read` skips once, greedily. -}
 precParenthesized :: PrecGrammatical p => p a b -> p a b
-precParenthesized p = p >|< terminal "(" >* precReset (precParens p) *< precSkipSpaces *< terminal ")"
+precParenthesized p = p >|< terminal "(" >* precReset (precParens p) *< skipSpaces *< terminal ")"
 
 {- | A list, in brackets, its items separated by commas, after whitespace,
 at precedence 0, within any parentheses, as `GHC.Read.list` reads &
@@ -112,45 +112,45 @@ precList = precParens . precBrackets
 precBrackets :: PrecGrammatical p => p a a -> p [a] [a]
 precBrackets x = terminal "[" >* orP
   [ _Empty >? oneP
-  , _Cons >? precReset x >*< manyP (precSkipSpaces >* terminal "," >* precReset x)
-  ] *< precSkipSpaces *< terminal "]"
+  , _Cons >? precReset x >*< manyP (skipSpaces >* terminal "," >* precReset x)
+  ] *< skipSpaces *< terminal "]"
 
 {- | Negative lookahead, as `read`'s lexer munches lexemes maximally. -}
 class Lookahead p where
   {- | Not followed by a string a pattern matches, consuming nothing, &
   printing nothing; nonterminals match nothing. -}
-  precNotFollowedBy :: RegEx Char -> p () ()
+  notFollowedBy :: RegEx Char -> p () ()
 instance (Alternative f, Cons s s Char Char) => Lookahead (Parsor s f) where
-  precNotFollowedBy rex = Parsor $ \mode s -> case mode of
+  notFollowedBy rex = Parsor $ \mode s -> case mode of
     Nothing | not (null (precPrefixes rex (0, s))) -> empty
     _ -> pure ((), s)
 instance Applicative f => Lookahead (Printor s f) where
-  precNotFollowedBy _ = Printor (\_ -> pure ((), id))
+  notFollowedBy _ = Printor (\_ -> pure ((), id))
 instance Lookahead p => Lookahead (Precedence p) where
-  precNotFollowedBy = Precedence . const . precNotFollowedBy
+  notFollowedBy = Precedence . const . notFollowedBy
 
 {- | At the end of input, not followed by any token. -}
-precEof :: Lookahead p => p () ()
-precEof = precNotFollowedBy anyToken
+eof :: Lookahead p => p () ()
+eof = notFollowedBy anyToken
 
 {- | Tokens of a class, as many as follow, as
 `Text.ParserCombinators.ReadP.munch` parses, & printing them. -}
-precMunch
+munch
   :: (RegGrammatical Char p, Lookahead p)
   => TokenClass Char -> p String String
-precMunch cls = manyP (tokenClass cls) *< precNotFollowedBy (tokenClass cls)
+munch cls = manyP (tokenClass cls) *< notFollowedBy (tokenClass cls)
 
 {- | Tokens of a class, one or more, as many as follow, as
 `Text.ParserCombinators.ReadP.munch1` parses, & printing them. -}
-precMunch1
+munch1
   :: (RegGrammatical Char p, Lookahead p)
   => TokenClass Char -> p String String
-precMunch1 cls = someP (tokenClass cls) *< precNotFollowedBy (tokenClass cls)
+munch1 cls = someP (tokenClass cls) *< notFollowedBy (tokenClass cls)
 
 {- | Whitespace, by `Data.Char.isSpace`, as many as follow, as
 `Text.ParserCombinators.ReadP.skipSpaces` parses, & printing none. -}
-precSkipSpaces :: (RegGrammatical Char p, Lookahead p) => p () ()
-precSkipSpaces = dimap (const "") (const ()) (precMunch precSpaceClass)
+skipSpaces :: (RegGrammatical Char p, Lookahead p) => p () ()
+skipSpaces = dimap (const "") (const ()) (munch precSpaceClass)
 
 {- The rests of a string after each of its prefixes a pattern matches,
 counting tokens, so that repetitions of empty matches end. -}
@@ -272,7 +272,7 @@ instance PrecGrammar Ordering
 instance PrecGrammar a => PrecGrammar (Maybe a)
 instance (PrecGrammar a, PrecGrammar b) => PrecGrammar (Either a b)
 instance PrecGrammar () where
-  precGrammar = precParens (terminal "(" >* precSkipSpaces *< terminal ")")
+  precGrammar = precParens (terminal "(" >* skipSpaces *< terminal ")")
 instance (PrecGrammar a, PrecGrammar b) => PrecGrammar (a, b) where
   precGrammar = precTupled (precItem >*< precComma >* precItem)
 instance (PrecGrammar a, PrecGrammar b, PrecGrammar c) => PrecGrammar (a, b, c) where
@@ -294,13 +294,13 @@ instance (PrecGrammar a, PrecGrammar b, PrecGrammar c, PrecGrammar d, PrecGramma
 -- A tuple, within parentheses, its items at precedence 0, as `read`'s
 -- @wrap_tup@ reads & `show` shows.
 precTupled :: PrecGrammatical p => p a a -> p a a
-precTupled items' = precParens (terminal "(" >* items' *< precSkipSpaces *< terminal ")")
+precTupled items' = precParens (terminal "(" >* items' *< skipSpaces *< terminal ")")
 
 precItem :: (PrecGrammar a, PrecGrammatical p) => p a a
 precItem = precReset precGrammar
 
 precComma :: PrecGrammatical p => p () ()
-precComma = precSkipSpaces >* terminal ","
+precComma = skipSpaces >* terminal ","
 
 -- Generics --
 
@@ -322,8 +322,8 @@ instance (Constructor c, GPrecFields f) => GPrecSum (M1 C c f) where
     Infix _ n -> precP n (gPrecFields (InfixFields (precOperator name)))
     Prefix
       | conIsRecord con -> precWith $ \d ->
-          let body = precName name >* precSpaced >* terminal "{" >* precSkipSpaces
-                >* gPrecFields RecordFields *< precSkipSpaces *< terminal "}"
+          let body = precName name >* precSpaced >* terminal "{" >* skipSpaces
+                >* gPrecFields RecordFields *< skipSpaces *< terminal "}"
           in if d <= 10 then body else if d == 11 then precUnprinted >? body else falseP
       | gArity (Proxy @f) == 0 -> precName name >* gPrecFields PrefixFields
       | otherwise -> precP 10 (precName name >* gPrecFields PrefixFields)
@@ -350,7 +350,7 @@ instance GPrecFields U1 where
 instance (GPrecFields f, GPrecFields g) => GPrecFields (f :*: g) where
   gPrecFields style = iso (\(x :*: y) -> (x, y)) (uncurry (:*:)) >~ case style of
     RecordFields ->
-      gPrecFields RecordFields >*< precSkipSpaces >* terminal "," >* precSpaced >* gPrecFields RecordFields
+      gPrecFields RecordFields >*< skipSpaces >* terminal "," >* precSpaced >* gPrecFields RecordFields
     InfixFields operator -> gPrecFields BareField >*< operator >* gPrecFields BareField
     _ -> gPrecFields style >*< gPrecFields style
   gArity _ = gArity (Proxy @f) + gArity (Proxy @g)
@@ -367,15 +367,15 @@ instance (Selector s, PrecGrammar a) => GPrecFields (M1 S s (K1 R a)) where
 precName :: PrecGrammatical p => String -> p () ()
 precName name
   | precSymbolic name =
-      terminal "(" >* precSkipSpaces >* precSymbol name *< precSkipSpaces *< terminal ")"
+      terminal "(" >* skipSpaces >* precSymbol name *< skipSpaces *< terminal ")"
   | otherwise = precIdent name
 
 -- An infix operator, a symbol, or an identifier within backquotes.
 precOperator :: PrecGrammatical p => String -> p () ()
 precOperator name
   | precSymbolic name = precSpaced >* precSymbol name >* precSpace
-  | otherwise = precSpaced >* terminal "`" >* precSkipSpaces >* precIdent name
-      *< precSkipSpaces *< terminal "`" >* precSpace
+  | otherwise = precSpaced >* terminal "`" >* skipSpaces >* precIdent name
+      *< skipSpaces *< terminal "`" >* precSpace
 
 precSymbolic :: String -> Bool
 precSymbolic = \case
@@ -407,7 +407,7 @@ precNegativeAt d
   | d <= 6 = precNegative
   | otherwise = orP
       [ only False >? oneP
-      , only True . precUnprinted >? terminal "-" >* precSkipSpaces ]
+      , only True . precUnprinted >? terminal "-" >* skipSpaces ]
 
 -- A prism which never matches, so that its alternative parses, but never prints.
 precUnprinted :: Prism' a a
@@ -420,7 +420,7 @@ precEitherOf printed parsed = terminal printed >|< (precUnprinted >? terminal pa
 -- A minus, a lexeme of its own, as whether a number is negative.
 precNegative :: (RegGrammatical Char p, Lookahead p) => p Bool Bool
 precNegative = iso (\b -> if b then Just () else Nothing) isJust
-  >~ optionalP (terminal "-" >* precSkipSpaces)
+  >~ optionalP (terminal "-" >* skipSpaces)
 
 -- Whitespace, by `Data.Char.isSpace`.
 precSpaceClass :: TokenClass Char
@@ -448,8 +448,8 @@ precSymbolClass = notOneOf ",;()[]{}`" >&< orP
 
 -- An identifier, & a symbol, munched maximally.
 precIdent, precSymbol :: (RegGrammatical Char p, Lookahead p) => String -> p () ()
-precIdent name = terminal name *< precNotFollowedBy (tokenClass precIdfClass)
-precSymbol name = terminal name *< precNotFollowedBy (tokenClass precSymbolClass)
+precIdent name = terminal name *< notFollowedBy (tokenClass precIdfClass)
+precSymbol name = terminal name *< notFollowedBy (tokenClass precSymbolClass)
 
 -- A space, where `show` separates lexemes, printing one, & parsing one
 -- whitespace character, or none where none follows, the rest of it
@@ -458,11 +458,11 @@ precSpace :: (RegGrammatical Char p, Lookahead p) => p () ()
 precSpace = orP
   [ terminal " "
   , precUnprinted >? precToken (precSpaceClass >&< notOneOf " ")
-  , precUnprinted >? precNotFollowedBy (tokenClass precSpaceClass) ]
+  , precUnprinted >? notFollowedBy (tokenClass precSpaceClass) ]
 
 -- A space, printing one, & parsing any whitespace.
 precSpaced :: (RegGrammatical Char p, Lookahead p) => p () ()
-precSpaced = precSpace >* precSkipSpaces
+precSpaced = precSpace >* skipSpaces
 
 -- Signed, by an improper iso, where @-0@ parses too.
 precSigned :: (Num a, Ord a) => Iso' a (Bool, a)
@@ -479,16 +479,16 @@ precMagnitude = (precUnprinted >? try (terminal "0" >* precBased))
 
 -- Where a decimal integer ends: not before a fraction, nor an exponent.
 precDecimalEnd :: (RegGrammatical Char p, Lookahead p) => p () ()
-precDecimalEnd = precNotFollowedBy (tokenClass (precDigitClass 10))
+precDecimalEnd = notFollowedBy (tokenClass (precDigitClass 10))
   *< precNotFraction *< precNotExponent
 
 -- Not before a fraction.
 precNotFraction :: Lookahead p => p () ()
-precNotFraction = precNotFollowedBy (terminal "." <> tokenClass (precDigitClass 10))
+precNotFraction = notFollowedBy (terminal "." <> tokenClass (precDigitClass 10))
 
 -- Not before an exponent.
 precNotExponent :: Lookahead p => p () ()
-precNotExponent = precNotFollowedBy
+precNotExponent = notFollowedBy
   (oneOf "eE" <> optK (oneOf "+-") <> tokenClass (precDigitClass 10))
 
 precBased :: forall p. (RegGrammatical Char p, Lookahead p) => p Integer Integer
@@ -500,22 +500,22 @@ precBased = orP
   where
     munched :: Int -> p Integer Integer
     munched base = numeral (toInteger base)
-      *< precNotFollowedBy (tokenClass (precDigitClass base))
+      *< notFollowedBy (tokenClass (precDigitClass base))
 
 -- Natural numbers, & negative zero, as `read` reads integers & keeps
 -- those which aren't negative.
 precNatural :: (RegGrammatical Char p, Lookahead p) => p Natural Natural
 precNatural = (iso toInteger fromInteger >~ precMagnitude)
-  >|< (precUnprinted . only 0 >? terminal "-" >* precSkipSpaces >* zerosG)
+  >|< (precUnprinted . only 0 >? terminal "-" >* skipSpaces >* zerosG)
   where
     zerosG = terminal "0" >* orP
       [ zeros *< precDecimalEnd
       , orP (map terminal ["b", "B"]) >* terminal "0" >* zeros
-          *< precNotFollowedBy (tokenClass (precDigitClass 2))
+          *< notFollowedBy (tokenClass (precDigitClass 2))
       , orP (map terminal ["o", "O"]) >* terminal "0" >* zeros
-          *< precNotFollowedBy (tokenClass (precDigitClass 8))
+          *< notFollowedBy (tokenClass (precDigitClass 8))
       , orP (map terminal ["x", "X"]) >* terminal "0" >* zeros
-          *< precNotFollowedBy (tokenClass (precDigitClass 16))
+          *< notFollowedBy (tokenClass (precDigitClass 16))
       ]
     zeros = skippedMany >?* terminal "0"
 
@@ -553,11 +553,11 @@ precFloating d = iso precToLexeme precFromLexeme >~ precNegativeAt d >*< orP
         , _Nothing >? precNotFraction ]
       >*< orP
         [ _Just >? precEitherOf "e" "E" >* (precSigned >~ exponentSignG >*< numeral 10
-            *< precNotFollowedBy (tokenClass (precDigitClass 10)))
+            *< notFollowedBy (tokenClass (precDigitClass 10)))
         , _Nothing >? precNotExponent ]
   ]
   where
-    digitsG = someP (digit 10) *< precNotFollowedBy (tokenClass (precDigitClass 10))
+    digitsG = someP (digit 10) *< notFollowedBy (tokenClass (precDigitClass 10))
     exponentSignG = orP
       [ only True >? terminal "-"
       , only False . precUnprinted >? terminal "+"
@@ -693,7 +693,7 @@ precString = iso items (\xs -> [c | StrChar c <- xs])
     emptyG :: p StrItem StrItem
     emptyG = only StrEmpty >? (terminal "\\&" >|< precUnprinted >? terminal "\\"
       >* dimap (const ' ') (const ()) (tokenClass (oneOf "\t\n\v\f\r" >|< asIn Space))
-      >* precSkipSpaces *< terminal "\\")
+      >* skipSpaces *< terminal "\\")
     items = \case
       c : cs@(c' : _) | protected c c' -> StrChar c : StrEmpty : items cs
       c : cs -> StrChar c : items cs
