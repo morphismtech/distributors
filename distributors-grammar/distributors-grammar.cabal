@@ -229,6 +229,7 @@ test-suite test
     , containers >=0.6 && <1
     , distributors
     , distributors-grammar
+    , free >=5.1 && <6
     , hspec >=2.7 && <3
     , lens >=5.0 && <6
     , megaparsec >=9.0 && <10

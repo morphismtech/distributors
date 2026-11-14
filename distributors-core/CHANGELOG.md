@@ -7,6 +7,11 @@
 - `stepping` & its combinators, `terminateBy`, `delimitBy`, `balanceBy`
   & `countWith`, step through any stream, @(Cons s s a a, AsEmpty s)@,
   like a `Data.Sequence.Seq` or `Data.Text.Text`, not only lists.
+- `steppingTree`, a deterministic top-down tree machine over the cofree
+  comonad of a `Traversable`, deciding by each node's focus its children's
+  states, of which `stepping` is the case of `Maybe`, of non-empty streams;
+  & `arityWith`, count-prefixed trees, each node's focus counting its
+  children, as `countWith` counts a stream's.
 - `Enumerable`, in `Data.Traversable.Homogeneous`, of `Homogeneous`
   countable sums of single copies, sequenced `enumerably` by
   `CocartesianMonoidal`s, with generic defaults by `Generic1`.

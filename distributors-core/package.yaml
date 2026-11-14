@@ -25,6 +25,7 @@ dependencies:
 - containers >= 0.6 && < 1
 - contravariant >= 1.5 && < 2
 - distributive >= 0.6 && < 1
+- free >= 5.1 && < 6
 - lens >= 5.0 && < 6
 - transformers >= 0.5 && < 1
 - profunctors >= 5.6 && < 6

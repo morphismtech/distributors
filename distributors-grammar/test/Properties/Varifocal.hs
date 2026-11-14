@@ -1,6 +1,7 @@
 module Properties.Varifocal (varifocalProperties) where
 
-import Control.Lens.Grammar
+import Control.Comonad.Cofree (Cofree (..))
+import Control.Lens.Grammar hiding ((:<))
 import Data.Char (digitToInt, isDigit)
 import Data.Foldable (for_)
 import Data.Maybe (fromMaybe)
@@ -59,6 +60,19 @@ varifocalProperties = do
         `shouldBe` Just (Seq.fromList "ab.", "c")
       (($ "") <$> printP (contextuallyT seqTerminated (anyToken :: Printor String Maybe Char Char)) (Seq.fromList "ab."))
         `shouldBe` Just "ab."
+  describe "steppingTree, by arityWith" $ do
+    let
+      counted :: Varifocal' (Cofree [] Char) Char
+      counted = arityWith digitToInt
+      tree = '2' :< ['1' :< ['0' :< []], '0' :< []]
+      parsedT = parseP (contextuallyT counted (anyToken :: Parsor String Maybe Char Char))
+      printedT = fmap ($ "") . printP (contextuallyT counted (anyToken :: Printor String Maybe Char Char))
+    it "parses a count-prefixed tree, in preorder" $
+      parsedT "2100rest" `shouldBe` Just (tree, "rest")
+    it "prints it, in preorder" $
+      printedT tree `shouldBe` Just "2100"
+    it "won't print a node with other than its count of children" $
+      map printedT ['1' :< [], '0' :< ['0' :< []]] `shouldBe` [Nothing, Nothing]
   describe "balanceBy & countWith, by stepping" $ do
     let
       nested :: Varifocal' String Char

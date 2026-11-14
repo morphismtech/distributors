@@ -31,17 +31,23 @@ module Control.Lens.Varifocal
   , contextuallyT
     -- * Combinators
   , stepping
+  , steppingTree
   , terminateBy
   , delimitBy
   , balanceBy
   , countWith
+  , arityWith
   ) where
 
 import Control.Applicative (Alternative (..))
-import Control.Lens
-import Control.Lens.PartialIso ((>?))
+import Control.Comonad.Cofree (Cofree (..))
+import Control.Lens hiding ((:<))
+import Control.Lens.PartialIso ((>?), (>~))
 import Control.Monad (MonadPlus (..), ap)
 import Data.Bool (bool)
+import Data.Foldable (toList)
+import Data.Functor (void)
+import Data.Traversable (mapAccumL)
 import Data.Monoid.Disjunctive (DisjunctiveMonoid (..))
 import Data.Profunctor (Cochoice (..))
 import Data.Profunctor.Distributor
@@ -313,6 +319,37 @@ stepping st0 step q = rmap pure (go st0)
         Left True -> asEmpty
         Left False -> empty
 
+{- | Foci stepped through by a deterministic top-down tree machine,
+from a state, deciding by each node's focus built which children
+it has, a state for each position of a `Traversable` @g@,
+or rejecting it, by `Nothing`, as no `Control.Lens.Bifocal.Bifocal` can.
+Foci are visited in preorder, a node's before its children's.
+A tree matches when each node's children have the shape
+its focus decides, so that it parses as it prints.
+
+`stepping` is `steppingTree` at `Maybe`, of non-empty streams,
+as the cofree comonad of `Maybe`, by which
+@`Left` `False`@, @`Left` `True`@ & @`Right` state@
+decide `Nothing`, @`Just` `Nothing`@ & @`Just` (`Just` state)@;
+`stepping` steps through a stream directly, rather than through
+a `Cofree`, & needn't check a shape, as a stream's is its focus's.
+-}
+steppingTree
+  :: (Traversable g, Eq (g ()))
+  => st -> (st -> a -> Maybe (g st)) -> Varifocal' (Cofree g a) a
+steppingTree st0 step q = rmap pure (go st0)
+  where
+    go st = cofreed >~ P.do
+      b <- joinP q
+      maybe empty offspring (step st b)
+    offspring states = shaped states >? sequenceA
+      (snd (mapAccumL (\i st -> (i + 1, child i st)) (0 :: Int) states))
+    -- after shaping, the child at a position of the children
+    child i st = lmap (\kids -> toList kids !! i) (go st)
+    shaped states = prism' id $ \kids ->
+      if void kids == void states then Just kids else Nothing
+    cofreed = iso (\(b :< kids) -> (b, kids)) (uncurry (:<))
+
 {- | Zero or more foci, then one which @end@s them, deciding by
 each focus built, like a sentinel-terminated sequence, a C string's.
 A stream which doesn't end by its first ending focus doesn't match.
@@ -361,3 +398,12 @@ countWith :: (Cons s s a a, AsEmpty s) => (a -> Int) -> Varifocal' s a
 countWith count = stepping Nothing $ \st b -> case st of
   Nothing -> if count b <= 0 then Left True else Right (Just (count b))
   Just n -> if n <= 1 then Left True else Right (Just (n - 1))
+
+{- | A tree whose nodes' foci each count their children,
+like a count-prefixed tree of records in a binary format,
+by `steppingTree`, as `countWith` counts a stream's.
+A node counting fewer than none doesn't match.
+-}
+arityWith :: (a -> Int) -> Varifocal' (Cofree [] a) a
+arityWith arity = steppingTree () $ \() b ->
+  if arity b < 0 then Nothing else Just (replicate (arity b) ())
