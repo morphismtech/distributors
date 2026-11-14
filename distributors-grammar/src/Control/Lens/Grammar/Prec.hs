@@ -122,8 +122,33 @@ class Lookahead p where
   notFollowedBy :: RegEx Char -> p () ()
 instance (Alternative f, Cons s s Char Char) => Lookahead (Parsor s f) where
   notFollowedBy rex = Parsor $ \mode s -> case mode of
-    Nothing | not (null (precPrefixes rex (0, s))) -> empty
+    Nothing | not (null (prefixes rex (0 :: Int, s))) -> empty
     _ -> pure ((), s)
+    where
+      -- the rests after each prefix a pattern matches, counting tokens,
+      -- so that repetitions of empty matches end
+      prefixes = \case
+        SeqEmpty -> pure
+        Sequence x y zs -> foldr ((>=>) . prefixes) pure (x : y : zs)
+        NonTerminal _ -> const []
+        KleeneStar x -> star x
+        KleeneOpt x -> upTo 1 x
+        KleenePlus x -> prefixes x >=> star x
+        KleeneTimes lo hi x -> foldr (>=>) pure (replicate lo (prefixes x))
+          >=> maybe (star x) (\m -> upTo (m - lo) x) hi
+        Backtracking x -> prefixes x
+        RegExam (Alternate x y zs) ->
+          \pos -> concatMap (`prefixes` pos) (x : y : zs)
+        RegExam (OneOf toks) -> one (TokenClass (OneOf toks))
+        RegExam (NotOneOf toks test) -> one (TokenClass (NotOneOf toks test))
+      one cls (n, str) = case uncons str of
+        Just (c, str') | tokenClass cls c -> [(n + 1, str')]
+        _ -> []
+      star x pos = pos :
+        [end | pos' <- prefixes x pos, fst pos' > fst pos, end <- star x pos']
+      upTo m x pos
+        | m <= 0 = [pos]
+        | otherwise = pos : (prefixes x pos >>= upTo (m - 1) x)
 instance Applicative f => Lookahead (Printor s f) where
   notFollowedBy _ = Printor (\_ -> pure ((), id))
 instance Lookahead p => Lookahead (Precedence p) where
@@ -151,33 +176,6 @@ munch1 cls = someP (tokenClass cls) *< notFollowedBy (tokenClass cls)
 `Text.ParserCombinators.ReadP.skipSpaces` parses, & printing none. -}
 skipSpaces :: (RegGrammatical Char p, Lookahead p) => p () ()
 skipSpaces = dimap (const "") (const ()) (munch precSpaceClass)
-
-{- The rests of a string after each of its prefixes a pattern matches,
-counting tokens, so that repetitions of empty matches end. -}
-precPrefixes :: Cons s s Char Char => RegEx Char -> (Int, s) -> [(Int, s)]
-precPrefixes = \case
-  SeqEmpty -> pure
-  Sequence x y zs -> foldr (\rex k -> precPrefixes rex >=> k) pure (x : y : zs)
-  NonTerminal _ -> const []
-  KleeneStar x -> star x
-  KleeneOpt x -> \pos -> pos : precPrefixes x pos
-  KleenePlus x -> precPrefixes x >=> star x
-  KleeneTimes lo hi x -> foldr (>=>) pure (replicate lo (precPrefixes x))
-    >=> maybe (star x) (upTo x . subtract lo) hi
-  Backtracking x -> precPrefixes x
-  RegExam (Alternate x y zs) ->
-    \pos -> concatMap (`precPrefixes` pos) (x : y : zs)
-  RegExam (OneOf toks) -> one (TokenClass (OneOf toks))
-  RegExam (NotOneOf toks test) -> one (TokenClass (NotOneOf toks test))
-  where
-    one cls (n, str) = case uncons str of
-      Just (c, str') | tokenClass cls c -> [(n + 1, str')]
-      _ -> []
-    star x pos = pos :
-      [pos'' | pos' <- precPrefixes x pos, fst pos' > fst pos, pos'' <- star x pos']
-    upTo x m pos
-      | m <= 0 = [pos]
-      | otherwise = pos : (precPrefixes x pos >>= upTo x (m - 1))
 
 {- | A grammar in a precedence context, a `PrecGrammatical` interpreter of
 any `Grammatical` one, each of whose structures it lifts pointwise. -}
