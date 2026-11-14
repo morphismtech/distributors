@@ -17,8 +17,8 @@ module Control.Lens.Grammar.Prec
   ( -- * PrecGrammar
     PrecGrammar (..)
   , PrecGrammatical (..)
-  , parensG
-  , listG
+  , precParens
+  , precList
     -- * Precedence
   , Precedence (..)
   , precG
@@ -55,9 +55,9 @@ import Numeric.Natural (Natural)
 class PrecGrammar a where
   precGrammar :: PrecGrammatical p => p a a
   {- | Lists of the type, as `readListPrec` & `showList`, in brackets, by
-  `listG`, by default, & strings, for `Char`. -}
+  `precList`, by default, & strings, for `Char`. -}
   precListGrammar :: PrecGrammatical p => p [a] [a]
-  precListGrammar = listG precGrammar
+  precListGrammar = precList precGrammar
 
 {- | `Grammatical` interpreters of precedence, as
 `Text.ParserCombinators.ReadPrec` has, where a grammar runs in a
@@ -69,34 +69,34 @@ class (Grammatical Char p, forall x y. (x ~ (), y ~ ()) => IsString (p x y))
     precP :: Int -> p a b -> p a b
     {- | In a context one higher, for arguments, as
     `Text.ParserCombinators.ReadPrec.step` does. -}
-    stepP :: p a b -> p a b
+    precStep :: p a b -> p a b
     {- | In the context 0, within brackets, as
     `Text.ParserCombinators.ReadPrec.reset` does. -}
-    resetP :: p a b -> p a b
+    precReset :: p a b -> p a b
     {- | By the context's precedence. -}
-    precedenceP :: (Int -> p a b) -> p a b
+    precWith :: (Int -> p a b) -> p a b
 
 {- | Within any parentheses, after whitespace, as `GHC.Read.parens` reads,
 & within parentheses where it doesn't print bare, as `showParen` shows. -}
-parensG :: PrecGrammatical p => p a b -> p a b
-parensG p = spacesG >* parenthesized p
+precParens :: PrecGrammatical p => p a b -> p a b
+precParens p = spacesG >* parenthesized p
 
 {- Bare, or within parentheses, without leading whitespace, so that no two
 places skip the same whitespace, which `read` skips once, greedily. -}
 parenthesized :: PrecGrammatical p => p a b -> p a b
-parenthesized p = p >|< terminal "(" >* resetP (parensG p) *< spacesG *< terminal ")"
+parenthesized p = p >|< terminal "(" >* precReset (precParens p) *< spacesG *< terminal ")"
 
 {- | A list, in brackets, its items separated by commas, after whitespace,
 at precedence 0, within any parentheses, as `GHC.Read.list` reads &
 `showList` shows. -}
-listG :: PrecGrammatical p => p a a -> p [a] [a]
-listG = parensG . bracketsG
+precList :: PrecGrammatical p => p a a -> p [a] [a]
+precList = precParens . bracketsG
 
 -- Items in brackets, separated by commas, after whitespace, at precedence 0.
 bracketsG :: PrecGrammatical p => p a a -> p [a] [a]
 bracketsG x = terminal "[" >* orP
   [ _Empty >? oneP
-  , _Cons >? resetP x >*< manyP (spacesG >* terminal "," >* resetP x)
+  , _Cons >? precReset x >*< manyP (spacesG >* terminal "," >* precReset x)
   ] *< spacesG *< terminal "]"
 
 {- | A grammar in a precedence context, a `PrecGrammatical` interpreter of
@@ -157,9 +157,9 @@ instance (a ~ (), b ~ (), TerminalSymbol Char (p () ()))
     fromString = Precedence . const . terminal
 instance Grammatical Char p => PrecGrammatical (Precedence p) where
     precP n (Precedence x) = Precedence (\d -> if d <= n then x n else falseP)
-    stepP (Precedence x) = Precedence (x . (+ 1))
-    resetP (Precedence x) = Precedence (const (x 0))
-    precedenceP k = Precedence (\d -> runPrecedence (k d) d)
+    precStep (Precedence x) = Precedence (x . (+ 1))
+    precReset (Precedence x) = Precedence (const (x 0))
+    precWith k = Precedence (\d -> runPrecedence (k d) d)
 
 {- | A type's `PrecGrammar` at a precedence, at any `Grammatical`
 interpreter which parses or prints. -}
@@ -182,16 +182,16 @@ negative numbers, which `showsPrec` parenthesizes above 6, & `read`
 accepts bare at any precedence. -}
 
 instance PrecGrammar Char where
-  precGrammar = parensG charG
+  precGrammar = precParens charG
   -- strings, or brackets, as `read` reads, & strings, as `show` shows
-  precListGrammar = parensG (stringG >|< parenthesized (bracketsG precGrammar))
+  precListGrammar = precParens (stringG >|< parenthesized (bracketsG precGrammar))
 instance PrecGrammar a => PrecGrammar [a] where
   precGrammar = precListGrammar
-instance PrecGrammar Natural where precGrammar = parensG naturalG
+instance PrecGrammar Natural where precGrammar = precParens naturalG
 instance PrecGrammar Integer where
-  precGrammar = parensG (precedenceP (\d -> signed >~ negativeAt d >*< magnitudeG))
-instance PrecGrammar Double where precGrammar = parensG (precedenceP floatingAt)
-instance PrecGrammar Float where precGrammar = parensG (precedenceP floatingAt)
+  precGrammar = precParens (precWith (\d -> signed >~ negativeAt d >*< magnitudeG))
+instance PrecGrammar Double where precGrammar = precParens (precWith floatingAt)
+instance PrecGrammar Float where precGrammar = precParens (precWith floatingAt)
 instance PrecGrammar Int where precGrammar = integralG
 instance PrecGrammar Int8 where precGrammar = integralG
 instance PrecGrammar Int16 where precGrammar = integralG

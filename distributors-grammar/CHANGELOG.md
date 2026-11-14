@@ -28,9 +28,9 @@
   ranges, @[a-z]@, & parse ranges; a dash in a class is escaped, @\\-@.
 - `Control.Lens.Grammar.Prec`: Haskell types' grammars, by precedence,
   equivalent to their stock `Read` & `Show` instances. `PrecGrammar` types,
-  run by `PrecGrammatical` interpreters, with `precP`, `stepP`, `resetP` &
-  `precedenceP`, as `ReadPrec`'s `prec`, `step` & `reset`, `parensG`, as
-  `GHC.Read.parens` & `showParen`, & `listG`, as `GHC.Read.list` &
+  run by `PrecGrammatical` interpreters, with `precP`, `precStep`, `precReset` &
+  `precWith`, as `ReadPrec`'s `prec`, `step` & `reset`, `precParens`, as
+  `GHC.Read.parens` & `showParen`, & `precList`, as `GHC.Read.list` &
   `showList`, & `precListGrammar`, as `readListPrec` & `showList`; `Precedence`, an interpreter over any
   `Grammatical` one, run by `precG`, `readsPrecG` & `showsPrecG`. Instances for
   lists, & `String`s, as string literals, with `showLitString`'s & `read`'s
