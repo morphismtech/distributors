@@ -25,6 +25,7 @@ import Data.Profunctor
 import Data.Profunctor.Distributor (Alternator)
 import Data.Profunctor.Monoidal
 import Text.ParserCombinators.ReadP (ReadP, string)
+import Text.ParserCombinators.ReadPrec (ReadPrec, lift)
 
 -- | A `terminal` symbol in a grammar.
 class TerminalSymbol token s | s -> token where
@@ -54,3 +55,5 @@ instance TerminalSymbol token (f ())
     terminal = Joker . terminal @token
 instance TerminalSymbol Char (ReadP ()) where
   terminal str = string str *> pure ()
+instance TerminalSymbol Char (ReadPrec ()) where
+  terminal = lift . terminal

@@ -5,6 +5,7 @@ import Data.Profunctor.Monoidal (meander)
 import Data.Profunctor.Types (Star (..))
 import Test.Hspec
 
+import Properties.Disjunctive
 import Properties.Homogeneous
 import Properties.Nested
 import Properties.PartialIso
@@ -12,6 +13,7 @@ import Properties.Parsing
 
 main :: IO ()
 main = hspec $ do
+  describe "Disjunctive" disjunctiveProperties
   describe "Homogeneous" homogeneousProperties
   describe "PartialIso" partialIsoProperties
   describe "Nested" nestedProperties

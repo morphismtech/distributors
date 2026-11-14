@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- `Predicate`s are `Tokenized` & `TokenAlgebra`s, as predicates are; &
+  `ReadPrec` runs grammars as `ReadP` does, `Tokenized`, a `TokenAlgebra`,
+  `TerminalSymbol`, `Ruled`, `BackusNaurForm` & `Tried`.
 - `Control.Lens.Grammar.Analysis`, static analyses of `RegEx`tended
   t'Bnf's over any token: `foldRegEx`, the homomorphism out of `RegEx`, the
   free `KleeneStarAlgebra` of token classes & nonterminals, & `fixRules`,

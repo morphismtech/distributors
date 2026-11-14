@@ -183,6 +183,7 @@ test-suite test
   type: exitcode-stdio-1.0
   main-is: Main.hs
   other-modules:
+      Properties.Disjunctive
       Properties.Homogeneous
       Properties.Nested
       Properties.Parsing

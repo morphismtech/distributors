@@ -34,6 +34,7 @@ import Data.Profunctor.Filtrator (Filtrator)
 import Data.Function
 import Data.Monoid.Disjunctive
 import Text.ParserCombinators.ReadP (ReadP)
+import Text.ParserCombinators.ReadPrec (ReadPrec)
 
 {- | `BackusNaurForm` grammar combinators formalize traced
 `rule` abstraction and general recursion with `ruleRec`,
@@ -140,3 +141,6 @@ instance (forall x. Tried (f x)) => Tried (Joker f a b) where
 instance Ruled (ReadP a)
 instance BackusNaurForm (ReadP a)
 instance Tried (ReadP a)
+instance Ruled (ReadPrec a)
+instance BackusNaurForm (ReadPrec a)
+instance Tried (ReadPrec a)

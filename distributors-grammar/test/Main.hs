@@ -7,6 +7,8 @@ import Control.Monad (when)
 import Data.List (genericLength)
 import Data.Tree (Tree (..))
 import Text.ParserCombinators.ReadP (readP_to_S)
+import Text.ParserCombinators.ReadPrec (ReadPrec, readPrec_to_S)
+import Data.Functor.Contravariant (Predicate (..))
 import Test.Hspec
 import Test.QuickCheck (generate)
 import qualified Text.Megaparsec as M
@@ -42,6 +44,16 @@ main = hspec $ do
   describe "Kleene" kleeneProperties
   describe "Varifocal" varifocalProperties
   describe "class runners, at Arith's Grammar" classRunnerTests
+  describe "ReadPrec & Predicate" readPrecTests
+
+readPrecTests :: Spec
+readPrecTests = do
+  it "runs a grammar at ReadPrec as at ReadP" $ for_ arithExamples $ \(syntax, string) ->
+    [x | (x, "") <- readPrec_to_S (runJoker (arithGrammar :: Joker ReadPrec Arith Arith)) 0 string]
+      `shouldBe` [syntax]
+  it "tests a token class as a Predicate, as a function" $ do
+    let cls = oneOf "abc" >&< notOneOf "b" :: TokenClass Char
+    map (getPredicate (tokenClass cls)) "abcd" `shouldBe` map (tokenClass cls) "abcd"
 
 classRunnerTests :: Spec
 classRunnerTests = for_ arithExamples $ \(syntax, string) ->

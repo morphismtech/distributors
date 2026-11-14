@@ -65,13 +65,19 @@ import Control.Monad.Trans.Writer.CPS qualified as CPSW
 import Control.Monad.Trans.Writer.Lazy qualified as LazyW
 import Control.Monad.Trans.Writer.Strict qualified as StrictW
 import Data.Functor.Reverse (Reverse)
+import Data.Bits (Bits (..))
+import Data.Int (Int8, Int16, Int32, Int64)
 import Data.IntMap (IntMap)
 import Data.IntSet (IntSet)
 import Data.Map (Map)
 import Data.Sequence (Seq)
 import Data.Set (Set)
 import Data.Vector (Vector)
+import Data.Word (Word8, Word16, Word32, Word64)
+import Foreign.C.Types
+import Foreign.Ptr (IntPtr, WordPtr)
 import GHC.Conc (STM)
+import Numeric.Natural (Natural)
 import GHC.Generics
 import Text.ParserCombinators.ReadP (ReadP)
 import Text.ParserCombinators.ReadPrec (ReadPrec)
@@ -266,6 +272,112 @@ deriving via Generically (Const a b)
 deriving via Generically (Proxy a) instance DisjunctiveMonoid (Proxy a)
 deriving via Generically (Proxy a) instance BooleanAlgebra (Proxy a)
 deriving via Generically (Proxy a) instance KleeneStarAlgebra (Proxy a)
+{- | Bits disjoin by `.|.`, & conjoin by `.&.`, of a Boolean algebra
+of bit vectors, `Integer`'s of infinitely many bits, two's complement.
+`Natural` has no `complement`, so it only disjoins.
+-}
+newtype Bitwise a = Bitwise a
+instance Bits a => DisjunctiveMonoid (Bitwise a) where
+  falseP = Bitwise zeroBits
+  Bitwise x >|< Bitwise y = Bitwise (x .|. y)
+instance Bits a => BooleanAlgebra (Bitwise a) where
+  trueP = Bitwise (complement zeroBits)
+  notP (Bitwise x) = Bitwise (complement x)
+  Bitwise x >&< Bitwise y = Bitwise (x .&. y)
+deriving via Bitwise Int instance DisjunctiveMonoid Int
+deriving via Bitwise Int instance BooleanAlgebra Int
+deriving via Bitwise Int8 instance DisjunctiveMonoid Int8
+deriving via Bitwise Int8 instance BooleanAlgebra Int8
+deriving via Bitwise Int16 instance DisjunctiveMonoid Int16
+deriving via Bitwise Int16 instance BooleanAlgebra Int16
+deriving via Bitwise Int32 instance DisjunctiveMonoid Int32
+deriving via Bitwise Int32 instance BooleanAlgebra Int32
+deriving via Bitwise Int64 instance DisjunctiveMonoid Int64
+deriving via Bitwise Int64 instance BooleanAlgebra Int64
+deriving via Bitwise Word instance DisjunctiveMonoid Word
+deriving via Bitwise Word instance BooleanAlgebra Word
+deriving via Bitwise Word8 instance DisjunctiveMonoid Word8
+deriving via Bitwise Word8 instance BooleanAlgebra Word8
+deriving via Bitwise Word16 instance DisjunctiveMonoid Word16
+deriving via Bitwise Word16 instance BooleanAlgebra Word16
+deriving via Bitwise Word32 instance DisjunctiveMonoid Word32
+deriving via Bitwise Word32 instance BooleanAlgebra Word32
+deriving via Bitwise Word64 instance DisjunctiveMonoid Word64
+deriving via Bitwise Word64 instance BooleanAlgebra Word64
+deriving via Bitwise Integer instance DisjunctiveMonoid Integer
+deriving via Bitwise Integer instance BooleanAlgebra Integer
+deriving via Bitwise IntPtr instance DisjunctiveMonoid IntPtr
+deriving via Bitwise IntPtr instance BooleanAlgebra IntPtr
+deriving via Bitwise WordPtr instance DisjunctiveMonoid WordPtr
+deriving via Bitwise WordPtr instance BooleanAlgebra WordPtr
+deriving via Bitwise CChar instance DisjunctiveMonoid CChar
+deriving via Bitwise CChar instance BooleanAlgebra CChar
+deriving via Bitwise CSChar instance DisjunctiveMonoid CSChar
+deriving via Bitwise CSChar instance BooleanAlgebra CSChar
+deriving via Bitwise CUChar instance DisjunctiveMonoid CUChar
+deriving via Bitwise CUChar instance BooleanAlgebra CUChar
+deriving via Bitwise CShort instance DisjunctiveMonoid CShort
+deriving via Bitwise CShort instance BooleanAlgebra CShort
+deriving via Bitwise CUShort instance DisjunctiveMonoid CUShort
+deriving via Bitwise CUShort instance BooleanAlgebra CUShort
+deriving via Bitwise CInt instance DisjunctiveMonoid CInt
+deriving via Bitwise CInt instance BooleanAlgebra CInt
+deriving via Bitwise CUInt instance DisjunctiveMonoid CUInt
+deriving via Bitwise CUInt instance BooleanAlgebra CUInt
+deriving via Bitwise CLong instance DisjunctiveMonoid CLong
+deriving via Bitwise CLong instance BooleanAlgebra CLong
+deriving via Bitwise CULong instance DisjunctiveMonoid CULong
+deriving via Bitwise CULong instance BooleanAlgebra CULong
+deriving via Bitwise CLLong instance DisjunctiveMonoid CLLong
+deriving via Bitwise CLLong instance BooleanAlgebra CLLong
+deriving via Bitwise CULLong instance DisjunctiveMonoid CULLong
+deriving via Bitwise CULLong instance BooleanAlgebra CULLong
+deriving via Bitwise CPtrdiff instance DisjunctiveMonoid CPtrdiff
+deriving via Bitwise CPtrdiff instance BooleanAlgebra CPtrdiff
+deriving via Bitwise CSize instance DisjunctiveMonoid CSize
+deriving via Bitwise CSize instance BooleanAlgebra CSize
+deriving via Bitwise CWchar instance DisjunctiveMonoid CWchar
+deriving via Bitwise CWchar instance BooleanAlgebra CWchar
+deriving via Bitwise CSigAtomic instance DisjunctiveMonoid CSigAtomic
+deriving via Bitwise CSigAtomic instance BooleanAlgebra CSigAtomic
+deriving via Bitwise CIntPtr instance DisjunctiveMonoid CIntPtr
+deriving via Bitwise CIntPtr instance BooleanAlgebra CIntPtr
+deriving via Bitwise CUIntPtr instance DisjunctiveMonoid CUIntPtr
+deriving via Bitwise CUIntPtr instance BooleanAlgebra CUIntPtr
+deriving via Bitwise CIntMax instance DisjunctiveMonoid CIntMax
+deriving via Bitwise CIntMax instance BooleanAlgebra CIntMax
+deriving via Bitwise CUIntMax instance DisjunctiveMonoid CUIntMax
+deriving via Bitwise CUIntMax instance BooleanAlgebra CUIntMax
+deriving via Bitwise CBool instance DisjunctiveMonoid CBool
+deriving via Bitwise CBool instance BooleanAlgebra CBool
+deriving via Bitwise Natural instance DisjunctiveMonoid Natural
+
+{- | A `Predicate` is a Kleene algebra, as a Boolean algebra is,
+of conjunction, `Predicate`'s `Monoid`, & disjunction,
+whose star is true.
+
+> prop> starK p = trueP
+-}
+instance KleeneStarAlgebra (Predicate a) where
+  starK _ = trueP
+  plusK = id
+  optK _ = trueP
+
+{- | An `Alternative` of `Monoid`s is a Kleene algebra of languages,
+like a parser of words: its sequence is `Ap`'s `Monoid`, its
+alternation `<|>`, & its star `many` concatenated. It's a near-semiring,
+whose left distribution, @(x >|< y) <> z = (x <> z) >|< (y <> z)@,
+a left-biased `Alternative` may not keep, & its star diverges where
+`many` does, as of a non-empty list's.
+
+> prop> starK (Ap x) = Ap (mconcat <$> many x)
+> prop> plusK (Ap x) = Ap (mconcat <$> some x)
+-}
+instance (Alternative f, Monoid a, DisjunctiveMonoid (f a))
+  => KleeneStarAlgebra (Ap f a) where
+    starK (Ap x) = Ap (mconcat <$> many x)
+    plusK (Ap x) = Ap (mconcat <$> some x)
+
 -- | Sets & maps disjoin by their monoids, of union.
 instance Ord a => DisjunctiveMonoid (Set a) where
   falseP = mempty
