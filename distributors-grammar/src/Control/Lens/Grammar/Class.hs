@@ -90,34 +90,34 @@ instance RegGrammar Char Float where regGrammar = floatingG
 -- Sized integers read as `Integer`s, wrapping out of range, as `read` does.
 instance CtxGrammar Char Int
 instance Grammar Char Int where grammar = ruleTyped (regGrammar @Char)
-instance RegGrammar Char Int where regGrammar = wrappedG
+instance RegGrammar Char Int where regGrammar = integralG
 instance CtxGrammar Char Int8
 instance Grammar Char Int8 where grammar = ruleTyped (regGrammar @Char)
-instance RegGrammar Char Int8 where regGrammar = wrappedG
+instance RegGrammar Char Int8 where regGrammar = integralG
 instance CtxGrammar Char Int16
 instance Grammar Char Int16 where grammar = ruleTyped (regGrammar @Char)
-instance RegGrammar Char Int16 where regGrammar = wrappedG
+instance RegGrammar Char Int16 where regGrammar = integralG
 instance CtxGrammar Char Int32
 instance Grammar Char Int32 where grammar = ruleTyped (regGrammar @Char)
-instance RegGrammar Char Int32 where regGrammar = wrappedG
+instance RegGrammar Char Int32 where regGrammar = integralG
 instance CtxGrammar Char Int64
 instance Grammar Char Int64 where grammar = ruleTyped (regGrammar @Char)
-instance RegGrammar Char Int64 where regGrammar = wrappedG
+instance RegGrammar Char Int64 where regGrammar = integralG
 instance CtxGrammar Char Word
 instance Grammar Char Word where grammar = ruleTyped (regGrammar @Char)
-instance RegGrammar Char Word where regGrammar = wrappedG
+instance RegGrammar Char Word where regGrammar = integralG
 instance CtxGrammar Char Word8
 instance Grammar Char Word8 where grammar = ruleTyped (regGrammar @Char)
-instance RegGrammar Char Word8 where regGrammar = wrappedG
+instance RegGrammar Char Word8 where regGrammar = integralG
 instance CtxGrammar Char Word16
 instance Grammar Char Word16 where grammar = ruleTyped (regGrammar @Char)
-instance RegGrammar Char Word16 where regGrammar = wrappedG
+instance RegGrammar Char Word16 where regGrammar = integralG
 instance CtxGrammar Char Word32
 instance Grammar Char Word32 where grammar = ruleTyped (regGrammar @Char)
-instance RegGrammar Char Word32 where regGrammar = wrappedG
+instance RegGrammar Char Word32 where regGrammar = integralG
 instance CtxGrammar Char Word64
 instance Grammar Char Word64 where grammar = ruleTyped (regGrammar @Char)
-instance RegGrammar Char Word64 where regGrammar = wrappedG
+instance RegGrammar Char Word64 where regGrammar = integralG
 
 -- A prism which never matches, so that its alternative parses, but never prints.
 unprinted :: Prism' a a
@@ -166,8 +166,8 @@ naturalG = (iso toInteger fromInteger >~ magnitudeG)
 integerG :: RegGrammatical Char p => p Integer Integer
 integerG = signed >~ negativeG >*< magnitudeG
 
-wrappedG :: (Integral a, RegGrammatical Char p) => p a a
-wrappedG = iso toInteger fromInteger >~ integerG
+integralG :: (Integral a, RegGrammatical Char p) => p a a
+integralG = iso toInteger fromInteger >~ integerG
 
 -- A floating point number's lexeme, without its sign.
 data FloatLexeme
