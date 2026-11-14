@@ -34,7 +34,6 @@ library
       Control.Lens.Grammar.RegEx
       Control.Lens.Grammar.Symbol
       Control.Lens.Grammar.Token
-      Control.Monad.Fail.Try
       Data.Profunctor.Grammar
       Data.Profunctor.Grammar.Parsector
   other-modules:

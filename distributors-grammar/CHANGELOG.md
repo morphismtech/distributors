@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+- `Control.Monad.Fail.Try`, with `MonadTry` & `MonadicTry`, is removed.
+  `Control.Lens.Grammar.BackusNaur` has, instead:
+  - `Ruled`, with `rule`, split from `BackusNaurForm`, now its subclass,
+    whose `ruleRec` defaults to @ruleRec label = rule label . fix@, so
+    that its invariant holds for any `rule`;
+  - `failP`, renamed from `failBnf`, for any `Ruled` `DisjunctiveMonoid`;
+  - `Tried`, with `try`, for any grammar, not only monads, defaulting to
+    `id`, as `try` doesn't change a language. `Parsector` backtracks by
+    it, a t'Bnf' tries its start, & a `RegEx` doesn't record it, for now.
+
+  `Grammatical` requires `Tried`, so context-free grammars can `try`, &
+  `CtxGrammatical` requires `MonadPlus` & `MonadFail` of `Filtrator`s.
+  `Control.Lens.Grammar` still re-exports `Alternative`, `MonadPlus`,
+  `MonadFail` & `Filterable`.
 - `RegGrammar`, `Grammar` & `CtxGrammar` are classes, of a type's
   grammar over a token, by `regGrammar`, `grammar` & `ctxGrammar`, each
   defaulting to the more restrictive, & `RegGrammatical`, `Grammatical`

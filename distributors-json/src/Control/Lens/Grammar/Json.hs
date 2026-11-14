@@ -925,9 +925,10 @@ instance DisjunctiveMonoid (JsonParsor a b) where
     where
       -- An array which the first alternative parses, element by element.
       array = jsonParsorArray p
-instance BackusNaurForm (JsonParsor a b) where
+instance Ruled (JsonParsor a b) where
   rule name p = (mapParsing (onFailure (jsonRelabel (unqualified name)) .) p)
     {jsonParsorArray = jsonParsorArray p, jsonParsorText = jsonParsorText p}
+instance BackusNaurForm (JsonParsor a b) where
   ruleRec name f = fix (rule name . f)
 instance (x ~ (), y ~ ()) => IsString (JsonParsor x y) where
   fromString s = JsonParsor
@@ -1219,8 +1220,8 @@ instance (AesonStr key, x ~ (), y ~ ()) => IsString (KeyPrintor key x y) where
     where
       literal = aesonLiteral (Text.pack s)
 -- | A key's `rule` names nothing to print.
+instance Ruled (KeyPrintor key a b)
 instance BackusNaurForm (KeyPrintor key a b) where
-  rule _ = id
   ruleRec _ = fix
 instance AesonStr key => JsonStr (KeyPrintor key) where
   jsonText = KeyPrintor aesonText
@@ -1560,14 +1561,15 @@ instance AesonVal val => DisjunctiveMonoid (JsonPrintor val a b) where
 Its totality assumes the rules being determined are total,
 by induction on the values printed.
 -}
-instance BackusNaurForm (JsonPrintor val a b) where
+instance Ruled (JsonPrintor val a b) where
   rule name p = p
     { printorTotal = \rules ->
         Set.member name rules || printorTotal p (Set.insert name rules)
     , printorCheck = onFailure (jsonRelabel (unqualified name)) . printorCheck p
     }
-  ruleRec name f = fix (rule name . f)
   {-# INLINE rule #-}
+instance BackusNaurForm (JsonPrintor val a b) where
+  ruleRec name f = fix (rule name . f)
 
 instance (AesonStr val, x ~ (), y ~ ()) => IsString (JsonPrintor val x y) where
   fromString s = printing (const literal)
@@ -2215,8 +2217,9 @@ instance CocartesianChoice JsonTypor where
 instance DisjunctiveMonoid (JsonTypor a b) where
   falseP = typing falseP
   JsonTypor t0 >|< JsonTypor t1 = JsonTypor (liftA2 (>|<) t0 t1)
-instance BackusNaurForm (JsonTypor a b) where
+instance Ruled (JsonTypor a b) where
   rule = typeRule
+instance BackusNaurForm (JsonTypor a b) where
   ruleRec name f = rule name (f (typeRule name falseP))
 instance (x ~ (), y ~ ()) => IsString (JsonTypor x y) where
   fromString = typing . JsonLiteral . Text.pack

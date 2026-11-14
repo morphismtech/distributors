@@ -14,7 +14,9 @@ See Naur & Backus, et al.
 
 module Control.Lens.Grammar.BackusNaur
   ( -- * BackusNaurForm
-    BackusNaurForm (..), failBnf
+    BackusNaurForm (..)
+  , Ruled (..), failP
+  , Tried (..)
   , Bnf (..)
   , liftBnf0
   , liftBnf1
@@ -50,10 +52,10 @@ and second as a `Debug.Trace.trace`-like label for `rule` abstraction.
 The category @(->)@ already has a traced @(,)@-monoidal structure
 in the form of `Data.Profunctor.unfirst` @=@ `Control.Arrow.loop`
 or equivalently the fixpoint function `fix`,
-determining default methods for a `BackusNaurForm`.
+determining the default method for a `BackusNaurForm`,
+by which the invariant holds for any `Ruled` `rule`.
 
-> prop> rule _ = id
-> prop> ruleRec _ = fix
+> prop> ruleRec label = rule label . fix
 
 The `BackusNaurForm` interface permits overloading these methods,
 and tracing them with a label.
@@ -66,19 +68,43 @@ See Breitner, [Showcasing Applicative]
 for the original interface.
 
 -}
-class BackusNaurForm bnf where
-
-  {- | Rule abstraction. -}
-  rule :: String -> bnf -> bnf
-  rule _ = id
+class Ruled bnf => BackusNaurForm bnf where
 
   {- | General recursion. -}
   ruleRec :: String -> (bnf -> bnf) -> bnf
-  ruleRec _ = fix
+  ruleRec label = rule label . fix
+
+{- | `Ruled` grammar combinators formalize
+`rule` abstraction, labeling a subgrammar,
+which a `BackusNaurForm` names as a nonterminal,
+& a parser may report on failure.
+
+> prop> rule _ = id
+-}
+class Ruled p where
+
+  {- | Subgrammar abstraction. -}
+  rule :: String -> p -> p
+  rule _ = id
 
 -- | A nonterminal symbol to indicate a failure.
-failBnf :: (BackusNaurForm bnf, DisjunctiveMonoid bnf) => String -> bnf
-failBnf msg = rule msg falseP
+failP :: (Ruled p, DisjunctiveMonoid p) => String -> p
+failP msg = rule msg falseP
+
+{- | `Tried` grammar combinators mark subgrammars to backtrack
+upon failure, by `try`, in a predictive parser,
+like t'Data.Profunctor.Grammar.Parsector.Parsector'.
+Use `try` on a subgrammar which isn't @LL(1)@ but still is @LL(∞)@.
+`try` doesn't change the language of a grammar,
+so the default, for grammars which can't record it, is
+
+> prop> try = id
+-}
+class Tried p where
+
+  {- | Backtracking upon failure. -}
+  try :: p -> p
+  try = id
 
 {- | A t'Bnf' consists of a distinguished starting rule
 and a set of named rules. When a t'Bnf' supports `NonTerminalSymbol`s,
@@ -169,16 +195,27 @@ rulesNamed nameX = foldl' (flip inserter) Set.empty where
     if nameX == nameY then Set.insert y else id
 
 -- instances
+instance (Ord rule, NonTerminalSymbol rule) => Ruled (Bnf rule) where
+  rule label (Bnf newRule oldRules) = (nonTerminal label)
+    {rulesBnf = Set.insert (label, newRule) oldRules}
 instance (Ord rule, NonTerminalSymbol rule)
   => BackusNaurForm (Bnf rule) where
-    rule label (Bnf newRule oldRules) = (nonTerminal label)
-      {rulesBnf = Set.insert (label, newRule) oldRules}
     ruleRec label f = rule label (f (nonTerminal label))
+-- | `try` the start of a t'Bnf', recording it as its rules do.
+instance Tried rule => Tried (Bnf rule) where
+  try (Bnf start rules) = Bnf (try start) rules
+-- | A `RegEx` doesn't record `try`, for now.
+instance Tried (RegEx token)
+instance (forall x. Ruled (f x)) => Ruled (Joker f a b) where
+  rule name = Joker . rule name . runJoker
 instance (forall x. BackusNaurForm (f x))
   => BackusNaurForm (Joker f a b) where
-    rule name = Joker . rule name . runJoker
     ruleRec name = Joker . ruleRec name . dimap Joker runJoker
+instance (forall x. Tried (f x)) => Tried (Joker f a b) where
+  try = Joker . try . runJoker
+instance Ruled (ReadP a)
 instance BackusNaurForm (ReadP a)
+instance Tried (ReadP a)
 instance (Ord rule, TerminalSymbol token rule)
   => TerminalSymbol token (Bnf rule) where
   terminal = liftBnf0 . terminal

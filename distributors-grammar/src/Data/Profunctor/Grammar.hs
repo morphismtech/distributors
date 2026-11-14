@@ -30,7 +30,6 @@ import Control.Lens.Grammar.Machine
 import Control.Lens.Grammar.Symbol
 import Control.Lens.Grammar.Token
 import Control.Monad
-import Control.Monad.Fail.Try
 import Data.Coerce
 import Data.Monoid
 import Data.Monoid.Disjunctive
@@ -43,6 +42,7 @@ import Data.Profunctor.Monadic (MonadicTrans (..))
 import Data.Void
 import Prelude hiding (id, (.))
 import GHC.Exts
+import Witherable (Filterable (..))
 
 -- | t'Printor' is a simple printer `Profunctor`.
 newtype Printor s f a b = Printor {runPrintor :: a -> f (b, s -> s)}
@@ -206,11 +206,11 @@ instance
   , Filterable m, Alternative m, Monad m
   ) => IsString (Parsor s m s s) where
   fromString = tokens
+instance Ruled (Parsor s m a b)
 instance BackusNaurForm (Parsor s m a b)
+instance Tried (Parsor s m a b)
 instance (Alternative m, Monad m) => MonadFail (Parsor s m a) where
   fail _ = empty
-instance (Alternative m, Monad m, Filterable m)
-  => MonadTry (Parsor s m a)
 instance AsEmpty s => Matching s (Parsor s [] a b) where
   word =~ p = case
     [ () | (_, remaining) <- runParsor p Nothing word
@@ -347,11 +347,11 @@ instance
   , Filterable m, Alternative m, Monad m
   ) => IsString (Printor s m s s) where
   fromString = tokens
+instance Ruled (Printor s m a b)
 instance BackusNaurForm (Printor s m a b)
+instance Tried (Printor s m a b)
 instance (Alternative m, Monad m) => MonadFail (Printor s m a) where
   fail _ = empty
-instance (Alternative m, Monad m, Filterable m)
-  => MonadTry (Printor s m a)
 
 -- Grammor instances
 instance Functor (Grammor k a) where fmap _ = coerce
@@ -394,8 +394,11 @@ instance TokenAlgebra a k => TokenAlgebra a (Grammor k a b) where
 instance TerminalSymbol token k
   => TerminalSymbol token (Grammor k a b) where
   terminal = Grammor . terminal
-instance BackusNaurForm k => BackusNaurForm (Grammor k a b) where
+instance Ruled k => Ruled (Grammor k a b) where
   rule name = Grammor . rule name . runGrammor
+instance BackusNaurForm k => BackusNaurForm (Grammor k a b) where
   ruleRec name = Grammor . ruleRec name . dimap Grammor runGrammor
+instance Tried k => Tried (Grammor k a b) where
+  try = Grammor . try . runGrammor
 instance Matching s k => Matching s (Grammor k a b) where
   word =~ pattern = word =~ runGrammor pattern

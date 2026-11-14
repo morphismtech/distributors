@@ -4,7 +4,6 @@ import Data.Foldable hiding (toList)
 import Control.Lens.Grammar
 import Data.Bifunctor.Joker (Joker (..))
 import Control.Monad (when)
-import Data.Function (fix)
 import Data.List (genericLength)
 import Data.Tree (Tree (..))
 import Text.ParserCombinators.ReadP (readP_to_S)
@@ -95,59 +94,59 @@ tryRollbackTests = do
 testCfg
   :: forall a. (Show a, Eq a)
   => Bool -> [(a, String)] -> (forall p. Grammatical Char p => p a a) -> Spec
-testCfg isLL1 examples grammar = do
+testCfg isLL1 examples gram = do
   describe "examples" $ for_ examples $ \(expectedSyntax, expectedString) -> do
-    testCtxGrammar isLL1 grammar (expectedSyntax, expectedString)
+    testCtxGrammar isLL1 gram (expectedSyntax, expectedString)
     it ("should match " <> expectedString <> " correctly") $ do
-      let actualMatch = expectedString =~ (runGrammor grammar :: RegBnf)
+      let actualMatch = expectedString =~ (runGrammor gram :: RegBnf)
       actualMatch `shouldBe` True
   describe "transducerG" $ do
     it "should generate the hundred shorted valid words in a language" $ do
-      let machine = transducer (runGrammor grammar) :: Transducer Char
+      let machine = transducer (runGrammor gram) :: Transducer Char
       generated <- generate (take 100 <$> languageSample machine)
       for_ generated $ \word -> do
-        let fullParses = [() | (_, "") <- parseP (grammar :: Parsor String [] a a) word]
+        let fullParses = [() | (_, "") <- parseP (gram :: Parsor String [] a a) word]
         fullParses `shouldBe` [()]
 
 testCsg
   :: (Show a, Eq a)
   => Bool -> [(a, String)] -> (forall p. CtxGrammatical Char p => p a a) -> Spec
-testCsg isLL1 examples grammar =
-  describe "examples" $ for_ examples $ testCtxGrammar isLL1 grammar
+testCsg isLL1 examples gram =
+  describe "examples" $ for_ examples $ testCtxGrammar isLL1 gram
 
 testCtxGrammar
   :: forall a. (Show a, Eq a)
   => Bool -> (forall p. CtxGrammatical Char p => p a a) -> (a, String) -> Spec
-testCtxGrammar isLL1 grammar (expectedSyntax, expectedString) = do
+testCtxGrammar isLL1 gram (expectedSyntax, expectedString) = do
   it ("should parseG from " <> expectedString <> " correctly") $ do
     let actualSyntax =
-          [parsed | (parsed, "") <- parseP (grammar :: Parsor String [] a a) expectedString]
+          [parsed | (parsed, "") <- parseP (gram :: Parsor String [] a a) expectedString]
     actualSyntax `shouldBe` [expectedSyntax]
   it ("should unparseG to " <> expectedString <> " correctly") $ do
     let actualString =
-          unparseP (grammar :: Parsor String Maybe a a) expectedSyntax ""
+          unparseP (gram :: Parsor String Maybe a a) expectedSyntax ""
     actualString `shouldBe` Just expectedString
   it ("should printG to " <> expectedString <> " correctly") $ do
     let actualString =
-          ($ "") <$> printP (grammar :: Printor String Maybe a a) expectedSyntax
+          ($ "") <$> printP (gram :: Printor String Maybe a a) expectedSyntax
     actualString `shouldBe` Just expectedString
   when isLL1 $ do
     it ("should parsecG from " <> expectedString <> " correctly") $ do
-      let actualSyntax = parsecP (grammar :: Parsector String a a) expectedString
+      let actualSyntax = parsecP (gram :: Parsector String a a) expectedString
       let expectedLength = genericLength expectedString
       let actualLooked = parsecLooked actualSyntax
       let actualFailure  = parsecFailure  actualSyntax
       actualSyntax `shouldBe`
         (ParsecState actualLooked expectedLength "" actualFailure (Just expectedSyntax))
     it ("should unparsecG to " <> expectedString <> " correctly") $ do
-      let actualString = unparsecP (grammar :: Parsector String a a) expectedSyntax ""
+      let actualString = unparsecP (gram :: Parsector String a a) expectedSyntax ""
       let expectedLength = genericLength expectedString
       let actualLooked = parsecLooked actualString
       let actualFailure  = parsecFailure  actualString
       actualString `shouldBe`
         (ParsecState actualLooked expectedLength expectedString actualFailure (Just expectedSyntax))
     it ("should parse with megaparsec to " <> expectedString <> " correctly") $ do
-      let megaparsec = unwrapMega (runJoker (grammar :: Joker WrapMega a a))
+      let megaparsec = unwrapMega (runJoker (gram :: Joker WrapMega a a))
       let actualSyntax = M.parse megaparsec "<megaparsec>" expectedString
       actualSyntax `shouldBe` Right expectedSyntax
 
@@ -169,10 +168,10 @@ instance Tokenized Char (WrapMega Char) where
     (M.satisfy (tokenClass (asIn cat)))
   notAsIn cat = WrapMega $ M.label ("not in category " ++ show cat)
     (M.satisfy (tokenClass (notAsIn cat)))
-instance BackusNaurForm (WrapMega a) where
+instance Ruled (WrapMega a) where
   rule lbl (WrapMega p) = WrapMega (M.label lbl p)
-  ruleRec lbl = rule lbl . fix
+instance BackusNaurForm (WrapMega a)
+instance Tried (WrapMega a) where
+  try (WrapMega p) = WrapMega (M.try p)
 instance Filterable WrapMega where
   catMaybes m = m >>= maybe (fail "unrestricted filtration") pure
-instance MonadTry WrapMega where
-  try (WrapMega p) = WrapMega (M.try p)

@@ -82,7 +82,9 @@ import Control.Lens.Bifocal as X
 import Control.Lens.Diopter as X
 import Control.Lens.Prismoid as X
 import Control.Lens.Varifocal as X
-import Control.Monad.Fail.Try as X
+import Control.Applicative as X (Alternative (..))
+import Control.Monad as X (MonadPlus (..), MonadFail (..))
+import Witherable as X (Filterable (..))
 import Data.Monoid.Disjunctive as X
 import Data.Profunctor.Distributor as X
 import Data.Profunctor.Monoidal.Cocartesian as X
@@ -379,10 +381,12 @@ class CtxGrammar token a => Grammar token a where
   default grammar :: (RegGrammar token a, Grammatical token p) => p a a
   grammar = regGrammar @token
 
-{- | The `RegGrammatical` `BackusNaurForm`s, which run `Grammar`s. -}
+{- | The `RegGrammatical` `BackusNaurForm`s, which are `Tried`,
+& run `Grammar`s. -}
 type Grammatical token p =
   ( RegGrammatical token p
   , forall x y. BackusNaurForm (p x y)
+  , forall x y. Tried (p x y)
   ) :: Constraint
 
 {- | For context-sensitivity,
@@ -527,12 +531,13 @@ class CtxGrammar token a where
   default ctxGrammar :: (Grammar token a, CtxGrammatical token p) => p a a
   ctxGrammar = grammar @token
 
-{- | The `Grammatical` `Filtrator`s & `MonadicTry`s,
+{- | The `Grammatical` `Filtrator`s, `MonadPlus`es & `MonadFail`s,
 which run `CtxGrammar`s. -}
 type CtxGrammatical token p =
   ( Grammatical token p
   , Filtrator p
-  , MonadicTry p
+  , forall x. MonadPlus (p x)
+  , forall x. MonadFail (p x)
   ) :: Constraint
 
 {- |
@@ -648,7 +653,7 @@ newtype RegString = RegString {runRegString :: RegEx Char}
     , Semigroup, Monoid, DisjunctiveMonoid, KleeneStarAlgebra
     , Tokenized Char, TokenAlgebra Char
     , TerminalSymbol Char, NonTerminalSymbol
-    , Matching String
+    , Matching String, Tried
     )
 
 {- | t'RegBnf's are an embedded domain specific language
@@ -694,7 +699,7 @@ newtype RegBnf = RegBnf {runRegBnf :: Bnf RegString}
     , Semigroup, Monoid, DisjunctiveMonoid, KleeneStarAlgebra
     , Tokenized Char, TokenAlgebra Char
     , TerminalSymbol Char, NonTerminalSymbol
-    , BackusNaurForm
+    , Ruled, BackusNaurForm, Tried
     )
 instance Matching String RegBnf where
   word =~ pattern = word =~ liftBnf1 runRegString (runRegBnf pattern)
@@ -1113,6 +1118,7 @@ applicativeG
      , TokenAlgebra token (f token)
      , TerminalSymbol token (f ())
      , forall x. BackusNaurForm (f x)
+     , forall x. Tried (f x)
      )
   => f a
 applicativeG = runJoker (grammar @token @a)
@@ -1147,13 +1153,13 @@ instance Tokenized Char (WrapMega Char) where
   notOneOf = WrapMega . M.noneOf
   asIn cat = WrapMega $ M.label ("in category " ++ show cat) (M.satisfy (asIn cat))
   notAsIn cat = WrapMega $ M.label ("not in category " ++ show cat) (M.satisfy (notAsIn cat))
-instance BackusNaurForm (WrapMega a) where
+instance Ruled (WrapMega a) where
   rule lbl (WrapMega p) = WrapMega (M.label lbl p)
-  ruleRec lbl = rule lbl . fix
+instance BackusNaurForm (WrapMega a)
+instance Tried (WrapMega a) where
+  try (WrapMega p) = WrapMega (M.try p)
 instance Filterable WrapMega where
   catMaybes m = m >>= maybe (fail "unrestricted filtration") pure
-instance MonadTry WrapMega where
-  try (WrapMega p) = WrapMega (M.try p)
 
 megaparsecG :: CtxGrammar Char a => M.Parsec String String a
 megaparsecG = unwrapMega (monadG @Char)
@@ -1163,7 +1169,9 @@ megaparsecG = unwrapMega (monadG @Char)
 monadG
   :: forall token a m.
      ( CtxGrammar token a
-     , MonadTry m
+     , MonadPlus m, MonadFail m, Filterable m
+     , forall x. BackusNaurForm (m x)
+     , forall x. Tried (m x)
      , TokenAlgebra token (m token)
      , TerminalSymbol token (m ())
      )
