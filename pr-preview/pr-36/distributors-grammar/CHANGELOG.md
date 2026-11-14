@@ -26,14 +26,15 @@
   by `try`. `Tried` is part of `RegGrammatical`.
 - Character classes render runs of three or more plain characters as
   ranges, @[a-z]@, & parse ranges; a dash in a class is escaped, @\\-@.
-- Grammars of base types, each a rule named by its type: `Char`, any
-  token; `String`, any tokens; `Natural`, ASCII digits; `Integer`, an
-  optional minus & digits; `Double` & `Float`, @NaN@, or signed @Infinity@
-  or decimals with an optional fraction & exponent; printing canonically,
-  as `show` does, & parsing more, as `read` does, by improper isos. Sized
-  integers, `Int`s & `Word`s, are `CtxGrammar`s, failing out of range by
-  their `Filtrator`, so they have no regular expressions or Backus-Naur
-  forms.
+- Grammars of base types, each a rule named by its type by `ruleTyped`,
+  with parity with their `Read` & `Show` instances' lexemes, printing as
+  `show` does & parsing as `read` does, but for the whitespace &
+  parentheses which `read` accepts around any lexeme: `Char` literals, with
+  `showLitChar`'s escapes, & `read`'s named, numeric & control escapes;
+  `Natural`, `Integer`, & sized `Int`s & `Word`s, which wrap out of range
+  as `read` does, in decimal, & binary, octal & hexadecimal; & `Double`s
+  & `Float`s, by `floatToDigits` & `fromRational`. They're regular & LL(1).
+  `String`, a list of characters, has no instance.
 - `Predicate`s are `Tokenized` & `TokenAlgebra`s, as predicates are; &
   `ReadPrec` runs grammars as `ReadP` does, `Tokenized`, a `TokenAlgebra`,
   `TerminalSymbol`, `Ruled`, `BackusNaurForm` & `Tried`.
