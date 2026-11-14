@@ -48,7 +48,7 @@
   fields, infix constructors, symbolic & backquoted, at their fixities, &
   symbolic constructors in prefix. Instances for `Bool`, `Ordering`, `Maybe`
   & `Either`, by it, & for `()` & tuples. `Lookahead`, negative lookahead
-  by `notFollowedBy` a string of token classes, which `PrecGrammatical`
+  by `notFollowedBy` a `RegEx`, & `eof`, which `PrecGrammatical`
   requires, so that identifiers, symbols & numbers are munched
   maximally, & whitespace skipped greedily, as `read`'s lexer does.
 - `Predicate`s are `Tokenized` & `TokenAlgebra`s, as predicates are; &
