@@ -6,6 +6,8 @@
   `tokenClass`'s default & in `oneOf` & `notOneOf` of predicates, rather
   than linearly by `Foldable`: parsing the JSON example, whose characters
   are a class of over a million tokens, is hundreds of times faster.
+- `Control.Lens.Grammar` re-exports `Control.Lens.Bifocal`, for `>?<*`,
+  which applies `Bifocal`s in `CtxGrammar`s, as they're `Filtrator`s.
 - `Parsor`'s `manyP` & `optionalP` parse & print their elements in turn,
   rather than by `Distributor`'s defaults, through isomorphisms & sums:
   parsing repetitions is ~40% faster, & the test examples 10-50%.
