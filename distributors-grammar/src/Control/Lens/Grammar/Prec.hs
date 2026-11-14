@@ -17,9 +17,11 @@ module Control.Lens.Grammar.Prec
   ( -- * PrecGrammar
     PrecGrammar (..)
   , PrecGrammatical (..)
-  , parensP
+  , parensG
+  , listG
     -- * Precedence
   , Precedence (..)
+  , precG
   , readsPrecG
   , showsPrecG
   ) where
@@ -52,6 +54,10 @@ import Numeric.Natural (Natural)
 & `Show` instances, `readsPrec` & `showsPrec`. -}
 class PrecGrammar a where
   precGrammar :: PrecGrammatical p => p a a
+  {- | Lists of the type, as `readListPrec` & `showList`, in brackets, by
+  `listG`, by default, & strings, for `Char`. -}
+  precListGrammar :: PrecGrammatical p => p [a] [a]
+  precListGrammar = listG precGrammar
 
 {- | `Grammatical` interpreters of precedence, as
 `Text.ParserCombinators.ReadPrec` has, where a grammar runs in a
@@ -72,11 +78,26 @@ class (Grammatical Char p, forall x y. (x ~ (), y ~ ()) => IsString (p x y))
 
 {- | Within any parentheses, after whitespace, as `GHC.Read.parens` reads,
 & within parentheses where it doesn't print bare, as `showParen` shows. -}
-parensP :: PrecGrammatical p => p a b -> p a b
-parensP p = optional'
-  where
-    optional' = spacesG >* (p >|< mandatory)
-    mandatory = terminal "(" >* resetP optional' *< spacesG *< terminal ")"
+parensG :: PrecGrammatical p => p a b -> p a b
+parensG p = spacesG >* parenthesized p
+
+{- Bare, or within parentheses, without leading whitespace, so that no two
+places skip the same whitespace, which `read` skips once, greedily. -}
+parenthesized :: PrecGrammatical p => p a b -> p a b
+parenthesized p = p >|< terminal "(" >* resetP (parensG p) *< spacesG *< terminal ")"
+
+{- | A list, in brackets, its items separated by commas, after whitespace,
+at precedence 0, within any parentheses, as `GHC.Read.list` reads &
+`showList` shows. -}
+listG :: PrecGrammatical p => p a a -> p [a] [a]
+listG = parensG . bracketsG
+
+-- Items in brackets, separated by commas, after whitespace, at precedence 0.
+bracketsG :: PrecGrammatical p => p a a -> p [a] [a]
+bracketsG x = terminal "[" >* orP
+  [ _Empty >? oneP
+  , _Cons >? resetP x >*< manyP (spacesG >* terminal "," >* resetP x)
+  ] *< spacesG *< terminal "]"
 
 {- | A grammar in a precedence context, a `PrecGrammatical` interpreter of
 any `Grammatical` one, each of whose structures it lifts pointwise. -}
@@ -131,22 +152,27 @@ instance Tried (p a b) => Tried (Precedence p a b) where
 instance Ruled (p a b) => Ruled (Precedence p a b) where
   rule name (Precedence x) = Precedence (rule name . x)
 instance BackusNaurForm (p a b) => BackusNaurForm (Precedence p a b)
-instance IsString (p a b) => IsString (Precedence p a b) where
-  fromString = Precedence . const . fromString
-instance (Grammatical Char p, forall x y. (x ~ (), y ~ ()) => IsString (p x y))
-  => PrecGrammatical (Precedence p) where
+instance (a ~ (), b ~ (), TerminalSymbol Char (p () ()))
+  => IsString (Precedence p a b) where
+    fromString = Precedence . const . terminal
+instance Grammatical Char p => PrecGrammatical (Precedence p) where
     precP n (Precedence x) = Precedence (\d -> if d <= n then x n else falseP)
     stepP (Precedence x) = Precedence (x . (+ 1))
     resetP (Precedence x) = Precedence (const (x 0))
     precedenceP k = Precedence (\d -> runPrecedence (k d) d)
 
+{- | A type's `PrecGrammar` at a precedence, at any `Grammatical`
+interpreter which parses or prints. -}
+precG :: forall a p. (PrecGrammar a, Grammatical Char p) => Int -> p a a
+precG = runPrecedence precGrammar
+
 {- | Read at a precedence, as `readsPrec` does. -}
 readsPrecG :: forall a. PrecGrammar a => Int -> ReadS a
-readsPrecG d = parseP (runPrecedence precGrammar d :: Parsor String [] a a)
+readsPrecG d = parseP (precG d :: Parsor String [] a a)
 
 {- | Show at a precedence, as `showsPrec` does, if it shows. -}
 showsPrecG :: forall a. PrecGrammar a => Int -> a -> Maybe ShowS
-showsPrecG d = printP (runPrecedence precGrammar d :: Printor String Maybe a a)
+showsPrecG d = printP (precG d :: Printor String Maybe a a)
 
 -- Base types --
 
@@ -155,12 +181,17 @@ instances: lexemes, within any parentheses, as `read` accepts them, &
 negative numbers, which `showsPrec` parenthesizes above 6, & `read`
 accepts bare at any precedence. -}
 
-instance PrecGrammar Char where precGrammar = parensP charG
-instance PrecGrammar Natural where precGrammar = parensP naturalG
+instance PrecGrammar Char where
+  precGrammar = parensG charG
+  -- strings, or brackets, as `read` reads, & strings, as `show` shows
+  precListGrammar = parensG (stringG >|< parenthesized (bracketsG precGrammar))
+instance PrecGrammar a => PrecGrammar [a] where
+  precGrammar = precListGrammar
+instance PrecGrammar Natural where precGrammar = parensG naturalG
 instance PrecGrammar Integer where
-  precGrammar = parensP (precedenceP (\d -> signed >~ negativeAt d >*< magnitudeG))
-instance PrecGrammar Double where precGrammar = parensP (precedenceP floatingAt)
-instance PrecGrammar Float where precGrammar = parensP (precedenceP floatingAt)
+  precGrammar = parensG (precedenceP (\d -> signed >~ negativeAt d >*< magnitudeG))
+instance PrecGrammar Double where precGrammar = parensG (precedenceP floatingAt)
+instance PrecGrammar Float where precGrammar = parensG (precedenceP floatingAt)
 instance PrecGrammar Int where precGrammar = integralG
 instance PrecGrammar Int8 where precGrammar = integralG
 instance PrecGrammar Int16 where precGrammar = integralG
@@ -316,36 +347,97 @@ fromLexeme (negative, lexeme) = (if negative then negate else id) value
         (_, []) -> Nothing
         (zeros, _) -> Just (negate (length zeros))
 
-{- A character's literal, between single quotes, printing as `show` does,
-by `showLitChar`, & parsing as `read` does: unescaped, but for @\\@ & @'@;
-by a named escape; or by its decimal, octal or hexadecimal code, or as a
-control, @\\^@@ to @\\^_@. -}
+-- A character's literal, between single quotes.
 charG :: RegGrammatical Char p => p Char Char
-charG = terminal "'" >* orP
-  [ tokenClass (oneOf [' ' .. '~'] >&< notOneOf "\\'")
-  , unprinted >? tokenClass (notOneOf ("\\'" <> [' ' .. '~']))
-  , terminal "\\" >* orP
-    [ escapesG
-      ( [('\'', "'"), ('\a', "a"), ('\b', "b"), ('\f', "f"), ('\n', "n")]
-        <> [('\r', "r"), ('\t', "t"), ('\v', "v"), ('\\', "\\"), ('"', "\"")]
-        <> zip ['\NUL' ..] asciiNames <> [(' ', "SP"), ('\DEL', "DEL")] )
-    , prism' toEnum (\c -> if c > '\DEL' then Just (fromEnum c) else Nothing)
-        >? boundedNumeral 10 maxCode
-    , unprinted . codeOf >? eitherOf "o" "O" >* boundedNumeral 8 maxCode
-    , unprinted . codeOf >? eitherOf "x" "X" >* boundedNumeral 16 maxCode
-    , unprinted . iso (\c -> toEnum (fromEnum c + 64)) (\c -> toEnum (fromEnum c - 64))
-        >? terminal "^" >* tokenClass (oneOf ['@' .. '_'])
-    ]
-  ] *< terminal "'"
+charG = terminal "'" >* litCharG '\'' *< terminal "'"
+
+{- A character within a literal, printing as `show` does, by `showLitChar`,
+& parsing as `read` does: unescaped, but for @\\@ & the literal's quote;
+by a named escape; or by its decimal, octal or hexadecimal code, up to
+`maxBound`, or as a control, @\\^@@ to @\\^_@. -}
+litCharG :: RegGrammatical Char p => Char -> p Char Char
+litCharG quote = rawG [quote] >|< terminal "\\" >* orP
+  [fixedEscG True, decimalEscG, octalEscG, hexEscG, controlEscG]
+
+-- Unescaped, but for @\\@ & some others, printing only printable ASCII.
+rawG :: RegGrammatical Char p => String -> p Char Char
+rawG excluded = tokenClass (oneOf [' ' .. '~'] >&< notOneOf ('\\' : excluded))
+  >|< unprinted >? tokenClass (notOneOf ('\\' : excluded <> [' ' .. '~']))
+
+-- Named escapes, with @SO@ or not.
+fixedEscG :: RegGrammatical Char p => Bool -> p Char Char
+fixedEscG withSO = escapesG $
+  [('\'', "'"), ('\a', "a"), ('\b', "b"), ('\f', "f"), ('\n', "n")]
+  <> [('\r', "r"), ('\t', "t"), ('\v', "v"), ('\\', "\\"), ('"', "\"")]
+  <> [e | e@(c, _) <- zip ['\NUL' ..] asciiNames, withSO || c /= '\SO']
+  <> [(' ', "SP"), ('\DEL', "DEL")]
   where
-    codeOf = prism' toEnum (Just . fromEnum)
-    -- codes up to `maxBound`, as `read` reads them
-    maxCode = fromEnum (maxBound :: Char)
     asciiNames =
       [ "NUL", "SOH", "STX", "ETX", "EOT", "ENQ", "ACK", "BEL"
       , "BS", "HT", "LF", "VT", "FF", "CR", "SO", "SI"
       , "DLE", "DC1", "DC2", "DC3", "DC4", "NAK", "SYN", "ETB"
       , "CAN", "EM", "SUB", "ESC", "FS", "GS", "RS", "US" ]
+
+-- Codes up to `maxBound`, decimal, printing above @\\DEL@, octal & hexadecimal.
+decimalEscG, octalEscG, hexEscG, controlEscG :: RegGrammatical Char p => p Char Char
+decimalEscG = prism' toEnum (\c -> if c > '\DEL' then Just (fromEnum c) else Nothing)
+  >? boundedNumeral 10 (fromEnum (maxBound :: Char))
+octalEscG = unprinted . prism' toEnum (Just . fromEnum)
+  >? eitherOf "o" "O" >* boundedNumeral 8 (fromEnum (maxBound :: Char))
+hexEscG = unprinted . prism' toEnum (Just . fromEnum)
+  >? eitherOf "x" "X" >* boundedNumeral 16 (fromEnum (maxBound :: Char))
+controlEscG = unprinted . iso (\c -> toEnum (fromEnum c + 64)) (\c -> toEnum (fromEnum c - 64))
+  >? terminal "^" >* tokenClass (oneOf ['@' .. '_'])
+
+-- A string literal's items: characters, & empty escapes.
+data StrItem = StrChar Char | StrEmpty
+  deriving stock Eq
+
+_StrChar :: Prism' StrItem Char
+_StrChar = prism' StrChar $ \case
+  StrChar c -> Just c
+  StrEmpty -> Nothing
+
+{- A string's literal, between double quotes, printing as `show` does, by
+`showLitString`, with an empty escape, @\\&@, after a numeric escape
+before a digit, or after @\\SO@ before @H@, & parsing as `read` does, with
+empty escapes, & gaps, @\\@, whitespace & @\\@, anywhere, an improper iso,
+& with numeric escapes' digits & @\\SOH@ maximally munched, as `read`'s
+lexer does, so that an escape is never followed by what would continue it. -}
+stringG :: forall p. RegGrammatical Char p => p String String
+stringG = iso items (\xs -> [c | StrChar c <- xs])
+  >~ terminal "\"" >* free *< terminal "\""
+  where
+    -- items, after which a character mustn't continue the last escape
+    free, afterDecimal, afterOctal, afterHex, afterSO :: p [StrItem] [StrItem]
+    free = itemsG ""
+    afterDecimal = itemsG ['0' .. '9']
+    afterOctal = itemsG ['0' .. '7']
+    afterHex = itemsG (['0' .. '9'] <> ['a' .. 'f'] <> ['A' .. 'F'])
+    afterSO = itemsG "H"
+    itemsG :: String -> p [StrItem] [StrItem]
+    itemsG continuing = orP
+      [ _Empty >? oneP
+      , itemThen emptyG free
+      , itemThen (_StrChar >? rawG ('"' : continuing)) free
+      , itemThen (_StrChar >? terminal "\\" >* orP [fixedEscG False, controlEscG]) free
+      , itemThen (_StrChar . only '\SO' >? terminal "\\SO") afterSO
+      , itemThen (_StrChar >? terminal "\\" >* decimalEscG) afterDecimal
+      , itemThen (_StrChar >? terminal "\\" >* octalEscG) afterOctal
+      , itemThen (_StrChar >? terminal "\\" >* hexEscG) afterHex
+      ]
+    itemThen :: p StrItem StrItem -> p [StrItem] [StrItem] -> p [StrItem] [StrItem]
+    itemThen item rest = _Cons >? item >*< rest
+    emptyG :: p StrItem StrItem
+    emptyG = only StrEmpty >? (terminal "\\&" >|< unprinted >? terminal "\\"
+      >* dimap (const ' ') (const ()) (tokenClass (oneOf "\t\n\v\f\r" >|< asIn Space))
+      >* spacesG *< terminal "\\")
+    items = \case
+      c : cs@(c' : _) | protected c c' -> StrChar c : StrEmpty : items cs
+      c : cs -> StrChar c : items cs
+      [] -> []
+    protected c c' = (c > '\DEL' && isDec c') || (c == '\SO' && c' == 'H')
+    isDec c' = '0' <= c' && c' <= '9'
 
 -- Escapes by fixed strings, as a trie, which is LL(1), maximally munched,
 -- like @\\SO@ & @\\SOH@, each character printing by its first string.

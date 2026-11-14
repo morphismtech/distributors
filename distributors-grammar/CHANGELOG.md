@@ -29,17 +29,19 @@
 - `Control.Lens.Grammar.Prec`: Haskell types' grammars, by precedence,
   equivalent to their stock `Read` & `Show` instances. `PrecGrammar` types,
   run by `PrecGrammatical` interpreters, with `precP`, `stepP`, `resetP` &
-  `precedenceP`, as `ReadPrec`'s `prec`, `step` & `reset`, & `parensP`, as
-  `GHC.Read.parens` & `showParen`; `Precedence`, an interpreter over any
-  `Grammatical` one, run by `readsPrecG` & `showsPrecG`. Instances for
+  `precedenceP`, as `ReadPrec`'s `prec`, `step` & `reset`, `parensG`, as
+  `GHC.Read.parens` & `showParen`, & `listG`, as `GHC.Read.list` &
+  `showList`, & `precListGrammar`, as `readListPrec` & `showList`; `Precedence`, an interpreter over any
+  `Grammatical` one, run by `precG`, `readsPrecG` & `showsPrecG`. Instances for
+  lists, & `String`s, as string literals, with `showLitString`'s & `read`'s
+  escapes, empty escapes & gaps, maximally munched, as `read`'s lexer does;
   `Char`, with `showLitChar`'s escapes & `read`'s named, control & numeric
   escapes, up to `maxBound`; `Natural`, `Integer`, & sized `Int`s & `Word`s,
   which wrap out of range as `read` does, in decimal, & binary, octal &
   hexadecimal; & `Double`s & `Float`s, by `floatToDigits` & `fromRational`;
   negative numbers parenthesized above precedence 6, as `showsPrec` does, &
   read bare at any, as `read` does. Property tested against `showsPrec` &
-  `readsPrec`, at each precedence. Haskell types have no `Grammar`
-  instances; `String`, a list of characters, has neither.
+  `readsPrec`, at each precedence. Haskell types have no `Grammar` instances.
 - `Predicate`s are `Tokenized` & `TokenAlgebra`s, as predicates are; &
   `ReadPrec` runs grammars as `ReadP` does, `Tokenized`, a `TokenAlgebra`,
   `TerminalSymbol`, `Ruled`, `BackusNaurForm` & `Tried`.

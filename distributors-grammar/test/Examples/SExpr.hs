@@ -20,7 +20,7 @@ makePrisms ''SExpr
 sexprGrammar :: Grammatical Char p => p SExpr SExpr
 sexprGrammar = ruleRec "sexpr" $ \sexpr -> orP
   [ _Atom >? atomG
-  , _List >? listG sexpr
+  , _List >? sexprListG sexpr
   ]
   where
     -- Atom: one or more alphanumeric or symbol characters
@@ -28,7 +28,7 @@ sexprGrammar = ruleRec "sexpr" $ \sexpr -> orP
 
     -- List: parenthesized sequence of S-expressions
     -- Elements are separated by whitespace
-    listG sexpr = rule "list" $
+    sexprListG sexpr = rule "list" $
       terminal "(" >* sepWith " " several sexpr *< terminal ")"
 
     -- Characters allowed in atoms: letters, digits, and symbols

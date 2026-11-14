@@ -4,7 +4,8 @@ import Control.Lens.Grammar
 import Data.Char (intToDigit, isAscii, isControl, isSpace, ord, toUpper)
 import Data.Int (Int8, Int16, Int32, Int64)
 import Data.Foldable (for_)
-import Data.List (sort)
+import Control.Monad ((>=>))
+import Data.List (intercalate, sort)
 import Data.Word (Word8, Word16, Word32, Word64)
 import Numeric (showHex, showIntAtBase, showOct)
 import Numeric.Natural (Natural)
@@ -108,6 +109,30 @@ character c = do
     <> [pure ['\\', '^', toEnum (ord c + 64)] | ord c < 32]
   pure ("'" <> escape <> "'")
 
+-- | A list's strings: in brackets, its items' variants, amid whitespace.
+listing :: (a -> Gen String) -> [a] -> Gen String
+listing itemVariant xs = do
+  items <- traverse (itemVariant >=> decorated) xs
+  pure ("[" <> intercalate "," items <> "]")
+
+-- | A string's literals: shown, by its characters' escapes, with empty
+-- escapes & gaps, or listed, as characters.
+string :: String -> Gen String
+string s = oneof [pure (show s), literal, listing character s]
+  where
+    literal = do
+      parts <- traverse piece s
+      pure ("\"" <> concat parts <> "\"")
+    piece c = do
+      lead <- frequency [(8, pure ""), (1, pure "\\&"), (1, pure "\\ \n\\")]
+      escape <- oneof $
+        [pure (drop 1 (init (show [c])))]
+        <> [pure [c] | c `notElem` "\\\""]
+        <> [ pure ("\\" <> show (ord c))
+           , pure ("\\o" <> showOct (ord c) "")
+           , pure ("\\x" <> showHex (ord c) "") ]
+      pure (lead <> escape)
+
 characters :: Gen Char
 characters = frequency
   [ (3, arbitraryASCIIChar)
@@ -139,3 +164,6 @@ baseProperties = describe "equivalent to Read & Show" $ do
   readShowEquivalence "Word64" (arbitrary :: Gen Word64) integral
   readShowEquivalence "Double" (floats :: Gen Double) floating
   readShowEquivalence "Float" (floats :: Gen Float) floating
+  readShowEquivalence "String" (listOf characters) string
+  readShowEquivalence "[Int]" (arbitrary :: Gen [Int]) (listing integral)
+  readShowEquivalence "[[Integer]]" (arbitrary :: Gen [[Integer]]) (listing (listing integral))
