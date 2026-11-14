@@ -63,5 +63,5 @@ baseProperties = do
     it "Integer" $ ll1Conflicts (regbnfG @Char Integer) `shouldBe` []
     it "Double" $ ll1Conflicts (regbnfG @Char Double) `shouldBe` []
   describe "regular expressions" $ do
-    it "Natural" $ toList (regexG @Char Natural) `shouldBe` "[0123456789]+"
-    it "Integer" $ toList (regexG @Char Integer) `shouldBe` "-?[0123456789]+"
+    it "Natural" $ toList (regexG @Char Natural) `shouldBe` "[0-9]+"
+    it "Integer" $ toList (regexG @Char Integer) `shouldBe` "-?[0-9]+"

@@ -1306,6 +1306,7 @@ literal = orP
   , _BigIntegerLiteral >? signed BigIntLiteral
   ]
   where
+    signed :: RegGrammatical TsToken q => TsTokenCategory -> q Text Text
     signed category = orP
       [ _Negative >? tokenOf oneP MinusToken oneP >* textOf category
       , textOf category

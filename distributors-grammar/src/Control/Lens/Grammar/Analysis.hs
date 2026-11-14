@@ -70,6 +70,7 @@ foldRegEx tok nonterm = go
       KleeneStar x -> starK (go x)
       KleeneOpt x -> optK (go x)
       KleenePlus x -> plusK (go x)
+      Backtracking x -> go x
       RegExam (OneOf toks) -> tok (TokenClass (OneOf toks))
       RegExam (NotOneOf toks test) -> tok (TokenClass (NotOneOf toks test))
       RegExam (Alternate x y zs) -> foldr1 (>|<) (map go (x : y : zs))
@@ -219,6 +220,7 @@ follows bnf = go (falseP <$ rules)
       NonTerminal name -> Map.singleton name after
       KleeneStar x -> followed (again x) x
       KleenePlus x -> followed (again x) x
+      Backtracking x -> followed after x
       KleeneOpt x -> followed after x
       RegExam (Alternate x y zs) -> Map.unionsWith (>|<) (map (followed after) (x : y : zs))
       _ -> Map.empty
@@ -237,7 +239,9 @@ that alternatives start with distinct tokens & that repetitions
 a nullable alternative mustn't precede one which can consume tokens,
 since it would succeed first, without consuming them.
 Left recursion is reported too, since a predictive parser diverges on it.
-A `RegEx` doesn't record @try@, so conflicts resolved by it are reported.
+A conflict which a `try` resolves isn't reported: of alternatives,
+the first of which backtracks, or of a repetition which backtracks,
+since a predictive parser then tries what follows anew.
 
 >>> map conflictSort (ll1Conflicts ("{start} = ab|ac" :: Bnf (RegEx Char)))
 [LL1FirstFirst]
@@ -266,6 +270,7 @@ ll1Conflicts bnf =
       KleeneStar x -> repetition x <> check name x (again x)
       KleenePlus x -> repetition x <> check name x (again x)
       KleeneOpt x -> repetition x <> check name x after
+      Backtracking x -> check name x after
       RegExam (Alternate x y zs) ->
         concat [alternation a b | (a, bs) <- pairs (x : y : zs), b <- bs]
         <> concatMap (\a -> check name a after) (x : y : zs)
@@ -279,21 +284,27 @@ ll1Conflicts bnf =
         repetition x =
           [ conflict LL1NullableRepetition falseP | nullable x ]
           <> [ conflict LL1FirstFollow toks
-             | toks <- overlapping (atoms x >&< guardNext after) ]
+             | not (tried x)
+             , toks <- overlapping (atoms x >&< guardNext after) ]
         -- an alternative, & one after it
         alternation a b =
           [ conflict LL1FirstFirst toks
-          | toks <- overlapping (atoms a >&< atoms b) ]
+          | not (tried a)
+          , toks <- overlapping (atoms a >&< atoms b) ]
           <> [ conflict LL1NullableAlternatives falseP
              | nullable a, nullable b ]
           <> [ conflict LL1NullableFirst (atoms b)
              | nullable a, not (nullable b), atoms b /= falseP ]
           <> [ conflict LL1FirstFollow toks
-             | nullable b, not (nullable a)
+             | nullable b, not (nullable a), not (tried a)
              , toks <- overlapping (atoms a >&< guardNext after) ]
     pairs = \case
       [] -> []
       a : bs -> (a, bs) : pairs bs
+    -- a pattern which backtracks, after reading tokens, by `try`
+    tried = \case
+      Backtracking _ -> True
+      _ -> False
 
 {- | A conflict keeping a grammar from being @LL(1)@,
 in a rule, or `Nothing` for the start expression,

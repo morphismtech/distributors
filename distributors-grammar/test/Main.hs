@@ -6,6 +6,8 @@ import Data.Bifunctor.Joker (Joker (..))
 import Control.Monad (when)
 import Data.List (genericLength)
 import Data.Tree (Tree (..))
+import Data.String (fromString)
+import GHC.Exts (toList)
 import Text.ParserCombinators.ReadP (readP_to_S)
 import Text.ParserCombinators.ReadPrec (ReadPrec, readPrec_to_S)
 import Data.Functor.Contravariant (Predicate (..))
@@ -47,6 +49,29 @@ main = hspec $ do
   describe "class runners, at Arith's Grammar" classRunnerTests
   describe "ReadPrec & Predicate" readPrecTests
   describe "base types" baseProperties
+  describe "RegEx ranges & try" regexRangeTryTests
+
+regexRangeTryTests :: Spec
+regexRangeTryTests = do
+  it "parses classes listed or ranged alike" $ do
+    (fromString "[abc]" :: RegEx Char) `shouldBe` oneOf "abc"
+    (fromString "[a-c]" :: RegEx Char) `shouldBe` oneOf "abc"
+    (fromString "[c-ab]" :: RegEx Char) `shouldBe` oneOf "b"
+  it "escapes a literal dash in a class" $ do
+    toList (oneOf "+-" :: RegEx Char) `shouldBe` "[\\+\\-]"
+    (fromString "[\\+\\-]" :: RegEx Char) `shouldBe` oneOf "+-"
+  it "renders a huge class by its runs" $
+    toList (tokenClass (oneOf ['\x20' .. '\x10FFFF'] >&< notOneOf "\"\\") :: RegEx Char)
+      `shouldSatisfy` ((< 40) . length)
+  it "records try, rendering it" $ do
+    let rex = try (terminal "ab") >|< terminal "ac" :: RegEx Char
+    toList rex `shouldBe` "\\t{ab}|ac"
+    fromString (toList rex) `shouldBe` rex
+    "ac" =~ rex `shouldBe` True
+  it "resolves an LL(1) conflict by try" $ do
+    map conflictSort (ll1Conflicts (fromString "{start} = ab|ac" :: Bnf (RegEx Char)))
+      `shouldBe` [LL1FirstFirst]
+    ll1Conflicts (fromString "{start} = \\t{ab}|ac" :: Bnf (RegEx Char)) `shouldBe` []
 
 readPrecTests :: Spec
 readPrecTests = do

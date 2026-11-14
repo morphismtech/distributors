@@ -106,19 +106,19 @@ class Tried p where
   try = id
 
 {- | The `Alternator`s of `terminal` symbols, `Tokenized` combinators
-& `tokenClass`es, which run @Control.Lens.Grammar.RegGrammar@s. -}
+& `tokenClass`es, which are `Tried`, & run
+@Control.Lens.Grammar.RegGrammar@s. -}
 type RegGrammatical token p =
   ( forall x y. (x ~ (), y ~ ()) => TerminalSymbol token (p x y)
   , forall x y. (x ~ token, y ~ token) => TokenAlgebra token (p x y)
   , Alternator p
+  , forall x y. Tried (p x y)
   ) :: Constraint
 
-{- | The `RegGrammatical` `BackusNaurForm`s, which are `Tried`,
-& run `Grammar`s. -}
+{- | The `RegGrammatical` `BackusNaurForm`s, which run `Grammar`s. -}
 type Grammatical token p =
   ( RegGrammatical token p
   , forall x y. BackusNaurForm (p x y)
-  , forall x y. Tried (p x y)
   ) :: Constraint
 
 {- | The `Grammatical` `Filtrator`s, `MonadPlus`es & `MonadFail`s,

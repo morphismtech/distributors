@@ -69,6 +69,8 @@ data RegEx token
   | KleeneStar (RegEx token)
   | KleeneOpt (RegEx token)
   | KleenePlus (RegEx token)
+  -- | A pattern to backtrack from, by `try`, whose language is its own.
+  | Backtracking (RegEx token)
   | RegExam (TokenExam token (RegEx token))
 
 
@@ -128,6 +130,7 @@ instance (Categorized token, HasTrie token)
       , kleeneStarTrie :: RegEx token :->: b
       , kleeneOptTrie :: RegEx token :->: b
       , kleenePlusTrie :: RegEx token :->: b
+      , backtrackingTrie :: RegEx token :->: b
       , oneOfTrie :: [token] :->: b
       , notOneOfTrie :: ([token], Either Int [Int]) :->: b
       }
@@ -139,6 +142,7 @@ instance (Categorized token, HasTrie token)
       , kleeneStarTrie = trie (f . starK)
       , kleeneOptTrie = trie (f . optK)
       , kleenePlusTrie = trie (f . plusK)
+      , backtrackingTrie = trie (f . try)
       , oneOfTrie = trie (f . oneOf)
       , notOneOfTrie = trie (f . testNotOneOf)
       }
@@ -149,6 +153,7 @@ instance (Categorized token, HasTrie token)
       KleeneStar x -> untrie (kleeneStarTrie rex) x
       KleenePlus x -> untrie (kleenePlusTrie rex) x
       KleeneOpt x -> untrie (kleeneOptTrie rex) x
+      Backtracking x -> untrie (backtrackingTrie rex) x
       RegExam (OneOf chars) -> untrie (oneOfTrie rex) (Set.toList chars)
       RegExam (NotOneOf chars (AndAsIn cat)) ->
         untrie (notOneOfTrie rex) (Set.toList chars, Left (fromEnum cat))
@@ -164,6 +169,7 @@ instance (Categorized token, HasTrie token)
       , first' KleeneStar <$> enumerate (kleeneStarTrie rex)
       , first' KleeneOpt <$> enumerate (kleeneOptTrie rex)
       , first' KleenePlus <$> enumerate (kleenePlusTrie rex)
+      , first' Backtracking <$> enumerate (backtrackingTrie rex)
       , first' (RegExam . OneOf . Set.fromList) <$> enumerate (oneOfTrie rex)
       , first' testNotOneOf <$> enumerate (notOneOfTrie rex)
       ]
@@ -339,6 +345,7 @@ diffB prefix (Bnf start rules) =
           y1y2' = y1 <> diff1B x y2
       KleeneStar y -> diff1B x y <> starK y
       KleeneOpt y -> diff1B x y
+      Backtracking y -> diff1B x y
       KleenePlus y -> diff1B x y <> starK y
       RegExam (OneOf chars) ->
         if x `elem` chars then mempty else falseP
@@ -358,6 +365,7 @@ diffB prefix (Bnf start rules) =
     SeqEmpty -> True
     KleeneStar _ -> True
     KleeneOpt _ -> True
+    Backtracking y -> ν y
     KleenePlus y -> ν y
     Sequence y1 y2 ys -> all ν (y1 : y2 : ys)
     RegExam (Alternate y1 y2 ys) -> any ν (y1 : y2 : ys)
@@ -379,8 +387,14 @@ instance (Ord rule, NonTerminalSymbol rule)
 -- | `try` the start of a t'Bnf', recording it as its rules do.
 instance Tried rule => Tried (Bnf rule) where
   try (Bnf start rules) = Bnf (try start) rules
--- | A `RegEx` doesn't record `try`, for now.
-instance Tried (RegEx token)
+-- | A `RegEx` records `try`, but for patterns of the empty word
+-- or none, which can't fail after reading a token.
+instance Tried (RegEx token) where
+  try rex = case rex of
+    Backtracking _ -> rex
+    SeqEmpty -> rex
+    RegExam exam | isFailExam exam -> rex
+    _ -> Backtracking rex
 instance (Ord rule, TerminalSymbol token rule)
   => TerminalSymbol token (Bnf rule) where
   terminal = liftBnf0 . terminal
@@ -482,9 +496,9 @@ Like other regular expression languages, they support
 character classes.
 
 >>> toList (oneOf "abc" :: RegEx Char)
-"[abc]"
+"[a-c]"
 >>> toList (notOneOf "abc" :: RegEx Char)
-"[^abc]"
+"[^a-c]"
 
 The character classes are used for failure, matching no character or string,
 as well as the wildcard, matching any single character.
@@ -509,15 +523,15 @@ they can combine characters' `tokenClass`es
 using `BooleanAlgebra` combinators.
 
 >>> toList (tokenClass (notOneOf "abc" >&< notOneOf "xyz") :: RegEx Char)
-"[^abcxyz]"
+"[^a-cx-z]"
 >>> toList (tokenClass (oneOf "abcxyz" >&< notOneOf "xyz") :: RegEx Char)
-"[abc]"
+"[a-c]"
 >>> toList (tokenClass (notOneOf "#$%" >&< notAsIn Control) :: RegEx Char)
-"[^#$%\\P{Cc}]"
+"[^#-%\\P{Cc}]"
 >>> toList (tokenClass (allP notAsIn [MathSymbol, Control]) :: RegEx Char)
 "\\P{Sm|Cc}"
 >>> toList (tokenClass (notP (oneOf "xyz")) :: RegEx Char)
-"[^xyz]"
+"[^x-z]"
 
 Ill-formed regular expression strings normalize to failure.
 
@@ -527,15 +541,18 @@ Ill-formed regular expression strings normalize to failure.
 >>> putStringLn (regbnfG (RegEx Char))
 {start} = \q{regex}
 {alternate} = \q{sequence}(\|\q{sequence})*
-{atom} = \\q\q{nonterminal}|\q{class}|\(\q{regex}\)
+{atom} = \\q\q{nonterminal}|\\t\{\q{regex}\}|\q{class}|\(\q{regex}\)
 {category} = Ll|Lu|Lt|Lm|Lo|Mn|Mc|Me|Nd|Nl|No|Pc|Pd|Ps|Pe|Pi|Pf|Po|Sm|Sc|Sk|So|Zs|Zl|Zp|Cc|Cf|Cs|Co|Cn
 {char} = [^\(\)\*\+\?\[\\\]\^\{\|\}\P{Cc}]|\\\q{char-escaped}
 {char-control} = NUL|SOH|STX|ETX|EOT|ENQ|ACK|BEL|BS|HT|LF|VT|FF|CR|SO|SI|DLE|DC1|DC2|DC3|DC4|NAK|SYN|ETB|CAN|EM|SUB|ESC|FS|GS|RS|US|DEL|PAD|HOP|BPH|NBH|IND|NEL|SSA|ESA|HTS|HTJ|VTS|PLD|PLU|RI|SS2|SS3|DCS|PU1|PU2|STS|CCH|MW|SPA|EPA|SOS|SGCI|SCI|CSI|ST|OSC|PM|APC
 {char-escaped} = [\(\)\*\+\?\[\\\]\^\{\|\}]|\q{char-control}
 {class} = \q{class-one-of}|\q{class-not-one-of}
 {class-category} = \\p\{\q{category}\}|\\P\{\q{category}(\|\q{category})*\}
-{class-not-one-of} = \q{class-category}|\[\^\q{char}*\q{class-category}?\]
-{class-one-of} = \q{char}|\[\q{char}*\]
+{class-char} = [^\(\)\*\+\-\?\[\\\]\^\{\|\}\P{Cc}]|\\\q{class-char-escaped}
+{class-char-escaped} = [\(\)\*\+\-\?\[\\\]\^\{\|\}]|\q{char-control}
+{class-not-one-of} = \q{class-category}|\[\^\q{class-range}*\q{class-category}?\]
+{class-one-of} = \q{char}|\[\q{class-range}*\]
+{class-range} = \q{class-char}(-\q{class-char})?
 {expression} = \q{atom}\?|\q{atom}\*|\q{atom}\+|\q{atom}
 {nonterminal} = \{\q{char}*\}
 {regex} = \q{alternate}
@@ -569,6 +586,7 @@ regexGrammar = ruleRec "regex" altG
 
     atomG rex = rule "atom" $ orP
       [ _NonTerminal >? terminal "\\q" >* nonterminalG
+      , _Backtracking >? terminal "\\t{" >* rex *< terminal "}"
       , _RegExam >? classG
       , terminal "(" >* rex *< terminal ")"
       ]
@@ -619,30 +637,75 @@ regexGrammar = ruleRec "regex" altG
 
     classOneOfG = rule "class-one-of" $ orP
       [ onlyOne charG
-      , terminal "[" >* (listed ~< manyP charG) *< terminal "]"
+      , terminal "[" >* rangedG *< terminal "]"
       ]
 
     classNotOneOfG = rule "class-not-one-of" $ orP
       [ asEmpty >*< classCatG
-      , terminal "[^" >* (listed ~< manyP charG) >*<
+      , terminal "[^" >* rangedG >*<
           optionP (_AndNotAsIn . _Empty) classCatG *< terminal "]"
       ]
+    -- a set of characters by runs, of three or more as ranges
+    -- between characters which aren't escaped, an improper iso,
+    -- parsing any runs, overlapping or empty
+    rangedG = iso runsOf (foldMap runOf) >~ manyP (rule "class-range" $
+      classCharG >*< optionalP (terminal "-" >* classCharG))
+    runOf (lo, hi) = Set.fromList [lo .. fromMaybe lo hi]
+    runsOf = concatMap run . groupRuns . Set.toAscList
+    groupRuns = foldr consRun []
+    consRun c = \case
+      (lo, hi) : runs | succ c == lo -> (c, hi) : runs
+      runs -> (c, c) : runs
+    -- a run's escaped ends are listed, & the rest ranged
+    run (lo, hi) = case (firstPlain lo, lastPlain hi) of
+      (Just lo', Just hi') | lo' <= hi' ->
+        singles (Just lo) (pred' lo') <> ranged lo' hi'
+          <> singles (succ' hi') (Just hi)
+      _ -> singles (Just lo) (Just hi)
+      where
+        firstPlain c
+          | c > hi = Nothing
+          | plain c = Just c
+          | c == hi = Nothing
+          | otherwise = firstPlain (succ c)
+        lastPlain c
+          | c < lo = Nothing
+          | plain c = Just c
+          | c == lo = Nothing
+          | otherwise = lastPlain (pred c)
+        pred' c = if c == minBound then Nothing else Just (pred c)
+        succ' c = if c == maxBound then Nothing else Just (succ c)
+    singles start end = case (start, end) of
+      (Just a, Just b) -> [(c, Nothing) | c <- [a .. b]]
+      _ -> []
+    ranged lo hi
+      | fromEnum hi - fromEnum lo >= 2 = [(lo, Just hi)]
+      | otherwise = [(c, Nothing) | c <- [lo .. hi]]
+    plain c = c `notElem` ('-' : charsReserved) && categorize c /= Control
 
 nonterminalG :: Grammatical Char p => p String String
 nonterminalG = rule "nonterminal" $
   terminal "{" >* manyP charG *< terminal "}"
 
 charG :: Grammatical Char p => p Char Char
-charG = rule "char" $
-  tokenClass (notOneOf charsReserved >&< notAsIn Control)
-  >|< terminal "\\" >* charEscapedG
-  where
-    charEscapedG = rule "char-escaped" $
-      oneOf charsReserved >|< charControlG
+charG = charWith "char" charsReserved
 
-    charsReserved = "()*+?[\\]^{|}"
+-- characters in a bracket class, where a range's dash is reserved too
+classCharG :: Grammatical Char p => p Char Char
+classCharG = charWith "class-char" ('-' : charsReserved)
 
-    charControlG = rule "char-control" $ orP
+charsReserved :: String
+charsReserved = "()*+?[\\]^{|}"
+
+-- characters but reserved ones, which are escaped, as are controls
+charWith :: Grammatical Char p => String -> String -> p Char Char
+charWith name reserved = rule name $
+  tokenClass (notOneOf reserved >&< notAsIn Control)
+  >|< terminal "\\" >* rule (name <> "-escaped")
+    (oneOf reserved >|< charControlG)
+
+charControlG :: Grammatical Char p => p Char Char
+charControlG = rule "char-control" $ orP
       [ only '\NUL' >? terminal "NUL"
       , only '\SOH' >? terminal "SOH"
       , only '\STX' >? terminal "STX"
@@ -753,15 +816,18 @@ But they also support `BackusNaurForm` `rule`s and `ruleRec`s.
 >>> putStringLn (regbnfG (type (Bnf (RegEx Char))))
 {start} = \q{regbnf}
 {alternate} = \q{sequence}(\|\q{sequence})*
-{atom} = \\q\q{nonterminal}|\q{class}|\(\q{regex}\)
+{atom} = \\q\q{nonterminal}|\\t\{\q{regex}\}|\q{class}|\(\q{regex}\)
 {category} = Ll|Lu|Lt|Lm|Lo|Mn|Mc|Me|Nd|Nl|No|Pc|Pd|Ps|Pe|Pi|Pf|Po|Sm|Sc|Sk|So|Zs|Zl|Zp|Cc|Cf|Cs|Co|Cn
 {char} = [^\(\)\*\+\?\[\\\]\^\{\|\}\P{Cc}]|\\\q{char-escaped}
 {char-control} = NUL|SOH|STX|ETX|EOT|ENQ|ACK|BEL|BS|HT|LF|VT|FF|CR|SO|SI|DLE|DC1|DC2|DC3|DC4|NAK|SYN|ETB|CAN|EM|SUB|ESC|FS|GS|RS|US|DEL|PAD|HOP|BPH|NBH|IND|NEL|SSA|ESA|HTS|HTJ|VTS|PLD|PLU|RI|SS2|SS3|DCS|PU1|PU2|STS|CCH|MW|SPA|EPA|SOS|SGCI|SCI|CSI|ST|OSC|PM|APC
 {char-escaped} = [\(\)\*\+\?\[\\\]\^\{\|\}]|\q{char-control}
 {class} = \q{class-one-of}|\q{class-not-one-of}
 {class-category} = \\p\{\q{category}\}|\\P\{\q{category}(\|\q{category})*\}
-{class-not-one-of} = \q{class-category}|\[\^\q{char}*\q{class-category}?\]
-{class-one-of} = \q{char}|\[\q{char}*\]
+{class-char} = [^\(\)\*\+\-\?\[\\\]\^\{\|\}\P{Cc}]|\\\q{class-char-escaped}
+{class-char-escaped} = [\(\)\*\+\-\?\[\\\]\^\{\|\}]|\q{char-control}
+{class-not-one-of} = \q{class-category}|\[\^\q{class-range}*\q{class-category}?\]
+{class-one-of} = \q{char}|\[\q{class-range}*\]
+{class-range} = \q{class-char}(-\q{class-char})?
 {expression} = \q{atom}\?|\q{atom}\*|\q{atom}\+|\q{atom}
 {nonterminal} = \{\q{char}*\}
 {regbnf} = \{start\} = \q{regex}(\LF\q{nonterminal} = \q{regex})*

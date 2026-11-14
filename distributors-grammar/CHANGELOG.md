@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- `RegEx` records `try`, by a `Backtracking` constructor, whose language
+  is its own, rendered @\\t{…}@; `ll1Conflicts` skips conflicts resolved
+  by `try`. `Tried` is part of `RegGrammatical`.
+- Character classes render runs of three or more plain characters as
+  ranges, @[a-z]@, & parse ranges; a dash in a class is escaped, @\\-@.
 - Grammars of base types, each a rule named by its type: `Char`, any
   token; `String`, any tokens; `Natural`, ASCII digits; `Integer`, an
   optional minus & digits; `Double` & `Float`, @NaN@, or signed @Infinity@

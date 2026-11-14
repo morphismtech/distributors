@@ -123,6 +123,7 @@ transducer (Bnf start rules) = Transducer
       KleeneStar _ -> True
       KleeneOpt _ -> True
       KleenePlus x -> rexNullable nm x
+      Backtracking x -> rexNullable nm x
       RegExam (Alternate x y zs) -> any (rexNullable nm) (x : y : zs)
       RegExam (OneOf _) -> False
       RegExam (NotOneOf _ _) -> False
@@ -208,6 +209,7 @@ transducer (Bnf start rules) = Transducer
             (firsts, states, nextId', bypass) = thompson rex0 nextId (firsts <> dests)
           in
             (firsts, states, nextId', bypass)
+        Backtracking rex0 -> thompson rex0 nextId dests
         RegExam (OneOf chars)
           | Set.null chars -> (IntSet.empty, [], nextId, False)
           | otherwise ->
