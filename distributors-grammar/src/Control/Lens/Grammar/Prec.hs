@@ -233,7 +233,8 @@ instance BackusNaurForm (p a b) => BackusNaurForm (Precedence p a b)
 instance (a ~ (), b ~ (), TerminalSymbol Char (p () ()))
   => IsString (Precedence p a b) where
     fromString = Precedence . const . terminal
-instance (Grammatical Char p, NotFollowedBy p) => PrecGrammatical (Precedence p) where
+instance (Grammatical Char p, NotFollowedBy p)
+  => PrecGrammatical (Precedence p) where
     precP n (Precedence x) = Precedence (\d -> if d <= n then x n else falseP)
     precStep (Precedence x) = Precedence (x . (+ 1))
     precReset (Precedence x) = Precedence (const (x 0))
