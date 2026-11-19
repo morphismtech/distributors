@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {- |
 Module      : Control.Lens.Grammar.Prec
 Description : grammars of Haskell types, as Read & Show
@@ -471,7 +472,9 @@ precSigned = iso
 
 -- A number's lexeme without a fraction or exponent: decimal, printed,
 -- or binary, octal or hexadecimal, after @0b@, @0o@ or @0x@, in either
--- case, parsed & tried first, as `read`'s lexer does.
+-- case, parsed & tried first, as `read`'s lexer does. Binary is only
+-- read from base-4.21 (GHC 9.12) on, as `read`'s lexer only reads it
+-- from then.
 precMagnitude :: (RegGrammatical Char p, NotFollowedBy p) => p Integer Integer
 precMagnitude = (precUnprinted >? try (terminal "0" >* precBased))
   >|< numeral 10 *< precDecimalEnd
@@ -492,8 +495,11 @@ precNotExponent = notFollowedBy
 
 precBased :: forall p. (RegGrammatical Char p, NotFollowedBy p) => p Integer Integer
 precBased = orP
-  [ precEitherOf "b" "B" >* munched 2
-  , precEitherOf "o" "O" >* munched 8
+  [
+#if MIN_VERSION_base(4,21,0)
+    precEitherOf "b" "B" >* munched 2,
+#endif
+    precEitherOf "o" "O" >* munched 8
   , precEitherOf "x" "X" >* munched 16
   ]
   where
@@ -509,8 +515,10 @@ precNatural = (iso toInteger fromInteger >~ precMagnitude)
   where
     zerosG = terminal "0" >* orP
       [ zeros *< precDecimalEnd
+#if MIN_VERSION_base(4,21,0)
       , orP (map terminal ["b", "B"]) >* terminal "0" >* zeros
           *< notFollowedBy (tokenClass (precDigitClass 2))
+#endif
       , orP (map terminal ["o", "O"]) >* terminal "0" >* zeros
           *< notFollowedBy (tokenClass (precDigitClass 8))
       , orP (map terminal ["x", "X"]) >* terminal "0" >* zeros
