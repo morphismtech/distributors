@@ -1,3 +1,7 @@
+-- `Varifocal` requires a `Filterable` monad, so that every
+-- `Control.Lens.Bifocal.Bifocal` is a `Varifocal`, which the stepping
+-- combinators, generic in their streams, needn't use.
+{-# OPTIONS_GHC -Wno-redundant-constraints #-}
 {- |
 Module      : Control.Lens.Varifocal
 Description : varifocals
@@ -27,18 +31,24 @@ module Control.Lens.Varifocal
   , contextuallyT
     -- * Combinators
   , stepping
+  , steppingTree
   , terminateBy
   , delimitBy
   , balanceBy
   , countWith
+  , arityWith
   ) where
 
 import Control.Applicative (Alternative (..))
-import Control.Lens
-import Control.Lens.PartialIso ((>?))
+import Control.Comonad.Cofree (Cofree (..))
+import Control.Lens hiding ((:<))
+import Control.Lens.PartialIso ((>?), (>~))
 import Control.Monad (MonadPlus (..), ap)
 import Data.Bool (bool)
-import Data.Monoid.Disjunctive (DisjunctiveMonoid (..))
+import Data.Foldable (toList)
+import Data.Functor (void)
+import Data.Traversable (mapAccumL)
+import Data.Monoid.Disjunctive (DisjunctiveMonoid (..), anyP)
 import Data.Profunctor (Cochoice (..))
 import Data.Profunctor.Distributor
 import Data.Profunctor.Filtrator (Filtrator (..), mfiltrate)
@@ -127,6 +137,8 @@ instance Monad m => Monad (Varifocus a b m s) where
 instance Monad m => Alternative (Varifocus a b m s) where
   empty = AltsP []
   x <|> y = AltsP [x, y]
+  many = lmap repeat . manyP
+  some = lmap repeat . someP
 instance Monad m => DisjunctiveMonoid (Varifocus a b m s t)
 instance Monad m => Choice (Varifocus a b m) where
   left' = AlternateP . Left
@@ -183,14 +195,10 @@ runVarifocus v p = go v
     go :: Varifocus a b [] s' t' -> p s' t'
     go = \case
       FocusP -> p
-      LiftP xs -> case map pure xs of
-        [] -> empty
-        ys -> foldr1 (<|>) ys
+      LiftP xs -> anyP pure xs
       BindP x k -> go x >>= go . k
       LmapP f x -> lmap f (go x)
-      AltsP xs -> case map go xs of
-        [] -> empty
-        ys -> foldr1 (<|>) ys
+      AltsP xs -> anyP go xs
       AlternateP e -> alternate (either (Left . go) (Right . go) e)
       ManyP x -> manyP (go x)
       OptionalP x -> optionalP (go x)
@@ -212,9 +220,7 @@ runVarifocusT v p = go v
       LiftP mt -> liftP mt
       BindP x k -> go x >>= go . k
       LmapP f x -> lmap f (go x)
-      AltsP xs -> case map go xs of
-        [] -> empty
-        ys -> foldr1 (<|>) ys
+      AltsP xs -> anyP go xs
       AlternateP e -> alternate (either (Left . go) (Right . go) e)
       ManyP x -> manyP (go x)
       OptionalP x -> optionalP (go x)
@@ -294,9 +300,12 @@ contextuallyT vari p = joinP (vari (rmap pure p))
 deciding by each focus built whether to continue, @`Right` state@,
 to stop there, @`Left` `True`@, or to reject, @`Left` `False`@,
 as no `Control.Lens.Bifocal.Bifocal` can.
-A list matches when its last focus, & no earlier one, stops it.
+A stream, like a list, matches when its last focus,
+& no earlier one, stops it.
 -}
-stepping :: st -> (st -> a -> Either Bool st) -> Varifocal' [a] a
+stepping
+  :: (Cons s s a a, AsEmpty s)
+  => st -> (st -> a -> Either Bool st) -> Varifocal' s a
 stepping st0 step q = rmap pure (go st0)
   where
     go st = _Cons >? P.do
@@ -306,13 +315,44 @@ stepping st0 step q = rmap pure (go st0)
         Left True -> asEmpty
         Left False -> empty
 
+{- | Foci stepped through by a deterministic top-down tree machine,
+from a state, deciding by each node's focus built which children
+it has, a state for each position of a `Traversable` @g@,
+or rejecting it, by `Nothing`, as no `Control.Lens.Bifocal.Bifocal` can.
+Foci are visited in preorder, a node's before its children's.
+A tree matches when each node's children have the shape
+its focus decides, so that it parses as it prints.
+
+`stepping` is `steppingTree` at `Maybe`, of non-empty streams,
+as the cofree comonad of `Maybe`, by which
+@`Left` `False`@, @`Left` `True`@ & @`Right` state@
+decide `Nothing`, @`Just` `Nothing`@ & @`Just` (`Just` state)@;
+`stepping` steps through a stream directly, rather than through
+a `Cofree`, & needn't check a shape, as a stream's is its focus's.
+-}
+steppingTree
+  :: (Traversable g, Eq (g ()))
+  => st -> (st -> a -> Maybe (g st)) -> Varifocal' (Cofree g a) a
+steppingTree st0 step q = rmap pure (go st0)
+  where
+    go st = cofreed >~ P.do
+      b <- joinP q
+      maybe empty offspring (step st b)
+    offspring states = shaped states >? sequenceA
+      (snd (mapAccumL (\i st -> (i + 1, child i st)) (0 :: Int) states))
+    -- after shaping, the child at a position of the children
+    child i st = lmap (\kids -> toList kids !! i) (go st)
+    shaped states = prism' id $ \kids ->
+      if void kids == void states then Just kids else Nothing
+    cofreed = iso (\(b :< kids) -> (b, kids)) (uncurry (:<))
+
 {- | Zero or more foci, then one which @end@s them, deciding by
 each focus built, like a sentinel-terminated sequence, a C string's.
-A list which doesn't end by its first ending focus doesn't match.
+A stream which doesn't end by its first ending focus doesn't match.
 
 > prop> terminateBy end = stepping () (\() -> bool (Right ()) (Left True) . end)
 -}
-terminateBy :: (a -> Bool) -> Varifocal' [a] a
+terminateBy :: (Cons s s a a, AsEmpty s) => (a -> Bool) -> Varifocal' s a
 terminateBy end = stepping () (\() -> bool (Right ()) (Left True) . end)
 
 {- | Foci opened by the first, & closed by the first after it
@@ -320,9 +360,9 @@ which matches it, deciding by the opening focus built,
 like a [heredoc](https://en.wikipedia.org/wiki/Here_document)'s tag,
 or a fenced code block's fence, whose language,
 of matching delimiters, isn't context-free.
-A list which doesn't close by its first match doesn't match.
+A stream which doesn't close by its first match doesn't match.
 -}
-delimitBy :: (a -> a -> Bool) -> Varifocal' [a] a
+delimitBy :: (Cons s s a a, AsEmpty s) => (a -> a -> Bool) -> Varifocal' s a
 delimitBy same = stepping Nothing $ \st b -> case st of
   Nothing -> Right (Just b)
   Just open -> bool (Right st) (Left True) (same open b)
@@ -331,9 +371,11 @@ delimitBy same = stepping Nothing $ \st b -> case st of
 at the same nesting depth, like nested comments, @/* /* */ */@,
 or a balanceBy block, whose language, of nested pairs, isn't regular.
 A focus may not both @open@ & @close@.
-A list which doesn't open first, or close only last, doesn't match.
+A stream which doesn't open first, or close only last, doesn't match.
 -}
-balanceBy :: (a -> Bool) -> (a -> Bool) -> Varifocal' [a] a
+balanceBy
+  :: (Cons s s a a, AsEmpty s)
+  => (a -> Bool) -> (a -> Bool) -> Varifocal' s a
 balanceBy open close = stepping (0 :: Int) step
   where
     step depth b
@@ -345,9 +387,19 @@ balanceBy open close = stepping (0 :: Int) step
 
 {- | A focus counting how many foci follow it, then those,
 like a length-prefixed record of bytes in a binary format.
-A list which doesn't have as many as its first focus counts doesn't match.
+A stream which doesn't have as many as its first focus counts
+doesn't match.
 -}
-countWith :: (a -> Int) -> Varifocal' [a] a
+countWith :: (Cons s s a a, AsEmpty s) => (a -> Int) -> Varifocal' s a
 countWith count = stepping Nothing $ \st b -> case st of
   Nothing -> if count b <= 0 then Left True else Right (Just (count b))
   Just n -> if n <= 1 then Left True else Right (Just (n - 1))
+
+{- | A tree whose nodes' foci each count their children,
+like a count-prefixed tree of records in a binary format,
+by `steppingTree`, as `countWith` counts a stream's.
+A node counting fewer than none doesn't match.
+-}
+arityWith :: (a -> Int) -> Varifocal' (Cofree [] a) a
+arityWith arity = steppingTree () $ \() b ->
+  if arity b < 0 then Nothing else Just (replicate (arity b) ())

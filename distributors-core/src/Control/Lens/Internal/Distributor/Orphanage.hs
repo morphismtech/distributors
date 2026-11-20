@@ -33,6 +33,7 @@ import Data.Profunctor.Composition
 import Data.Profunctor.Monad
 import Data.Profunctor.Yoneda
 import Text.ParserCombinators.ReadP (ReadP)
+import Text.ParserCombinators.ReadPrec (ReadPrec)
 import Witherable
 
 -- Orphanage --
@@ -75,6 +76,8 @@ instance Filterable f => Cochoice (Joker f) where
   unright (Joker x) = Joker
     (mapMaybe (either (const Nothing) Just) x)
 instance Filterable ReadP where
+  catMaybes m = m >>= maybe empty pure
+instance Filterable ReadPrec where
   catMaybes m = m >>= maybe empty pure
 deriving via Compose (p a) f instance
   (Profunctor p, Applicative (p a), Applicative f)

@@ -42,7 +42,7 @@ module Control.Lens.Prismoid
 
 import Control.Applicative
 import Control.Monad (void)
-import Data.Maybe (fromMaybe, isJust)
+import Data.Maybe (fromMaybe)
 import Control.Lens
 import Control.Lens.Internal.Profunctor
 import Control.Lens.PartialIso
@@ -204,7 +204,7 @@ withPrismoid pat k =
 {- | Exactly some number of times, or separated by `sepBy`.
 
 > prop> exactly n = inRange n (Just n)
-> prop> exactly n >?* p = replicateP n p
+> prop> exactly n >?* p = replicateP n p, for @n >= 0@
 -}
 exactly :: Int -> Prismoid [a] [b] a b
 exactly n = inRange n (Just n)
@@ -246,7 +246,7 @@ atMost n = inRange 0 (Just n)
 It takes the mandatory times first, then, unbounded,
 the `Alternator`'s own `someP` or `manyP`, or, bounded,
 the optional times, trying more first.
-It never matches where @lo > hi@.
+It never matches where @lo > hi@, nor where @hi@ is negative.
 
 >>> let digits lo hi = runJoker (inRange lo hi >?* Joker (satisfy isDigit)) :: ReadP String
 >>> [ds | (ds, "") <- readP_to_S (digits 2 (Just 3)) "123"]
@@ -255,18 +255,7 @@ It never matches where @lo > hi@.
 ["12","123"]
 -}
 inRange :: Int -> Maybe Int -> Prismoid [a] [b] a b
-inRange lo hi = rmap sequenceA . go lo hi
-  where
-    go :: Alternator p => Int -> Maybe Int -> p a b -> p [a] [b]
-    go l h p
-      | maybe False (l >) h = empty
-      | l > 1 || (l == 1 && isJust h) = p >:< go (l - 1) (subtract 1 <$> h) p
-      | l == 1 = someP p
-      | otherwise = case h of
-          Nothing -> manyP p
-          Just m
-            | m <= 0 -> eotList . swapped >~ empty >+< oneP
-            | otherwise -> eotList . swapped >~ p >*< go 0 (Just (m - 1)) p >+< oneP
+inRange lo hi = rmap sequenceA . timesP lo hi
 
 {- | One or zero with default. -}
 opted :: APrism a b () () -> Prismoid a b a b
