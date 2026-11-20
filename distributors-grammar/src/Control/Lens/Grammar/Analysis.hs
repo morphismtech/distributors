@@ -70,7 +70,7 @@ foldRegEx tok nonterm = go
       KleeneStar x -> starK (go x)
       KleeneOpt x -> optK (go x)
       KleenePlus x -> plusK (go x)
-      KleeneTimes lo hi x -> timesK lo hi (go x)
+      KleeneTimes lo hi x -> quantK lo hi (go x)
       Backtracking x -> go x
       RegExam (OneOf toks) -> tok (TokenClass (OneOf toks))
       RegExam (NotOneOf toks test) -> tok (TokenClass (NotOneOf toks test))

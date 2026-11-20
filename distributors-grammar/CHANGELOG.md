@@ -17,7 +17,7 @@
   in `Control.Lens.Grammar.Class`, which `Control.Lens.Grammar` re-exports,
   so that `Control.Lens.Grammar.RegEx` defines its own instances; their
   tutorials are `Control.Lens.Grammar`'s module documentation.
-- `RegEx` has counts, a `KleeneTimes` constructor, normalized by `timesK`,
+- `RegEx` has counts, a `KleeneTimes` constructor, normalized by `quantK`,
   rendered @x{n}@, @x{n,}@ & @x{n,m}@, & parsed so, normalizing; `Grammor`s
   keep counts, so `exactly`, `atLeast`, `atMost` & `inRange` render by them.
   Machines & analyses unroll them.

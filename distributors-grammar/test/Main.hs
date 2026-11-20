@@ -99,7 +99,7 @@ regexQuantifierTests = do
     rendered (exactly 0) `shouldBe` ""
     rendered (inRange 3 (Just 2)) `shouldBe` "[]"
   it "parses counts, normalizing them" $ do
-    (fromString "a{2,3}" :: RegEx Char) `shouldBe` timesK 2 (Just 3) (token 'a')
+    (fromString "a{2,3}" :: RegEx Char) `shouldBe` quantK 2 (Just 3) (token 'a')
     toList (fromString "a{0,}" :: RegEx Char) `shouldBe` "a*"
     toList (fromString "a{1}" :: RegEx Char) `shouldBe` "a"
     toList (fromString "(ab){3}" :: RegEx Char) `shouldBe` "(ab){3}"
@@ -111,17 +111,17 @@ regexQuantifierTests = do
   it "agrees on counts, negative or out of order, as RegEx, Grammor & Parsor" $
     for_ [(lo, hi) | lo <- [-3 .. 3], hi <- Nothing : map Just [-3 .. 3]] $ \(lo, hi) ->
       for_ (map (`replicate` 'a') [0 .. 4]) $ \w -> do
-        let rex = timesK lo hi (token 'a') :: RegEx Char
+        let rex = quantK lo hi (token 'a') :: RegEx Char
             parsed = not (null [() | (_, "") <- parseP (inRange lo hi >?* (token 'a' :: Parsor String [] Char Char)) w])
             expected = length w >= lo && maybe True (length w <=) hi
         (w =~ rex, parsed) `shouldBe` (expected, expected)
         rendered (inRange lo hi) `shouldBe` toList rex
-  prop "timesK n (Just n) x matches as n times x" $ \(x :: RegEx Char) ->
+  prop "quantK n (Just n) x matches as n times x" $ \(x :: RegEx Char) ->
     forAll (choose (0, 3)) $ \n -> forAll (listOf (elements "ab")) $ \w ->
-      (w =~ timesK n (Just n) x) === (w =~ mconcat (replicate n x))
+      (w =~ quantK n (Just n) x) === (w =~ mconcat (replicate n x))
   modifyMaxSize (const 8) $ prop "x{lo,hi} round trips through its string" $ \(x :: RegEx Char) ->
     forAll (choose (0, 3)) $ \lo -> forAll (oneof [pure Nothing, Just <$> choose (lo, 4)]) $ \hi ->
-      let rex = timesK lo hi x in fromString (toList rex) === rex
+      let rex = quantK lo hi x in fromString (toList rex) === rex
 
 readPrecTests :: Spec
 readPrecTests = do

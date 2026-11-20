@@ -70,7 +70,7 @@ data RegEx token
   | KleeneOpt (RegEx token)
   | KleenePlus (RegEx token)
   {- | Between some numbers of times, inclusive, @x{lo,hi}@ or @x{lo,}@,
-  normalized by `timesK`: either unbounded, at least twice, or bounded,
+  normalized by `quantK`: either unbounded, at least twice, or bounded,
   at most twice or more, never below its lower bound, at least none;
   other counts being `KleeneStar`, `KleenePlus`, `KleeneOpt`, the item
   itself, or empty; of an item neither empty nor failing. -}
@@ -126,7 +126,7 @@ instance Categorized token => KleeneStarAlgebra (RegEx token) where
   plusK (RegExam exam) | isFailExam exam = falseP
   plusK SeqEmpty = mempty
   plusK rex = KleenePlus rex
-  timesK lo0 hi rex = case (max 0 lo0, hi) of
+  quantK lo0 hi rex = case (max 0 lo0, hi) of
     (lo, Just m) | lo > m -> falseP
     _ | SeqEmpty <- rex -> mempty
     (lo, _) | RegExam exam <- rex, isFailExam exam ->
@@ -160,7 +160,7 @@ instance (Categorized token, HasTrie token)
       , kleeneStarTrie = trie (f . starK)
       , kleeneOptTrie = trie (f . optK)
       , kleenePlusTrie = trie (f . plusK)
-      , kleeneTimesTrie = trie (f . \((lo, hi), x) -> timesK lo hi x)
+      , kleeneTimesTrie = trie (f . \((lo, hi), x) -> quantK lo hi x)
       , backtrackingTrie = trie (f . try)
       , oneOfTrie = trie (f . oneOf)
       , notOneOfTrie = trie (f . testNotOneOf)
@@ -370,7 +370,7 @@ diffB prefix (Bnf start rules) =
       Backtracking y -> diff1B x y
       KleenePlus y -> diff1B x y <> starK y
       KleeneTimes lo hi y ->
-        diff1B x y <> timesK (lo - 1) (subtract 1 <$> hi) y
+        diff1B x y <> quantK (lo - 1) (subtract 1 <$> hi) y
       RegExam (OneOf chars) ->
         if x `elem` chars then mempty else falseP
       RegExam (NotOneOf chars (AndAsIn cat)) ->
@@ -616,8 +616,8 @@ regexGrammar = ruleRec "regex" altG
       , atomG rex
       ]
 
-    -- improper, normalizing counts by `timesK`
-    _Times = prism' (\(x, (lo, hi)) -> timesK lo hi x) $ \case
+    -- improper, normalizing counts by `quantK`
+    _Times = prism' (\(x, (lo, hi)) -> quantK lo hi x) $ \case
       KleeneTimes lo hi x -> Just (x, (lo, hi))
       _ -> Nothing
 
