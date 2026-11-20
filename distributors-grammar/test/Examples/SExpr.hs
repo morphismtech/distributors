@@ -7,6 +7,7 @@ module Examples.SExpr
 
 import Control.Lens hiding (List)
 import Control.Lens.Grammar hiding (List)
+import Data.String (IsString)
 
 -- | Abstract syntax tree for S-expressions
 data SExpr
@@ -63,7 +64,12 @@ instance CtxGrammar Char SExpr
 {- | Pretty grammar for S-expressions: a list is flat, if it fits, or else
 each of its elements on a line of its own, aligned after its parenthesis.
 -}
-sexprPrettyGrammar :: PrettyGrammatical p => p SExpr SExpr
+sexprPrettyGrammar ::
+  ( Grammatical Char p
+  , forall x y. (x ~ (), y ~ ()) => Lined (p x y)
+  , forall x y. (x ~ (), y ~ ()) => IsString (p x y)
+  , forall x y. LaidOut (p x y)
+  ) => p SExpr SExpr
 sexprPrettyGrammar = ruleRec "sexpr" $ \sexpr -> orP
   [ _Atom >? rule "atom" (someP (tokenClass atomChars))
   , _List >? rule "list"
