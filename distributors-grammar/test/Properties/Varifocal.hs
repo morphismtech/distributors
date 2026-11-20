@@ -49,7 +49,7 @@ varifocalProperties = do
     prop "doesn't print an early end" $
       forAll plain $ \s -> forAll plain $ \t ->
         printed ended (s ++ "." ++ t ++ ".") === Nothing
-  describe "balanceBy & countWith, by stepping" $ do
+  describe "balanceBy & countWith, by ctxList" $ do
     let
       nested :: Varifocal' String Char
       nested = balanceBy (== '(') (== ')')
