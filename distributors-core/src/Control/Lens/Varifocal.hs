@@ -1,6 +1,6 @@
 -- `Varifocal` requires a `Filterable` monad, so that every
--- `Control.Lens.Bifocal.Bifocal` is a `Varifocal`, which the stepping
--- combinators, generic in their streams, needn't use.
+-- `Control.Lens.Bifocal.Bifocal` is a `Varifocal`, which `ctxList` &
+-- its combinators, generic in their streams, needn't use.
 {-# OPTIONS_GHC -Wno-redundant-constraints #-}
 {- |
 Module      : Control.Lens.Varifocal
@@ -30,8 +30,8 @@ module Control.Lens.Varifocal
   , contextually
   , contextuallyT
     -- * Combinators
-  , stepping
-  , steppingTree
+  , ctxList
+  , ctxTree
   , terminateBy
   , delimitBy
   , balanceBy
@@ -303,10 +303,10 @@ as no `Control.Lens.Bifocal.Bifocal` can.
 A stream, like a list, matches when its last focus,
 & no earlier one, stops it.
 -}
-stepping
+ctxList
   :: (Cons s s a a, AsEmpty s)
   => st -> (st -> a -> Either Bool st) -> Varifocal' s a
-stepping st0 step q = rmap pure (go st0)
+ctxList st0 step q = rmap pure (go st0)
   where
     go st = _Cons >? P.do
       b <- joinP q
@@ -323,17 +323,17 @@ Foci are visited in preorder, a node's before its children's.
 A tree matches when each node's children have the shape
 its focus decides, so that it parses as it prints.
 
-`stepping` is `steppingTree` at `Maybe`, of non-empty streams,
+`ctxList` is `ctxTree` at `Maybe`, of non-empty streams,
 as the cofree comonad of `Maybe`, by which
 @`Left` `False`@, @`Left` `True`@ & @`Right` state@
 decide `Nothing`, @`Just` `Nothing`@ & @`Just` (`Just` state)@;
-`stepping` steps through a stream directly, rather than through
+`ctxList` steps through a stream directly, rather than through
 a `Cofree`, & needn't check a shape, as a stream's is its focus's.
 -}
-steppingTree
+ctxTree
   :: (Traversable g, Eq (g ()))
   => st -> (st -> a -> Maybe (g st)) -> Varifocal' (Cofree g a) a
-steppingTree st0 step q = rmap pure (go st0)
+ctxTree st0 step q = rmap pure (go st0)
   where
     go st = cofreed >~ P.do
       b <- joinP q
@@ -350,10 +350,10 @@ steppingTree st0 step q = rmap pure (go st0)
 each focus built, like a sentinel-terminated sequence, a C string's.
 A stream which doesn't end by its first ending focus doesn't match.
 
-> prop> terminateBy end = stepping () (\() -> bool (Right ()) (Left True) . end)
+> prop> terminateBy end = ctxList () (\() -> bool (Right ()) (Left True) . end)
 -}
 terminateBy :: (Cons s s a a, AsEmpty s) => (a -> Bool) -> Varifocal' s a
-terminateBy end = stepping () (\() -> bool (Right ()) (Left True) . end)
+terminateBy end = ctxList () (\() -> bool (Right ()) (Left True) . end)
 
 {- | Foci opened by the first, & closed by the first after it
 which matches it, deciding by the opening focus built,
@@ -363,7 +363,7 @@ of matching delimiters, isn't context-free.
 A stream which doesn't close by its first match doesn't match.
 -}
 delimitBy :: (Cons s s a a, AsEmpty s) => (a -> a -> Bool) -> Varifocal' s a
-delimitBy same = stepping Nothing $ \st b -> case st of
+delimitBy same = ctxList Nothing $ \st b -> case st of
   Nothing -> Right (Just b)
   Just open -> bool (Right st) (Left True) (same open b)
 
@@ -376,7 +376,7 @@ A stream which doesn't open first, or close only last, doesn't match.
 balanceBy
   :: (Cons s s a a, AsEmpty s)
   => (a -> Bool) -> (a -> Bool) -> Varifocal' s a
-balanceBy open close = stepping (0 :: Int) step
+balanceBy open close = ctxList (0 :: Int) step
   where
     step depth b
       | open b = Right (depth + 1)
@@ -391,15 +391,15 @@ A stream which doesn't have as many as its first focus counts
 doesn't match.
 -}
 countWith :: (Cons s s a a, AsEmpty s) => (a -> Int) -> Varifocal' s a
-countWith count = stepping Nothing $ \st b -> case st of
+countWith count = ctxList Nothing $ \st b -> case st of
   Nothing -> if count b <= 0 then Left True else Right (Just (count b))
   Just n -> if n <= 1 then Left True else Right (Just (n - 1))
 
 {- | A tree whose nodes' foci each count their children,
 like a count-prefixed tree of records in a binary format,
-by `steppingTree`, as `countWith` counts a stream's.
+by `ctxTree`, as `countWith` counts a stream's.
 A node counting fewer than none doesn't match.
 -}
 arityWith :: (a -> Int) -> Varifocal' (Cofree [] a) a
-arityWith arity = steppingTree () $ \() b ->
+arityWith arity = ctxTree () $ \() b ->
   if arity b < 0 then Nothing else Just (replicate (arity b) ())

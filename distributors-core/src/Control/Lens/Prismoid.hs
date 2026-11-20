@@ -255,7 +255,7 @@ It never matches where @lo > hi@, nor where @hi@ is negative.
 ["12","123"]
 -}
 inRange :: Int -> Maybe Int -> Prismoid [a] [b] a b
-inRange lo hi = rmap sequenceA . timesP lo hi
+inRange lo hi = rmap sequenceA . quantP lo hi
 
 {- | One or zero with default. -}
 opted :: APrism a b () () -> Prismoid a b a b

@@ -52,7 +52,7 @@ varifocalProperties = do
     prop "doesn't print an early end" $
       forAll plain $ \s -> forAll plain $ \t ->
         printed ended (s ++ "." ++ t ++ ".") === Nothing
-  describe "stepping, over any Cons stream" $
+  describe "ctxList, over any Cons stream" $
     it "terminates a Seq as it does a list" $ do
       let seqTerminated :: Varifocal' (Seq Char) Char
           seqTerminated = terminateBy (== '.')
@@ -60,7 +60,7 @@ varifocalProperties = do
         `shouldBe` Just (Seq.fromList "ab.", "c")
       (($ "") <$> printP (contextuallyT seqTerminated (anyToken :: Printor String Maybe Char Char)) (Seq.fromList "ab."))
         `shouldBe` Just "ab."
-  describe "steppingTree, by arityWith" $ do
+  describe "ctxTree, by arityWith" $ do
     let
       counted :: Varifocal' (Cofree [] Char) Char
       counted = arityWith digitToInt
@@ -73,7 +73,7 @@ varifocalProperties = do
       printedT tree `shouldBe` Just "2100"
     it "won't print a node with other than its count of children" $
       map printedT ['1' :< [], '0' :< ['0' :< []]] `shouldBe` [Nothing, Nothing]
-  describe "balanceBy & countWith, by stepping" $ do
+  describe "balanceBy & countWith, by ctxList" $ do
     let
       nested :: Varifocal' String Char
       nested = balanceBy (== '(') (== ')')
