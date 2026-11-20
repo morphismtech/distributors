@@ -1,0 +1,311 @@
+cabal-version: 2.2
+
+-- This file has been generated from package.yaml by hpack version 0.39.6.
+--
+-- see: https://github.com/sol/hpack
+
+name:           distributors-grammar
+version:        0.1.0.0
+synopsis:       Unifying Parsers, Printers & Grammars
+description:    Grammars, by the profunctor algebra of @distributors@, which parse, print, generate & describe their languages, as regular expressions & Backus-Naur forms.
+category:       Parsing, Profunctors, Optics
+homepage:       https://github.com/morphismtech/distributors#readme
+bug-reports:    https://github.com/morphismtech/distributors/issues
+author:         Eitan Chatav
+maintainer:     eitan.chatav@gmail.com
+copyright:      2026 Eitan Chatav
+license:        BSD-3-Clause
+license-file:   LICENSE
+build-type:     Simple
+extra-source-files:
+    README.md
+extra-doc-files:
+    CHANGELOG.md
+
+source-repository head
+  type: git
+  location: https://github.com/morphismtech/distributors
+
+library
+  exposed-modules:
+      Control.Lens.Grammar
+      Control.Lens.Grammar.BackusNaur
+      Control.Lens.Grammar.Machine
+      Control.Lens.Grammar.RegEx
+      Control.Lens.Grammar.Symbol
+      Control.Lens.Grammar.Token
+      Control.Monad.Fail.Try
+      Data.Profunctor.Grammar
+      Data.Profunctor.Grammar.Parsector
+  other-modules:
+      Paths_distributors_grammar
+  autogen-modules:
+      Paths_distributors_grammar
+  hs-source-dirs:
+      src
+  default-extensions:
+      AllowAmbiguousTypes
+      Arrows
+      ConstraintKinds
+      DataKinds
+      DefaultSignatures
+      DeriveFoldable
+      DeriveFunctor
+      DeriveTraversable
+      DeriveGeneric
+      DerivingStrategies
+      DerivingVia
+      EmptyCase
+      FlexibleContexts
+      FlexibleInstances
+      FunctionalDependencies
+      GADTs
+      GeneralizedNewtypeDeriving
+      ImportQualifiedPost
+      ImpredicativeTypes
+      InstanceSigs
+      LambdaCase
+      MagicHash
+      MonoLocalBinds
+      QualifiedDo
+      QuantifiedConstraints
+      RankNTypes
+      RecursiveDo
+      ScopedTypeVariables
+      StandaloneDeriving
+      StandaloneKindSignatures
+      TemplateHaskell
+      TupleSections
+      TypeApplications
+      TypeFamilies
+      TypeOperators
+      UndecidableInstances
+      UndecidableSuperClasses
+  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints
+  build-depends:
+      MemoTrie >=0.6 && <1
+    , QuickCheck >=2.14 && <3
+    , base >=4.20 && <5
+    , bifunctors >=5.5 && <6
+    , containers >=0.6 && <1
+    , distributors ==0.7.*
+    , lens >=5.0 && <6
+    , monad-loops >=0.4.3 && <1
+    , mtl >=2.2 && <3
+    , profunctors >=5.6 && <6
+    , random >=1.2 && <2
+    , witherable >=0.4 && <1
+  default-language: Haskell2010
+
+test-suite doctests
+  type: exitcode-stdio-1.0
+  main-is: Doctests.hs
+  other-modules:
+      Paths_distributors_grammar
+  autogen-modules:
+      Paths_distributors_grammar
+  hs-source-dirs:
+      doctest
+  default-extensions:
+      AllowAmbiguousTypes
+      Arrows
+      ConstraintKinds
+      DataKinds
+      DefaultSignatures
+      DeriveFoldable
+      DeriveFunctor
+      DeriveTraversable
+      DeriveGeneric
+      DerivingStrategies
+      DerivingVia
+      EmptyCase
+      FlexibleContexts
+      FlexibleInstances
+      FunctionalDependencies
+      GADTs
+      GeneralizedNewtypeDeriving
+      ImportQualifiedPost
+      ImpredicativeTypes
+      InstanceSigs
+      LambdaCase
+      MagicHash
+      MonoLocalBinds
+      QualifiedDo
+      QuantifiedConstraints
+      RankNTypes
+      RecursiveDo
+      ScopedTypeVariables
+      StandaloneDeriving
+      StandaloneKindSignatures
+      TemplateHaskell
+      TupleSections
+      TypeApplications
+      TypeFamilies
+      TypeOperators
+      UndecidableInstances
+      UndecidableSuperClasses
+  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded
+  build-depends:
+      MemoTrie >=0.6 && <1
+    , QuickCheck >=2.14 && <3
+    , base >=4.20 && <5
+    , bifunctors >=5.5 && <6
+    , containers >=0.6 && <1
+    , distributors ==0.7.*
+    , distributors-grammar
+    , doctest-parallel >=0.3 && <1
+    , lens >=5.0 && <6
+    , monad-loops >=0.4.3 && <1
+    , mtl >=2.2 && <3
+    , profunctors >=5.6 && <6
+    , random >=1.2 && <2
+    , witherable >=0.4 && <1
+  default-language: Haskell2010
+
+test-suite test
+  type: exitcode-stdio-1.0
+  main-is: Main.hs
+  other-modules:
+      Examples.Arithmetic
+      Examples.Chain
+      Examples.Expression
+      Examples.Heredoc
+      Examples.Json
+      Examples.Lambda
+      Examples.LenVec
+      Examples.RegString
+      Examples.SemVer
+      Examples.SExpr
+      Properties.Kleene
+      Properties.Varifocal
+      Paths_distributors_grammar
+  autogen-modules:
+      Paths_distributors_grammar
+  hs-source-dirs:
+      test
+  default-extensions:
+      AllowAmbiguousTypes
+      Arrows
+      ConstraintKinds
+      DataKinds
+      DefaultSignatures
+      DeriveFoldable
+      DeriveFunctor
+      DeriveTraversable
+      DeriveGeneric
+      DerivingStrategies
+      DerivingVia
+      EmptyCase
+      FlexibleContexts
+      FlexibleInstances
+      FunctionalDependencies
+      GADTs
+      GeneralizedNewtypeDeriving
+      ImportQualifiedPost
+      ImpredicativeTypes
+      InstanceSigs
+      LambdaCase
+      MagicHash
+      MonoLocalBinds
+      QualifiedDo
+      QuantifiedConstraints
+      RankNTypes
+      RecursiveDo
+      ScopedTypeVariables
+      StandaloneDeriving
+      StandaloneKindSignatures
+      TemplateHaskell
+      TupleSections
+      TypeApplications
+      TypeFamilies
+      TypeOperators
+      UndecidableInstances
+      UndecidableSuperClasses
+  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints
+  build-depends:
+      MemoTrie >=0.6 && <1
+    , QuickCheck >=2.14 && <3
+    , base >=4.20 && <5
+    , bifunctors >=5.5 && <6
+    , containers >=0.6 && <1
+    , distributors
+    , distributors-grammar
+    , hspec >=2.7 && <3
+    , lens >=5.0 && <6
+    , megaparsec >=9.0 && <10
+    , monad-loops >=0.4.3 && <1
+    , mtl >=2.2 && <3
+    , profunctors >=5.6 && <6
+    , random >=1.2 && <2
+    , witherable >=0.4 && <1
+  default-language: Haskell2010
+
+benchmark core
+  type: exitcode-stdio-1.0
+  main-is: Main.hs
+  other-modules:
+      Examples.Arithmetic
+      Examples.Expression
+      Examples.Heredoc
+      Examples.Json
+      Examples.Lambda
+      Examples.SemVer
+      Examples.SExpr
+  hs-source-dirs:
+      bench
+      test
+  default-extensions:
+      AllowAmbiguousTypes
+      Arrows
+      ConstraintKinds
+      DataKinds
+      DefaultSignatures
+      DeriveFoldable
+      DeriveFunctor
+      DeriveTraversable
+      DeriveGeneric
+      DerivingStrategies
+      DerivingVia
+      EmptyCase
+      FlexibleContexts
+      FlexibleInstances
+      FunctionalDependencies
+      GADTs
+      GeneralizedNewtypeDeriving
+      ImportQualifiedPost
+      ImpredicativeTypes
+      InstanceSigs
+      LambdaCase
+      MagicHash
+      MonoLocalBinds
+      QualifiedDo
+      QuantifiedConstraints
+      RankNTypes
+      RecursiveDo
+      ScopedTypeVariables
+      StandaloneDeriving
+      StandaloneKindSignatures
+      TemplateHaskell
+      TupleSections
+      TypeApplications
+      TypeFamilies
+      TypeOperators
+      UndecidableInstances
+      UndecidableSuperClasses
+  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -O2 -rtsopts
+  build-depends:
+      MemoTrie >=0.6 && <1
+    , QuickCheck >=2.14 && <3
+    , base >=4.20 && <5
+    , bifunctors >=5.5 && <6
+    , containers >=0.6 && <1
+    , distributors
+    , distributors-grammar
+    , lens >=5.0 && <6
+    , monad-loops >=0.4.3 && <1
+    , mtl >=2.2 && <3
+    , profunctors >=5.6 && <6
+    , random >=1.2 && <2
+    , tasty-bench >=0.3 && <1
+    , witherable >=0.4 && <1
+  default-language: Haskell2010
