@@ -1,0 +1,739 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# OPTIONS_GHC -Wno-orphans #-}</span><span>
+</span><span id="line-2"></span><span>
+</span><span id="line-3"></span><span class="annot"><span class="hs-comment">{- |
+Module      : Control.Lens.Internal.Distributor.Orphanage
+Description : orphanage
+Copyright   : (C) 2026 - Eitan Chatav
+License     : BSD-style (see the file LICENSE)
+Maintainer  : Eitan Chatav &lt;eitan.chatav@gmail.com&gt;
+Stability   : provisional
+Portability : non-portable
+
+An orphanage for instances without a home.
+-}</span></span><span>
+</span><span id="line-14"></span><span>
+</span><span id="line-15"></span><span class="hs-keyword">module</span><span> </span><span class="annot"><a href="Control.Lens.Internal.Distributor.Orphanage.html"><span class="hs-identifier">Control.Lens.Internal.Distributor.Orphanage</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-16"></span><span>
+</span><span id="line-17"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Applicative</span></span><span> </span><span class="hs-keyword">hiding</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">WrappedArrow</span></span><span class="hs-special">)</span><span>
+</span><span id="line-18"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Applicative</span></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">Ap</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">WrappedArrow</span></span><span class="hs-special">)</span><span>
+</span><span id="line-19"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Arrow</span></span><span>
+</span><span id="line-20"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Lens</span></span><span>
+</span><span id="line-21"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Lens.Internal.Profunctor</span></span><span>
+</span><span id="line-22"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Monad</span></span><span>
+</span><span id="line-23"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Bifunctor.Clown</span></span><span>
+</span><span id="line-24"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Bifunctor.Joker</span></span><span>
+</span><span id="line-25"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Bifunctor.Product</span></span><span>
+</span><span id="line-26"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Distributive</span></span><span>
+</span><span id="line-27"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Functor.Compose</span></span><span>
+</span><span id="line-28"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Functor.Contravariant.Divisible</span></span><span>
+</span><span id="line-29"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Profunctor</span></span><span> </span><span class="hs-keyword">hiding</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">WrappedArrow</span></span><span class="hs-special">)</span><span>
+</span><span id="line-30"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Profunctor</span></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">Pro</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">WrappedArrow</span></span><span class="hs-special">)</span><span>
+</span><span id="line-31"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Profunctor.Cayley</span></span><span>
+</span><span id="line-32"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Profunctor.Composition</span></span><span>
+</span><span id="line-33"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Profunctor.Monad</span></span><span>
+</span><span id="line-34"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Profunctor.Yoneda</span></span><span>
+</span><span id="line-35"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Text.ParserCombinators.ReadP</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">ReadP</span></span><span class="hs-special">)</span><span>
+</span><span id="line-36"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Text.ParserCombinators.ReadPrec</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">ReadPrec</span></span><span class="hs-special">)</span><span>
+</span><span id="line-37"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Witherable</span></span><span>
+</span><span id="line-38"></span><span>
+</span><span id="line-39"></span><span class="hs-comment">-- Orphanage --</span><span>
+</span><span id="line-40"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679289038"><span id="local-6989586621679289039"><span id="local-6989586621679289040"><span id="local-6989586621679289528"><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Profunctor</span></span><span> </span><span class="annot"><a href="#local-6989586621679289038"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Functor</span></span><span> </span><span class="annot"><a href="#local-6989586621679289039"><span class="hs-identifier hs-type">f</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-41"></span><span>  </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Functor</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">WrappedPafb</span></span><span> </span><span class="annot"><a href="#local-6989586621679289039"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679289038"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679289040"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span></span></span></span></span><span> </span><span class="hs-keyword">where</span><span> </span><span id="local-6989586621679289534"><span class="annot"><span class="annottext">fmap :: forall a b. (a -&gt; b) -&gt; WrappedPafb f p a a -&gt; WrappedPafb f p a b
+</span><span class="hs-identifier hs-var hs-var hs-var">fmap</span></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(a -&gt; b) -&gt; WrappedPafb f p a a -&gt; WrappedPafb f p a b
+forall b c a.
+(b -&gt; c) -&gt; WrappedPafb f p a b -&gt; WrappedPafb f p a c
+forall (p :: * -&gt; * -&gt; *) b c a.
+Profunctor p =&gt;
+(b -&gt; c) -&gt; p a b -&gt; p a c
+</span><span class="hs-identifier hs-var">rmap</span></span><span>
+</span><span id="line-42"></span><span id="local-6989586621679289543"><span id="local-6989586621679289548"><span id="local-6989586621679289552"><span id="local-6989586621679289556"><span class="hs-keyword">deriving</span><span> </span><span class="hs-keyword">via</span><span> </span><span id="local-6989586621679289072"><span id="local-6989586621679289073"><span id="local-6989586621679289074"><span class="annot"><span class="hs-identifier hs-type">Compose</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679289072"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679289073"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621679289074"><span class="hs-identifier hs-type">f</span></a></span></span></span></span><span> </span><span class="hs-keyword">instance</span><span>
+</span><span id="line-43"></span><span>  </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Profunctor</span></span><span> </span><span class="annot"><a href="#local-6989586621679289072"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Functor</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679289072"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679289073"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Filterable</span></span><span> </span><span class="annot"><a href="#local-6989586621679289074"><span class="hs-identifier hs-type">f</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-44"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Filterable</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">WrappedPafb</span></span><span> </span><span class="annot"><a href="#local-6989586621679289074"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679289072"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679289073"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span></span></span></span></span><span>
+</span><span id="line-45"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679289085"><span id="local-6989586621679289086"><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Profunctor</span></span><span> </span><span class="annot"><a href="#local-6989586621679289085"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Filterable</span></span><span> </span><span class="annot"><a href="#local-6989586621679289086"><span class="hs-identifier hs-type">f</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-46"></span><span>  </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Cochoice</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">WrappedPafb</span></span><span> </span><span class="annot"><a href="#local-6989586621679289086"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679289085"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">)</span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-47"></span><span>    </span><span id="local-6989586621679289577"><span class="annot"><span class="annottext">unleft :: forall a d b.
+WrappedPafb f p (Either a d) (Either b d) -&gt; WrappedPafb f p a b
+</span><a href="#local-6989586621679289577"><span class="hs-identifier hs-var hs-var hs-var">unleft</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">WrapPafb</span></span><span> </span><span id="local-6989586621679289580"><span class="annot"><span class="annottext">p (Either a d) (f (Either b d))
+</span><a href="#local-6989586621679289580"><span class="hs-identifier hs-var">p</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">p a (f b) -&gt; WrappedPafb f p a b
+forall (f :: * -&gt; *) (p :: * -&gt; * -&gt; *) a b.
+p a (f b) -&gt; WrappedPafb f p a b
+</span><span class="hs-identifier hs-var">WrapPafb</span></span><span> </span><span class="annot"><span class="annottext">(p a (f b) -&gt; WrappedPafb f p a b)
+-&gt; p a (f b) -&gt; WrappedPafb f p a b
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span>
+</span><span id="line-48"></span><span>      </span><span class="annot"><span class="annottext">(a -&gt; Either a d)
+-&gt; (f (Either b d) -&gt; f b)
+-&gt; p (Either a d) (f (Either b d))
+-&gt; p a (f b)
+forall a b c d. (a -&gt; b) -&gt; (c -&gt; d) -&gt; p b c -&gt; p a d
+forall (p :: * -&gt; * -&gt; *) a b c d.
+Profunctor p =&gt;
+(a -&gt; b) -&gt; (c -&gt; d) -&gt; p b c -&gt; p a d
+</span><span class="hs-identifier hs-var">dimap</span></span><span> </span><span class="annot"><span class="annottext">a -&gt; Either a d
+forall a b. a -&gt; Either a b
+</span><span class="hs-identifier hs-var">Left</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(Either b d -&gt; Maybe b) -&gt; f (Either b d) -&gt; f b
+forall a b. (a -&gt; Maybe b) -&gt; f a -&gt; f b
+forall (f :: * -&gt; *) a b.
+Filterable f =&gt;
+(a -&gt; Maybe b) -&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">mapMaybe</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(b -&gt; Maybe b) -&gt; (d -&gt; Maybe b) -&gt; Either b d -&gt; Maybe b
+forall a c b. (a -&gt; c) -&gt; (b -&gt; c) -&gt; Either a b -&gt; c
+</span><span class="hs-identifier hs-var">either</span></span><span> </span><span class="annot"><span class="annottext">b -&gt; Maybe b
+forall a. a -&gt; Maybe a
+</span><span class="hs-identifier hs-var">Just</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Maybe b -&gt; d -&gt; Maybe b
+forall a b. a -&gt; b -&gt; a
+</span><span class="hs-identifier hs-var">const</span></span><span> </span><span class="annot"><span class="annottext">Maybe b
+forall a. Maybe a
+</span><span class="hs-identifier hs-var">Nothing</span></span><span class="hs-special">)</span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">p (Either a d) (f (Either b d))
+</span><a href="#local-6989586621679289580"><span class="hs-identifier hs-var">p</span></a></span><span>
+</span><span id="line-49"></span><span>    </span><span id="local-6989586621679289586"><span class="annot"><span class="annottext">unright :: forall d a b.
+WrappedPafb f p (Either d a) (Either d b) -&gt; WrappedPafb f p a b
+</span><a href="#local-6989586621679289586"><span class="hs-identifier hs-var hs-var hs-var">unright</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">WrapPafb</span></span><span> </span><span id="local-6989586621679289588"><span class="annot"><span class="annottext">p (Either d a) (f (Either d b))
+</span><a href="#local-6989586621679289588"><span class="hs-identifier hs-var">p</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">p a (f b) -&gt; WrappedPafb f p a b
+forall (f :: * -&gt; *) (p :: * -&gt; * -&gt; *) a b.
+p a (f b) -&gt; WrappedPafb f p a b
+</span><span class="hs-identifier hs-var">WrapPafb</span></span><span> </span><span class="annot"><span class="annottext">(p a (f b) -&gt; WrappedPafb f p a b)
+-&gt; p a (f b) -&gt; WrappedPafb f p a b
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span>
+</span><span id="line-50"></span><span>      </span><span class="annot"><span class="annottext">(a -&gt; Either d a)
+-&gt; (f (Either d b) -&gt; f b)
+-&gt; p (Either d a) (f (Either d b))
+-&gt; p a (f b)
+forall a b c d. (a -&gt; b) -&gt; (c -&gt; d) -&gt; p b c -&gt; p a d
+forall (p :: * -&gt; * -&gt; *) a b c d.
+Profunctor p =&gt;
+(a -&gt; b) -&gt; (c -&gt; d) -&gt; p b c -&gt; p a d
+</span><span class="hs-identifier hs-var">dimap</span></span><span> </span><span class="annot"><span class="annottext">a -&gt; Either d a
+forall a b. b -&gt; Either a b
+</span><span class="hs-identifier hs-var">Right</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(Either d b -&gt; Maybe b) -&gt; f (Either d b) -&gt; f b
+forall a b. (a -&gt; Maybe b) -&gt; f a -&gt; f b
+forall (f :: * -&gt; *) a b.
+Filterable f =&gt;
+(a -&gt; Maybe b) -&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">mapMaybe</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(d -&gt; Maybe b) -&gt; (b -&gt; Maybe b) -&gt; Either d b -&gt; Maybe b
+forall a c b. (a -&gt; c) -&gt; (b -&gt; c) -&gt; Either a b -&gt; c
+</span><span class="hs-identifier hs-var">either</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Maybe b -&gt; d -&gt; Maybe b
+forall a b. a -&gt; b -&gt; a
+</span><span class="hs-identifier hs-var">const</span></span><span> </span><span class="annot"><span class="annottext">Maybe b
+forall a. Maybe a
+</span><span class="hs-identifier hs-var">Nothing</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">b -&gt; Maybe b
+forall a. a -&gt; Maybe a
+</span><span class="hs-identifier hs-var">Just</span></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">p (Either d a) (f (Either d b))
+</span><a href="#local-6989586621679289588"><span class="hs-identifier hs-var">p</span></a></span><span>
+</span><span id="line-51"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679289117"><span id="local-6989586621679289118"><span id="local-6989586621679289595"><span id="local-6989586621679289600"><span id="local-6989586621679289603"><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Profunctor</span></span><span> </span><span class="annot"><a href="#local-6989586621679289117"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Filterable</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679289117"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679289118"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-52"></span><span>  </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Filterable</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Yoneda</span></span><span> </span><span class="annot"><a href="#local-6989586621679289117"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679289118"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span></span></span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-53"></span><span>    </span><span id="local-6989586621679289612"><span class="annot"><span class="annottext">catMaybes :: forall a. Yoneda p a (Maybe a) -&gt; Yoneda p a a
+</span><span class="hs-identifier hs-var hs-var hs-var">catMaybes</span></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">p a a -&gt; Yoneda p a a
+p :-&gt; Yoneda p
+forall (p :: * -&gt; * -&gt; *). Profunctor p =&gt; p :-&gt; Yoneda p
+forall (t :: (* -&gt; * -&gt; *) -&gt; * -&gt; * -&gt; *) (p :: * -&gt; * -&gt; *).
+(ProfunctorMonad t, Profunctor p) =&gt;
+p :-&gt; t p
+</span><span class="hs-identifier hs-var">proreturn</span></span><span> </span><span class="annot"><span class="annottext">(p a a -&gt; Yoneda p a a)
+-&gt; (Yoneda p a (Maybe a) -&gt; p a a)
+-&gt; Yoneda p a (Maybe a)
+-&gt; Yoneda p a a
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">p a (Maybe a) -&gt; p a a
+forall a. p a (Maybe a) -&gt; p a a
+forall (f :: * -&gt; *) a. Filterable f =&gt; f (Maybe a) -&gt; f a
+</span><span class="hs-identifier hs-var">catMaybes</span></span><span> </span><span class="annot"><span class="annottext">(p a (Maybe a) -&gt; p a a)
+-&gt; (Yoneda p a (Maybe a) -&gt; p a (Maybe a))
+-&gt; Yoneda p a (Maybe a)
+-&gt; p a a
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Yoneda p a (Maybe a) -&gt; p a (Maybe a)
+Yoneda p :-&gt; p
+forall (p :: * -&gt; * -&gt; *). Profunctor p =&gt; Yoneda p :-&gt; p
+forall (t :: (* -&gt; * -&gt; *) -&gt; * -&gt; * -&gt; *) (p :: * -&gt; * -&gt; *).
+(ProfunctorComonad t, Profunctor p) =&gt;
+t p :-&gt; p
+</span><span class="hs-identifier hs-var">proextract</span></span><span>
+</span><span id="line-54"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679289135"><span id="local-6989586621679289136"><span id="local-6989586621679289622"><span id="local-6989586621679289627"><span id="local-6989586621679289630"><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Profunctor</span></span><span> </span><span class="annot"><a href="#local-6989586621679289135"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Filterable</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679289135"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679289136"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-55"></span><span>  </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Filterable</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Coyoneda</span></span><span> </span><span class="annot"><a href="#local-6989586621679289135"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679289136"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span></span></span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-56"></span><span>    </span><span id="local-6989586621679289639"><span class="annot"><span class="annottext">catMaybes :: forall a. Coyoneda p a (Maybe a) -&gt; Coyoneda p a a
+</span><span class="hs-identifier hs-var hs-var hs-var">catMaybes</span></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">p a a -&gt; Coyoneda p a a
+p :-&gt; Coyoneda p
+forall (p :: * -&gt; * -&gt; *). Profunctor p =&gt; p :-&gt; Coyoneda p
+forall (t :: (* -&gt; * -&gt; *) -&gt; * -&gt; * -&gt; *) (p :: * -&gt; * -&gt; *).
+(ProfunctorMonad t, Profunctor p) =&gt;
+p :-&gt; t p
+</span><span class="hs-identifier hs-var">proreturn</span></span><span> </span><span class="annot"><span class="annottext">(p a a -&gt; Coyoneda p a a)
+-&gt; (Coyoneda p a (Maybe a) -&gt; p a a)
+-&gt; Coyoneda p a (Maybe a)
+-&gt; Coyoneda p a a
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">p a (Maybe a) -&gt; p a a
+forall a. p a (Maybe a) -&gt; p a a
+forall (f :: * -&gt; *) a. Filterable f =&gt; f (Maybe a) -&gt; f a
+</span><span class="hs-identifier hs-var">catMaybes</span></span><span> </span><span class="annot"><span class="annottext">(p a (Maybe a) -&gt; p a a)
+-&gt; (Coyoneda p a (Maybe a) -&gt; p a (Maybe a))
+-&gt; Coyoneda p a (Maybe a)
+-&gt; p a a
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Coyoneda p a (Maybe a) -&gt; p a (Maybe a)
+Coyoneda p :-&gt; p
+forall (p :: * -&gt; * -&gt; *). Profunctor p =&gt; Coyoneda p :-&gt; p
+forall (t :: (* -&gt; * -&gt; *) -&gt; * -&gt; * -&gt; *) (p :: * -&gt; * -&gt; *).
+(ProfunctorComonad t, Profunctor p) =&gt;
+t p :-&gt; p
+</span><span class="hs-identifier hs-var">proextract</span></span><span>
+</span><span id="line-57"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679289143"><span id="local-6989586621679289144"><span id="local-6989586621679289646"><span id="local-6989586621679289651"><span id="local-6989586621679289654"><span class="annot"><span class="hs-identifier hs-type">Filterable</span></span><span> </span><span class="annot"><a href="#local-6989586621679289143"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Filterable</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Star</span></span><span> </span><span class="annot"><a href="#local-6989586621679289143"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679289144"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span></span></span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-58"></span><span>  </span><span id="local-6989586621679289657"><span class="annot"><span class="annottext">catMaybes :: forall a. Star f a (Maybe a) -&gt; Star f a a
+</span><span class="hs-identifier hs-var hs-var hs-var">catMaybes</span></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Star</span></span><span> </span><span id="local-6989586621679289659"><span class="annot"><span class="annottext">a -&gt; f (Maybe a)
+</span><a href="#local-6989586621679289659"><span class="hs-identifier hs-var">f</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(a -&gt; f a) -&gt; Star f a a
+forall {k} (f :: k -&gt; *) d (c :: k). (d -&gt; f c) -&gt; Star f d c
+</span><span class="hs-identifier hs-var">Star</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">f (Maybe a) -&gt; f a
+forall a. f (Maybe a) -&gt; f a
+forall (f :: * -&gt; *) a. Filterable f =&gt; f (Maybe a) -&gt; f a
+</span><span class="hs-identifier hs-var">catMaybes</span></span><span> </span><span class="annot"><span class="annottext">(f (Maybe a) -&gt; f a) -&gt; (a -&gt; f (Maybe a)) -&gt; a -&gt; f a
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">a -&gt; f (Maybe a)
+</span><a href="#local-6989586621679289659"><span class="hs-identifier hs-var">f</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-59"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679289167"><span id="local-6989586621679289168"><span id="local-6989586621679289667"><span id="local-6989586621679289671"><span id="local-6989586621679289674"><span class="annot"><span class="hs-identifier hs-type">Monoid</span></span><span> </span><span class="annot"><a href="#local-6989586621679289167"><span class="hs-identifier hs-type">r</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Applicative</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Forget</span></span><span> </span><span class="annot"><a href="#local-6989586621679289167"><span class="hs-identifier hs-type">r</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679289168"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span></span></span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-60"></span><span>  </span><span id="local-6989586621679289681"><span class="annot"><span class="annottext">pure :: forall a. a -&gt; Forget r a a
+</span><span class="hs-identifier hs-var hs-var hs-var">pure</span></span></span><span> </span><span class="annot"><span class="annottext">a
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(a -&gt; r) -&gt; Forget r a a
+forall {k} r a (b :: k). (a -&gt; r) -&gt; Forget r a b
+</span><span class="hs-identifier hs-var">Forget</span></span><span> </span><span class="annot"><span class="annottext">a -&gt; r
+forall a. Monoid a =&gt; a
+</span><span class="hs-identifier hs-var">mempty</span></span><span>
+</span><span id="line-61"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">Forget</span></span><span> </span><span id="local-6989586621679289685"><span class="annot"><span class="annottext">a -&gt; r
+</span><a href="#local-6989586621679289685"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span id="local-6989586621679289686"><span class="annot"><span class="annottext">&lt;*&gt; :: forall a b. Forget r a (a -&gt; b) -&gt; Forget r a a -&gt; Forget r a b
+</span><span class="hs-operator hs-var hs-var hs-var">&lt;*&gt;</span></span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Forget</span></span><span> </span><span id="local-6989586621679289687"><span class="annot"><span class="annottext">a -&gt; r
+</span><a href="#local-6989586621679289687"><span class="hs-identifier hs-var">g</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(a -&gt; r) -&gt; Forget r a b
+forall {k} r a (b :: k). (a -&gt; r) -&gt; Forget r a b
+</span><span class="hs-identifier hs-var">Forget</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">a -&gt; r
+</span><a href="#local-6989586621679289685"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">(a -&gt; r) -&gt; (a -&gt; r) -&gt; a -&gt; r
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">a -&gt; r
+</span><a href="#local-6989586621679289687"><span class="hs-identifier hs-var">g</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-62"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679289183"><span id="local-6989586621679289184"><span id="local-6989586621679289691"><span id="local-6989586621679289696"><span id="local-6989586621679289699"><span class="annot"><span class="hs-identifier hs-type">Filterable</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Forget</span></span><span> </span><span class="annot"><a href="#local-6989586621679289183"><span class="hs-identifier hs-type">r</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679289184"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span></span></span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-63"></span><span>  </span><span id="local-6989586621679289701"><span class="annot"><span class="annottext">catMaybes :: forall a. Forget r a (Maybe a) -&gt; Forget r a a
+</span><span class="hs-identifier hs-var hs-var hs-var">catMaybes</span></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Forget</span></span><span> </span><span id="local-6989586621679289702"><span class="annot"><span class="annottext">a -&gt; r
+</span><a href="#local-6989586621679289702"><span class="hs-identifier hs-var">f</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(a -&gt; r) -&gt; Forget r a a
+forall {k} r a (b :: k). (a -&gt; r) -&gt; Forget r a b
+</span><span class="hs-identifier hs-var">Forget</span></span><span> </span><span class="annot"><span class="annottext">a -&gt; r
+</span><a href="#local-6989586621679289702"><span class="hs-identifier hs-var">f</span></a></span><span>
+</span><span id="line-64"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679289195"><span id="local-6989586621679289196"><span id="local-6989586621679289710"><span id="local-6989586621679289714"><span id="local-6989586621679289717"><span class="annot"><span class="hs-identifier hs-type">Decidable</span></span><span> </span><span class="annot"><a href="#local-6989586621679289195"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Applicative</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Clown</span></span><span> </span><span class="annot"><a href="#local-6989586621679289195"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679289196"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span></span></span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-65"></span><span>  </span><span id="local-6989586621679289722"><span class="annot"><span class="annottext">pure :: forall a. a -&gt; Clown f a a
+</span><span class="hs-identifier hs-var hs-var hs-var">pure</span></span></span><span> </span><span class="annot"><span class="annottext">a
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">f a -&gt; Clown f a a
+forall {k} {k1} (f :: k -&gt; *) (a :: k) (b :: k1).
+f a -&gt; Clown f a b
+</span><span class="hs-identifier hs-var">Clown</span></span><span> </span><span class="annot"><span class="annottext">f a
+forall a. f a
+forall (f :: * -&gt; *) a. Divisible f =&gt; f a
+</span><span class="hs-identifier hs-var">conquer</span></span><span>
+</span><span id="line-66"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">Clown</span></span><span> </span><span id="local-6989586621679289728"><span class="annot"><span class="annottext">f a
+</span><a href="#local-6989586621679289728"><span class="hs-identifier hs-var">x</span></a></span></span><span> </span><span id="local-6989586621679289729"><span class="annot"><span class="annottext">&lt;*&gt; :: forall a b. Clown f a (a -&gt; b) -&gt; Clown f a a -&gt; Clown f a b
+</span><span class="hs-operator hs-var hs-var hs-var">&lt;*&gt;</span></span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Clown</span></span><span> </span><span id="local-6989586621679289730"><span class="annot"><span class="annottext">f a
+</span><a href="#local-6989586621679289730"><span class="hs-identifier hs-var">y</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">f a -&gt; Clown f a b
+forall {k} {k1} (f :: k -&gt; *) (a :: k) (b :: k1).
+f a -&gt; Clown f a b
+</span><span class="hs-identifier hs-var">Clown</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(a -&gt; (a, a)) -&gt; f a -&gt; f a -&gt; f a
+forall a b c. (a -&gt; (b, c)) -&gt; f b -&gt; f c -&gt; f a
+forall (f :: * -&gt; *) a b c.
+Divisible f =&gt;
+(a -&gt; (b, c)) -&gt; f b -&gt; f c -&gt; f a
+</span><span class="hs-identifier hs-var">divide</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">a -&gt; a
+forall a. a -&gt; a
+</span><span class="hs-identifier hs-var">id</span></span><span> </span><span class="annot"><span class="annottext">(a -&gt; a) -&gt; (a -&gt; a) -&gt; a -&gt; (a, a)
+forall b c c'. (b -&gt; c) -&gt; (b -&gt; c') -&gt; b -&gt; (c, c')
+forall (a :: * -&gt; * -&gt; *) b c c'.
+Arrow a =&gt;
+a b c -&gt; a b c' -&gt; a b (c, c')
+</span><span class="hs-operator hs-var">&amp;&amp;&amp;</span></span><span> </span><span class="annot"><span class="annottext">a -&gt; a
+forall a. a -&gt; a
+</span><span class="hs-identifier hs-var">id</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">f a
+</span><a href="#local-6989586621679289728"><span class="hs-identifier hs-var">x</span></a></span><span> </span><span class="annot"><span class="annottext">f a
+</span><a href="#local-6989586621679289730"><span class="hs-identifier hs-var">y</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-67"></span><span id="local-6989586621679289740"><span id="local-6989586621679289744"><span id="local-6989586621679289748"><span id="local-6989586621679289752"><span id="local-6989586621679289756"><span class="hs-keyword">deriving</span><span> </span><span id="local-6989586621679289232"><span id="local-6989586621679289233"><span class="annot"><a href="#local-6989586621679289232"><span class="hs-keyword hs-type hs-type">newtype</span></a></span></span></span><span> </span><span class="hs-keyword">instance</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Applicative</span></span><span> </span><span class="annot"><a href="#local-6989586621679289232"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Applicative</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Joker</span></span><span> </span><span class="annot"><a href="#local-6989586621679289232"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679289233"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span></span></span></span></span></span><span>
+</span><span id="line-68"></span><span id="local-6989586621679289768"><span id="local-6989586621679289772"><span id="local-6989586621679289776"><span id="local-6989586621679289780"><span class="hs-keyword">deriving</span><span> </span><span id="local-6989586621679289245"><span id="local-6989586621679289246"><span class="annot"><a href="#local-6989586621679289245"><span class="hs-keyword hs-type hs-type">newtype</span></a></span></span></span><span> </span><span class="hs-keyword">instance</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Alternative</span></span><span> </span><span class="annot"><a href="#local-6989586621679289245"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Alternative</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Joker</span></span><span> </span><span class="annot"><a href="#local-6989586621679289245"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679289246"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span></span></span></span></span><span>
+</span><span id="line-69"></span><span id="local-6989586621679289795"><span id="local-6989586621679289799"><span id="local-6989586621679289803"><span id="local-6989586621679289807"><span class="hs-keyword">deriving</span><span> </span><span id="local-6989586621679289255"><span id="local-6989586621679289256"><span class="annot"><a href="#local-6989586621679289255"><span class="hs-keyword hs-type hs-type">newtype</span></a></span></span></span><span> </span><span class="hs-keyword">instance</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Filterable</span></span><span> </span><span class="annot"><a href="#local-6989586621679289255"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Filterable</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Joker</span></span><span> </span><span class="annot"><a href="#local-6989586621679289255"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679289256"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span></span></span></span></span><span>
+</span><span id="line-70"></span><span id="local-6989586621679289816"><span id="local-6989586621679289820"><span id="local-6989586621679289824"><span class="hs-keyword">deriving</span><span> </span><span id="local-6989586621679289270"><span id="local-6989586621679289271"><span class="annot"><a href="#local-6989586621679289270"><span class="hs-keyword hs-type hs-type">newtype</span></a></span></span></span><span> </span><span class="hs-keyword">instance</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Monad</span></span><span> </span><span class="annot"><a href="#local-6989586621679289270"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Monad</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Joker</span></span><span> </span><span class="annot"><a href="#local-6989586621679289270"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679289271"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span></span></span></span><span>
+</span><span id="line-71"></span><span id="local-6989586621679289835"><span class="hs-keyword">deriving</span><span> </span><span id="local-6989586621679289277"><span id="local-6989586621679289278"><span class="annot"><a href="#local-6989586621679289277"><span class="hs-keyword hs-type hs-type">newtype</span></a></span></span></span><span> </span><span class="hs-keyword">instance</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadFail</span></span><span> </span><span class="annot"><a href="#local-6989586621679289277"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadFail</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Joker</span></span><span> </span><span class="annot"><a href="#local-6989586621679289277"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679289278"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span></span><span>
+</span><span id="line-72"></span><span id="local-6989586621679289849"><span id="local-6989586621679289853"><span class="hs-keyword">deriving</span><span> </span><span id="local-6989586621679289287"><span id="local-6989586621679289288"><span class="annot"><a href="#local-6989586621679289287"><span class="hs-keyword hs-type hs-type">newtype</span></a></span></span></span><span> </span><span class="hs-keyword">instance</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadPlus</span></span><span> </span><span class="annot"><a href="#local-6989586621679289287"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadPlus</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Joker</span></span><span> </span><span class="annot"><a href="#local-6989586621679289287"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679289288"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span></span></span><span>
+</span><span id="line-73"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679289291"><span class="annot"><span class="hs-identifier hs-type">Filterable</span></span><span> </span><span class="annot"><a href="#local-6989586621679289291"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Cochoice</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Joker</span></span><span> </span><span class="annot"><a href="#local-6989586621679289291"><span class="hs-identifier hs-type">f</span></a></span><span class="hs-special">)</span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-74"></span><span>  </span><span id="local-6989586621679289871"><span class="annot"><span class="annottext">unleft :: forall a d b. Joker f (Either a d) (Either b d) -&gt; Joker f a b
+</span><span class="hs-identifier hs-var hs-var hs-var">unleft</span></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Joker</span></span><span> </span><span id="local-6989586621679289873"><span class="annot"><span class="annottext">f (Either b d)
+</span><a href="#local-6989586621679289873"><span class="hs-identifier hs-var">x</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">f b -&gt; Joker f a b
+forall {k} {k1} (g :: k -&gt; *) (a :: k1) (b :: k).
+g b -&gt; Joker g a b
+</span><span class="hs-identifier hs-var">Joker</span></span><span>
+</span><span id="line-75"></span><span>    </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(Either b d -&gt; Maybe b) -&gt; f (Either b d) -&gt; f b
+forall a b. (a -&gt; Maybe b) -&gt; f a -&gt; f b
+forall (f :: * -&gt; *) a b.
+Filterable f =&gt;
+(a -&gt; Maybe b) -&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">mapMaybe</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(b -&gt; Maybe b) -&gt; (d -&gt; Maybe b) -&gt; Either b d -&gt; Maybe b
+forall a c b. (a -&gt; c) -&gt; (b -&gt; c) -&gt; Either a b -&gt; c
+</span><span class="hs-identifier hs-var">either</span></span><span> </span><span class="annot"><span class="annottext">b -&gt; Maybe b
+forall a. a -&gt; Maybe a
+</span><span class="hs-identifier hs-var">Just</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Maybe b -&gt; d -&gt; Maybe b
+forall a b. a -&gt; b -&gt; a
+</span><span class="hs-identifier hs-var">const</span></span><span> </span><span class="annot"><span class="annottext">Maybe b
+forall a. Maybe a
+</span><span class="hs-identifier hs-var">Nothing</span></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">f (Either b d)
+</span><a href="#local-6989586621679289873"><span class="hs-identifier hs-var">x</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-76"></span><span>  </span><span id="local-6989586621679289875"><span class="annot"><span class="annottext">unright :: forall d a b. Joker f (Either d a) (Either d b) -&gt; Joker f a b
+</span><span class="hs-identifier hs-var hs-var hs-var">unright</span></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Joker</span></span><span> </span><span id="local-6989586621679289876"><span class="annot"><span class="annottext">f (Either d b)
+</span><a href="#local-6989586621679289876"><span class="hs-identifier hs-var">x</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">f b -&gt; Joker f a b
+forall {k} {k1} (g :: k -&gt; *) (a :: k1) (b :: k).
+g b -&gt; Joker g a b
+</span><span class="hs-identifier hs-var">Joker</span></span><span>
+</span><span id="line-77"></span><span>    </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(Either d b -&gt; Maybe b) -&gt; f (Either d b) -&gt; f b
+forall a b. (a -&gt; Maybe b) -&gt; f a -&gt; f b
+forall (f :: * -&gt; *) a b.
+Filterable f =&gt;
+(a -&gt; Maybe b) -&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">mapMaybe</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(d -&gt; Maybe b) -&gt; (b -&gt; Maybe b) -&gt; Either d b -&gt; Maybe b
+forall a c b. (a -&gt; c) -&gt; (b -&gt; c) -&gt; Either a b -&gt; c
+</span><span class="hs-identifier hs-var">either</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Maybe b -&gt; d -&gt; Maybe b
+forall a b. a -&gt; b -&gt; a
+</span><span class="hs-identifier hs-var">const</span></span><span> </span><span class="annot"><span class="annottext">Maybe b
+forall a. Maybe a
+</span><span class="hs-identifier hs-var">Nothing</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">b -&gt; Maybe b
+forall a. a -&gt; Maybe a
+</span><span class="hs-identifier hs-var">Just</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">f (Either d b)
+</span><a href="#local-6989586621679289876"><span class="hs-identifier hs-var">x</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-78"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679289881"><span id="local-6989586621679289886"><span id="local-6989586621679289889"><span class="annot"><span class="hs-identifier hs-type">Filterable</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">ReadP</span></span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-79"></span><span>  </span><span id="local-6989586621679289897"><span class="annot"><span class="annottext">catMaybes :: forall a. ReadP (Maybe a) -&gt; ReadP a
+</span><span class="hs-identifier hs-var hs-var hs-var">catMaybes</span></span></span><span> </span><span id="local-6989586621679289898"><span class="annot"><span class="annottext">ReadP (Maybe a)
+</span><a href="#local-6989586621679289898"><span class="hs-identifier hs-var">m</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ReadP (Maybe a)
+</span><a href="#local-6989586621679289898"><span class="hs-identifier hs-var">m</span></a></span><span> </span><span class="annot"><span class="annottext">ReadP (Maybe a) -&gt; (Maybe a -&gt; ReadP a) -&gt; ReadP a
+forall a b. ReadP a -&gt; (a -&gt; ReadP b) -&gt; ReadP b
+forall (m :: * -&gt; *) a b. Monad m =&gt; m a -&gt; (a -&gt; m b) -&gt; m b
+</span><span class="hs-operator hs-var">&gt;&gt;=</span></span><span> </span><span class="annot"><span class="annottext">ReadP a -&gt; (a -&gt; ReadP a) -&gt; Maybe a -&gt; ReadP a
+forall b a. b -&gt; (a -&gt; b) -&gt; Maybe a -&gt; b
+</span><span class="hs-identifier hs-var">maybe</span></span><span> </span><span class="annot"><span class="annottext">ReadP a
+forall a. ReadP a
+forall (f :: * -&gt; *) a. Alternative f =&gt; f a
+</span><span class="hs-identifier hs-var">empty</span></span><span> </span><span class="annot"><span class="annottext">a -&gt; ReadP a
+forall a. a -&gt; ReadP a
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><span class="hs-identifier hs-var">pure</span></span><span>
+</span><span id="line-80"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679289904"><span id="local-6989586621679289909"><span id="local-6989586621679289912"><span class="annot"><span class="hs-identifier hs-type">Filterable</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">ReadPrec</span></span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-81"></span><span>  </span><span id="local-6989586621679289920"><span class="annot"><span class="annottext">catMaybes :: forall a. ReadPrec (Maybe a) -&gt; ReadPrec a
+</span><span class="hs-identifier hs-var hs-var hs-var">catMaybes</span></span></span><span> </span><span id="local-6989586621679289921"><span class="annot"><span class="annottext">ReadPrec (Maybe a)
+</span><a href="#local-6989586621679289921"><span class="hs-identifier hs-var">m</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ReadPrec (Maybe a)
+</span><a href="#local-6989586621679289921"><span class="hs-identifier hs-var">m</span></a></span><span> </span><span class="annot"><span class="annottext">ReadPrec (Maybe a) -&gt; (Maybe a -&gt; ReadPrec a) -&gt; ReadPrec a
+forall a b. ReadPrec a -&gt; (a -&gt; ReadPrec b) -&gt; ReadPrec b
+forall (m :: * -&gt; *) a b. Monad m =&gt; m a -&gt; (a -&gt; m b) -&gt; m b
+</span><span class="hs-operator hs-var">&gt;&gt;=</span></span><span> </span><span class="annot"><span class="annottext">ReadPrec a -&gt; (a -&gt; ReadPrec a) -&gt; Maybe a -&gt; ReadPrec a
+forall b a. b -&gt; (a -&gt; b) -&gt; Maybe a -&gt; b
+</span><span class="hs-identifier hs-var">maybe</span></span><span> </span><span class="annot"><span class="annottext">ReadPrec a
+forall a. ReadPrec a
+forall (f :: * -&gt; *) a. Alternative f =&gt; f a
+</span><span class="hs-identifier hs-var">empty</span></span><span> </span><span class="annot"><span class="annottext">a -&gt; ReadPrec a
+forall a. a -&gt; ReadPrec a
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><span class="hs-identifier hs-var">pure</span></span><span>
+</span><span id="line-82"></span><span id="local-6989586621679289929"><span id="local-6989586621679289934"><span id="local-6989586621679289938"><span id="local-6989586621679289942"><span id="local-6989586621679289946"><span class="hs-keyword">deriving</span><span> </span><span class="hs-keyword">via</span><span> </span><span id="local-6989586621679289324"><span id="local-6989586621679289325"><span id="local-6989586621679289326"><span class="annot"><span class="hs-identifier hs-type">Compose</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679289324"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679289325"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621679289326"><span class="hs-identifier hs-type">f</span></a></span></span></span></span><span> </span><span class="hs-keyword">instance</span><span>
+</span><span id="line-83"></span><span>  </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Profunctor</span></span><span> </span><span class="annot"><a href="#local-6989586621679289324"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Applicative</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679289324"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679289325"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Applicative</span></span><span> </span><span class="annot"><a href="#local-6989586621679289326"><span class="hs-identifier hs-type">f</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-84"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Applicative</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">WrappedPafb</span></span><span> </span><span class="annot"><a href="#local-6989586621679289326"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679289324"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679289325"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span></span></span></span></span></span><span>
+</span><span id="line-85"></span><span id="local-6989586621679289957"><span id="local-6989586621679289962"><span id="local-6989586621679289966"><span id="local-6989586621679289970"><span class="hs-keyword">deriving</span><span> </span><span class="hs-keyword">via</span><span> </span><span id="local-6989586621679289336"><span id="local-6989586621679289337"><span id="local-6989586621679289338"><span class="annot"><span class="hs-identifier hs-type">Compose</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679289336"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679289337"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621679289338"><span class="hs-identifier hs-type">f</span></a></span></span></span></span><span> </span><span class="hs-keyword">instance</span><span>
+</span><span id="line-86"></span><span>  </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Profunctor</span></span><span> </span><span class="annot"><a href="#local-6989586621679289336"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Alternative</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679289336"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679289337"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Applicative</span></span><span> </span><span class="annot"><a href="#local-6989586621679289338"><span class="hs-identifier hs-type">f</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-87"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Alternative</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">WrappedPafb</span></span><span> </span><span class="annot"><a href="#local-6989586621679289338"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679289336"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679289337"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span></span></span></span></span><span>
+</span><span id="line-88"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679289348"><span id="local-6989586621679289349"><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Closed</span></span><span> </span><span class="annot"><a href="#local-6989586621679289348"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Distributive</span></span><span> </span><span class="annot"><a href="#local-6989586621679289349"><span class="hs-identifier hs-type">f</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-89"></span><span>  </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Closed</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">WrappedPafb</span></span><span> </span><span class="annot"><a href="#local-6989586621679289349"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679289348"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">)</span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-90"></span><span>    </span><span id="local-6989586621679289990"><span class="annot"><span class="annottext">closed :: forall a b x.
+WrappedPafb f p a b -&gt; WrappedPafb f p (x -&gt; a) (x -&gt; b)
+</span><a href="#local-6989586621679289990"><span class="hs-identifier hs-var hs-var hs-var">closed</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">WrapPafb</span></span><span> </span><span id="local-6989586621679289992"><span class="annot"><span class="annottext">p a (f b)
+</span><a href="#local-6989586621679289992"><span class="hs-identifier hs-var">p</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">p (x -&gt; a) (f (x -&gt; b)) -&gt; WrappedPafb f p (x -&gt; a) (x -&gt; b)
+forall (f :: * -&gt; *) (p :: * -&gt; * -&gt; *) a b.
+p a (f b) -&gt; WrappedPafb f p a b
+</span><span class="hs-identifier hs-var">WrapPafb</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">((x -&gt; f b) -&gt; f (x -&gt; b))
+-&gt; p (x -&gt; a) (x -&gt; f b) -&gt; p (x -&gt; a) (f (x -&gt; b))
+forall b c a. (b -&gt; c) -&gt; p a b -&gt; p a c
+forall (p :: * -&gt; * -&gt; *) b c a.
+Profunctor p =&gt;
+(b -&gt; c) -&gt; p a b -&gt; p a c
+</span><span class="hs-identifier hs-var">rmap</span></span><span> </span><span class="annot"><span class="annottext">(x -&gt; f b) -&gt; f (x -&gt; b)
+forall (g :: * -&gt; *) (f :: * -&gt; *) a.
+(Distributive g, Functor f) =&gt;
+f (g a) -&gt; g (f a)
+forall (f :: * -&gt; *) a. Functor f =&gt; f (f a) -&gt; f (f a)
+</span><span class="hs-identifier hs-var">distribute</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">p a (f b) -&gt; p (x -&gt; a) (x -&gt; f b)
+forall a b x. p a b -&gt; p (x -&gt; a) (x -&gt; b)
+forall (p :: * -&gt; * -&gt; *) a b x.
+Closed p =&gt;
+p a b -&gt; p (x -&gt; a) (x -&gt; b)
+</span><span class="hs-identifier hs-var">closed</span></span><span> </span><span class="annot"><span class="annottext">p a (f b)
+</span><a href="#local-6989586621679289992"><span class="hs-identifier hs-var">p</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-91"></span><span id="local-6989586621679289996"><span id="local-6989586621679290001"><span class="hs-keyword">deriving</span><span> </span><span class="hs-keyword">via</span><span> </span><span id="local-6989586621679289366"><span id="local-6989586621679289367"><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Ap.WrappedArrow</span></span><span> </span><span class="annot"><a href="#local-6989586621679289366"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679289367"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span></span></span><span> </span><span class="hs-keyword">instance</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Arrow</span></span><span> </span><span class="annot"><a href="#local-6989586621679289366"><span class="hs-identifier hs-type">p</span></a></span><span>
+</span><span id="line-92"></span><span>  </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Functor</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Pro.WrappedArrow</span></span><span> </span><span class="annot"><a href="#local-6989586621679289366"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679289367"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span></span></span><span>
+</span><span id="line-93"></span><span id="local-6989586621679290010"><span id="local-6989586621679290015"><span id="local-6989586621679290019"><span id="local-6989586621679290023"><span id="local-6989586621679290027"><span class="hs-keyword">deriving</span><span> </span><span class="hs-keyword">via</span><span> </span><span id="local-6989586621679289382"><span id="local-6989586621679289383"><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Ap.WrappedArrow</span></span><span> </span><span class="annot"><a href="#local-6989586621679289382"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679289383"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span></span></span><span> </span><span class="hs-keyword">instance</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Arrow</span></span><span> </span><span class="annot"><a href="#local-6989586621679289382"><span class="hs-identifier hs-type">p</span></a></span><span>
+</span><span id="line-94"></span><span>  </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Applicative</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Pro.WrappedArrow</span></span><span> </span><span class="annot"><a href="#local-6989586621679289382"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679289383"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span></span></span></span></span></span><span>
+</span><span id="line-95"></span><span id="local-6989586621679290033"><span id="local-6989586621679290038"><span id="local-6989586621679290042"><span id="local-6989586621679290046"><span id="local-6989586621679290053"><span class="hs-keyword">deriving</span><span> </span><span class="hs-keyword">via</span><span> </span><span id="local-6989586621679289415"><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Pro.WrappedArrow</span></span><span> </span><span class="annot"><a href="#local-6989586621679289415"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">)</span></span><span> </span><span class="hs-keyword">instance</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Arrow</span></span><span> </span><span class="annot"><a href="#local-6989586621679289415"><span class="hs-identifier hs-type">p</span></a></span><span>
+</span><span id="line-96"></span><span>  </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Profunctor</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Ap.WrappedArrow</span></span><span> </span><span class="annot"><a href="#local-6989586621679289415"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">)</span></span></span></span></span></span><span>
+</span><span id="line-97"></span><span class="hs-keyword">instance</span><span>
+</span><span id="line-98"></span><span>  </span><span id="local-6989586621679289425"><span id="local-6989586621679289426"><span id="local-6989586621679289427"><span id="local-6989586621679290074"><span id="local-6989586621679290079"><span id="local-6989586621679290083"><span class="hs-special">(</span><span> </span><span class="hs-keyword">forall</span><span> </span><span id="local-6989586621679289420"><span class="annot"><a href="#local-6989586621679289420"><span class="hs-identifier hs-type">x</span></a></span></span><span class="hs-operator">.</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Applicative</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679289425"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679289420"><span class="hs-identifier hs-type">x</span></a></span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Profunctor</span></span><span> </span><span class="annot"><a href="#local-6989586621679289425"><span class="hs-identifier hs-type">p</span></a></span><span>
+</span><span id="line-99"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Applicative</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679289426"><span class="hs-identifier hs-type">q</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679289427"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Profunctor</span></span><span> </span><span class="annot"><a href="#local-6989586621679289426"><span class="hs-identifier hs-type">q</span></a></span><span>
+</span><span id="line-100"></span><span>  </span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Applicative</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Procompose</span></span><span> </span><span class="annot"><a href="#local-6989586621679289425"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679289426"><span class="hs-identifier hs-type">q</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679289427"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span></span></span></span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-101"></span><span>    </span><span id="local-6989586621679290088"><span class="annot"><span class="annottext">pure :: forall a. a -&gt; Procompose p q a a
+</span><span class="hs-identifier hs-var hs-var hs-var">pure</span></span></span><span> </span><span id="local-6989586621679290089"><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679290089"><span class="hs-identifier hs-var">b</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">p a a -&gt; q a a -&gt; Procompose p q a a
+forall {k} {k1} {k2} (p :: k -&gt; k1 -&gt; *) (x :: k) (c :: k1)
+       (q :: k2 -&gt; k -&gt; *) (d :: k2).
+p x c -&gt; q d x -&gt; Procompose p q d c
+</span><span class="hs-identifier hs-var">Procompose</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">a -&gt; p a a
+forall a. a -&gt; p a a
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><span class="hs-identifier hs-var">pure</span></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679290089"><span class="hs-identifier hs-var">b</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">a -&gt; q a a
+forall a. a -&gt; q a a
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><span class="hs-identifier hs-var">pure</span></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679290089"><span class="hs-identifier hs-var">b</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-102"></span><span>    </span><span class="annot"><span class="hs-identifier hs-type">Procompose</span></span><span> </span><span id="local-6989586621679290091"><span class="annot"><span class="annottext">p x (a -&gt; b)
+</span><a href="#local-6989586621679290091"><span class="hs-identifier hs-var">wb</span></a></span></span><span> </span><span id="local-6989586621679290092"><span class="annot"><span class="annottext">q a x
+</span><a href="#local-6989586621679290092"><span class="hs-identifier hs-var">aw</span></a></span></span><span> </span><span id="local-6989586621679290093"><span class="annot"><span class="annottext">&lt;*&gt; :: forall a b.
+Procompose p q a (a -&gt; b)
+-&gt; Procompose p q a a -&gt; Procompose p q a b
+</span><span class="hs-operator hs-var hs-var hs-var">&lt;*&gt;</span></span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Procompose</span></span><span> </span><span id="local-6989586621679290098"><span class="annot"><span class="annottext">p x a
+</span><a href="#local-6989586621679290098"><span class="hs-identifier hs-var">vb</span></a></span></span><span> </span><span id="local-6989586621679290099"><span class="annot"><span class="annottext">q a x
+</span><a href="#local-6989586621679290099"><span class="hs-identifier hs-var">av</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">p (x, x) b -&gt; q a (x, x) -&gt; Procompose p q a b
+forall {k} {k1} {k2} (p :: k -&gt; k1 -&gt; *) (x :: k) (c :: k1)
+       (q :: k2 -&gt; k -&gt; *) (d :: k2).
+p x c -&gt; q d x -&gt; Procompose p q d c
+</span><span class="hs-identifier hs-var">Procompose</span></span><span>
+</span><span id="line-103"></span><span>      </span><span class="hs-special">(</span><span class="annot"><span class="annottext">((a -&gt; b) -&gt; a -&gt; b)
+-&gt; p (x, x) (a -&gt; b) -&gt; p (x, x) a -&gt; p (x, x) b
+forall a b c.
+(a -&gt; b -&gt; c) -&gt; p (x, x) a -&gt; p (x, x) b -&gt; p (x, x) c
+forall (f :: * -&gt; *) a b c.
+Applicative f =&gt;
+(a -&gt; b -&gt; c) -&gt; f a -&gt; f b -&gt; f c
+</span><span class="hs-identifier hs-var">liftA2</span></span><span> </span><span class="annot"><span class="annottext">(a -&gt; b) -&gt; a -&gt; b
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">($)</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">((x, x) -&gt; x) -&gt; p x (a -&gt; b) -&gt; p (x, x) (a -&gt; b)
+forall a b c. (a -&gt; b) -&gt; p b c -&gt; p a c
+forall (p :: * -&gt; * -&gt; *) a b c.
+Profunctor p =&gt;
+(a -&gt; b) -&gt; p b c -&gt; p a c
+</span><span class="hs-identifier hs-var">lmap</span></span><span> </span><span class="annot"><span class="annottext">(x, x) -&gt; x
+forall a b. (a, b) -&gt; a
+</span><span class="hs-identifier hs-var">fst</span></span><span> </span><span class="annot"><span class="annottext">p x (a -&gt; b)
+</span><a href="#local-6989586621679290091"><span class="hs-identifier hs-var">wb</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">((x, x) -&gt; x) -&gt; p x a -&gt; p (x, x) a
+forall a b c. (a -&gt; b) -&gt; p b c -&gt; p a c
+forall (p :: * -&gt; * -&gt; *) a b c.
+Profunctor p =&gt;
+(a -&gt; b) -&gt; p b c -&gt; p a c
+</span><span class="hs-identifier hs-var">lmap</span></span><span> </span><span class="annot"><span class="annottext">(x, x) -&gt; x
+forall a b. (a, b) -&gt; b
+</span><span class="hs-identifier hs-var">snd</span></span><span> </span><span class="annot"><span class="annottext">p x a
+</span><a href="#local-6989586621679290098"><span class="hs-identifier hs-var">vb</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-104"></span><span>      </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(x -&gt; x -&gt; (x, x)) -&gt; q a x -&gt; q a x -&gt; q a (x, x)
+forall a b c. (a -&gt; b -&gt; c) -&gt; q a a -&gt; q a b -&gt; q a c
+forall (f :: * -&gt; *) a b c.
+Applicative f =&gt;
+(a -&gt; b -&gt; c) -&gt; f a -&gt; f b -&gt; f c
+</span><span class="hs-identifier hs-var">liftA2</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">,</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">q a x
+</span><a href="#local-6989586621679290092"><span class="hs-identifier hs-var">aw</span></a></span><span> </span><span class="annot"><span class="annottext">q a x
+</span><a href="#local-6989586621679290099"><span class="hs-identifier hs-var">av</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-105"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679289455"><span id="local-6989586621679289456"><span id="local-6989586621679289457"><span id="local-6989586621679290112"><span id="local-6989586621679290118"><span id="local-6989586621679290123"><span class="hs-special">(</span><span class="hs-keyword">forall</span><span> </span><span id="local-6989586621679289449"><span class="annot"><a href="#local-6989586621679289449"><span class="hs-identifier hs-type">x</span></a></span></span><span class="hs-operator">.</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Applicative</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679289455"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679289449"><span class="hs-identifier hs-type">x</span></a></span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="hs-keyword">forall</span><span> </span><span id="local-6989586621679289450"><span class="annot"><a href="#local-6989586621679289450"><span class="hs-identifier hs-type">x</span></a></span></span><span class="hs-operator">.</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Applicative</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679289456"><span class="hs-identifier hs-type">q</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679289450"><span class="hs-identifier hs-type">x</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-106"></span><span>  </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Applicative</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Product</span></span><span> </span><span class="annot"><a href="#local-6989586621679289455"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679289456"><span class="hs-identifier hs-type">q</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679289457"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span></span></span></span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-107"></span><span>    </span><span id="local-6989586621679290131"><span class="annot"><span class="annottext">pure :: forall a. a -&gt; Product p q a a
+</span><span class="hs-identifier hs-var hs-var hs-var">pure</span></span></span><span> </span><span id="local-6989586621679290132"><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679290132"><span class="hs-identifier hs-var">b</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">p a a -&gt; q a a -&gt; Product p q a a
+forall {k} {k1} (f :: k -&gt; k1 -&gt; *) (g :: k -&gt; k1 -&gt; *) (a :: k)
+       (b :: k1).
+f a b -&gt; g a b -&gt; Product f g a b
+</span><span class="hs-identifier hs-var">Pair</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">a -&gt; p a a
+forall a. a -&gt; p a a
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><span class="hs-identifier hs-var">pure</span></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679290132"><span class="hs-identifier hs-var">b</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">a -&gt; q a a
+forall a. a -&gt; q a a
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><span class="hs-identifier hs-var">pure</span></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679290132"><span class="hs-identifier hs-var">b</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-108"></span><span>    </span><span class="annot"><span class="hs-identifier hs-type">Pair</span></span><span> </span><span id="local-6989586621679290136"><span class="annot"><span class="annottext">p a (a -&gt; b)
+</span><a href="#local-6989586621679290136"><span class="hs-identifier hs-var">x0</span></a></span></span><span> </span><span id="local-6989586621679290137"><span class="annot"><span class="annottext">q a (a -&gt; b)
+</span><a href="#local-6989586621679290137"><span class="hs-identifier hs-var">y0</span></a></span></span><span> </span><span id="local-6989586621679290138"><span class="annot"><span class="annottext">&lt;*&gt; :: forall a b.
+Product p q a (a -&gt; b) -&gt; Product p q a a -&gt; Product p q a b
+</span><span class="hs-operator hs-var hs-var hs-var">&lt;*&gt;</span></span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Pair</span></span><span> </span><span id="local-6989586621679290139"><span class="annot"><span class="annottext">p a a
+</span><a href="#local-6989586621679290139"><span class="hs-identifier hs-var">x1</span></a></span></span><span> </span><span id="local-6989586621679290140"><span class="annot"><span class="annottext">q a a
+</span><a href="#local-6989586621679290140"><span class="hs-identifier hs-var">y1</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">p a b -&gt; q a b -&gt; Product p q a b
+forall {k} {k1} (f :: k -&gt; k1 -&gt; *) (g :: k -&gt; k1 -&gt; *) (a :: k)
+       (b :: k1).
+f a b -&gt; g a b -&gt; Product f g a b
+</span><span class="hs-identifier hs-var">Pair</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">p a (a -&gt; b)
+</span><a href="#local-6989586621679290136"><span class="hs-identifier hs-var">x0</span></a></span><span> </span><span class="annot"><span class="annottext">p a (a -&gt; b) -&gt; p a a -&gt; p a b
+forall a b. p a (a -&gt; b) -&gt; p a a -&gt; p a b
+forall (f :: * -&gt; *) a b. Applicative f =&gt; f (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;*&gt;</span></span><span> </span><span class="annot"><span class="annottext">p a a
+</span><a href="#local-6989586621679290139"><span class="hs-identifier hs-var">x1</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">q a (a -&gt; b)
+</span><a href="#local-6989586621679290137"><span class="hs-identifier hs-var">y0</span></a></span><span> </span><span class="annot"><span class="annottext">q a (a -&gt; b) -&gt; q a a -&gt; q a b
+forall a b. q a (a -&gt; b) -&gt; q a a -&gt; q a b
+forall (f :: * -&gt; *) a b. Applicative f =&gt; f (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;*&gt;</span></span><span> </span><span class="annot"><span class="annottext">q a a
+</span><a href="#local-6989586621679290140"><span class="hs-identifier hs-var">y1</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-109"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679289471"><span id="local-6989586621679289472"><span id="local-6989586621679289473"><span id="local-6989586621679290145"><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Functor</span></span><span> </span><span class="annot"><a href="#local-6989586621679289471"><span class="hs-identifier hs-type">f</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Functor</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679289472"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679289473"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Functor</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Cayley</span></span><span> </span><span class="annot"><a href="#local-6989586621679289471"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679289472"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679289473"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span></span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-110"></span><span>  </span><span id="local-6989586621679290150"><span class="annot"><span class="annottext">fmap :: forall a b. (a -&gt; b) -&gt; Cayley f p a a -&gt; Cayley f p a b
+</span><span class="hs-identifier hs-var hs-var hs-var">fmap</span></span></span><span> </span><span id="local-6989586621679290151"><span class="annot"><span class="annottext">a -&gt; b
+</span><a href="#local-6989586621679290151"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Cayley</span></span><span> </span><span id="local-6989586621679290153"><span class="annot"><span class="annottext">f (p a a)
+</span><a href="#local-6989586621679290153"><span class="hs-identifier hs-var">x</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">f (p a b) -&gt; Cayley f p a b
+forall {k} {k1} {k2} (f :: k -&gt; *) (p :: k1 -&gt; k2 -&gt; k) (a :: k1)
+       (b :: k2).
+f (p a b) -&gt; Cayley f p a b
+</span><span class="hs-identifier hs-var">Cayley</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(p a a -&gt; p a b) -&gt; f (p a a) -&gt; f (p a b)
+forall a b. (a -&gt; b) -&gt; f a -&gt; f b
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">fmap</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(a -&gt; b) -&gt; p a a -&gt; p a b
+forall a b. (a -&gt; b) -&gt; p a a -&gt; p a b
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">fmap</span></span><span> </span><span class="annot"><span class="annottext">a -&gt; b
+</span><a href="#local-6989586621679290151"><span class="hs-identifier hs-var">f</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">f (p a a)
+</span><a href="#local-6989586621679290153"><span class="hs-identifier hs-var">x</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-111"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679289486"><span id="local-6989586621679289487"><span id="local-6989586621679289488"><span id="local-6989586621679290163"><span id="local-6989586621679290167"><span id="local-6989586621679290170"><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Applicative</span></span><span> </span><span class="annot"><a href="#local-6989586621679289486"><span class="hs-identifier hs-type">f</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Applicative</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679289487"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679289488"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Applicative</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Cayley</span></span><span> </span><span class="annot"><a href="#local-6989586621679289486"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679289487"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679289488"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span></span></span></span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-112"></span><span>  </span><span id="local-6989586621679290174"><span class="annot"><span class="annottext">pure :: forall a. a -&gt; Cayley f p a a
+</span><span class="hs-identifier hs-var hs-var hs-var">pure</span></span></span><span> </span><span id="local-6989586621679290175"><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679290175"><span class="hs-identifier hs-var">b</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">f (p a a) -&gt; Cayley f p a a
+forall {k} {k1} {k2} (f :: k -&gt; *) (p :: k1 -&gt; k2 -&gt; k) (a :: k1)
+       (b :: k2).
+f (p a b) -&gt; Cayley f p a b
+</span><span class="hs-identifier hs-var">Cayley</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">p a a -&gt; f (p a a)
+forall a. a -&gt; f a
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><span class="hs-identifier hs-var">pure</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">a -&gt; p a a
+forall a. a -&gt; p a a
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><span class="hs-identifier hs-var">pure</span></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679290175"><span class="hs-identifier hs-var">b</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-113"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">Cayley</span></span><span> </span><span id="local-6989586621679290179"><span class="annot"><span class="annottext">f (p a (a -&gt; b))
+</span><a href="#local-6989586621679290179"><span class="hs-identifier hs-var">x</span></a></span></span><span> </span><span id="local-6989586621679290180"><span class="annot"><span class="annottext">&lt;*&gt; :: forall a b.
+Cayley f p a (a -&gt; b) -&gt; Cayley f p a a -&gt; Cayley f p a b
+</span><span class="hs-operator hs-var hs-var hs-var">&lt;*&gt;</span></span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Cayley</span></span><span> </span><span id="local-6989586621679290181"><span class="annot"><span class="annottext">f (p a a)
+</span><a href="#local-6989586621679290181"><span class="hs-identifier hs-var">y</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">f (p a b) -&gt; Cayley f p a b
+forall {k} {k1} {k2} (f :: k -&gt; *) (p :: k1 -&gt; k2 -&gt; k) (a :: k1)
+       (b :: k2).
+f (p a b) -&gt; Cayley f p a b
+</span><span class="hs-identifier hs-var">Cayley</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">p a (a -&gt; b) -&gt; p a a -&gt; p a b
+forall a b. p a (a -&gt; b) -&gt; p a a -&gt; p a b
+forall (f :: * -&gt; *) a b. Applicative f =&gt; f (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">(&lt;*&gt;)</span></span><span> </span><span class="annot"><span class="annottext">(p a (a -&gt; b) -&gt; p a a -&gt; p a b)
+-&gt; f (p a (a -&gt; b)) -&gt; f (p a a -&gt; p a b)
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">f (p a (a -&gt; b))
+</span><a href="#local-6989586621679290179"><span class="hs-identifier hs-var">x</span></a></span><span> </span><span class="annot"><span class="annottext">f (p a a -&gt; p a b) -&gt; f (p a a) -&gt; f (p a b)
+forall a b. f (a -&gt; b) -&gt; f a -&gt; f b
+forall (f :: * -&gt; *) a b. Applicative f =&gt; f (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;*&gt;</span></span><span> </span><span class="annot"><span class="annottext">f (p a a)
+</span><a href="#local-6989586621679290181"><span class="hs-identifier hs-var">y</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-114"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679289497"><span id="local-6989586621679289498"><span id="local-6989586621679290190"><span id="local-6989586621679290194"><span id="local-6989586621679290197"><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Profunctor</span></span><span> </span><span class="annot"><a href="#local-6989586621679289497"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Applicative</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679289497"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679289498"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-115"></span><span>  </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Applicative</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Yoneda</span></span><span> </span><span class="annot"><a href="#local-6989586621679289497"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679289498"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span></span></span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-116"></span><span>    </span><span id="local-6989586621679290202"><span class="annot"><span class="annottext">pure :: forall a. a -&gt; Yoneda p a a
+</span><span class="hs-identifier hs-var hs-var hs-var">pure</span></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">p a a -&gt; Yoneda p a a
+p :-&gt; Yoneda p
+forall (p :: * -&gt; * -&gt; *). Profunctor p =&gt; p :-&gt; Yoneda p
+forall (t :: (* -&gt; * -&gt; *) -&gt; * -&gt; * -&gt; *) (p :: * -&gt; * -&gt; *).
+(ProfunctorMonad t, Profunctor p) =&gt;
+p :-&gt; t p
+</span><span class="hs-identifier hs-var">proreturn</span></span><span> </span><span class="annot"><span class="annottext">(p a a -&gt; Yoneda p a a) -&gt; (a -&gt; p a a) -&gt; a -&gt; Yoneda p a a
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">a -&gt; p a a
+forall a. a -&gt; p a a
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><span class="hs-identifier hs-var">pure</span></span><span>
+</span><span id="line-117"></span><span>    </span><span id="local-6989586621679290210"><span class="annot"><span class="annottext">Yoneda p a (a -&gt; b)
+</span><a href="#local-6989586621679290210"><span class="hs-identifier hs-var">ab</span></a></span></span><span> </span><span id="local-6989586621679290211"><span class="annot"><span class="annottext">&lt;*&gt; :: forall a b. Yoneda p a (a -&gt; b) -&gt; Yoneda p a a -&gt; Yoneda p a b
+</span><span class="hs-operator hs-var hs-var hs-var">&lt;*&gt;</span></span></span><span> </span><span id="local-6989586621679290212"><span class="annot"><span class="annottext">Yoneda p a a
+</span><a href="#local-6989586621679290212"><span class="hs-identifier hs-var">cd</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">p a b -&gt; Yoneda p a b
+p :-&gt; Yoneda p
+forall (p :: * -&gt; * -&gt; *). Profunctor p =&gt; p :-&gt; Yoneda p
+forall (t :: (* -&gt; * -&gt; *) -&gt; * -&gt; * -&gt; *) (p :: * -&gt; * -&gt; *).
+(ProfunctorMonad t, Profunctor p) =&gt;
+p :-&gt; t p
+</span><span class="hs-identifier hs-var">proreturn</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Yoneda p a (a -&gt; b) -&gt; p a (a -&gt; b)
+Yoneda p :-&gt; p
+forall (p :: * -&gt; * -&gt; *). Profunctor p =&gt; Yoneda p :-&gt; p
+forall (t :: (* -&gt; * -&gt; *) -&gt; * -&gt; * -&gt; *) (p :: * -&gt; * -&gt; *).
+(ProfunctorComonad t, Profunctor p) =&gt;
+t p :-&gt; p
+</span><span class="hs-identifier hs-var">proextract</span></span><span> </span><span class="annot"><span class="annottext">Yoneda p a (a -&gt; b)
+</span><a href="#local-6989586621679290210"><span class="hs-identifier hs-var">ab</span></a></span><span> </span><span class="annot"><span class="annottext">p a (a -&gt; b) -&gt; p a a -&gt; p a b
+forall a b. p a (a -&gt; b) -&gt; p a a -&gt; p a b
+forall (f :: * -&gt; *) a b. Applicative f =&gt; f (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;*&gt;</span></span><span> </span><span class="annot"><span class="annottext">Yoneda p a a -&gt; p a a
+Yoneda p :-&gt; p
+forall (p :: * -&gt; * -&gt; *). Profunctor p =&gt; Yoneda p :-&gt; p
+forall (t :: (* -&gt; * -&gt; *) -&gt; * -&gt; * -&gt; *) (p :: * -&gt; * -&gt; *).
+(ProfunctorComonad t, Profunctor p) =&gt;
+t p :-&gt; p
+</span><span class="hs-identifier hs-var">proextract</span></span><span> </span><span class="annot"><span class="annottext">Yoneda p a a
+</span><a href="#local-6989586621679290212"><span class="hs-identifier hs-var">cd</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-118"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679289504"><span id="local-6989586621679289505"><span id="local-6989586621679290220"><span id="local-6989586621679290224"><span id="local-6989586621679290227"><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Profunctor</span></span><span> </span><span class="annot"><a href="#local-6989586621679289504"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Applicative</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679289504"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679289505"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-119"></span><span>  </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Applicative</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Coyoneda</span></span><span> </span><span class="annot"><a href="#local-6989586621679289504"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679289505"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span></span></span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-120"></span><span>    </span><span id="local-6989586621679290232"><span class="annot"><span class="annottext">pure :: forall a. a -&gt; Coyoneda p a a
+</span><span class="hs-identifier hs-var hs-var hs-var">pure</span></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">p a a -&gt; Coyoneda p a a
+p :-&gt; Coyoneda p
+forall (p :: * -&gt; * -&gt; *). Profunctor p =&gt; p :-&gt; Coyoneda p
+forall (t :: (* -&gt; * -&gt; *) -&gt; * -&gt; * -&gt; *) (p :: * -&gt; * -&gt; *).
+(ProfunctorMonad t, Profunctor p) =&gt;
+p :-&gt; t p
+</span><span class="hs-identifier hs-var">proreturn</span></span><span> </span><span class="annot"><span class="annottext">(p a a -&gt; Coyoneda p a a) -&gt; (a -&gt; p a a) -&gt; a -&gt; Coyoneda p a a
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">a -&gt; p a a
+forall a. a -&gt; p a a
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><span class="hs-identifier hs-var">pure</span></span><span>
+</span><span id="line-121"></span><span>    </span><span id="local-6989586621679290240"><span class="annot"><span class="annottext">Coyoneda p a (a -&gt; b)
+</span><a href="#local-6989586621679290240"><span class="hs-identifier hs-var">ab</span></a></span></span><span> </span><span id="local-6989586621679290241"><span class="annot"><span class="annottext">&lt;*&gt; :: forall a b.
+Coyoneda p a (a -&gt; b) -&gt; Coyoneda p a a -&gt; Coyoneda p a b
+</span><span class="hs-operator hs-var hs-var hs-var">&lt;*&gt;</span></span></span><span> </span><span id="local-6989586621679290242"><span class="annot"><span class="annottext">Coyoneda p a a
+</span><a href="#local-6989586621679290242"><span class="hs-identifier hs-var">cd</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">p a b -&gt; Coyoneda p a b
+p :-&gt; Coyoneda p
+forall (p :: * -&gt; * -&gt; *). Profunctor p =&gt; p :-&gt; Coyoneda p
+forall (t :: (* -&gt; * -&gt; *) -&gt; * -&gt; * -&gt; *) (p :: * -&gt; * -&gt; *).
+(ProfunctorMonad t, Profunctor p) =&gt;
+p :-&gt; t p
+</span><span class="hs-identifier hs-var">proreturn</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Coyoneda p a (a -&gt; b) -&gt; p a (a -&gt; b)
+Coyoneda p :-&gt; p
+forall (p :: * -&gt; * -&gt; *). Profunctor p =&gt; Coyoneda p :-&gt; p
+forall (t :: (* -&gt; * -&gt; *) -&gt; * -&gt; * -&gt; *) (p :: * -&gt; * -&gt; *).
+(ProfunctorComonad t, Profunctor p) =&gt;
+t p :-&gt; p
+</span><span class="hs-identifier hs-var">proextract</span></span><span> </span><span class="annot"><span class="annottext">Coyoneda p a (a -&gt; b)
+</span><a href="#local-6989586621679290240"><span class="hs-identifier hs-var">ab</span></a></span><span> </span><span class="annot"><span class="annottext">p a (a -&gt; b) -&gt; p a a -&gt; p a b
+forall a b. p a (a -&gt; b) -&gt; p a a -&gt; p a b
+forall (f :: * -&gt; *) a b. Applicative f =&gt; f (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;*&gt;</span></span><span> </span><span class="annot"><span class="annottext">Coyoneda p a a -&gt; p a a
+Coyoneda p :-&gt; p
+forall (p :: * -&gt; * -&gt; *). Profunctor p =&gt; Coyoneda p :-&gt; p
+forall (t :: (* -&gt; * -&gt; *) -&gt; * -&gt; * -&gt; *) (p :: * -&gt; * -&gt; *).
+(ProfunctorComonad t, Profunctor p) =&gt;
+t p :-&gt; p
+</span><span class="hs-identifier hs-var">proextract</span></span><span> </span><span class="annot"><span class="annottext">Coyoneda p a a
+</span><a href="#local-6989586621679290242"><span class="hs-identifier hs-var">cd</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-122"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679289511"><span id="local-6989586621679289512"><span id="local-6989586621679290251"><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Profunctor</span></span><span> </span><span class="annot"><a href="#local-6989586621679289511"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Alternative</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679289511"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679289512"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-123"></span><span>  </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Alternative</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Yoneda</span></span><span> </span><span class="annot"><a href="#local-6989586621679289511"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679289512"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-124"></span><span>    </span><span id="local-6989586621679290258"><span class="annot"><span class="annottext">empty :: forall a. Yoneda p a a
+</span><span class="hs-identifier hs-var hs-var hs-var">empty</span></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">p a a -&gt; Yoneda p a a
+p :-&gt; Yoneda p
+forall (p :: * -&gt; * -&gt; *). Profunctor p =&gt; p :-&gt; Yoneda p
+forall (t :: (* -&gt; * -&gt; *) -&gt; * -&gt; * -&gt; *) (p :: * -&gt; * -&gt; *).
+(ProfunctorMonad t, Profunctor p) =&gt;
+p :-&gt; t p
+</span><span class="hs-identifier hs-var">proreturn</span></span><span> </span><span class="annot"><span class="annottext">p a a
+forall a. p a a
+forall (f :: * -&gt; *) a. Alternative f =&gt; f a
+</span><span class="hs-identifier hs-var">empty</span></span><span>
+</span><span id="line-125"></span><span>    </span><span id="local-6989586621679290266"><span class="annot"><span class="annottext">Yoneda p a a
+</span><a href="#local-6989586621679290266"><span class="hs-identifier hs-var">ab</span></a></span></span><span> </span><span id="local-6989586621679290267"><span class="annot"><span class="annottext">&lt;|&gt; :: forall a. Yoneda p a a -&gt; Yoneda p a a -&gt; Yoneda p a a
+</span><span class="hs-operator hs-var hs-var hs-var">&lt;|&gt;</span></span></span><span> </span><span id="local-6989586621679290268"><span class="annot"><span class="annottext">Yoneda p a a
+</span><a href="#local-6989586621679290268"><span class="hs-identifier hs-var">cd</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">p a a -&gt; Yoneda p a a
+p :-&gt; Yoneda p
+forall (p :: * -&gt; * -&gt; *). Profunctor p =&gt; p :-&gt; Yoneda p
+forall (t :: (* -&gt; * -&gt; *) -&gt; * -&gt; * -&gt; *) (p :: * -&gt; * -&gt; *).
+(ProfunctorMonad t, Profunctor p) =&gt;
+p :-&gt; t p
+</span><span class="hs-identifier hs-var">proreturn</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Yoneda p a a -&gt; p a a
+Yoneda p :-&gt; p
+forall (p :: * -&gt; * -&gt; *). Profunctor p =&gt; Yoneda p :-&gt; p
+forall (t :: (* -&gt; * -&gt; *) -&gt; * -&gt; * -&gt; *) (p :: * -&gt; * -&gt; *).
+(ProfunctorComonad t, Profunctor p) =&gt;
+t p :-&gt; p
+</span><span class="hs-identifier hs-var">proextract</span></span><span> </span><span class="annot"><span class="annottext">Yoneda p a a
+</span><a href="#local-6989586621679290266"><span class="hs-identifier hs-var">ab</span></a></span><span> </span><span class="annot"><span class="annottext">p a a -&gt; p a a -&gt; p a a
+forall a. p a a -&gt; p a a -&gt; p a a
+forall (f :: * -&gt; *) a. Alternative f =&gt; f a -&gt; f a -&gt; f a
+</span><span class="hs-operator hs-var">&lt;|&gt;</span></span><span> </span><span class="annot"><span class="annottext">Yoneda p a a -&gt; p a a
+Yoneda p :-&gt; p
+forall (p :: * -&gt; * -&gt; *). Profunctor p =&gt; Yoneda p :-&gt; p
+forall (t :: (* -&gt; * -&gt; *) -&gt; * -&gt; * -&gt; *) (p :: * -&gt; * -&gt; *).
+(ProfunctorComonad t, Profunctor p) =&gt;
+t p :-&gt; p
+</span><span class="hs-identifier hs-var">proextract</span></span><span> </span><span class="annot"><span class="annottext">Yoneda p a a
+</span><a href="#local-6989586621679290268"><span class="hs-identifier hs-var">cd</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-126"></span><span>    </span><span id="local-6989586621679290274"><span class="annot"><span class="annottext">many :: forall a. Yoneda p a a -&gt; Yoneda p a [a]
+</span><span class="hs-identifier hs-var hs-var hs-var">many</span></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">p a [a] -&gt; Yoneda p a [a]
+p :-&gt; Yoneda p
+forall (p :: * -&gt; * -&gt; *). Profunctor p =&gt; p :-&gt; Yoneda p
+forall (t :: (* -&gt; * -&gt; *) -&gt; * -&gt; * -&gt; *) (p :: * -&gt; * -&gt; *).
+(ProfunctorMonad t, Profunctor p) =&gt;
+p :-&gt; t p
+</span><span class="hs-identifier hs-var">proreturn</span></span><span> </span><span class="annot"><span class="annottext">(p a [a] -&gt; Yoneda p a [a])
+-&gt; (Yoneda p a a -&gt; p a [a]) -&gt; Yoneda p a a -&gt; Yoneda p a [a]
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">p a a -&gt; p a [a]
+forall a. p a a -&gt; p a [a]
+forall (f :: * -&gt; *) a. Alternative f =&gt; f a -&gt; f [a]
+</span><span class="hs-identifier hs-var">many</span></span><span> </span><span class="annot"><span class="annottext">(p a a -&gt; p a [a])
+-&gt; (Yoneda p a a -&gt; p a a) -&gt; Yoneda p a a -&gt; p a [a]
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Yoneda p a a -&gt; p a a
+Yoneda p :-&gt; p
+forall (p :: * -&gt; * -&gt; *). Profunctor p =&gt; Yoneda p :-&gt; p
+forall (t :: (* -&gt; * -&gt; *) -&gt; * -&gt; * -&gt; *) (p :: * -&gt; * -&gt; *).
+(ProfunctorComonad t, Profunctor p) =&gt;
+t p :-&gt; p
+</span><span class="hs-identifier hs-var">proextract</span></span><span>
+</span><span id="line-127"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679289519"><span id="local-6989586621679289520"><span id="local-6989586621679290283"><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Profunctor</span></span><span> </span><span class="annot"><a href="#local-6989586621679289519"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Alternative</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679289519"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679289520"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-128"></span><span>  </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Alternative</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Coyoneda</span></span><span> </span><span class="annot"><a href="#local-6989586621679289519"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679289520"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-129"></span><span>    </span><span id="local-6989586621679290290"><span class="annot"><span class="annottext">empty :: forall a. Coyoneda p a a
+</span><span class="hs-identifier hs-var hs-var hs-var">empty</span></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">p a a -&gt; Coyoneda p a a
+p :-&gt; Coyoneda p
+forall (p :: * -&gt; * -&gt; *). Profunctor p =&gt; p :-&gt; Coyoneda p
+forall (t :: (* -&gt; * -&gt; *) -&gt; * -&gt; * -&gt; *) (p :: * -&gt; * -&gt; *).
+(ProfunctorMonad t, Profunctor p) =&gt;
+p :-&gt; t p
+</span><span class="hs-identifier hs-var">proreturn</span></span><span> </span><span class="annot"><span class="annottext">p a a
+forall a. p a a
+forall (f :: * -&gt; *) a. Alternative f =&gt; f a
+</span><span class="hs-identifier hs-var">empty</span></span><span>
+</span><span id="line-130"></span><span>    </span><span id="local-6989586621679290298"><span class="annot"><span class="annottext">Coyoneda p a a
+</span><a href="#local-6989586621679290298"><span class="hs-identifier hs-var">ab</span></a></span></span><span> </span><span id="local-6989586621679290299"><span class="annot"><span class="annottext">&lt;|&gt; :: forall a. Coyoneda p a a -&gt; Coyoneda p a a -&gt; Coyoneda p a a
+</span><span class="hs-operator hs-var hs-var hs-var">&lt;|&gt;</span></span></span><span> </span><span id="local-6989586621679290300"><span class="annot"><span class="annottext">Coyoneda p a a
+</span><a href="#local-6989586621679290300"><span class="hs-identifier hs-var">cd</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">p a a -&gt; Coyoneda p a a
+p :-&gt; Coyoneda p
+forall (p :: * -&gt; * -&gt; *). Profunctor p =&gt; p :-&gt; Coyoneda p
+forall (t :: (* -&gt; * -&gt; *) -&gt; * -&gt; * -&gt; *) (p :: * -&gt; * -&gt; *).
+(ProfunctorMonad t, Profunctor p) =&gt;
+p :-&gt; t p
+</span><span class="hs-identifier hs-var">proreturn</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Coyoneda p a a -&gt; p a a
+Coyoneda p :-&gt; p
+forall (p :: * -&gt; * -&gt; *). Profunctor p =&gt; Coyoneda p :-&gt; p
+forall (t :: (* -&gt; * -&gt; *) -&gt; * -&gt; * -&gt; *) (p :: * -&gt; * -&gt; *).
+(ProfunctorComonad t, Profunctor p) =&gt;
+t p :-&gt; p
+</span><span class="hs-identifier hs-var">proextract</span></span><span> </span><span class="annot"><span class="annottext">Coyoneda p a a
+</span><a href="#local-6989586621679290298"><span class="hs-identifier hs-var">ab</span></a></span><span> </span><span class="annot"><span class="annottext">p a a -&gt; p a a -&gt; p a a
+forall a. p a a -&gt; p a a -&gt; p a a
+forall (f :: * -&gt; *) a. Alternative f =&gt; f a -&gt; f a -&gt; f a
+</span><span class="hs-operator hs-var">&lt;|&gt;</span></span><span> </span><span class="annot"><span class="annottext">Coyoneda p a a -&gt; p a a
+Coyoneda p :-&gt; p
+forall (p :: * -&gt; * -&gt; *). Profunctor p =&gt; Coyoneda p :-&gt; p
+forall (t :: (* -&gt; * -&gt; *) -&gt; * -&gt; * -&gt; *) (p :: * -&gt; * -&gt; *).
+(ProfunctorComonad t, Profunctor p) =&gt;
+t p :-&gt; p
+</span><span class="hs-identifier hs-var">proextract</span></span><span> </span><span class="annot"><span class="annottext">Coyoneda p a a
+</span><a href="#local-6989586621679290300"><span class="hs-identifier hs-var">cd</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-131"></span><span>    </span><span id="local-6989586621679290306"><span class="annot"><span class="annottext">many :: forall a. Coyoneda p a a -&gt; Coyoneda p a [a]
+</span><span class="hs-identifier hs-var hs-var hs-var">many</span></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">p a [a] -&gt; Coyoneda p a [a]
+p :-&gt; Coyoneda p
+forall (p :: * -&gt; * -&gt; *). Profunctor p =&gt; p :-&gt; Coyoneda p
+forall (t :: (* -&gt; * -&gt; *) -&gt; * -&gt; * -&gt; *) (p :: * -&gt; * -&gt; *).
+(ProfunctorMonad t, Profunctor p) =&gt;
+p :-&gt; t p
+</span><span class="hs-identifier hs-var">proreturn</span></span><span> </span><span class="annot"><span class="annottext">(p a [a] -&gt; Coyoneda p a [a])
+-&gt; (Coyoneda p a a -&gt; p a [a])
+-&gt; Coyoneda p a a
+-&gt; Coyoneda p a [a]
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">p a a -&gt; p a [a]
+forall a. p a a -&gt; p a [a]
+forall (f :: * -&gt; *) a. Alternative f =&gt; f a -&gt; f [a]
+</span><span class="hs-identifier hs-var">many</span></span><span> </span><span class="annot"><span class="annottext">(p a a -&gt; p a [a])
+-&gt; (Coyoneda p a a -&gt; p a a) -&gt; Coyoneda p a a -&gt; p a [a]
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Coyoneda p a a -&gt; p a a
+Coyoneda p :-&gt; p
+forall (p :: * -&gt; * -&gt; *). Profunctor p =&gt; Coyoneda p :-&gt; p
+forall (t :: (* -&gt; * -&gt; *) -&gt; * -&gt; * -&gt; *) (p :: * -&gt; * -&gt; *).
+(ProfunctorComonad t, Profunctor p) =&gt;
+t p :-&gt; p
+</span><span class="hs-identifier hs-var">proextract</span></span><span>
+</span><span id="line-132"></span></pre></body></html>
