@@ -1,6 +1,6 @@
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-comment">-- `Varifocal` requires a `Filterable` monad, so that every</span><span>
-</span><span id="line-2"></span><span class="hs-comment">-- `Control.Lens.Bifocal.Bifocal` is a `Varifocal`, which the stepping</span><span>
-</span><span id="line-3"></span><span class="hs-comment">-- combinators, generic in their streams, needn't use.</span><span>
+</span><span id="line-2"></span><span class="hs-comment">-- `Control.Lens.Bifocal.Bifocal` is a `Varifocal`, which `ctxList` &amp;</span><span>
+</span><span id="line-3"></span><span class="hs-comment">-- its combinators, generic in their streams, needn't use.</span><span>
 </span><span id="line-4"></span><span class="hs-pragma">{-# OPTIONS_GHC -Wno-redundant-constraints #-}</span><span>
 </span><span id="line-5"></span><span class="annot"><span class="hs-comment">{- |
 Module      : Control.Lens.Varifocal
@@ -30,8 +30,8 @@ Portability : non-portable
 </span><span id="line-30"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Varifocal.html#contextually"><span class="hs-identifier">contextually</span></a></span><span>
 </span><span id="line-31"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Varifocal.html#contextuallyT"><span class="hs-identifier">contextuallyT</span></a></span><span>
 </span><span id="line-32"></span><span>    </span><span class="annot"><span class="hs-comment">-- * Combinators</span></span><span>
-</span><span id="line-33"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Varifocal.html#stepping"><span class="hs-identifier">stepping</span></a></span><span>
-</span><span id="line-34"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Varifocal.html#steppingTree"><span class="hs-identifier">steppingTree</span></a></span><span>
+</span><span id="line-33"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Varifocal.html#ctxList"><span class="hs-identifier">ctxList</span></a></span><span>
+</span><span id="line-34"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Varifocal.html#ctxTree"><span class="hs-identifier">ctxTree</span></a></span><span>
 </span><span id="line-35"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Varifocal.html#terminateBy"><span class="hs-identifier">terminateBy</span></a></span><span>
 </span><span id="line-36"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Varifocal.html#delimitBy"><span class="hs-identifier">delimitBy</span></a></span><span>
 </span><span id="line-37"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Varifocal.html#balanceBy"><span class="hs-identifier">balanceBy</span></a></span><span>
@@ -1208,13 +1208,13 @@ as no `Control.Lens.Bifocal.Bifocal` can.
 A stream, like a list, matches when its last focus,
 &amp; no earlier one, stops it.
 -}</span></span><span>
-</span><span id="line-306"></span><span id="local-6989586621679304454"><span id="local-6989586621679304455"><span id="local-6989586621679304458"><span class="annot"><a href="Control.Lens.Varifocal.html#stepping"><span class="hs-identifier hs-type">stepping</span></a></span><span>
+</span><span id="line-306"></span><span id="local-6989586621679304454"><span id="local-6989586621679304455"><span id="local-6989586621679304458"><span class="annot"><a href="Control.Lens.Varifocal.html#ctxList"><span class="hs-identifier hs-type">ctxList</span></a></span><span>
 </span><span id="line-307"></span><span>  </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Cons</span></span><span> </span><span class="annot"><a href="#local-6989586621679304454"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679304454"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679304455"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679304455"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">AsEmpty</span></span><span> </span><span class="annot"><a href="#local-6989586621679304454"><span class="hs-identifier hs-type">s</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-308"></span><span>  </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679304458"><span class="hs-identifier hs-type">st</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679304458"><span class="hs-identifier hs-type">st</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679304455"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Either</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Bool</span></span><span> </span><span class="annot"><a href="#local-6989586621679304458"><span class="hs-identifier hs-type">st</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Control.Lens.Varifocal.html#Varifocal%27"><span class="hs-identifier hs-type">Varifocal'</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679304454"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679304455"><span class="hs-identifier hs-type">a</span></a></span></span></span></span><span>
-</span><span id="line-309"></span><span id="stepping"><span class="annot"><span class="annottext">stepping :: forall s a st.
+</span><span id="line-309"></span><span id="ctxList"><span class="annot"><span class="annottext">ctxList :: forall s a st.
 (Cons s s a a, AsEmpty s) =&gt;
 st -&gt; (st -&gt; a -&gt; Either Bool st) -&gt; Varifocal' s a
-</span><a href="Control.Lens.Varifocal.html#stepping"><span class="hs-identifier hs-var hs-var">stepping</span></a></span></span><span> </span><span id="local-6989586621679305257"><span class="annot"><span class="annottext">st
+</span><a href="Control.Lens.Varifocal.html#ctxList"><span class="hs-identifier hs-var hs-var">ctxList</span></a></span></span><span> </span><span id="local-6989586621679305257"><span class="annot"><span class="annottext">st
 </span><a href="#local-6989586621679305257"><span class="hs-identifier hs-var">st0</span></a></span></span><span> </span><span id="local-6989586621679305258"><span class="annot"><span class="annottext">st -&gt; a -&gt; Either Bool st
 </span><a href="#local-6989586621679305258"><span class="hs-identifier hs-var">step</span></a></span></span><span> </span><span id="local-6989586621679305259"><span class="annot"><span class="annottext">p m a (m a)
 </span><a href="#local-6989586621679305259"><span class="hs-identifier hs-var">q</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(s -&gt; m s) -&gt; p m s s -&gt; p m s (m s)
@@ -1274,20 +1274,20 @@ Foci are visited in preorder, a node's before its children's.
 A tree matches when each node's children have the shape
 its focus decides, so that it parses as it prints.
 
-`stepping` is `steppingTree` at `Maybe`, of non-empty streams,
+`ctxList` is `ctxTree` at `Maybe`, of non-empty streams,
 as the cofree comonad of `Maybe`, by which
 @`Left` `False`@, @`Left` `True`@ &amp; @`Right` state@
 decide `Nothing`, @`Just` `Nothing`@ &amp; @`Just` (`Just` state)@;
-`stepping` steps through a stream directly, rather than through
+`ctxList` steps through a stream directly, rather than through
 a `Cofree`, &amp; needn't check a shape, as a stream's is its focus's.
 -}</span></span><span>
-</span><span id="line-333"></span><span id="local-6989586621679304481"><span id="local-6989586621679304482"><span id="local-6989586621679304483"><span class="annot"><a href="Control.Lens.Varifocal.html#steppingTree"><span class="hs-identifier hs-type">steppingTree</span></a></span><span>
+</span><span id="line-333"></span><span id="local-6989586621679304481"><span id="local-6989586621679304482"><span id="local-6989586621679304483"><span class="annot"><a href="Control.Lens.Varifocal.html#ctxTree"><span class="hs-identifier hs-type">ctxTree</span></a></span><span>
 </span><span id="line-334"></span><span>  </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Traversable</span></span><span> </span><span class="annot"><a href="#local-6989586621679304481"><span class="hs-identifier hs-type">g</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Eq</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679304481"><span class="hs-identifier hs-type">g</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
 </span><span id="line-335"></span><span>  </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679304482"><span class="hs-identifier hs-type">st</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679304482"><span class="hs-identifier hs-type">st</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679304483"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679304481"><span class="hs-identifier hs-type">g</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679304482"><span class="hs-identifier hs-type">st</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Control.Lens.Varifocal.html#Varifocal%27"><span class="hs-identifier hs-type">Varifocal'</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Cofree</span></span><span> </span><span class="annot"><a href="#local-6989586621679304481"><span class="hs-identifier hs-type">g</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679304483"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621679304483"><span class="hs-identifier hs-type">a</span></a></span></span></span></span><span>
-</span><span id="line-336"></span><span id="steppingTree"><span class="annot"><span class="annottext">steppingTree :: forall (g :: * -&gt; *) st a.
+</span><span id="line-336"></span><span id="ctxTree"><span class="annot"><span class="annottext">ctxTree :: forall (g :: * -&gt; *) st a.
 (Traversable g, Eq (g ())) =&gt;
 st -&gt; (st -&gt; a -&gt; Maybe (g st)) -&gt; Varifocal' (Cofree g a) a
-</span><a href="Control.Lens.Varifocal.html#steppingTree"><span class="hs-identifier hs-var hs-var">steppingTree</span></a></span></span><span> </span><span id="local-6989586621679305309"><span class="annot"><span class="annottext">st
+</span><a href="Control.Lens.Varifocal.html#ctxTree"><span class="hs-identifier hs-var hs-var">ctxTree</span></a></span></span><span> </span><span id="local-6989586621679305309"><span class="annot"><span class="annottext">st
 </span><a href="#local-6989586621679305309"><span class="hs-identifier hs-var">st0</span></a></span></span><span> </span><span id="local-6989586621679305310"><span class="annot"><span class="annottext">st -&gt; a -&gt; Maybe (g st)
 </span><a href="#local-6989586621679305310"><span class="hs-identifier hs-var">step</span></a></span></span><span> </span><span id="local-6989586621679305311"><span class="annot"><span class="annottext">p m a (m a)
 </span><a href="#local-6989586621679305311"><span class="hs-identifier hs-var">q</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(Cofree g a -&gt; m (Cofree g a))
@@ -1497,7 +1497,7 @@ forall (f :: * -&gt; *) a. a -&gt; f (Cofree f a) -&gt; Cofree f a
 each focus built, like a sentinel-terminated sequence, a C string's.
 A stream which doesn't end by its first ending focus doesn't match.
 
-&gt; prop&gt; terminateBy end = stepping () (\() -&gt; bool (Right ()) (Left True) . end)
+&gt; prop&gt; terminateBy end = ctxList () (\() -&gt; bool (Right ()) (Left True) . end)
 -}</span></span><span>
 </span><span id="line-355"></span><span id="local-6989586621679304539"><span id="local-6989586621679304540"><span class="annot"><a href="Control.Lens.Varifocal.html#terminateBy"><span class="hs-identifier hs-type">terminateBy</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Cons</span></span><span> </span><span class="annot"><a href="#local-6989586621679304539"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679304539"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679304540"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679304540"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">AsEmpty</span></span><span> </span><span class="annot"><a href="#local-6989586621679304539"><span class="hs-identifier hs-type">s</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679304540"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Bool</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Control.Lens.Varifocal.html#Varifocal%27"><span class="hs-identifier hs-type">Varifocal'</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679304539"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679304540"><span class="hs-identifier hs-type">a</span></a></span></span></span><span>
 </span><span id="line-356"></span><span id="terminateBy"><span class="annot"><span class="annottext">terminateBy :: forall s a.
@@ -1508,7 +1508,7 @@ A stream which doesn't end by its first ending focus doesn't match.
 forall s a st.
 (Cons s s a a, AsEmpty s) =&gt;
 st -&gt; (st -&gt; a -&gt; Either Bool st) -&gt; Varifocal' s a
-</span><a href="Control.Lens.Varifocal.html#stepping"><span class="hs-identifier hs-var">stepping</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span class="hs-special">(</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Either Bool () -&gt; Either Bool () -&gt; Bool -&gt; Either Bool ()
+</span><a href="Control.Lens.Varifocal.html#ctxList"><span class="hs-identifier hs-var">ctxList</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span class="hs-special">(</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Either Bool () -&gt; Either Bool () -&gt; Bool -&gt; Either Bool ()
 forall a. a -&gt; a -&gt; Bool -&gt; a
 </span><span class="hs-identifier hs-var">bool</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">() -&gt; Either Bool ()
 forall a b. b -&gt; Either a b
@@ -1540,7 +1540,7 @@ A stream which doesn't close by its first match doesn't match.
 forall s a st.
 (Cons s s a a, AsEmpty s) =&gt;
 st -&gt; (st -&gt; a -&gt; Either Bool st) -&gt; Varifocal' s a
-</span><a href="Control.Lens.Varifocal.html#stepping"><span class="hs-identifier hs-var">stepping</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe a
+</span><a href="Control.Lens.Varifocal.html#ctxList"><span class="hs-identifier hs-var">ctxList</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe a
 forall a. Maybe a
 </span><span class="hs-identifier hs-var">Nothing</span></span><span> </span><span class="annot"><span class="annottext">((Maybe a -&gt; a -&gt; Either Bool (Maybe a))
  -&gt; forall {p :: (* -&gt; *) -&gt; * -&gt; * -&gt; *} {m :: * -&gt; *}.
@@ -1595,7 +1595,7 @@ A stream which doesn't open first, or close only last, doesn't match.
 forall s a st.
 (Cons s s a a, AsEmpty s) =&gt;
 st -&gt; (st -&gt; a -&gt; Either Bool st) -&gt; Varifocal' s a
-</span><a href="Control.Lens.Varifocal.html#stepping"><span class="hs-identifier hs-var">stepping</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><a href="Control.Lens.Varifocal.html#ctxList"><span class="hs-identifier hs-var">ctxList</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
 </span><span class="hs-number">0</span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Int -&gt; a -&gt; Either Bool Int
 </span><a href="#local-6989586621679305422"><span class="hs-identifier hs-var">step</span></a></span><span>
 </span><span id="line-380"></span><span>  </span><span class="hs-keyword">where</span><span>
@@ -1669,7 +1669,7 @@ doesn't match.
 forall s a st.
 (Cons s s a a, AsEmpty s) =&gt;
 st -&gt; (st -&gt; a -&gt; Either Bool st) -&gt; Varifocal' s a
-</span><a href="Control.Lens.Varifocal.html#stepping"><span class="hs-identifier hs-var">stepping</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe Int
+</span><a href="Control.Lens.Varifocal.html#ctxList"><span class="hs-identifier hs-var">ctxList</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe Int
 forall a. Maybe a
 </span><span class="hs-identifier hs-var">Nothing</span></span><span> </span><span class="annot"><span class="annottext">((Maybe Int -&gt; a -&gt; Either Bool (Maybe Int))
  -&gt; forall {p :: (* -&gt; *) -&gt; * -&gt; * -&gt; *} {m :: * -&gt; *}.
@@ -1720,7 +1720,7 @@ forall a. Num a =&gt; a -&gt; a -&gt; a
 </span><span id="line-397"></span><span>
 </span><span id="line-398"></span><span class="annot"><span class="hs-comment">{- | A tree whose nodes' foci each count their children,
 like a count-prefixed tree of records in a binary format,
-by `steppingTree`, as `countWith` counts a stream's.
+by `ctxTree`, as `countWith` counts a stream's.
 A node counting fewer than none doesn't match.
 -}</span></span><span>
 </span><span id="line-403"></span><span id="local-6989586621679304569"><span class="annot"><a href="Control.Lens.Varifocal.html#arityWith"><span class="hs-identifier hs-type">arityWith</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679304569"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Control.Lens.Varifocal.html#Varifocal%27"><span class="hs-identifier hs-type">Varifocal'</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Cofree</span></span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span> </span><span class="annot"><a href="#local-6989586621679304569"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621679304569"><span class="hs-identifier hs-type">a</span></a></span></span><span>
@@ -1734,7 +1734,7 @@ A node counting fewer than none doesn't match.
 forall (g :: * -&gt; *) st a.
 (Traversable g, Eq (g ())) =&gt;
 st -&gt; (st -&gt; a -&gt; Maybe (g st)) -&gt; Varifocal' (Cofree g a) a
-</span><a href="Control.Lens.Varifocal.html#steppingTree"><span class="hs-identifier hs-var">steppingTree</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">((() -&gt; a -&gt; Maybe [()])
+</span><a href="Control.Lens.Varifocal.html#ctxTree"><span class="hs-identifier hs-var">ctxTree</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">((() -&gt; a -&gt; Maybe [()])
  -&gt; forall {p :: (* -&gt; *) -&gt; * -&gt; * -&gt; *} {m :: * -&gt; *}.
     (MonadicTrans p, Alternator (p m), MonadPlus m, Filterable m) =&gt;
     p m a (m a) -&gt; p m (Cofree [] a) (m (Cofree [] a)))

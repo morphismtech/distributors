@@ -670,23 +670,23 @@ p a b -&gt; p s t -&gt; p s t
 </span><a href="#local-6989586621679303219"><span class="hs-identifier hs-var">r</span></a></span><span> </span><span class="hs-keyword">in</span><span> </span><span class="annot"><span class="annottext">p [a] [b]
 </span><a href="#local-6989586621679303219"><span class="hs-identifier hs-var">r</span></a></span></span><span>
 </span><span id="line-196"></span><span>
-</span><span id="line-197"></span><span>    </span><span class="hs-comment">{- | Between some numbers of times, inclusive, at least a lower bound,
-    &amp; at most an upper bound, if there's one, like a regular expression's
-    @{lo,hi}@, or @{lo,}@. It takes the mandatory times first, then,
+</span><span id="line-197"></span><span>    </span><span class="hs-comment">{- | A Kleene quantifier, between some numbers of times, inclusive,
+    at least a lower bound, &amp; at most an upper bound, if there's one,
+    like a regular expression's @{lo,hi}@, or @{lo,}@. It takes the mandatory times first, then,
     unbounded, `someP` or `manyP`, or, bounded, the optional times,
     trying more first. It never matches where @lo &gt; hi@,
     nor where @hi@ is negative, its counts being those @n &gt;= 0@ within
     its bounds.
 
-    It mirrors a `KleeneStarAlgebra`'s `timesK`, so that a static
+    It mirrors a `KleeneStarAlgebra`'s `quantK`, so that a static
     `Alternator` may keep its counts, rather than unfolding them.
 
-    &gt; prop&gt; timesP 0 Nothing = manyP
-    &gt; prop&gt; timesP 1 Nothing = someP
-    &gt; prop&gt; timesP n (Just n) = replicateP n, for @n &gt;= 0@
+    &gt; prop&gt; quantP 0 Nothing = manyP
+    &gt; prop&gt; quantP 1 Nothing = someP
+    &gt; prop&gt; quantP n (Just n) = replicateP n, for @n &gt;= 0@
     -}</span><span>
-</span><span id="line-212"></span><span>    </span><span id="timesP"><span class="annot"><a href="Data.Profunctor.Distributor.html#timesP"><span class="hs-identifier hs-type">timesP</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span id="local-6989586621679302665"><span id="local-6989586621679302666"><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679302634"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679302665"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679302666"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679302634"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-special">[</span><span class="annot"><a href="#local-6989586621679302665"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">]</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="#local-6989586621679302666"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">]</span></span></span><span>
-</span><span id="line-213"></span><span>    </span><span id="local-6989586621679303221"><span class="annot"><a href="Data.Profunctor.Distributor.html#timesP"><span class="hs-identifier hs-var hs-var">timesP</span></a></span><span> </span><span id="local-6989586621679303286"><span class="annot"><span class="annottext">Int
+</span><span id="line-212"></span><span>    </span><span id="quantP"><span class="annot"><a href="Data.Profunctor.Distributor.html#quantP"><span class="hs-identifier hs-type">quantP</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span id="local-6989586621679302665"><span id="local-6989586621679302666"><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679302634"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679302665"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679302666"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679302634"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-special">[</span><span class="annot"><a href="#local-6989586621679302665"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">]</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="#local-6989586621679302666"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">]</span></span></span><span>
+</span><span id="line-213"></span><span>    </span><span id="local-6989586621679303221"><span class="annot"><a href="Data.Profunctor.Distributor.html#quantP"><span class="hs-identifier hs-var hs-var">quantP</span></a></span><span> </span><span id="local-6989586621679303286"><span class="annot"><span class="annottext">Int
 </span><a href="#local-6989586621679303286"><span class="hs-identifier hs-var">lo</span></a></span></span><span> </span><span id="local-6989586621679303287"><span class="annot"><span class="annottext">Maybe Int
 </span><a href="#local-6989586621679303287"><span class="hs-identifier hs-var">hi</span></a></span></span><span> </span><span id="local-6989586621679303288"><span class="annot"><span class="annottext">p a b
 </span><a href="#local-6989586621679303288"><span class="hs-identifier hs-var">p</span></a></span></span><span>
@@ -699,7 +699,7 @@ forall a b. Int -&gt; Maybe Int -&gt; p a b -&gt; p [a] [b]
 forall (p :: * -&gt; * -&gt; *) a b.
 Alternator p =&gt;
 Int -&gt; Maybe Int -&gt; p a b -&gt; p [a] [b]
-</span><a href="Data.Profunctor.Distributor.html#timesP"><span class="hs-identifier hs-var">timesP</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="Data.Profunctor.Distributor.html#quantP"><span class="hs-identifier hs-var">quantP</span></a></span><span> </span><span class="annot"><span class="annottext">Int
 </span><span class="hs-number">0</span></span><span> </span><span class="annot"><span class="annottext">Maybe Int
 </span><a href="#local-6989586621679303287"><span class="hs-identifier hs-var">hi</span></a></span><span> </span><span class="annot"><span class="annottext">p a b
 </span><a href="#local-6989586621679303288"><span class="hs-identifier hs-var">p</span></a></span><span>
@@ -738,7 +738,7 @@ forall a b. Int -&gt; Maybe Int -&gt; p a b -&gt; p [a] [b]
 forall (p :: * -&gt; * -&gt; *) a b.
 Alternator p =&gt;
 Int -&gt; Maybe Int -&gt; p a b -&gt; p [a] [b]
-</span><a href="Data.Profunctor.Distributor.html#timesP"><span class="hs-identifier hs-var">timesP</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><a href="Data.Profunctor.Distributor.html#quantP"><span class="hs-identifier hs-var">quantP</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
 </span><a href="#local-6989586621679303286"><span class="hs-identifier hs-var">lo</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Int
 forall a. Num a =&gt; a -&gt; a -&gt; a
 </span><span class="hs-glyph hs-var">-</span></span><span> </span><span class="annot"><span class="annottext">Int
@@ -928,7 +928,7 @@ forall a b. Int -&gt; Maybe Int -&gt; p a b -&gt; p [a] [b]
 forall (p :: * -&gt; * -&gt; *) a b.
 Alternator p =&gt;
 Int -&gt; Maybe Int -&gt; p a b -&gt; p [a] [b]
-</span><a href="Data.Profunctor.Distributor.html#timesP"><span class="hs-identifier hs-var">timesP</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="Data.Profunctor.Distributor.html#quantP"><span class="hs-identifier hs-var">quantP</span></a></span><span> </span><span class="annot"><span class="annottext">Int
 </span><span class="hs-number">0</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int -&gt; Maybe Int
 forall a. a -&gt; Maybe a
 </span><span class="hs-identifier hs-var">Just</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
@@ -994,9 +994,9 @@ forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
 </span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">APrism a b () ()
 </span><a href="#local-6989586621679303335"><span class="hs-identifier hs-var">def</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">p a (f b)
 </span><a href="#local-6989586621679303336"><span class="hs-identifier hs-var">x</span></a></span><span class="hs-special">)</span><span>
-</span><span id="line-230"></span><span>    </span><span id="local-6989586621679303342"><span class="annot"><span class="annottext">timesP :: forall a b.
+</span><span id="line-230"></span><span>    </span><span id="local-6989586621679303342"><span class="annot"><span class="annottext">quantP :: forall a b.
 Int -&gt; Maybe Int -&gt; WrappedPafb f p a b -&gt; WrappedPafb f p [a] [b]
-</span><a href="Data.Profunctor.Distributor.html#timesP"><span class="hs-identifier hs-var hs-var hs-var">timesP</span></a></span></span><span> </span><span id="local-6989586621679303343"><span class="annot"><span class="annottext">Int
+</span><a href="Data.Profunctor.Distributor.html#quantP"><span class="hs-identifier hs-var hs-var hs-var">quantP</span></a></span></span><span> </span><span id="local-6989586621679303343"><span class="annot"><span class="annottext">Int
 </span><a href="#local-6989586621679303343"><span class="hs-identifier hs-var">lo</span></a></span></span><span> </span><span id="local-6989586621679303344"><span class="annot"><span class="annottext">Maybe Int
 </span><a href="#local-6989586621679303344"><span class="hs-identifier hs-var">hi</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">WrapPafb</span></span><span> </span><span id="local-6989586621679303345"><span class="annot"><span class="annottext">p a (f b)
 </span><a href="#local-6989586621679303345"><span class="hs-identifier hs-var">x</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">p [a] (f [b]) -&gt; WrappedPafb f p [a] [b]
@@ -1017,7 +1017,7 @@ forall a b. Int -&gt; Maybe Int -&gt; p a b -&gt; p [a] [b]
 forall (p :: * -&gt; * -&gt; *) a b.
 Alternator p =&gt;
 Int -&gt; Maybe Int -&gt; p a b -&gt; p [a] [b]
-</span><a href="Data.Profunctor.Distributor.html#timesP"><span class="hs-identifier hs-var">timesP</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="Data.Profunctor.Distributor.html#quantP"><span class="hs-identifier hs-var">quantP</span></a></span><span> </span><span class="annot"><span class="annottext">Int
 </span><a href="#local-6989586621679303343"><span class="hs-identifier hs-var">lo</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe Int
 </span><a href="#local-6989586621679303344"><span class="hs-identifier hs-var">hi</span></a></span><span> </span><span class="annot"><span class="annottext">p a (f b)
 </span><a href="#local-6989586621679303345"><span class="hs-identifier hs-var">x</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
@@ -1104,9 +1104,9 @@ forall (t :: (* -&gt; * -&gt; *) -&gt; * -&gt; * -&gt; *) (p :: * -&gt; * -&gt; 
 t p :-&gt; p
 </span><span class="hs-identifier hs-var">proextract</span></span><span> </span><span class="annot"><span class="annottext">Coyoneda p [a] [b]
 </span><a href="#local-6989586621679303386"><span class="hs-identifier hs-var">q</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
-</span><span id="line-235"></span><span>  </span><span id="local-6989586621679303392"><span class="annot"><span class="annottext">timesP :: forall a b.
+</span><span id="line-235"></span><span>  </span><span id="local-6989586621679303392"><span class="annot"><span class="annottext">quantP :: forall a b.
 Int -&gt; Maybe Int -&gt; Coyoneda p a b -&gt; Coyoneda p [a] [b]
-</span><a href="Data.Profunctor.Distributor.html#timesP"><span class="hs-identifier hs-var hs-var hs-var">timesP</span></a></span></span><span> </span><span id="local-6989586621679303393"><span class="annot"><span class="annottext">Int
+</span><a href="Data.Profunctor.Distributor.html#quantP"><span class="hs-identifier hs-var hs-var hs-var">quantP</span></a></span></span><span> </span><span id="local-6989586621679303393"><span class="annot"><span class="annottext">Int
 </span><a href="#local-6989586621679303393"><span class="hs-identifier hs-var">lo</span></a></span></span><span> </span><span id="local-6989586621679303394"><span class="annot"><span class="annottext">Maybe Int
 </span><a href="#local-6989586621679303394"><span class="hs-identifier hs-var">hi</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">p [a] [b] -&gt; Coyoneda p [a] [b]
 p :-&gt; Coyoneda p
@@ -1124,7 +1124,7 @@ forall a b. Int -&gt; Maybe Int -&gt; p a b -&gt; p [a] [b]
 forall (p :: * -&gt; * -&gt; *) a b.
 Alternator p =&gt;
 Int -&gt; Maybe Int -&gt; p a b -&gt; p [a] [b]
-</span><a href="Data.Profunctor.Distributor.html#timesP"><span class="hs-identifier hs-var">timesP</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="Data.Profunctor.Distributor.html#quantP"><span class="hs-identifier hs-var">quantP</span></a></span><span> </span><span class="annot"><span class="annottext">Int
 </span><a href="#local-6989586621679303393"><span class="hs-identifier hs-var">lo</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe Int
 </span><a href="#local-6989586621679303394"><span class="hs-identifier hs-var">hi</span></a></span><span> </span><span class="annot"><span class="annottext">(p a b -&gt; p [a] [b])
 -&gt; (Coyoneda p a b -&gt; p a b) -&gt; Coyoneda p a b -&gt; p [a] [b]
@@ -1216,8 +1216,8 @@ forall (t :: (* -&gt; * -&gt; *) -&gt; * -&gt; * -&gt; *) (p :: * -&gt; * -&gt; 
 t p :-&gt; p
 </span><span class="hs-identifier hs-var">proextract</span></span><span> </span><span class="annot"><span class="annottext">Yoneda p [a] [b]
 </span><a href="#local-6989586621679303435"><span class="hs-identifier hs-var">q</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
-</span><span id="line-240"></span><span>  </span><span id="local-6989586621679303441"><span class="annot"><span class="annottext">timesP :: forall a b. Int -&gt; Maybe Int -&gt; Yoneda p a b -&gt; Yoneda p [a] [b]
-</span><a href="Data.Profunctor.Distributor.html#timesP"><span class="hs-identifier hs-var hs-var hs-var">timesP</span></a></span></span><span> </span><span id="local-6989586621679303442"><span class="annot"><span class="annottext">Int
+</span><span id="line-240"></span><span>  </span><span id="local-6989586621679303441"><span class="annot"><span class="annottext">quantP :: forall a b. Int -&gt; Maybe Int -&gt; Yoneda p a b -&gt; Yoneda p [a] [b]
+</span><a href="Data.Profunctor.Distributor.html#quantP"><span class="hs-identifier hs-var hs-var hs-var">quantP</span></a></span></span><span> </span><span id="local-6989586621679303442"><span class="annot"><span class="annottext">Int
 </span><a href="#local-6989586621679303442"><span class="hs-identifier hs-var">lo</span></a></span></span><span> </span><span id="local-6989586621679303443"><span class="annot"><span class="annottext">Maybe Int
 </span><a href="#local-6989586621679303443"><span class="hs-identifier hs-var">hi</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">p [a] [b] -&gt; Yoneda p [a] [b]
 p :-&gt; Yoneda p
@@ -1233,7 +1233,7 @@ forall a b. Int -&gt; Maybe Int -&gt; p a b -&gt; p [a] [b]
 forall (p :: * -&gt; * -&gt; *) a b.
 Alternator p =&gt;
 Int -&gt; Maybe Int -&gt; p a b -&gt; p [a] [b]
-</span><a href="Data.Profunctor.Distributor.html#timesP"><span class="hs-identifier hs-var">timesP</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="Data.Profunctor.Distributor.html#quantP"><span class="hs-identifier hs-var">quantP</span></a></span><span> </span><span class="annot"><span class="annottext">Int
 </span><a href="#local-6989586621679303442"><span class="hs-identifier hs-var">lo</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe Int
 </span><a href="#local-6989586621679303443"><span class="hs-identifier hs-var">hi</span></a></span><span> </span><span class="annot"><span class="annottext">(p a b -&gt; p [a] [b])
 -&gt; (Yoneda p a b -&gt; p a b) -&gt; Yoneda p a b -&gt; p [a] [b]

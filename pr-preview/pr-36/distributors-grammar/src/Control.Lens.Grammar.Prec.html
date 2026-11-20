@@ -1001,9 +1001,9 @@ p a b -&gt; p [a] [b] -&gt; p [a] [b]
 </span><a href="#local-6989586621679395617"><span class="hs-identifier hs-var">d</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int -&gt; p [a] [b]
 </span><a href="#local-6989586621679395616"><span class="hs-identifier hs-var">y</span></a></span><span> </span><span class="annot"><span class="annottext">Int
 </span><a href="#local-6989586621679395617"><span class="hs-identifier hs-var">d</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
-</span><span id="line-217"></span><span>  </span><span id="local-6989586621679395619"><span class="annot"><span class="annottext">timesP :: forall a b.
+</span><span id="line-217"></span><span>  </span><span id="local-6989586621679395619"><span class="annot"><span class="annottext">quantP :: forall a b.
 Int -&gt; Maybe Int -&gt; Precedence p a b -&gt; Precedence p [a] [b]
-</span><a href="#local-6989586621679395619"><span class="hs-identifier hs-var hs-var hs-var">timesP</span></a></span></span><span> </span><span id="local-6989586621679395621"><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679395619"><span class="hs-identifier hs-var hs-var hs-var">quantP</span></a></span></span><span> </span><span id="local-6989586621679395621"><span class="annot"><span class="annottext">Int
 </span><a href="#local-6989586621679395621"><span class="hs-identifier hs-var">lo</span></a></span></span><span> </span><span id="local-6989586621679395622"><span class="annot"><span class="annottext">Maybe Int
 </span><a href="#local-6989586621679395622"><span class="hs-identifier hs-var">hi</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Grammar.Prec.html#Precedence"><span class="hs-identifier hs-type">Precedence</span></a></span><span> </span><span id="local-6989586621679395623"><span class="annot"><span class="annottext">Int -&gt; p a b
 </span><a href="#local-6989586621679395623"><span class="hs-identifier hs-var">x</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(Int -&gt; p [a] [b]) -&gt; Precedence p [a] [b]
@@ -1013,7 +1013,7 @@ forall a b. Int -&gt; Maybe Int -&gt; p a b -&gt; p [a] [b]
 forall (p :: * -&gt; * -&gt; *) a b.
 Alternator p =&gt;
 Int -&gt; Maybe Int -&gt; p a b -&gt; p [a] [b]
-</span><span class="hs-identifier hs-var">timesP</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-identifier hs-var">quantP</span></span><span> </span><span class="annot"><span class="annottext">Int
 </span><a href="#local-6989586621679395621"><span class="hs-identifier hs-var">lo</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe Int
 </span><a href="#local-6989586621679395622"><span class="hs-identifier hs-var">hi</span></a></span><span> </span><span class="annot"><span class="annottext">(p a b -&gt; p [a] [b]) -&gt; (Int -&gt; p a b) -&gt; Int -&gt; p [a] [b]
 forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c

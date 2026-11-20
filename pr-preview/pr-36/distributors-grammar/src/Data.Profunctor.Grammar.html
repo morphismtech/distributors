@@ -1193,15 +1193,15 @@ forall k. KleeneStarAlgebra k =&gt; k -&gt; k
 forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">k
 </span><a href="#local-6989586621679393861"><span class="hs-identifier hs-var">rest</span></a></span><span class="hs-special">)</span><span>
-</span><span id="line-239"></span><span>  </span><span id="local-6989586621679393863"><span class="annot"><span class="annottext">timesP :: forall a b. Int -&gt; Maybe Int -&gt; Grammor k a b -&gt; Grammor k [a] [b]
-</span><a href="#local-6989586621679393863"><span class="hs-identifier hs-var hs-var hs-var">timesP</span></a></span></span><span> </span><span id="local-6989586621679393865"><span class="annot"><span class="annottext">Int
+</span><span id="line-239"></span><span>  </span><span id="local-6989586621679393863"><span class="annot"><span class="annottext">quantP :: forall a b. Int -&gt; Maybe Int -&gt; Grammor k a b -&gt; Grammor k [a] [b]
+</span><a href="#local-6989586621679393863"><span class="hs-identifier hs-var hs-var hs-var">quantP</span></a></span></span><span> </span><span id="local-6989586621679393865"><span class="annot"><span class="annottext">Int
 </span><a href="#local-6989586621679393865"><span class="hs-identifier hs-var">lo</span></a></span></span><span> </span><span id="local-6989586621679393866"><span class="annot"><span class="annottext">Maybe Int
 </span><a href="#local-6989586621679393866"><span class="hs-identifier hs-var">hi</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.Profunctor.Grammar.html#Grammor"><span class="hs-identifier hs-type">Grammor</span></a></span><span> </span><span id="local-6989586621679393867"><span class="annot"><span class="annottext">k
 </span><a href="#local-6989586621679393867"><span class="hs-identifier hs-var">rex</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">k -&gt; Grammor k [a] [b]
 forall k a b. k -&gt; Grammor k a b
 </span><a href="Data.Profunctor.Grammar.html#Grammor"><span class="hs-identifier hs-var">Grammor</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int -&gt; Maybe Int -&gt; k -&gt; k
 forall k. KleeneStarAlgebra k =&gt; Int -&gt; Maybe Int -&gt; k -&gt; k
-</span><span class="hs-identifier hs-var">timesK</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-identifier hs-var">quantK</span></span><span> </span><span class="annot"><span class="annottext">Int
 </span><a href="#local-6989586621679393865"><span class="hs-identifier hs-var">lo</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe Int
 </span><a href="#local-6989586621679393866"><span class="hs-identifier hs-var">hi</span></a></span><span> </span><span class="annot"><span class="annottext">k
 </span><a href="#local-6989586621679393867"><span class="hs-identifier hs-var">rex</span></a></span><span class="hs-special">)</span><span>

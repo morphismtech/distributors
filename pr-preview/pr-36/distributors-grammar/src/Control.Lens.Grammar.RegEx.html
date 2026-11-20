@@ -70,7 +70,7 @@ It is also a `TokenAlgebra` and `tokenClass` acts homomorphically on disjunction
 </span><span id="line-70"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="KleeneOpt"><span class="annot"><a href="Control.Lens.Grammar.RegEx.html#KleeneOpt"><span class="hs-identifier hs-var">KleeneOpt</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Grammar.RegEx.html#RegEx"><span class="hs-identifier hs-type">RegEx</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679387993"><span class="hs-identifier hs-type">token</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-71"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="KleenePlus"><span class="annot"><a href="Control.Lens.Grammar.RegEx.html#KleenePlus"><span class="hs-identifier hs-var">KleenePlus</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Grammar.RegEx.html#RegEx"><span class="hs-identifier hs-type">RegEx</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679387993"><span class="hs-identifier hs-type">token</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-72"></span><span>  </span><span class="annot"><span class="hs-comment">{- | Between some numbers of times, inclusive, @x{lo,hi}@ or @x{lo,}@,
-  normalized by `timesK`: either unbounded, at least twice, or bounded,
+  normalized by `quantK`: either unbounded, at least twice, or bounded,
   at most twice or more, never below its lower bound, at least none;
   other counts being `KleeneStar`, `KleenePlus`, `KleeneOpt`, the item
   itself, or empty; of an item neither empty nor failing. -}</span></span><span>
@@ -309,8 +309,8 @@ forall a. Monoid a =&gt; a
 forall token. RegEx token -&gt; RegEx token
 </span><a href="Control.Lens.Grammar.RegEx.html#KleenePlus"><span class="hs-identifier hs-var">KleenePlus</span></a></span><span> </span><span class="annot"><span class="annottext">RegEx token
 </span><a href="#local-6989586621679388919"><span class="hs-identifier hs-var">rex</span></a></span><span>
-</span><span id="line-129"></span><span>  </span><span id="local-6989586621679388948"><span class="annot"><span class="annottext">timesK :: Int -&gt; Maybe Int -&gt; RegEx token -&gt; RegEx token
-</span><span class="hs-identifier hs-var hs-var hs-var">timesK</span></span></span><span> </span><span id="local-6989586621679388949"><span class="annot"><span class="annottext">Int
+</span><span id="line-129"></span><span>  </span><span id="local-6989586621679388948"><span class="annot"><span class="annottext">quantK :: Int -&gt; Maybe Int -&gt; RegEx token -&gt; RegEx token
+</span><span class="hs-identifier hs-var hs-var hs-var">quantK</span></span></span><span> </span><span id="local-6989586621679388949"><span class="annot"><span class="annottext">Int
 </span><a href="#local-6989586621679388949"><span class="hs-identifier hs-var">lo0</span></a></span></span><span> </span><span id="local-6989586621679388950"><span class="annot"><span class="annottext">Maybe Int
 </span><a href="#local-6989586621679388950"><span class="hs-identifier hs-var">hi</span></a></span></span><span> </span><span id="local-6989586621679388951"><span class="annot"><span class="annottext">RegEx token
 </span><a href="#local-6989586621679388951"><span class="hs-identifier hs-var">rex</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Int
@@ -513,7 +513,7 @@ forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
 </span><a href="#local-6989586621679389025"><span class="hs-identifier hs-var">hi</span></a></span></span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span id="local-6989586621679389026"><span class="annot"><span class="annottext">RegEx token
 </span><a href="#local-6989586621679389026"><span class="hs-identifier hs-var">x</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Int -&gt; Maybe Int -&gt; RegEx token -&gt; RegEx token
 forall k. KleeneStarAlgebra k =&gt; Int -&gt; Maybe Int -&gt; k -&gt; k
-</span><span class="hs-identifier hs-var">timesK</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-identifier hs-var">quantK</span></span><span> </span><span class="annot"><span class="annottext">Int
 </span><a href="#local-6989586621679389024"><span class="hs-identifier hs-var">lo</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe Int
 </span><a href="#local-6989586621679389025"><span class="hs-identifier hs-var">hi</span></a></span><span> </span><span class="annot"><span class="annottext">RegEx token
 </span><a href="#local-6989586621679389026"><span class="hs-identifier hs-var">x</span></a></span><span class="hs-special">)</span><span>
@@ -1862,7 +1862,7 @@ forall k. KleeneStarAlgebra k =&gt; k -&gt; k
 forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Maybe Int -&gt; RegEx token -&gt; RegEx token
 forall k. KleeneStarAlgebra k =&gt; Int -&gt; Maybe Int -&gt; k -&gt; k
-</span><span class="hs-identifier hs-var">timesK</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><span class="hs-identifier hs-var">quantK</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
 </span><a href="#local-6989586621679389530"><span class="hs-identifier hs-var">lo</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Int
 forall a. Num a =&gt; a -&gt; a -&gt; a
 </span><span class="hs-glyph hs-var">-</span></span><span> </span><span class="annot"><span class="annottext">Int
@@ -2689,7 +2689,7 @@ forall token s. TerminalSymbol token s =&gt; [token] -&gt; s
 </span><a href="#local-6989586621679390406"><span class="hs-identifier hs-var">rex</span></a></span><span>
 </span><span id="line-617"></span><span>      </span><span class="hs-special">]</span><span>
 </span><span id="line-618"></span><span>
-</span><span id="line-619"></span><span>    </span><span class="hs-comment">-- improper, normalizing counts by `timesK`</span><span>
+</span><span id="line-619"></span><span>    </span><span class="hs-comment">-- improper, normalizing counts by `quantK`</span><span>
 </span><span id="line-620"></span><span>    </span><span id="local-6989586621679390411"><span class="annot"><span class="annottext">_Times :: Market
   (RegEx Char, (Int, Maybe Int))
   (RegEx Char, (Int, Maybe Int))
@@ -2712,7 +2712,7 @@ forall b s a. (b -&gt; s) -&gt; (s -&gt; Maybe a) -&gt; Prism s s a b
 </span><a href="#local-6989586621679390447"><span class="hs-identifier hs-var">lo</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679390448"><span class="annot"><span class="annottext">Maybe Int
 </span><a href="#local-6989586621679390448"><span class="hs-identifier hs-var">hi</span></a></span></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Int -&gt; Maybe Int -&gt; RegEx Char -&gt; RegEx Char
 forall k. KleeneStarAlgebra k =&gt; Int -&gt; Maybe Int -&gt; k -&gt; k
-</span><span class="hs-identifier hs-var">timesK</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-identifier hs-var">quantK</span></span><span> </span><span class="annot"><span class="annottext">Int
 </span><a href="#local-6989586621679390447"><span class="hs-identifier hs-var">lo</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe Int
 </span><a href="#local-6989586621679390448"><span class="hs-identifier hs-var">hi</span></a></span><span> </span><span class="annot"><span class="annottext">RegEx Char
 </span><a href="#local-6989586621679390446"><span class="hs-identifier hs-var">x</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">((RegEx Char -&gt; Maybe (RegEx Char, (Int, Maybe Int)))
