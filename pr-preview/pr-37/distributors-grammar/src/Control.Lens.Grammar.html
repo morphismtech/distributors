@@ -726,8 +726,8 @@ $cplusK :: RegString -&gt; RegString
 plusK :: RegString -&gt; RegString
 $coptK :: RegString -&gt; RegString
 optK :: RegString -&gt; RegString
-$ctimesK :: Int -&gt; Maybe Int -&gt; RegString -&gt; RegString
-timesK :: Int -&gt; Maybe Int -&gt; RegString -&gt; RegString
+$cquantK :: Int -&gt; Maybe Int -&gt; RegString -&gt; RegString
+quantK :: Int -&gt; Maybe Int -&gt; RegString -&gt; RegString
 </span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">KleeneStarAlgebra</span></span></span></span></span></span><span>
 </span><span id="line-615"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="local-6989586621679287440"><span id="local-6989586621679287446"><span id="local-6989586621679287451"><span id="local-6989586621679287458"><span id="local-6989586621679287465"><span id="local-6989586621679287471"><span class="annot"><a href="Control.Lens.Grammar.Token.html#Tokenized"><span class="hs-identifier hs-type">Tokenized</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Char</span></span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679287487"><span class="annot"><a href="Control.Lens.Grammar.Token.html#TokenAlgebra"><span class="hs-identifier hs-type">TokenAlgebra</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Char</span></span></span><span>
 </span><span id="line-616"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="local-6989586621679287495"><span class="annot"><a href="Control.Lens.Grammar.Symbol.html#TerminalSymbol"><span class="hs-identifier hs-type">TerminalSymbol</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Char</span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679287503"><span class="annot"><span class="annottext">[Char] -&gt; RegString
@@ -892,8 +892,8 @@ $cplusK :: RegBnf -&gt; RegBnf
 plusK :: RegBnf -&gt; RegBnf
 $coptK :: RegBnf -&gt; RegBnf
 optK :: RegBnf -&gt; RegBnf
-$ctimesK :: Int -&gt; Maybe Int -&gt; RegBnf -&gt; RegBnf
-timesK :: Int -&gt; Maybe Int -&gt; RegBnf -&gt; RegBnf
+$cquantK :: Int -&gt; Maybe Int -&gt; RegBnf -&gt; RegBnf
+quantK :: Int -&gt; Maybe Int -&gt; RegBnf -&gt; RegBnf
 </span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">KleeneStarAlgebra</span></span></span></span></span></span><span>
 </span><span id="line-661"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="local-6989586621679287662"><span id="local-6989586621679287669"><span id="local-6989586621679287675"><span id="local-6989586621679287683"><span id="local-6989586621679287691"><span id="local-6989586621679287698"><span class="annot"><a href="Control.Lens.Grammar.Token.html#Tokenized"><span class="hs-identifier hs-type">Tokenized</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Char</span></span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679287708"><span class="annot"><a href="Control.Lens.Grammar.Token.html#TokenAlgebra"><span class="hs-identifier hs-type">TokenAlgebra</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Char</span></span></span><span>
 </span><span id="line-662"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="local-6989586621679287716"><span class="annot"><a href="Control.Lens.Grammar.Symbol.html#TerminalSymbol"><span class="hs-identifier hs-type">TerminalSymbol</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Char</span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679287724"><span class="annot"><span class="annottext">[Char] -&gt; RegBnf

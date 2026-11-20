@@ -4,11 +4,11 @@
 
 ### New APIs
 
-- `timesK`, a `KleeneStarAlgebra` method, & `timesP`, an `Alternator`
-  method, repeat between some numbers of times, @x{lo,hi}@ or @x{lo,}@,
-  defaulting to their unfoldings, so static `Alternator`s & Kleene algebras
-  may keep counts. `inRange`, & so `exactly`, `atLeast` & `atMost`, are
-  `timesP`.
+- Kleene quantifiers: `quantK`, a `KleeneStarAlgebra` method, & `quantP`,
+  an `Alternator` method, repeat between some numbers of times,
+  @x{lo,hi}@ or @x{lo,}@, defaulting to their unfoldings, so static
+  `Alternator`s & Kleene algebras may keep counts. `inRange`, & so
+  `exactly`, `atLeast` & `atMost`, are `quantP`.
 - More `DisjunctiveMonoid` instances: every `Alternative` of the
   dependencies, `base`, `containers`, `vector`, `transformers`, `free`,
   `lens` & `witherable`, by `empty` & `<|>`, now with lists, `Seq`s,
@@ -21,12 +21,12 @@
 - `KleeneStarAlgebra`s: `Predicate`s, whose star is true, & `Ap`s of
   `Alternative`s of `Monoid`s, languages, starred by `many`, a
   near-semiring. `ReadPrec` is `Filterable`.
-- `stepping` & its combinators, `terminateBy`, `delimitBy`, `balanceBy`
+- `ctxList` & its combinators, `terminateBy`, `delimitBy`, `balanceBy`
   & `countWith`, step through any stream, @(Cons s s a a, AsEmpty s)@,
   like a `Data.Sequence.Seq` or `Data.Text.Text`, not only lists.
-- `steppingTree`, a deterministic top-down tree machine over the cofree
+- `ctxTree`, a deterministic top-down tree machine over the cofree
   comonad of a `Traversable`, deciding by each node's focus its children's
-  states, of which `stepping` is the case of `Maybe`, of non-empty streams;
+  states, of which `ctxList` is the case of `Maybe`, of non-empty streams;
   & `arityWith`, count-prefixed trees, each node's focus counting its
   children, as `countWith` counts a stream's.
 - `Enumerable`, in `Data.Traversable.Homogeneous`, of `Homogeneous`
@@ -75,7 +75,7 @@
   `AVarifocal`, `varifocus`, `runVarifocus`, `runVarifocusT` &
   `cloneVarifocal`; `crossVarifocal`, `altVarifocal`, `orVarifocal`
   & `bindVarifocal`,
-  the last choosing a second by what the first built, like a netstring; & `stepping`, a deterministic machine over foci,
+  the last choosing a second by what the first built, like a netstring; & `ctxList`, a deterministic machine over foci,
   deciding by each built whether to continue, stop or reject, with its
   instances `terminateBy`, `delimitBy`, `balanceBy` & `countWith`:
   sentinel-terminated, matching-delimitBy, nested & count-prefixed

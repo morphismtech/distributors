@@ -280,22 +280,22 @@ forall a. DisjunctiveMonoid a =&gt; a -&gt; a -&gt; a
 </span><a href="Data.Monoid.Disjunctive.html#%3E%7C%3C"><span class="hs-operator hs-var">&gt;|&lt;</span></a></span><span> </span><span class="annot"><span class="annottext">k
 </span><a href="#local-6989586621679292819"><span class="hs-identifier hs-var">x</span></a></span></span><span>
 </span><span id="line-180"></span><span>
-</span><span id="line-181"></span><span>  </span><span class="hs-comment">{- | Between some numbers of times, inclusive, at least a lower bound,
-  &amp; at most an upper bound, if there's one, like a regular expression's
-  @x{lo,hi}@, or @x{lo,}@. Its counts are those @n &gt;= 0@ within its
+</span><span id="line-181"></span><span>  </span><span class="hs-comment">{- | A Kleene quantifier, between some numbers of times, inclusive,
+  at least a lower bound, &amp; at most an upper bound, if there's one,
+  like a regular expression's @x{lo,hi}@, or @x{lo,}@. Its counts are those @n &gt;= 0@ within its
   bounds, so it fails where they're out of order, or all negative,
   as regular expression languages reject such quantifiers.
 
-  &gt; prop&gt; timesK 0 Nothing = starK
-  &gt; prop&gt; timesK 1 Nothing = plusK
-  &gt; prop&gt; timesK 0 (Just 1) = optK
-  &gt; prop&gt; timesK n (Just n) x = mconcat (replicate n x), for @n &gt;= 0@
-  &gt; prop&gt; timesK (n + 1) hi x = x &lt;&gt; timesK n (subtract 1 &lt;$&gt; hi) x, for @n &gt;= 0@
-  &gt; prop&gt; timesK (-1) hi = timesK 0 hi
-  &gt; prop&gt; timesK 0 (Just (-1)) x = falseP
+  &gt; prop&gt; quantK 0 Nothing = starK
+  &gt; prop&gt; quantK 1 Nothing = plusK
+  &gt; prop&gt; quantK 0 (Just 1) = optK
+  &gt; prop&gt; quantK n (Just n) x = mconcat (replicate n x), for @n &gt;= 0@
+  &gt; prop&gt; quantK (n + 1) hi x = x &lt;&gt; quantK n (subtract 1 &lt;$&gt; hi) x, for @n &gt;= 0@
+  &gt; prop&gt; quantK (-1) hi = quantK 0 hi
+  &gt; prop&gt; quantK 0 (Just (-1)) x = falseP
   -}</span><span>
-</span><span id="line-195"></span><span>  </span><span id="timesK"><span class="annot"><a href="Data.Monoid.Disjunctive.html#timesK"><span class="hs-identifier hs-type">timesK</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679291877"><span class="hs-identifier hs-type">k</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679291877"><span class="hs-identifier hs-type">k</span></a></span><span>
-</span><span id="line-196"></span><span>  </span><span id="local-6989586621679292821"><span class="annot"><a href="Data.Monoid.Disjunctive.html#timesK"><span class="hs-identifier hs-var hs-var">timesK</span></a></span><span> </span><span id="local-6989586621679292859"><span class="annot"><span class="annottext">Int
+</span><span id="line-195"></span><span>  </span><span id="quantK"><span class="annot"><a href="Data.Monoid.Disjunctive.html#quantK"><span class="hs-identifier hs-type">quantK</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679291877"><span class="hs-identifier hs-type">k</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679291877"><span class="hs-identifier hs-type">k</span></a></span><span>
+</span><span id="line-196"></span><span>  </span><span id="local-6989586621679292821"><span class="annot"><a href="Data.Monoid.Disjunctive.html#quantK"><span class="hs-identifier hs-var hs-var">quantK</span></a></span><span> </span><span id="local-6989586621679292859"><span class="annot"><span class="annottext">Int
 </span><a href="#local-6989586621679292859"><span class="hs-identifier hs-var">lo</span></a></span></span><span> </span><span id="local-6989586621679292860"><span class="annot"><span class="annottext">Maybe Int
 </span><a href="#local-6989586621679292860"><span class="hs-identifier hs-var">hi</span></a></span></span><span> </span><span id="local-6989586621679292861"><span class="annot"><span class="annottext">k
 </span><a href="#local-6989586621679292861"><span class="hs-identifier hs-var">x</span></a></span></span><span>
@@ -305,7 +305,7 @@ forall a. Ord a =&gt; a -&gt; a -&gt; Bool
 </span><span class="hs-operator hs-var">&lt;</span></span><span> </span><span class="annot"><span class="annottext">Int
 </span><span class="hs-number">0</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; Maybe Int -&gt; k -&gt; k
 forall k. KleeneStarAlgebra k =&gt; Int -&gt; Maybe Int -&gt; k -&gt; k
-</span><a href="Data.Monoid.Disjunctive.html#timesK"><span class="hs-identifier hs-var">timesK</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="Data.Monoid.Disjunctive.html#quantK"><span class="hs-identifier hs-var">quantK</span></a></span><span> </span><span class="annot"><span class="annottext">Int
 </span><span class="hs-number">0</span></span><span> </span><span class="annot"><span class="annottext">Maybe Int
 </span><a href="#local-6989586621679292860"><span class="hs-identifier hs-var">hi</span></a></span><span> </span><span class="annot"><span class="annottext">k
 </span><a href="#local-6989586621679292861"><span class="hs-identifier hs-var">x</span></a></span><span>
@@ -338,7 +338,7 @@ forall a. Maybe a -&gt; Bool
 forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Maybe Int -&gt; k -&gt; k
 forall k. KleeneStarAlgebra k =&gt; Int -&gt; Maybe Int -&gt; k -&gt; k
-</span><a href="Data.Monoid.Disjunctive.html#timesK"><span class="hs-identifier hs-var">timesK</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><a href="Data.Monoid.Disjunctive.html#quantK"><span class="hs-identifier hs-var">quantK</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
 </span><a href="#local-6989586621679292859"><span class="hs-identifier hs-var">lo</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Int
 forall a. Num a =&gt; a -&gt; a -&gt; a
 </span><span class="hs-glyph hs-var">-</span></span><span> </span><span class="annot"><span class="annottext">Int
@@ -383,7 +383,7 @@ forall k. KleeneStarAlgebra k =&gt; k -&gt; k
 forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Maybe Int -&gt; k -&gt; k
 forall k. KleeneStarAlgebra k =&gt; Int -&gt; Maybe Int -&gt; k -&gt; k
-</span><a href="Data.Monoid.Disjunctive.html#timesK"><span class="hs-identifier hs-var">timesK</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="Data.Monoid.Disjunctive.html#quantK"><span class="hs-identifier hs-var">quantK</span></a></span><span> </span><span class="annot"><span class="annottext">Int
 </span><span class="hs-number">0</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int -&gt; Maybe Int
 forall a. a -&gt; Maybe a
 </span><span class="hs-identifier hs-var">Just</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
