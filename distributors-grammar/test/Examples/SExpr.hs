@@ -1,6 +1,7 @@
 module Examples.SExpr
   ( SExpr (..)
   , sexprGrammar
+  , sexprPrettyGrammar
   , sexprExamples
   ) where
 
@@ -58,4 +59,20 @@ sexprExamples =
   ]
 
 instance CtxGrammar Char SExpr
+
+{- | Pretty grammar for S-expressions: a list is flat, if it fits, or else
+each of its elements on a line of its own, aligned after its parenthesis.
+-}
+sexprPrettyGrammar :: PrettyGrammatical p => p SExpr SExpr
+sexprPrettyGrammar = ruleRec "sexpr" $ \sexpr -> orP
+  [ _Atom >? rule "atom" (someP (tokenClass atomChars))
+  , _List >? rule "list"
+      (terminal "(" >* groupP (alignP (sepBy lineP several sexpr)) *< terminal ")")
+  ]
+  where
+    atomChars =
+      oneOf (['a'..'z'] ++ ['A'..'Z'] ++ ['0'..'9'] ++ "_+-*/<>=!?")
+
+instance PrettyGrammar SExpr where
+  prettyGrammar = sexprPrettyGrammar
 instance Grammar Char SExpr where grammar = sexprGrammar

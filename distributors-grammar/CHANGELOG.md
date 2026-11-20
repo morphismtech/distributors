@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- `Control.Lens.Grammar.Pretty`: grammars laid out by Wadler-Leijen
+  layout combinators, `Lined`'s `hardlineP` & `LaidOut`'s `flatAltP`,
+  `nestP`, `groupP` & `alignP`, with `lineP`, `lineP'` & `softlineP`.
+  `PrettyGrammar` types, run by `PrettyGrammatical` interpreters, print, by
+  `Prettor`, a printer into a `Monoid`, a @prettyprinter@ `Doc`, by
+  `prettyG`, laid out by `layoutG` in a `LayoutStyle`; & parse, by
+  `Parsor`, every layout they print, with any indentation, which `RegEx`,
+  `Bnf` & `Grammor` describe. `Grammor` is `IsString`.
 - `ruleTyped`, in `Control.Lens.Grammar.BackusNaur`, a `rule` named by its
   `Typeable` type, module-qualified, which was `distributors-json`'s
   `jsonTyped`. Base types' grammars name their rules by it.

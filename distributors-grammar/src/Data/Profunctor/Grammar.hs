@@ -249,6 +249,8 @@ instance TokenAlgebra a k => TokenAlgebra a (Grammor k a b) where
 instance TerminalSymbol token k
   => TerminalSymbol token (Grammor k a b) where
   terminal = Grammor . terminal
+instance TerminalSymbol Char k => IsString (Grammor k () ()) where
+  fromString = terminal
 instance Ruled k => Ruled (Grammor k a b) where
   rule name = Grammor . rule name . runGrammor
 instance BackusNaurForm k => BackusNaurForm (Grammor k a b) where

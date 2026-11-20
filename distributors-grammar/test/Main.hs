@@ -28,6 +28,7 @@ import Examples.SemVer
 import Examples.SExpr
 import Properties.Base
 import Properties.Kleene
+import Properties.Pretty
 import Properties.Varifocal
 
 main :: IO ()
@@ -55,6 +56,7 @@ main = hspec $ do
   describe "base types" baseProperties
   describe "RegEx ranges & try" regexRangeTryTests
   describe "RegEx quantifiers" regexQuantifierTests
+  describe "PrettyGrammar, at SExpr" prettyProperties
 
 regexRangeTryTests :: Spec
 regexRangeTryTests = do
