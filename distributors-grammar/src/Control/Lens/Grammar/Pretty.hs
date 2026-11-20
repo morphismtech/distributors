@@ -18,7 +18,6 @@ they print, with any indentation.
 module Control.Lens.Grammar.Pretty
   ( -- * PrettyGrammar
     PrettyGrammar (..)
-  , PrettyGrammatical
   , prettyG
   , layoutG
   , LayoutStyle (..)
@@ -47,7 +46,7 @@ import Data.Profunctor.Monoidal
 import Data.Profunctor.Monoidal.Cocartesian
 import Data.String (IsString (..))
 import Data.Void (absurd)
-import GHC.Exts (Constraint, IsList, Item)
+import GHC.Exts (IsList, Item)
 import Prettyprinter
   ( Doc, LayoutOptions, align, flatAlt, group, hardline, layoutCompact
   , layoutPretty, layoutSmart, nest )
@@ -56,15 +55,12 @@ import Witherable (Filterable)
 
 {- | A type's grammar, laid out by `Lined` & `LaidOut` combinators. -}
 class PrettyGrammar a where
-  prettyGrammar :: PrettyGrammatical p => p a a
-
-{- | The `Grammatical` interpreters of layout, `Lined` & `LaidOut`. -}
-type PrettyGrammatical p =
-  ( Grammatical Char p
-  , forall x y. (x ~ (), y ~ ()) => Lined (p x y)
-  , forall x y. LaidOut (p x y)
-  , forall x y. (x ~ (), y ~ ()) => IsString (p x y)
-  ) :: Constraint
+  prettyGrammar ::
+    ( Grammatical Char p
+    , forall x y. (x ~ (), y ~ ()) => Lined (p x y)
+    , forall x y. (x ~ (), y ~ ()) => IsString (p x y)
+    , forall x y. LaidOut (p x y)
+    ) => p a a
 
 {- | A type's `PrettyGrammar`, printed to a `Doc`, if it prints. -}
 prettyG :: PrettyGrammar a => a -> Maybe (Doc ann)
