@@ -208,7 +208,6 @@ class (Distributor p, CocartesianChoice p, forall x. Alternative (p x))
     > prop> quantP 0 Nothing = manyP
     > prop> quantP 1 Nothing = someP
     > prop> quantP n (Just n) = replicateP n, for @n >= 0@
-    > prop> quantP 0 (Just 1) x = iso listToMaybe toList >~ optionalP x, on lists of at most one
     -}
     quantP :: Int -> Maybe Int -> p a b -> p [a] [b]
     quantP lo hi p
