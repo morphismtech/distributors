@@ -4,6 +4,31 @@
 
 ### New APIs
 
+- Kleene quantifiers: `quantK`, a `KleeneStarAlgebra` method, & `quantP`,
+  an `Alternator` method, repeat between some numbers of times,
+  @x{lo,hi}@ or @x{lo,}@, defaulting to their unfoldings, so static
+  `Alternator`s & Kleene algebras may keep counts. `inRange`, & so
+  `exactly`, `atLeast` & `atMost`, are `quantP`.
+- More `DisjunctiveMonoid` instances: every `Alternative` of the
+  dependencies, `base`, `containers`, `vector`, `transformers`, `free`,
+  `lens` & `witherable`, by `empty` & `<|>`, now with lists, `Seq`s,
+  `Vector`s, monad transformers, free monads & `ReifiedFold`s; & `Set`s,
+  `IntSet`s, `Map`s & `IntMap`s, by their monoids, of union.
+- `Bits` types are `BooleanAlgebra`s of bit vectors, by `.|.`, `.&.` &
+  `complement`: every `Int` & `Word`, `Integer`, `IntPtr`, `WordPtr` & the
+  integers of `Foreign.C.Types`; & `Natural`, without `complement`, only a
+  `DisjunctiveMonoid`.
+- `KleeneStarAlgebra`s: `Predicate`s, whose star is true, & `Ap`s of
+  `Alternative`s of `Monoid`s, languages, starred by `many`, a
+  near-semiring. `ReadPrec` is `Filterable`.
+- `ctxList` & its combinators, `terminateBy`, `delimitBy`, `balanceBy`
+  & `countWith`, step through any stream, @(Cons s s a a, AsEmpty s)@,
+  like a `Data.Sequence.Seq` or `Data.Text.Text`, not only lists.
+- `ctxTree`, a deterministic top-down tree machine over the cofree
+  comonad of a `Traversable`, deciding by each node's focus its children's
+  states, of which `ctxList` is the case of `Maybe`, of non-empty streams;
+  & `arityWith`, count-prefixed trees, each node's focus counting its
+  children, as `countWith` counts a stream's.
 - `Enumerable`, in `Data.Traversable.Homogeneous`, of `Homogeneous`
   countable sums of single copies, sequenced `enumerably` by
   `CocartesianMonoidal`s, with generic defaults by `Generic1`.
@@ -50,7 +75,7 @@
   `AVarifocal`, `varifocus`, `runVarifocus`, `runVarifocusT` &
   `cloneVarifocal`; `crossVarifocal`, `altVarifocal`, `orVarifocal`
   & `bindVarifocal`,
-  the last choosing a second by what the first built, like a netstring; & `stepping`, a deterministic machine over foci,
+  the last choosing a second by what the first built, like a netstring; & `ctxList`, a deterministic machine over foci,
   deciding by each built whether to continue, stop or reject, with its
   instances `terminateBy`, `delimitBy`, `balanceBy` & `countWith`:
   sentinel-terminated, matching-delimitBy, nested & count-prefixed

@@ -37,6 +37,7 @@ import Data.Profunctor.Monad
 import Data.Profunctor.Monoidal
 import Data.Profunctor.Yoneda
 import Data.Profunctor.Monoidal.Cocartesian
+import Data.Maybe (isJust)
 
 -- $setup
 -- >>> import Data.Bifunctor.Joker (Joker (..))
@@ -193,18 +194,50 @@ class (Distributor p, CocartesianChoice p, forall x. Alternative (p x))
     manyTillP :: p a b -> p [a] [b] -> p [a] [b]
     manyTillP p q = let r = q >|< p >:< r in r
 
+    {- | A Kleene quantifier, between some numbers of times, inclusive,
+    at least a lower bound, & at most an upper bound, if there's one,
+    like a regular expression's @{lo,hi}@, or @{lo,}@. It takes the mandatory times first, then,
+    unbounded, `someP` or `manyP`, or, bounded, the optional times,
+    trying more first. It never matches where @lo > hi@,
+    nor where @hi@ is negative, its counts being those @n >= 0@ within
+    its bounds.
+
+    It mirrors a `KleeneStarAlgebra`'s `quantK`, so that a static
+    `Alternator` may keep its counts, rather than unfolding them.
+
+    > prop> quantP 0 Nothing = manyP
+    > prop> quantP 1 Nothing = someP
+    > prop> quantP n (Just n) = replicateP n, for @n >= 0@
+    -}
+    quantP :: Int -> Maybe Int -> p a b -> p [a] [b]
+    quantP lo hi p
+      | lo < 0 = quantP 0 hi p
+      | maybe False (lo >) hi = empty
+      | lo > 1 || (lo == 1 && isJust hi) =
+          p >:< quantP (lo - 1) (subtract 1 <$> hi) p
+      | lo == 1 = someP p
+      | otherwise = case hi of
+          Nothing -> manyP p
+          Just m
+            | m <= 0 -> eotList . swapped >~ empty >+< oneP
+            | otherwise ->
+                eotList . swapped >~ p >*< quantP 0 (Just (m - 1)) p >+< oneP
+
 instance (Alternator p, Applicative f)
   => Alternator (WrappedPafb f p) where
     someP (WrapPafb x) = WrapPafb (rmap sequenceA (someP x))
     optionP def (WrapPafb x) = WrapPafb (optionP (prism pure pure . def) x)
+    quantP lo hi (WrapPafb x) = WrapPafb (rmap sequenceA (quantP lo hi x))
 instance Alternator p => Alternator (Coyoneda p) where
   someP = proreturn . someP . proextract
   optionP def = proreturn . optionP def . proextract
   manyTillP p q = proreturn (manyTillP (proextract p) (proextract q))
+  quantP lo hi = proreturn . quantP lo hi . proextract
 instance Alternator p => Alternator (Yoneda p) where
   someP = proreturn . someP . proextract
   optionP def = proreturn . optionP def . proextract
   manyTillP p q = proreturn (manyTillP (proextract p) (proextract q))
+  quantP lo hi = proreturn . quantP lo hi . proextract
 instance Alternative f => Alternator (Joker f) where
   someP (Joker x) = Joker (some x)
   optionP def (Joker x) =

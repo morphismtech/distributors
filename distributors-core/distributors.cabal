@@ -100,6 +100,7 @@ library
     , containers >=0.6 && <1
     , contravariant >=1.5 && <2
     , distributive >=0.6 && <1
+    , free >=5.1 && <6
     , lens >=5.0 && <6
     , profunctors >=5.6 && <6
     , tagged >=0.8 && <1
@@ -167,6 +168,7 @@ test-suite doctests
     , distributive >=0.6 && <1
     , distributors
     , doctest-parallel >=0.3 && <1
+    , free >=5.1 && <6
     , lens >=5.0 && <6
     , profunctors >=5.6 && <6
     , tagged >=0.8 && <1
@@ -181,6 +183,7 @@ test-suite test
   type: exitcode-stdio-1.0
   main-is: Main.hs
   other-modules:
+      Properties.Disjunctive
       Properties.Homogeneous
       Properties.Nested
       Properties.Parsing
@@ -238,6 +241,7 @@ test-suite test
     , contravariant >=1.5 && <2
     , distributive >=0.6 && <1
     , distributors
+    , free >=5.1 && <6
     , hspec >=2.7 && <3
     , lens >=5.0 && <6
     , profunctors >=5.6 && <6
