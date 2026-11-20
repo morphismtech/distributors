@@ -16,7 +16,7 @@ With Stack:
 
 ```sh
 stack build --test --bench
-DISTRIBUTORS_RUN_DOCTESTS=1 stack test
+stack test
 ```
 
 With Cabal:
