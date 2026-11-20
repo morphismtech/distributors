@@ -1,0 +1,1030 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="annot"><span class="hs-comment">{- |
+Module      : Control.Lens.Grammar.Pretty
+Description : grammars laid out, as Wadler-Leijen pretty printers
+Copyright   : (C) 2026 - Eitan Chatav
+License     : BSD-style (see the file LICENSE)
+Maintainer  : Eitan Chatav &lt;eitan.chatav@gmail.com&gt;
+Stability   : provisional
+Portability : non-portable
+
+Grammars which lay themselves out, by the layout combinators of
+Wadler, [A prettier printer]
+(https://homepages.inf.ed.ac.uk/wadler/papers/prettier/prettier.pdf),
+printing a `Doc` of the @prettyprinter@ package, which chooses, by the
+page's width, between their flat &amp; broken layouts, &amp; parsing every layout
+they print, with any indentation.
+-}</span></span><span>
+</span><span id="line-17"></span><span>
+</span><span id="line-18"></span><span class="hs-keyword">module</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Pretty.html"><span class="hs-identifier">Control.Lens.Grammar.Pretty</span></a></span><span>
+</span><span id="line-19"></span><span>  </span><span class="hs-special">(</span><span> </span><span class="annot"><span class="hs-comment">-- * PrettyGrammar</span></span><span>
+</span><span id="line-20"></span><span>    </span><span class="annot"><a href="Control.Lens.Grammar.Pretty.html#PrettyGrammar"><span class="hs-identifier">PrettyGrammar</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><span id="line-21"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Pretty.html#prettyG"><span class="hs-identifier">prettyG</span></a></span><span>
+</span><span id="line-22"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Pretty.html#layoutG"><span class="hs-identifier">layoutG</span></a></span><span>
+</span><span id="line-23"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Pretty.html#LayoutStyle"><span class="hs-identifier">LayoutStyle</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><span id="line-24"></span><span>    </span><span class="annot"><span class="hs-comment">-- * Layout</span></span><span>
+</span><span id="line-25"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Pretty.html#Lined"><span class="hs-identifier">Lined</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><span id="line-26"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Pretty.html#LaidOut"><span class="hs-identifier">LaidOut</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><span id="line-27"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Pretty.html#lineP"><span class="hs-identifier">lineP</span></a></span><span>
+</span><span id="line-28"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Pretty.html#lineP%27"><span class="hs-identifier">lineP'</span></a></span><span>
+</span><span id="line-29"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Pretty.html#softlineP"><span class="hs-identifier">softlineP</span></a></span><span>
+</span><span id="line-30"></span><span>    </span><span class="annot"><span class="hs-comment">-- * Prettor</span></span><span>
+</span><span id="line-31"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Pretty.html#Prettor"><span class="hs-identifier">Prettor</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><span id="line-32"></span><span>  </span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-33"></span><span>
+</span><span id="line-34"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Applicative</span></span><span>
+</span><span id="line-35"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Lens</span></span><span>
+</span><span id="line-36"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.BackusNaur.html"><span class="hs-identifier">Control.Lens.Grammar.BackusNaur</span></a></span><span>
+</span><span id="line-37"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.RegEx.html"><span class="hs-identifier">Control.Lens.Grammar.RegEx</span></a></span><span>
+</span><span id="line-38"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Symbol.html"><span class="hs-identifier">Control.Lens.Grammar.Symbol</span></a></span><span>
+</span><span id="line-39"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Token.html"><span class="hs-identifier">Control.Lens.Grammar.Token</span></a></span><span>
+</span><span id="line-40"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.List</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">intersperse</span></span><span class="hs-special">)</span><span>
+</span><span id="line-41"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Monoid.Disjunctive</span></span><span>
+</span><span id="line-42"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Profunctor</span></span><span>
+</span><span id="line-43"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Profunctor.Distributor</span></span><span>
+</span><span id="line-44"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Data.Profunctor.Grammar.html"><span class="hs-identifier">Data.Profunctor.Grammar</span></a></span><span>
+</span><span id="line-45"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Profunctor.Monoidal</span></span><span>
+</span><span id="line-46"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Profunctor.Monoidal.Cocartesian</span></span><span>
+</span><span id="line-47"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.String</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">IsString</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-48"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Void</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">absurd</span></span><span class="hs-special">)</span><span>
+</span><span id="line-49"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">GHC.Exts</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">IsList</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">Item</span></span><span class="hs-special">)</span><span>
+</span><span id="line-50"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Prettyprinter</span></span><span>
+</span><span id="line-51"></span><span>  </span><span class="hs-special">(</span><span> </span><span class="annot"><span class="hs-identifier">Doc</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">LayoutOptions</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">align</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">flatAlt</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">group</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">hardline</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">layoutCompact</span></span><span>
+</span><span id="line-52"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">layoutPretty</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">layoutSmart</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">nest</span></span><span> </span><span class="hs-special">)</span><span>
+</span><span id="line-53"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Prettyprinter.Render.String</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">renderString</span></span><span class="hs-special">)</span><span>
+</span><span id="line-54"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Witherable</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Filterable</span></span><span class="hs-special">)</span><span>
+</span><span id="line-55"></span><span>
+</span><span id="line-56"></span><span class="annot"><span class="hs-comment">{- | A type's grammar, laid out by `Lined` &amp; `LaidOut` combinators. -}</span></span><span>
+</span><span id="line-57"></span><span class="hs-keyword">class</span><span> </span><span id="PrettyGrammar"><span class="annot"><a href="Control.Lens.Grammar.Pretty.html#PrettyGrammar"><span class="hs-identifier hs-var">PrettyGrammar</span></a></span></span><span> </span><span id="local-6989586621679409160"><span class="annot"><a href="#local-6989586621679409160"><span class="hs-identifier hs-type">a</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-58"></span><span>  </span><span id="prettyGrammar"><span class="annot"><a href="Control.Lens.Grammar.Pretty.html#prettyGrammar"><span class="hs-identifier hs-type">prettyGrammar</span></a></span></span><span> </span><span class="hs-glyph">::</span><span>
+</span><span id="line-59"></span><span>    </span><span id="local-6989586621679409161"><span class="hs-special">(</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.BackusNaur.html#Grammatical"><span class="hs-identifier hs-type">Grammatical</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Char</span></span><span> </span><span class="annot"><a href="#local-6989586621679409161"><span class="hs-identifier hs-type">p</span></a></span><span>
+</span><span id="line-60"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="hs-keyword">forall</span><span> </span><span id="local-6989586621679409118"><span class="annot"><a href="#local-6989586621679409118"><span class="hs-identifier hs-type">x</span></a></span></span><span> </span><span id="local-6989586621679409119"><span class="annot"><a href="#local-6989586621679409119"><span class="hs-identifier hs-type">y</span></a></span></span><span class="hs-operator">.</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679409118"><span class="hs-identifier hs-type">x</span></a></span><span> </span><span class="annot"><span class="hs-operator hs-type">~</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><a href="#local-6989586621679409119"><span class="hs-identifier hs-type">y</span></a></span><span> </span><span class="annot"><span class="hs-operator hs-type">~</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Pretty.html#Lined"><span class="hs-identifier hs-type">Lined</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679409161"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679409118"><span class="hs-identifier hs-type">x</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679409119"><span class="hs-identifier hs-type">y</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-61"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="hs-keyword">forall</span><span> </span><span id="local-6989586621679409121"><span class="annot"><a href="#local-6989586621679409121"><span class="hs-identifier hs-type">x</span></a></span></span><span> </span><span id="local-6989586621679409122"><span class="annot"><a href="#local-6989586621679409122"><span class="hs-identifier hs-type">y</span></a></span></span><span class="hs-operator">.</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679409121"><span class="hs-identifier hs-type">x</span></a></span><span> </span><span class="annot"><span class="hs-operator hs-type">~</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><a href="#local-6989586621679409122"><span class="hs-identifier hs-type">y</span></a></span><span> </span><span class="annot"><span class="hs-operator hs-type">~</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IsString</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679409161"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679409121"><span class="hs-identifier hs-type">x</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679409122"><span class="hs-identifier hs-type">y</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-62"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="hs-keyword">forall</span><span> </span><span id="local-6989586621679409123"><span class="annot"><a href="#local-6989586621679409123"><span class="hs-identifier hs-type">x</span></a></span></span><span> </span><span id="local-6989586621679409124"><span class="annot"><a href="#local-6989586621679409124"><span class="hs-identifier hs-type">y</span></a></span></span><span class="hs-operator">.</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Pretty.html#LaidOut"><span class="hs-identifier hs-type">LaidOut</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679409161"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679409123"><span class="hs-identifier hs-type">x</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679409124"><span class="hs-identifier hs-type">y</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-63"></span><span>    </span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679409161"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679409160"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679409160"><span class="hs-identifier hs-type">a</span></a></span></span><span>
+</span><span id="line-64"></span><span>
+</span><span id="line-65"></span><span class="annot"><span class="hs-comment">{- | A type's `PrettyGrammar`, printed to a `Doc`, if it prints. -}</span></span><span>
+</span><span id="line-66"></span><span id="local-6989586621679409110"><span id="local-6989586621679409112"><span class="annot"><a href="Control.Lens.Grammar.Pretty.html#prettyG"><span class="hs-identifier hs-type">prettyG</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Pretty.html#PrettyGrammar"><span class="hs-identifier hs-type">PrettyGrammar</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679409110"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679409110"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Doc</span></span><span> </span><span class="annot"><a href="#local-6989586621679409112"><span class="hs-identifier hs-type">ann</span></a></span><span class="hs-special">)</span></span></span><span>
+</span><span id="line-67"></span><span id="prettyG"><span class="annot"><span class="annottext">prettyG :: forall a ann. PrettyGrammar a =&gt; a -&gt; Maybe (Doc ann)
+</span><a href="Control.Lens.Grammar.Pretty.html#prettyG"><span class="hs-identifier hs-var hs-var">prettyG</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">((a, Doc ann) -&gt; Doc ann) -&gt; Maybe (a, Doc ann) -&gt; Maybe (Doc ann)
+forall a b. (a -&gt; b) -&gt; Maybe a -&gt; Maybe b
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">fmap</span></span><span> </span><span class="annot"><span class="annottext">(a, Doc ann) -&gt; Doc ann
+forall a b. (a, b) -&gt; b
+</span><span class="hs-identifier hs-var">snd</span></span><span> </span><span class="annot"><span class="annottext">(Maybe (a, Doc ann) -&gt; Maybe (Doc ann))
+-&gt; (a -&gt; Maybe (a, Doc ann)) -&gt; a -&gt; Maybe (Doc ann)
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Prettor (Doc ann) Maybe a a -&gt; a -&gt; Maybe (a, Doc ann)
+forall w (f :: * -&gt; *) a b. Prettor w f a b -&gt; a -&gt; f (b, w)
+</span><a href="Control.Lens.Grammar.Pretty.html#runPrettor"><span class="hs-identifier hs-var">runPrettor</span></a></span><span> </span><span class="annot"><span class="annottext">Prettor (Doc ann) Maybe a a
+forall a (p :: * -&gt; * -&gt; *).
+(PrettyGrammar a, Grammatical Char p,
+ forall x y. (x ~ (), y ~ ()) =&gt; Lined (p x y),
+ forall x y. (x ~ (), y ~ ()) =&gt; IsString (p x y),
+ forall x y. LaidOut (p x y)) =&gt;
+p a a
+forall (p :: * -&gt; * -&gt; *).
+(Grammatical Char p, forall x y. (x ~ (), y ~ ()) =&gt; Lined (p x y),
+ forall x y. (x ~ (), y ~ ()) =&gt; IsString (p x y),
+ forall x y. LaidOut (p x y)) =&gt;
+p a a
+</span><a href="Control.Lens.Grammar.Pretty.html#prettyGrammar"><span class="hs-identifier hs-var">prettyGrammar</span></a></span><span>
+</span><span id="line-68"></span><span>
+</span><span id="line-69"></span><span class="annot"><span class="hs-comment">{- | A layout style of a `Doc`, as @prettyprinter@ lays them out. -}</span></span><span>
+</span><span id="line-70"></span><span class="hs-keyword">data</span><span> </span><span id="LayoutStyle"><span class="annot"><a href="Control.Lens.Grammar.Pretty.html#LayoutStyle"><span class="hs-identifier hs-var">LayoutStyle</span></a></span></span><span>
+</span><span id="line-71"></span><span>  </span><span class="hs-glyph">=</span><span> </span><span id="PrettyLayout"><span class="annot"><a href="Control.Lens.Grammar.Pretty.html#PrettyLayout"><span class="hs-identifier hs-var">PrettyLayout</span></a></span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">LayoutOptions</span></span><span>
+</span><span id="line-72"></span><span>  </span><span class="annot"><span class="hs-comment">-- ^ by `layoutPretty`, fitting the rest of a line</span></span><span>
+</span><span id="line-73"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="SmartLayout"><span class="annot"><a href="Control.Lens.Grammar.Pretty.html#SmartLayout"><span class="hs-identifier hs-var">SmartLayout</span></a></span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">LayoutOptions</span></span><span>
+</span><span id="line-74"></span><span>  </span><span class="annot"><span class="hs-comment">-- ^ by `layoutSmart`, fitting more than the rest of a line</span></span><span>
+</span><span id="line-75"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="CompactLayout"><span class="annot"><a href="Control.Lens.Grammar.Pretty.html#CompactLayout"><span class="hs-identifier hs-var">CompactLayout</span></a></span></span><span>
+</span><span id="line-76"></span><span>  </span><span class="annot"><span class="hs-comment">-- ^ by `layoutCompact`, broken &amp; unindented</span></span><span>
+</span><span id="line-77"></span><span>
+</span><span id="line-78"></span><span class="annot"><span class="hs-comment">{- | A type's `PrettyGrammar`, printed in a `LayoutStyle`, if it prints. -}</span></span><span>
+</span><span id="line-79"></span><span id="local-6989586621679409162"><span class="annot"><a href="Control.Lens.Grammar.Pretty.html#layoutG"><span class="hs-identifier hs-type">layoutG</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Pretty.html#PrettyGrammar"><span class="hs-identifier hs-type">PrettyGrammar</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679409162"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Pretty.html#LayoutStyle"><span class="hs-identifier hs-type">LayoutStyle</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679409162"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">String</span></span></span><span>
+</span><span id="line-80"></span><span id="layoutG"><span class="annot"><span class="annottext">layoutG :: forall a. PrettyGrammar a =&gt; LayoutStyle -&gt; a -&gt; Maybe String
+</span><a href="Control.Lens.Grammar.Pretty.html#layoutG"><span class="hs-identifier hs-var hs-var">layoutG</span></a></span></span><span> </span><span id="local-6989586621679409585"><span class="annot"><span class="annottext">LayoutStyle
+</span><a href="#local-6989586621679409585"><span class="hs-identifier hs-var">style</span></a></span></span><span> </span><span id="local-6989586621679409586"><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679409586"><span class="hs-identifier hs-var">a</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SimpleDocStream () -&gt; String
+forall ann. SimpleDocStream ann -&gt; String
+</span><span class="hs-identifier hs-var">renderString</span></span><span> </span><span class="annot"><span class="annottext">(SimpleDocStream () -&gt; String)
+-&gt; (Doc () -&gt; SimpleDocStream ()) -&gt; Doc () -&gt; String
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Doc () -&gt; SimpleDocStream ()
+</span><a href="#local-6989586621679409587"><span class="hs-identifier hs-var">laidOut</span></a></span><span> </span><span class="annot"><span class="annottext">(Doc () -&gt; String) -&gt; Maybe (Doc ()) -&gt; Maybe String
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">a -&gt; Maybe (Doc ())
+forall a ann. PrettyGrammar a =&gt; a -&gt; Maybe (Doc ann)
+</span><a href="Control.Lens.Grammar.Pretty.html#prettyG"><span class="hs-identifier hs-var">prettyG</span></a></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679409586"><span class="hs-identifier hs-var">a</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Doc</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-81"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-82"></span><span>    </span><span id="local-6989586621679409587"><span class="annot"><span class="annottext">laidOut :: Doc () -&gt; SimpleDocStream ()
+</span><a href="#local-6989586621679409587"><span class="hs-identifier hs-var hs-var">laidOut</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">LayoutStyle
+</span><a href="#local-6989586621679409585"><span class="hs-identifier hs-var">style</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-83"></span><span>      </span><span class="annot"><a href="Control.Lens.Grammar.Pretty.html#PrettyLayout"><span class="hs-identifier hs-type">PrettyLayout</span></a></span><span> </span><span id="local-6989586621679409589"><span class="annot"><span class="annottext">LayoutOptions
+</span><a href="#local-6989586621679409589"><span class="hs-identifier hs-var">opts</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">LayoutOptions -&gt; Doc () -&gt; SimpleDocStream ()
+forall ann. LayoutOptions -&gt; Doc ann -&gt; SimpleDocStream ann
+</span><span class="hs-identifier hs-var">layoutPretty</span></span><span> </span><span class="annot"><span class="annottext">LayoutOptions
+</span><a href="#local-6989586621679409589"><span class="hs-identifier hs-var">opts</span></a></span><span>
+</span><span id="line-84"></span><span>      </span><span class="annot"><a href="Control.Lens.Grammar.Pretty.html#SmartLayout"><span class="hs-identifier hs-type">SmartLayout</span></a></span><span> </span><span id="local-6989586621679409590"><span class="annot"><span class="annottext">LayoutOptions
+</span><a href="#local-6989586621679409590"><span class="hs-identifier hs-var">opts</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">LayoutOptions -&gt; Doc () -&gt; SimpleDocStream ()
+forall ann. LayoutOptions -&gt; Doc ann -&gt; SimpleDocStream ann
+</span><span class="hs-identifier hs-var">layoutSmart</span></span><span> </span><span class="annot"><span class="annottext">LayoutOptions
+</span><a href="#local-6989586621679409590"><span class="hs-identifier hs-var">opts</span></a></span><span>
+</span><span id="line-85"></span><span>      </span><span class="annot"><span class="annottext">LayoutStyle
+</span><a href="Control.Lens.Grammar.Pretty.html#CompactLayout"><span class="hs-identifier hs-var">CompactLayout</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Doc () -&gt; SimpleDocStream ()
+forall ann1 ann2. Doc ann1 -&gt; SimpleDocStream ann2
+</span><span class="hs-identifier hs-var">layoutCompact</span></span><span>
+</span><span id="line-86"></span><span>
+</span><span id="line-87"></span><span class="annot"><span class="hs-comment">{- | Grammars with a hard line break. -}</span></span><span>
+</span><span id="line-88"></span><span class="hs-keyword">class</span><span> </span><span id="Lined"><span class="annot"><a href="Control.Lens.Grammar.Pretty.html#Lined"><span class="hs-identifier hs-var">Lined</span></a></span></span><span> </span><span id="local-6989586621679409177"><span class="annot"><a href="#local-6989586621679409177"><span class="hs-identifier hs-type">p</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-89"></span><span>  </span><span class="hs-comment">{- | A newline, which no flat layout removes. -}</span><span>
+</span><span id="line-90"></span><span>  </span><span id="hardlineP"><span class="annot"><a href="Control.Lens.Grammar.Pretty.html#hardlineP"><span class="hs-identifier hs-type">hardlineP</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="#local-6989586621679409177"><span class="hs-identifier hs-type">p</span></a></span><span>
+</span><span id="line-91"></span><span>
+</span><span id="line-92"></span><span class="annot"><span class="hs-comment">{- | Grammars laid out by Wadler-Leijen layout combinators,
+choosing between flat &amp; broken layouts.
+
+&gt; prop&gt; nestP 0 = id
+&gt; prop&gt; nestP i . nestP j = nestP (i + j)
+-}</span></span><span>
+</span><span id="line-98"></span><span class="hs-keyword">class</span><span> </span><span id="LaidOut"><span class="annot"><a href="Control.Lens.Grammar.Pretty.html#LaidOut"><span class="hs-identifier hs-var">LaidOut</span></a></span></span><span> </span><span id="local-6989586621679409176"><span class="annot"><a href="#local-6989586621679409176"><span class="hs-identifier hs-type">p</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-99"></span><span>  </span><span class="hs-comment">{- | A broken layout, by default, &amp; a flat one, where it's grouped flat. -}</span><span>
+</span><span id="line-100"></span><span>  </span><span id="flatAltP"><span class="annot"><a href="Control.Lens.Grammar.Pretty.html#flatAltP"><span class="hs-identifier hs-type">flatAltP</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="#local-6989586621679409176"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679409176"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679409176"><span class="hs-identifier hs-type">p</span></a></span><span>
+</span><span id="line-101"></span><span>  </span><span class="hs-comment">{- | Indented further after its line breaks. -}</span><span>
+</span><span id="line-102"></span><span>  </span><span id="nestP"><span class="annot"><a href="Control.Lens.Grammar.Pretty.html#nestP"><span class="hs-identifier hs-type">nestP</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679409176"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679409176"><span class="hs-identifier hs-type">p</span></a></span><span>
+</span><span id="line-103"></span><span>  </span><span class="hs-comment">{- | Flat, where it fits. -}</span><span>
+</span><span id="line-104"></span><span>  </span><span id="groupP"><span class="annot"><a href="Control.Lens.Grammar.Pretty.html#groupP"><span class="hs-identifier hs-type">groupP</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="#local-6989586621679409176"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679409176"><span class="hs-identifier hs-type">p</span></a></span><span>
+</span><span id="line-105"></span><span>  </span><span class="hs-comment">{- | Indented to the current column after its line breaks. -}</span><span>
+</span><span id="line-106"></span><span>  </span><span id="alignP"><span class="annot"><a href="Control.Lens.Grammar.Pretty.html#alignP"><span class="hs-identifier hs-type">alignP</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="#local-6989586621679409176"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679409176"><span class="hs-identifier hs-type">p</span></a></span><span>
+</span><span id="line-107"></span><span>
+</span><span id="line-108"></span><span class="annot"><span class="hs-comment">{- | A line break, or a space, where it's grouped flat. -}</span></span><span>
+</span><span id="line-109"></span><span id="local-6989586621679409174"><span class="annot"><a href="Control.Lens.Grammar.Pretty.html#lineP"><span class="hs-identifier hs-type">lineP</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Grammar.Pretty.html#Lined"><span class="hs-identifier hs-type">Lined</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679409174"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Pretty.html#LaidOut"><span class="hs-identifier hs-type">LaidOut</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679409174"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IsString</span></span><span> </span><span class="annot"><a href="#local-6989586621679409174"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679409174"><span class="hs-identifier hs-type">p</span></a></span></span><span>
+</span><span id="line-110"></span><span id="lineP"><span class="annot"><span class="annottext">lineP :: forall p. (Lined p, LaidOut p, IsString p) =&gt; p
+</span><a href="Control.Lens.Grammar.Pretty.html#lineP"><span class="hs-identifier hs-var hs-var">lineP</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">p -&gt; p -&gt; p
+forall p. LaidOut p =&gt; p -&gt; p -&gt; p
+</span><a href="Control.Lens.Grammar.Pretty.html#flatAltP"><span class="hs-identifier hs-var">flatAltP</span></a></span><span> </span><span class="annot"><span class="annottext">p
+forall p. Lined p =&gt; p
+</span><a href="Control.Lens.Grammar.Pretty.html#hardlineP"><span class="hs-identifier hs-var">hardlineP</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">String -&gt; p
+forall a. IsString a =&gt; String -&gt; a
+</span><span class="hs-identifier hs-var">fromString</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot; &quot;</span></span><span class="hs-special">)</span><span>
+</span><span id="line-111"></span><span>
+</span><span id="line-112"></span><span class="annot"><span class="hs-comment">{- | A line break, or nothing, where it's grouped flat. -}</span></span><span>
+</span><span id="line-113"></span><span id="local-6989586621679409602"><span class="annot"><a href="Control.Lens.Grammar.Pretty.html#lineP%27"><span class="hs-identifier hs-type">lineP'</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Grammar.Pretty.html#Lined"><span class="hs-identifier hs-type">Lined</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679409602"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Pretty.html#LaidOut"><span class="hs-identifier hs-type">LaidOut</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679409602"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IsString</span></span><span> </span><span class="annot"><a href="#local-6989586621679409602"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679409602"><span class="hs-identifier hs-type">p</span></a></span></span><span>
+</span><span id="line-114"></span><span id="lineP%27"><span class="annot"><span class="annottext">lineP' :: forall p. (Lined p, LaidOut p, IsString p) =&gt; p
+</span><a href="Control.Lens.Grammar.Pretty.html#lineP%27"><span class="hs-identifier hs-var hs-var">lineP'</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">p -&gt; p -&gt; p
+forall p. LaidOut p =&gt; p -&gt; p -&gt; p
+</span><a href="Control.Lens.Grammar.Pretty.html#flatAltP"><span class="hs-identifier hs-var">flatAltP</span></a></span><span> </span><span class="annot"><span class="annottext">p
+forall p. Lined p =&gt; p
+</span><a href="Control.Lens.Grammar.Pretty.html#hardlineP"><span class="hs-identifier hs-var">hardlineP</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">String -&gt; p
+forall a. IsString a =&gt; String -&gt; a
+</span><span class="hs-identifier hs-var">fromString</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;&quot;</span></span><span class="hs-special">)</span><span>
+</span><span id="line-115"></span><span>
+</span><span id="line-116"></span><span class="annot"><span class="hs-comment">{- | A space, or a line break, where it doesn't fit. -}</span></span><span>
+</span><span id="line-117"></span><span id="local-6989586621679409609"><span class="annot"><a href="Control.Lens.Grammar.Pretty.html#softlineP"><span class="hs-identifier hs-type">softlineP</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Grammar.Pretty.html#Lined"><span class="hs-identifier hs-type">Lined</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679409609"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Pretty.html#LaidOut"><span class="hs-identifier hs-type">LaidOut</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679409609"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IsString</span></span><span> </span><span class="annot"><a href="#local-6989586621679409609"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679409609"><span class="hs-identifier hs-type">p</span></a></span></span><span>
+</span><span id="line-118"></span><span id="softlineP"><span class="annot"><span class="annottext">softlineP :: forall p. (Lined p, LaidOut p, IsString p) =&gt; p
+</span><a href="Control.Lens.Grammar.Pretty.html#softlineP"><span class="hs-identifier hs-var hs-var">softlineP</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">p -&gt; p
+forall p. LaidOut p =&gt; p -&gt; p
+</span><a href="Control.Lens.Grammar.Pretty.html#groupP"><span class="hs-identifier hs-var">groupP</span></a></span><span> </span><span class="annot"><span class="annottext">p
+forall p. (Lined p, LaidOut p, IsString p) =&gt; p
+</span><a href="Control.Lens.Grammar.Pretty.html#lineP"><span class="hs-identifier hs-var">lineP</span></a></span><span>
+</span><span id="line-119"></span><span>
+</span><span id="line-120"></span><span class="hs-comment">-- Doc instances --</span><span>
+</span><span id="line-121"></span><span>
+</span><span id="line-122"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679409182"><span class="annot"><a href="Control.Lens.Grammar.Pretty.html#Lined"><span class="hs-identifier hs-type">Lined</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Doc</span></span><span> </span><span class="annot"><a href="#local-6989586621679409182"><span class="hs-identifier hs-type">ann</span></a></span><span class="hs-special">)</span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-123"></span><span>  </span><span id="local-6989586621679409620"><span class="annot"><span class="annottext">hardlineP :: Doc ann
+</span><a href="Control.Lens.Grammar.Pretty.html#hardlineP"><span class="hs-identifier hs-var hs-var hs-var">hardlineP</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Doc ann
+forall ann. Doc ann
+</span><span class="hs-identifier hs-var">hardline</span></span><span>
+</span><span id="line-124"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679409184"><span class="annot"><a href="Control.Lens.Grammar.Pretty.html#LaidOut"><span class="hs-identifier hs-type">LaidOut</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Doc</span></span><span> </span><span class="annot"><a href="#local-6989586621679409184"><span class="hs-identifier hs-type">ann</span></a></span><span class="hs-special">)</span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-125"></span><span>  </span><span id="local-6989586621679409627"><span class="annot"><span class="annottext">flatAltP :: Doc ann -&gt; Doc ann -&gt; Doc ann
+</span><a href="Control.Lens.Grammar.Pretty.html#flatAltP"><span class="hs-identifier hs-var hs-var hs-var">flatAltP</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Doc ann -&gt; Doc ann -&gt; Doc ann
+forall ann. Doc ann -&gt; Doc ann -&gt; Doc ann
+</span><span class="hs-identifier hs-var">flatAlt</span></span><span>
+</span><span id="line-126"></span><span>  </span><span id="local-6989586621679409628"><span class="annot"><span class="annottext">nestP :: Int -&gt; Doc ann -&gt; Doc ann
+</span><a href="Control.Lens.Grammar.Pretty.html#nestP"><span class="hs-identifier hs-var hs-var hs-var">nestP</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; Doc ann -&gt; Doc ann
+forall ann. Int -&gt; Doc ann -&gt; Doc ann
+</span><span class="hs-identifier hs-var">nest</span></span><span>
+</span><span id="line-127"></span><span>  </span><span id="local-6989586621679409629"><span class="annot"><span class="annottext">groupP :: Doc ann -&gt; Doc ann
+</span><a href="Control.Lens.Grammar.Pretty.html#groupP"><span class="hs-identifier hs-var hs-var hs-var">groupP</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Doc ann -&gt; Doc ann
+forall ann. Doc ann -&gt; Doc ann
+</span><span class="hs-identifier hs-var">group</span></span><span>
+</span><span id="line-128"></span><span>  </span><span id="local-6989586621679409630"><span class="annot"><span class="annottext">alignP :: Doc ann -&gt; Doc ann
+</span><a href="Control.Lens.Grammar.Pretty.html#alignP"><span class="hs-identifier hs-var hs-var hs-var">alignP</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Doc ann -&gt; Doc ann
+forall ann. Doc ann -&gt; Doc ann
+</span><span class="hs-identifier hs-var">align</span></span><span>
+</span><span id="line-129"></span><span>
+</span><span id="line-130"></span><span class="hs-comment">-- RegEx &amp; Bnf instances, the languages of every layout --</span><span>
+</span><span id="line-131"></span><span>
+</span><span id="line-132"></span><span class="annot"><span class="hs-comment">-- | A newline, then any indentation.</span></span><span>
+</span><span id="line-133"></span><span class="hs-keyword">instance</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Pretty.html#Lined"><span class="hs-identifier hs-type">Lined</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Grammar.RegEx.html#RegEx"><span class="hs-identifier hs-type">RegEx</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Char</span></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-134"></span><span>  </span><span id="local-6989586621679409643"><span class="annot"><span class="annottext">hardlineP :: RegEx Char
+</span><a href="Control.Lens.Grammar.Pretty.html#hardlineP"><span class="hs-identifier hs-var hs-var hs-var">hardlineP</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String -&gt; RegEx Char
+forall token s. TerminalSymbol token s =&gt; [token] -&gt; s
+</span><a href="Control.Lens.Grammar.Symbol.html#terminal"><span class="hs-identifier hs-var">terminal</span></a></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;\n&quot;</span></span><span> </span><span class="annot"><span class="annottext">RegEx Char -&gt; RegEx Char -&gt; RegEx Char
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">RegEx Char -&gt; RegEx Char
+forall k. KleeneStarAlgebra k =&gt; k -&gt; k
+</span><span class="hs-identifier hs-var">starK</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Char -&gt; RegEx Char
+forall token p. Tokenized token p =&gt; token -&gt; p
+</span><a href="Control.Lens.Grammar.Token.html#token"><span class="hs-identifier hs-var">token</span></a></span><span> </span><span class="annot"><span class="annottext">Char
+</span><span class="hs-char">' '</span></span><span class="hs-special">)</span><span>
+</span><span id="line-135"></span><span class="annot"><span class="hs-comment">-- | Either layout, any indentation.</span></span><span>
+</span><span id="line-136"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679409200"><span class="annot"><a href="Control.Lens.Grammar.Token.html#Categorized"><span class="hs-identifier hs-type">Categorized</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679409200"><span class="hs-identifier hs-type">token</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Pretty.html#LaidOut"><span class="hs-identifier hs-type">LaidOut</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Grammar.RegEx.html#RegEx"><span class="hs-identifier hs-type">RegEx</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679409200"><span class="hs-identifier hs-type">token</span></a></span><span class="hs-special">)</span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-137"></span><span>  </span><span id="local-6989586621679409655"><span class="annot"><span class="annottext">flatAltP :: RegEx token -&gt; RegEx token -&gt; RegEx token
+</span><a href="Control.Lens.Grammar.Pretty.html#flatAltP"><span class="hs-identifier hs-var hs-var hs-var">flatAltP</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">RegEx token -&gt; RegEx token -&gt; RegEx token
+forall a. DisjunctiveMonoid a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">(&gt;|&lt;)</span></span><span>
+</span><span id="line-138"></span><span>  </span><span id="local-6989586621679409657"><span class="annot"><span class="annottext">nestP :: Int -&gt; RegEx token -&gt; RegEx token
+</span><a href="Control.Lens.Grammar.Pretty.html#nestP"><span class="hs-identifier hs-var hs-var hs-var">nestP</span></a></span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">RegEx token -&gt; RegEx token
+forall a. a -&gt; a
+</span><span class="hs-identifier hs-var">id</span></span><span>
+</span><span id="line-139"></span><span>  </span><span id="local-6989586621679409659"><span class="annot"><span class="annottext">groupP :: RegEx token -&gt; RegEx token
+</span><a href="Control.Lens.Grammar.Pretty.html#groupP"><span class="hs-identifier hs-var hs-var hs-var">groupP</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">RegEx token -&gt; RegEx token
+forall a. a -&gt; a
+</span><span class="hs-identifier hs-var">id</span></span><span>
+</span><span id="line-140"></span><span>  </span><span id="local-6989586621679409660"><span class="annot"><span class="annottext">alignP :: RegEx token -&gt; RegEx token
+</span><a href="Control.Lens.Grammar.Pretty.html#alignP"><span class="hs-identifier hs-var hs-var hs-var">alignP</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">RegEx token -&gt; RegEx token
+forall a. a -&gt; a
+</span><span class="hs-identifier hs-var">id</span></span><span>
+</span><span id="line-141"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679409207"><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Ord</span></span><span> </span><span class="annot"><a href="#local-6989586621679409207"><span class="hs-identifier hs-type">rule</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Pretty.html#Lined"><span class="hs-identifier hs-type">Lined</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679409207"><span class="hs-identifier hs-type">rule</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Pretty.html#Lined"><span class="hs-identifier hs-type">Lined</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Grammar.RegEx.html#Bnf"><span class="hs-identifier hs-type">Bnf</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679409207"><span class="hs-identifier hs-type">rule</span></a></span><span class="hs-special">)</span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-142"></span><span>  </span><span id="local-6989586621679409667"><span class="annot"><span class="annottext">hardlineP :: Bnf rule
+</span><a href="Control.Lens.Grammar.Pretty.html#hardlineP"><span class="hs-identifier hs-var hs-var hs-var">hardlineP</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">rule -&gt; Bnf rule
+forall a. Ord a =&gt; a -&gt; Bnf a
+</span><a href="Control.Lens.Grammar.RegEx.html#liftBnf0"><span class="hs-identifier hs-var">liftBnf0</span></a></span><span> </span><span class="annot"><span class="annottext">rule
+forall p. Lined p =&gt; p
+</span><a href="Control.Lens.Grammar.Pretty.html#hardlineP"><span class="hs-identifier hs-var">hardlineP</span></a></span><span>
+</span><span id="line-143"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679409210"><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Ord</span></span><span> </span><span class="annot"><a href="#local-6989586621679409210"><span class="hs-identifier hs-type">rule</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Pretty.html#LaidOut"><span class="hs-identifier hs-type">LaidOut</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679409210"><span class="hs-identifier hs-type">rule</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Pretty.html#LaidOut"><span class="hs-identifier hs-type">LaidOut</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Grammar.RegEx.html#Bnf"><span class="hs-identifier hs-type">Bnf</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679409210"><span class="hs-identifier hs-type">rule</span></a></span><span class="hs-special">)</span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-144"></span><span>  </span><span id="local-6989586621679409680"><span class="annot"><span class="annottext">flatAltP :: Bnf rule -&gt; Bnf rule -&gt; Bnf rule
+</span><a href="Control.Lens.Grammar.Pretty.html#flatAltP"><span class="hs-identifier hs-var hs-var hs-var">flatAltP</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(rule -&gt; rule -&gt; rule) -&gt; Bnf rule -&gt; Bnf rule -&gt; Bnf rule
+forall a c b.
+(Coercible a c, Coercible b c, Ord c) =&gt;
+(a -&gt; b -&gt; c) -&gt; Bnf a -&gt; Bnf b -&gt; Bnf c
+</span><a href="Control.Lens.Grammar.RegEx.html#liftBnf2"><span class="hs-identifier hs-var">liftBnf2</span></a></span><span> </span><span class="annot"><span class="annottext">rule -&gt; rule -&gt; rule
+forall p. LaidOut p =&gt; p -&gt; p -&gt; p
+</span><a href="Control.Lens.Grammar.Pretty.html#flatAltP"><span class="hs-identifier hs-var">flatAltP</span></a></span><span>
+</span><span id="line-145"></span><span>  </span><span id="local-6989586621679409685"><span class="annot"><span class="annottext">nestP :: Int -&gt; Bnf rule -&gt; Bnf rule
+</span><a href="Control.Lens.Grammar.Pretty.html#nestP"><span class="hs-identifier hs-var hs-var hs-var">nestP</span></a></span></span><span> </span><span id="local-6989586621679409686"><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679409686"><span class="hs-identifier hs-var">n</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(rule -&gt; rule) -&gt; Bnf rule -&gt; Bnf rule
+forall a b. (Coercible a b, Ord b) =&gt; (a -&gt; b) -&gt; Bnf a -&gt; Bnf b
+</span><a href="Control.Lens.Grammar.RegEx.html#liftBnf1"><span class="hs-identifier hs-var">liftBnf1</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int -&gt; rule -&gt; rule
+forall p. LaidOut p =&gt; Int -&gt; p -&gt; p
+</span><a href="Control.Lens.Grammar.Pretty.html#nestP"><span class="hs-identifier hs-var">nestP</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679409686"><span class="hs-identifier hs-var">n</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-146"></span><span>  </span><span id="local-6989586621679409691"><span class="annot"><span class="annottext">groupP :: Bnf rule -&gt; Bnf rule
+</span><a href="Control.Lens.Grammar.Pretty.html#groupP"><span class="hs-identifier hs-var hs-var hs-var">groupP</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(rule -&gt; rule) -&gt; Bnf rule -&gt; Bnf rule
+forall a b. (Coercible a b, Ord b) =&gt; (a -&gt; b) -&gt; Bnf a -&gt; Bnf b
+</span><a href="Control.Lens.Grammar.RegEx.html#liftBnf1"><span class="hs-identifier hs-var">liftBnf1</span></a></span><span> </span><span class="annot"><span class="annottext">rule -&gt; rule
+forall p. LaidOut p =&gt; p -&gt; p
+</span><a href="Control.Lens.Grammar.Pretty.html#groupP"><span class="hs-identifier hs-var">groupP</span></a></span><span>
+</span><span id="line-147"></span><span>  </span><span id="local-6989586621679409695"><span class="annot"><span class="annottext">alignP :: Bnf rule -&gt; Bnf rule
+</span><a href="Control.Lens.Grammar.Pretty.html#alignP"><span class="hs-identifier hs-var hs-var hs-var">alignP</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(rule -&gt; rule) -&gt; Bnf rule -&gt; Bnf rule
+forall a b. (Coercible a b, Ord b) =&gt; (a -&gt; b) -&gt; Bnf a -&gt; Bnf b
+</span><a href="Control.Lens.Grammar.RegEx.html#liftBnf1"><span class="hs-identifier hs-var">liftBnf1</span></a></span><span> </span><span class="annot"><span class="annottext">rule -&gt; rule
+forall p. LaidOut p =&gt; p -&gt; p
+</span><a href="Control.Lens.Grammar.Pretty.html#alignP"><span class="hs-identifier hs-var">alignP</span></a></span><span>
+</span><span id="line-148"></span><span>
+</span><span id="line-149"></span><span class="hs-comment">-- Grammor instances --</span><span>
+</span><span id="line-150"></span><span>
+</span><span id="line-151"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679409221"><span id="local-6989586621679409222"><span id="local-6989586621679409223"><span class="annot"><a href="Control.Lens.Grammar.Pretty.html#Lined"><span class="hs-identifier hs-type">Lined</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679409221"><span class="hs-identifier hs-type">k</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Pretty.html#Lined"><span class="hs-identifier hs-type">Lined</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.Profunctor.Grammar.html#Grammor"><span class="hs-identifier hs-type">Grammor</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679409221"><span class="hs-identifier hs-type">k</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679409222"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679409223"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-152"></span><span>  </span><span id="local-6989586621679409700"><span class="annot"><span class="annottext">hardlineP :: Grammor k a b
+</span><a href="Control.Lens.Grammar.Pretty.html#hardlineP"><span class="hs-identifier hs-var hs-var hs-var">hardlineP</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">k -&gt; Grammor k a b
+forall k a b. k -&gt; Grammor k a b
+</span><a href="Data.Profunctor.Grammar.html#Grammor"><span class="hs-identifier hs-var">Grammor</span></a></span><span> </span><span class="annot"><span class="annottext">k
+forall p. Lined p =&gt; p
+</span><a href="Control.Lens.Grammar.Pretty.html#hardlineP"><span class="hs-identifier hs-var">hardlineP</span></a></span><span>
+</span><span id="line-153"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679409230"><span id="local-6989586621679409231"><span id="local-6989586621679409232"><span class="annot"><a href="Control.Lens.Grammar.Pretty.html#LaidOut"><span class="hs-identifier hs-type">LaidOut</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679409230"><span class="hs-identifier hs-type">k</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Pretty.html#LaidOut"><span class="hs-identifier hs-type">LaidOut</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.Profunctor.Grammar.html#Grammor"><span class="hs-identifier hs-type">Grammor</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679409230"><span class="hs-identifier hs-type">k</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679409231"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679409232"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-154"></span><span>  </span><span id="local-6989586621679409709"><span class="annot"><span class="annottext">flatAltP :: Grammor k a b -&gt; Grammor k a b -&gt; Grammor k a b
+</span><a href="Control.Lens.Grammar.Pretty.html#flatAltP"><span class="hs-identifier hs-var hs-var hs-var">flatAltP</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.Profunctor.Grammar.html#Grammor"><span class="hs-identifier hs-type">Grammor</span></a></span><span> </span><span id="local-6989586621679409710"><span class="annot"><span class="annottext">k
+</span><a href="#local-6989586621679409710"><span class="hs-identifier hs-var">x</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.Profunctor.Grammar.html#Grammor"><span class="hs-identifier hs-type">Grammor</span></a></span><span> </span><span id="local-6989586621679409711"><span class="annot"><span class="annottext">k
+</span><a href="#local-6989586621679409711"><span class="hs-identifier hs-var">y</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">k -&gt; Grammor k a b
+forall k a b. k -&gt; Grammor k a b
+</span><a href="Data.Profunctor.Grammar.html#Grammor"><span class="hs-identifier hs-var">Grammor</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">k -&gt; k -&gt; k
+forall p. LaidOut p =&gt; p -&gt; p -&gt; p
+</span><a href="Control.Lens.Grammar.Pretty.html#flatAltP"><span class="hs-identifier hs-var">flatAltP</span></a></span><span> </span><span class="annot"><span class="annottext">k
+</span><a href="#local-6989586621679409710"><span class="hs-identifier hs-var">x</span></a></span><span> </span><span class="annot"><span class="annottext">k
+</span><a href="#local-6989586621679409711"><span class="hs-identifier hs-var">y</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-155"></span><span>  </span><span id="local-6989586621679409713"><span class="annot"><span class="annottext">nestP :: Int -&gt; Grammor k a b -&gt; Grammor k a b
+</span><a href="Control.Lens.Grammar.Pretty.html#nestP"><span class="hs-identifier hs-var hs-var hs-var">nestP</span></a></span></span><span> </span><span id="local-6989586621679409714"><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679409714"><span class="hs-identifier hs-var">n</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">k -&gt; Grammor k a b
+forall k a b. k -&gt; Grammor k a b
+</span><a href="Data.Profunctor.Grammar.html#Grammor"><span class="hs-identifier hs-var">Grammor</span></a></span><span> </span><span class="annot"><span class="annottext">(k -&gt; Grammor k a b)
+-&gt; (Grammor k a b -&gt; k) -&gt; Grammor k a b -&gt; Grammor k a b
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Int -&gt; k -&gt; k
+forall p. LaidOut p =&gt; Int -&gt; p -&gt; p
+</span><a href="Control.Lens.Grammar.Pretty.html#nestP"><span class="hs-identifier hs-var">nestP</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679409714"><span class="hs-identifier hs-var">n</span></a></span><span> </span><span class="annot"><span class="annottext">(k -&gt; k) -&gt; (Grammor k a b -&gt; k) -&gt; Grammor k a b -&gt; k
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Grammor k a b -&gt; k
+forall k a b. Grammor k a b -&gt; k
+</span><a href="Data.Profunctor.Grammar.html#runGrammor"><span class="hs-identifier hs-var">runGrammor</span></a></span><span>
+</span><span id="line-156"></span><span>  </span><span id="local-6989586621679409717"><span class="annot"><span class="annottext">groupP :: Grammor k a b -&gt; Grammor k a b
+</span><a href="Control.Lens.Grammar.Pretty.html#groupP"><span class="hs-identifier hs-var hs-var hs-var">groupP</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">k -&gt; Grammor k a b
+forall k a b. k -&gt; Grammor k a b
+</span><a href="Data.Profunctor.Grammar.html#Grammor"><span class="hs-identifier hs-var">Grammor</span></a></span><span> </span><span class="annot"><span class="annottext">(k -&gt; Grammor k a b)
+-&gt; (Grammor k a b -&gt; k) -&gt; Grammor k a b -&gt; Grammor k a b
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">k -&gt; k
+forall p. LaidOut p =&gt; p -&gt; p
+</span><a href="Control.Lens.Grammar.Pretty.html#groupP"><span class="hs-identifier hs-var">groupP</span></a></span><span> </span><span class="annot"><span class="annottext">(k -&gt; k) -&gt; (Grammor k a b -&gt; k) -&gt; Grammor k a b -&gt; k
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Grammor k a b -&gt; k
+forall k a b. Grammor k a b -&gt; k
+</span><a href="Data.Profunctor.Grammar.html#runGrammor"><span class="hs-identifier hs-var">runGrammor</span></a></span><span>
+</span><span id="line-157"></span><span>  </span><span id="local-6989586621679409719"><span class="annot"><span class="annottext">alignP :: Grammor k a b -&gt; Grammor k a b
+</span><a href="Control.Lens.Grammar.Pretty.html#alignP"><span class="hs-identifier hs-var hs-var hs-var">alignP</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">k -&gt; Grammor k a b
+forall k a b. k -&gt; Grammor k a b
+</span><a href="Data.Profunctor.Grammar.html#Grammor"><span class="hs-identifier hs-var">Grammor</span></a></span><span> </span><span class="annot"><span class="annottext">(k -&gt; Grammor k a b)
+-&gt; (Grammor k a b -&gt; k) -&gt; Grammor k a b -&gt; Grammor k a b
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">k -&gt; k
+forall p. LaidOut p =&gt; p -&gt; p
+</span><a href="Control.Lens.Grammar.Pretty.html#alignP"><span class="hs-identifier hs-var">alignP</span></a></span><span> </span><span class="annot"><span class="annottext">(k -&gt; k) -&gt; (Grammor k a b -&gt; k) -&gt; Grammor k a b -&gt; k
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Grammor k a b -&gt; k
+forall k a b. Grammor k a b -&gt; k
+</span><a href="Data.Profunctor.Grammar.html#runGrammor"><span class="hs-identifier hs-var">runGrammor</span></a></span><span>
+</span><span id="line-158"></span><span>
+</span><span id="line-159"></span><span class="hs-comment">-- Parsor instances, parsing every layout --</span><span>
+</span><span id="line-160"></span><span>
+</span><span id="line-161"></span><span class="annot"><span class="hs-comment">-- | A newline, then any indentation, unparsing none.</span></span><span>
+</span><span id="line-162"></span><span class="hs-keyword">instance</span><span>
+</span><span id="line-163"></span><span>  </span><span id="local-6989586621679409243"><span id="local-6989586621679409244"><span class="hs-special">(</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Char</span></span><span> </span><span class="annot"><span class="hs-operator hs-type">~</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Item</span></span><span> </span><span class="annot"><a href="#local-6989586621679409243"><span class="hs-identifier hs-type">s</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IsList</span></span><span> </span><span class="annot"><a href="#local-6989586621679409243"><span class="hs-identifier hs-type">s</span></a></span><span>
+</span><span id="line-164"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Cons</span></span><span> </span><span class="annot"><a href="#local-6989586621679409243"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679409243"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Char</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Char</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Snoc</span></span><span> </span><span class="annot"><a href="#local-6989586621679409243"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679409243"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Char</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Char</span></span><span>
+</span><span id="line-165"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Filterable</span></span><span> </span><span class="annot"><a href="#local-6989586621679409244"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Alternative</span></span><span> </span><span class="annot"><a href="#local-6989586621679409244"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Monad</span></span><span> </span><span class="annot"><a href="#local-6989586621679409244"><span class="hs-identifier hs-type">m</span></a></span><span>
+</span><span id="line-166"></span><span>  </span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Pretty.html#Lined"><span class="hs-identifier hs-type">Lined</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.Profunctor.Grammar.html#Parsor"><span class="hs-identifier hs-type">Parsor</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679409243"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679409244"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span class="hs-special">)</span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-167"></span><span>    </span><span id="local-6989586621679409749"><span class="annot"><span class="annottext">hardlineP :: Parsor s m () ()
+</span><a href="Control.Lens.Grammar.Pretty.html#hardlineP"><span class="hs-identifier hs-var hs-var hs-var">hardlineP</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Parsor s m () ()
+</span><a href="#local-6989586621679409750"><span class="hs-identifier hs-var">newline</span></a></span><span> </span><span class="annot"><span class="annottext">Parsor s m () () -&gt; Parsor s m () () -&gt; Parsor s m () ()
+forall (p :: * -&gt; * -&gt; *) c a b.
+Monoidal p =&gt;
+p () c -&gt; p a b -&gt; p a b
+</span><span class="hs-operator hs-var">&gt;*</span></span><span> </span><span class="annot"><span class="annottext">(() -&gt; String)
+-&gt; (String -&gt; ()) -&gt; Parsor s m String String -&gt; Parsor s m () ()
+forall a b c d.
+(a -&gt; b) -&gt; (c -&gt; d) -&gt; Parsor s m b c -&gt; Parsor s m a d
+forall (p :: * -&gt; * -&gt; *) a b c d.
+Profunctor p =&gt;
+(a -&gt; b) -&gt; (c -&gt; d) -&gt; p b c -&gt; p a d
+</span><span class="hs-identifier hs-var">dimap</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">String -&gt; () -&gt; String
+forall a b. a -&gt; b -&gt; a
+</span><span class="hs-identifier hs-var">const</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;&quot;</span></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">() -&gt; String -&gt; ()
+forall a b. a -&gt; b -&gt; a
+</span><span class="hs-identifier hs-var">const</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Parsor s m Char Char -&gt; Parsor s m String String
+forall a b. Parsor s m a b -&gt; Parsor s m [a] [b]
+forall (p :: * -&gt; * -&gt; *) a b. Distributor p =&gt; p a b -&gt; p [a] [b]
+</span><span class="hs-identifier hs-var">manyP</span></span><span> </span><span class="annot"><span class="annottext">Parsor s m Char Char
+</span><a href="#local-6989586621679409755"><span class="hs-identifier hs-var">space</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-168"></span><span>      </span><span class="hs-keyword">where</span><span>
+</span><span id="line-169"></span><span>        </span><span id="local-6989586621679409750"><span class="annot"><span class="annottext">newline :: Parsor s m () ()
+</span><a href="#local-6989586621679409750"><span class="hs-identifier hs-var hs-var">newline</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String -&gt; Parsor s m () ()
+forall token s. TerminalSymbol token s =&gt; [token] -&gt; s
+</span><a href="Control.Lens.Grammar.Symbol.html#terminal"><span class="hs-identifier hs-var">terminal</span></a></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;\n&quot;</span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Data.Profunctor.Grammar.html#Parsor"><span class="hs-identifier hs-type">Parsor</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679409243"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679409244"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-170"></span><span>        </span><span id="local-6989586621679409755"><span class="annot"><span class="annottext">space :: Parsor s m Char Char
+</span><a href="#local-6989586621679409755"><span class="hs-identifier hs-var hs-var">space</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Char -&gt; Parsor s m Char Char
+forall token p. Tokenized token p =&gt; token -&gt; p
+</span><a href="Control.Lens.Grammar.Token.html#token"><span class="hs-identifier hs-var">token</span></a></span><span> </span><span class="annot"><span class="annottext">Char
+</span><span class="hs-char">' '</span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Data.Profunctor.Grammar.html#Parsor"><span class="hs-identifier hs-type">Parsor</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679409243"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679409244"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Char</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Char</span></span><span>
+</span><span id="line-171"></span><span class="annot"><span class="hs-comment">-- | Either layout, any indentation.</span></span><span>
+</span><span id="line-172"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679409278"><span id="local-6989586621679409279"><span id="local-6989586621679409280"><span id="local-6989586621679409281"><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Alternative</span></span><span> </span><span class="annot"><a href="#local-6989586621679409278"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Monad</span></span><span> </span><span class="annot"><a href="#local-6989586621679409278"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Pretty.html#LaidOut"><span class="hs-identifier hs-type">LaidOut</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.Profunctor.Grammar.html#Parsor"><span class="hs-identifier hs-type">Parsor</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679409279"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679409278"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679409280"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679409281"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span></span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-173"></span><span>  </span><span id="local-6989586621679409765"><span class="annot"><span class="annottext">flatAltP :: Parsor s m a b -&gt; Parsor s m a b -&gt; Parsor s m a b
+</span><a href="Control.Lens.Grammar.Pretty.html#flatAltP"><span class="hs-identifier hs-var hs-var hs-var">flatAltP</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Parsor s m a b -&gt; Parsor s m a b -&gt; Parsor s m a b
+forall a. DisjunctiveMonoid a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">(&gt;|&lt;)</span></span><span>
+</span><span id="line-174"></span><span>  </span><span id="local-6989586621679409766"><span class="annot"><span class="annottext">nestP :: Int -&gt; Parsor s m a b -&gt; Parsor s m a b
+</span><a href="Control.Lens.Grammar.Pretty.html#nestP"><span class="hs-identifier hs-var hs-var hs-var">nestP</span></a></span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Parsor s m a b -&gt; Parsor s m a b
+forall a. a -&gt; a
+</span><span class="hs-identifier hs-var">id</span></span><span>
+</span><span id="line-175"></span><span>  </span><span id="local-6989586621679409767"><span class="annot"><span class="annottext">groupP :: Parsor s m a b -&gt; Parsor s m a b
+</span><a href="Control.Lens.Grammar.Pretty.html#groupP"><span class="hs-identifier hs-var hs-var hs-var">groupP</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Parsor s m a b -&gt; Parsor s m a b
+forall a. a -&gt; a
+</span><span class="hs-identifier hs-var">id</span></span><span>
+</span><span id="line-176"></span><span>  </span><span id="local-6989586621679409768"><span class="annot"><span class="annottext">alignP :: Parsor s m a b -&gt; Parsor s m a b
+</span><a href="Control.Lens.Grammar.Pretty.html#alignP"><span class="hs-identifier hs-var hs-var hs-var">alignP</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Parsor s m a b -&gt; Parsor s m a b
+forall a. a -&gt; a
+</span><span class="hs-identifier hs-var">id</span></span><span>
+</span><span id="line-177"></span><span>
+</span><span id="line-178"></span><span class="annot"><span class="hs-comment">{- | t'Prettor' is a printer `Profunctor` into a `Monoid`, like a `Doc`,
+whose `Lined` &amp; `LaidOut` methods it lifts. -}</span></span><span>
+</span><span id="line-180"></span><span class="hs-keyword">newtype</span><span> </span><span id="Prettor"><span class="annot"><a href="Control.Lens.Grammar.Pretty.html#Prettor"><span class="hs-identifier hs-var">Prettor</span></a></span></span><span> </span><span id="local-6989586621679409156"><span class="annot"><a href="#local-6989586621679409156"><span class="hs-identifier hs-type">w</span></a></span></span><span> </span><span id="local-6989586621679409157"><span class="annot"><a href="#local-6989586621679409157"><span class="hs-identifier hs-type">f</span></a></span></span><span> </span><span id="local-6989586621679409158"><span class="annot"><a href="#local-6989586621679409158"><span class="hs-identifier hs-type">a</span></a></span></span><span> </span><span id="local-6989586621679409159"><span class="annot"><a href="#local-6989586621679409159"><span class="hs-identifier hs-type">b</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="Prettor"><span class="annot"><a href="Control.Lens.Grammar.Pretty.html#Prettor"><span class="hs-identifier hs-var">Prettor</span></a></span></span><span> </span><span class="hs-special">{</span><span id="runPrettor"><span class="annot"><span class="annottext">forall w (f :: * -&gt; *) a b. Prettor w f a b -&gt; a -&gt; f (b, w)
+</span><a href="Control.Lens.Grammar.Pretty.html#runPrettor"><span class="hs-identifier hs-var hs-var">runPrettor</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="#local-6989586621679409158"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679409157"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679409159"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="#local-6989586621679409156"><span class="hs-identifier hs-type">w</span></a></span><span class="hs-special">)</span><span class="hs-special">}</span><span>
+</span><span id="line-181"></span><span>
+</span><span id="line-182"></span><span class="hs-comment">-- The text of a string, its newlines hard.</span><span>
+</span><span id="line-183"></span><span id="local-6989586621679409290"><span class="annot"><a href="Control.Lens.Grammar.Pretty.html#linedString"><span class="hs-identifier hs-type">linedString</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">IsString</span></span><span> </span><span class="annot"><a href="#local-6989586621679409290"><span class="hs-identifier hs-type">w</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Pretty.html#Lined"><span class="hs-identifier hs-type">Lined</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679409290"><span class="hs-identifier hs-type">w</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Monoid</span></span><span> </span><span class="annot"><a href="#local-6989586621679409290"><span class="hs-identifier hs-type">w</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">String</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679409290"><span class="hs-identifier hs-type">w</span></a></span></span><span>
+</span><span id="line-184"></span><span id="linedString"><span class="annot"><span class="annottext">linedString :: forall w. (IsString w, Lined w, Monoid w) =&gt; String -&gt; w
+</span><a href="Control.Lens.Grammar.Pretty.html#linedString"><span class="hs-identifier hs-var hs-var">linedString</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[w] -&gt; w
+forall a. Monoid a =&gt; [a] -&gt; a
+</span><span class="hs-identifier hs-var">mconcat</span></span><span> </span><span class="annot"><span class="annottext">([w] -&gt; w) -&gt; (String -&gt; [w]) -&gt; String -&gt; w
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">w -&gt; [w] -&gt; [w]
+forall a. a -&gt; [a] -&gt; [a]
+</span><span class="hs-identifier hs-var">intersperse</span></span><span> </span><span class="annot"><span class="annottext">w
+forall p. Lined p =&gt; p
+</span><a href="Control.Lens.Grammar.Pretty.html#hardlineP"><span class="hs-identifier hs-var">hardlineP</span></a></span><span> </span><span class="annot"><span class="annottext">([w] -&gt; [w]) -&gt; (String -&gt; [w]) -&gt; String -&gt; [w]
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">(String -&gt; w) -&gt; [String] -&gt; [w]
+forall a b. (a -&gt; b) -&gt; [a] -&gt; [b]
+</span><span class="hs-identifier hs-var">map</span></span><span> </span><span class="annot"><span class="annottext">String -&gt; w
+forall a. IsString a =&gt; String -&gt; a
+</span><span class="hs-identifier hs-var">fromString</span></span><span> </span><span class="annot"><span class="annottext">([String] -&gt; [w]) -&gt; (String -&gt; [String]) -&gt; String -&gt; [w]
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">String -&gt; [String]
+</span><a href="#local-6989586621679409777"><span class="hs-identifier hs-var">splitLines</span></a></span><span>
+</span><span id="line-185"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-186"></span><span>    </span><span id="local-6989586621679409777"><span class="annot"><span class="annottext">splitLines :: String -&gt; [String]
+</span><a href="#local-6989586621679409777"><span class="hs-identifier hs-var hs-var">splitLines</span></a></span></span><span> </span><span id="local-6989586621679409780"><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679409780"><span class="hs-identifier hs-var">str</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">(Char -&gt; Bool) -&gt; String -&gt; (String, String)
+forall a. (a -&gt; Bool) -&gt; [a] -&gt; ([a], [a])
+</span><span class="hs-identifier hs-var">break</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Char -&gt; Char -&gt; Bool
+forall a. Eq a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">==</span></span><span> </span><span class="annot"><span class="annottext">Char
+</span><span class="hs-char">'\n'</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679409780"><span class="hs-identifier hs-var">str</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-187"></span><span>      </span><span class="hs-special">(</span><span id="local-6989586621679409782"><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679409782"><span class="hs-identifier hs-var">ln</span></a></span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Char
+</span><span class="hs-identifier">_</span></span><span> </span><span class="annot"><span class="hs-glyph hs-type">:</span></span><span> </span><span id="local-6989586621679409783"><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679409783"><span class="hs-identifier hs-var">rest</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679409782"><span class="hs-identifier hs-var">ln</span></a></span><span> </span><span class="annot"><span class="annottext">String -&gt; [String] -&gt; [String]
+forall a. a -&gt; [a] -&gt; [a]
+</span><span class="hs-glyph hs-var">:</span></span><span> </span><span class="annot"><span class="annottext">String -&gt; [String]
+</span><a href="#local-6989586621679409777"><span class="hs-identifier hs-var">splitLines</span></a></span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679409783"><span class="hs-identifier hs-var">rest</span></a></span><span>
+</span><span id="line-188"></span><span>      </span><span class="hs-special">(</span><span id="local-6989586621679409784"><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679409784"><span class="hs-identifier hs-var">ln</span></a></span></span><span class="hs-special">,</span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679409784"><span class="hs-identifier hs-var">ln</span></a></span><span class="hs-special">]</span><span>
+</span><span id="line-189"></span><span>
+</span><span id="line-190"></span><span class="hs-comment">-- Prettor instances</span><span>
+</span><span id="line-191"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679409303"><span id="local-6989586621679409304"><span id="local-6989586621679409305"><span id="local-6989586621679409788"><span class="annot"><span class="hs-identifier hs-type">Functor</span></span><span> </span><span class="annot"><a href="#local-6989586621679409303"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Functor</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Grammar.Pretty.html#Prettor"><span class="hs-identifier hs-type">Prettor</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679409304"><span class="hs-identifier hs-type">w</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679409303"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679409305"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span></span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-192"></span><span>  </span><span id="local-6989586621679409795"><span class="annot"><span class="annottext">fmap :: forall a b. (a -&gt; b) -&gt; Prettor w f a a -&gt; Prettor w f a b
+</span><span class="hs-identifier hs-var hs-var hs-var">fmap</span></span></span><span> </span><span id="local-6989586621679409796"><span class="annot"><span class="annottext">a -&gt; b
+</span><a href="#local-6989586621679409796"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Grammar.Pretty.html#Prettor"><span class="hs-identifier hs-type">Prettor</span></a></span><span> </span><span id="local-6989586621679409797"><span class="annot"><span class="annottext">a -&gt; f (a, w)
+</span><a href="#local-6989586621679409797"><span class="hs-identifier hs-var">p</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(a -&gt; f (b, w)) -&gt; Prettor w f a b
+forall w (f :: * -&gt; *) a b. (a -&gt; f (b, w)) -&gt; Prettor w f a b
+</span><a href="Control.Lens.Grammar.Pretty.html#Prettor"><span class="hs-identifier hs-var">Prettor</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">((a, w) -&gt; (b, w)) -&gt; f (a, w) -&gt; f (b, w)
+forall a b. (a -&gt; b) -&gt; f a -&gt; f b
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">fmap</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(a -&gt; b) -&gt; (a, w) -&gt; (b, w)
+forall a b c. (a -&gt; b) -&gt; (a, c) -&gt; (b, c)
+forall (p :: * -&gt; * -&gt; *) a b c.
+Strong p =&gt;
+p a b -&gt; p (a, c) (b, c)
+</span><span class="hs-identifier hs-var">first'</span></span><span> </span><span class="annot"><span class="annottext">a -&gt; b
+</span><a href="#local-6989586621679409796"><span class="hs-identifier hs-var">f</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(f (a, w) -&gt; f (b, w)) -&gt; (a -&gt; f (a, w)) -&gt; a -&gt; f (b, w)
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">a -&gt; f (a, w)
+</span><a href="#local-6989586621679409797"><span class="hs-identifier hs-var">p</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-193"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679409333"><span id="local-6989586621679409334"><span id="local-6989586621679409802"><span id="local-6989586621679409806"><span id="local-6989586621679409809"><span id="local-6989586621679409815"><span class="annot"><span class="hs-identifier hs-type">Functor</span></span><span> </span><span class="annot"><a href="#local-6989586621679409333"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Profunctor</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Grammar.Pretty.html#Prettor"><span class="hs-identifier hs-type">Prettor</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679409334"><span class="hs-identifier hs-type">w</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679409333"><span class="hs-identifier hs-type">f</span></a></span><span class="hs-special">)</span></span></span></span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-194"></span><span>  </span><span id="local-6989586621679409823"><span class="annot"><span class="annottext">dimap :: forall a b c d.
+(a -&gt; b) -&gt; (c -&gt; d) -&gt; Prettor w f b c -&gt; Prettor w f a d
+</span><span class="hs-identifier hs-var hs-var hs-var">dimap</span></span></span><span> </span><span id="local-6989586621679409824"><span class="annot"><span class="annottext">a -&gt; b
+</span><a href="#local-6989586621679409824"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span id="local-6989586621679409825"><span class="annot"><span class="annottext">c -&gt; d
+</span><a href="#local-6989586621679409825"><span class="hs-identifier hs-var">g</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Grammar.Pretty.html#Prettor"><span class="hs-identifier hs-type">Prettor</span></a></span><span> </span><span id="local-6989586621679409826"><span class="annot"><span class="annottext">b -&gt; f (c, w)
+</span><a href="#local-6989586621679409826"><span class="hs-identifier hs-var">p</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(a -&gt; f (d, w)) -&gt; Prettor w f a d
+forall w (f :: * -&gt; *) a b. (a -&gt; f (b, w)) -&gt; Prettor w f a b
+</span><a href="Control.Lens.Grammar.Pretty.html#Prettor"><span class="hs-identifier hs-var">Prettor</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">((c, w) -&gt; (d, w)) -&gt; f (c, w) -&gt; f (d, w)
+forall a b. (a -&gt; b) -&gt; f a -&gt; f b
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">fmap</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(c -&gt; d) -&gt; (c, w) -&gt; (d, w)
+forall a b c. (a -&gt; b) -&gt; (a, c) -&gt; (b, c)
+forall (p :: * -&gt; * -&gt; *) a b c.
+Strong p =&gt;
+p a b -&gt; p (a, c) (b, c)
+</span><span class="hs-identifier hs-var">first'</span></span><span> </span><span class="annot"><span class="annottext">c -&gt; d
+</span><a href="#local-6989586621679409825"><span class="hs-identifier hs-var">g</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(f (c, w) -&gt; f (d, w)) -&gt; (a -&gt; f (c, w)) -&gt; a -&gt; f (d, w)
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">b -&gt; f (c, w)
+</span><a href="#local-6989586621679409826"><span class="hs-identifier hs-var">p</span></a></span><span> </span><span class="annot"><span class="annottext">(b -&gt; f (c, w)) -&gt; (a -&gt; b) -&gt; a -&gt; f (c, w)
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">a -&gt; b
+</span><a href="#local-6989586621679409824"><span class="hs-identifier hs-var">f</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-195"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679409353"><span id="local-6989586621679409354"><span id="local-6989586621679409355"><span id="local-6989586621679409835"><span id="local-6989586621679409839"><span id="local-6989586621679409842"><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Monoid</span></span><span> </span><span class="annot"><a href="#local-6989586621679409353"><span class="hs-identifier hs-type">w</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Applicative</span></span><span> </span><span class="annot"><a href="#local-6989586621679409354"><span class="hs-identifier hs-type">f</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Applicative</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Grammar.Pretty.html#Prettor"><span class="hs-identifier hs-type">Prettor</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679409353"><span class="hs-identifier hs-type">w</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679409354"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679409355"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span></span></span></span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-196"></span><span>  </span><span id="local-6989586621679409850"><span class="annot"><span class="annottext">pure :: forall a. a -&gt; Prettor w f a a
+</span><span class="hs-identifier hs-var hs-var hs-var">pure</span></span></span><span> </span><span id="local-6989586621679409851"><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679409851"><span class="hs-identifier hs-var">b</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(a -&gt; f (a, w)) -&gt; Prettor w f a a
+forall w (f :: * -&gt; *) a b. (a -&gt; f (b, w)) -&gt; Prettor w f a b
+</span><a href="Control.Lens.Grammar.Pretty.html#Prettor"><span class="hs-identifier hs-var">Prettor</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span class="annot"><span class="annottext">a
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">(a, w) -&gt; f (a, w)
+forall a. a -&gt; f a
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><span class="hs-identifier hs-var">pure</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679409851"><span class="hs-identifier hs-var">b</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">w
+forall a. Monoid a =&gt; a
+</span><span class="hs-identifier hs-var">mempty</span></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-197"></span><span>  </span><span class="annot"><a href="Control.Lens.Grammar.Pretty.html#Prettor"><span class="hs-identifier hs-type">Prettor</span></a></span><span> </span><span id="local-6989586621679409854"><span class="annot"><span class="annottext">a -&gt; f (a -&gt; b, w)
+</span><a href="#local-6989586621679409854"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span id="local-6989586621679409855"><span class="annot"><span class="annottext">&lt;*&gt; :: forall a b.
+Prettor w f a (a -&gt; b) -&gt; Prettor w f a a -&gt; Prettor w f a b
+</span><span class="hs-operator hs-var hs-var hs-var">&lt;*&gt;</span></span></span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Pretty.html#Prettor"><span class="hs-identifier hs-type">Prettor</span></a></span><span> </span><span id="local-6989586621679409856"><span class="annot"><span class="annottext">a -&gt; f (a, w)
+</span><a href="#local-6989586621679409856"><span class="hs-identifier hs-var">x</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(a -&gt; f (b, w)) -&gt; Prettor w f a b
+forall w (f :: * -&gt; *) a b. (a -&gt; f (b, w)) -&gt; Prettor w f a b
+</span><a href="Control.Lens.Grammar.Pretty.html#Prettor"><span class="hs-identifier hs-var">Prettor</span></a></span><span> </span><span class="annot"><span class="annottext">((a -&gt; f (b, w)) -&gt; Prettor w f a b)
+-&gt; (a -&gt; f (b, w)) -&gt; Prettor w f a b
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679409857"><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679409857"><span class="hs-identifier hs-var">c</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-198"></span><span>    </span><span class="annot"><span class="annottext">((a -&gt; b, w) -&gt; (a, w) -&gt; (b, w))
+-&gt; f (a -&gt; b, w) -&gt; f (a, w) -&gt; f (b, w)
+forall a b c. (a -&gt; b -&gt; c) -&gt; f a -&gt; f b -&gt; f c
+forall (f :: * -&gt; *) a b c.
+Applicative f =&gt;
+(a -&gt; b -&gt; c) -&gt; f a -&gt; f b -&gt; f c
+</span><span class="hs-identifier hs-var">liftA2</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span class="hs-special">(</span><span id="local-6989586621679409859"><span class="annot"><span class="annottext">a -&gt; b
+</span><a href="#local-6989586621679409859"><span class="hs-identifier hs-var">g</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679409860"><span class="annot"><span class="annottext">w
+</span><a href="#local-6989586621679409860"><span class="hs-identifier hs-var">v</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span id="local-6989586621679409861"><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679409861"><span class="hs-identifier hs-var">a</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679409862"><span class="annot"><span class="annottext">w
+</span><a href="#local-6989586621679409862"><span class="hs-identifier hs-var">w</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">a -&gt; b
+</span><a href="#local-6989586621679409859"><span class="hs-identifier hs-var">g</span></a></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679409861"><span class="hs-identifier hs-var">a</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">w
+</span><a href="#local-6989586621679409860"><span class="hs-identifier hs-var">v</span></a></span><span> </span><span class="annot"><span class="annottext">w -&gt; w -&gt; w
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">w
+</span><a href="#local-6989586621679409862"><span class="hs-identifier hs-var">w</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">a -&gt; f (a -&gt; b, w)
+</span><a href="#local-6989586621679409854"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679409857"><span class="hs-identifier hs-var">c</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">a -&gt; f (a, w)
+</span><a href="#local-6989586621679409856"><span class="hs-identifier hs-var">x</span></a></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679409857"><span class="hs-identifier hs-var">c</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-199"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679409370"><span id="local-6989586621679409371"><span id="local-6989586621679409372"><span id="local-6989586621679409871"><span id="local-6989586621679409875"><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Monoid</span></span><span> </span><span class="annot"><a href="#local-6989586621679409370"><span class="hs-identifier hs-type">w</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Alternative</span></span><span> </span><span class="annot"><a href="#local-6989586621679409371"><span class="hs-identifier hs-type">f</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Alternative</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Grammar.Pretty.html#Prettor"><span class="hs-identifier hs-type">Prettor</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679409370"><span class="hs-identifier hs-type">w</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679409371"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679409372"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span></span></span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-200"></span><span>  </span><span id="local-6989586621679409880"><span class="annot"><span class="annottext">empty :: forall a. Prettor w f a a
+</span><a href="#local-6989586621679409880"><span class="hs-identifier hs-var hs-var hs-var">empty</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(a -&gt; f (a, w)) -&gt; Prettor w f a a
+forall w (f :: * -&gt; *) a b. (a -&gt; f (b, w)) -&gt; Prettor w f a b
+</span><a href="Control.Lens.Grammar.Pretty.html#Prettor"><span class="hs-identifier hs-var">Prettor</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">f (a, w) -&gt; a -&gt; f (a, w)
+forall a b. a -&gt; b -&gt; a
+</span><span class="hs-identifier hs-var">const</span></span><span> </span><span class="annot"><span class="annottext">f (a, w)
+forall a. f a
+forall (f :: * -&gt; *) a. Alternative f =&gt; f a
+</span><span class="hs-identifier hs-var">empty</span></span><span class="hs-special">)</span><span>
+</span><span id="line-201"></span><span>  </span><span class="annot"><a href="Control.Lens.Grammar.Pretty.html#Prettor"><span class="hs-identifier hs-type">Prettor</span></a></span><span> </span><span id="local-6989586621679409883"><span class="annot"><span class="annottext">a -&gt; f (a, w)
+</span><a href="#local-6989586621679409883"><span class="hs-identifier hs-var">p</span></a></span></span><span> </span><span id="local-6989586621679409884"><span class="annot"><span class="annottext">&lt;|&gt; :: forall a. Prettor w f a a -&gt; Prettor w f a a -&gt; Prettor w f a a
+</span><a href="#local-6989586621679409884"><span class="hs-operator hs-var hs-var hs-var">&lt;|&gt;</span></a></span></span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Pretty.html#Prettor"><span class="hs-identifier hs-type">Prettor</span></a></span><span> </span><span id="local-6989586621679409886"><span class="annot"><span class="annottext">a -&gt; f (a, w)
+</span><a href="#local-6989586621679409886"><span class="hs-identifier hs-var">q</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(a -&gt; f (a, w)) -&gt; Prettor w f a a
+forall w (f :: * -&gt; *) a b. (a -&gt; f (b, w)) -&gt; Prettor w f a b
+</span><a href="Control.Lens.Grammar.Pretty.html#Prettor"><span class="hs-identifier hs-var">Prettor</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span id="local-6989586621679409887"><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679409887"><span class="hs-identifier hs-var">a</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">a -&gt; f (a, w)
+</span><a href="#local-6989586621679409883"><span class="hs-identifier hs-var">p</span></a></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679409887"><span class="hs-identifier hs-var">a</span></a></span><span> </span><span class="annot"><span class="annottext">f (a, w) -&gt; f (a, w) -&gt; f (a, w)
+forall a. f a -&gt; f a -&gt; f a
+forall (f :: * -&gt; *) a. Alternative f =&gt; f a -&gt; f a -&gt; f a
+</span><span class="hs-operator hs-var">&lt;|&gt;</span></span><span> </span><span class="annot"><span class="annottext">a -&gt; f (a, w)
+</span><a href="#local-6989586621679409886"><span class="hs-identifier hs-var">q</span></a></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679409887"><span class="hs-identifier hs-var">a</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-202"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679409383"><span id="local-6989586621679409384"><span class="annot"><span class="hs-identifier hs-type">Functor</span></span><span> </span><span class="annot"><a href="#local-6989586621679409383"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">CocartesianMonoidal</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Grammar.Pretty.html#Prettor"><span class="hs-identifier hs-type">Prettor</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679409384"><span class="hs-identifier hs-type">w</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679409383"><span class="hs-identifier hs-type">f</span></a></span><span class="hs-special">)</span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-203"></span><span>  </span><span id="local-6989586621679409895"><span class="annot"><span class="annottext">zeroP :: Prettor w f Void Void
+</span><a href="#local-6989586621679409895"><span class="hs-identifier hs-var hs-var hs-var">zeroP</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(Void -&gt; f (Void, w)) -&gt; Prettor w f Void Void
+forall w (f :: * -&gt; *) a b. (a -&gt; f (b, w)) -&gt; Prettor w f a b
+</span><a href="Control.Lens.Grammar.Pretty.html#Prettor"><span class="hs-identifier hs-var">Prettor</span></a></span><span> </span><span class="annot"><span class="annottext">Void -&gt; f (Void, w)
+forall a. Void -&gt; a
+</span><span class="hs-identifier hs-var">absurd</span></span><span>
+</span><span id="line-204"></span><span>  </span><span class="annot"><a href="Control.Lens.Grammar.Pretty.html#Prettor"><span class="hs-identifier hs-type">Prettor</span></a></span><span> </span><span id="local-6989586621679409901"><span class="annot"><span class="annottext">a -&gt; f (b, w)
+</span><a href="#local-6989586621679409901"><span class="hs-identifier hs-var">p</span></a></span></span><span> </span><span id="local-6989586621679409902"><span class="annot"><span class="annottext">&gt;+&lt; :: forall a b c d.
+Prettor w f a b
+-&gt; Prettor w f c d -&gt; Prettor w f (Either a c) (Either b d)
+</span><a href="#local-6989586621679409902"><span class="hs-operator hs-var hs-var hs-var">&gt;+&lt;</span></a></span></span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Pretty.html#Prettor"><span class="hs-identifier hs-type">Prettor</span></a></span><span> </span><span id="local-6989586621679409904"><span class="annot"><span class="annottext">c -&gt; f (d, w)
+</span><a href="#local-6989586621679409904"><span class="hs-identifier hs-var">q</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(Either a c -&gt; f (Either b d, w))
+-&gt; Prettor w f (Either a c) (Either b d)
+forall w (f :: * -&gt; *) a b. (a -&gt; f (b, w)) -&gt; Prettor w f a b
+</span><a href="Control.Lens.Grammar.Pretty.html#Prettor"><span class="hs-identifier hs-var">Prettor</span></a></span><span> </span><span class="annot"><span class="annottext">((Either a c -&gt; f (Either b d, w))
+ -&gt; Prettor w f (Either a c) (Either b d))
+-&gt; (Either a c -&gt; f (Either b d, w))
+-&gt; Prettor w f (Either a c) (Either b d)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span>
+</span><span id="line-205"></span><span>    </span><span class="annot"><span class="annottext">(a -&gt; f (Either b d, w))
+-&gt; (c -&gt; f (Either b d, w)) -&gt; Either a c -&gt; f (Either b d, w)
+forall a c b. (a -&gt; c) -&gt; (b -&gt; c) -&gt; Either a b -&gt; c
+</span><span class="hs-identifier hs-var">either</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">((b, w) -&gt; (Either b d, w)) -&gt; f (b, w) -&gt; f (Either b d, w)
+forall a b. (a -&gt; b) -&gt; f a -&gt; f b
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">fmap</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(b -&gt; Either b d) -&gt; (b, w) -&gt; (Either b d, w)
+forall a b c. (a -&gt; b) -&gt; (a, c) -&gt; (b, c)
+forall (p :: * -&gt; * -&gt; *) a b c.
+Strong p =&gt;
+p a b -&gt; p (a, c) (b, c)
+</span><span class="hs-identifier hs-var">first'</span></span><span> </span><span class="annot"><span class="annottext">b -&gt; Either b d
+forall a b. a -&gt; Either a b
+</span><span class="hs-identifier hs-var">Left</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(f (b, w) -&gt; f (Either b d, w))
+-&gt; (a -&gt; f (b, w)) -&gt; a -&gt; f (Either b d, w)
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">a -&gt; f (b, w)
+</span><a href="#local-6989586621679409901"><span class="hs-identifier hs-var">p</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">((d, w) -&gt; (Either b d, w)) -&gt; f (d, w) -&gt; f (Either b d, w)
+forall a b. (a -&gt; b) -&gt; f a -&gt; f b
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">fmap</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(d -&gt; Either b d) -&gt; (d, w) -&gt; (Either b d, w)
+forall a b c. (a -&gt; b) -&gt; (a, c) -&gt; (b, c)
+forall (p :: * -&gt; * -&gt; *) a b c.
+Strong p =&gt;
+p a b -&gt; p (a, c) (b, c)
+</span><span class="hs-identifier hs-var">first'</span></span><span> </span><span class="annot"><span class="annottext">d -&gt; Either b d
+forall a b. b -&gt; Either a b
+</span><span class="hs-identifier hs-var">Right</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(f (d, w) -&gt; f (Either b d, w))
+-&gt; (c -&gt; f (d, w)) -&gt; c -&gt; f (Either b d, w)
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">c -&gt; f (d, w)
+</span><a href="#local-6989586621679409904"><span class="hs-identifier hs-var">q</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-206"></span><span class="annot"><span class="hs-comment">{- | `manyP` &amp; `optionalP` print their elements in turn. -}</span></span><span>
+</span><span id="line-207"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679409399"><span id="local-6989586621679409400"><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Monoid</span></span><span> </span><span class="annot"><a href="#local-6989586621679409399"><span class="hs-identifier hs-type">w</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Applicative</span></span><span> </span><span class="annot"><a href="#local-6989586621679409400"><span class="hs-identifier hs-type">f</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Distributor</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Grammar.Pretty.html#Prettor"><span class="hs-identifier hs-type">Prettor</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679409399"><span class="hs-identifier hs-type">w</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679409400"><span class="hs-identifier hs-type">f</span></a></span><span class="hs-special">)</span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-208"></span><span>  </span><span id="local-6989586621679409927"><span class="annot"><span class="annottext">manyP :: forall a b. Prettor w f a b -&gt; Prettor w f [a] [b]
+</span><span class="hs-identifier hs-var hs-var hs-var">manyP</span></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Grammar.Pretty.html#Prettor"><span class="hs-identifier hs-type">Prettor</span></a></span><span> </span><span id="local-6989586621679409928"><span class="annot"><span class="annottext">a -&gt; f (b, w)
+</span><a href="#local-6989586621679409928"><span class="hs-identifier hs-var">p</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">([a] -&gt; f ([b], w)) -&gt; Prettor w f [a] [b]
+forall w (f :: * -&gt; *) a b. (a -&gt; f (b, w)) -&gt; Prettor w f a b
+</span><a href="Control.Lens.Grammar.Pretty.html#Prettor"><span class="hs-identifier hs-var">Prettor</span></a></span><span> </span><span class="annot"><span class="annottext">(([a] -&gt; f ([b], w)) -&gt; Prettor w f [a] [b])
+-&gt; ([a] -&gt; f ([b], w)) -&gt; Prettor w f [a] [b]
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679409929"><span class="annot"><span class="annottext">[a]
+</span><a href="#local-6989586621679409929"><span class="hs-keyword hs-var">as</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-209"></span><span>    </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span id="local-6989586621679409930"><span class="annot"><span class="annottext">[(b, w)]
+</span><a href="#local-6989586621679409930"><span class="hs-identifier hs-var">printed</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">((b, w) -&gt; b) -&gt; [(b, w)] -&gt; [b]
+forall a b. (a -&gt; b) -&gt; [a] -&gt; [b]
+</span><span class="hs-identifier hs-var">map</span></span><span> </span><span class="annot"><span class="annottext">(b, w) -&gt; b
+forall a b. (a, b) -&gt; a
+</span><span class="hs-identifier hs-var">fst</span></span><span> </span><span class="annot"><span class="annottext">[(b, w)]
+</span><a href="#local-6989586621679409930"><span class="hs-identifier hs-var">printed</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">((b, w) -&gt; w) -&gt; [(b, w)] -&gt; w
+forall m a. Monoid m =&gt; (a -&gt; m) -&gt; [a] -&gt; m
+forall (t :: * -&gt; *) m a.
+(Foldable t, Monoid m) =&gt;
+(a -&gt; m) -&gt; t a -&gt; m
+</span><span class="hs-identifier hs-var">foldMap</span></span><span> </span><span class="annot"><span class="annottext">(b, w) -&gt; w
+forall a b. (a, b) -&gt; b
+</span><span class="hs-identifier hs-var">snd</span></span><span> </span><span class="annot"><span class="annottext">[(b, w)]
+</span><a href="#local-6989586621679409930"><span class="hs-identifier hs-var">printed</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">([(b, w)] -&gt; ([b], w)) -&gt; f [(b, w)] -&gt; f ([b], w)
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">(a -&gt; f (b, w)) -&gt; [a] -&gt; f [(b, w)]
+forall (t :: * -&gt; *) (f :: * -&gt; *) a b.
+(Traversable t, Applicative f) =&gt;
+(a -&gt; f b) -&gt; t a -&gt; f (t b)
+forall (f :: * -&gt; *) a b.
+Applicative f =&gt;
+(a -&gt; f b) -&gt; [a] -&gt; f [b]
+</span><span class="hs-identifier hs-var">traverse</span></span><span> </span><span class="annot"><span class="annottext">a -&gt; f (b, w)
+</span><a href="#local-6989586621679409928"><span class="hs-identifier hs-var">p</span></a></span><span> </span><span class="annot"><span class="annottext">[a]
+</span><a href="#local-6989586621679409929"><span class="hs-keyword hs-var">as</span></a></span><span>
+</span><span id="line-210"></span><span>  </span><span id="local-6989586621679409938"><span class="annot"><span class="annottext">optionalP :: forall a b. Prettor w f a b -&gt; Prettor w f (Maybe a) (Maybe b)
+</span><span class="hs-identifier hs-var hs-var hs-var">optionalP</span></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Grammar.Pretty.html#Prettor"><span class="hs-identifier hs-type">Prettor</span></a></span><span> </span><span id="local-6989586621679409939"><span class="annot"><span class="annottext">a -&gt; f (b, w)
+</span><a href="#local-6989586621679409939"><span class="hs-identifier hs-var">p</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(Maybe a -&gt; f (Maybe b, w)) -&gt; Prettor w f (Maybe a) (Maybe b)
+forall w (f :: * -&gt; *) a b. (a -&gt; f (b, w)) -&gt; Prettor w f a b
+</span><a href="Control.Lens.Grammar.Pretty.html#Prettor"><span class="hs-identifier hs-var">Prettor</span></a></span><span> </span><span class="annot"><span class="annottext">((Maybe a -&gt; f (Maybe b, w)) -&gt; Prettor w f (Maybe a) (Maybe b))
+-&gt; (Maybe a -&gt; f (Maybe b, w)) -&gt; Prettor w f (Maybe a) (Maybe b)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span>
+</span><span id="line-211"></span><span>    </span><span class="annot"><span class="annottext">Maybe a
+</span><span class="hs-identifier hs-var">Nothing</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">(Maybe b, w) -&gt; f (Maybe b, w)
+forall a. a -&gt; f a
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><span class="hs-identifier hs-var">pure</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Maybe b
+forall a. Maybe a
+</span><span class="hs-identifier hs-var">Nothing</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">w
+forall a. Monoid a =&gt; a
+</span><span class="hs-identifier hs-var">mempty</span></span><span class="hs-special">)</span><span>
+</span><span id="line-212"></span><span>    </span><span class="annot"><span class="hs-identifier hs-type">Just</span></span><span> </span><span id="local-6989586621679409940"><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679409940"><span class="hs-identifier hs-var">a</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">(b -&gt; Maybe b) -&gt; (b, w) -&gt; (Maybe b, w)
+forall a b c. (a -&gt; b) -&gt; (a, c) -&gt; (b, c)
+forall (p :: * -&gt; * -&gt; *) a b c.
+Strong p =&gt;
+p a b -&gt; p (a, c) (b, c)
+</span><span class="hs-identifier hs-var">first'</span></span><span> </span><span class="annot"><span class="annottext">b -&gt; Maybe b
+forall a. a -&gt; Maybe a
+</span><span class="hs-identifier hs-var">Just</span></span><span> </span><span class="annot"><span class="annottext">((b, w) -&gt; (Maybe b, w)) -&gt; f (b, w) -&gt; f (Maybe b, w)
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">a -&gt; f (b, w)
+</span><a href="#local-6989586621679409939"><span class="hs-identifier hs-var">p</span></a></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679409940"><span class="hs-identifier hs-var">a</span></a></span><span>
+</span><span id="line-213"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679409418"><span id="local-6989586621679409419"><span id="local-6989586621679409420"><span id="local-6989586621679409421"><span id="local-6989586621679409944"><span id="local-6989586621679409950"><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Monoid</span></span><span> </span><span class="annot"><a href="#local-6989586621679409418"><span class="hs-identifier hs-type">w</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Alternative</span></span><span> </span><span class="annot"><a href="#local-6989586621679409419"><span class="hs-identifier hs-type">f</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">DisjunctiveMonoid</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Grammar.Pretty.html#Prettor"><span class="hs-identifier hs-type">Prettor</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679409418"><span class="hs-identifier hs-type">w</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679409419"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679409420"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679409421"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span></span></span></span></span></span></span><span>
+</span><span id="line-214"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679409433"><span id="local-6989586621679409434"><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Monoid</span></span><span> </span><span class="annot"><a href="#local-6989586621679409433"><span class="hs-identifier hs-type">w</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Alternative</span></span><span> </span><span class="annot"><a href="#local-6989586621679409434"><span class="hs-identifier hs-type">f</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">CocartesianChoice</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Grammar.Pretty.html#Prettor"><span class="hs-identifier hs-type">Prettor</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679409433"><span class="hs-identifier hs-type">w</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679409434"><span class="hs-identifier hs-type">f</span></a></span><span class="hs-special">)</span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-215"></span><span>  </span><span id="local-6989586621679409975"><span class="annot"><span class="annottext">alternate :: forall a b c d.
+Either (Prettor w f a b) (Prettor w f c d)
+-&gt; Prettor w f (Either a c) (Either b d)
+</span><a href="#local-6989586621679409975"><span class="hs-identifier hs-var hs-var hs-var">alternate</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span>
+</span><span id="line-216"></span><span>    </span><span class="annot"><span class="hs-identifier hs-type">Left</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Grammar.Pretty.html#Prettor"><span class="hs-identifier hs-type">Prettor</span></a></span><span> </span><span id="local-6989586621679409977"><span class="annot"><span class="annottext">a -&gt; f (b, w)
+</span><a href="#local-6989586621679409977"><span class="hs-identifier hs-var">p</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">(Either a c -&gt; f (Either b d, w))
+-&gt; Prettor w f (Either a c) (Either b d)
+forall w (f :: * -&gt; *) a b. (a -&gt; f (b, w)) -&gt; Prettor w f a b
+</span><a href="Control.Lens.Grammar.Pretty.html#Prettor"><span class="hs-identifier hs-var">Prettor</span></a></span><span> </span><span class="annot"><span class="annottext">((Either a c -&gt; f (Either b d, w))
+ -&gt; Prettor w f (Either a c) (Either b d))
+-&gt; (Either a c -&gt; f (Either b d, w))
+-&gt; Prettor w f (Either a c) (Either b d)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span>
+</span><span id="line-217"></span><span>      </span><span class="annot"><span class="annottext">(a -&gt; f (Either b d, w))
+-&gt; (c -&gt; f (Either b d, w)) -&gt; Either a c -&gt; f (Either b d, w)
+forall a c b. (a -&gt; c) -&gt; (b -&gt; c) -&gt; Either a b -&gt; c
+</span><span class="hs-identifier hs-var">either</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">((b, w) -&gt; (Either b d, w)) -&gt; f (b, w) -&gt; f (Either b d, w)
+forall a b. (a -&gt; b) -&gt; f a -&gt; f b
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">fmap</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(b -&gt; Either b d) -&gt; (b, w) -&gt; (Either b d, w)
+forall a b c. (a -&gt; b) -&gt; (a, c) -&gt; (b, c)
+forall (p :: * -&gt; * -&gt; *) a b c.
+Strong p =&gt;
+p a b -&gt; p (a, c) (b, c)
+</span><span class="hs-identifier hs-var">first'</span></span><span> </span><span class="annot"><span class="annottext">b -&gt; Either b d
+forall a b. a -&gt; Either a b
+</span><span class="hs-identifier hs-var">Left</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(f (b, w) -&gt; f (Either b d, w))
+-&gt; (a -&gt; f (b, w)) -&gt; a -&gt; f (Either b d, w)
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">a -&gt; f (b, w)
+</span><a href="#local-6989586621679409977"><span class="hs-identifier hs-var">p</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">f (Either b d, w) -&gt; c -&gt; f (Either b d, w)
+forall a b. a -&gt; b -&gt; a
+</span><span class="hs-identifier hs-var">const</span></span><span> </span><span class="annot"><span class="annottext">f (Either b d, w)
+forall a. f a
+forall (f :: * -&gt; *) a. Alternative f =&gt; f a
+</span><span class="hs-identifier hs-var">empty</span></span><span class="hs-special">)</span><span>
+</span><span id="line-218"></span><span>    </span><span class="annot"><span class="hs-identifier hs-type">Right</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Grammar.Pretty.html#Prettor"><span class="hs-identifier hs-type">Prettor</span></a></span><span> </span><span id="local-6989586621679409978"><span class="annot"><span class="annottext">c -&gt; f (d, w)
+</span><a href="#local-6989586621679409978"><span class="hs-identifier hs-var">p</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">(Either a c -&gt; f (Either b d, w))
+-&gt; Prettor w f (Either a c) (Either b d)
+forall w (f :: * -&gt; *) a b. (a -&gt; f (b, w)) -&gt; Prettor w f a b
+</span><a href="Control.Lens.Grammar.Pretty.html#Prettor"><span class="hs-identifier hs-var">Prettor</span></a></span><span> </span><span class="annot"><span class="annottext">((Either a c -&gt; f (Either b d, w))
+ -&gt; Prettor w f (Either a c) (Either b d))
+-&gt; (Either a c -&gt; f (Either b d, w))
+-&gt; Prettor w f (Either a c) (Either b d)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span>
+</span><span id="line-219"></span><span>      </span><span class="annot"><span class="annottext">(a -&gt; f (Either b d, w))
+-&gt; (c -&gt; f (Either b d, w)) -&gt; Either a c -&gt; f (Either b d, w)
+forall a c b. (a -&gt; c) -&gt; (b -&gt; c) -&gt; Either a b -&gt; c
+</span><span class="hs-identifier hs-var">either</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">f (Either b d, w) -&gt; a -&gt; f (Either b d, w)
+forall a b. a -&gt; b -&gt; a
+</span><span class="hs-identifier hs-var">const</span></span><span> </span><span class="annot"><span class="annottext">f (Either b d, w)
+forall a. f a
+forall (f :: * -&gt; *) a. Alternative f =&gt; f a
+</span><span class="hs-identifier hs-var">empty</span></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">((d, w) -&gt; (Either b d, w)) -&gt; f (d, w) -&gt; f (Either b d, w)
+forall a b. (a -&gt; b) -&gt; f a -&gt; f b
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">fmap</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(d -&gt; Either b d) -&gt; (d, w) -&gt; (Either b d, w)
+forall a b c. (a -&gt; b) -&gt; (a, c) -&gt; (b, c)
+forall (p :: * -&gt; * -&gt; *) a b c.
+Strong p =&gt;
+p a b -&gt; p (a, c) (b, c)
+</span><span class="hs-identifier hs-var">first'</span></span><span> </span><span class="annot"><span class="annottext">d -&gt; Either b d
+forall a b. b -&gt; Either a b
+</span><span class="hs-identifier hs-var">Right</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(f (d, w) -&gt; f (Either b d, w))
+-&gt; (c -&gt; f (d, w)) -&gt; c -&gt; f (Either b d, w)
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">c -&gt; f (d, w)
+</span><a href="#local-6989586621679409978"><span class="hs-identifier hs-var">p</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-220"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679409146"><span id="local-6989586621679409147"><span id="local-6989586621679409989"><span id="local-6989586621679409993"><span id="local-6989586621679409996"><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Monoid</span></span><span> </span><span class="annot"><a href="#local-6989586621679409146"><span class="hs-identifier hs-type">w</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Alternative</span></span><span> </span><span class="annot"><a href="#local-6989586621679409147"><span class="hs-identifier hs-type">f</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Alternator</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Grammar.Pretty.html#Prettor"><span class="hs-identifier hs-type">Prettor</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679409146"><span class="hs-identifier hs-type">w</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679409147"><span class="hs-identifier hs-type">f</span></a></span><span class="hs-special">)</span></span></span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-221"></span><span>  </span><span id="local-6989586621679410005"><span class="annot"><span class="annottext">optionP :: forall a b. APrism a b () () -&gt; Prettor w f a b -&gt; Prettor w f a b
+</span><a href="#local-6989586621679410005"><span class="hs-identifier hs-var hs-var hs-var">optionP</span></a></span></span><span> </span><span id="local-6989586621679410007"><span class="annot"><span class="annottext">APrism a b () ()
+</span><a href="#local-6989586621679410007"><span class="hs-identifier hs-var">def</span></a></span></span><span> </span><span id="local-6989586621679410008"><span class="annot"><span class="annottext">Prettor w f a b
+</span><a href="#local-6989586621679410008"><span class="hs-identifier hs-var">p</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">APrism a b () () -&gt; Prettor w f a b
+forall (p :: * -&gt; * -&gt; *) a b.
+(Monoidal p, Choice p) =&gt;
+APrism a b () () -&gt; p a b
+</span><span class="hs-identifier hs-var">pureP</span></span><span> </span><span class="annot"><span class="annottext">APrism a b () ()
+</span><a href="#local-6989586621679410007"><span class="hs-identifier hs-var">def</span></a></span><span> </span><span class="annot"><span class="annottext">Prettor w f a b -&gt; Prettor w f a b -&gt; Prettor w f a b
+forall a. Prettor w f a a -&gt; Prettor w f a a -&gt; Prettor w f a a
+forall (f :: * -&gt; *) a. Alternative f =&gt; f a -&gt; f a -&gt; f a
+</span><span class="hs-operator hs-var">&lt;|&gt;</span></span><span> </span><span class="annot"><span class="annottext">Prettor w f a b
+</span><a href="#local-6989586621679410008"><span class="hs-identifier hs-var">p</span></a></span><span>
+</span><span id="line-222"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679410010"><span id="local-6989586621679410011"><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Monoid</span></span><span> </span><span class="annot"><a href="#local-6989586621679410010"><span class="hs-identifier hs-type">w</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Alternative</span></span><span> </span><span class="annot"><a href="#local-6989586621679410011"><span class="hs-identifier hs-type">f</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Choice</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Grammar.Pretty.html#Prettor"><span class="hs-identifier hs-type">Prettor</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679410010"><span class="hs-identifier hs-type">w</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679410011"><span class="hs-identifier hs-type">f</span></a></span><span class="hs-special">)</span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-223"></span><span>  </span><span id="local-6989586621679410022"><span class="annot"><span class="annottext">left' :: forall a b c.
+Prettor w f a b -&gt; Prettor w f (Either a c) (Either b c)
+</span><a href="#local-6989586621679410022"><span class="hs-identifier hs-var hs-var hs-var">left'</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Either (Prettor w f a b) (Prettor w f c c)
+-&gt; Prettor w f (Either a c) (Either b c)
+forall a b c d.
+Either (Prettor w f a b) (Prettor w f c d)
+-&gt; Prettor w f (Either a c) (Either b d)
+forall (p :: * -&gt; * -&gt; *) a b c d.
+CocartesianChoice p =&gt;
+Either (p a b) (p c d) -&gt; p (Either a c) (Either b d)
+</span><span class="hs-identifier hs-var">alternate</span></span><span> </span><span class="annot"><span class="annottext">(Either (Prettor w f a b) (Prettor w f c c)
+ -&gt; Prettor w f (Either a c) (Either b c))
+-&gt; (Prettor w f a b -&gt; Either (Prettor w f a b) (Prettor w f c c))
+-&gt; Prettor w f a b
+-&gt; Prettor w f (Either a c) (Either b c)
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Prettor w f a b -&gt; Either (Prettor w f a b) (Prettor w f c c)
+forall a b. a -&gt; Either a b
+</span><span class="hs-identifier hs-var">Left</span></span><span>
+</span><span id="line-224"></span><span>  </span><span id="local-6989586621679410025"><span class="annot"><span class="annottext">right' :: forall a b c.
+Prettor w f a b -&gt; Prettor w f (Either c a) (Either c b)
+</span><a href="#local-6989586621679410025"><span class="hs-identifier hs-var hs-var hs-var">right'</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Either (Prettor w f c c) (Prettor w f a b)
+-&gt; Prettor w f (Either c a) (Either c b)
+forall a b c d.
+Either (Prettor w f a b) (Prettor w f c d)
+-&gt; Prettor w f (Either a c) (Either b d)
+forall (p :: * -&gt; * -&gt; *) a b c d.
+CocartesianChoice p =&gt;
+Either (p a b) (p c d) -&gt; p (Either a c) (Either b d)
+</span><span class="hs-identifier hs-var">alternate</span></span><span> </span><span class="annot"><span class="annottext">(Either (Prettor w f c c) (Prettor w f a b)
+ -&gt; Prettor w f (Either c a) (Either c b))
+-&gt; (Prettor w f a b -&gt; Either (Prettor w f c c) (Prettor w f a b))
+-&gt; Prettor w f a b
+-&gt; Prettor w f (Either c a) (Either c b)
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Prettor w f a b -&gt; Either (Prettor w f c c) (Prettor w f a b)
+forall a b. b -&gt; Either a b
+</span><span class="hs-identifier hs-var">Right</span></span><span>
+</span><span id="line-225"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679409476"><span id="local-6989586621679409477"><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">IsString</span></span><span> </span><span class="annot"><a href="#local-6989586621679409476"><span class="hs-identifier hs-type">w</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Pretty.html#Lined"><span class="hs-identifier hs-type">Lined</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679409476"><span class="hs-identifier hs-type">w</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Monoid</span></span><span> </span><span class="annot"><a href="#local-6989586621679409476"><span class="hs-identifier hs-type">w</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Alternative</span></span><span> </span><span class="annot"><a href="#local-6989586621679409477"><span class="hs-identifier hs-type">f</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-226"></span><span>  </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Token.html#Tokenized"><span class="hs-identifier hs-type">Tokenized</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Char</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Grammar.Pretty.html#Prettor"><span class="hs-identifier hs-type">Prettor</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679409476"><span class="hs-identifier hs-type">w</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679409477"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Char</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Char</span></span><span class="hs-special">)</span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-227"></span><span>    </span><span id="local-6989586621679410046"><span class="annot"><span class="annottext">anyToken :: Prettor w f Char Char
+</span><a href="#local-6989586621679410046"><span class="hs-identifier hs-var hs-var hs-var">anyToken</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(Char -&gt; f (Char, w)) -&gt; Prettor w f Char Char
+forall w (f :: * -&gt; *) a b. (a -&gt; f (b, w)) -&gt; Prettor w f a b
+</span><a href="Control.Lens.Grammar.Pretty.html#Prettor"><span class="hs-identifier hs-var">Prettor</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span id="local-6989586621679410048"><span class="annot"><span class="annottext">Char
+</span><a href="#local-6989586621679410048"><span class="hs-identifier hs-var">c</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">(Char, w) -&gt; f (Char, w)
+forall a. a -&gt; f a
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><span class="hs-identifier hs-var">pure</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Char
+</span><a href="#local-6989586621679410048"><span class="hs-identifier hs-var">c</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">String -&gt; w
+forall w. (IsString w, Lined w, Monoid w) =&gt; String -&gt; w
+</span><a href="Control.Lens.Grammar.Pretty.html#linedString"><span class="hs-identifier hs-var">linedString</span></a></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">Char
+</span><a href="#local-6989586621679410048"><span class="hs-identifier hs-var">c</span></a></span><span class="hs-special">]</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-228"></span><span>    </span><span id="local-6989586621679410054"><span class="annot"><span class="annottext">token :: Char -&gt; Prettor w f Char Char
+</span><a href="Control.Lens.Grammar.Token.html#token"><span class="hs-identifier hs-var hs-var hs-var">token</span></a></span></span><span> </span><span id="local-6989586621679410055"><span class="annot"><span class="annottext">Char
+</span><a href="#local-6989586621679410055"><span class="hs-identifier hs-var">t</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">TokenClass Char -&gt; Prettor w f Char Char
+forall token p. TokenAlgebra token p =&gt; TokenClass token -&gt; p
+</span><a href="Control.Lens.Grammar.Token.html#tokenClass"><span class="hs-identifier hs-var">tokenClass</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Char -&gt; TokenClass Char
+forall token p. Tokenized token p =&gt; token -&gt; p
+</span><a href="Control.Lens.Grammar.Token.html#token"><span class="hs-identifier hs-var">token</span></a></span><span> </span><span class="annot"><span class="annottext">Char
+</span><a href="#local-6989586621679410055"><span class="hs-identifier hs-var">t</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-229"></span><span>    </span><span id="local-6989586621679410062"><span class="annot"><span class="annottext">oneOf :: forall (f :: * -&gt; *). Foldable f =&gt; f Char -&gt; Prettor w f Char Char
+</span><a href="#local-6989586621679410062"><span class="hs-identifier hs-var hs-var hs-var">oneOf</span></a></span></span><span> </span><span id="local-6989586621679410064"><span class="annot"><span class="annottext">f Char
+</span><a href="#local-6989586621679410064"><span class="hs-identifier hs-var">ts</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">TokenClass Char -&gt; Prettor w f Char Char
+forall token p. TokenAlgebra token p =&gt; TokenClass token -&gt; p
+</span><a href="Control.Lens.Grammar.Token.html#tokenClass"><span class="hs-identifier hs-var">tokenClass</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">f Char -&gt; TokenClass Char
+forall token p (f :: * -&gt; *).
+(Tokenized token p, Foldable f) =&gt;
+f token -&gt; p
+forall (f :: * -&gt; *). Foldable f =&gt; f Char -&gt; TokenClass Char
+</span><a href="Control.Lens.Grammar.Token.html#oneOf"><span class="hs-identifier hs-var">oneOf</span></a></span><span> </span><span class="annot"><span class="annottext">f Char
+</span><a href="#local-6989586621679410064"><span class="hs-identifier hs-var">ts</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-230"></span><span>    </span><span id="local-6989586621679410070"><span class="annot"><span class="annottext">notOneOf :: forall (f :: * -&gt; *). Foldable f =&gt; f Char -&gt; Prettor w f Char Char
+</span><a href="#local-6989586621679410070"><span class="hs-identifier hs-var hs-var hs-var">notOneOf</span></a></span></span><span> </span><span id="local-6989586621679410072"><span class="annot"><span class="annottext">f Char
+</span><a href="#local-6989586621679410072"><span class="hs-identifier hs-var">ts</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">TokenClass Char -&gt; Prettor w f Char Char
+forall token p. TokenAlgebra token p =&gt; TokenClass token -&gt; p
+</span><a href="Control.Lens.Grammar.Token.html#tokenClass"><span class="hs-identifier hs-var">tokenClass</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">f Char -&gt; TokenClass Char
+forall token p (f :: * -&gt; *).
+(Tokenized token p, Foldable f) =&gt;
+f token -&gt; p
+forall (f :: * -&gt; *). Foldable f =&gt; f Char -&gt; TokenClass Char
+</span><a href="Control.Lens.Grammar.Token.html#notOneOf"><span class="hs-identifier hs-var">notOneOf</span></a></span><span> </span><span class="annot"><span class="annottext">f Char
+</span><a href="#local-6989586621679410072"><span class="hs-identifier hs-var">ts</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-231"></span><span>    </span><span id="local-6989586621679410095"><span class="annot"><span class="annottext">asIn :: Categorize Char -&gt; Prettor w f Char Char
+</span><a href="#local-6989586621679410095"><span class="hs-identifier hs-var hs-var hs-var">asIn</span></a></span></span><span> </span><span id="local-6989586621679410097"><span class="annot"><span class="annottext">Categorize Char
+</span><a href="#local-6989586621679410097"><span class="hs-identifier hs-var">cat</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">TokenClass Char -&gt; Prettor w f Char Char
+forall token p. TokenAlgebra token p =&gt; TokenClass token -&gt; p
+</span><a href="Control.Lens.Grammar.Token.html#tokenClass"><span class="hs-identifier hs-var">tokenClass</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Categorize Char -&gt; TokenClass Char
+forall token p. Tokenized token p =&gt; Categorize token -&gt; p
+</span><a href="Control.Lens.Grammar.Token.html#asIn"><span class="hs-identifier hs-var">asIn</span></a></span><span> </span><span class="annot"><span class="annottext">Categorize Char
+</span><a href="#local-6989586621679410097"><span class="hs-identifier hs-var">cat</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-232"></span><span>    </span><span id="local-6989586621679410116"><span class="annot"><span class="annottext">notAsIn :: Categorize Char -&gt; Prettor w f Char Char
+</span><a href="#local-6989586621679410116"><span class="hs-identifier hs-var hs-var hs-var">notAsIn</span></a></span></span><span> </span><span id="local-6989586621679410118"><span class="annot"><span class="annottext">Categorize Char
+</span><a href="#local-6989586621679410118"><span class="hs-identifier hs-var">cat</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">TokenClass Char -&gt; Prettor w f Char Char
+forall token p. TokenAlgebra token p =&gt; TokenClass token -&gt; p
+</span><a href="Control.Lens.Grammar.Token.html#tokenClass"><span class="hs-identifier hs-var">tokenClass</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Categorize Char -&gt; TokenClass Char
+forall token p. Tokenized token p =&gt; Categorize token -&gt; p
+</span><a href="Control.Lens.Grammar.Token.html#notAsIn"><span class="hs-identifier hs-var">notAsIn</span></a></span><span> </span><span class="annot"><span class="annottext">Categorize Char
+</span><a href="#local-6989586621679410118"><span class="hs-identifier hs-var">cat</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-233"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679409480"><span id="local-6989586621679409481"><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">IsString</span></span><span> </span><span class="annot"><a href="#local-6989586621679409480"><span class="hs-identifier hs-type">w</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Pretty.html#Lined"><span class="hs-identifier hs-type">Lined</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679409480"><span class="hs-identifier hs-type">w</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Monoid</span></span><span> </span><span class="annot"><a href="#local-6989586621679409480"><span class="hs-identifier hs-type">w</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Alternative</span></span><span> </span><span class="annot"><a href="#local-6989586621679409481"><span class="hs-identifier hs-type">f</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-234"></span><span>  </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Token.html#TokenAlgebra"><span class="hs-identifier hs-type">TokenAlgebra</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Char</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Grammar.Pretty.html#Prettor"><span class="hs-identifier hs-type">Prettor</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679409480"><span class="hs-identifier hs-type">w</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679409481"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Char</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Char</span></span><span class="hs-special">)</span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-235"></span><span>    </span><span class="hs-comment">-- | The test is made once, rather than for each token.</span><span>
+</span><span id="line-236"></span><span>    </span><span id="local-6989586621679410136"><span class="annot"><span class="annottext">tokenClass :: TokenClass Char -&gt; Prettor w f Char Char
+</span><a href="Control.Lens.Grammar.Token.html#tokenClass"><span class="hs-identifier hs-var hs-var hs-var">tokenClass</span></a></span></span><span> </span><span id="local-6989586621679410137"><span class="annot"><span class="annottext">TokenClass Char
+</span><a href="#local-6989586621679410137"><span class="hs-identifier hs-var">test</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Char -&gt; Bool
+</span><a href="#local-6989586621679410138"><span class="hs-identifier hs-var">matches</span></a></span><span> </span><span class="annot"><span class="annottext">(Char -&gt; Bool) -&gt; Prettor w f Char Char -&gt; Prettor w f Char Char
+forall a b. a -&gt; b -&gt; b
+</span><span class="hs-operator hs-var">`seq`</span></span><span> </span><span class="annot"><span class="annottext">(Char -&gt; f (Char, w)) -&gt; Prettor w f Char Char
+forall w (f :: * -&gt; *) a b. (a -&gt; f (b, w)) -&gt; Prettor w f a b
+</span><a href="Control.Lens.Grammar.Pretty.html#Prettor"><span class="hs-identifier hs-var">Prettor</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span id="local-6989586621679410139"><span class="annot"><span class="annottext">Char
+</span><a href="#local-6989586621679410139"><span class="hs-identifier hs-var">c</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-237"></span><span>      </span><span class="hs-keyword">if</span><span> </span><span class="annot"><span class="annottext">Char -&gt; Bool
+</span><a href="#local-6989586621679410138"><span class="hs-identifier hs-var">matches</span></a></span><span> </span><span class="annot"><span class="annottext">Char
+</span><a href="#local-6989586621679410139"><span class="hs-identifier hs-var">c</span></a></span><span> </span><span class="hs-keyword">then</span><span> </span><span class="annot"><span class="annottext">(Char, w) -&gt; f (Char, w)
+forall a. a -&gt; f a
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><span class="hs-identifier hs-var">pure</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Char
+</span><a href="#local-6989586621679410139"><span class="hs-identifier hs-var">c</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">String -&gt; w
+forall w. (IsString w, Lined w, Monoid w) =&gt; String -&gt; w
+</span><a href="Control.Lens.Grammar.Pretty.html#linedString"><span class="hs-identifier hs-var">linedString</span></a></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">Char
+</span><a href="#local-6989586621679410139"><span class="hs-identifier hs-var">c</span></a></span><span class="hs-special">]</span><span class="hs-special">)</span><span> </span><span class="hs-keyword">else</span><span> </span><span class="annot"><span class="annottext">f (Char, w)
+forall a. f a
+forall (f :: * -&gt; *) a. Alternative f =&gt; f a
+</span><span class="hs-identifier hs-var">empty</span></span><span class="hs-special">)</span><span>
+</span><span id="line-238"></span><span>      </span><span class="hs-keyword">where</span><span>
+</span><span id="line-239"></span><span>        </span><span class="annot"><a href="#local-6989586621679410138"><span class="hs-identifier hs-type">matches</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Char</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Bool</span></span><span>
+</span><span id="line-240"></span><span>        </span><span id="local-6989586621679410138"><span class="annot"><span class="annottext">matches :: Char -&gt; Bool
+</span><a href="#local-6989586621679410138"><span class="hs-identifier hs-var hs-var">matches</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">TokenClass Char -&gt; Char -&gt; Bool
+forall token p. TokenAlgebra token p =&gt; TokenClass token -&gt; p
+</span><a href="Control.Lens.Grammar.Token.html#tokenClass"><span class="hs-identifier hs-var">tokenClass</span></a></span><span> </span><span class="annot"><span class="annottext">TokenClass Char
+</span><a href="#local-6989586621679410137"><span class="hs-identifier hs-var">test</span></a></span><span>
+</span><span id="line-241"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679409493"><span id="local-6989586621679409494"><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">IsString</span></span><span> </span><span class="annot"><a href="#local-6989586621679409493"><span class="hs-identifier hs-type">w</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Pretty.html#Lined"><span class="hs-identifier hs-type">Lined</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679409493"><span class="hs-identifier hs-type">w</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Monoid</span></span><span> </span><span class="annot"><a href="#local-6989586621679409493"><span class="hs-identifier hs-type">w</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Applicative</span></span><span> </span><span class="annot"><a href="#local-6989586621679409494"><span class="hs-identifier hs-type">f</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-242"></span><span>  </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Symbol.html#TerminalSymbol"><span class="hs-identifier hs-type">TerminalSymbol</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Char</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Grammar.Pretty.html#Prettor"><span class="hs-identifier hs-type">Prettor</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679409493"><span class="hs-identifier hs-type">w</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679409494"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span class="hs-special">)</span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-243"></span><span>    </span><span id="local-6989586621679410151"><span class="annot"><span class="annottext">terminal :: String -&gt; Prettor w f () ()
+</span><a href="Control.Lens.Grammar.Symbol.html#terminal"><span class="hs-identifier hs-var hs-var hs-var">terminal</span></a></span></span><span> </span><span id="local-6989586621679410152"><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679410152"><span class="hs-identifier hs-var">str</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(() -&gt; f ((), w)) -&gt; Prettor w f () ()
+forall w (f :: * -&gt; *) a b. (a -&gt; f (b, w)) -&gt; Prettor w f a b
+</span><a href="Control.Lens.Grammar.Pretty.html#Prettor"><span class="hs-identifier hs-var">Prettor</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span class="annot"><span class="annottext">()
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">((), w) -&gt; f ((), w)
+forall a. a -&gt; f a
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><span class="hs-identifier hs-var">pure</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">(</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">w
+</span><a href="#local-6989586621679410153"><span class="hs-identifier hs-var">printed</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-244"></span><span>      </span><span class="hs-keyword">where</span><span>
+</span><span id="line-245"></span><span>        </span><span id="local-6989586621679410153"><span class="annot"><span class="annottext">printed :: w
+</span><a href="#local-6989586621679410153"><span class="hs-identifier hs-var hs-var">printed</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String -&gt; w
+forall w. (IsString w, Lined w, Monoid w) =&gt; String -&gt; w
+</span><a href="Control.Lens.Grammar.Pretty.html#linedString"><span class="hs-identifier hs-var">linedString</span></a></span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679410152"><span class="hs-identifier hs-var">str</span></a></span><span>
+</span><span id="line-246"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679409497"><span id="local-6989586621679409498"><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">IsString</span></span><span> </span><span class="annot"><a href="#local-6989586621679409497"><span class="hs-identifier hs-type">w</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Pretty.html#Lined"><span class="hs-identifier hs-type">Lined</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679409497"><span class="hs-identifier hs-type">w</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Monoid</span></span><span> </span><span class="annot"><a href="#local-6989586621679409497"><span class="hs-identifier hs-type">w</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Applicative</span></span><span> </span><span class="annot"><a href="#local-6989586621679409498"><span class="hs-identifier hs-type">f</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-247"></span><span>  </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IsString</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Grammar.Pretty.html#Prettor"><span class="hs-identifier hs-type">Prettor</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679409497"><span class="hs-identifier hs-type">w</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679409498"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span class="hs-special">)</span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-248"></span><span>    </span><span id="local-6989586621679410162"><span class="annot"><span class="annottext">fromString :: String -&gt; Prettor w f () ()
+</span><span class="hs-identifier hs-var hs-var hs-var">fromString</span></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String -&gt; Prettor w f () ()
+forall token s. TerminalSymbol token s =&gt; [token] -&gt; s
+</span><a href="Control.Lens.Grammar.Symbol.html#terminal"><span class="hs-identifier hs-var">terminal</span></a></span><span>
+</span><span id="line-249"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679409505"><span id="local-6989586621679409506"><span id="local-6989586621679409507"><span id="local-6989586621679409508"><span id="local-6989586621679410164"><span class="annot"><a href="Control.Lens.Grammar.BackusNaur.html#Ruled"><span class="hs-identifier hs-type">Ruled</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Grammar.Pretty.html#Prettor"><span class="hs-identifier hs-type">Prettor</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679409505"><span class="hs-identifier hs-type">w</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679409506"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679409507"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679409508"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span></span></span></span></span></span><span>
+</span><span id="line-250"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679409514"><span id="local-6989586621679409515"><span id="local-6989586621679409516"><span id="local-6989586621679409517"><span id="local-6989586621679410171"><span class="annot"><a href="Control.Lens.Grammar.BackusNaur.html#BackusNaurForm"><span class="hs-identifier hs-type">BackusNaurForm</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Grammar.Pretty.html#Prettor"><span class="hs-identifier hs-type">Prettor</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679409514"><span class="hs-identifier hs-type">w</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679409515"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679409516"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679409517"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span></span></span></span></span></span><span>
+</span><span id="line-251"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679409523"><span id="local-6989586621679409524"><span id="local-6989586621679409525"><span id="local-6989586621679409526"><span id="local-6989586621679410176"><span class="annot"><a href="Control.Lens.Grammar.BackusNaur.html#Tried"><span class="hs-identifier hs-type">Tried</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Grammar.Pretty.html#Prettor"><span class="hs-identifier hs-type">Prettor</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679409523"><span class="hs-identifier hs-type">w</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679409524"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679409525"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679409526"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span></span></span></span></span></span><span>
+</span><span id="line-252"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679409529"><span id="local-6989586621679409530"><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Grammar.Pretty.html#Lined"><span class="hs-identifier hs-type">Lined</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679409529"><span class="hs-identifier hs-type">w</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Applicative</span></span><span> </span><span class="annot"><a href="#local-6989586621679409530"><span class="hs-identifier hs-type">f</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Pretty.html#Lined"><span class="hs-identifier hs-type">Lined</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Grammar.Pretty.html#Prettor"><span class="hs-identifier hs-type">Prettor</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679409529"><span class="hs-identifier hs-type">w</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679409530"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span class="hs-special">)</span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-253"></span><span>  </span><span id="local-6989586621679410186"><span class="annot"><span class="annottext">hardlineP :: Prettor w f () ()
+</span><a href="Control.Lens.Grammar.Pretty.html#hardlineP"><span class="hs-identifier hs-var hs-var hs-var">hardlineP</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(() -&gt; f ((), w)) -&gt; Prettor w f () ()
+forall w (f :: * -&gt; *) a b. (a -&gt; f (b, w)) -&gt; Prettor w f a b
+</span><a href="Control.Lens.Grammar.Pretty.html#Prettor"><span class="hs-identifier hs-var">Prettor</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span class="annot"><span class="annottext">()
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">((), w) -&gt; f ((), w)
+forall a. a -&gt; f a
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><span class="hs-identifier hs-var">pure</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">(</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">w
+forall p. Lined p =&gt; p
+</span><a href="Control.Lens.Grammar.Pretty.html#hardlineP"><span class="hs-identifier hs-var">hardlineP</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-254"></span><span class="annot"><span class="hs-comment">{- | Both layouts print a value, the layout of their prints chosen. -}</span></span><span>
+</span><span id="line-255"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679409535"><span id="local-6989586621679409536"><span id="local-6989586621679409537"><span id="local-6989586621679409538"><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Grammar.Pretty.html#LaidOut"><span class="hs-identifier hs-type">LaidOut</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679409535"><span class="hs-identifier hs-type">w</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Applicative</span></span><span> </span><span class="annot"><a href="#local-6989586621679409536"><span class="hs-identifier hs-type">f</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Pretty.html#LaidOut"><span class="hs-identifier hs-type">LaidOut</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Grammar.Pretty.html#Prettor"><span class="hs-identifier hs-type">Prettor</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679409535"><span class="hs-identifier hs-type">w</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679409536"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679409537"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679409538"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span></span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-256"></span><span>  </span><span id="local-6989586621679410197"><span class="annot"><span class="annottext">flatAltP :: Prettor w f a b -&gt; Prettor w f a b -&gt; Prettor w f a b
+</span><a href="Control.Lens.Grammar.Pretty.html#flatAltP"><span class="hs-identifier hs-var hs-var hs-var">flatAltP</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Grammar.Pretty.html#Prettor"><span class="hs-identifier hs-type">Prettor</span></a></span><span> </span><span id="local-6989586621679410198"><span class="annot"><span class="annottext">a -&gt; f (b, w)
+</span><a href="#local-6989586621679410198"><span class="hs-identifier hs-var">p</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Grammar.Pretty.html#Prettor"><span class="hs-identifier hs-type">Prettor</span></a></span><span> </span><span id="local-6989586621679410199"><span class="annot"><span class="annottext">a -&gt; f (b, w)
+</span><a href="#local-6989586621679410199"><span class="hs-identifier hs-var">q</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(a -&gt; f (b, w)) -&gt; Prettor w f a b
+forall w (f :: * -&gt; *) a b. (a -&gt; f (b, w)) -&gt; Prettor w f a b
+</span><a href="Control.Lens.Grammar.Pretty.html#Prettor"><span class="hs-identifier hs-var">Prettor</span></a></span><span> </span><span class="annot"><span class="annottext">((a -&gt; f (b, w)) -&gt; Prettor w f a b)
+-&gt; (a -&gt; f (b, w)) -&gt; Prettor w f a b
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679410200"><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679410200"><span class="hs-identifier hs-var">a</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-257"></span><span>    </span><span class="annot"><span class="annottext">((b, w) -&gt; (b, w) -&gt; (b, w)) -&gt; f (b, w) -&gt; f (b, w) -&gt; f (b, w)
+forall a b c. (a -&gt; b -&gt; c) -&gt; f a -&gt; f b -&gt; f c
+forall (f :: * -&gt; *) a b c.
+Applicative f =&gt;
+(a -&gt; b -&gt; c) -&gt; f a -&gt; f b -&gt; f c
+</span><span class="hs-identifier hs-var">liftA2</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span class="hs-special">(</span><span id="local-6989586621679410201"><span class="annot"><span class="annottext">b
+</span><a href="#local-6989586621679410201"><span class="hs-identifier hs-var">b</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679410202"><span class="annot"><span class="annottext">w
+</span><a href="#local-6989586621679410202"><span class="hs-identifier hs-var">v</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">b
+</span><span class="hs-identifier">_</span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679410203"><span class="annot"><span class="annottext">w
+</span><a href="#local-6989586621679410203"><span class="hs-identifier hs-var">w</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">b
+</span><a href="#local-6989586621679410201"><span class="hs-identifier hs-var">b</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">w -&gt; w -&gt; w
+forall p. LaidOut p =&gt; p -&gt; p -&gt; p
+</span><a href="Control.Lens.Grammar.Pretty.html#flatAltP"><span class="hs-identifier hs-var">flatAltP</span></a></span><span> </span><span class="annot"><span class="annottext">w
+</span><a href="#local-6989586621679410202"><span class="hs-identifier hs-var">v</span></a></span><span> </span><span class="annot"><span class="annottext">w
+</span><a href="#local-6989586621679410203"><span class="hs-identifier hs-var">w</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">a -&gt; f (b, w)
+</span><a href="#local-6989586621679410198"><span class="hs-identifier hs-var">p</span></a></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679410200"><span class="hs-identifier hs-var">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">a -&gt; f (b, w)
+</span><a href="#local-6989586621679410199"><span class="hs-identifier hs-var">q</span></a></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679410200"><span class="hs-identifier hs-var">a</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-258"></span><span>  </span><span id="local-6989586621679410208"><span class="annot"><span class="annottext">nestP :: Int -&gt; Prettor w f a b -&gt; Prettor w f a b
+</span><a href="Control.Lens.Grammar.Pretty.html#nestP"><span class="hs-identifier hs-var hs-var hs-var">nestP</span></a></span></span><span> </span><span id="local-6989586621679410209"><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679410209"><span class="hs-identifier hs-var">n</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Grammar.Pretty.html#Prettor"><span class="hs-identifier hs-type">Prettor</span></a></span><span> </span><span id="local-6989586621679410210"><span class="annot"><span class="annottext">a -&gt; f (b, w)
+</span><a href="#local-6989586621679410210"><span class="hs-identifier hs-var">p</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(a -&gt; f (b, w)) -&gt; Prettor w f a b
+forall w (f :: * -&gt; *) a b. (a -&gt; f (b, w)) -&gt; Prettor w f a b
+</span><a href="Control.Lens.Grammar.Pretty.html#Prettor"><span class="hs-identifier hs-var">Prettor</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">((b, w) -&gt; (b, w)) -&gt; f (b, w) -&gt; f (b, w)
+forall a b. (a -&gt; b) -&gt; f a -&gt; f b
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">fmap</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(w -&gt; w) -&gt; (b, w) -&gt; (b, w)
+forall a b. (a -&gt; b) -&gt; (b, a) -&gt; (b, b)
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">fmap</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int -&gt; w -&gt; w
+forall p. LaidOut p =&gt; Int -&gt; p -&gt; p
+</span><a href="Control.Lens.Grammar.Pretty.html#nestP"><span class="hs-identifier hs-var">nestP</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679410209"><span class="hs-identifier hs-var">n</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(f (b, w) -&gt; f (b, w)) -&gt; (a -&gt; f (b, w)) -&gt; a -&gt; f (b, w)
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">a -&gt; f (b, w)
+</span><a href="#local-6989586621679410210"><span class="hs-identifier hs-var">p</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-259"></span><span>  </span><span id="local-6989586621679410214"><span class="annot"><span class="annottext">groupP :: Prettor w f a b -&gt; Prettor w f a b
+</span><a href="Control.Lens.Grammar.Pretty.html#groupP"><span class="hs-identifier hs-var hs-var hs-var">groupP</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Grammar.Pretty.html#Prettor"><span class="hs-identifier hs-type">Prettor</span></a></span><span> </span><span id="local-6989586621679410215"><span class="annot"><span class="annottext">a -&gt; f (b, w)
+</span><a href="#local-6989586621679410215"><span class="hs-identifier hs-var">p</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(a -&gt; f (b, w)) -&gt; Prettor w f a b
+forall w (f :: * -&gt; *) a b. (a -&gt; f (b, w)) -&gt; Prettor w f a b
+</span><a href="Control.Lens.Grammar.Pretty.html#Prettor"><span class="hs-identifier hs-var">Prettor</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">((b, w) -&gt; (b, w)) -&gt; f (b, w) -&gt; f (b, w)
+forall a b. (a -&gt; b) -&gt; f a -&gt; f b
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">fmap</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(w -&gt; w) -&gt; (b, w) -&gt; (b, w)
+forall a b. (a -&gt; b) -&gt; (b, a) -&gt; (b, b)
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">fmap</span></span><span> </span><span class="annot"><span class="annottext">w -&gt; w
+forall p. LaidOut p =&gt; p -&gt; p
+</span><a href="Control.Lens.Grammar.Pretty.html#groupP"><span class="hs-identifier hs-var">groupP</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(f (b, w) -&gt; f (b, w)) -&gt; (a -&gt; f (b, w)) -&gt; a -&gt; f (b, w)
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">a -&gt; f (b, w)
+</span><a href="#local-6989586621679410215"><span class="hs-identifier hs-var">p</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-260"></span><span>  </span><span id="local-6989586621679410219"><span class="annot"><span class="annottext">alignP :: Prettor w f a b -&gt; Prettor w f a b
+</span><a href="Control.Lens.Grammar.Pretty.html#alignP"><span class="hs-identifier hs-var hs-var hs-var">alignP</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Grammar.Pretty.html#Prettor"><span class="hs-identifier hs-type">Prettor</span></a></span><span> </span><span id="local-6989586621679410220"><span class="annot"><span class="annottext">a -&gt; f (b, w)
+</span><a href="#local-6989586621679410220"><span class="hs-identifier hs-var">p</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(a -&gt; f (b, w)) -&gt; Prettor w f a b
+forall w (f :: * -&gt; *) a b. (a -&gt; f (b, w)) -&gt; Prettor w f a b
+</span><a href="Control.Lens.Grammar.Pretty.html#Prettor"><span class="hs-identifier hs-var">Prettor</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">((b, w) -&gt; (b, w)) -&gt; f (b, w) -&gt; f (b, w)
+forall a b. (a -&gt; b) -&gt; f a -&gt; f b
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">fmap</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(w -&gt; w) -&gt; (b, w) -&gt; (b, w)
+forall a b. (a -&gt; b) -&gt; (b, a) -&gt; (b, b)
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">fmap</span></span><span> </span><span class="annot"><span class="annottext">w -&gt; w
+forall p. LaidOut p =&gt; p -&gt; p
+</span><a href="Control.Lens.Grammar.Pretty.html#alignP"><span class="hs-identifier hs-var">alignP</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(f (b, w) -&gt; f (b, w)) -&gt; (a -&gt; f (b, w)) -&gt; a -&gt; f (b, w)
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">a -&gt; f (b, w)
+</span><a href="#local-6989586621679410220"><span class="hs-identifier hs-var">p</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-261"></span></pre></body></html>
