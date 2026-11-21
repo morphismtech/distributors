@@ -22,7 +22,7 @@ module Properties.Json
 import Control.Lens (coerced, only, prism')
 import Control.Lens.Grammar
   ( ParsecState (..), dimap, falseP, lmap, manyP, optK, optionP, optionalP
-  , parsecG, plusK, rule, someP, starK, unparsecG
+  , parsecG, plusK, rule, ruleTyped, someP, starK, unparsecG
   , (>*<), (>+<), (>?), (>|<), (>~)
   )
 import Control.Lens.Grammar.Json
@@ -173,35 +173,35 @@ instance (Typeable a, Json a) => Json (Box a)
 newtype Dup = Dup (Int, Int)
   deriving stock Show
 instance Json Dup where
-  json = jsonTyped $ dimap (\(Dup p) -> p) Dup
+  json = ruleTyped $ dimap (\(Dup p) -> p) Dup
     (jsonObject (("k" !: json) >*< ("k" !: json)))
 
 -- | A limit, @10@ by default, which is missing exactly when it's @10@.
 newtype Limit = Limit Int
   deriving stock (Eq, Show)
 instance Json Limit where
-  json = jsonTyped $ dimap (\(Limit n) -> n) Limit $
+  json = ruleTyped $ dimap (\(Limit n) -> n) Limit $
     jsonObject ("limit" ?: json != 10)
 
 -- | An identifier and the rest of the properties, booleans.
 newtype Extra = Extra (Int, [(Text, Bool)])
   deriving stock (Eq, Show)
 instance Json Extra where
-  json = jsonTyped $ dimap (\(Extra p) -> p) Extra $
+  json = ruleTyped $ dimap (\(Extra p) -> p) Extra $
     jsonObject ("id" !: json >*< jsonDict jsonText json)
 
 -- | A count, positive, filtered from numbers.
 newtype Counted = Counted Int
   deriving stock (Eq, Show)
 instance Json Counted where
-  json = jsonTyped $ dimap (\(Counted n) -> n) Counted $
+  json = ruleTyped $ dimap (\(Counted n) -> n) Counted $
     Witherable.mapMaybe (\n -> if n > 0 then Just n else Nothing) json
 
 -- | A pet, by an object of a single field, named by its constructor.
 data Pet = Cat Text | Dog Int
   deriving stock (Eq, Show)
 instance Json Pet where
-  json = jsonTyped $ dimap
+  json = ruleTyped $ dimap
     (\case Cat n -> Left n; Dog age -> Right age)
     (either Cat Dog)
     (jsonObject ("Cat" !: json >+< "Dog" !: json))
@@ -210,7 +210,7 @@ instance Json Pet where
 newtype Tally = Tally (Int, [(Bool, Int)])
   deriving stock (Eq, Show)
 instance Json Tally where
-  json = jsonTyped $ dimap (\(Tally p) -> p) Tally $ jsonObject
+  json = ruleTyped $ dimap (\(Tally p) -> p) Tally $ jsonObject
     ( "total" !: json
     >*< jsonDict (jsonEnumWith fromEnum [("no", False), ("yes", True)])
       json
@@ -220,7 +220,7 @@ instance Json Tally where
 newtype Votes = Votes (Int, [(Bool, Int)])
   deriving stock (Eq, Show)
 instance Json Votes where
-  json = jsonTyped $ dimap (\(Votes p) -> p) Votes $ jsonObject
+  json = ruleTyped $ dimap (\(Votes p) -> p) Votes $ jsonObject
     ( "yes" !: json
     >*< jsonDict (jsonEnumWith fromEnum [("no", False), ("yes", True)])
       json
@@ -230,7 +230,7 @@ instance Json Votes where
 newtype Scores = Scores (Text, [(Int, Bool)])
   deriving stock (Eq, Show)
 instance Json Scores where
-  json = jsonTyped $ dimap (\(Scores p) -> p) Scores $ case jsonKey @Int of
+  json = ruleTyped $ dimap (\(Scores p) -> p) Scores $ case jsonKey @Int of
     Just key -> jsonObject ("name" !: json >*< jsonDict key json)
     Nothing -> error "Int has a key"
 
@@ -238,7 +238,7 @@ instance Json Scores where
 newtype Closed = Closed Int
   deriving stock (Eq, Show)
 instance Json Closed where
-  json = jsonTyped $ dimap (\(Closed n) -> n) Closed $
+  json = ruleTyped $ dimap (\(Closed n) -> n) Closed $
     jsonObjectStrict ("id" !: json)
 
 jsonObjectSpec :: Spec
@@ -331,35 +331,35 @@ jsonObjectSpec = describe "jsonObject" $ do
 newtype Rest = Rest (Scientific, [Text])
   deriving stock (Eq, Show)
 instance Json Rest where
-  json = jsonTyped $ dimap (\(Rest p) -> p) Rest $
+  json = ruleTyped $ dimap (\(Rest p) -> p) Rest $
     jsonTuple (jsonElem json >*< manyP (jsonElem json))
 
 -- | Leading rest strings and a number, @[...string[], number]@.
 newtype Leading = Leading ([Text], Scientific)
   deriving stock (Eq, Show)
 instance Json Leading where
-  json = jsonTyped $ dimap (\(Leading p) -> p) Leading $
+  json = ruleTyped $ dimap (\(Leading p) -> p) Leading $
     jsonTuple (manyP (jsonElem json) >*< jsonElem json)
 
 -- | A number and an optional string, @[number, string?]@.
 newtype Trailing = Trailing (Scientific, Maybe Text)
   deriving stock (Eq, Show)
 instance Json Trailing where
-  json = jsonTyped $ dimap (\(Trailing p) -> p) Trailing $
+  json = ruleTyped $ dimap (\(Trailing p) -> p) Trailing $
     jsonTuple (jsonElem json >*< optionalP (jsonElem json))
 
 -- | An optional string before a number, @[string, number] | [number]@.
 newtype Before = Before (Maybe Text, Scientific)
   deriving stock (Eq, Show)
 instance Json Before where
-  json = jsonTyped $ dimap (\(Before p) -> p) Before $
+  json = ruleTyped $ dimap (\(Before p) -> p) Before $
     jsonTuple (optionalP (jsonElem json) >*< jsonElem json)
 
 -- | Two rests, @(number | string)[]@.
 newtype Rests = Rests ([Scientific], [Text])
   deriving stock (Eq, Show)
 instance Json Rests where
-  json = jsonTyped $ dimap (\(Rests p) -> p) Rests $
+  json = ruleTyped $ dimap (\(Rests p) -> p) Rests $
     jsonTuple (manyP (jsonElem json) >*< manyP (jsonElem json))
 
 -- | Rest strings and an optional number,
@@ -367,28 +367,28 @@ instance Json Rests where
 newtype RestOptional = RestOptional ([Text], Maybe Scientific)
   deriving stock (Eq, Show)
 instance Json RestOptional where
-  json = jsonTyped $ dimap (\(RestOptional p) -> p) RestOptional $
+  json = ruleTyped $ dimap (\(RestOptional p) -> p) RestOptional $
     jsonTuple (manyP (jsonElem json) >*< optionalP (jsonElem json))
 
 -- | Alternative elements, @[number | string]@.
 newtype Alternative = Alternative (Either Scientific Text)
   deriving stock (Eq, Show)
 instance Json Alternative where
-  json = jsonTyped $ dimap (\(Alternative e) -> e) Alternative $
+  json = ruleTyped $ dimap (\(Alternative e) -> e) Alternative $
     jsonTuple (jsonElem json >+< jsonElem json)
 
 -- | Alternative rests, @[...number[]] | [...string[]]@, not mixed.
 newtype AlternativeRests = AlternativeRests (Either [Scientific] [Text])
   deriving stock (Eq, Show)
 instance Json AlternativeRests where
-  json = jsonTyped $ dimap (\(AlternativeRests e) -> e) AlternativeRests $
+  json = ruleTyped $ dimap (\(AlternativeRests e) -> e) AlternativeRests $
     jsonTuple (manyP (jsonElem json) >+< manyP (jsonElem json))
 
 -- | A rest element in the middle, @[number, ...string[], boolean]@.
 newtype Middle = Middle (Scientific, [Text], Bool)
   deriving stock (Eq, Show)
 instance Json Middle where
-  json = jsonTyped $ dimap
+  json = ruleTyped $ dimap
     (\(Middle (a, b, c)) -> (a, (b, c)))
     (\(a, (b, c)) -> Middle (a, b, c))
     (jsonTuple (jsonElem json >*< manyP (jsonElem json) >*< jsonElem json))
@@ -397,21 +397,21 @@ instance Json Middle where
 newtype AtLeastOne = AtLeastOne [Scientific]
   deriving stock (Eq, Show)
 instance Json AtLeastOne where
-  json = jsonTyped $ dimap (\(AtLeastOne xs) -> xs) AtLeastOne
+  json = ruleTyped $ dimap (\(AtLeastOne xs) -> xs) AtLeastOne
     (jsonTuple (someP (jsonElem json)))
 
 -- | Alternative shapes, @[number, number?]@.
 newtype Coord = Coord (Scientific, Scientific)
   deriving stock (Eq, Show)
 instance Json Coord where
-  json = jsonTyped $ dimap (\(Coord xy) -> xy) Coord $ jsonTuple $
+  json = ruleTyped $ dimap (\(Coord xy) -> xy) Coord $ jsonTuple $
     jsonElem json >*< jsonElem json >|< dimap fst (, 0) (jsonElem json)
 
 -- | A defaulted element, @[number, number?]@.
 newtype Defaulted = Defaulted (Scientific, Scientific)
   deriving stock (Eq, Show)
 instance Json Defaulted where
-  json = jsonTyped $ dimap (\(Defaulted xy) -> xy) Defaulted $ jsonTuple $
+  json = ruleTyped $ dimap (\(Defaulted xy) -> xy) Defaulted $ jsonTuple $
     jsonElem json >*< optionP (only 0) (jsonElem json)
 
 jsonTupleChoiceSpec :: Spec
@@ -523,10 +523,10 @@ which parse as the declarations which print them.
 declares :: forall a -> Json a => [Text] -> Expectation
 declares a declarations = do
   tsTypes [a] `shouldBe` Text.unlines declarations
-  parsecResult (parsecG tsGrammar scanned) `shouldBe` Just declared
+  parsecResult (parsecG @[TsDeclaration] scanned) `shouldBe` Just declared
   where
     declared = jsonTsDeclarations [a]
-    scanned = concat (parsecResult (parsecG tsTokensGrammar (tsSource declared)))
+    scanned = concat (parsecResult (parsecG @[TsToken] (tsSource declared)))
 
 jsonTypeSpec :: Spec
 jsonTypeSpec = describe "jsonTsDeclarations" $ do
@@ -639,11 +639,11 @@ jsonTypeSpec = describe "jsonTsDeclarations" $ do
     declares (type Chain) ["export type Chain = null;"]
     declares (type Loop) ["export type Loop = never;"]
 
--- | A rule of a rule, `jsonTyped` twice.
+-- | A rule of a rule, `ruleTyped` twice.
 newtype Retyped = Retyped Scientific
   deriving stock Show
 instance Json Retyped where
-  json = jsonTyped (jsonTyped (dimap (\(Retyped n) -> n) Retyped json))
+  json = ruleTyped (ruleTyped (dimap (\(Retyped n) -> n) Retyped json))
 
 -- | Unguarded recursion, which only encodes as @null@.
 newtype Chain = Chain (Maybe Chain)
@@ -667,7 +667,7 @@ instance (Typeable a, Json a) => Json (Twice a)
 data Collide = Collide {named :: Scientific, typed :: Point}
   deriving stock Show
 instance Json Collide where
-  json = jsonTyped $ jsonObject $ Collide
+  json = ruleTyped $ jsonObject $ Collide
     <$> lmap named ("named" !: rule "Point" jsonNumber)
     <*> lmap typed ("typed" !: json)
 
@@ -691,7 +691,7 @@ newtype Exclude = Exclude Scientific
 data Optional = Optional Scientific (Maybe (Either Text Scientific))
   deriving stock (Eq, Show)
 instance Json Optional where
-  json = jsonTyped $ jsonObject $ Optional
+  json = ruleTyped $ jsonObject $ Optional
     <$> lmap (\(Optional a _) -> a) ("a" !: json)
     <*> lmap (\(Optional _ b) -> b)
       ("b c" ?: (jsonText >+< jsonNumber))
@@ -1207,8 +1207,8 @@ tsTypes as = Text.pack (tsSource (jsonTsDeclarations as))
 
 -- | Print declarations as tokens, & tokens as characters, by Parsector.
 tsSource :: [TsDeclaration] -> String
-tsSource declarations = toList $ parsecStream $ unparsecG tsTokensGrammar
-  (toList (parsecStream (unparsecG tsGrammar declarations (Seq.empty @TsToken))))
+tsSource declarations = toList $ parsecStream $ unparsecG
+  (toList (parsecStream (unparsecG declarations (Seq.empty @TsToken))))
   (Seq.empty @Char)
 
 -- | The `KleeneStarAlgebra` laws of `JsonElements`.

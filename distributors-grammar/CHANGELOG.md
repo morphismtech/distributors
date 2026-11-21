@@ -2,6 +2,115 @@
 
 ## Unreleased
 
+- `Control.Lens.Grammar.Pretty`: grammars laid out by Wadler-Leijen
+  layout combinators, `Lined`'s `hardlineP` & `LaidOut`'s `flatAltP`,
+  `nestP`, `groupP` & `alignP`, with `lineP`, `lineP'` & `softlineP`.
+  `PrettyGrammar` types, run by `Grammatical` interpreters which are
+  `Lined` & `LaidOut`, print, by
+  `Prettor`, a printer into a `Monoid`, a @prettyprinter@ `Doc`, by
+  `prettyG`, laid out by `layoutG` in a `LayoutStyle`; & parse, by
+  `Parsor`, every layout they print, with any indentation, which `RegEx`,
+  `Bnf` & `Grammor` describe. `Grammor` is `IsString`.
+- `ruleTyped`, in `Control.Lens.Grammar.BackusNaur`, a `rule` named by its
+  `Typeable` type, module-qualified, which was `distributors-json`'s
+  `jsonTyped`. Base types' grammars name their rules by it.
+- Regular expressions escape control characters by hexadecimal codes,
+  @\\x{e}@, rather than by names, which were ambiguous, @\\SO@ & @H@
+  reading as @\\SOH@; codes parse in either case.
+- `digit` & `numeral`, digits & natural numbers in a base, by their values,
+  rather than by `show` & `read`, which `Natural` & `Integer` grammars,
+  quantifiers' counts, & the examples use.
+- `regexGrammar` & `regbnfGrammar` are removed: they're the `Grammar Char`
+  instances of `RegEx Char` & `Bnf (RegEx Char)`, by `grammar`. The classes
+  `RegGrammar`, `Grammar` & `CtxGrammar`, & the base types' instances, are
+  in `Control.Lens.Grammar.Class`, which `Control.Lens.Grammar` re-exports,
+  so that `Control.Lens.Grammar.RegEx` defines its own instances; their
+  tutorials are `Control.Lens.Grammar`'s module documentation.
+- `RegEx` has counts, a `KleeneTimes` constructor, normalized by `quantK`,
+  rendered @x{n}@, @x{n,}@ & @x{n,m}@, & parsed so, normalizing; `Grammor`s
+  keep counts, so `exactly`, `atLeast`, `atMost` & `inRange` render by them.
+  Machines & analyses unroll them.
+- `RegEx` records `try`, by a `Backtracking` constructor, whose language
+  is its own, rendered @\\t{…}@; `ll1Conflicts` skips conflicts resolved
+  by `try`. `Tried` is part of `RegGrammatical`.
+- Character classes render runs of three or more plain characters as
+  ranges, @[a-z]@, & parse ranges; a dash in a class is escaped, @\\-@.
+- `Control.Lens.Grammar.Prec`: Haskell types' grammars, by precedence,
+  equivalent to their stock `Read` & `Show` instances. `PrecGrammar` types,
+  run by `PrecGrammatical` interpreters, with `precP`, `precStep`, `precReset` &
+  `precWith`, as `ReadPrec`'s `prec`, `step` & `reset`, `precParens`, as
+  `GHC.Read.parens` & `showParen`, & `precList`, as `GHC.Read.list` &
+  `showList`, & `precListGrammar`, as `readListPrec` & `showList`; `Precedence`, an interpreter over any
+  `Grammatical` one, run by `precG`, `readsPrecG` & `showsPrecG`. Instances for
+  lists, & `String`s, as string literals, with `showLitString`'s & `read`'s
+  escapes, empty escapes & gaps, maximally munched, as `read`'s lexer does;
+  `Char`, with `showLitChar`'s escapes & `read`'s named, control & numeric
+  escapes, up to `maxBound`; `Natural`, `Integer`, & sized `Int`s & `Word`s,
+  which wrap out of range as `read` does, in decimal, & binary, octal &
+  hexadecimal; & `Double`s & `Float`s, by `floatToDigits` & `fromRational`;
+  negative numbers parenthesized above precedence 6, as `showsPrec` does, &
+  read bare at any, as `read` does. Property tested against `showsPrec` &
+  `readsPrec`, at each precedence. Haskell types have no `Grammar` instances.
+- `PrecGrammar` defaults, by `GHC.Generics`, to derived `Read` & `Show`
+  instances' syntax: nullary & prefix constructors, at precedence 10,
+  records, read bare at 11 & shown within parentheses there, with operator
+  fields, infix constructors, symbolic & backquoted, at their fixities, &
+  symbolic constructors in prefix. Instances for `Bool`, `Ordering`, `Maybe`
+  & `Either`, by it, & for `()` & tuples. `NotFollowedBy`, negative lookahead
+  by `notFollowedBy` a `RegEx`, which `PrecGrammatical` requires, &
+  `eof`, `munch`, `munch1` & `skipSpaces`, as `ReadP`'s,
+  so that identifiers, symbols & numbers are munched maximally, &
+  whitespace skipped greedily, as `read`'s lexer does.
+- `Predicate`s are `Tokenized` & `TokenAlgebra`s, as predicates are; &
+  `ReadPrec` runs grammars as `ReadP` does, `Tokenized`, a `TokenAlgebra`,
+  `TerminalSymbol`, `Ruled`, `BackusNaurForm` & `Tried`.
+- `Control.Lens.Grammar.Analysis`, static analyses of `RegEx`tended
+  t'Bnf's over any token: `foldRegEx`, the homomorphism out of `RegEx`, the
+  free `KleeneStarAlgebra` of token classes & nonterminals, & `fixRules`,
+  least fixpoints over a t'Bnf''s `bnfRules`; `Leading`, nullability &
+  leading atoms, by which `firsts` & `leftRecursive`; `Guard`, a
+  `BooleanAlgebra` of one-token lookahead, by which `follows`; &
+  `ll1Conflicts`, built of them, testing each example's @LL(1)@ flag.
+  The lambda example's abstraction rule is renamed, as it shared its name
+  with the grammar's, merging into a left-recursive rule.
+- `RegString` & `RegBnf` are removed: `RegEx Char` & `Bnf (RegEx Char)`
+  are them, `IsString` & `IsList` by the string syntax of regular
+  expressions, of `regexGrammar` & `regbnfGrammar`, & their `Grammar Char`
+  instances, while their `Show` & `Read` are stock; render them by
+  `toList` or `putStringLn`. `regstringG` is renamed `regexG`, & `regexG`
+  & `regbnfG` generate over any token, `RegEx token` & `Bnf (RegEx token)`.
+- Modules, without orphans: `Control.Lens.Grammar.BackusNaur` has `Ruled`,
+  `BackusNaurForm` & `Tried`, & the `RegGrammatical`, `Grammatical` &
+  `CtxGrammatical` constraints, `Lexical` being folded into
+  `RegGrammatical`, of which it was always a part; `Control.Lens.Grammar.RegEx`
+  has `RegEx` & `Bnf`, with `liftBnf0`, `liftBnf1`, `liftBnf2` & `diffB`,
+  & `regexGrammar` & `regbnfGrammar`; & `Printor` has its own module,
+  `Data.Profunctor.Grammar.Printor`, re-exported by
+  `Data.Profunctor.Grammar`. `Control.Lens.Grammar` re-exports them all.
+- `Control.Monad.Fail.Try`, with `MonadTry` & `MonadicTry`, is removed.
+  `Control.Lens.Grammar.BackusNaur` has, instead:
+  - `Ruled`, with `rule`, split from `BackusNaurForm`, now its subclass,
+    whose `ruleRec` defaults to @ruleRec label = rule label . fix@, so
+    that its invariant holds for any `rule`;
+  - `failP`, renamed from `failBnf`, for any `Ruled` `DisjunctiveMonoid`;
+  - `Tried`, with `try`, for any grammar, not only monads, defaulting to
+    `id`, as `try` doesn't change a language. `Parsector` backtracks by
+    it, a t'Bnf' tries its start, & a `RegEx` doesn't record it, for now.
+
+  `Grammatical` requires `Tried`, so context-free grammars can `try`, &
+  `CtxGrammatical` requires `MonadPlus` & `MonadFail` of `Filtrator`s.
+  `Control.Lens.Grammar` still re-exports `Alternative`, `MonadPlus`,
+  `MonadFail` & `Filterable`.
+- `RegGrammar`, `Grammar` & `CtxGrammar` are classes, of a type's
+  grammar over a token, by `regGrammar`, `grammar` & `ctxGrammar`, each
+  defaulting to the more restrictive, & `RegGrammatical`, `Grammatical`
+  & `CtxGrammatical` are the constraints on profunctors which run them,
+  typing grammar values, as @Grammatical Char p => p a a@. Runners take
+  the grammar from the class: parsers & printers by inference, as
+  @parseG \@Arith@, & generators by a required type argument, as
+  @regbnfG Arith@, or @regbnfG (type SemVer)@ where a constructor shares
+  the type's name. Run a grammar value by the backends' own runners,
+  `parseP`, `printP`, `parsecP` & co.
 - Token classes test their sets of tokens logarithmically, by `Set`, in
   `tokenClass`'s default & in `oneOf` & `notOneOf` of predicates, rather
   than linearly by `Foldable`: parsing the JSON example, whose characters

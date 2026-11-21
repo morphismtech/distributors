@@ -3,6 +3,7 @@
 ## 0.1.0.0
 
 - Split out of `distributors` as its own package.
+- Types' rules are named by `ruleTyped`, of `distributors-grammar`.
 - `jsonType` types a type's JSON as a `Bnf` of `JsonType`s,
   `jsonTsDeclarations` declares them in TypeScript, & `jsonTsPut` puts
   those declarations to a handle, replacing `jsonTypes`.

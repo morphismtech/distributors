@@ -23,11 +23,11 @@ syntax needs more lookahead. Here, a declaration prints as tokens,
 
 >>> :set -XOverloadedStrings
 >>> let point = ObjectType [PropertySignature [] (PropertyIdentifier "x") False (Just (KeywordType NumberKeyword))]
->>> let printed = unparsecG tsGrammar [TypeAliasDeclaration [ExportKeyword] "Point" [] point] ([] :: [TsToken])
->>> let source = parsecStream (unparsecG tsTokensGrammar (parsecStream printed) ("" :: String))
+>>> let printed = unparsecG [TypeAliasDeclaration [ExportKeyword] "Point" [] point] ([] :: [TsToken])
+>>> let source = parsecStream (unparsecG (parsecStream printed) ("" :: String))
 >>> putStr source
 export type Point = { x: number };
->>> parsecResult (parsecG tsGrammar (concat (parsecResult (parsecG tsTokensGrammar source)))) == Just [TypeAliasDeclaration [ExportKeyword] "Point" [] point]
+>>> parsecResult (parsecG @[TsDeclaration] (concat (parsecResult (parsecG @[TsToken] source)))) == Just [TypeAliasDeclaration [ExportKeyword] "Point" [] point]
 True
 -}
 
@@ -66,11 +66,10 @@ module Control.Lens.Grammar.TypeScript
 import Control.Lens
 import Control.Lens.Grammar
 import Data.Char (chr, ord)
-import Data.Maybe (fromMaybe, listToMaybe)
+import Data.Maybe (fromMaybe)
 import Data.Profunctor.Monadic.Do qualified as P
 import Data.Text (Text)
 import Data.Text qualified as Text
-import Numeric (readHex, showHex)
 
 -- $setup
 -- >>> import Control.Lens.Grammar
@@ -472,7 +471,7 @@ as in @0xFF@, @1_000.5@ or @1n@, but not by a signed exponent.
 
 It's a `RegGrammar`, since each token's spelling is a regular language.
 -}
-tsTokenGrammar :: RegGrammar Char TsToken
+tsTokenGrammar :: RegGrammatical Char p => p TsToken TsToken
 tsTokenGrammar = orP
   [ kindOf WhitespaceTrivia >? someP (oneOf @Char (" \t\f\v" :: String))
   , kindOf NewLineTrivia >? orP
@@ -524,7 +523,7 @@ tsTokenGrammar = orP
         )
       *< terminal "/"
 
-identifierStart :: RegGrammar Char Char
+identifierStart :: RegGrammatical Char p => p Char Char
 identifierStart = orP
   [ asIn @Char UppercaseLetter, asIn @Char LowercaseLetter
   , asIn @Char TitlecaseLetter, asIn @Char ModifierLetter
@@ -532,7 +531,7 @@ identifierStart = orP
   , oneOf @Char ("_$" :: String)
   ]
 
-stringChar :: Char -> RegGrammar Char Char
+stringChar :: RegGrammatical Char p => Char -> p Char Char
 stringChar quote = orP
   [ notOneOf @Char (quote : '\\' : ['\0' .. '\31'])
   , terminal "\\" >* orP
@@ -540,13 +539,11 @@ stringChar quote = orP
       , only '\b' >? terminal "b", only '\f' >? terminal "f"
       , only '\n' >? terminal "n", only '\r' >? terminal "r"
       , only '\t' >? terminal "t"
-      , terminal "u" >* (_HexCode >? replicateP 4 (oneOf @Char hexDigits))
+      , terminal "u" >* (_HexCode >? replicateP 4 (digit (16 :: Int)))
       ]
   ]
-  where
-    hexDigits = "0123456789abcdefABCDEF" :: String
 
-templateChar :: RegGrammar Char Char
+templateChar :: RegGrammatical Char p => p Char Char
 templateChar = orP
   [ notOneOf @Char ("`$\\" :: String)
   , terminal "\\" >* oneOf @Char ("`$\\" :: String)
@@ -563,7 +560,7 @@ It's a `CtxGrammar` by monadic bonding: each token is scanned in the
 context of the tokens before it, whose braces & templates bond, by
 @P.@`Data.Profunctor.Monadic.Do.>>=`, the depths that a @}@ is scanned by.
 -}
-tsTokensGrammar :: CtxGrammar Char [TsToken]
+tsTokensGrammar :: CtxGrammatical Char p => p [TsToken] [TsToken]
 tsTokensGrammar = rmap
   (\scanned -> [t | t <- scanned, tokenCategory t `notElem` trivial])
   (tokensWithin [])
@@ -577,7 +574,7 @@ tsTokensGrammar = rmap
 within each, innermost first.
 -}
 tokensWithin
-  :: (Lexical Char p, Alternator p, Filtrator p, MonadicTry p)
+  :: CtxGrammatical Char p
   => [Int] -> p [TsToken] [TsToken]
 tokensWithin depths = orP
   [ _Cons >? (tokenWithin P.>>= tokensWithin . within depths)
@@ -685,20 +682,17 @@ _Template = prism'
     templates =
       [NoSubstitutionTemplateLiteral, TemplateHead, TemplateMiddle, TemplateTail]
 
--- | A character, by the hexadecimal digits of a @\\u@ escape.
-_HexCode :: Prism' Char String
+-- | A character, by the four hexadecimal digits of a @\\u@ escape.
+_HexCode :: Prism' Char [Int]
 _HexCode = prism'
-  (\digits -> chr (maybe 0 fst (listToMaybe (readHex digits))))
+  (chr . foldl' (\n d -> n * 16 + d) 0)
   (\c -> if ord c < 0x10000
-    then Just (pad (showHex (ord c) "")) else Nothing)
-  where
-    pad digits = replicate (4 - length digits) '0' <> digits
+    then Just [ord c `div` 16 ^ k `mod` 16 | k <- [3, 2, 1, 0 :: Int]] else Nothing)
 
 -- Syntax --
 
 -- | The interpreters of TypeScript's syntax.
-type TsGrammatical p =
-  (Lexical TsToken p, Alternator p, Filtrator p, MonadicTry p)
+type TsGrammatical p = CtxGrammatical TsToken p
 
 {- | The declarations of a declaration file, of tokens, by the TypeScript
 compiler's syntax, printed one per line, indented within blocks, & with
@@ -718,7 +712,7 @@ Printing a file, of many tokens, is linear into a stream which grows
 at its end in constant time, like a `Data.Sequence.Seq`, rather than
 a list.
 -}
-tsGrammar :: CtxGrammar TsToken [TsDeclaration]
+tsGrammar :: CtxGrammatical TsToken p => p [TsDeclaration] [TsDeclaration]
 tsGrammar = manyP (declaration 0 *< newline)
 
 -- | A declaration, at a depth of indentation.
@@ -1307,6 +1301,7 @@ literal = orP
   , _BigIntegerLiteral >? signed BigIntLiteral
   ]
   where
+    signed :: RegGrammatical TsToken q => TsTokenCategory -> q Text Text
     signed category = orP
       [ _Negative >? tokenOf oneP MinusToken oneP >* textOf category
       , textOf category
@@ -1437,29 +1432,35 @@ _Conditional = iso
 -- Trivia --
 
 -- | Trivia, of whitespace & newlines, printed as some trivia.
-trivia :: (Lexical TsToken p, Alternator p) => [TsToken] -> p () ()
+trivia :: RegGrammatical TsToken p => [TsToken] -> p () ()
 trivia shown = dimap (const shown) (const ())
   (manyP (asIn @TsToken WhitespaceTrivia >|< asIn @TsToken NewLineTrivia))
 
-space :: (Lexical TsToken p, Alternator p) => p () ()
+space :: RegGrammatical TsToken p => p () ()
 space = trivia [TsToken WhitespaceTrivia " "]
 
-newline :: (Lexical TsToken p, Alternator p) => p () ()
+newline :: RegGrammatical TsToken p => p () ()
 newline = trivia [TsToken NewLineTrivia "\n"]
 
 -- | A newline, indented four spaces for each depth.
-indented :: (Lexical TsToken p, Alternator p) => Int -> p () ()
+indented :: RegGrammatical TsToken p => Int -> p () ()
 indented depth = trivia $ TsToken NewLineTrivia "\n"
   : [TsToken WhitespaceTrivia (Text.replicate (4 * depth) " ") | depth > 0]
 
 -- | A punctuation or keyword token, between trivia, or `oneP`.
 tokenOf
-  :: (Lexical TsToken p, Alternator p)
+  :: RegGrammatical TsToken p
   => p () () -> TsTokenCategory -> p () () -> p () ()
 tokenOf before category after =
   before >* terminal [symbol category] *< after
 
 -- | The text of a token of a category.
 textOf
-  :: (Lexical TsToken p, Alternator p) => TsTokenCategory -> p Text Text
+  :: RegGrammatical TsToken p => TsTokenCategory -> p Text Text
 textOf category = iso (TsToken category) tokenText >~ asIn @TsToken category
+
+instance CtxGrammar Char TsToken
+instance Grammar Char TsToken
+instance RegGrammar Char TsToken where regGrammar = tsTokenGrammar
+instance CtxGrammar Char [TsToken] where ctxGrammar = tsTokensGrammar
+instance CtxGrammar TsToken [TsDeclaration] where ctxGrammar = tsGrammar

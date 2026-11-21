@@ -309,6 +309,6 @@ tsTypes as = Text.pack (tsSource (jsonTsDeclarations as))
 
 -- | Print declarations as tokens, & tokens as characters, by Parsector.
 tsSource :: [TsDeclaration] -> String
-tsSource declarations = toList $ parsecStream $ unparsecG tsTokensGrammar
-  (toList (parsecStream (unparsecG tsGrammar declarations (Seq.empty @TsToken))))
+tsSource declarations = toList $ parsecStream $ unparsecG
+  (toList (parsecStream (unparsecG declarations (Seq.empty @TsToken))))
   (Seq.empty @Char)

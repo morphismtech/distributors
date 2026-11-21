@@ -29,14 +29,18 @@ source-repository head
 library
   exposed-modules:
       Control.Lens.Grammar
+      Control.Lens.Grammar.Analysis
       Control.Lens.Grammar.BackusNaur
+      Control.Lens.Grammar.Class
       Control.Lens.Grammar.Machine
+      Control.Lens.Grammar.Prec
+      Control.Lens.Grammar.Pretty
       Control.Lens.Grammar.RegEx
       Control.Lens.Grammar.Symbol
       Control.Lens.Grammar.Token
-      Control.Monad.Fail.Try
       Data.Profunctor.Grammar
       Data.Profunctor.Grammar.Parsector
+      Data.Profunctor.Grammar.Printor
   other-modules:
       Paths_distributors_grammar
   autogen-modules:
@@ -92,6 +96,7 @@ library
     , lens >=5.0 && <6
     , monad-loops >=0.4.3 && <1
     , mtl >=2.2 && <3
+    , prettyprinter >=1.7 && <2
     , profunctors >=5.6 && <6
     , random >=1.2 && <2
     , witherable >=0.4 && <1
@@ -157,6 +162,7 @@ test-suite doctests
     , lens >=5.0 && <6
     , monad-loops >=0.4.3 && <1
     , mtl >=2.2 && <3
+    , prettyprinter >=1.7 && <2
     , profunctors >=5.6 && <6
     , random >=1.2 && <2
     , witherable >=0.4 && <1
@@ -174,9 +180,12 @@ test-suite test
       Examples.Lambda
       Examples.LenVec
       Examples.RegString
+      Examples.Rho
       Examples.SemVer
       Examples.SExpr
+      Properties.Base
       Properties.Kleene
+      Properties.Pretty
       Properties.Varifocal
       Paths_distributors_grammar
   autogen-modules:
@@ -230,11 +239,13 @@ test-suite test
     , containers >=0.6 && <1
     , distributors
     , distributors-grammar
+    , free >=5.1 && <6
     , hspec >=2.7 && <3
     , lens >=5.0 && <6
     , megaparsec >=9.0 && <10
     , monad-loops >=0.4.3 && <1
     , mtl >=2.2 && <3
+    , prettyprinter >=1.7 && <2
     , profunctors >=5.6 && <6
     , random >=1.2 && <2
     , witherable >=0.4 && <1
@@ -304,6 +315,7 @@ benchmark core
     , lens >=5.0 && <6
     , monad-loops >=0.4.3 && <1
     , mtl >=2.2 && <3
+    , prettyprinter >=1.7 && <2
     , profunctors >=5.6 && <6
     , random >=1.2 && <2
     , tasty-bench >=0.3 && <1

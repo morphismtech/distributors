@@ -24,14 +24,12 @@ module Data.Profunctor.Grammar.Parsector
 import Control.Applicative
 import Control.Arrow
 import Control.Category
-import Data.Function (fix)
 import Control.Lens
 import Control.Lens.Grammar.BackusNaur
 import Control.Lens.Grammar.Symbol
 import Control.Lens.Grammar.Token
 import Control.Lens.PartialIso
 import Control.Monad
-import Control.Monad.Fail.Try
 import Data.Monoid.Disjunctive
 import Data.Profunctor
 import Data.Profunctor.Unsafe ((#.), (.#))
@@ -42,6 +40,7 @@ import Data.Profunctor.Monoidal
 import Data.Tree
 import GHC.Exts
 import Prelude hiding (id, (.))
+import Witherable (Filterable (..))
 
 {- | t'Parsector' is an invertible @LL(1)@ parser which is intended
 to provide detailed failure information, based on [Parsec]
@@ -221,7 +220,8 @@ instance
         matches = tokenClass test
         noFailure = mempty
         failure = ParsecFailure test []
-instance BackusNaurForm (Parsector s a b) where
+instance BackusNaurForm (Parsector s a b)
+instance Ruled (Parsector s a b) where
   -- | Wraps inner `parsecLabels` in a new `Node name` on failure.
   -- Has no effect on success.
   rule name p = Parsector $ \callback query ->
@@ -233,7 +233,6 @@ instance BackusNaurForm (Parsector s a b) where
               in ParsecFailure expect [Node name labels]
           }
         Just _ -> reply
-  ruleRec name = rule name . fix
 instance
   ( Categorized token, Item s ~ token
   , Cons s s token token, Snoc s s token token
@@ -345,7 +344,7 @@ instance Categorized (Item s) => Alternative (Parsector s a) where
 instance Categorized (Item s) => MonadPlus (Parsector s a)
 instance Categorized (Item s) => MonadFail (Parsector s a) where
   fail msg = rule msg empty
-instance Categorized (Item s) => MonadTry (Parsector s a) where
+instance Tried (Parsector s a b) where
   -- | On failure, resets `parsecLooked` to @False@, allowing
   -- the enclosing `<|>` to try the next alternative even if @p@
   -- consumed input. Also restores the stream/offset decision state.
