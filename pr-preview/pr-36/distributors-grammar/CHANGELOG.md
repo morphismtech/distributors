@@ -5,7 +5,8 @@
 - `Control.Lens.Grammar.Pretty`: grammars laid out by Wadler-Leijen
   layout combinators, `Lined`'s `hardlineP` & `LaidOut`'s `flatAltP`,
   `nestP`, `groupP` & `alignP`, with `lineP`, `lineP'` & `softlineP`.
-  `PrettyGrammar` types, run by `PrettyGrammatical` interpreters, print, by
+  `PrettyGrammar` types, run by `Grammatical` interpreters which are
+  `Lined` & `LaidOut`, print, by
   `Prettor`, a printer into a `Monoid`, a @prettyprinter@ `Doc`, by
   `prettyG`, laid out by `layoutG` in a `LayoutStyle`; & parse, by
   `Parsor`, every layout they print, with any indentation, which `RegEx`,
