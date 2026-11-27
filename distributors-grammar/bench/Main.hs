@@ -222,7 +222,7 @@ decodings = bgroup "decoding"
       | (name, text) <- [("start", ""), ("in string", "{\"a\":\"te"), ("after number", "[1,2")]
       , Just chart <- [scanChartMany text (startChart et)]
       ]
-    predictor = \seed -> randomPredictor 0.2 seed (length examplesPieces)
+    predictor seed = randomPredictor 0.2 seed (length examplesPieces)
     len = \case
       Finished w -> length w
       Stuck w -> length w
