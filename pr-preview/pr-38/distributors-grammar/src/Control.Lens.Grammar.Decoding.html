@@ -1,0 +1,1176 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="annot"><span class="hs-comment">{- |
+Module      : Control.Lens.Grammar.Decoding
+Description : grammar-constrained decoding of next-piece predictors
+Copyright   : (C) 2026 - Eitan Chatav
+License     : BSD-style (see the file LICENSE)
+Maintainer  : Eitan Chatav &lt;eitan.chatav@gmail.com&gt;
+Stability   : provisional
+Portability : non-portable
+
+A language model generates text a piece at a time: given the pieces
+so far, it weighs each piece of its vocabulary, &amp; ending, &amp; a decoder
+chooses one. Grammar-constrained decoding masks those weights, so that
+only pieces which continue a word of a grammar's language may be
+chosen, &amp; ending only at a word of the language, so the generated text
+always parses. See Willard &amp; Louf,
+[Efficient Guided Generation for Large Language Models]
+(https://arxiv.org/abs/2307.09702).
+
+A `Grammar` is a decoder's constraint, as it's a parser, &amp; a printer,
+&amp; a t'Transducer', by `transducerG`, whose t'Chart's are the states of
+the constraint, scanned a token at a time. `decodeG` decodes a syntax
+value, parsing the text which it masks its predictor to generate.
+
+==== Pieces &amp; tokens
+
+A language model's vocabulary is not its grammar's tokens: models
+generate pieces of text, by sub-word tokenizers such as byte-pair
+encoding, each piece a string of many characters, which needn't align
+with a grammar's lexemes. A t'Vocabulary' is the strings of tokens
+which its pieces stand for, indexed by position, as a model indexes its
+vocabulary, &amp; a piece is allowed where a t'Chart' scans its whole
+string. Masking a vocabulary is thus composing a grammar with the
+detokenizer, the monoid homomorphism from strings of pieces to strings
+of tokens, whose inverse image of a context-free language is
+context-free. See Koo, Liu &amp; He,
+[Automata-based constraints for language model decoding]
+(https://arxiv.org/abs/2407.08103).
+
+`allowedPieces` scans a vocabulary's pieces together, by a trie, so
+pieces which share a prefix share its scanning, &amp; a prefix which is a
+dead end prunes every piece which begins with it.
+
+Many strings of pieces stand for the same text, but a model is trained
+on only one of them, its tokenizer's canonical one, &amp; weighs the others
+poorly. A mask allows them all, which can steer a model to text it
+would've tokenized differently. See Beurer-Kellner, Fischer &amp; Vechev,
+[Guiding LLMs The Right Way: Fast, Non-Invasive Constrained Generation]
+(https://arxiv.org/abs/2403.06988), &amp; Vieira et al.,
+[From Language Models over Tokens to Language Models over Characters]
+(https://arxiv.org/abs/2412.03719).
+
+==== Opportunistic masking
+
+Masking a whole vocabulary each step costs a scan of its trie, while
+a model usually weighs most what the grammar allows anyway. So `decode`
+first lets its t'Chooser' choose from the unmasked weights, &amp; only
+masks when the choice isn't allowed, choosing again from the masked
+weights. This decodes exactly as masking each step would: a `greedy`
+choice which is allowed is the masked weights' greatest; &amp; a `sampled`
+choice is sampled from the masked weights, as a piece @i@ of weight
+@p_i@, out of an allowed total of @Z@, is chosen first with
+probability @p_i@, &amp; else, with probability @1 - Z@, then with
+@p_i / Z@, in all @p_i / Z@.
+
+==== Masking is not conditioning
+
+Masking a model's weights a piece at a time decodes from a different
+distribution than the model's, conditioned on generating a word of the
+language: masking can't see that an allowed piece leads only to words
+the model weighs poorly. Decoding from the conditional distribution
+is intractable in general, &amp; approximated by importance sampling &amp;
+sequential Monte Carlo. See Park et al., [Grammar-Aligned Decoding]
+(https://arxiv.org/abs/2405.21047), &amp; Loula et al.,
+[Syntactic and Semantic Control of Large Language Models via Sequential Monte Carlo]
+(https://arxiv.org/abs/2504.13139).
+
+==== Predictors
+
+A t'Predictor' is any function from the pieces so far to t'Weights',
+in a monad, so a language model is wrapped as a predictor by calling
+it, in `IO`, &amp; keeping its prompt in a closure; its logits @l_i@ are
+weights @exp l_i@, &amp; its end-of-sequence piece is `endWeight`.
+-}</span></span><span>
+</span><span id="line-84"></span><span>
+</span><span id="line-85"></span><span class="hs-keyword">module</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Decoding.html"><span class="hs-identifier">Control.Lens.Grammar.Decoding</span></a></span><span>
+</span><span id="line-86"></span><span>  </span><span class="hs-special">(</span><span> </span><span class="annot"><span class="hs-comment">-- * Decoding</span></span><span>
+</span><span id="line-87"></span><span>    </span><span class="annot"><a href="Control.Lens.Grammar.Decoding.html#decodeG"><span class="hs-identifier">decodeG</span></a></span><span>
+</span><span id="line-88"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Decoding.html#decode"><span class="hs-identifier">decode</span></a></span><span>
+</span><span id="line-89"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Decoding.html#Decoded"><span class="hs-identifier">Decoded</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><span id="line-90"></span><span>    </span><span class="annot"><span class="hs-comment">-- * Predictors</span></span><span>
+</span><span id="line-91"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Decoding.html#Predictor"><span class="hs-identifier">Predictor</span></a></span><span>
+</span><span id="line-92"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Decoding.html#Weights"><span class="hs-identifier">Weights</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><span id="line-93"></span><span>    </span><span class="annot"><span class="hs-comment">-- * Choosers</span></span><span>
+</span><span id="line-94"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Decoding.html#Chooser"><span class="hs-identifier">Chooser</span></a></span><span>
+</span><span id="line-95"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Decoding.html#greedy"><span class="hs-identifier">greedy</span></a></span><span>
+</span><span id="line-96"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Decoding.html#sampled"><span class="hs-identifier">sampled</span></a></span><span>
+</span><span id="line-97"></span><span>    </span><span class="annot"><span class="hs-comment">-- * Vocabularies</span></span><span>
+</span><span id="line-98"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Decoding.html#Vocabulary"><span class="hs-identifier">Vocabulary</span></a></span><span>
+</span><span id="line-99"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Decoding.html#vocabulary"><span class="hs-identifier">vocabulary</span></a></span><span>
+</span><span id="line-100"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Decoding.html#vocabularyPiece"><span class="hs-identifier">vocabularyPiece</span></a></span><span>
+</span><span id="line-101"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Decoding.html#vocabularySize"><span class="hs-identifier">vocabularySize</span></a></span><span>
+</span><span id="line-102"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Decoding.html#allowedPieces"><span class="hs-identifier">allowedPieces</span></a></span><span>
+</span><span id="line-103"></span><span>  </span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-104"></span><span>
+</span><span id="line-105"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.html"><span class="hs-identifier">Control.Lens.Grammar</span></a></span><span>
+</span><span id="line-106"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Monad.State</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">StateT</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">state</span></span><span class="hs-special">)</span><span>
+</span><span id="line-107"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.IntMap.Lazy</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">LazyIntMap</span></span><span>
+</span><span id="line-108"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.IntMap.Strict</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">IntMap</span></span><span>
+</span><span id="line-109"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.IntMap.Strict</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">IntMap</span></span><span class="hs-special">)</span><span>
+</span><span id="line-110"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.IntSet</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">IntSet</span></span><span>
+</span><span id="line-111"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.IntSet</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">IntSet</span></span><span class="hs-special">)</span><span>
+</span><span id="line-112"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.Map.Strict</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">Map</span></span><span>
+</span><span id="line-113"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Map.Strict</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Map</span></span><span class="hs-special">)</span><span>
+</span><span id="line-114"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Maybe</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">fromMaybe</span></span><span class="hs-special">)</span><span>
+</span><span id="line-115"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">System.Random</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">RandomGen</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">randomR</span></span><span class="hs-special">)</span><span>
+</span><span id="line-116"></span><span>
+</span><span id="line-117"></span><span class="hs-comment">-- $setup</span><span>
+</span><span id="line-118"></span><span class="hs-comment">-- &gt;&gt;&gt; import Control.Lens (only)</span><span>
+</span><span id="line-119"></span><span class="hs-comment">-- &gt;&gt;&gt; import Control.Lens.Grammar</span><span>
+</span><span id="line-120"></span><span class="hs-comment">-- &gt;&gt;&gt; import Control.Monad.State (evalStateT)</span><span>
+</span><span id="line-121"></span><span class="hs-comment">-- &gt;&gt;&gt; import Data.Functor.Identity (runIdentity)</span><span>
+</span><span id="line-122"></span><span class="hs-comment">-- &gt;&gt;&gt; import qualified Data.IntMap.Strict as IntMap</span><span>
+</span><span id="line-123"></span><span class="hs-comment">-- &gt;&gt;&gt; import System.Random (mkStdGen)</span><span>
+</span><span id="line-124"></span><span class="hs-comment">-- &gt;&gt;&gt; :{</span><span>
+</span><span id="line-125"></span><span class="hs-comment">-- let boolG :: Grammar Char Bool</span><span>
+</span><span id="line-126"></span><span class="hs-comment">--     boolG = orP [only True &gt;? terminal &quot;true&quot;, only False &gt;? terminal &quot;false&quot;]</span><span>
+</span><span id="line-127"></span><span class="hs-comment">-- :}</span><span>
+</span><span id="line-128"></span><span>
+</span><span id="line-129"></span><span class="annot"><span class="hs-comment">{- | The weights a t'Predictor' puts on its next choice:
+on each piece of its t'Vocabulary', by index, &amp; on ending.
+Weights are nonnegative &amp; needn't sum to one; a piece missing
+from `pieceWeights` has no weight.
+-}</span></span><span>
+</span><span id="line-134"></span><span class="hs-keyword">data</span><span> </span><span id="Weights"><span class="annot"><a href="Control.Lens.Grammar.Decoding.html#Weights"><span class="hs-identifier hs-var">Weights</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="Weights"><span class="annot"><a href="Control.Lens.Grammar.Decoding.html#Weights"><span class="hs-identifier hs-var">Weights</span></a></span></span><span>
+</span><span id="line-135"></span><span>  </span><span class="hs-special">{</span><span> </span><span id="pieceWeights"><span class="annot"><span class="annottext">Weights -&gt; IntMap Double
+</span><a href="Control.Lens.Grammar.Decoding.html#pieceWeights"><span class="hs-identifier hs-var hs-var">pieceWeights</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IntMap</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Double</span></span><span>
+</span><span id="line-136"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="endWeight"><span class="annot"><span class="annottext">Weights -&gt; Double
+</span><a href="Control.Lens.Grammar.Decoding.html#endWeight"><span class="hs-identifier hs-var hs-var">endWeight</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Double</span></span><span>
+</span><span id="line-137"></span><span>  </span><span class="hs-special">}</span><span> </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679319364"><span id="local-6989586621679319370"><span class="annot"><span class="annottext">Weights -&gt; Weights -&gt; Bool
+(Weights -&gt; Weights -&gt; Bool)
+-&gt; (Weights -&gt; Weights -&gt; Bool) -&gt; Eq Weights
+forall a. (a -&gt; a -&gt; Bool) -&gt; (a -&gt; a -&gt; Bool) -&gt; Eq a
+$c== :: Weights -&gt; Weights -&gt; Bool
+== :: Weights -&gt; Weights -&gt; Bool
+$c/= :: Weights -&gt; Weights -&gt; Bool
+/= :: Weights -&gt; Weights -&gt; Bool
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679319376"><span id="local-6989586621679319384"><span id="local-6989586621679319388"><span class="annot"><span class="annottext">Int -&gt; Weights -&gt; ShowS
+[Weights] -&gt; ShowS
+Weights -&gt; String
+(Int -&gt; Weights -&gt; ShowS)
+-&gt; (Weights -&gt; String) -&gt; ([Weights] -&gt; ShowS) -&gt; Show Weights
+forall a.
+(Int -&gt; a -&gt; ShowS) -&gt; (a -&gt; String) -&gt; ([a] -&gt; ShowS) -&gt; Show a
+$cshowsPrec :: Int -&gt; Weights -&gt; ShowS
+showsPrec :: Int -&gt; Weights -&gt; ShowS
+$cshow :: Weights -&gt; String
+show :: Weights -&gt; String
+$cshowList :: [Weights] -&gt; ShowS
+showList :: [Weights] -&gt; ShowS
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></span></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-138"></span><span>
+</span><span id="line-139"></span><span class="annot"><span class="hs-comment">{- | A next-piece predictor, which weighs what comes next,
+given the indices of the pieces so far.
+-}</span></span><span>
+</span><span id="line-142"></span><span class="hs-keyword">type</span><span> </span><span id="Predictor"><span class="annot"><a href="Control.Lens.Grammar.Decoding.html#Predictor"><span class="hs-identifier hs-var">Predictor</span></a></span></span><span> </span><span id="local-6989586621679319393"><span class="annot"><a href="#local-6989586621679319393"><span class="hs-identifier hs-type">m</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679319393"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Decoding.html#Weights"><span class="hs-identifier hs-type">Weights</span></a></span><span>
+</span><span id="line-143"></span><span>
+</span><span id="line-144"></span><span class="annot"><span class="hs-comment">{- | A decoder's choice, among t'Weights', of the index of a piece,
+or `Nothing`, to end. A t'Chooser' should only choose what has weight.
+-}</span></span><span>
+</span><span id="line-147"></span><span class="hs-keyword">type</span><span> </span><span id="Chooser"><span class="annot"><a href="Control.Lens.Grammar.Decoding.html#Chooser"><span class="hs-identifier hs-var">Chooser</span></a></span></span><span> </span><span id="local-6989586621679319394"><span class="annot"><a href="#local-6989586621679319394"><span class="hs-identifier hs-type">m</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Decoding.html#Weights"><span class="hs-identifier hs-type">Weights</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679319394"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span class="hs-special">)</span><span>
+</span><span id="line-148"></span><span>
+</span><span id="line-149"></span><span class="annot"><span class="hs-comment">{- | The text a decoder generates, by how it stopped. -}</span></span><span>
+</span><span id="line-150"></span><span class="hs-keyword">data</span><span> </span><span id="Decoded"><span class="annot"><a href="Control.Lens.Grammar.Decoding.html#Decoded"><span class="hs-identifier hs-var">Decoded</span></a></span></span><span> </span><span id="local-6989586621679319290"><span class="annot"><a href="#local-6989586621679319290"><span class="hs-identifier hs-type">token</span></a></span></span><span>
+</span><span id="line-151"></span><span>  </span><span class="hs-glyph">=</span><span> </span><span id="Finished"><span class="annot"><a href="Control.Lens.Grammar.Decoding.html#Finished"><span class="hs-identifier hs-var">Finished</span></a></span></span><span> </span><span class="hs-special">[</span><span class="annot"><a href="#local-6989586621679319290"><span class="hs-identifier hs-type">token</span></a></span><span class="hs-special">]</span><span>
+</span><span id="line-152"></span><span>  </span><span class="annot"><span class="hs-comment">-- ^ chosen to end, at a word of the language</span></span><span>
+</span><span id="line-153"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="Stuck"><span class="annot"><a href="Control.Lens.Grammar.Decoding.html#Stuck"><span class="hs-identifier hs-var">Stuck</span></a></span></span><span> </span><span class="hs-special">[</span><span class="annot"><a href="#local-6989586621679319290"><span class="hs-identifier hs-type">token</span></a></span><span class="hs-special">]</span><span>
+</span><span id="line-154"></span><span>  </span><span class="annot"><span class="hs-comment">-- ^ nothing allowed next has weight</span></span><span>
+</span><span id="line-155"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="Truncated"><span class="annot"><a href="Control.Lens.Grammar.Decoding.html#Truncated"><span class="hs-identifier hs-var">Truncated</span></a></span></span><span> </span><span class="hs-special">[</span><span class="annot"><a href="#local-6989586621679319290"><span class="hs-identifier hs-type">token</span></a></span><span class="hs-special">]</span><span>
+</span><span id="line-156"></span><span>  </span><span class="annot"><span class="hs-comment">-- ^ out of pieces, at the bound on how many to generate</span></span><span>
+</span><span id="line-157"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679319400"><span id="local-6989586621679319409"><span class="annot"><span class="annottext">Decoded token -&gt; Decoded token -&gt; Bool
+(Decoded token -&gt; Decoded token -&gt; Bool)
+-&gt; (Decoded token -&gt; Decoded token -&gt; Bool) -&gt; Eq (Decoded token)
+forall token. Eq token =&gt; Decoded token -&gt; Decoded token -&gt; Bool
+forall a. (a -&gt; a -&gt; Bool) -&gt; (a -&gt; a -&gt; Bool) -&gt; Eq a
+$c== :: forall token. Eq token =&gt; Decoded token -&gt; Decoded token -&gt; Bool
+== :: Decoded token -&gt; Decoded token -&gt; Bool
+$c/= :: forall token. Eq token =&gt; Decoded token -&gt; Decoded token -&gt; Bool
+/= :: Decoded token -&gt; Decoded token -&gt; Bool
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679319417"><span id="local-6989586621679319423"><span id="local-6989586621679319428"><span id="local-6989586621679319432"><span id="local-6989586621679319435"><span id="local-6989586621679319438"><span id="local-6989586621679319441"><span class="annot"><span class="annottext">Eq (Decoded token)
+Eq (Decoded token) =&gt;
+(Decoded token -&gt; Decoded token -&gt; Ordering)
+-&gt; (Decoded token -&gt; Decoded token -&gt; Bool)
+-&gt; (Decoded token -&gt; Decoded token -&gt; Bool)
+-&gt; (Decoded token -&gt; Decoded token -&gt; Bool)
+-&gt; (Decoded token -&gt; Decoded token -&gt; Bool)
+-&gt; (Decoded token -&gt; Decoded token -&gt; Decoded token)
+-&gt; (Decoded token -&gt; Decoded token -&gt; Decoded token)
+-&gt; Ord (Decoded token)
+Decoded token -&gt; Decoded token -&gt; Bool
+Decoded token -&gt; Decoded token -&gt; Ordering
+Decoded token -&gt; Decoded token -&gt; Decoded token
+forall a.
+Eq a =&gt;
+(a -&gt; a -&gt; Ordering)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; a)
+-&gt; (a -&gt; a -&gt; a)
+-&gt; Ord a
+forall token. Ord token =&gt; Eq (Decoded token)
+forall token. Ord token =&gt; Decoded token -&gt; Decoded token -&gt; Bool
+forall token.
+Ord token =&gt;
+Decoded token -&gt; Decoded token -&gt; Ordering
+forall token.
+Ord token =&gt;
+Decoded token -&gt; Decoded token -&gt; Decoded token
+$ccompare :: forall token.
+Ord token =&gt;
+Decoded token -&gt; Decoded token -&gt; Ordering
+compare :: Decoded token -&gt; Decoded token -&gt; Ordering
+$c&lt; :: forall token. Ord token =&gt; Decoded token -&gt; Decoded token -&gt; Bool
+&lt; :: Decoded token -&gt; Decoded token -&gt; Bool
+$c&lt;= :: forall token. Ord token =&gt; Decoded token -&gt; Decoded token -&gt; Bool
+&lt;= :: Decoded token -&gt; Decoded token -&gt; Bool
+$c&gt; :: forall token. Ord token =&gt; Decoded token -&gt; Decoded token -&gt; Bool
+&gt; :: Decoded token -&gt; Decoded token -&gt; Bool
+$c&gt;= :: forall token. Ord token =&gt; Decoded token -&gt; Decoded token -&gt; Bool
+&gt;= :: Decoded token -&gt; Decoded token -&gt; Bool
+$cmax :: forall token.
+Ord token =&gt;
+Decoded token -&gt; Decoded token -&gt; Decoded token
+max :: Decoded token -&gt; Decoded token -&gt; Decoded token
+$cmin :: forall token.
+Ord token =&gt;
+Decoded token -&gt; Decoded token -&gt; Decoded token
+min :: Decoded token -&gt; Decoded token -&gt; Decoded token
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Ord</span></span></span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679319451"><span id="local-6989586621679319460"><span id="local-6989586621679319464"><span class="annot"><span class="annottext">Int -&gt; Decoded token -&gt; ShowS
+[Decoded token] -&gt; ShowS
+Decoded token -&gt; String
+(Int -&gt; Decoded token -&gt; ShowS)
+-&gt; (Decoded token -&gt; String)
+-&gt; ([Decoded token] -&gt; ShowS)
+-&gt; Show (Decoded token)
+forall token. Show token =&gt; Int -&gt; Decoded token -&gt; ShowS
+forall token. Show token =&gt; [Decoded token] -&gt; ShowS
+forall token. Show token =&gt; Decoded token -&gt; String
+forall a.
+(Int -&gt; a -&gt; ShowS) -&gt; (a -&gt; String) -&gt; ([a] -&gt; ShowS) -&gt; Show a
+$cshowsPrec :: forall token. Show token =&gt; Int -&gt; Decoded token -&gt; ShowS
+showsPrec :: Int -&gt; Decoded token -&gt; ShowS
+$cshow :: forall token. Show token =&gt; Decoded token -&gt; String
+show :: Decoded token -&gt; String
+$cshowList :: forall token. Show token =&gt; [Decoded token] -&gt; ShowS
+showList :: [Decoded token] -&gt; ShowS
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679319468"><span id="local-6989586621679319472"><span id="local-6989586621679319475"><span id="local-6989586621679319491"><span class="annot"><span class="annottext">ReadPrec [Decoded token]
+ReadPrec (Decoded token)
+Int -&gt; ReadS (Decoded token)
+ReadS [Decoded token]
+(Int -&gt; ReadS (Decoded token))
+-&gt; ReadS [Decoded token]
+-&gt; ReadPrec (Decoded token)
+-&gt; ReadPrec [Decoded token]
+-&gt; Read (Decoded token)
+forall token. Read token =&gt; ReadPrec [Decoded token]
+forall token. Read token =&gt; ReadPrec (Decoded token)
+forall token. Read token =&gt; Int -&gt; ReadS (Decoded token)
+forall token. Read token =&gt; ReadS [Decoded token]
+forall a.
+(Int -&gt; ReadS a)
+-&gt; ReadS [a] -&gt; ReadPrec a -&gt; ReadPrec [a] -&gt; Read a
+$creadsPrec :: forall token. Read token =&gt; Int -&gt; ReadS (Decoded token)
+readsPrec :: Int -&gt; ReadS (Decoded token)
+$creadList :: forall token. Read token =&gt; ReadS [Decoded token]
+readList :: ReadS [Decoded token]
+$creadPrec :: forall token. Read token =&gt; ReadPrec (Decoded token)
+readPrec :: ReadPrec (Decoded token)
+$creadListPrec :: forall token. Read token =&gt; ReadPrec [Decoded token]
+readListPrec :: ReadPrec [Decoded token]
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Read</span></span></span></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-158"></span><span>
+</span><span id="line-159"></span><span class="annot"><span class="hs-comment">{- | Choose what weighs most, preferring to end,
+&amp; the least index of the pieces which weigh most.
+
+&gt;&gt;&gt; runIdentity (greedy (Weights (IntMap.fromList [(0, 1), (1, 3), (2, 3)]) 2))
+Just 1
+-}</span></span><span>
+</span><span id="line-165"></span><span id="local-6989586621679319172"><span class="annot"><a href="Control.Lens.Grammar.Decoding.html#greedy"><span class="hs-identifier hs-type">greedy</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Applicative</span></span><span> </span><span class="annot"><a href="#local-6989586621679319172"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Decoding.html#Chooser"><span class="hs-identifier hs-type">Chooser</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679319172"><span class="hs-identifier hs-type">m</span></a></span></span><span>
+</span><span id="line-166"></span><span id="greedy"><span class="annot"><span class="annottext">greedy :: forall (m :: * -&gt; *). Applicative m =&gt; Chooser m
+</span><a href="Control.Lens.Grammar.Decoding.html#greedy"><span class="hs-identifier hs-var hs-var">greedy</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Grammar.Decoding.html#Weights"><span class="hs-identifier hs-type">Weights</span></a></span><span> </span><span id="local-6989586621679319505"><span class="annot"><span class="annottext">IntMap Double
+</span><a href="#local-6989586621679319505"><span class="hs-identifier hs-var">pieces</span></a></span></span><span> </span><span id="local-6989586621679319506"><span class="annot"><span class="annottext">Double
+</span><a href="#local-6989586621679319506"><span class="hs-identifier hs-var">end</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Maybe Int -&gt; m (Maybe Int)
+forall a. a -&gt; m a
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><span class="hs-identifier hs-var">pure</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(Maybe Int -&gt; Int -&gt; Double -&gt; Maybe Int)
+-&gt; Maybe Int -&gt; IntMap Double -&gt; Maybe Int
+forall a b. (a -&gt; Int -&gt; b -&gt; a) -&gt; a -&gt; IntMap b -&gt; a
+</span><span class="hs-identifier hs-var">IntMap.foldlWithKey'</span></span><span> </span><span class="annot"><span class="annottext">Maybe Int -&gt; Int -&gt; Double -&gt; Maybe Int
+</span><a href="#local-6989586621679319508"><span class="hs-identifier hs-var">heavier</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe Int
+forall a. Maybe a
+</span><span class="hs-identifier hs-var">Nothing</span></span><span> </span><span class="annot"><span class="annottext">IntMap Double
+</span><a href="#local-6989586621679319509"><span class="hs-identifier hs-var">pieces'</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-167"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-168"></span><span>    </span><span id="local-6989586621679319509"><span class="annot"><span class="annottext">pieces' :: IntMap Double
+</span><a href="#local-6989586621679319509"><span class="hs-identifier hs-var hs-var">pieces'</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(Double -&gt; Bool) -&gt; IntMap Double -&gt; IntMap Double
+forall a. (a -&gt; Bool) -&gt; IntMap a -&gt; IntMap a
+</span><span class="hs-identifier hs-var">IntMap.filter</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Double -&gt; Double -&gt; Bool
+forall a. Ord a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">&gt;</span></span><span> </span><span class="annot"><span class="annottext">Double -&gt; Double -&gt; Double
+forall a. Ord a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-identifier hs-var">max</span></span><span> </span><span class="annot"><span class="annottext">Double
+</span><span class="hs-number">0</span></span><span> </span><span class="annot"><span class="annottext">Double
+</span><a href="#local-6989586621679319506"><span class="hs-identifier hs-var">end</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">IntMap Double
+</span><a href="#local-6989586621679319505"><span class="hs-identifier hs-var">pieces</span></a></span><span>
+</span><span id="line-169"></span><span>    </span><span id="local-6989586621679319508"><span class="annot"><span class="annottext">heavier :: Maybe Int -&gt; Int -&gt; Double -&gt; Maybe Int
+</span><a href="#local-6989586621679319508"><span class="hs-identifier hs-var hs-var">heavier</span></a></span></span><span> </span><span id="local-6989586621679319512"><span class="annot"><span class="annottext">Maybe Int
+</span><a href="#local-6989586621679319512"><span class="hs-identifier hs-var">best</span></a></span></span><span> </span><span id="local-6989586621679319513"><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679319513"><span class="hs-identifier hs-var">i</span></a></span></span><span> </span><span id="local-6989586621679319514"><span class="annot"><span class="annottext">Double
+</span><a href="#local-6989586621679319514"><span class="hs-identifier hs-var">w</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">Maybe Int
+</span><a href="#local-6989586621679319512"><span class="hs-identifier hs-var">best</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-170"></span><span>      </span><span class="annot"><span class="hs-identifier hs-type">Just</span></span><span> </span><span id="local-6989586621679319515"><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679319515"><span class="hs-identifier hs-var">j</span></a></span></span><span> </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">IntMap Double
+</span><a href="#local-6989586621679319509"><span class="hs-identifier hs-var">pieces'</span></a></span><span> </span><span class="annot"><span class="annottext">IntMap Double -&gt; Int -&gt; Double
+forall a. IntMap a -&gt; Int -&gt; a
+</span><span class="hs-operator hs-var">IntMap.!</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679319515"><span class="hs-identifier hs-var">j</span></a></span><span> </span><span class="annot"><span class="annottext">Double -&gt; Double -&gt; Bool
+forall a. Ord a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">&gt;=</span></span><span> </span><span class="annot"><span class="annottext">Double
+</span><a href="#local-6989586621679319514"><span class="hs-identifier hs-var">w</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Maybe Int
+</span><a href="#local-6989586621679319512"><span class="hs-identifier hs-var">best</span></a></span><span>
+</span><span id="line-171"></span><span>      </span><span class="annot"><span class="annottext">Maybe Int
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Int -&gt; Maybe Int
+forall a. a -&gt; Maybe a
+</span><span class="hs-identifier hs-var">Just</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679319513"><span class="hs-identifier hs-var">i</span></a></span><span>
+</span><span id="line-172"></span><span>
+</span><span id="line-173"></span><span class="annot"><span class="hs-comment">{- | Sample in proportion to weight, by a random generator.
+
+&gt;&gt;&gt; let weights = Weights (IntMap.fromList [(0, 1), (1, 1)]) 0
+&gt;&gt;&gt; evalStateT (traverse (const (sampled weights)) [1 .. 8 :: Int]) (mkStdGen 7)
+[Just 0,Just 1,Just 0,Just 1,Just 0,Just 0,Just 0,Just 1]
+-}</span></span><span>
+</span><span id="line-179"></span><span id="local-6989586621679319183"><span id="local-6989586621679319185"><span class="annot"><a href="Control.Lens.Grammar.Decoding.html#sampled"><span class="hs-identifier hs-type">sampled</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">RandomGen</span></span><span> </span><span class="annot"><a href="#local-6989586621679319183"><span class="hs-identifier hs-type">g</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Monad</span></span><span> </span><span class="annot"><a href="#local-6989586621679319185"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Decoding.html#Chooser"><span class="hs-identifier hs-type">Chooser</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">StateT</span></span><span> </span><span class="annot"><a href="#local-6989586621679319183"><span class="hs-identifier hs-type">g</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679319185"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">)</span></span></span><span>
+</span><span id="line-180"></span><span id="sampled"><span class="annot"><span class="annottext">sampled :: forall g (m :: * -&gt; *).
+(RandomGen g, Monad m) =&gt;
+Chooser (StateT g m)
+</span><a href="Control.Lens.Grammar.Decoding.html#sampled"><span class="hs-identifier hs-var hs-var">sampled</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Grammar.Decoding.html#Weights"><span class="hs-identifier hs-type">Weights</span></a></span><span> </span><span id="local-6989586621679319546"><span class="annot"><span class="annottext">IntMap Double
+</span><a href="#local-6989586621679319546"><span class="hs-identifier hs-var">pieces</span></a></span></span><span> </span><span id="local-6989586621679319547"><span class="annot"><span class="annottext">Double
+</span><a href="#local-6989586621679319547"><span class="hs-identifier hs-var">end</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-181"></span><span>  </span><span id="local-6989586621679319548"><span class="annot"><a href="#local-6989586621679319548"><span class="hs-identifier hs-var">r</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">(g -&gt; (Double, g)) -&gt; StateT g m Double
+forall a. (g -&gt; (a, g)) -&gt; StateT g m a
+forall s (m :: * -&gt; *) a. MonadState s m =&gt; (s -&gt; (a, s)) -&gt; m a
+</span><span class="hs-identifier hs-var">state</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(Double, Double) -&gt; g -&gt; (Double, g)
+forall g. RandomGen g =&gt; (Double, Double) -&gt; g -&gt; (Double, g)
+forall a g. (Random a, RandomGen g) =&gt; (a, a) -&gt; g -&gt; (a, g)
+</span><span class="hs-identifier hs-var">randomR</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Double
+</span><span class="hs-number">0</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Double
+</span><a href="#local-6989586621679319549"><span class="hs-identifier hs-var">total</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-182"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">pure</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679319550"><span class="hs-identifier hs-type">pick</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679319548"><span class="hs-identifier hs-type">r</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-183"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-184"></span><span>    </span><span id="local-6989586621679319551"><span class="annot"><span class="annottext">end' :: Double
+</span><a href="#local-6989586621679319551"><span class="hs-identifier hs-var hs-var">end'</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Double -&gt; Double -&gt; Double
+forall a. Ord a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-identifier hs-var">max</span></span><span> </span><span class="annot"><span class="annottext">Double
+</span><span class="hs-number">0</span></span><span> </span><span class="annot"><span class="annottext">Double
+</span><a href="#local-6989586621679319547"><span class="hs-identifier hs-var">end</span></a></span><span>
+</span><span id="line-185"></span><span>    </span><span id="local-6989586621679319552"><span class="annot"><span class="annottext">pieces' :: [(Int, Double)]
+</span><a href="#local-6989586621679319552"><span class="hs-identifier hs-var hs-var">pieces'</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">IntMap Double -&gt; [(Int, Double)]
+forall a. IntMap a -&gt; [(Int, a)]
+</span><span class="hs-identifier hs-var">IntMap.toList</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(Double -&gt; Bool) -&gt; IntMap Double -&gt; IntMap Double
+forall a. (a -&gt; Bool) -&gt; IntMap a -&gt; IntMap a
+</span><span class="hs-identifier hs-var">IntMap.filter</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Double -&gt; Double -&gt; Bool
+forall a. Ord a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">&gt;</span></span><span> </span><span class="annot"><span class="annottext">Double
+</span><span class="hs-number">0</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">IntMap Double
+</span><a href="#local-6989586621679319546"><span class="hs-identifier hs-var">pieces</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-186"></span><span>    </span><span id="local-6989586621679319549"><span class="annot"><span class="annottext">total :: Double
+</span><a href="#local-6989586621679319549"><span class="hs-identifier hs-var hs-var">total</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Double
+</span><a href="#local-6989586621679319551"><span class="hs-identifier hs-var">end'</span></a></span><span> </span><span class="annot"><span class="annottext">Double -&gt; Double -&gt; Double
+forall a. Num a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">+</span></span><span> </span><span class="annot"><span class="annottext">[Double] -&gt; Double
+forall a. Num a =&gt; [a] -&gt; a
+forall (t :: * -&gt; *) a. (Foldable t, Num a) =&gt; t a -&gt; a
+</span><span class="hs-identifier hs-var">sum</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">((Int, Double) -&gt; Double) -&gt; [(Int, Double)] -&gt; [Double]
+forall a b. (a -&gt; b) -&gt; [a] -&gt; [b]
+</span><span class="hs-identifier hs-var">map</span></span><span> </span><span class="annot"><span class="annottext">(Int, Double) -&gt; Double
+forall a b. (a, b) -&gt; b
+</span><span class="hs-identifier hs-var">snd</span></span><span> </span><span class="annot"><span class="annottext">[(Int, Double)]
+</span><a href="#local-6989586621679319552"><span class="hs-identifier hs-var">pieces'</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-187"></span><span>    </span><span id="local-6989586621679319550"><span class="annot"><span class="annottext">pick :: Double -&gt; Maybe Int
+</span><a href="#local-6989586621679319550"><span class="hs-identifier hs-var hs-var">pick</span></a></span></span><span> </span><span id="local-6989586621679319557"><span class="annot"><span class="annottext">Double
+</span><a href="#local-6989586621679319557"><span class="hs-identifier hs-var">r</span></a></span></span><span>
+</span><span id="line-188"></span><span>      </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">Double
+</span><a href="#local-6989586621679319557"><span class="hs-identifier hs-var">r</span></a></span><span> </span><span class="annot"><span class="annottext">Double -&gt; Double -&gt; Bool
+forall a. Ord a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">&lt;</span></span><span> </span><span class="annot"><span class="annottext">Double
+</span><a href="#local-6989586621679319551"><span class="hs-identifier hs-var">end'</span></a></span><span> </span><span class="annot"><span class="annottext">Bool -&gt; Bool -&gt; Bool
+</span><span class="hs-operator hs-var">||</span></span><span> </span><span class="annot"><span class="annottext">[(Int, Double)] -&gt; Bool
+forall a. [a] -&gt; Bool
+forall (t :: * -&gt; *) a. Foldable t =&gt; t a -&gt; Bool
+</span><span class="hs-identifier hs-var">null</span></span><span> </span><span class="annot"><span class="annottext">[(Int, Double)]
+</span><a href="#local-6989586621679319552"><span class="hs-identifier hs-var">pieces'</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Maybe Int
+forall a. Maybe a
+</span><span class="hs-identifier hs-var">Nothing</span></span><span>
+</span><span id="line-189"></span><span>      </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><span class="hs-identifier hs-var">otherwise</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Double -&gt; [(Int, Double)] -&gt; Maybe Int
+forall {t} {a}. (Ord t, Num t) =&gt; t -&gt; [(a, t)] -&gt; Maybe a
+</span><a href="#local-6989586621679319560"><span class="hs-identifier hs-var">go</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Double
+</span><a href="#local-6989586621679319557"><span class="hs-identifier hs-var">r</span></a></span><span> </span><span class="annot"><span class="annottext">Double -&gt; Double -&gt; Double
+forall a. Num a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-glyph hs-var">-</span></span><span> </span><span class="annot"><span class="annottext">Double
+</span><a href="#local-6989586621679319551"><span class="hs-identifier hs-var">end'</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">[(Int, Double)]
+</span><a href="#local-6989586621679319552"><span class="hs-identifier hs-var">pieces'</span></a></span><span>
+</span><span id="line-190"></span><span>    </span><span id="local-6989586621679319560"><span class="annot"><span class="annottext">go :: t -&gt; [(a, t)] -&gt; Maybe a
+</span><a href="#local-6989586621679319560"><span class="hs-identifier hs-var hs-var">go</span></a></span></span><span> </span><span class="annot"><span class="annottext">t
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-special">[</span><span class="hs-special">(</span><span id="local-6989586621679319567"><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679319567"><span class="hs-identifier hs-var">i</span></a></span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">t
+</span><span class="hs-identifier">_</span></span><span class="hs-special">)</span><span class="hs-special">]</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">a -&gt; Maybe a
+forall a. a -&gt; Maybe a
+</span><span class="hs-identifier hs-var">Just</span></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679319567"><span class="hs-identifier hs-var">i</span></a></span><span>
+</span><span id="line-191"></span><span>    </span><span class="annot"><a href="#local-6989586621679319560"><span class="hs-identifier hs-var">go</span></a></span><span> </span><span id="local-6989586621679319568"><span class="annot"><span class="annottext">t
+</span><a href="#local-6989586621679319568"><span class="hs-identifier hs-var">r</span></a></span></span><span> </span><span class="hs-special">(</span><span class="hs-special">(</span><span id="local-6989586621679319569"><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679319569"><span class="hs-identifier hs-var">i</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679319570"><span class="annot"><span class="annottext">t
+</span><a href="#local-6989586621679319570"><span class="hs-identifier hs-var">w</span></a></span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="hs-glyph hs-type">:</span></span><span> </span><span id="local-6989586621679319571"><span class="annot"><span class="annottext">[(a, t)]
+</span><a href="#local-6989586621679319571"><span class="hs-identifier hs-var">rest</span></a></span></span><span class="hs-special">)</span><span>
+</span><span id="line-192"></span><span>      </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">t
+</span><a href="#local-6989586621679319568"><span class="hs-identifier hs-var">r</span></a></span><span> </span><span class="annot"><span class="annottext">t -&gt; t -&gt; Bool
+forall a. Ord a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">&lt;</span></span><span> </span><span class="annot"><span class="annottext">t
+</span><a href="#local-6989586621679319570"><span class="hs-identifier hs-var">w</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">a -&gt; Maybe a
+forall a. a -&gt; Maybe a
+</span><span class="hs-identifier hs-var">Just</span></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679319569"><span class="hs-identifier hs-var">i</span></a></span><span>
+</span><span id="line-193"></span><span>      </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><span class="hs-identifier hs-var">otherwise</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">t -&gt; [(a, t)] -&gt; Maybe a
+</span><a href="#local-6989586621679319560"><span class="hs-identifier hs-var">go</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">t
+</span><a href="#local-6989586621679319568"><span class="hs-identifier hs-var">r</span></a></span><span> </span><span class="annot"><span class="annottext">t -&gt; t -&gt; t
+forall a. Num a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-glyph hs-var">-</span></span><span> </span><span class="annot"><span class="annottext">t
+</span><a href="#local-6989586621679319570"><span class="hs-identifier hs-var">w</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">[(a, t)]
+</span><a href="#local-6989586621679319571"><span class="hs-identifier hs-var">rest</span></a></span><span>
+</span><span id="line-194"></span><span>    </span><span class="annot"><a href="#local-6989586621679319560"><span class="hs-identifier hs-var">go</span></a></span><span> </span><span class="annot"><span class="annottext">t
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Maybe a
+forall a. Maybe a
+</span><span class="hs-identifier hs-var">Nothing</span></span><span>
+</span><span id="line-195"></span><span>
+</span><span id="line-196"></span><span class="annot"><span class="hs-comment">{- | A language model's vocabulary, as the strings of tokens its pieces
+stand for, indexed by their positions in the list `vocabulary` is given,
+from @0@. The empty piece, which would generate nothing, is never allowed.
+-}</span></span><span>
+</span><span id="line-200"></span><span class="hs-keyword">data</span><span> </span><span id="Vocabulary"><span class="annot"><a href="Control.Lens.Grammar.Decoding.html#Vocabulary"><span class="hs-identifier hs-var">Vocabulary</span></a></span></span><span> </span><span id="local-6989586621679319213"><span class="annot"><a href="#local-6989586621679319213"><span class="hs-identifier hs-type">token</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="Vocabulary"><span class="annot"><a href="Control.Lens.Grammar.Decoding.html#Vocabulary"><span class="hs-identifier hs-var">Vocabulary</span></a></span></span><span>
+</span><span id="line-201"></span><span>  </span><span class="hs-special">{</span><span> </span><span id="vocabularyPieces"><span class="annot"><span class="annottext">forall token. Vocabulary token -&gt; IntMap [token]
+</span><a href="Control.Lens.Grammar.Decoding.html#vocabularyPieces"><span class="hs-identifier hs-var hs-var">vocabularyPieces</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IntMap</span></span><span> </span><span class="hs-special">[</span><span class="annot"><a href="#local-6989586621679319213"><span class="hs-identifier hs-type">token</span></a></span><span class="hs-special">]</span><span>
+</span><span id="line-202"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="vocabularyTrie"><span class="annot"><span class="annottext">forall token. Vocabulary token -&gt; Trie token
+</span><a href="Control.Lens.Grammar.Decoding.html#vocabularyTrie"><span class="hs-identifier hs-var hs-var">vocabularyTrie</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Decoding.html#Trie"><span class="hs-identifier hs-type">Trie</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679319213"><span class="hs-identifier hs-type">token</span></a></span><span>
+</span><span id="line-203"></span><span>  </span><span class="hs-special">}</span><span>
+</span><span id="line-204"></span><span>
+</span><span id="line-205"></span><span class="hs-comment">-- A trie of a vocabulary's pieces, by their tokens,</span><span>
+</span><span id="line-206"></span><span class="hs-comment">-- with the indices of the pieces which end at each node.</span><span>
+</span><span id="line-207"></span><span class="hs-keyword">data</span><span> </span><span id="Trie"><span class="annot"><a href="Control.Lens.Grammar.Decoding.html#Trie"><span class="hs-identifier hs-var">Trie</span></a></span></span><span> </span><span id="local-6989586621679319226"><span class="annot"><a href="#local-6989586621679319226"><span class="hs-identifier hs-type">token</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="Trie"><span class="annot"><a href="Control.Lens.Grammar.Decoding.html#Trie"><span class="hs-identifier hs-var">Trie</span></a></span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">IntSet</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Map</span></span><span> </span><span class="annot"><a href="#local-6989586621679319226"><span class="hs-identifier hs-type">token</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Grammar.Decoding.html#Trie"><span class="hs-identifier hs-type">Trie</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679319226"><span class="hs-identifier hs-type">token</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-208"></span><span>
+</span><span id="line-209"></span><span class="annot"><span class="hs-comment">{- | A t'Vocabulary' of pieces, indexed by position. -}</span></span><span>
+</span><span id="line-210"></span><span id="local-6989586621679319218"><span class="annot"><a href="Control.Lens.Grammar.Decoding.html#vocabulary"><span class="hs-identifier hs-type">vocabulary</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Ord</span></span><span> </span><span class="annot"><a href="#local-6989586621679319218"><span class="hs-identifier hs-type">token</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="hs-special">[</span><span class="hs-special">[</span><span class="annot"><a href="#local-6989586621679319218"><span class="hs-identifier hs-type">token</span></a></span><span class="hs-special">]</span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Decoding.html#Vocabulary"><span class="hs-identifier hs-type">Vocabulary</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679319218"><span class="hs-identifier hs-type">token</span></a></span></span><span>
+</span><span id="line-211"></span><span id="vocabulary"><span class="annot"><span class="annottext">vocabulary :: forall token. Ord token =&gt; [[token]] -&gt; Vocabulary token
+</span><a href="Control.Lens.Grammar.Decoding.html#vocabulary"><span class="hs-identifier hs-var hs-var">vocabulary</span></a></span></span><span> </span><span id="local-6989586621679319583"><span class="annot"><span class="annottext">[[token]]
+</span><a href="#local-6989586621679319583"><span class="hs-identifier hs-var">pieces</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Decoding.html#Vocabulary"><span class="hs-identifier hs-type">Vocabulary</span></a></span><span>
+</span><span id="line-212"></span><span>  </span><span class="hs-special">{</span><span> </span><span class="annot"><span class="annottext">vocabularyPieces :: IntMap [token]
+</span><a href="Control.Lens.Grammar.Decoding.html#vocabularyPieces"><span class="hs-identifier hs-var">vocabularyPieces</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[(Int, [token])] -&gt; IntMap [token]
+forall a. [(Int, a)] -&gt; IntMap a
+</span><span class="hs-identifier hs-var">IntMap.fromList</span></span><span> </span><span class="annot"><span class="annottext">[(Int, [token])]
+</span><a href="#local-6989586621679319585"><span class="hs-identifier hs-var">indexed</span></a></span><span>
+</span><span id="line-213"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">vocabularyTrie :: Trie token
+</span><a href="Control.Lens.Grammar.Decoding.html#vocabularyTrie"><span class="hs-identifier hs-var">vocabularyTrie</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(Trie token -&gt; (Int, [token]) -&gt; Trie token)
+-&gt; Trie token -&gt; [(Int, [token])] -&gt; Trie token
+forall b a. (b -&gt; a -&gt; b) -&gt; b -&gt; [a] -&gt; b
+forall (t :: * -&gt; *) b a.
+Foldable t =&gt;
+(b -&gt; a -&gt; b) -&gt; b -&gt; t a -&gt; b
+</span><span class="hs-identifier hs-var">foldl'</span></span><span> </span><span class="annot"><span class="annottext">Trie token -&gt; (Int, [token]) -&gt; Trie token
+forall {a}. Ord a =&gt; Trie a -&gt; (Int, [a]) -&gt; Trie a
+</span><a href="#local-6989586621679319587"><span class="hs-identifier hs-var">insert</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">IntSet -&gt; Map token (Trie token) -&gt; Trie token
+forall token. IntSet -&gt; Map token (Trie token) -&gt; Trie token
+</span><a href="Control.Lens.Grammar.Decoding.html#Trie"><span class="hs-identifier hs-var">Trie</span></a></span><span> </span><span class="annot"><span class="annottext">IntSet
+</span><span class="hs-identifier hs-var">IntSet.empty</span></span><span> </span><span class="annot"><span class="annottext">Map token (Trie token)
+forall k a. Map k a
+</span><span class="hs-identifier hs-var">Map.empty</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">[(Int, [token])]
+</span><a href="#local-6989586621679319585"><span class="hs-identifier hs-var">indexed</span></a></span><span>
+</span><span id="line-214"></span><span>  </span><span class="hs-special">}</span><span>
+</span><span id="line-215"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-216"></span><span>    </span><span id="local-6989586621679319585"><span class="annot"><span class="annottext">indexed :: [(Int, [token])]
+</span><a href="#local-6989586621679319585"><span class="hs-identifier hs-var hs-var">indexed</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">[</span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679319590"><span class="hs-identifier hs-var">i</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">[token]
+</span><a href="#local-6989586621679319591"><span class="hs-identifier hs-var">piece</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">|</span><span> </span><span class="hs-special">(</span><span id="local-6989586621679319590"><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679319590"><span class="hs-identifier hs-var">i</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679319591"><span class="annot"><span class="annottext">[token]
+</span><a href="#local-6989586621679319591"><span class="hs-identifier hs-var">piece</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">[Int] -&gt; [[token]] -&gt; [(Int, [token])]
+forall a b. [a] -&gt; [b] -&gt; [(a, b)]
+</span><span class="hs-identifier hs-var">zip</span></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">0</span></span><span> </span><span class="hs-glyph">..</span><span class="hs-special">]</span><span> </span><span class="annot"><span class="annottext">[[token]]
+</span><a href="#local-6989586621679319583"><span class="hs-identifier hs-var">pieces</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Bool -&gt; Bool
+</span><span class="hs-identifier hs-var">not</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">[token] -&gt; Bool
+forall a. [a] -&gt; Bool
+forall (t :: * -&gt; *) a. Foldable t =&gt; t a -&gt; Bool
+</span><span class="hs-identifier hs-var">null</span></span><span> </span><span class="annot"><span class="annottext">[token]
+</span><a href="#local-6989586621679319591"><span class="hs-identifier hs-var">piece</span></a></span><span class="hs-special">)</span><span class="hs-special">]</span><span>
+</span><span id="line-217"></span><span>    </span><span id="local-6989586621679319587"><span class="annot"><span class="annottext">insert :: Trie a -&gt; (Int, [a]) -&gt; Trie a
+</span><a href="#local-6989586621679319587"><span class="hs-identifier hs-var hs-var">insert</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Grammar.Decoding.html#Trie"><span class="hs-identifier hs-type">Trie</span></a></span><span> </span><span id="local-6989586621679319597"><span class="annot"><span class="annottext">IntSet
+</span><a href="#local-6989586621679319597"><span class="hs-identifier hs-var">ends</span></a></span></span><span> </span><span id="local-6989586621679319598"><span class="annot"><span class="annottext">Map a (Trie a)
+</span><a href="#local-6989586621679319598"><span class="hs-identifier hs-var">next</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span id="local-6989586621679319599"><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679319599"><span class="hs-identifier hs-var">i</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679319600"><span class="annot"><span class="annottext">[a]
+</span><a href="#local-6989586621679319600"><span class="hs-identifier hs-var">piece</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">[a]
+</span><a href="#local-6989586621679319600"><span class="hs-identifier hs-var">piece</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-218"></span><span>      </span><span class="hs-special">[</span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">IntSet -&gt; Map a (Trie a) -&gt; Trie a
+forall token. IntSet -&gt; Map token (Trie token) -&gt; Trie token
+</span><a href="Control.Lens.Grammar.Decoding.html#Trie"><span class="hs-identifier hs-var">Trie</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int -&gt; IntSet -&gt; IntSet
+</span><span class="hs-identifier hs-var">IntSet.insert</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679319599"><span class="hs-identifier hs-var">i</span></a></span><span> </span><span class="annot"><span class="annottext">IntSet
+</span><a href="#local-6989586621679319597"><span class="hs-identifier hs-var">ends</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Map a (Trie a)
+</span><a href="#local-6989586621679319598"><span class="hs-identifier hs-var">next</span></a></span><span>
+</span><span id="line-219"></span><span>      </span><span id="local-6989586621679319602"><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679319602"><span class="hs-identifier hs-var">x</span></a></span></span><span> </span><span class="annot"><span class="hs-glyph hs-type">:</span></span><span> </span><span id="local-6989586621679319603"><span class="annot"><span class="annottext">[a]
+</span><a href="#local-6989586621679319603"><span class="hs-identifier hs-var">xs</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">IntSet -&gt; Map a (Trie a) -&gt; Trie a
+forall token. IntSet -&gt; Map token (Trie token) -&gt; Trie token
+</span><a href="Control.Lens.Grammar.Decoding.html#Trie"><span class="hs-identifier hs-var">Trie</span></a></span><span> </span><span class="annot"><span class="annottext">IntSet
+</span><a href="#local-6989586621679319597"><span class="hs-identifier hs-var">ends</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(Maybe (Trie a) -&gt; Maybe (Trie a))
+-&gt; a -&gt; Map a (Trie a) -&gt; Map a (Trie a)
+forall k a.
+Ord k =&gt;
+(Maybe a -&gt; Maybe a) -&gt; k -&gt; Map k a -&gt; Map k a
+</span><span class="hs-identifier hs-var">Map.alter</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Trie a -&gt; Maybe (Trie a)
+forall a. a -&gt; Maybe a
+</span><span class="hs-identifier hs-var">Just</span></span><span> </span><span class="annot"><span class="annottext">(Trie a -&gt; Maybe (Trie a))
+-&gt; (Maybe (Trie a) -&gt; Trie a) -&gt; Maybe (Trie a) -&gt; Maybe (Trie a)
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Maybe (Trie a) -&gt; Trie a
+</span><a href="#local-6989586621679319606"><span class="hs-identifier hs-var">grow</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679319602"><span class="hs-identifier hs-var">x</span></a></span><span> </span><span class="annot"><span class="annottext">Map a (Trie a)
+</span><a href="#local-6989586621679319598"><span class="hs-identifier hs-var">next</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-220"></span><span>        </span><span class="hs-keyword">where</span><span> </span><span id="local-6989586621679319606"><span class="annot"><span class="annottext">grow :: Maybe (Trie a) -&gt; Trie a
+</span><a href="#local-6989586621679319606"><span class="hs-identifier hs-var hs-var">grow</span></a></span></span><span> </span><span id="local-6989586621679319607"><span class="annot"><span class="annottext">Maybe (Trie a)
+</span><a href="#local-6989586621679319607"><span class="hs-identifier hs-var">sub</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Trie a -&gt; (Int, [a]) -&gt; Trie a
+</span><a href="#local-6989586621679319587"><span class="hs-identifier hs-var">insert</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Trie a -&gt; Maybe (Trie a) -&gt; Trie a
+forall a. a -&gt; Maybe a -&gt; a
+</span><span class="hs-identifier hs-var">fromMaybe</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">IntSet -&gt; Map a (Trie a) -&gt; Trie a
+forall token. IntSet -&gt; Map token (Trie token) -&gt; Trie token
+</span><a href="Control.Lens.Grammar.Decoding.html#Trie"><span class="hs-identifier hs-var">Trie</span></a></span><span> </span><span class="annot"><span class="annottext">IntSet
+</span><span class="hs-identifier hs-var">IntSet.empty</span></span><span> </span><span class="annot"><span class="annottext">Map a (Trie a)
+forall k a. Map k a
+</span><span class="hs-identifier hs-var">Map.empty</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Maybe (Trie a)
+</span><a href="#local-6989586621679319607"><span class="hs-identifier hs-var">sub</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679319599"><span class="hs-identifier hs-var">i</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">[a]
+</span><a href="#local-6989586621679319603"><span class="hs-identifier hs-var">xs</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-221"></span><span>
+</span><span id="line-222"></span><span class="annot"><span class="hs-comment">{- | The string of tokens a piece stands for, by index. -}</span></span><span>
+</span><span id="line-223"></span><span id="local-6989586621679319238"><span class="annot"><a href="Control.Lens.Grammar.Decoding.html#vocabularyPiece"><span class="hs-identifier hs-type">vocabularyPiece</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Decoding.html#Vocabulary"><span class="hs-identifier hs-type">Vocabulary</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679319238"><span class="hs-identifier hs-type">token</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="hs-special">[</span><span class="annot"><a href="#local-6989586621679319238"><span class="hs-identifier hs-type">token</span></a></span><span class="hs-special">]</span></span><span>
+</span><span id="line-224"></span><span id="vocabularyPiece"><span class="annot"><span class="annottext">vocabularyPiece :: forall token. Vocabulary token -&gt; Int -&gt; Maybe [token]
+</span><a href="Control.Lens.Grammar.Decoding.html#vocabularyPiece"><span class="hs-identifier hs-var hs-var">vocabularyPiece</span></a></span></span><span> </span><span id="local-6989586621679319608"><span class="annot"><span class="annottext">Vocabulary token
+</span><a href="#local-6989586621679319608"><span class="hs-identifier hs-var">vocab</span></a></span></span><span> </span><span id="local-6989586621679319609"><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679319609"><span class="hs-identifier hs-var">i</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; IntMap [token] -&gt; Maybe [token]
+forall a. Int -&gt; IntMap a -&gt; Maybe a
+</span><span class="hs-identifier hs-var">IntMap.lookup</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679319609"><span class="hs-identifier hs-var">i</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Vocabulary token -&gt; IntMap [token]
+forall token. Vocabulary token -&gt; IntMap [token]
+</span><a href="Control.Lens.Grammar.Decoding.html#vocabularyPieces"><span class="hs-identifier hs-var">vocabularyPieces</span></a></span><span> </span><span class="annot"><span class="annottext">Vocabulary token
+</span><a href="#local-6989586621679319608"><span class="hs-identifier hs-var">vocab</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-225"></span><span>
+</span><span id="line-226"></span><span class="annot"><span class="hs-comment">{- | The number of nonempty pieces in a t'Vocabulary'. -}</span></span><span>
+</span><span id="line-227"></span><span id="local-6989586621679319241"><span class="annot"><a href="Control.Lens.Grammar.Decoding.html#vocabularySize"><span class="hs-identifier hs-type">vocabularySize</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Decoding.html#Vocabulary"><span class="hs-identifier hs-type">Vocabulary</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679319241"><span class="hs-identifier hs-type">token</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span></span><span>
+</span><span id="line-228"></span><span id="vocabularySize"><span class="annot"><span class="annottext">vocabularySize :: forall token. Vocabulary token -&gt; Int
+</span><a href="Control.Lens.Grammar.Decoding.html#vocabularySize"><span class="hs-identifier hs-var hs-var">vocabularySize</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">IntMap [token] -&gt; Int
+forall a. IntMap a -&gt; Int
+</span><span class="hs-identifier hs-var">IntMap.size</span></span><span> </span><span class="annot"><span class="annottext">(IntMap [token] -&gt; Int)
+-&gt; (Vocabulary token -&gt; IntMap [token]) -&gt; Vocabulary token -&gt; Int
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Vocabulary token -&gt; IntMap [token]
+forall token. Vocabulary token -&gt; IntMap [token]
+</span><a href="Control.Lens.Grammar.Decoding.html#vocabularyPieces"><span class="hs-identifier hs-var">vocabularyPieces</span></a></span><span>
+</span><span id="line-229"></span><span>
+</span><span id="line-230"></span><span class="annot"><span class="hs-comment">{- | The pieces of a t'Vocabulary' which a t'Chart' scans, by index,
+with the t'Chart' after each.
+
+&gt;&gt;&gt; let vocab = vocabulary [&quot;t&quot;, &quot;tr&quot;, &quot;true&quot;, &quot;fa&quot;, &quot;false&quot;, &quot;lse&quot;, &quot;x&quot;]
+&gt;&gt;&gt; let et = transducerG @Char boolG
+&gt;&gt;&gt; IntMap.keys (allowedPieces vocab (startChart et))
+[0,1,2,3,4]
+&gt;&gt;&gt; IntMap.keys &lt;$&gt; (allowedPieces vocab &lt;$&gt; scanChartMany &quot;fa&quot; (startChart et))
+Just [5]
+-}</span></span><span>
+</span><span id="line-240"></span><span id="local-6989586621679319244"><span class="annot"><a href="Control.Lens.Grammar.Decoding.html#allowedPieces"><span class="hs-identifier hs-type">allowedPieces</span></a></span><span>
+</span><span id="line-241"></span><span>  </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Token.html#Categorized"><span class="hs-identifier hs-type">Categorized</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679319244"><span class="hs-identifier hs-type">token</span></a></span><span>
+</span><span id="line-242"></span><span>  </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Decoding.html#Vocabulary"><span class="hs-identifier hs-type">Vocabulary</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679319244"><span class="hs-identifier hs-type">token</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Machine.html#Chart"><span class="hs-identifier hs-type">Chart</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679319244"><span class="hs-identifier hs-type">token</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IntMap</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Grammar.Machine.html#Chart"><span class="hs-identifier hs-type">Chart</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679319244"><span class="hs-identifier hs-type">token</span></a></span><span class="hs-special">)</span></span><span>
+</span><span id="line-243"></span><span id="allowedPieces"><span class="annot"><span class="annottext">allowedPieces :: forall token.
+Categorized token =&gt;
+Vocabulary token -&gt; Chart token -&gt; IntMap (Chart token)
+</span><a href="Control.Lens.Grammar.Decoding.html#allowedPieces"><span class="hs-identifier hs-var hs-var">allowedPieces</span></a></span></span><span> </span><span id="local-6989586621679319616"><span class="annot"><span class="annottext">Vocabulary token
+</span><a href="#local-6989586621679319616"><span class="hs-identifier hs-var">vocab</span></a></span></span><span> </span><span id="local-6989586621679319617"><span class="annot"><span class="annottext">Chart token
+</span><a href="#local-6989586621679319617"><span class="hs-identifier hs-var">chart0</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(IntMap (Chart token), Memo token) -&gt; IntMap (Chart token)
+forall a b. (a, b) -&gt; a
+</span><span class="hs-identifier hs-var">fst</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Trie token
+-&gt; Int
+-&gt; (IntMap (Chart token), Memo token)
+-&gt; (IntMap (Chart token), Memo token)
+forall {p}.
+Categorized p =&gt;
+Trie p
+-&gt; Int -&gt; (IntMap (Chart p), Memo p) -&gt; (IntMap (Chart p), Memo p)
+</span><a href="#local-6989586621679319619"><span class="hs-identifier hs-var">walk</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Vocabulary token -&gt; Trie token
+forall token. Vocabulary token -&gt; Trie token
+</span><a href="Control.Lens.Grammar.Decoding.html#vocabularyTrie"><span class="hs-identifier hs-var">vocabularyTrie</span></a></span><span> </span><span class="annot"><span class="annottext">Vocabulary token
+</span><a href="#local-6989586621679319616"><span class="hs-identifier hs-var">vocab</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">0</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">IntMap (Chart token)
+forall a. IntMap a
+</span><span class="hs-identifier hs-var">IntMap.empty</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Memo token
+</span><a href="#local-6989586621679319621"><span class="hs-identifier hs-var">memo0</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-244"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-245"></span><span>    </span><span id="local-6989586621679319621"><span class="annot"><span class="annottext">memo0 :: Memo token
+</span><a href="#local-6989586621679319621"><span class="hs-identifier hs-var hs-var">memo0</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">IntMap (Chart token)
+-&gt; IntMap (Map token (Maybe (Int, Chart token)))
+-&gt; Map (Int, Scan) Int
+-&gt; Memo token
+forall token.
+IntMap (Chart token)
+-&gt; IntMap (Map token (Maybe (Int, Chart token)))
+-&gt; Map (Int, Scan) Int
+-&gt; Memo token
+</span><a href="Control.Lens.Grammar.Decoding.html#Memo"><span class="hs-identifier hs-var">Memo</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int -&gt; Chart token -&gt; IntMap (Chart token)
+forall a. Int -&gt; a -&gt; IntMap a
+</span><span class="hs-identifier hs-var">IntMap.singleton</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">0</span></span><span> </span><span class="annot"><span class="annottext">Chart token
+</span><a href="#local-6989586621679319617"><span class="hs-identifier hs-var">chart0</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">IntMap (Map token (Maybe (Int, Chart token)))
+forall a. IntMap a
+</span><span class="hs-identifier hs-var">IntMap.empty</span></span><span> </span><span class="annot"><span class="annottext">Map (Int, Scan) Int
+forall k a. Map k a
+</span><span class="hs-identifier hs-var">Map.empty</span></span><span>
+</span><span id="line-246"></span><span>
+</span><span id="line-247"></span><span>    </span><span id="local-6989586621679319619"><span class="annot"><span class="annottext">walk :: Trie p
+-&gt; Int -&gt; (IntMap (Chart p), Memo p) -&gt; (IntMap (Chart p), Memo p)
+</span><a href="#local-6989586621679319619"><span class="hs-identifier hs-var hs-var">walk</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Grammar.Decoding.html#Trie"><span class="hs-identifier hs-type">Trie</span></a></span><span> </span><span class="annot"><span class="annottext">IntSet
+</span><span class="hs-identifier">_</span></span><span> </span><span id="local-6989586621679319639"><span class="annot"><span class="annottext">Map p (Trie p)
+</span><a href="#local-6989586621679319639"><span class="hs-identifier hs-var">next</span></a></span></span><span class="hs-special">)</span><span> </span><span id="local-6989586621679319640"><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679319640"><span class="hs-identifier hs-var">chartId</span></a></span></span><span> </span><span id="local-6989586621679319641"><span class="annot"><span class="annottext">(IntMap (Chart p), Memo p)
+</span><a href="#local-6989586621679319641"><span class="hs-identifier hs-var">accMemo</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">((IntMap (Chart p), Memo p)
+ -&gt; p -&gt; Trie p -&gt; (IntMap (Chart p), Memo p))
+-&gt; (IntMap (Chart p), Memo p)
+-&gt; Map p (Trie p)
+-&gt; (IntMap (Chart p), Memo p)
+forall a k b. (a -&gt; k -&gt; b -&gt; a) -&gt; a -&gt; Map k b -&gt; a
+</span><span class="hs-identifier hs-var">Map.foldlWithKey'</span></span><span> </span><span class="annot"><span class="annottext">(IntMap (Chart p), Memo p)
+-&gt; p -&gt; Trie p -&gt; (IntMap (Chart p), Memo p)
+</span><a href="#local-6989586621679319643"><span class="hs-identifier hs-var">step</span></a></span><span> </span><span class="annot"><span class="annottext">(IntMap (Chart p), Memo p)
+</span><a href="#local-6989586621679319641"><span class="hs-identifier hs-var">accMemo</span></a></span><span> </span><span class="annot"><span class="annottext">Map p (Trie p)
+</span><a href="#local-6989586621679319639"><span class="hs-identifier hs-var">next</span></a></span><span>
+</span><span id="line-248"></span><span>      </span><span class="hs-keyword">where</span><span>
+</span><span id="line-249"></span><span>        </span><span id="local-6989586621679319643"><span class="annot"><span class="annottext">step :: (IntMap (Chart p), Memo p)
+-&gt; p -&gt; Trie p -&gt; (IntMap (Chart p), Memo p)
+</span><a href="#local-6989586621679319643"><span class="hs-identifier hs-var hs-var">step</span></a></span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679319644"><span class="annot"><span class="annottext">IntMap (Chart p)
+</span><a href="#local-6989586621679319644"><span class="hs-identifier hs-var">acc</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679319645"><span class="annot"><span class="annottext">Memo p
+</span><a href="#local-6989586621679319645"><span class="hs-identifier hs-var">memo</span></a></span></span><span class="hs-special">)</span><span> </span><span id="local-6989586621679319646"><span class="annot"><span class="annottext">p
+</span><a href="#local-6989586621679319646"><span class="hs-identifier hs-var">x</span></a></span></span><span> </span><span id="local-6989586621679319647"><span class="annot"><span class="annottext">sub :: Trie p
+</span><a href="#local-6989586621679319647"><span class="hs-identifier hs-var">sub</span></a></span></span><span class="hs-glyph">@</span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Grammar.Decoding.html#Trie"><span class="hs-identifier hs-type">Trie</span></a></span><span> </span><span id="local-6989586621679319648"><span class="annot"><span class="annottext">IntSet
+</span><a href="#local-6989586621679319648"><span class="hs-identifier hs-var">ends</span></a></span></span><span> </span><span id="local-6989586621679319649"><span class="annot"><span class="annottext">Map p (Trie p)
+</span><a href="#local-6989586621679319649"><span class="hs-identifier hs-var">next'</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">Int -&gt; p -&gt; Memo p -&gt; (Maybe (Int, Chart p), Memo p)
+forall {token}.
+Categorized token =&gt;
+Int
+-&gt; token -&gt; Memo token -&gt; (Maybe (Int, Chart token), Memo token)
+</span><a href="#local-6989586621679319650"><span class="hs-identifier hs-var">scanned</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679319640"><span class="hs-identifier hs-var">chartId</span></a></span><span> </span><span class="annot"><span class="annottext">p
+</span><a href="#local-6989586621679319646"><span class="hs-identifier hs-var">x</span></a></span><span> </span><span class="annot"><span class="annottext">Memo p
+</span><a href="#local-6989586621679319645"><span class="hs-identifier hs-var">memo</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-250"></span><span>          </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Maybe (Int, Chart p)
+</span><span class="hs-identifier hs-var">Nothing</span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679319651"><span class="annot"><span class="annottext">Memo p
+</span><a href="#local-6989586621679319651"><span class="hs-identifier hs-var">memo'</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">IntMap (Chart p)
+</span><a href="#local-6989586621679319644"><span class="hs-identifier hs-var">acc</span></a></span><span> </span><span class="annot"><span class="annottext">IntMap (Chart p)
+-&gt; (IntMap (Chart p), Memo p) -&gt; (IntMap (Chart p), Memo p)
+forall a b. a -&gt; b -&gt; b
+</span><span class="hs-operator hs-var">`seq`</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">IntMap (Chart p)
+</span><a href="#local-6989586621679319644"><span class="hs-identifier hs-var">acc</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Memo p
+</span><a href="#local-6989586621679319651"><span class="hs-identifier hs-var">memo'</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-251"></span><span>          </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Just</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679319652"><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679319652"><span class="hs-identifier hs-var">chartId'</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679319653"><span class="annot"><span class="annottext">Chart p
+</span><a href="#local-6989586621679319653"><span class="hs-identifier hs-var">chart'</span></a></span></span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span id="local-6989586621679319654"><span class="annot"><span class="annottext">Memo p
+</span><a href="#local-6989586621679319654"><span class="hs-identifier hs-var">memo'</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-252"></span><span>            </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679319655"><span class="annot"><span class="annottext">acc' :: IntMap (Chart p)
+</span><a href="#local-6989586621679319655"><span class="hs-identifier hs-var hs-var">acc'</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(IntMap (Chart p) -&gt; Int -&gt; IntMap (Chart p))
+-&gt; IntMap (Chart p) -&gt; IntSet -&gt; IntMap (Chart p)
+forall a. (a -&gt; Int -&gt; a) -&gt; a -&gt; IntSet -&gt; a
+</span><span class="hs-identifier hs-var">IntSet.foldl'</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span id="local-6989586621679319657"><span class="annot"><span class="annottext">IntMap (Chart p)
+</span><a href="#local-6989586621679319657"><span class="hs-identifier hs-var">m</span></a></span></span><span> </span><span id="local-6989586621679319658"><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679319658"><span class="hs-identifier hs-var">i</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Int -&gt; Chart p -&gt; IntMap (Chart p) -&gt; IntMap (Chart p)
+forall a. Int -&gt; a -&gt; IntMap a -&gt; IntMap a
+</span><span class="hs-identifier hs-var">IntMap.insert</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679319658"><span class="hs-identifier hs-var">i</span></a></span><span> </span><span class="annot"><span class="annottext">Chart p
+</span><a href="#local-6989586621679319653"><span class="hs-identifier hs-var">chart'</span></a></span><span> </span><span class="annot"><span class="annottext">IntMap (Chart p)
+</span><a href="#local-6989586621679319657"><span class="hs-identifier hs-var">m</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">IntMap (Chart p)
+</span><a href="#local-6989586621679319644"><span class="hs-identifier hs-var">acc</span></a></span><span> </span><span class="annot"><span class="annottext">IntSet
+</span><a href="#local-6989586621679319648"><span class="hs-identifier hs-var">ends</span></a></span><span>
+</span><span id="line-253"></span><span>            </span><span class="hs-keyword">in</span><span> </span><span class="hs-keyword">if</span><span> </span><span class="annot"><span class="annottext">Map p (Trie p) -&gt; Bool
+forall k a. Map k a -&gt; Bool
+</span><span class="hs-identifier hs-var">Map.null</span></span><span> </span><span class="annot"><span class="annottext">Map p (Trie p)
+</span><a href="#local-6989586621679319649"><span class="hs-identifier hs-var">next'</span></a></span><span>
+</span><span id="line-254"></span><span>              </span><span class="hs-keyword">then</span><span> </span><span class="annot"><span class="annottext">IntMap (Chart p)
+</span><a href="#local-6989586621679319655"><span class="hs-identifier hs-var">acc'</span></a></span><span> </span><span class="annot"><span class="annottext">IntMap (Chart p)
+-&gt; (IntMap (Chart p), Memo p) -&gt; (IntMap (Chart p), Memo p)
+forall a b. a -&gt; b -&gt; b
+</span><span class="hs-operator hs-var">`seq`</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">IntMap (Chart p)
+</span><a href="#local-6989586621679319655"><span class="hs-identifier hs-var">acc'</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Memo p
+</span><a href="#local-6989586621679319654"><span class="hs-identifier hs-var">memo'</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-255"></span><span>              </span><span class="hs-keyword">else</span><span> </span><span class="annot"><span class="annottext">Trie p
+-&gt; Int -&gt; (IntMap (Chart p), Memo p) -&gt; (IntMap (Chart p), Memo p)
+</span><a href="#local-6989586621679319619"><span class="hs-identifier hs-var">walk</span></a></span><span> </span><span class="annot"><span class="annottext">Trie p
+</span><a href="#local-6989586621679319647"><span class="hs-identifier hs-var">sub</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679319652"><span class="hs-identifier hs-var">chartId'</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">IntMap (Chart p)
+</span><a href="#local-6989586621679319655"><span class="hs-identifier hs-var">acc'</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Memo p
+</span><a href="#local-6989586621679319654"><span class="hs-identifier hs-var">memo'</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-256"></span><span>
+</span><span id="line-257"></span><span>    </span><span class="hs-comment">-- the chart a chart is scanned to by a token, remembered by token,</span><span>
+</span><span id="line-258"></span><span>    </span><span class="hs-comment">-- &amp; numbered by scan, so tokens which scan a chart alike share it</span><span>
+</span><span id="line-259"></span><span>    </span><span id="local-6989586621679319650"><span class="annot"><span class="annottext">scanned :: Int
+-&gt; token -&gt; Memo token -&gt; (Maybe (Int, Chart token), Memo token)
+</span><a href="#local-6989586621679319650"><span class="hs-identifier hs-var hs-var">scanned</span></a></span></span><span> </span><span id="local-6989586621679319684"><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679319684"><span class="hs-identifier hs-var">chartId</span></a></span></span><span> </span><span id="local-6989586621679319685"><span class="annot"><span class="annottext">token
+</span><a href="#local-6989586621679319685"><span class="hs-identifier hs-var">x</span></a></span></span><span> </span><span id="local-6989586621679319686"><span class="annot"><span class="annottext">Memo token
+</span><a href="#local-6989586621679319686"><span class="hs-identifier hs-var">memo</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">token
+-&gt; Map token (Maybe (Int, Chart token))
+-&gt; Maybe (Maybe (Int, Chart token))
+forall k a. Ord k =&gt; k -&gt; Map k a -&gt; Maybe a
+</span><span class="hs-identifier hs-var">Map.lookup</span></span><span> </span><span class="annot"><span class="annottext">token
+</span><a href="#local-6989586621679319685"><span class="hs-identifier hs-var">x</span></a></span><span> </span><span class="annot"><span class="annottext">Map token (Maybe (Int, Chart token))
+</span><a href="#local-6989586621679319688"><span class="hs-identifier hs-var">table</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-260"></span><span>      </span><span class="annot"><span class="hs-identifier hs-type">Just</span></span><span> </span><span id="local-6989586621679319689"><span class="annot"><span class="annottext">Maybe (Int, Chart token)
+</span><a href="#local-6989586621679319689"><span class="hs-identifier hs-var">next</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Maybe (Int, Chart token)
+</span><a href="#local-6989586621679319689"><span class="hs-identifier hs-var">next</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Memo token
+</span><a href="#local-6989586621679319686"><span class="hs-identifier hs-var">memo</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-261"></span><span>      </span><span class="annot"><span class="annottext">Maybe (Maybe (Int, Chart token))
+</span><span class="hs-identifier hs-var">Nothing</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Maybe (Int, Chart token)
+</span><a href="#local-6989586621679319690"><span class="hs-identifier hs-var">next</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Memo token
+</span><a href="#local-6989586621679319691"><span class="hs-identifier hs-var">memo'</span></a></span><span>
+</span><span id="line-262"></span><span>        </span><span class="hs-special">{</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Decoding.html#memoNext"><span class="hs-identifier hs-var">memoNext</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IntMap.insert</span></span><span> </span><span class="annot"><a href="#local-6989586621679319684"><span class="hs-identifier hs-type">chartId</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Map.insert</span></span><span> </span><span class="annot"><a href="#local-6989586621679319685"><span class="hs-identifier hs-type">x</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679319690"><span class="hs-identifier hs-type">next</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679319688"><span class="hs-identifier hs-type">table</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Grammar.Decoding.html#memoNext"><span class="hs-identifier hs-var">memoNext</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679319691"><span class="hs-identifier hs-type">memo'</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">}</span><span class="hs-special">)</span><span>
+</span><span id="line-263"></span><span>        </span><span class="hs-keyword">where</span><span>
+</span><span id="line-264"></span><span>          </span><span id="local-6989586621679319694"><span class="annot"><span class="annottext">chart :: Chart token
+</span><a href="#local-6989586621679319694"><span class="hs-identifier hs-var hs-var">chart</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Memo token -&gt; IntMap (Chart token)
+forall token. Memo token -&gt; IntMap (Chart token)
+</span><a href="Control.Lens.Grammar.Decoding.html#memoCharts"><span class="hs-identifier hs-var">memoCharts</span></a></span><span> </span><span class="annot"><span class="annottext">Memo token
+</span><a href="#local-6989586621679319686"><span class="hs-identifier hs-var">memo</span></a></span><span> </span><span class="annot"><span class="annottext">IntMap (Chart token) -&gt; Int -&gt; Chart token
+forall a. IntMap a -&gt; Int -&gt; a
+</span><span class="hs-operator hs-var">IntMap.!</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679319684"><span class="hs-identifier hs-var">chartId</span></a></span><span>
+</span><span id="line-265"></span><span>          </span><span id="local-6989586621679319696"><span class="annot"><span class="annottext">scan :: Scan
+</span><a href="#local-6989586621679319696"><span class="hs-identifier hs-var hs-var">scan</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">token -&gt; Chart token -&gt; Scan
+forall token. Categorized token =&gt; token -&gt; Chart token -&gt; Scan
+</span><a href="Control.Lens.Grammar.Machine.html#chartScan"><span class="hs-identifier hs-var">chartScan</span></a></span><span> </span><span class="annot"><span class="annottext">token
+</span><a href="#local-6989586621679319685"><span class="hs-identifier hs-var">x</span></a></span><span> </span><span class="annot"><span class="annottext">Chart token
+</span><a href="#local-6989586621679319694"><span class="hs-identifier hs-var">chart</span></a></span><span>
+</span><span id="line-266"></span><span>          </span><span class="hs-special">(</span><span id="local-6989586621679319690"><span class="annot"><span class="annottext">Maybe (Int, Chart token)
+</span><a href="#local-6989586621679319690"><span class="hs-identifier hs-var">next</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679319691"><span class="annot"><span class="annottext">Memo token
+</span><a href="#local-6989586621679319691"><span class="hs-identifier hs-var">memo'</span></a></span></span><span class="hs-special">)</span><span>
+</span><span id="line-267"></span><span>            </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">Scan -&gt; Bool
+</span><a href="Control.Lens.Grammar.Machine.html#nullScan"><span class="hs-identifier hs-var">nullScan</span></a></span><span> </span><span class="annot"><span class="annottext">Scan
+</span><a href="#local-6989586621679319696"><span class="hs-identifier hs-var">scan</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Maybe (Int, Chart token)
+forall a. Maybe a
+</span><span class="hs-identifier hs-var">Nothing</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Memo token
+</span><a href="#local-6989586621679319686"><span class="hs-identifier hs-var">memo</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-268"></span><span>            </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><span class="hs-identifier hs-var">otherwise</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">(Int, Scan) -&gt; Map (Int, Scan) Int -&gt; Maybe Int
+forall k a. Ord k =&gt; k -&gt; Map k a -&gt; Maybe a
+</span><span class="hs-identifier hs-var">Map.lookup</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679319684"><span class="hs-identifier hs-var">chartId</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Scan
+</span><a href="#local-6989586621679319696"><span class="hs-identifier hs-var">scan</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Memo token -&gt; Map (Int, Scan) Int
+forall token. Memo token -&gt; Map (Int, Scan) Int
+</span><a href="Control.Lens.Grammar.Decoding.html#memoScanned"><span class="hs-identifier hs-var">memoScanned</span></a></span><span> </span><span class="annot"><span class="annottext">Memo token
+</span><a href="#local-6989586621679319686"><span class="hs-identifier hs-var">memo</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-269"></span><span>                </span><span class="annot"><span class="hs-identifier hs-type">Just</span></span><span> </span><span id="local-6989586621679319700"><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679319700"><span class="hs-identifier hs-var">chartId'</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(Int, Chart token) -&gt; Maybe (Int, Chart token)
+forall a. a -&gt; Maybe a
+</span><span class="hs-identifier hs-var">Just</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679319700"><span class="hs-identifier hs-var">chartId'</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Memo token -&gt; IntMap (Chart token)
+forall token. Memo token -&gt; IntMap (Chart token)
+</span><a href="Control.Lens.Grammar.Decoding.html#memoCharts"><span class="hs-identifier hs-var">memoCharts</span></a></span><span> </span><span class="annot"><span class="annottext">Memo token
+</span><a href="#local-6989586621679319686"><span class="hs-identifier hs-var">memo</span></a></span><span> </span><span class="annot"><span class="annottext">IntMap (Chart token) -&gt; Int -&gt; Chart token
+forall a. IntMap a -&gt; Int -&gt; a
+</span><span class="hs-operator hs-var">IntMap.!</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679319700"><span class="hs-identifier hs-var">chartId'</span></a></span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Memo token
+</span><a href="#local-6989586621679319686"><span class="hs-identifier hs-var">memo</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-270"></span><span>                </span><span class="annot"><span class="annottext">Maybe Int
+</span><span class="hs-identifier hs-var">Nothing</span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-271"></span><span>                  </span><span class="hs-keyword">let</span><span>
+</span><span id="line-272"></span><span>                    </span><span id="local-6989586621679319701"><span class="annot"><span class="annottext">chartId' :: Int
+</span><a href="#local-6989586621679319701"><span class="hs-identifier hs-var hs-var">chartId'</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">IntMap (Chart token) -&gt; Int
+forall a. IntMap a -&gt; Int
+</span><span class="hs-identifier hs-var">IntMap.size</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Memo token -&gt; IntMap (Chart token)
+forall token. Memo token -&gt; IntMap (Chart token)
+</span><a href="Control.Lens.Grammar.Decoding.html#memoCharts"><span class="hs-identifier hs-var">memoCharts</span></a></span><span> </span><span class="annot"><span class="annottext">Memo token
+</span><a href="#local-6989586621679319686"><span class="hs-identifier hs-var">memo</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-273"></span><span>                    </span><span id="local-6989586621679319702"><span class="annot"><span class="annottext">chart' :: Chart token
+</span><a href="#local-6989586621679319702"><span class="hs-identifier hs-var hs-var">chart'</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Chart token -&gt; Maybe (Chart token) -&gt; Chart token
+forall a. a -&gt; Maybe a -&gt; a
+</span><span class="hs-identifier hs-var">fromMaybe</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">String -&gt; Chart token
+forall a. HasCallStack =&gt; String -&gt; a
+</span><span class="hs-identifier hs-var">error</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;allowedPieces: an empty scan&quot;</span></span><span class="hs-special">)</span><span>
+</span><span id="line-274"></span><span>                      </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Scan -&gt; Chart token -&gt; Maybe (Chart token)
+forall token. Scan -&gt; Chart token -&gt; Maybe (Chart token)
+</span><a href="Control.Lens.Grammar.Machine.html#scanChartBy"><span class="hs-identifier hs-var">scanChartBy</span></a></span><span> </span><span class="annot"><span class="annottext">Scan
+</span><a href="#local-6989586621679319696"><span class="hs-identifier hs-var">scan</span></a></span><span> </span><span class="annot"><span class="annottext">Chart token
+</span><a href="#local-6989586621679319694"><span class="hs-identifier hs-var">chart</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-275"></span><span>                  </span><span class="hs-keyword">in</span><span>
+</span><span id="line-276"></span><span>                    </span><span class="hs-special">(</span><span> </span><span class="annot"><span class="annottext">(Int, Chart token) -&gt; Maybe (Int, Chart token)
+forall a. a -&gt; Maybe a
+</span><span class="hs-identifier hs-var">Just</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679319701"><span class="hs-identifier hs-var">chartId'</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Chart token
+</span><a href="#local-6989586621679319702"><span class="hs-identifier hs-var">chart'</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-277"></span><span>                    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Memo token
+</span><a href="#local-6989586621679319686"><span class="hs-identifier hs-var">memo</span></a></span><span>
+</span><span id="line-278"></span><span>                      </span><span class="hs-special">{</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Decoding.html#memoCharts"><span class="hs-identifier hs-var">memoCharts</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-identifier hs-type">LazyIntMap.insert</span></span><span> </span><span class="annot"><a href="#local-6989586621679319701"><span class="hs-identifier hs-type">chartId'</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679319702"><span class="hs-identifier hs-type">chart'</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Grammar.Decoding.html#memoCharts"><span class="hs-identifier hs-var">memoCharts</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679319686"><span class="hs-identifier hs-type">memo</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-279"></span><span>                      </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Decoding.html#memoScanned"><span class="hs-identifier hs-var">memoScanned</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Map.insert</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679319684"><span class="hs-identifier hs-type">chartId</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="#local-6989586621679319696"><span class="hs-identifier hs-type">scan</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621679319701"><span class="hs-identifier hs-type">chartId'</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Grammar.Decoding.html#memoScanned"><span class="hs-identifier hs-var">memoScanned</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679319686"><span class="hs-identifier hs-type">memo</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-280"></span><span>                      </span><span class="hs-special">}</span><span>
+</span><span id="line-281"></span><span>                    </span><span class="hs-special">)</span><span>
+</span><span id="line-282"></span><span>      </span><span class="hs-keyword">where</span><span>
+</span><span id="line-283"></span><span>        </span><span id="local-6989586621679319688"><span class="annot"><span class="annottext">table :: Map token (Maybe (Int, Chart token))
+</span><a href="#local-6989586621679319688"><span class="hs-identifier hs-var hs-var">table</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Map token (Maybe (Int, Chart token))
+-&gt; Int
+-&gt; IntMap (Map token (Maybe (Int, Chart token)))
+-&gt; Map token (Maybe (Int, Chart token))
+forall a. a -&gt; Int -&gt; IntMap a -&gt; a
+</span><span class="hs-identifier hs-var">IntMap.findWithDefault</span></span><span> </span><span class="annot"><span class="annottext">Map token (Maybe (Int, Chart token))
+forall k a. Map k a
+</span><span class="hs-identifier hs-var">Map.empty</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679319684"><span class="hs-identifier hs-var">chartId</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Memo token -&gt; IntMap (Map token (Maybe (Int, Chart token)))
+forall token.
+Memo token -&gt; IntMap (Map token (Maybe (Int, Chart token)))
+</span><a href="Control.Lens.Grammar.Decoding.html#memoNext"><span class="hs-identifier hs-var">memoNext</span></a></span><span> </span><span class="annot"><span class="annottext">Memo token
+</span><a href="#local-6989586621679319686"><span class="hs-identifier hs-var">memo</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-284"></span><span>
+</span><span id="line-285"></span><span class="hs-comment">-- The charts `allowedPieces` reaches, numbered: tokens which scan</span><span>
+</span><span id="line-286"></span><span class="hs-comment">-- a chart alike reach the same chart, which is scanned &amp; closed once.</span><span>
+</span><span id="line-287"></span><span class="hs-keyword">data</span><span> </span><span id="Memo"><span class="annot"><a href="Control.Lens.Grammar.Decoding.html#Memo"><span class="hs-identifier hs-var">Memo</span></a></span></span><span> </span><span id="local-6989586621679319254"><span class="annot"><a href="#local-6989586621679319254"><span class="hs-identifier hs-type">token</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="Memo"><span class="annot"><a href="Control.Lens.Grammar.Decoding.html#Memo"><span class="hs-identifier hs-var">Memo</span></a></span></span><span>
+</span><span id="line-288"></span><span>  </span><span class="hs-special">{</span><span> </span><span id="memoCharts"><span class="annot"><span class="annottext">forall token. Memo token -&gt; IntMap (Chart token)
+</span><a href="Control.Lens.Grammar.Decoding.html#memoCharts"><span class="hs-identifier hs-var hs-var">memoCharts</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IntMap</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Grammar.Machine.html#Chart"><span class="hs-identifier hs-type">Chart</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679319254"><span class="hs-identifier hs-type">token</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-289"></span><span>  </span><span class="annot"><span class="hs-comment">-- ^ lazily, so a chart's only closed once a piece is scanned from it</span></span><span>
+</span><span id="line-290"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="memoNext"><span class="annot"><span class="annottext">forall token.
+Memo token -&gt; IntMap (Map token (Maybe (Int, Chart token)))
+</span><a href="Control.Lens.Grammar.Decoding.html#memoNext"><span class="hs-identifier hs-var hs-var">memoNext</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IntMap</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Map</span></span><span> </span><span class="annot"><a href="#local-6989586621679319254"><span class="hs-identifier hs-type">token</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Machine.html#Chart"><span class="hs-identifier hs-type">Chart</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679319254"><span class="hs-identifier hs-type">token</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-291"></span><span>  </span><span class="hs-comment">-- ^ the chart, &amp; its number, a chart is scanned to by a token,</span><span>
+</span><span id="line-292"></span><span>  </span><span class="hs-comment">-- by the chart's number</span><span>
+</span><span id="line-293"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="memoScanned"><span class="annot"><span class="annottext">forall token. Memo token -&gt; Map (Int, Scan) Int
+</span><a href="Control.Lens.Grammar.Decoding.html#memoScanned"><span class="hs-identifier hs-var hs-var">memoScanned</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Map</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Machine.html#Scan"><span class="hs-identifier hs-type">Scan</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span>
+</span><span id="line-294"></span><span>  </span><span class="annot"><span class="hs-comment">-- ^ the number of the chart a chart is scanned to by a scan</span></span><span>
+</span><span id="line-295"></span><span>  </span><span class="hs-special">}</span><span>
+</span><span id="line-296"></span><span>
+</span><span id="line-297"></span><span class="annot"><span class="hs-comment">{- | Decode text of a t'Transducer''s language, from a t'Predictor',
+by a t'Chooser', in at most a given number of pieces.
+Each step, the predictor weighs the pieces of a t'Vocabulary', &amp;
+ending; the chooser chooses among them, masked to what the grammar
+allows; &amp; a chosen piece is scanned, by the t'Chart' of the text so far.
+
+&gt;&gt;&gt; let vocab = vocabulary [&quot;tr&quot;, &quot;ue&quot;, &quot;true&quot;, &quot;false&quot;, &quot;f&quot;]
+&gt;&gt;&gt; let et = transducerG @Char boolG
+&gt;&gt;&gt; let uniform _ = pure (Weights (IntMap.fromList [(i, 1) | i &lt;- [0 .. 4]]) 1)
+&gt;&gt;&gt; runIdentity (decode greedy uniform vocab 10 et)
+Finished &quot;true&quot;
+&gt;&gt;&gt; evalStateT (decode sampled uniform vocab 10 et) (mkStdGen 1)
+Finished &quot;false&quot;
+
+A predictor which only ever weighs ending, outside the language, is stuck.
+
+&gt;&gt;&gt; runIdentity (decode greedy (\_ -&gt; pure (Weights IntMap.empty 1)) vocab 10 et)
+Stuck &quot;&quot;
+-}</span></span><span>
+</span><span id="line-316"></span><span id="local-6989586621679319283"><span id="local-6989586621679319284"><span class="annot"><a href="Control.Lens.Grammar.Decoding.html#decode"><span class="hs-identifier hs-type">decode</span></a></span><span>
+</span><span id="line-317"></span><span>  </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Grammar.Token.html#Categorized"><span class="hs-identifier hs-type">Categorized</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679319283"><span class="hs-identifier hs-type">token</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Monad</span></span><span> </span><span class="annot"><a href="#local-6989586621679319284"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-318"></span><span>  </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Decoding.html#Chooser"><span class="hs-identifier hs-type">Chooser</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679319284"><span class="hs-identifier hs-type">m</span></a></span><span>
+</span><span id="line-319"></span><span>  </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Decoding.html#Predictor"><span class="hs-identifier hs-type">Predictor</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679319284"><span class="hs-identifier hs-type">m</span></a></span><span>
+</span><span id="line-320"></span><span>  </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Decoding.html#Vocabulary"><span class="hs-identifier hs-type">Vocabulary</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679319283"><span class="hs-identifier hs-type">token</span></a></span><span>
+</span><span id="line-321"></span><span>  </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span> </span><span class="annot"><span class="hs-comment">{- ^ the most pieces to generate -}</span></span><span>
+</span><span id="line-322"></span><span>  </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Machine.html#Transducer"><span class="hs-identifier hs-type">Transducer</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679319283"><span class="hs-identifier hs-type">token</span></a></span><span>
+</span><span id="line-323"></span><span>  </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679319284"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Grammar.Decoding.html#Decoded"><span class="hs-identifier hs-type">Decoded</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679319283"><span class="hs-identifier hs-type">token</span></a></span><span class="hs-special">)</span></span></span><span>
+</span><span id="line-324"></span><span id="decode"><span class="annot"><span class="annottext">decode :: forall token (m :: * -&gt; *).
+(Categorized token, Monad m) =&gt;
+Chooser m
+-&gt; Predictor m
+-&gt; Vocabulary token
+-&gt; Int
+-&gt; Transducer token
+-&gt; m (Decoded token)
+</span><a href="Control.Lens.Grammar.Decoding.html#decode"><span class="hs-identifier hs-var hs-var">decode</span></a></span></span><span> </span><span id="local-6989586621679319737"><span class="annot"><span class="annottext">Chooser m
+</span><a href="#local-6989586621679319737"><span class="hs-identifier hs-var">choose</span></a></span></span><span> </span><span id="local-6989586621679319738"><span class="annot"><span class="annottext">Predictor m
+</span><a href="#local-6989586621679319738"><span class="hs-identifier hs-var">predict</span></a></span></span><span> </span><span id="local-6989586621679319739"><span class="annot"><span class="annottext">Vocabulary token
+</span><a href="#local-6989586621679319739"><span class="hs-identifier hs-var">vocab</span></a></span></span><span> </span><span id="local-6989586621679319740"><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679319740"><span class="hs-identifier hs-var">bound</span></a></span></span><span> </span><span id="local-6989586621679319741"><span class="annot"><span class="annottext">Transducer token
+</span><a href="#local-6989586621679319741"><span class="hs-identifier hs-var">et</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; [Int] -&gt; [[token]] -&gt; Chart token -&gt; m (Decoded token)
+</span><a href="#local-6989586621679319742"><span class="hs-identifier hs-var">go</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">0</span></span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Transducer token -&gt; Chart token
+forall token. Transducer token -&gt; Chart token
+</span><a href="Control.Lens.Grammar.Machine.html#startChart"><span class="hs-identifier hs-var">startChart</span></a></span><span> </span><span class="annot"><span class="annottext">Transducer token
+</span><a href="#local-6989586621679319741"><span class="hs-identifier hs-var">et</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-325"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-326"></span><span>    </span><span id="local-6989586621679319742"><span class="annot"><span class="annottext">go :: Int -&gt; [Int] -&gt; [[token]] -&gt; Chart token -&gt; m (Decoded token)
+</span><a href="#local-6989586621679319742"><span class="hs-identifier hs-var hs-var">go</span></a></span></span><span> </span><span id="local-6989586621679319744"><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679319744"><span class="hs-identifier hs-var">n</span></a></span></span><span> </span><span id="local-6989586621679319745"><span class="annot"><span class="annottext">[Int]
+</span><a href="#local-6989586621679319745"><span class="hs-identifier hs-var">pieces</span></a></span></span><span> </span><span id="local-6989586621679319746"><span class="annot"><span class="annottext">[[token]]
+</span><a href="#local-6989586621679319746"><span class="hs-identifier hs-var">chunks</span></a></span></span><span> </span><span id="local-6989586621679319747"><span class="annot"><span class="annottext">Chart token
+</span><a href="#local-6989586621679319747"><span class="hs-identifier hs-var">chart</span></a></span></span><span>
+</span><span id="line-327"></span><span>      </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679319744"><span class="hs-identifier hs-var">n</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Bool
+forall a. Ord a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">&gt;=</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679319740"><span class="hs-identifier hs-var">bound</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Decoded token -&gt; m (Decoded token)
+forall a. a -&gt; m a
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><span class="hs-identifier hs-var">pure</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">[token] -&gt; Decoded token
+forall token. [token] -&gt; Decoded token
+</span><a href="Control.Lens.Grammar.Decoding.html#Truncated"><span class="hs-identifier hs-var">Truncated</span></a></span><span> </span><span class="annot"><span class="annottext">[token]
+</span><a href="#local-6989586621679319748"><span class="hs-identifier hs-var">text</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-328"></span><span>      </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><span class="hs-identifier hs-var">otherwise</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-329"></span><span>          </span><span id="local-6989586621679319749"><span class="annot"><a href="#local-6989586621679319749"><span class="hs-identifier hs-var">weights</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Predictor m
+</span><a href="#local-6989586621679319738"><span class="hs-identifier hs-var">predict</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">[Int] -&gt; [Int]
+forall a. [a] -&gt; [a]
+</span><span class="hs-identifier hs-var">reverse</span></span><span> </span><span class="annot"><span class="annottext">[Int]
+</span><a href="#local-6989586621679319745"><span class="hs-identifier hs-var">pieces</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-330"></span><span>          </span><span id="local-6989586621679319751"><span class="annot"><a href="#local-6989586621679319751"><span class="hs-identifier hs-var">choice</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><a href="#local-6989586621679319737"><span class="hs-identifier hs-type">choose</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679319749"><span class="hs-identifier hs-type">weights</span></a></span><span>
+</span><span id="line-331"></span><span>          </span><span class="hs-keyword">case</span><span> </span><span class="annot"><a href="#local-6989586621679319751"><span class="hs-identifier hs-type">choice</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-332"></span><span>            </span><span class="annot"><span class="annottext">Maybe Int
+</span><span class="hs-identifier hs-var">Nothing</span></span><span> </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">Chart token -&gt; Bool
+forall token. Chart token -&gt; Bool
+</span><a href="Control.Lens.Grammar.Machine.html#chartAccepts"><span class="hs-identifier hs-var">chartAccepts</span></a></span><span> </span><span class="annot"><span class="annottext">Chart token
+</span><a href="#local-6989586621679319747"><span class="hs-identifier hs-var">chart</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Weights -&gt; Double
+</span><a href="Control.Lens.Grammar.Decoding.html#endWeight"><span class="hs-identifier hs-var">endWeight</span></a></span><span> </span><span class="annot"><span class="annottext">Weights
+</span><a href="#local-6989586621679319749"><span class="hs-identifier hs-var">weights</span></a></span><span> </span><span class="annot"><span class="annottext">Double -&gt; Double -&gt; Bool
+forall a. Ord a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">&gt;</span></span><span> </span><span class="annot"><span class="annottext">Double
+</span><span class="hs-number">0</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Decoded token -&gt; m (Decoded token)
+forall a. a -&gt; m a
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><span class="hs-identifier hs-var">pure</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">[token] -&gt; Decoded token
+forall token. [token] -&gt; Decoded token
+</span><a href="Control.Lens.Grammar.Decoding.html#Finished"><span class="hs-identifier hs-var">Finished</span></a></span><span> </span><span class="annot"><span class="annottext">[token]
+</span><a href="#local-6989586621679319748"><span class="hs-identifier hs-var">text</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-333"></span><span>            </span><span class="annot"><span class="hs-identifier hs-type">Just</span></span><span> </span><span id="local-6989586621679319753"><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679319753"><span class="hs-identifier hs-var">i</span></a></span></span><span>
+</span><span id="line-334"></span><span>              </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Just</span></span><span> </span><span id="local-6989586621679319754"><span class="annot"><span class="annottext">[token]
+</span><a href="#local-6989586621679319754"><span class="hs-identifier hs-var">piece</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Vocabulary token -&gt; Int -&gt; Maybe [token]
+forall token. Vocabulary token -&gt; Int -&gt; Maybe [token]
+</span><a href="Control.Lens.Grammar.Decoding.html#vocabularyPiece"><span class="hs-identifier hs-var">vocabularyPiece</span></a></span><span> </span><span class="annot"><span class="annottext">Vocabulary token
+</span><a href="#local-6989586621679319739"><span class="hs-identifier hs-var">vocab</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679319753"><span class="hs-identifier hs-var">i</span></a></span><span>
+</span><span id="line-335"></span><span>              </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Just</span></span><span> </span><span id="local-6989586621679319755"><span class="annot"><span class="annottext">Chart token
+</span><a href="#local-6989586621679319755"><span class="hs-identifier hs-var">chart'</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">[token] -&gt; Chart token -&gt; Maybe (Chart token)
+forall token.
+Categorized token =&gt;
+[token] -&gt; Chart token -&gt; Maybe (Chart token)
+</span><a href="Control.Lens.Grammar.Machine.html#scanChartMany"><span class="hs-identifier hs-var">scanChartMany</span></a></span><span> </span><span class="annot"><span class="annottext">[token]
+</span><a href="#local-6989586621679319754"><span class="hs-identifier hs-var">piece</span></a></span><span> </span><span class="annot"><span class="annottext">Chart token
+</span><a href="#local-6989586621679319747"><span class="hs-identifier hs-var">chart</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-336"></span><span>                  </span><span class="annot"><span class="annottext">Int -&gt; [Int] -&gt; [[token]] -&gt; Chart token -&gt; m (Decoded token)
+</span><a href="#local-6989586621679319742"><span class="hs-identifier hs-var">go</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679319744"><span class="hs-identifier hs-var">n</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Int
+forall a. Num a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">+</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">1</span></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679319753"><span class="hs-identifier hs-var">i</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; [Int] -&gt; [Int]
+forall a. a -&gt; [a] -&gt; [a]
+</span><span class="hs-glyph hs-var">:</span></span><span> </span><span class="annot"><span class="annottext">[Int]
+</span><a href="#local-6989586621679319745"><span class="hs-identifier hs-var">pieces</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">[token]
+</span><a href="#local-6989586621679319754"><span class="hs-identifier hs-var">piece</span></a></span><span> </span><span class="annot"><span class="annottext">[token] -&gt; [[token]] -&gt; [[token]]
+forall a. a -&gt; [a] -&gt; [a]
+</span><span class="hs-glyph hs-var">:</span></span><span> </span><span class="annot"><span class="annottext">[[token]]
+</span><a href="#local-6989586621679319746"><span class="hs-identifier hs-var">chunks</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Chart token
+</span><a href="#local-6989586621679319755"><span class="hs-identifier hs-var">chart'</span></a></span><span>
+</span><span id="line-337"></span><span>            </span><span class="hs-comment">-- the unmasked choice isn't allowed, so mask &amp; choose again</span><span>
+</span><span id="line-338"></span><span>            </span><span class="annot"><span class="annottext">Maybe Int
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-339"></span><span>              </span><span class="hs-keyword">let</span><span>
+</span><span id="line-340"></span><span>                </span><span id="local-6989586621679319757"><span class="annot"><span class="annottext">allowed :: IntMap (Chart token)
+</span><a href="#local-6989586621679319757"><span class="hs-identifier hs-var hs-var">allowed</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Vocabulary token -&gt; Chart token -&gt; IntMap (Chart token)
+forall token.
+Categorized token =&gt;
+Vocabulary token -&gt; Chart token -&gt; IntMap (Chart token)
+</span><a href="Control.Lens.Grammar.Decoding.html#allowedPieces"><span class="hs-identifier hs-var">allowedPieces</span></a></span><span> </span><span class="annot"><span class="annottext">Vocabulary token
+</span><a href="#local-6989586621679319739"><span class="hs-identifier hs-var">vocab</span></a></span><span> </span><span class="annot"><span class="annottext">Chart token
+</span><a href="#local-6989586621679319747"><span class="hs-identifier hs-var">chart</span></a></span><span>
+</span><span id="line-341"></span><span>                </span><span id="local-6989586621679319758"><span class="annot"><span class="annottext">masked :: Weights
+</span><a href="#local-6989586621679319758"><span class="hs-identifier hs-var hs-var">masked</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Decoding.html#Weights"><span class="hs-identifier hs-type">Weights</span></a></span><span>
+</span><span id="line-342"></span><span>                  </span><span class="hs-special">{</span><span> </span><span class="annot"><span class="annottext">pieceWeights :: IntMap Double
+</span><a href="Control.Lens.Grammar.Decoding.html#pieceWeights"><span class="hs-identifier hs-var">pieceWeights</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(Double -&gt; Bool) -&gt; IntMap Double -&gt; IntMap Double
+forall a. (a -&gt; Bool) -&gt; IntMap a -&gt; IntMap a
+</span><span class="hs-identifier hs-var">IntMap.filter</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Double -&gt; Double -&gt; Bool
+forall a. Ord a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">&gt;</span></span><span> </span><span class="annot"><span class="annottext">Double
+</span><span class="hs-number">0</span></span><span class="hs-special">)</span><span>
+</span><span id="line-343"></span><span>                      </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(Double -&gt; Chart token -&gt; Double)
+-&gt; IntMap Double -&gt; IntMap (Chart token) -&gt; IntMap Double
+forall a b c. (a -&gt; b -&gt; c) -&gt; IntMap a -&gt; IntMap b -&gt; IntMap c
+</span><span class="hs-identifier hs-var">IntMap.intersectionWith</span></span><span> </span><span class="annot"><span class="annottext">Double -&gt; Chart token -&gt; Double
+forall a b. a -&gt; b -&gt; a
+</span><span class="hs-identifier hs-var">const</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Weights -&gt; IntMap Double
+</span><a href="Control.Lens.Grammar.Decoding.html#pieceWeights"><span class="hs-identifier hs-var">pieceWeights</span></a></span><span> </span><span class="annot"><span class="annottext">Weights
+</span><a href="#local-6989586621679319749"><span class="hs-identifier hs-var">weights</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">IntMap (Chart token)
+</span><a href="#local-6989586621679319757"><span class="hs-identifier hs-var">allowed</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-344"></span><span>                  </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">endWeight :: Double
+</span><a href="Control.Lens.Grammar.Decoding.html#endWeight"><span class="hs-identifier hs-var">endWeight</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">if</span><span> </span><span class="annot"><span class="annottext">Chart token -&gt; Bool
+forall token. Chart token -&gt; Bool
+</span><a href="Control.Lens.Grammar.Machine.html#chartAccepts"><span class="hs-identifier hs-var">chartAccepts</span></a></span><span> </span><span class="annot"><span class="annottext">Chart token
+</span><a href="#local-6989586621679319747"><span class="hs-identifier hs-var">chart</span></a></span><span> </span><span class="hs-keyword">then</span><span> </span><span class="annot"><span class="annottext">Double -&gt; Double -&gt; Double
+forall a. Ord a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-identifier hs-var">max</span></span><span> </span><span class="annot"><span class="annottext">Double
+</span><span class="hs-number">0</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Weights -&gt; Double
+</span><a href="Control.Lens.Grammar.Decoding.html#endWeight"><span class="hs-identifier hs-var">endWeight</span></a></span><span> </span><span class="annot"><span class="annottext">Weights
+</span><a href="#local-6989586621679319749"><span class="hs-identifier hs-var">weights</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">else</span><span> </span><span class="annot"><span class="annottext">Double
+</span><span class="hs-number">0</span></span><span>
+</span><span id="line-345"></span><span>                  </span><span class="hs-special">}</span><span>
+</span><span id="line-346"></span><span>              </span><span class="hs-keyword">if</span><span> </span><span class="annot"><span class="annottext">IntMap Double -&gt; Bool
+forall a. IntMap a -&gt; Bool
+</span><span class="hs-identifier hs-var">IntMap.null</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Weights -&gt; IntMap Double
+</span><a href="Control.Lens.Grammar.Decoding.html#pieceWeights"><span class="hs-identifier hs-var">pieceWeights</span></a></span><span> </span><span class="annot"><span class="annottext">Weights
+</span><a href="#local-6989586621679319758"><span class="hs-identifier hs-var">masked</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Bool -&gt; Bool -&gt; Bool
+</span><span class="hs-operator hs-var">&amp;&amp;</span></span><span> </span><span class="annot"><span class="annottext">Weights -&gt; Double
+</span><a href="Control.Lens.Grammar.Decoding.html#endWeight"><span class="hs-identifier hs-var">endWeight</span></a></span><span> </span><span class="annot"><span class="annottext">Weights
+</span><a href="#local-6989586621679319758"><span class="hs-identifier hs-var">masked</span></a></span><span> </span><span class="annot"><span class="annottext">Double -&gt; Double -&gt; Bool
+forall a. Ord a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">&lt;=</span></span><span> </span><span class="annot"><span class="annottext">Double
+</span><span class="hs-number">0</span></span><span>
+</span><span id="line-347"></span><span>                </span><span class="hs-keyword">then</span><span> </span><span class="annot"><span class="annottext">Decoded token -&gt; m (Decoded token)
+forall a. a -&gt; m a
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><span class="hs-identifier hs-var">pure</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">[token] -&gt; Decoded token
+forall token. [token] -&gt; Decoded token
+</span><a href="Control.Lens.Grammar.Decoding.html#Stuck"><span class="hs-identifier hs-var">Stuck</span></a></span><span> </span><span class="annot"><span class="annottext">[token]
+</span><a href="#local-6989586621679319748"><span class="hs-identifier hs-var">text</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-348"></span><span>                </span><span class="hs-keyword">else</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-349"></span><span>                  </span><span id="local-6989586621679319763"><span class="annot"><a href="#local-6989586621679319763"><span class="hs-identifier hs-var">choice'</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Chooser m
+</span><a href="#local-6989586621679319737"><span class="hs-identifier hs-var">choose</span></a></span><span> </span><span class="annot"><span class="annottext">Weights
+</span><a href="#local-6989586621679319758"><span class="hs-identifier hs-var">masked</span></a></span><span>
+</span><span id="line-350"></span><span>                  </span><span class="hs-keyword">case</span><span> </span><span class="annot"><a href="#local-6989586621679319763"><span class="hs-identifier hs-type">choice'</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-351"></span><span>                    </span><span class="annot"><span class="annottext">Maybe Int
+</span><span class="hs-identifier hs-var">Nothing</span></span><span> </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">Weights -&gt; Double
+</span><a href="Control.Lens.Grammar.Decoding.html#endWeight"><span class="hs-identifier hs-var">endWeight</span></a></span><span> </span><span class="annot"><span class="annottext">Weights
+</span><a href="#local-6989586621679319758"><span class="hs-identifier hs-var">masked</span></a></span><span> </span><span class="annot"><span class="annottext">Double -&gt; Double -&gt; Bool
+forall a. Ord a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">&gt;</span></span><span> </span><span class="annot"><span class="annottext">Double
+</span><span class="hs-number">0</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Decoded token -&gt; m (Decoded token)
+forall a. a -&gt; m a
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><span class="hs-identifier hs-var">pure</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">[token] -&gt; Decoded token
+forall token. [token] -&gt; Decoded token
+</span><a href="Control.Lens.Grammar.Decoding.html#Finished"><span class="hs-identifier hs-var">Finished</span></a></span><span> </span><span class="annot"><span class="annottext">[token]
+</span><a href="#local-6989586621679319748"><span class="hs-identifier hs-var">text</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-352"></span><span>                    </span><span class="annot"><span class="hs-identifier hs-type">Just</span></span><span> </span><span id="local-6989586621679319764"><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679319764"><span class="hs-identifier hs-var">i</span></a></span></span><span>
+</span><span id="line-353"></span><span>                      </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Just</span></span><span> </span><span id="local-6989586621679319765"><span class="annot"><span class="annottext">Chart token
+</span><a href="#local-6989586621679319765"><span class="hs-identifier hs-var">chart'</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Int -&gt; IntMap (Chart token) -&gt; Maybe (Chart token)
+forall a. Int -&gt; IntMap a -&gt; Maybe a
+</span><span class="hs-identifier hs-var">IntMap.lookup</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679319764"><span class="hs-identifier hs-var">i</span></a></span><span> </span><span class="annot"><span class="annottext">IntMap (Chart token)
+</span><a href="#local-6989586621679319757"><span class="hs-identifier hs-var">allowed</span></a></span><span>
+</span><span id="line-354"></span><span>                      </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Just</span></span><span> </span><span id="local-6989586621679319766"><span class="annot"><span class="annottext">[token]
+</span><a href="#local-6989586621679319766"><span class="hs-identifier hs-var">piece</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Vocabulary token -&gt; Int -&gt; Maybe [token]
+forall token. Vocabulary token -&gt; Int -&gt; Maybe [token]
+</span><a href="Control.Lens.Grammar.Decoding.html#vocabularyPiece"><span class="hs-identifier hs-var">vocabularyPiece</span></a></span><span> </span><span class="annot"><span class="annottext">Vocabulary token
+</span><a href="#local-6989586621679319739"><span class="hs-identifier hs-var">vocab</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679319764"><span class="hs-identifier hs-var">i</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-355"></span><span>                          </span><span class="annot"><span class="annottext">Int -&gt; [Int] -&gt; [[token]] -&gt; Chart token -&gt; m (Decoded token)
+</span><a href="#local-6989586621679319742"><span class="hs-identifier hs-var">go</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679319744"><span class="hs-identifier hs-var">n</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Int
+forall a. Num a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">+</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">1</span></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679319764"><span class="hs-identifier hs-var">i</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; [Int] -&gt; [Int]
+forall a. a -&gt; [a] -&gt; [a]
+</span><span class="hs-glyph hs-var">:</span></span><span> </span><span class="annot"><span class="annottext">[Int]
+</span><a href="#local-6989586621679319745"><span class="hs-identifier hs-var">pieces</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">[token]
+</span><a href="#local-6989586621679319766"><span class="hs-identifier hs-var">piece</span></a></span><span> </span><span class="annot"><span class="annottext">[token] -&gt; [[token]] -&gt; [[token]]
+forall a. a -&gt; [a] -&gt; [a]
+</span><span class="hs-glyph hs-var">:</span></span><span> </span><span class="annot"><span class="annottext">[[token]]
+</span><a href="#local-6989586621679319746"><span class="hs-identifier hs-var">chunks</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Chart token
+</span><a href="#local-6989586621679319765"><span class="hs-identifier hs-var">chart'</span></a></span><span>
+</span><span id="line-356"></span><span>                    </span><span class="annot"><span class="annottext">Maybe Int
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Decoded token -&gt; m (Decoded token)
+forall a. a -&gt; m a
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><span class="hs-identifier hs-var">pure</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">[token] -&gt; Decoded token
+forall token. [token] -&gt; Decoded token
+</span><a href="Control.Lens.Grammar.Decoding.html#Stuck"><span class="hs-identifier hs-var">Stuck</span></a></span><span> </span><span class="annot"><span class="annottext">[token]
+</span><a href="#local-6989586621679319748"><span class="hs-identifier hs-var">text</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-357"></span><span>      </span><span class="hs-keyword">where</span><span>
+</span><span id="line-358"></span><span>        </span><span id="local-6989586621679319748"><span class="annot"><span class="annottext">text :: [token]
+</span><a href="#local-6989586621679319748"><span class="hs-identifier hs-var hs-var">text</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[[token]] -&gt; [token]
+forall (t :: * -&gt; *) a. Foldable t =&gt; t [a] -&gt; [a]
+</span><span class="hs-identifier hs-var">concat</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">[[token]] -&gt; [[token]]
+forall a. [a] -&gt; [a]
+</span><span class="hs-identifier hs-var">reverse</span></span><span> </span><span class="annot"><span class="annottext">[[token]]
+</span><a href="#local-6989586621679319746"><span class="hs-identifier hs-var">chunks</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-359"></span><span>
+</span><span id="line-360"></span><span class="annot"><span class="hs-comment">{- | Decode a syntax value of a `Grammar`, from a t'Predictor',
+by a t'Chooser', in at most a given number of pieces, parsing
+the text it decodes, or returning it, unless it `Finished`.
+
+&gt;&gt;&gt; let vocab = vocabulary [&quot;tr&quot;, &quot;ue&quot;, &quot;true&quot;, &quot;false&quot;, &quot;f&quot;]
+&gt;&gt;&gt; let uniform _ = pure (Weights (IntMap.fromList [(i, 1) | i &lt;- [0 .. 4]]) 1)
+&gt;&gt;&gt; runIdentity (decodeG greedy uniform vocab 10 boolG)
+Right True
+-}</span></span><span>
+</span><span id="line-369"></span><span id="local-6989586621679319302"><span id="local-6989586621679319303"><span id="local-6989586621679319304"><span class="annot"><a href="Control.Lens.Grammar.Decoding.html#decodeG"><span class="hs-identifier hs-type">decodeG</span></a></span><span>
+</span><span id="line-370"></span><span>  </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Grammar.Token.html#Categorized"><span class="hs-identifier hs-type">Categorized</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679319302"><span class="hs-identifier hs-type">token</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Monad</span></span><span> </span><span class="annot"><a href="#local-6989586621679319303"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-371"></span><span>  </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Decoding.html#Chooser"><span class="hs-identifier hs-type">Chooser</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679319303"><span class="hs-identifier hs-type">m</span></a></span><span>
+</span><span id="line-372"></span><span>  </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Decoding.html#Predictor"><span class="hs-identifier hs-type">Predictor</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679319303"><span class="hs-identifier hs-type">m</span></a></span><span>
+</span><span id="line-373"></span><span>  </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.Decoding.html#Vocabulary"><span class="hs-identifier hs-type">Vocabulary</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679319302"><span class="hs-identifier hs-type">token</span></a></span><span>
+</span><span id="line-374"></span><span>  </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span> </span><span class="annot"><span class="hs-comment">{- ^ the most pieces to generate -}</span></span><span>
+</span><span id="line-375"></span><span>  </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Control.Lens.Grammar.html#Grammar"><span class="hs-identifier hs-type">Grammar</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679319302"><span class="hs-identifier hs-type">token</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679319304"><span class="hs-identifier hs-type">a</span></a></span><span>
+</span><span id="line-376"></span><span>  </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679319303"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Either</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Lens.Grammar.Decoding.html#Decoded"><span class="hs-identifier hs-type">Decoded</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679319302"><span class="hs-identifier hs-type">token</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621679319304"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span></span></span></span><span>
+</span><span id="line-377"></span><span id="decodeG"><span class="annot"><span class="annottext">decodeG :: forall token (m :: * -&gt; *) a.
+(Categorized token, Monad m) =&gt;
+Chooser m
+-&gt; Predictor m
+-&gt; Vocabulary token
+-&gt; Int
+-&gt; Grammar token a
+-&gt; m (Either (Decoded token) a)
+</span><a href="Control.Lens.Grammar.Decoding.html#decodeG"><span class="hs-identifier hs-var hs-var">decodeG</span></a></span></span><span> </span><span id="local-6989586621679319791"><span class="annot"><span class="annottext">Chooser m
+</span><a href="#local-6989586621679319791"><span class="hs-identifier hs-var">choose</span></a></span></span><span> </span><span id="local-6989586621679319792"><span class="annot"><span class="annottext">Predictor m
+</span><a href="#local-6989586621679319792"><span class="hs-identifier hs-var">predict</span></a></span></span><span> </span><span id="local-6989586621679319793"><span class="annot"><span class="annottext">Vocabulary token
+</span><a href="#local-6989586621679319793"><span class="hs-identifier hs-var">vocab</span></a></span></span><span> </span><span id="local-6989586621679319794"><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679319794"><span class="hs-identifier hs-var">bound</span></a></span></span><span> </span><span id="local-6989586621679319795"><span class="annot"><span class="annottext">Grammar token a
+</span><a href="#local-6989586621679319795"><span class="hs-identifier hs-var">grammar</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-378"></span><span>  </span><span id="local-6989586621679319796"><span class="annot"><a href="#local-6989586621679319796"><span class="hs-identifier hs-var">decoded</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Chooser m
+-&gt; Predictor m
+-&gt; Vocabulary token
+-&gt; Int
+-&gt; Transducer token
+-&gt; m (Decoded token)
+forall token (m :: * -&gt; *).
+(Categorized token, Monad m) =&gt;
+Chooser m
+-&gt; Predictor m
+-&gt; Vocabulary token
+-&gt; Int
+-&gt; Transducer token
+-&gt; m (Decoded token)
+</span><a href="Control.Lens.Grammar.Decoding.html#decode"><span class="hs-identifier hs-var">decode</span></a></span><span> </span><span class="annot"><span class="annottext">Chooser m
+</span><a href="#local-6989586621679319791"><span class="hs-identifier hs-var">choose</span></a></span><span> </span><span class="annot"><span class="annottext">Predictor m
+</span><a href="#local-6989586621679319792"><span class="hs-identifier hs-var">predict</span></a></span><span> </span><span class="annot"><span class="annottext">Vocabulary token
+</span><a href="#local-6989586621679319793"><span class="hs-identifier hs-var">vocab</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679319794"><span class="hs-identifier hs-var">bound</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Grammar token a -&gt; Transducer token
+forall token a.
+Categorized token =&gt;
+Grammar token a -&gt; Transducer token
+</span><a href="Control.Lens.Grammar.html#transducerG"><span class="hs-identifier hs-var">transducerG</span></a></span><span> </span><span class="annot"><span class="annottext">p a a
+Grammar token a
+</span><a href="#local-6989586621679319795"><span class="hs-identifier hs-var">grammar</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-379"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">pure</span></span><span> </span><span class="annot"><span class="hs-operator hs-type">$</span></span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><a href="#local-6989586621679319796"><span class="hs-identifier hs-type">decoded</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-380"></span><span>    </span><span class="annot"><a href="Control.Lens.Grammar.Decoding.html#Finished"><span class="hs-identifier hs-type">Finished</span></a></span><span> </span><span id="local-6989586621679319803"><span class="annot"><span class="annottext">[token]
+</span><a href="#local-6989586621679319803"><span class="hs-identifier hs-var">word</span></a></span></span><span> </span><span class="hs-glyph">|</span><span> </span><span class="hs-special">(</span><span id="local-6989586621679319804"><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679319804"><span class="hs-identifier hs-var">a</span></a></span></span><span class="hs-special">,</span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="hs-glyph hs-type">:</span></span><span> </span><span class="annot"><span class="annottext">[(a, [token])]
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">CtxGrammar token a -&gt; [token] -&gt; [(a, [token])]
+forall string token (m :: * -&gt; *) a.
+(Cons string string token token, Snoc string string token token,
+ IsList string, Item string ~ token, Categorized token,
+ Alternative m, Monad m, Filterable m) =&gt;
+CtxGrammar token a -&gt; string -&gt; m (a, string)
+</span><a href="Control.Lens.Grammar.html#parseG"><span class="hs-identifier hs-var">parseG</span></a></span><span> </span><span class="annot"><span class="annottext">p a a
+CtxGrammar token a
+Grammar token a
+</span><a href="#local-6989586621679319795"><span class="hs-identifier hs-var">grammar</span></a></span><span> </span><span class="annot"><span class="annottext">[token]
+</span><a href="#local-6989586621679319803"><span class="hs-identifier hs-var">word</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">a -&gt; Either (Decoded token) a
+forall a b. b -&gt; Either a b
+</span><span class="hs-identifier hs-var">Right</span></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679319804"><span class="hs-identifier hs-var">a</span></a></span><span>
+</span><span id="line-381"></span><span>    </span><span class="annot"><span class="annottext">Decoded token
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Decoded token -&gt; Either (Decoded token) a
+forall a b. a -&gt; Either a b
+</span><span class="hs-identifier hs-var">Left</span></span><span> </span><span class="annot"><span class="annottext">Decoded token
+</span><a href="#local-6989586621679319796"><span class="hs-identifier hs-var">decoded</span></a></span><span>
+</span><span id="line-382"></span></pre></body></html>
