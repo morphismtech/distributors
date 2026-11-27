@@ -30,6 +30,7 @@ library
   exposed-modules:
       Control.Lens.Grammar
       Control.Lens.Grammar.BackusNaur
+      Control.Lens.Grammar.Decoding
       Control.Lens.Grammar.Machine
       Control.Lens.Grammar.RegEx
       Control.Lens.Grammar.Symbol
@@ -176,6 +177,8 @@ test-suite test
       Examples.RegString
       Examples.SemVer
       Examples.SExpr
+      Examples.Vocabulary
+      Properties.Decoding
       Properties.Kleene
       Properties.Varifocal
       Paths_distributors_grammar
@@ -251,6 +254,7 @@ benchmark core
       Examples.Lambda
       Examples.SemVer
       Examples.SExpr
+      Examples.Vocabulary
   hs-source-dirs:
       bench
       test

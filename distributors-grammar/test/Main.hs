@@ -19,6 +19,7 @@ import Examples.LenVec
 import Examples.RegString
 import Examples.SemVer
 import Examples.SExpr
+import Properties.Decoding
 import Properties.Kleene
 import Properties.Varifocal
 
@@ -38,6 +39,7 @@ main = hspec $ do
   describe "leftGrammar" $ testCfg True leftExamples leftGrammar
   describe "parseForest" parseForestTests
   describe "Parsector try rollback" tryRollbackTests
+  describe "Decoding" decodingProperties
   describe "Kleene" kleeneProperties
   describe "Varifocal" varifocalProperties
 

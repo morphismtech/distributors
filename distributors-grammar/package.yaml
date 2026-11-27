@@ -117,6 +117,7 @@ benchmarks:
       - Examples.Lambda
       - Examples.SemVer
       - Examples.SExpr
+      - Examples.Vocabulary
     ghc-options:
       - -O2
       - -rtsopts
