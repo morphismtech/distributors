@@ -11,7 +11,9 @@ module Main (main) where
 import Control.Lens
 import Control.Lens.Grammar
 import Control.Lens.Comonocle (_BoundedEnum, indexComonocle)
-import Control.Monad (unless)
+import Control.Lens.Grammar.Decoding
+import Control.Monad (replicateM, unless)
+import qualified Data.IntMap.Strict as IntMap
 import Data.List (intercalate)
 import Test.Tasty.Bench
 
@@ -22,6 +24,7 @@ import Examples.Json
 import Examples.Lambda
 import Examples.SemVer
 import Examples.SExpr
+import Examples.Vocabulary
 
 main :: IO ()
 main = do
@@ -32,6 +35,7 @@ main = do
     , backends "example" examples
     , pure statics
     , pure optics
+    , pure decodings
     ]
   defaultMain groups
 
@@ -184,3 +188,42 @@ optics = bgroup "optic"
   where
     ints = [1 .. size]
     ords = take size (cycle [LT, EQ, GT])
+
+-- | Grammar-constrained decoding of the JSON example: asking what's
+-- expected next, masking vocabularies, & decoding from a predictor.
+decodings :: Benchmark
+decodings = bgroup "decoding"
+  [ bench "expectNext each prefix" $
+      whnf (\s -> length [() | n <- [0 .. length s], tokenClass (expectNext et (take n s)) '1']) prefix
+  , bench "chartExpects each prefix" $
+      whnf (\s -> length [() | chart <- charts s, tokenClass (chartExpects chart) '1']) prefix
+  , bgroup "allowedPieces"
+      [ bench (vname <> "/" <> cname) $ whnf (IntMap.size . allowedPieces vocab) chart
+      | (vname, vocab) <- [("examples", examplesVocab), ("50k", largeVocab)]
+      , (cname, chart) <- states
+      ]
+  , bench "decode greedy" $
+      whnf (\seeds -> sum [ len (runIdentity (decode greedy (predictor seed) examplesVocab 60 et)) | seed <- seeds ]) [1 .. 10]
+  , bench "maskedDecode greedy" $
+      whnf (\seeds -> sum [ len (runIdentity (maskedDecode greedy (predictor seed) examplesVocab 60 et)) | seed <- seeds ]) [1 .. 10]
+  , bench "transducerG json" $ whnf (IntMap.size . transducerRelations . transducerG @Char) jsonGrammar
+  ]
+  where
+    et = transducerG @Char jsonGrammar
+    prefix = take 300 ("[" <> intercalate ","
+      (replicate 20 "{\"a\":[1,2,3],\"b\":\"text\",\"c\":true,\"d\":null}") <> "]")
+    charts = catMaybes . scanl (\chart x -> chart >>= scanChart x) (Just (startChart et))
+    examplesPieces = vocabularyOf (map snd jsonExamples)
+    examplesVocab = vocabulary examplesPieces
+    -- a vocabulary the size of a sub-word tokenizer's, of 50,653 pieces
+    largeVocab = vocabulary (replicateM 3 "abcdefghijklmnopqrstuvwxyz0123456789\"")
+    states =
+      [ (name, chart)
+      | (name, text) <- [("start", ""), ("in string", "{\"a\":\"te"), ("after number", "[1,2")]
+      , Just chart <- [scanChartMany text (startChart et)]
+      ]
+    predictor seed = randomPredictor 0.2 seed (length examplesPieces)
+    len = \case
+      Finished w -> length w
+      Stuck w -> length w
+      Truncated w -> length w

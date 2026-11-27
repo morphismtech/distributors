@@ -19,6 +19,18 @@ module Control.Lens.Grammar.Machine
   , unreachableRules
   , Transducer (..)
   , TransducerStep (..)
+    -- * Chart
+  , Chart
+  , startChart
+  , scanChart
+  , scanChartMany
+  , Scan
+  , chartScan
+  , nullScan
+  , scanChartBy
+  , chartExpects
+  , chartAccepts
+  , chartLength
   ) where
 
 import Control.Lens
@@ -45,9 +57,7 @@ class Matching word pattern | pattern -> word where
 -- instances
 instance Categorized token
   => Matching [token] (Transducer token) where
-    word =~ et = acceptsChart n chart
-      where
-        (n, chart) = prefixGen et word
+    word =~ et = maybe False chartAccepts (scanChartMany word (startChart et))
 instance Categorized token
   => Matching [token] (Bnf (RegEx token)) where
     word =~ bnf = word =~ transducer bnf
@@ -246,7 +256,7 @@ parseForest
   {- ^ parse forest & remaining unparsed tokens -}
 parseForest et word = (concat (itemForests Set.empty Nothing 0 acceptedLen 0), drop acceptedLen word)
   where
-    (n, chart) = prefixGen et word
+    Chart _ n chart = scanChartLongest word (startChart et)
     relations = transducerRelations et
     acceptedLen = maximum (0 : [j | j <- [0 .. n], acceptsChart j chart])
 
@@ -345,42 +355,123 @@ parseForest et word = (concat (itemForests Set.empty Nothing 0 acceptedLen 0), d
             | subtrees <- itemForests guards' (Just name) start end finalState
             ]
 
-prefixGen
-  :: Categorized token
-  => Transducer token
-  -> [token]
-  -> (Int, IntMap (IntMap IntSet))
-prefixGen et word = go 0 (initialChart et) word
-  where
-    go j chart [] = (j, chart)
-    go j chart (x : xs)
-      | IntMap.null scanned = (j + 1, closed)
-      | otherwise = go (j + 1) closed xs
-      where
-        scanned = scanFrom j x chart
-        closed = closeChartAt et (j + 1) (IntMap.insert (j + 1) scanned chart)
-
-    scanFrom j input chart = IntMap.foldrWithKey advance IntMap.empty eJ
-      where
-        eJ = IntMap.findWithDefault IntMap.empty j chart
-        advance s origs acc = case IntMap.lookup s (transducerRelations et) of
-          Just (TransitionTokenClass cls ds) | tokenClass cls input ->
-            IntSet.foldr
-              (\d -> IntMap.insertWith IntSet.union d origs) acc ds
-          _ -> acc
-
 {- | What token is expected next?
 The scanner frontier, `expectNext` returns the t'TokenClass'
 that can be scanned next after the given input prefix.
 A `falseP` result means the current chart has no scanner transitions,
 i.e. the prefix is a dead end for recognition.
+
+`expectNext` scans its whole prefix each time it's run;
+to ask after each token of a growing prefix, as a decoder does,
+scan a t'Chart' a token at a time, by `scanChart`, & ask `chartExpects`.
 -}
 expectNext
   :: Categorized token
   => Transducer token -> [token] {- ^ prefix -} -> TokenClass token
-expectNext et word = anyP fst (scanClassOptions et n chart)
+expectNext et word = maybe falseP chartExpects (scanChartMany word (startChart et))
+
+{- | The Earley chart of a prefix of tokens scanned by a t'Transducer':
+the sets @E_0, …, E_n@ of Earley items, a state & the position it started
+at, which the prefix @x_1 … x_n@ reaches. See Earley,
+[An efficient context-free parsing algorithm]
+(https://doi.org/10.1145/362007.362035).
+
+A t'Chart' is a prefix's state of recognition, scanned incrementally,
+a token at a time, by `scanChart`, which costs as much as closing one
+set of items, rather than rescanning the prefix. Charts persist, so
+one chart can be scanned by many different tokens, as a decoder does
+to mask a vocabulary of pieces by a grammar.
+-}
+data Chart token = Chart (Transducer token) !Int (IntMap (IntMap IntSet))
+
+{- | The number of tokens a t'Chart' has scanned. -}
+chartLength :: Chart token -> Int
+chartLength (Chart _ n _) = n
+
+{- | The t'Chart' of the empty prefix. -}
+startChart :: Transducer token -> Chart token
+startChart et = Chart et 0 (initialChart et)
+
+{- | Scan a token into a t'Chart', or fail when the prefix with it
+is a dead end, which no word of the language starts with,
+provided that each of the grammar's rules matches some word.
+-}
+scanChart :: Categorized token => token -> Chart token -> Maybe (Chart token)
+scanChart x chart = scanChartBy (chartScan x chart) chart
+
+{- | The scanner transitions out of a t'Chart''s last set of items
+which a token passes. Tokens with equal t'Scan's scan a chart alike,
+so a chart need be scanned once for each t'Scan', by `scanChartBy`,
+rather than once for each token, as
+`Control.Lens.Grammar.Decoding.allowedPieces` does.
+A t'Scan' is of the chart it's taken of, & no other.
+-}
+newtype Scan = Scan IntSet
+  deriving newtype (Eq, Ord, Show)
+
+{- | The t'Scan' of a token, of a t'Chart'. -}
+chartScan :: Categorized token => token -> Chart token -> Scan
+chartScan x (Chart et j chart) = Scan (IntSet.fromDistinctAscList
+  [ s
+  | s <- IntMap.keys (chartAt j chart)
+  , Just (TransitionTokenClass cls ds) <- [IntMap.lookup s (transducerRelations et)]
+  , not (IntSet.null ds)
+  , tokenClass cls x
+  ])
+
+{- | Does a t'Scan' pass no transitions, so that its token is a dead end? -}
+nullScan :: Scan -> Bool
+nullScan (Scan ss) = IntSet.null ss
+
+{- | Scan a t'Chart' by a t'Scan' of it, as `scanChart` scans it by any
+token of that t'Scan'. The scanned chart's closure is lazy, so that
+it's only closed when it's scanned in turn, or asked of.
+-}
+scanChartBy :: Scan -> Chart token -> Maybe (Chart token)
+scanChartBy (Scan ss) (Chart et j chart)
+  | IntSet.null ss = Nothing
+  | otherwise = Just (Chart et (j + 1) (scanItems et j ss chart))
+
+-- Advance the items of the scanner states of E_j over a token,
+-- to E_(j+1), & close it.
+scanItems
+  :: Transducer token -> Int -> IntSet -> IntMap (IntMap IntSet) -> IntMap (IntMap IntSet)
+scanItems et j ss chart =
+  closeChartAt et (j + 1) (IntMap.insert (j + 1) (IntSet.foldr advance IntMap.empty ss) chart)
   where
-    (n, chart) = prefixGen et word
+    eJ = chartAt j chart
+    advance s acc = case (IntMap.lookup s (transducerRelations et), IntMap.lookup s eJ) of
+      (Just (TransitionTokenClass _ ds), Just origs) ->
+        IntSet.foldr (\d -> IntMap.insertWith IntSet.union d origs) acc ds
+      _ -> acc
+
+{- | Scan tokens into a t'Chart', in order, or fail at a dead end. -}
+scanChartMany
+  :: Categorized token => [token] -> Chart token -> Maybe (Chart token)
+scanChartMany word chart0 = foldl' (\chart x -> chart >>= scanChart x) (Just chart0) word
+
+-- Scan the longest prefix of tokens which isn't a dead end.
+scanChartLongest :: Categorized token => [token] -> Chart token -> Chart token
+scanChartLongest word chart = case word of
+  x : xs | Just chart' <- scanChart x chart -> scanChartLongest xs chart'
+  _ -> chart
+
+{- | The t'TokenClass' of tokens which `scanChart` scans, the disjunction
+of the classes of the scanner transitions out of the chart's last set.
+-}
+chartExpects :: Categorized token => Chart token -> TokenClass token
+chartExpects (Chart et j chart) = anyP id (Set.fromList
+  [ cls
+  | s <- IntMap.keys (chartAt j chart)
+  , Just (TransitionTokenClass cls _) <- [IntMap.lookup s (transducerRelations et)]
+  ])
+
+{- | Is a t'Chart''s prefix a word of the language? -}
+chartAccepts :: Chart token -> Bool
+chartAccepts (Chart _ j chart) = acceptsChart j chart
+
+chartAt :: Int -> IntMap (IntMap IntSet) -> IntMap IntSet
+chartAt = IntMap.findWithDefault IntMap.empty
 
 {- |
 Rule names that can never be entered from the start
@@ -475,20 +566,15 @@ scanClassOptions
   -> IntMap (IntMap IntSet)
   -> [(TokenClass token, IntMap (IntMap IntSet))]
 scanClassOptions et j chart =
-  [ (cls, closeChartAt et (j + 1) (IntMap.insert (j + 1) scanned chart))
-  | (cls, scanned) <- Map.toAscList grouped
+  [ (cls, scanItems et j ss chart)
+  | (cls, ss) <- Map.toAscList grouped
   ]
   where
-    grouped = IntMap.foldrWithKey advance Map.empty eJ
-    eJ = IntMap.findWithDefault IntMap.empty j chart
-
-    advance s origs acc = case IntMap.lookup s (transducerRelations et) of
-      Just (TransitionTokenClass cls ds) ->
-        Map.insertWith (IntMap.unionWith IntSet.union) cls scanned acc
-        where
-          scanned = IntSet.foldr
-            (\d -> IntMap.insertWith IntSet.union d origs) IntMap.empty ds
-      _ -> acc
+    grouped = Map.fromListWith IntSet.union
+      [ (cls, IntSet.singleton s)
+      | s <- IntMap.keys (chartAt j chart)
+      , Just (TransitionTokenClass cls _) <- [IntMap.lookup s (transducerRelations et)]
+      ]
 
 closeChartAt
   :: Transducer token

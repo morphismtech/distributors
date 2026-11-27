@@ -2,6 +2,22 @@
 
 ## Unreleased
 
+- `Control.Lens.Grammar.Decoding`, grammar-constrained decoding of
+  language models: a `Predictor` weighs a `Vocabulary`'s pieces & ending,
+  a `Chooser`, `greedy` or `sampled`, chooses among them, masked to what
+  a grammar allows, & `decodeG` parses the text it decodes. Pieces are
+  strings of tokens, misaligned with a grammar's lexemes as sub-word
+  tokenizers' are, & `allowedPieces` masks a vocabulary by a trie, sharing
+  the chart which tokens that scan alike reach: masking 50,000 pieces in a
+  JSON string costs ~12ms. `decode` masks opportunistically, only when its
+  chooser's unmasked choice isn't allowed, decoding exactly as masking every
+  step would, & ~2x faster on the JSON example.
+- `Control.Lens.Grammar.Machine` exports the `Chart`s of Earley's algorithm,
+  scanned a token at a time, by `startChart`, `scanChart`, `chartExpects` &
+  `chartAccepts`, & by the `Scan`s which tokens share, `chartScan` &
+  `scanChartBy`. `=~`, `expectNext` & `parseForest` scan charts, & the
+  rescanning `prefixGen` is removed: asking `chartExpects` after each token of
+  a growing prefix is ~70x faster than `expectNext` of each prefix.
 - Token classes test their sets of tokens logarithmically, by `Set`, in
   `tokenClass`'s default & in `oneOf` & `notOneOf` of predicates, rather
   than linearly by `Foldable`: parsing the JSON example, whose characters
